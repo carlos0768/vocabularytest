@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
-import type { User, SupabaseClient } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import type { Subscription, SubscriptionStatus, SubscriptionPlan } from '@/types';
 
 interface AuthState {
@@ -12,6 +12,9 @@ interface AuthState {
   error: string | null;
 }
 
+// Global state to prevent multiple simultaneous auth checks
+let globalAuthPromise: Promise<void> | null = null;
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -20,11 +23,13 @@ export function useAuth() {
     error: null,
   });
 
-  // Only create Supabase client on client-side
-  const supabase = useMemo<SupabaseClient | null>(() => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
+  // Refs to track component lifecycle and prevent race conditions
+  const isMountedRef = useRef(true);
+  const hasInitializedRef = useRef(false);
+
+  // Get supabase client (singleton)
+  const getSupabase = useCallback(() => {
+    if (typeof window === 'undefined') return null;
     try {
       return createBrowserClient();
     } catch {
@@ -32,72 +37,111 @@ export function useAuth() {
     }
   }, []);
 
-  // Load user and subscription
-  const loadUser = useCallback(async () => {
+  // Load user and subscription - core function
+  const loadUserCore = useCallback(async (): Promise<{ user: User | null; subscription: Subscription | null }> => {
+    const supabase = getSupabase();
     if (!supabase) {
-      setState((prev) => ({ ...prev, loading: false }));
+      return { user: null, subscription: null };
+    }
+
+    // Use getSession instead of getUser - faster and more reliable
+    // getSession reads from local storage, getUser makes a server request
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    const user = session?.user ?? null;
+
+    if (!user) {
+      return { user: null, subscription: null };
+    }
+
+    // Fetch subscription
+    const { data: subscriptionData, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (subError && subError.code !== 'PGRST116') {
+      // PGRST116 = no rows returned, which is okay
+      console.error('Failed to fetch subscription:', subError);
+    }
+
+    const subscription: Subscription | null = subscriptionData ? {
+      id: subscriptionData.id,
+      userId: subscriptionData.user_id,
+      status: subscriptionData.status as SubscriptionStatus,
+      plan: subscriptionData.plan as SubscriptionPlan,
+      komojuSubscriptionId: subscriptionData.komoju_subscription_id,
+      komojuCustomerId: subscriptionData.komoju_customer_id,
+      currentPeriodStart: subscriptionData.current_period_start,
+      currentPeriodEnd: subscriptionData.current_period_end,
+      createdAt: subscriptionData.created_at,
+      updatedAt: subscriptionData.updated_at,
+    } : null;
+
+    return { user, subscription };
+  }, [getSupabase]);
+
+  // Public loadUser function with deduplication and timeout
+  const loadUser = useCallback(async () => {
+    // If there's already a global auth check in progress, wait for it
+    if (globalAuthPromise) {
+      await globalAuthPromise;
       return;
     }
 
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const authCheck = async () => {
+      try {
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 10000);
+        });
 
-      if (userError) throw userError;
+        const result = await Promise.race([
+          loadUserCore(),
+          timeoutPromise,
+        ]);
 
-      if (!user) {
-        setState({ user: null, subscription: null, loading: false, error: null });
-        return;
+        if (isMountedRef.current) {
+          setState({
+            user: result.user,
+            subscription: result.subscription,
+            loading: false,
+            error: null,
+          });
+        }
+      } catch (error) {
+        if (!isMountedRef.current) return;
+
+        const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
+        const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
+
+        if (!isSessionMissing && !isTimeout) {
+          console.error('Auth error:', error);
+        }
+
+        setState({
+          user: null,
+          subscription: null,
+          loading: false,
+          error: isSessionMissing || isTimeout ? null : '認証エラーが発生しました',
+        });
+      } finally {
+        globalAuthPromise = null;
       }
+    };
 
-      // Fetch subscription
-      const { data: subscription, error: subError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (subError && subError.code !== 'PGRST116') {
-        // PGRST116 = no rows returned, which is okay
-        console.error('Failed to fetch subscription:', subError);
-      }
-
-      setState({
-        user,
-        subscription: subscription ? {
-          id: subscription.id,
-          userId: subscription.user_id,
-          status: subscription.status as SubscriptionStatus,
-          plan: subscription.plan as SubscriptionPlan,
-          komojuSubscriptionId: subscription.komoju_subscription_id,
-          komojuCustomerId: subscription.komoju_customer_id,
-          currentPeriodStart: subscription.current_period_start,
-          currentPeriodEnd: subscription.current_period_end,
-          createdAt: subscription.created_at,
-          updatedAt: subscription.updated_at,
-        } : null,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      // AuthSessionMissingError is expected when user is not logged in
-      const isSessionMissing = error instanceof Error &&
-        error.name === 'AuthSessionMissingError';
-
-      if (!isSessionMissing) {
-        console.error('Auth error:', error);
-      }
-
-      setState({
-        user: null,
-        subscription: null,
-        loading: false,
-        error: isSessionMissing ? null : '認証エラーが発生しました',
-      });
-    }
-  }, [supabase]);
+    globalAuthPromise = authCheck();
+    await globalAuthPromise;
+  }, [loadUserCore]);
 
   // Sign up with email/password
   const signUp = useCallback(async (email: string, password: string) => {
+    const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase not initialized' };
     }
@@ -117,13 +161,13 @@ export function useAuth() {
       return { success: false, error: error.message };
     }
 
-    // Sign up successful - set loading to false
     setState((prev) => ({ ...prev, loading: false }));
     return { success: true, data };
-  }, [supabase]);
+  }, [getSupabase]);
 
   // Sign in with email/password
   const signIn = useCallback(async (email: string, password: string) => {
+    const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase not initialized' };
     }
@@ -142,48 +186,54 @@ export function useAuth() {
 
     await loadUser();
     return { success: true, data };
-  }, [supabase, loadUser]);
+  }, [getSupabase, loadUser]);
 
   // Sign out
   const signOut = useCallback(async () => {
+    const supabase = getSupabase();
     if (!supabase) return;
     await supabase.auth.signOut();
     setState({ user: null, subscription: null, loading: false, error: null });
-  }, [supabase]);
+  }, [getSupabase]);
 
-  // Listen for auth changes
+  // Initialize auth state
   useEffect(() => {
+    isMountedRef.current = true;
+
+    const supabase = getSupabase();
     if (!supabase) {
       setState((prev) => ({ ...prev, loading: false }));
       return;
     }
 
-    // Flag to prevent race conditions
-    let isMounted = true;
+    // Only initialize once per component mount
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      loadUser();
+    }
 
-    const initAuth = async () => {
-      await loadUser();
-    };
-
-    initAuth();
-
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, _session) => {
-        if (!isMounted) return;
+      async (event, session) => {
+        if (!isMountedRef.current) return;
 
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-          await loadUser();
-        } else if (event === 'SIGNED_OUT') {
+        // Handle specific events
+        if (event === 'SIGNED_OUT') {
           setState({ user: null, subscription: null, loading: false, error: null });
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Reload user data when signed in or token refreshed
+          await loadUser();
         }
+        // Ignore INITIAL_SESSION - we handle that with loadUser() above
       }
     );
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
+      hasInitializedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [supabase, loadUser]);
+  }, [getSupabase, loadUser]);
 
   // Computed properties
   const isAuthenticated = !!state.user;
