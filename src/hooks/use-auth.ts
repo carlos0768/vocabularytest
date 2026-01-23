@@ -117,6 +117,8 @@ export function useAuth() {
       return { success: false, error: error.message };
     }
 
+    // Sign up successful - set loading to false
+    setState((prev) => ({ ...prev, loading: false }));
     return { success: true, data };
   }, [supabase]);
 
@@ -156,11 +158,20 @@ export function useAuth() {
       return;
     }
 
-    loadUser();
+    // Flag to prevent race conditions
+    let isMounted = true;
+
+    const initAuth = async () => {
+      await loadUser();
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, _session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (!isMounted) return;
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
           await loadUser();
         } else if (event === 'SIGNED_OUT') {
           setState({ user: null, subscription: null, loading: false, error: null });
@@ -169,6 +180,7 @@ export function useAuth() {
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [supabase, loadUser]);

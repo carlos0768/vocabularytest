@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2, Sparkles } from 'lucide-react';
@@ -15,6 +15,13 @@ export default function SubscriptionPage() {
   const [error, setError] = useState<string | null>(null);
 
   const plan = KOMOJU_CONFIG.plans.pro;
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login?redirect=/subscription');
+    }
+  }, [authLoading, user, router]);
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -44,7 +51,8 @@ export default function SubscriptionPage() {
     }
   };
 
-  if (authLoading) {
+  // Show loading while checking auth or redirecting
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
