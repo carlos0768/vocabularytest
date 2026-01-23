@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, LogOut, Loader2, AlertTriangle, Sparkles, User } from 'lucide-react';
@@ -14,6 +14,13 @@ export default function SettingsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login?redirect=/settings');
+    }
+  }, [authLoading, user, router]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -44,7 +51,8 @@ export default function SettingsPage() {
     }
   };
 
-  if (authLoading) {
+  // Show loading while checking auth or redirecting
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
