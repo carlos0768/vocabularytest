@@ -35,7 +35,7 @@ export function getGuestUserId(): string {
 // Daily scan limit tracking for free users
 const SCAN_COUNT_KEY = 'scanvocab_scan_count';
 const SCAN_DATE_KEY = 'scanvocab_scan_date';
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 10;
 
 export function getDailyScanInfo(): { count: number; remaining: number; canScan: boolean } {
   if (typeof window === 'undefined') {

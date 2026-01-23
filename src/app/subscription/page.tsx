@@ -97,7 +97,7 @@ export default function SubscriptionPage() {
           <ul className="space-y-2 text-gray-600 mb-4">
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-gray-400" />
-              1日3回までスキャン
+              1日10回までスキャン
             </li>
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-gray-400" />
