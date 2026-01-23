@@ -12,9 +12,6 @@ interface AuthState {
   error: string | null;
 }
 
-// Global state to prevent multiple simultaneous auth checks
-let globalAuthPromise: Promise<void> | null = null;
-
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -23,9 +20,9 @@ export function useAuth() {
     error: null,
   });
 
-  // Refs to track component lifecycle and prevent race conditions
+  // Refs to track component lifecycle
   const isMountedRef = useRef(true);
-  const hasInitializedRef = useRef(false);
+  const isLoadingRef = useRef(false);
 
   // Get supabase client (singleton)
   const getSupabase = useCallback(() => {
@@ -88,55 +85,50 @@ export function useAuth() {
 
   // Public loadUser function with deduplication and timeout
   const loadUser = useCallback(async () => {
-    // If there's already a global auth check in progress, wait for it
-    if (globalAuthPromise) {
-      await globalAuthPromise;
+    // Prevent concurrent calls
+    if (isLoadingRef.current) {
       return;
     }
+    isLoadingRef.current = true;
 
-    const authCheck = async () => {
-      try {
-        // Add timeout to prevent infinite loading
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 10000);
-        });
+    try {
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 5000);
+      });
 
-        const result = await Promise.race([
-          loadUserCore(),
-          timeoutPromise,
-        ]);
+      const result = await Promise.race([
+        loadUserCore(),
+        timeoutPromise,
+      ]);
 
-        if (isMountedRef.current) {
-          setState({
-            user: result.user,
-            subscription: result.subscription,
-            loading: false,
-            error: null,
-          });
-        }
-      } catch (error) {
-        if (!isMountedRef.current) return;
-
-        const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
-        const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
-
-        if (!isSessionMissing && !isTimeout) {
-          console.error('Auth error:', error);
-        }
-
+      if (isMountedRef.current) {
         setState({
-          user: null,
-          subscription: null,
+          user: result.user,
+          subscription: result.subscription,
           loading: false,
-          error: isSessionMissing || isTimeout ? null : '認証エラーが発生しました',
+          error: null,
         });
-      } finally {
-        globalAuthPromise = null;
       }
-    };
+    } catch (error) {
+      if (!isMountedRef.current) return;
 
-    globalAuthPromise = authCheck();
-    await globalAuthPromise;
+      const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
+      const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
+
+      if (!isSessionMissing && !isTimeout) {
+        console.error('Auth error:', error);
+      }
+
+      setState({
+        user: null,
+        subscription: null,
+        loading: false,
+        error: isSessionMissing || isTimeout ? null : '認証エラーが発生しました',
+      });
+    } finally {
+      isLoadingRef.current = false;
+    }
   }, [loadUserCore]);
 
   // Sign up with email/password
@@ -206,15 +198,12 @@ export function useAuth() {
       return;
     }
 
-    // Only initialize once per component mount
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      loadUser();
-    }
+    // Load user on mount
+    loadUser();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event) => {
         if (!isMountedRef.current) return;
 
         // Handle specific events
@@ -222,7 +211,7 @@ export function useAuth() {
           setState({ user: null, subscription: null, loading: false, error: null });
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           // Reload user data when signed in or token refreshed
-          await loadUser();
+          loadUser();
         }
         // Ignore INITIAL_SESSION - we handle that with loadUser() above
       }
@@ -230,7 +219,6 @@ export function useAuth() {
 
     return () => {
       isMountedRef.current = false;
-      hasInitializedRef.current = false;
       subscription.unsubscribe();
     };
   }, [getSupabase, loadUser]);
