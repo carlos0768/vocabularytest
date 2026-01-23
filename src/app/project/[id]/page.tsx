@@ -1,0 +1,267 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { getRepository } from '@/lib/db';
+import type { Project, Word } from '@/types';
+
+export default function ProjectPage() {
+  const router = useRouter();
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [project, setProject] = useState<Project | null>(null);
+  const [words, setWords] = useState<Word[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+
+  const repository = getRepository('free');
+
+  // Load project and words
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [projectData, wordsData] = await Promise.all([
+          repository.getProject(projectId),
+          repository.getWords(projectId),
+        ]);
+
+        if (!projectData) {
+          router.push('/');
+          return;
+        }
+
+        setProject(projectData);
+        setWords(wordsData);
+      } catch (error) {
+        console.error('Failed to load project:', error);
+        router.push('/');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [projectId, repository, router]);
+
+  const stats = {
+    total: words.length,
+    new: words.filter((w) => w.status === 'new').length,
+    review: words.filter((w) => w.status === 'review').length,
+    mastered: words.filter((w) => w.status === 'mastered').length,
+  };
+
+  const handleDeleteWord = async (wordId: string) => {
+    if (confirm('この単語を削除しますか？')) {
+      await repository.deleteWord(wordId);
+      setWords((prev) => prev.filter((w) => w.id !== wordId));
+    }
+  };
+
+  const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
+    await repository.updateWord(wordId, { english, japanese });
+    setWords((prev) =>
+      prev.map((w) =>
+        w.id === wordId ? { ...w, english, japanese } : w
+      )
+    );
+    setEditingWordId(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen pb-24">
+      {/* Header */}
+      <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
+        <div className="max-w-lg mx-auto px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <h1 className="text-lg font-semibold truncate">{project.title}</h1>
+          </div>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Stats cards */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-blue-50 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{stats.new}</p>
+            <p className="text-xs text-blue-600">新規</p>
+          </div>
+          <div className="bg-yellow-50 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-1 text-yellow-600 mb-1">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+            <p className="text-2xl font-bold text-yellow-700">{stats.review}</p>
+            <p className="text-xs text-yellow-600">復習中</p>
+          </div>
+          <div className="bg-green-50 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
+              <CheckCircle className="w-4 h-4" />
+            </div>
+            <p className="text-2xl font-bold text-green-700">{stats.mastered}</p>
+            <p className="text-xs text-green-600">習得済み</p>
+          </div>
+        </div>
+
+        {/* Start quiz button */}
+        {words.length > 0 && (
+          <Link href={`/quiz/${projectId}`}>
+            <Button className="w-full mb-6" size="lg">
+              <Play className="w-5 h-5 mr-2" />
+              クイズを始める
+            </Button>
+          </Link>
+        )}
+
+        {/* Word list */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium text-gray-900">単語一覧 ({stats.total}語)</h2>
+        </div>
+
+        <div className="space-y-2">
+          {words.map((word) => (
+            <WordItem
+              key={word.id}
+              word={word}
+              isEditing={editingWordId === word.id}
+              onEdit={() => setEditingWordId(word.id)}
+              onCancel={() => setEditingWordId(null)}
+              onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
+              onDelete={() => handleDeleteWord(word.id)}
+            />
+          ))}
+        </div>
+
+        {words.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            単語がありません
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function WordItem({
+  word,
+  isEditing,
+  onEdit,
+  onCancel,
+  onSave,
+  onDelete,
+}: {
+  word: Word;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: (english: string, japanese: string) => void;
+  onDelete: () => void;
+}) {
+  const [english, setEnglish] = useState(word.english);
+  const [japanese, setJapanese] = useState(word.japanese);
+
+  useEffect(() => {
+    setEnglish(word.english);
+    setJapanese(word.japanese);
+  }, [word.english, word.japanese]);
+
+  const statusColors = {
+    new: 'bg-blue-100 text-blue-700',
+    review: 'bg-yellow-100 text-yellow-700',
+    mastered: 'bg-green-100 text-green-700',
+  };
+
+  const statusLabels = {
+    new: '新規',
+    review: '復習中',
+    mastered: '習得済み',
+  };
+
+  if (isEditing) {
+    return (
+      <div className="bg-white rounded-xl border-2 border-blue-500 p-4">
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={english}
+            onChange={(e) => setEnglish(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none text-lg"
+            autoFocus
+          />
+          <input
+            type="text"
+            value={japanese}
+            onChange={(e) => setJapanese(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+          />
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={onCancel} className="flex-1">
+              <X className="w-4 h-4 mr-1" />
+              キャンセル
+            </Button>
+            <Button size="sm" onClick={() => onSave(english, japanese)} className="flex-1">
+              <Save className="w-4 h-4 mr-1" />
+              保存
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 group hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-gray-900">{word.english}</p>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full ${statusColors[word.status]}`}
+            >
+              {statusLabels[word.status]}
+            </span>
+          </div>
+          <p className="text-gray-600 mt-0.5">{word.japanese}</p>
+        </div>
+        <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={onEdit}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <Edit2 className="w-4 h-4 text-gray-500" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-2 hover:bg-red-50 rounded-full transition-colors"
+          >
+            <Trash2 className="w-4 h-4 text-red-500" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
