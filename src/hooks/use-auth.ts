@@ -79,12 +79,19 @@ export function useAuth() {
         error: null,
       });
     } catch (error) {
-      console.error('Auth error:', error);
+      // AuthSessionMissingError is expected when user is not logged in
+      const isSessionMissing = error instanceof Error &&
+        error.name === 'AuthSessionMissingError';
+
+      if (!isSessionMissing) {
+        console.error('Auth error:', error);
+      }
+
       setState({
         user: null,
         subscription: null,
         loading: false,
-        error: '認証エラーが発生しました',
+        error: isSessionMissing ? null : '認証エラーが発生しました',
       });
     }
   }, [supabase]);
@@ -152,7 +159,7 @@ export function useAuth() {
     loadUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, _session) => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           await loadUser();
         } else if (event === 'SIGNED_OUT') {
