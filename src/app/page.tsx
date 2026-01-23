@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { BookOpen, Loader2, Settings, User, Sparkles, Cloud, CloudOff } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { ProjectCard, ScanButton } from '@/components/project';
-import { ProgressSteps, type ProgressStep, Button } from '@/components/ui';
+import { ProgressSteps, type ProgressStep } from '@/components/ui';
 import { getRepository } from '@/lib/db';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
@@ -255,11 +255,12 @@ export default function Dashboard() {
                   <Settings className="w-5 h-5 text-gray-600" />
                 </Link>
               ) : (
-                <Link href="/login">
-                  <Button variant="secondary" size="sm">
-                    <User className="w-4 h-4 mr-1" />
-                    ログイン
-                  </Button>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 bg-gray-100 text-gray-900 hover:bg-gray-200 px-3 py-1.5 text-sm"
+                >
+                  <User className="w-4 h-4 mr-1" />
+                  ログイン
                 </Link>
               )}
             </div>
