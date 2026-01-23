@@ -84,10 +84,12 @@ export default function Dashboard() {
     setScanInfo(getDailyScanInfo());
   }, []);
 
-  // Load projects - can start with guest data immediately, then update when auth loads
+  // Load projects only after auth state is determined
   useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+    if (!authLoading) {
+      loadProjects();
+    }
+  }, [authLoading, loadProjects]);
 
   // Check if user can scan (Pro = unlimited, Free = 3/day)
   const canScan = isPro || scanInfo.canScan;
