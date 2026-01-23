@@ -51,7 +51,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 3, canScan: true });
+  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 10, canScan: true });
 
   // Get repository based on subscription status
   const subscriptionStatus = subscription?.status || 'free';
@@ -79,13 +79,15 @@ export default function Dashboard() {
     }
   }, [isAuthenticated, user, repository]);
 
-  // Load scan info and projects on mount
+  // Load scan info immediately (doesn't need auth)
   useEffect(() => {
-    if (!authLoading) {
-      setScanInfo(getDailyScanInfo());
-      loadProjects();
-    }
-  }, [authLoading, loadProjects]);
+    setScanInfo(getDailyScanInfo());
+  }, []);
+
+  // Load projects - can start with guest data immediately, then update when auth loads
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   // Check if user can scan (Pro = unlimited, Free = 3/day)
   const canScan = isPro || scanInfo.canScan;
@@ -202,14 +204,8 @@ export default function Dashboard() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      </div>
-    );
-  }
-
+  // Home page doesn't require auth - show UI immediately
+  // Auth state will update reactively when loaded
   return (
     <div className="min-h-screen pb-24">
       {/* Header */}
