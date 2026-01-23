@@ -9,7 +9,8 @@ import { ProjectCard, ScanButton } from '@/components/project';
 import { ProgressSteps, type ProgressStep, Button } from '@/components/ui';
 import { getRepository } from '@/lib/db';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId } from '@/lib/utils';
-import type { AIWordExtraction, Project, Word } from '@/types';
+import { processImageFile } from '@/lib/image-utils';
+import type { AIWordExtraction, Project } from '@/types';
 
 // Processing modal component
 function ProcessingModal({
@@ -107,12 +108,15 @@ export default function Dashboard() {
     ]);
 
     try {
+      // Process image (convert HEIC to JPEG if needed)
+      const processedFile = await processImageFile(file);
+
       // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(processedFile);
       });
 
       setProcessingSteps((prev) =>

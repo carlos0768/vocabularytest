@@ -26,7 +26,7 @@ export function ScanButton({ onImageSelect, disabled }: ScanButtonProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         capture="environment"
         onChange={handleFileChange}
         className="hidden"
