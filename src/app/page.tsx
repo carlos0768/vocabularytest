@@ -61,7 +61,9 @@ export default function Dashboard() {
   const loadProjects = useCallback(async () => {
     try {
       setLoading(true);
-      const userId = isAuthenticated ? user!.id : getGuestUserId();
+      // For local storage (free users), always use guest ID
+      // For remote storage (pro users), use authenticated user ID
+      const userId = isPro && user ? user.id : getGuestUserId();
       const data = await repository.getProjects(userId);
       setProjects(data);
 
@@ -77,7 +79,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user, repository]);
+  }, [isPro, user, repository]);
 
   // Load scan info immediately (doesn't need auth)
   useEffect(() => {
