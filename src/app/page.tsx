@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Loader2, Settings, User, Sparkles, Orbit, Hexagon, Gem, Zap } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { ProjectCard, ScanButton } from '@/components/project';
 import { ProgressSteps, type ProgressStep } from '@/components/ui';
@@ -253,26 +253,13 @@ export default function Dashboard() {
                 </span>
               )}
 
-              {/* User menu */}
-              {authLoading ? (
-                <div className="p-1.5">
-                  <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                </div>
-              ) : isAuthenticated ? (
-                <Link
-                  href="/settings"
-                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  <Settings className="w-5 h-5 text-gray-500" />
-                </Link>
-              ) : (
-                <Link
-                  href="/login"
-                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  ログイン
-                </Link>
-              )}
+              {/* Settings - always visible */}
+              <Link
+                href="/settings"
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <Settings className="w-5 h-5 text-gray-500" />
+              </Link>
             </div>
           </div>
         </div>

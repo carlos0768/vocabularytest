@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, ExternalLink } from 'lucide-react';
+import { ArrowLeft, LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, ExternalLink, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/theme-provider';
@@ -13,7 +13,7 @@ type Theme = 'light' | 'dark' | 'system';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, subscription, isPro, signOut, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, signOut, loading: authLoading, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -39,13 +39,6 @@ export default function SettingsPage() {
     setShowStats(show);
     localStorage.setItem('scanvocab_show_stats', String(show));
   };
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login?redirect=/settings');
-    }
-  }, [authLoading, user, router]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -76,14 +69,6 @@ export default function SettingsPage() {
     }
   };
 
-  if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   const themeLabels: Record<Theme, string> = {
     light: 'ライト',
     dark: 'ダーク',
@@ -108,20 +93,43 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Account */}
-        <div className="bg-gray-50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-              <Mail className="w-5 h-5 text-gray-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
-              <p className="text-xs text-gray-500">
-                {isPro ? 'Pro' : 'Free'}
-              </p>
+        {/* Account - show login prompt or user info */}
+        {authLoading ? (
+          <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+          </div>
+        ) : isAuthenticated ? (
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                <Mail className="w-5 h-5 text-gray-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500">
+                  {isPro ? 'Pro' : 'Free'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-gray-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">ゲスト</p>
+                <p className="text-xs text-gray-500">ログインでクラウド同期</p>
+              </div>
+              <Link href="/login">
+                <Button size="sm" variant="secondary">
+                  ログイン
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Display Settings */}
         <section>
@@ -170,91 +178,93 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Plan */}
-        <section>
-          <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
-            プラン
-          </h2>
-          <div className="bg-gray-50 rounded-xl p-4">
-            {isPro ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span className="text-sm font-medium text-gray-900">Pro</span>
-                  </div>
-                  <span className="text-sm text-gray-500">
-                    ¥{KOMOJU_CONFIG.plans.pro.price.toLocaleString()}/月
-                  </span>
-                </div>
-
-                {subscription?.currentPeriodEnd && (
-                  <p className="text-xs text-gray-400">
-                    次回更新: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
-                  </p>
-                )}
-
-                {!showCancelConfirm ? (
-                  <button
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    解約する
-                  </button>
-                ) : (
-                  <div className="bg-red-50 rounded-lg p-3 space-y-3">
-                    <div className="flex items-start gap-2 text-red-600">
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs">
-                        解約すると、スキャン無制限やクラウド同期が使えなくなります。
-                      </p>
+        {/* Plan - only show if authenticated */}
+        {isAuthenticated && (
+          <section>
+            <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
+              プラン
+            </h2>
+            <div className="bg-gray-50 rounded-xl p-4">
+              {isPro ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-medium text-gray-900">Pro</span>
                     </div>
-                    {error && (
-                      <p className="text-xs text-red-600">{error}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setShowCancelConfirm(false)}
-                        disabled={cancelling}
-                      >
-                        キャンセル
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={handleCancelSubscription}
-                        disabled={cancelling}
-                      >
-                        {cancelling ? (
-                          <>
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                            処理中
-                          </>
-                        ) : (
-                          '解約する'
-                        )}
-                      </Button>
-                    </div>
+                    <span className="text-sm text-gray-500">
+                      ¥{KOMOJU_CONFIG.plans.pro.price.toLocaleString()}/月
+                    </span>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">Free</span>
-                  <span className="text-xs text-gray-400">{KOMOJU_CONFIG.freePlan.dailyScanLimit}スキャン/日</span>
+
+                  {subscription?.currentPeriodEnd && (
+                    <p className="text-xs text-gray-400">
+                      次回更新: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
+                    </p>
+                  )}
+
+                  {!showCancelConfirm ? (
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      解約する
+                    </button>
+                  ) : (
+                    <div className="bg-red-50 rounded-lg p-3 space-y-3">
+                      <div className="flex items-start gap-2 text-red-600">
+                        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs">
+                          解約すると、スキャン無制限やクラウド同期が使えなくなります。
+                        </p>
+                      </div>
+                      {error && (
+                        <p className="text-xs text-red-600">{error}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setShowCancelConfirm(false)}
+                          disabled={cancelling}
+                        >
+                          キャンセル
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={handleCancelSubscription}
+                          disabled={cancelling}
+                        >
+                          {cancelling ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              処理中
+                            </>
+                          ) : (
+                            '解約する'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Link href="/subscription">
-                  <Button size="sm" className="w-full">
-                    Proにアップグレード
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </section>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">Free</span>
+                    <span className="text-xs text-gray-400">{KOMOJU_CONFIG.freePlan.dailyScanLimit}スキャン/日</span>
+                  </div>
+                  <Link href="/subscription">
+                    <Button size="sm" className="w-full">
+                      Proにアップグレード
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Support */}
         <section>
@@ -292,14 +302,16 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Sign out */}
-        <button
-          onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 py-3 text-gray-500 hover:text-gray-700 transition-colors text-sm"
-        >
-          <LogOut className="w-4 h-4" />
-          ログアウト
-        </button>
+        {/* Sign out - only show if authenticated */}
+        {isAuthenticated && (
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 py-3 text-gray-500 hover:text-gray-700 transition-colors text-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            ログアウト
+          </button>
+        )}
 
         {/* Version */}
         <p className="text-center text-xs text-gray-300">
