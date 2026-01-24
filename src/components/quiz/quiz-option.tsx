@@ -29,14 +29,14 @@ export function QuizOption({
       disabled={disabled}
       className={cn(
         'w-full p-4 rounded-xl text-left transition-all duration-200',
-        'border-2 flex items-center gap-3',
+        'flex items-center gap-3',
         'active:scale-[0.98]',
         // Default state
-        !isRevealed && 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50',
+        !isRevealed && 'bg-gray-50 hover:bg-gray-100',
         // Revealed states
-        isRevealed && isCorrect && 'border-green-500 bg-green-50 animate-correct',
-        isRevealed && isSelected && !isCorrect && 'border-red-500 bg-red-50',
-        isRevealed && !isSelected && !isCorrect && 'border-gray-200 bg-gray-50 opacity-50',
+        isRevealed && isCorrect && 'bg-emerald-50 animate-correct',
+        isRevealed && isSelected && !isCorrect && 'bg-red-50',
+        isRevealed && !isSelected && !isCorrect && 'bg-gray-50 opacity-40',
         // Disabled
         disabled && !isRevealed && 'cursor-not-allowed opacity-60'
       )}
@@ -44,9 +44,9 @@ export function QuizOption({
       {/* Option label */}
       <span
         className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0',
-          !isRevealed && 'bg-gray-100 text-gray-600',
-          isRevealed && isCorrect && 'bg-green-500 text-white',
+          'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium flex-shrink-0',
+          !isRevealed && 'bg-gray-200 text-gray-600',
+          isRevealed && isCorrect && 'bg-emerald-500 text-white',
           isRevealed && isSelected && !isCorrect && 'bg-red-500 text-white',
           isRevealed && !isSelected && !isCorrect && 'bg-gray-200 text-gray-400'
         )}
@@ -57,9 +57,9 @@ export function QuizOption({
       {/* Answer text */}
       <span
         className={cn(
-          'text-lg',
+          'text-base',
           !isRevealed && 'text-gray-900',
-          isRevealed && isCorrect && 'text-green-700 font-medium',
+          isRevealed && isCorrect && 'text-emerald-700 font-medium',
           isRevealed && isSelected && !isCorrect && 'text-red-700',
           isRevealed && !isSelected && !isCorrect && 'text-gray-400'
         )}

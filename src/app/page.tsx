@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Loader2, Settings, User, Sparkles, Cloud, CloudOff } from 'lucide-react';
+import { BookOpen, Loader2, Settings, User, Sparkles, Orbit, Hexagon, Gem, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { ProjectCard, ScanButton } from '@/components/project';
 import { ProgressSteps, type ProgressStep } from '@/components/ui';
 import { getRepository } from '@/lib/db';
-import { getDailyScanInfo, incrementScanCount, getGuestUserId } from '@/lib/utils';
+import { getDailyScanInfo, incrementScanCount, getGuestUserId, getStreakDays, getDailyStats } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project } from '@/types';
 
@@ -23,16 +23,16 @@ function ProcessingModal({
   const hasError = steps.some((s) => s.status === 'error');
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-        <h2 className="text-lg font-semibold mb-4 text-center">
-          {hasError ? 'エラーが発生しました' : '画像を解析中...'}
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+          {hasError ? 'エラーが発生しました' : '解析中'}
         </h2>
         <ProgressSteps steps={steps} />
         {hasError && onClose && (
           <button
             onClick={onClose}
-            className="mt-4 w-full py-2 bg-gray-100 rounded-xl text-gray-700 hover:bg-gray-200 transition-colors"
+            className="mt-4 w-full py-2 bg-gray-100 rounded-lg text-gray-700 text-sm hover:bg-gray-200 transition-colors"
           >
             閉じる
           </button>
@@ -52,6 +52,9 @@ export default function Dashboard() {
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 10, canScan: true });
+  const [streakDays, setStreakDays] = useState(0);
+  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
+  const [totalMastered, setTotalMastered] = useState(0);
 
   // Get repository based on subscription status
   const subscriptionStatus = subscription?.status || 'free';
@@ -67,13 +70,16 @@ export default function Dashboard() {
       const data = await repository.getProjects(userId);
       setProjects(data);
 
-      // Load word counts for each project
+      // Load word counts for each project and count mastered words
       const counts: Record<string, number> = {};
+      let mastered = 0;
       for (const project of data) {
         const words = await repository.getWords(project.id);
         counts[project.id] = words.length;
+        mastered += words.filter(w => w.status === 'mastered').length;
       }
       setProjectWordCounts(counts);
+      setTotalMastered(mastered);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -81,9 +87,11 @@ export default function Dashboard() {
     }
   }, [isPro, user, repository]);
 
-  // Load scan info immediately (doesn't need auth)
+  // Load scan info and stats immediately (doesn't need auth)
   useEffect(() => {
     setScanInfo(getDailyScanInfo());
+    setStreakDays(getStreakDays());
+    setDailyStats(getDailyStats());
   }, []);
 
   // Load projects only after auth state is determined
@@ -208,66 +216,53 @@ export default function Dashboard() {
     }
   };
 
+  // Calculate accuracy
+  const accuracy = dailyStats.todayCount > 0
+    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
+    : 0;
+
   // Home page doesn't require auth - show UI immediately
   // Auth state will update reactively when loaded
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen bg-white pb-24">
       {/* Header */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
-        <div className="max-w-lg mx-auto px-4 py-3">
+      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
+        <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-900">ScanVocab</h1>
+              <h1 className="text-lg font-semibold text-gray-900">ScanVocab</h1>
               {isPro && (
-                <span className="flex items-center gap-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-medium">
                   <Sparkles className="w-3 h-3" />
                   Pro
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {/* Sync status indicator */}
-              {isAuthenticated && (
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  {isPro ? (
-                    <>
-                      <Cloud className="w-4 h-4 text-green-500" />
-                      <span>同期中</span>
-                    </>
-                  ) : (
-                    <>
-                      <CloudOff className="w-4 h-4" />
-                      <span>ローカル</span>
-                    </>
-                  )}
-                </div>
-              )}
-
+            <div className="flex items-center gap-3">
               {/* Scan limit (free users only) */}
               {!isPro && (
-                <div className="text-sm text-gray-500">
-                  残り{scanInfo.remaining}回/日
-                </div>
+                <span className="text-xs text-gray-400">
+                  残り{scanInfo.remaining}回
+                </span>
               )}
 
               {/* User menu */}
               {authLoading ? (
-                <div className="p-2">
+                <div className="p-1.5">
                   <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
                 </div>
               ) : isAuthenticated ? (
                 <Link
                   href="/settings"
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
                 >
-                  <Settings className="w-5 h-5 text-gray-600" />
+                  <Settings className="w-5 h-5 text-gray-500" />
                 </Link>
               ) : (
                 <Link
                   href="/login"
-                  className="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 bg-gray-100 text-gray-900 hover:bg-gray-200 px-3 py-1.5 text-sm"
+                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                 >
-                  <User className="w-4 h-4 mr-1" />
                   ログイン
                 </Link>
               )}
@@ -276,55 +271,80 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Pro upgrade banner for free users */}
-      {isAuthenticated && !isPro && (
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-200">
-          <div className="max-w-lg mx-auto px-4 py-3">
-            <Link href="/subscription" className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-yellow-600" />
-                <span className="text-sm font-medium text-yellow-800">
-                  Proプランでスキャン無制限
-                </span>
-              </div>
-              <span className="text-sm text-yellow-600">詳しく →</span>
-            </Link>
+      {/* Stats bar */}
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="flex justify-around">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Orbit className="w-4 h-4 text-blue-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+              {dailyStats.todayCount}
+            </p>
+            <p className="text-xs text-gray-400">今日</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Hexagon className="w-4 h-4 text-gray-400" />
+            </div>
+            <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+              {accuracy}
+            </p>
+            <p className="text-xs text-gray-400">正答率</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Gem className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${totalMastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
+              {totalMastered}
+            </p>
+            <p className="text-xs text-gray-400">習得</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Zap className="w-4 h-4 text-amber-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+              {streakDays}
+            </p>
+            <p className="text-xs text-gray-400">連続</p>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Main content */}
-      <main className="max-w-lg mx-auto px-4 py-6">
+      <main className="max-w-2xl mx-auto px-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
           </div>
         ) : projects.length === 0 ? (
           /* Empty state */
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <BookOpen className="w-8 h-8 text-gray-400" />
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <BookOpen className="w-7 h-7 text-gray-400" />
             </div>
-            <h2 className="text-lg font-medium text-gray-900 mb-2">
+            <h2 className="text-base font-medium text-gray-900 mb-2">
               単語帳がありません
             </h2>
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-500 text-sm mb-6">
               右下のボタンから
               <br />
               ノートやプリントを撮影しましょう
             </p>
             {!isAuthenticated && (
-              <p className="text-sm text-gray-400">
+              <p className="text-xs text-gray-400">
                 <Link href="/signup" className="text-blue-600 hover:underline">
                   アカウント登録
                 </Link>
-                で、データをクラウドに保存できます
+                でクラウド保存
               </p>
             )}
           </div>
         ) : (
           /* Project list */
-          <div className="space-y-3">
+          <div className="space-y-2">
             {projects.map((project) => (
               <ProjectCard
                 key={project.id}

@@ -54,47 +54,47 @@ export default function SubscriptionPage() {
   // Show loading while checking auth or redirecting
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-md transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
             </Link>
-            <h1 className="text-lg font-semibold">プラン選択</h1>
+            <h1 className="text-lg font-semibold text-gray-900">プラン選択</h1>
           </div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-8">
+      <main className="max-w-lg mx-auto px-4 py-6">
         {/* Current plan */}
         {isPro && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 text-green-700">
+          <div className="bg-emerald-50 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-2 text-emerald-700">
               <Check className="w-5 h-5" />
-              <span className="font-medium">現在Proプランをご利用中です</span>
+              <span className="font-medium text-sm">現在Proプランをご利用中です</span>
             </div>
           </div>
         )}
 
         {/* Free Plan */}
-        <div className={`bg-white rounded-2xl border-2 p-6 mb-4 ${!isPro ? 'border-blue-500' : 'border-gray-200'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">無料プラン</h2>
-            <span className="text-2xl font-bold">¥0</span>
+        <div className={`bg-gray-50 rounded-xl p-5 mb-3 ${!isPro ? 'ring-2 ring-blue-500' : ''}`}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-900">無料プラン</h2>
+            <span className="text-xl font-bold text-gray-900">¥0</span>
           </div>
-          <ul className="space-y-2 text-gray-600 mb-4">
+          <ul className="space-y-2 text-sm text-gray-600 mb-3">
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-gray-400" />
               1日10回までスキャン
@@ -109,25 +109,25 @@ export default function SubscriptionPage() {
             </li>
           </ul>
           {!isPro && (
-            <div className="text-center text-sm text-gray-500">現在のプラン</div>
+            <div className="text-center text-xs text-gray-400">現在のプラン</div>
           )}
         </div>
 
         {/* Pro Plan */}
-        <div className={`bg-white rounded-2xl border-2 p-6 ${isPro ? 'border-blue-500' : 'border-gray-200'}`}>
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-xl font-bold">{plan.name}</h2>
+        <div className={`bg-gray-50 rounded-xl p-5 ${isPro ? 'ring-2 ring-blue-500' : ''}`}>
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-5 h-5 text-amber-500" />
+            <h2 className="text-lg font-semibold text-gray-900">{plan.name}</h2>
           </div>
           <div className="mb-4">
-            <span className="text-3xl font-bold">¥{plan.price.toLocaleString()}</span>
-            <span className="text-gray-500">/月</span>
+            <span className="text-2xl font-bold text-gray-900">¥{plan.price.toLocaleString()}</span>
+            <span className="text-gray-500 text-sm">/月</span>
           </div>
-          <ul className="space-y-3 mb-6">
+          <ul className="space-y-2 mb-5">
             {plan.features.map((feature, index) => (
-              <li key={index} className="flex items-center gap-2">
-                <Check className="w-5 h-5 text-green-500" />
-                <span>{feature}</span>
+              <li key={index} className="flex items-center gap-2 text-sm">
+                <Check className="w-4 h-4 text-emerald-500" />
+                <span className="text-gray-700">{feature}</span>
               </li>
             ))}
           </ul>
@@ -167,7 +167,7 @@ export default function SubscriptionPage() {
         </div>
 
         {/* Payment methods note */}
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-xs text-gray-400 mt-6">
           PayPay・クレジットカードでお支払いいただけます
         </p>
       </main>

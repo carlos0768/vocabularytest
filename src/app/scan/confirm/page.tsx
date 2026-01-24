@@ -129,18 +129,18 @@ export default function ConfirmPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen bg-white pb-24">
       {/* Header */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
+      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-md transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <h1 className="text-lg font-semibold">確認・編集</h1>
+            <h1 className="text-lg font-semibold text-gray-900">確認・編集</h1>
           </div>
         </div>
       </header>
@@ -149,22 +149,22 @@ export default function ConfirmPage() {
       <main className="max-w-lg mx-auto px-4 py-6">
         {/* Project title input */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
             プロジェクト名
           </label>
           <input
             type="text"
             value={projectTitle}
             onChange={(e) => setProjectTitle(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+            className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50 focus:bg-white"
             placeholder="例: ノート P21-23"
           />
         </div>
 
         {/* Word count */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-medium text-gray-900">
-            抽出された単語 ({words.length}語)
+          <h2 className="text-sm font-medium text-gray-500">
+            抽出された単語 <span className="text-blue-600">({words.length}語)</span>
           </h2>
         </div>
 
@@ -185,14 +185,14 @@ export default function ConfirmPage() {
         </div>
 
         {words.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-400 text-sm">
             単語がありません。戻って再度スキャンしてください。
           </div>
         )}
       </main>
 
       {/* Bottom action bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm p-4 safe-area-bottom">
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleSaveProject}
@@ -239,7 +239,7 @@ function WordCard({
 
   if (word.isEditing) {
     return (
-      <div className="bg-white rounded-xl border-2 border-blue-500 p-4 shadow-sm">
+      <div className="bg-blue-50 rounded-xl p-4">
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -249,7 +249,7 @@ function WordCard({
               type="text"
               value={english}
               onChange={(e) => setEnglish(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none text-lg"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-base bg-white"
               autoFocus
             />
           </div>
@@ -261,10 +261,10 @@ function WordCard({
               type="text"
               value={japanese}
               onChange={(e) => setJapanese(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm bg-white"
             />
           </div>
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2">
             <Button
               variant="secondary"
               size="sm"
@@ -289,35 +289,35 @@ function WordCard({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm group">
+    <div className="bg-gray-50 rounded-xl p-4 group hover:bg-gray-100 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-lg font-medium text-gray-900 truncate">
+          <p className="font-medium text-gray-900">
             {word.english}
           </p>
-          <p className="text-gray-600 mt-0.5">{word.japanese}</p>
+          <p className="text-sm text-gray-500 mt-0.5">{word.japanese}</p>
           <div className="flex flex-wrap gap-1 mt-2">
             {word.distractors.map((d, i) => (
               <span
                 key={i}
-                className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded"
+                className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-md"
               >
                 {d}
               </span>
             ))}
           </div>
         </div>
-        <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={onEdit}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
             title="編集"
           >
             <Edit2 className="w-4 h-4 text-gray-500" />
           </button>
           <button
             onClick={onDelete}
-            className="p-2 hover:bg-red-50 rounded-full transition-colors"
+            className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
             title="削除"
           >
             <Trash2 className="w-4 h-4 text-red-500" />

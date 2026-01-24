@@ -77,3 +77,152 @@ export function formatDate(isoString: string): string {
     day: 'numeric',
   });
 }
+
+// Streak tracking
+const STREAK_KEY = 'scanvocab_streak';
+const LAST_ACTIVITY_KEY = 'scanvocab_last_activity';
+
+export function getStreakDays(): number {
+  if (typeof window === 'undefined') return 0;
+
+  const streak = localStorage.getItem(STREAK_KEY);
+  const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+
+  if (!streak || !lastActivity) return 0;
+
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  // If last activity was today or yesterday, streak is valid
+  if (lastActivity === today || lastActivity === yesterday) {
+    return parseInt(streak, 10);
+  }
+
+  // Streak broken
+  return 0;
+}
+
+export function recordActivity(): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+  const currentStreak = parseInt(localStorage.getItem(STREAK_KEY) || '0', 10);
+
+  if (lastActivity === today) {
+    // Already recorded today
+    return;
+  }
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  if (lastActivity === yesterday) {
+    // Continue streak
+    localStorage.setItem(STREAK_KEY, String(currentStreak + 1));
+  } else {
+    // Start new streak
+    localStorage.setItem(STREAK_KEY, '1');
+  }
+
+  localStorage.setItem(LAST_ACTIVITY_KEY, today);
+}
+
+// Daily stats tracking
+const DAILY_STATS_KEY = 'scanvocab_daily_stats';
+
+interface DailyStats {
+  date: string;
+  todayCount: number;
+  correctCount: number;
+  masteredCount: number;
+}
+
+export function getDailyStats(): { todayCount: number; correctCount: number; masteredCount: number } {
+  if (typeof window === 'undefined') {
+    return { todayCount: 0, correctCount: 0, masteredCount: 0 };
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const stored = localStorage.getItem(DAILY_STATS_KEY);
+
+  if (!stored) {
+    return { todayCount: 0, correctCount: 0, masteredCount: 0 };
+  }
+
+  try {
+    const stats: DailyStats = JSON.parse(stored);
+    if (stats.date !== today) {
+      // Reset for new day
+      return { todayCount: 0, correctCount: 0, masteredCount: 0 };
+    }
+    return {
+      todayCount: stats.todayCount,
+      correctCount: stats.correctCount,
+      masteredCount: stats.masteredCount,
+    };
+  } catch {
+    return { todayCount: 0, correctCount: 0, masteredCount: 0 };
+  }
+}
+
+export function recordCorrectAnswer(becameMastered: boolean = false): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const stored = localStorage.getItem(DAILY_STATS_KEY);
+
+  let stats: DailyStats = {
+    date: today,
+    todayCount: 0,
+    correctCount: 0,
+    masteredCount: 0,
+  };
+
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed.date === today) {
+        stats = parsed;
+      }
+    } catch {
+      // Use default
+    }
+  }
+
+  stats.todayCount += 1;
+  stats.correctCount += 1;
+  if (becameMastered) {
+    stats.masteredCount += 1;
+  }
+
+  localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+}
+
+export function recordWrongAnswer(wordId: string, english: string, japanese: string): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const stored = localStorage.getItem(DAILY_STATS_KEY);
+
+  let stats: DailyStats = {
+    date: today,
+    todayCount: 0,
+    correctCount: 0,
+    masteredCount: 0,
+  };
+
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed.date === today) {
+        stats = parsed;
+      }
+    } catch {
+      // Use default
+    }
+  }
+
+  stats.todayCount += 1;
+
+  localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+}
