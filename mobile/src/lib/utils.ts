@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -213,28 +212,3 @@ export async function updateDailyStats(isCorrect: boolean, isMastered: boolean):
   }
 }
 
-// Secure storage for sensitive data
-export async function setSecureItem(key: string, value: string): Promise<void> {
-  try {
-    await SecureStore.setItemAsync(key, value);
-  } catch (error) {
-    console.error('Error setting secure item:', error);
-  }
-}
-
-export async function getSecureItem(key: string): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(key);
-  } catch (error) {
-    console.error('Error getting secure item:', error);
-    return null;
-  }
-}
-
-export async function deleteSecureItem(key: string): Promise<void> {
-  try {
-    await SecureStore.deleteItemAsync(key);
-  } catch (error) {
-    console.error('Error deleting secure item:', error);
-  }
-}

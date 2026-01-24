@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "ScanVocab",
+    "slug": "scanvocab",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.scanvocab.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ノートやプリントを撮影して単語を抽出するために使用します",
+        "NSPhotoLibraryUsageDescription": "写真から単語を抽出するために使用します"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +26,20 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.scanvocab.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-image-picker",
+      "expo-secure-store"
+    ]
   }
 }

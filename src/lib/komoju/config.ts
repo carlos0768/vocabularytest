@@ -27,8 +27,8 @@ export const KOMOJU_CONFIG = {
     dailyScanLimit: 3,
   },
 
-  // Payment methods to show
-  paymentMethods: ['paypay', 'credit_card'],
+  // Payment methods to show (subscriptions only support credit_card)
+  paymentMethods: ['credit_card'],
 };
 
 export type PlanId = keyof typeof KOMOJU_CONFIG.plans;

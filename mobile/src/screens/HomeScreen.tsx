@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import {
   BookOpen,
   Loader2,
@@ -37,8 +36,6 @@ import {
 import colors from '../constants/colors';
 import type { RootStackParamList, Project, ProgressStep } from '../types';
 
-// TODO: Replace with actual API key management
-const OPENAI_API_KEY = ''; // Should be stored securely and fetched from settings
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -160,15 +157,15 @@ export function HomeScreen() {
 
       if (source === 'camera') {
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: 'images',
+          mediaTypes: ['images'],
           quality: 0.8,
-          base64: false,
+          base64: true,
         });
       } else {
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: 'images',
+          mediaTypes: ['images'],
           quality: 0.8,
-          base64: false,
+          base64: true,
         });
       }
 
@@ -176,14 +173,20 @@ export function HomeScreen() {
         return;
       }
 
-      await processImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert('エラー', '画像の読み込みに失敗しました。');
+        return;
+      }
+
+      await processImage(asset.base64);
     } catch (error) {
       console.error('Image picker error:', error);
       Alert.alert('エラー', '画像の選択に失敗しました。');
     }
   };
 
-  const processImage = async (uri: string) => {
+  const processImage = async (base64: string) => {
     setProcessing(true);
     setProcessingSteps([
       { id: 'upload', label: '画像をアップロード中...', status: 'active' },
@@ -192,11 +195,6 @@ export function HomeScreen() {
     ]);
 
     try {
-      // Read image as base64
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
       const imageDataUrl = `data:image/jpeg;base64,${base64}`;
 
       setProcessingSteps((prev) =>
@@ -209,12 +207,8 @@ export function HomeScreen() {
         )
       );
 
-      // Extract words using OpenAI
-      if (!OPENAI_API_KEY) {
-        throw new Error('APIキーが設定されていません。設定画面でAPIキーを入力してください。');
-      }
-
-      const result = await extractWordsFromImage(imageDataUrl, OPENAI_API_KEY);
+      // Extract words using server API
+      const result = await extractWordsFromImage(imageDataUrl);
 
       if (!result.success) {
         throw new Error(result.error);

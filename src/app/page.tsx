@@ -55,6 +55,7 @@ export default function Dashboard() {
   const [streakDays, setStreakDays] = useState(0);
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
   const [totalMastered, setTotalMastered] = useState(0);
+  const [showStats, setShowStats] = useState(true);
 
   // Get repository based on subscription status
   const subscriptionStatus = subscription?.status || 'free';
@@ -92,6 +93,12 @@ export default function Dashboard() {
     setScanInfo(getDailyScanInfo());
     setStreakDays(getStreakDays());
     setDailyStats(getDailyStats());
+
+    // Load show stats setting
+    const savedShowStats = localStorage.getItem('scanvocab_show_stats');
+    if (savedShowStats !== null) {
+      setShowStats(savedShowStats === 'true');
+    }
   }, []);
 
   // Load projects only after auth state is determined
@@ -272,46 +279,48 @@ export default function Dashboard() {
       </header>
 
       {/* Stats bar */}
-      <div className="max-w-2xl mx-auto px-4 py-4">
-        <div className="flex justify-around">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Orbit className="w-4 h-4 text-blue-500" />
+      {showStats && (
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          <div className="flex justify-around">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Orbit className="w-4 h-4 text-blue-500" />
+              </div>
+              <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+                {dailyStats.todayCount}
+              </p>
+              <p className="text-xs text-gray-400">今日</p>
             </div>
-            <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
-              {dailyStats.todayCount}
-            </p>
-            <p className="text-xs text-gray-400">今日</p>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Hexagon className="w-4 h-4 text-gray-400" />
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Hexagon className="w-4 h-4 text-gray-400" />
+              </div>
+              <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+                {accuracy}
+              </p>
+              <p className="text-xs text-gray-400">正答率</p>
             </div>
-            <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
-              {accuracy}
-            </p>
-            <p className="text-xs text-gray-400">正答率</p>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Gem className="w-4 h-4 text-emerald-500" />
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Gem className="w-4 h-4 text-emerald-500" />
+              </div>
+              <p className={`text-2xl font-semibold ${totalMastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
+                {totalMastered}
+              </p>
+              <p className="text-xs text-gray-400">習得</p>
             </div>
-            <p className={`text-2xl font-semibold ${totalMastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
-              {totalMastered}
-            </p>
-            <p className="text-xs text-gray-400">習得</p>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Zap className="w-4 h-4 text-amber-500" />
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Zap className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+                {streakDays}
+              </p>
+              <p className="text-xs text-gray-400">連続</p>
             </div>
-            <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
-              {streakDays}
-            </p>
-            <p className="text-xs text-gray-400">連続</p>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main content */}
       <main className="max-w-2xl mx-auto px-4">

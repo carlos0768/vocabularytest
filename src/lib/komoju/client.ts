@@ -98,48 +98,54 @@ export interface CreateSubscriptionParams {
 export interface KomojuSubscription {
   id: string;
   resource: 'subscription';
-  status: 'active' | 'cancelled' | 'past_due' | 'pending';
-  plan: {
-    id: string;
-    amount: number;
-    currency: string;
-    interval: string;
-  };
-  customer: {
-    id: string;
-    email: string;
-  };
-  current_period_end: string;
+  status: 'active' | 'cancelled' | 'past_due' | 'pending' | 'retrying' | 'suspended';
+  amount: number;
+  currency: string;
+  period: 'weekly' | 'monthly' | 'yearly';
+  customer: string;
+  current_period_end?: string;
   created_at: string;
   metadata?: Record<string, string>;
 }
 
-// Create a subscription session
-// Note: KOMOJU subscriptions use hosted pages for initial signup
+// Create a customer session for subscription signup
+// KOMOJU subscriptions require creating a customer first with payment details
+// Then create subscription using the customer ID
 export async function createSubscriptionSession(
   params: CreateSubscriptionParams
 ): Promise<KomojuSession> {
-  const plan = KOMOJU_CONFIG.plans.pro;
-
   return komojuRequest<KomojuSession>('/sessions', {
     method: 'POST',
     body: JSON.stringify({
-      mode: 'subscription',
-      amount: plan.price,
-      currency: plan.currency,
-      return_url: params.returnUrl,
-      cancel_url: params.cancelUrl,
+      mode: 'customer',
       default_locale: 'ja',
       payment_types: KOMOJU_CONFIG.paymentMethods,
-      subscription_details: {
-        plan_id: params.planId,
-        interval: plan.interval,
-      },
-      customer_email: params.customerEmail,
+      return_url: params.returnUrl,
+      cancel_url: params.cancelUrl,
+      email: params.customerEmail,
       metadata: {
         ...params.metadata,
         plan_id: params.planId,
       },
+    }),
+  });
+}
+
+// Create subscription with existing customer
+export async function createSubscription(
+  customerId: string,
+  metadata?: Record<string, string>
+): Promise<KomojuSubscription> {
+  const plan = KOMOJU_CONFIG.plans.pro;
+
+  return komojuRequest<KomojuSubscription>('/subscriptions', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer: customerId,
+      amount: plan.price,
+      currency: plan.currency,
+      period: plan.interval === 'month' ? 'monthly' : plan.interval,
+      metadata,
     }),
   });
 }

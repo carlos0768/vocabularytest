@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { useTheme } from '@/components/theme-provider';
 import { KOMOJU_CONFIG } from '@/lib/komoju/config';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -13,21 +14,18 @@ type Theme = 'light' | 'dark' | 'system';
 export default function SettingsPage() {
   const router = useRouter();
   const { user, subscription, isPro, signOut, loading: authLoading } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Settings state
-  const [theme, setTheme] = useState<Theme>('system');
   const [showStats, setShowStats] = useState(true);
 
   // Load settings from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('scanvocab_theme') as Theme;
       const savedShowStats = localStorage.getItem('scanvocab_show_stats');
-
-      if (savedTheme) setTheme(savedTheme);
       if (savedShowStats !== null) setShowStats(savedShowStats === 'true');
     }
   }, []);
@@ -35,7 +33,6 @@ export default function SettingsPage() {
   // Save settings
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme);
-    localStorage.setItem('scanvocab_theme', newTheme);
   };
 
   const updateShowStats = (show: boolean) => {

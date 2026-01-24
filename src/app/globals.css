@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9fafb;
+  --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -17,6 +22,67 @@ body {
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   min-height: 100dvh;
+}
+
+/* Dark mode overrides */
+.dark {
+  color-scheme: dark;
+}
+
+.dark .bg-white {
+  background-color: #0a0a0a;
+}
+
+.dark .bg-gray-50 {
+  background-color: #171717;
+}
+
+.dark .bg-gray-100 {
+  background-color: #1f1f1f;
+}
+
+.dark .bg-gray-200 {
+  background-color: #2a2a2a;
+}
+
+.dark .text-gray-900 {
+  color: #ededed;
+}
+
+.dark .text-gray-700 {
+  color: #d1d1d1;
+}
+
+.dark .text-gray-600 {
+  color: #a1a1a1;
+}
+
+.dark .text-gray-500 {
+  color: #737373;
+}
+
+.dark .text-gray-400 {
+  color: #525252;
+}
+
+.dark .border-gray-200 {
+  border-color: #2a2a2a;
+}
+
+.dark .border-gray-300 {
+  border-color: #3a3a3a;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #1f1f1f;
+}
+
+.dark .hover\:bg-gray-200:hover {
+  background-color: #2a2a2a;
+}
+
+.dark .bg-white\/95 {
+  background-color: rgba(10, 10, 10, 0.95);
 }
 
 /* Safe area padding for mobile devices */

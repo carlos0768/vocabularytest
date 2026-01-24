@@ -97,7 +97,7 @@ export default function SubscriptionPage() {
           <ul className="space-y-2 text-sm text-gray-600 mb-3">
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-gray-400" />
-              1日10回までスキャン
+              1日{KOMOJU_CONFIG.freePlan.dailyScanLimit}回までスキャン
             </li>
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-gray-400" />
@@ -168,7 +168,7 @@ export default function SubscriptionPage() {
 
         {/* Payment methods note */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          PayPay・クレジットカードでお支払いいただけます
+          クレジットカードでお支払いいただけます
         </p>
       </main>
     </div>

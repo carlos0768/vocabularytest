@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { verifyWebhookSignature } from '@/lib/komoju';
+import { verifyWebhookSignature, createSubscription } from '@/lib/komoju';
 
 // Lazy initialization of Supabase admin client
 function getSupabaseAdmin(): SupabaseClient {
@@ -35,6 +35,18 @@ export async function POST(request: NextRequest) {
 
     // Handle different event types
     switch (event.type) {
+      // Customer created via hosted page - create subscription
+      case 'customer.created':
+        await handleCustomerCreated(supabaseAdmin, event.data);
+        break;
+
+      // Session completed (customer mode) - create subscription
+      case 'session.completed':
+        if (event.data.mode === 'customer' && event.data.customer_id) {
+          await handleCustomerSessionCompleted(supabaseAdmin, event.data);
+        }
+        break;
+
       case 'subscription.created':
       case 'subscription.activated':
         await handleSubscriptionActivated(supabaseAdmin, event.data);
@@ -48,13 +60,6 @@ export async function POST(request: NextRequest) {
         await handlePaymentFailed(supabaseAdmin, event.data);
         break;
 
-      case 'payment.captured':
-        // Initial payment successful
-        if (event.data.metadata?.plan === 'pro') {
-          await handleSubscriptionActivated(supabaseAdmin, event.data);
-        }
-        break;
-
       default:
         console.log('Unhandled event type:', event.type);
     }
@@ -66,6 +71,90 @@ export async function POST(request: NextRequest) {
       { error: 'Webhook processing failed' },
       { status: 500 }
     );
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleCustomerCreated(supabaseAdmin: SupabaseClient, data: any) {
+  const userId = data.metadata?.user_id;
+  const customerId = data.id;
+
+  if (!userId || !customerId) {
+    console.error('Missing user_id or customer_id in customer.created event');
+    return;
+  }
+
+  try {
+    // Create subscription using the new customer
+    const subscription = await createSubscription(customerId, {
+      user_id: userId,
+      plan: 'pro',
+    });
+
+    console.log(`Subscription created for user ${userId}: ${subscription.id}`);
+
+    // Update user's subscription record
+    const { error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        status: subscription.status === 'active' ? 'active' : 'pending',
+        plan: 'pro',
+        komoju_subscription_id: subscription.id,
+        komoju_customer_id: customerId,
+        current_period_end: subscription.current_period_end || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Failed to update subscription:', error);
+      throw error;
+    }
+  } catch (err) {
+    console.error('Failed to create subscription:', err);
+    throw err;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleCustomerSessionCompleted(supabaseAdmin: SupabaseClient, data: any) {
+  const userId = data.metadata?.user_id;
+  const customerId = data.customer_id;
+
+  if (!userId || !customerId) {
+    console.error('Missing user_id or customer_id in session.completed event');
+    return;
+  }
+
+  try {
+    // Create subscription using the customer from session
+    const subscription = await createSubscription(customerId, {
+      user_id: userId,
+      plan: 'pro',
+    });
+
+    console.log(`Subscription created for user ${userId}: ${subscription.id}`);
+
+    // Update user's subscription record
+    const { error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        status: subscription.status === 'active' ? 'active' : 'pending',
+        plan: 'pro',
+        komoju_subscription_id: subscription.id,
+        komoju_customer_id: customerId,
+        current_period_end: subscription.current_period_end || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Failed to update subscription:', error);
+      throw error;
+    }
+  } catch (err) {
+    console.error('Failed to create subscription:', err);
+    throw err;
   }
 }
 
