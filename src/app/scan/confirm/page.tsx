@@ -22,7 +22,7 @@ export default function ConfirmPage() {
   const router = useRouter();
   const { createProject } = useProjects();
   const { count: currentWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
-  const { isPro, subscription } = useAuth();
+  const { isPro, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [words, setWords] = useState<EditableWord[]>([]);
@@ -107,6 +107,12 @@ export default function ConfirmPage() {
   };
 
   const handleSaveProject = async () => {
+    // Wait for auth to be ready
+    if (authLoading) {
+      console.log('Auth still loading, please wait...');
+      return;
+    }
+
     const selectedWords = words.filter(w => w.isSelected);
 
     if (selectedWords.length === 0) {
@@ -299,12 +305,14 @@ export default function ConfirmPage() {
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleSaveProject}
-            disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
+            disabled={saving || authLoading || selectedCount === 0 || (!isPro && excessCount > 0)}
             className="w-full"
             size="lg"
           >
             {saving ? (
               '保存中...'
+            ) : authLoading ? (
+              '読み込み中...'
             ) : (
               <>
                 <Check className="w-5 h-5 mr-2" />
