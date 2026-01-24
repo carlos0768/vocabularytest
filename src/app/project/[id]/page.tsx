@@ -158,7 +158,7 @@ export default function ProjectPage() {
 
         {/* Action buttons */}
         {words.length > 0 && (
-          <div className="flex justify-center gap-3 mb-6">
+          <div className="flex flex-wrap justify-center gap-3 mb-6">
             <Link href={`/quiz/${projectId}`}>
               <Button size="lg">
                 <Play className="w-5 h-5 mr-2" />
@@ -176,6 +176,17 @@ export default function ProjectPage() {
                 )}
               </Button>
             </Link>
+            {isPro && stats.favorites > 0 && (
+              <Link href={`/quiz/${projectId}/favorites`}>
+                <Button size="lg" className="bg-red-500 hover:bg-red-600">
+                  <Heart className="w-5 h-5 mr-2 fill-white" />
+                  苦手だけ
+                  <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                    {stats.favorites}
+                  </span>
+                </Button>
+              </Link>
+            )}
           </div>
         )}
 
