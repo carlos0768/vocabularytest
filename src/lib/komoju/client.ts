@@ -29,7 +29,8 @@ async function komojuRequest<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `KOMOJU API error: ${response.status}`);
+    console.error('KOMOJU API error details:', JSON.stringify(error, null, 2));
+    throw new Error(error.message || error.error?.message || `KOMOJU API error: ${response.status}`);
   }
 
   return response.json();
@@ -108,21 +109,22 @@ export interface KomojuSubscription {
   metadata?: Record<string, string>;
 }
 
-// Create a customer session for subscription signup
-// KOMOJU subscriptions require creating a customer first with payment details
-// Then create subscription using the customer ID
+// Create a payment session that also creates a customer for future subscription billing
+// Uses mode: 'customer_payment' to collect payment and save customer details
 export async function createSubscriptionSession(
   params: CreateSubscriptionParams
 ): Promise<KomojuSession> {
+  const plan = KOMOJU_CONFIG.plans.pro;
+
   return komojuRequest<KomojuSession>('/sessions', {
     method: 'POST',
     body: JSON.stringify({
-      mode: 'customer',
-      default_locale: 'ja',
-      payment_types: KOMOJU_CONFIG.paymentMethods,
+      amount: plan.price,
+      currency: plan.currency,
       return_url: params.returnUrl,
       cancel_url: params.cancelUrl,
-      email: params.customerEmail,
+      default_locale: 'ja',
+      payment_types: KOMOJU_CONFIG.paymentMethods,
       metadata: {
         ...params.metadata,
         plan_id: params.planId,
