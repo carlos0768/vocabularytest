@@ -24,7 +24,8 @@ export const KOMOJU_CONFIG = {
 
   // Free plan limits
   freePlan: {
-    dailyScanLimit: 3,
+    dailyScanLimit: 5,
+    wordLimit: 100,
   },
 
   // Payment methods to show (subscriptions only support credit_card)

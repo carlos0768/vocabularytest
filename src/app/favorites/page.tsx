@@ -1,20 +1,21 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Heart, Play, Loader2, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
-import { getGuestUserId } from '@/lib/utils';
-import type { Word, SubscriptionStatus } from '@/types';
+import type { Word, Project, SubscriptionStatus } from '@/types';
 
 interface FavoriteWord extends Word {
   projectTitle: string;
 }
 
 export default function FavoritesPage() {
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { user, subscription, loading: authLoading } = useAuth();
 
   const [favorites, setFavorites] = useState<FavoriteWord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,8 +28,12 @@ export default function FavoritesPage() {
 
     const loadFavorites = async () => {
       try {
-        const userId = isPro && user ? user.id : getGuestUserId();
-        const projects = await repository.getProjects(userId);
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        const projects = await repository.getProjects(user.id);
         const allFavorites: FavoriteWord[] = [];
 
         for (const project of projects) {
@@ -51,9 +56,12 @@ export default function FavoritesPage() {
     };
 
     loadFavorites();
-  }, [user, isPro, repository, authLoading]);
+  }, [user, repository, authLoading]);
 
   const handleToggleFavorite = async (wordId: string) => {
+    const word = favorites.find((w) => w.id === wordId);
+    if (!word) return;
+
     await repository.updateWord(wordId, { isFavorite: false });
     setFavorites((prev) => prev.filter((w) => w.id !== wordId));
   };
@@ -68,6 +76,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-screen pb-24">
+      {/* Header */}
       <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
@@ -85,6 +94,7 @@ export default function FavoritesPage() {
         </div>
       </header>
 
+      {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
         {favorites.length === 0 ? (
           <div className="text-center py-16">
@@ -108,6 +118,7 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <>
+            {/* Stats */}
             <div className="bg-red-50 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -118,6 +129,7 @@ export default function FavoritesPage() {
               </div>
             </div>
 
+            {/* Word list */}
             <div className="space-y-2">
               {favorites.map((word) => (
                 <div

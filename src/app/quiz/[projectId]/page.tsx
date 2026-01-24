@@ -258,6 +258,7 @@ export default function QuizPage() {
           <h1 className="text-4xl font-bold text-gray-900 text-center mb-4">
             {currentQuestion?.word.english}
           </h1>
+          {/* Favorite button */}
           <button
             onClick={async () => {
               if (!currentQuestion) return;
@@ -300,6 +301,17 @@ export default function QuizPage() {
             />
           ))}
         </div>
+
+        {/* Example sentence (shown after answering, Pro feature) */}
+        {isRevealed && currentQuestion?.word.exampleSentence && (
+          <div className="mb-4 p-4 bg-blue-50 rounded-xl">
+            <p className="text-sm font-medium text-blue-800 mb-1">例文</p>
+            <p className="text-blue-900 italic">{currentQuestion.word.exampleSentence}</p>
+            {currentQuestion.word.exampleSentenceJa && (
+              <p className="text-sm text-blue-700 mt-1">{currentQuestion.word.exampleSentenceJa}</p>
+            )}
+          </div>
+        )}
 
         {/* Next button (only shown when wrong answer selected) */}
         {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (

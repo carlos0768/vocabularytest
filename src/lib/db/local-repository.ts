@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './dexie';
 import type { Project, Word, WordRepository } from '@/types';
+import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 
 // Local implementation of WordRepository using Dexie (IndexedDB)
 // Used for Free tier users - data stays on device
@@ -47,11 +48,13 @@ export class LocalWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt' | 'isFavorite'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite'>[]
   ): Promise<Word[]> {
     const now = new Date().toISOString();
+    const defaultSR = getDefaultSpacedRepetitionFields();
     const newWords: Word[] = words.map((word) => ({
       ...word,
+      ...defaultSR,
       id: uuidv4(),
       createdAt: now,
       isFavorite: false,

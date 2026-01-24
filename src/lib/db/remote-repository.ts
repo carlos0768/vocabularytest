@@ -1,6 +1,7 @@
 import { createBrowserClient } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, Word, WordRepository } from '@/types';
+import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 
 // Remote implementation of WordRepository using Supabase
 // Used for Pro tier users - data synced across devices
@@ -101,14 +102,18 @@ export class RemoteWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt' | 'isFavorite'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite'>[]
   ): Promise<Word[]> {
+    const defaultSR = getDefaultSpacedRepetitionFields();
     const wordsToInsert = words.map((w) => ({
       project_id: w.projectId,
       english: w.english,
       japanese: w.japanese,
       distractors: w.distractors,
       status: w.status,
+      ease_factor: defaultSR.easeFactor,
+      interval_days: defaultSR.intervalDays,
+      repetition: defaultSR.repetition,
       is_favorite: false,
     }));
 
@@ -127,6 +132,11 @@ export class RemoteWordRepository implements WordRepository {
       distractors: w.distractors,
       status: w.status,
       createdAt: w.created_at,
+      lastReviewedAt: w.last_reviewed_at,
+      nextReviewAt: w.next_review_at,
+      easeFactor: w.ease_factor ?? defaultSR.easeFactor,
+      intervalDays: w.interval_days ?? defaultSR.intervalDays,
+      repetition: w.repetition ?? defaultSR.repetition,
       isFavorite: w.is_favorite ?? false,
     }));
   }
@@ -140,6 +150,7 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to get words: ${error.message}`);
 
+    const defaultSR = getDefaultSpacedRepetitionFields();
     return data.map((w) => ({
       id: w.id,
       projectId: w.project_id,
@@ -148,6 +159,11 @@ export class RemoteWordRepository implements WordRepository {
       distractors: w.distractors,
       status: w.status,
       createdAt: w.created_at,
+      lastReviewedAt: w.last_reviewed_at,
+      nextReviewAt: w.next_review_at,
+      easeFactor: w.ease_factor ?? defaultSR.easeFactor,
+      intervalDays: w.interval_days ?? defaultSR.intervalDays,
+      repetition: w.repetition ?? defaultSR.repetition,
       isFavorite: w.is_favorite ?? false,
     }));
   }
@@ -164,6 +180,7 @@ export class RemoteWordRepository implements WordRepository {
       throw new Error(`Failed to get word: ${error.message}`);
     }
 
+    const defaultSR = getDefaultSpacedRepetitionFields();
     return {
       id: data.id,
       projectId: data.project_id,
@@ -172,6 +189,11 @@ export class RemoteWordRepository implements WordRepository {
       distractors: data.distractors,
       status: data.status,
       createdAt: data.created_at,
+      lastReviewedAt: data.last_reviewed_at,
+      nextReviewAt: data.next_review_at,
+      easeFactor: data.ease_factor ?? defaultSR.easeFactor,
+      intervalDays: data.interval_days ?? defaultSR.intervalDays,
+      repetition: data.repetition ?? defaultSR.repetition,
       isFavorite: data.is_favorite ?? false,
     };
   }
@@ -182,6 +204,12 @@ export class RemoteWordRepository implements WordRepository {
     if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
     if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
     if (updates.status !== undefined) updateData.status = updates.status;
+    // Spaced repetition fields
+    if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;
+    if (updates.nextReviewAt !== undefined) updateData.next_review_at = updates.nextReviewAt;
+    if (updates.easeFactor !== undefined) updateData.ease_factor = updates.easeFactor;
+    if (updates.intervalDays !== undefined) updateData.interval_days = updates.intervalDays;
+    if (updates.repetition !== undefined) updateData.repetition = updates.repetition;
     if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
 
     const { error } = await this.supabase

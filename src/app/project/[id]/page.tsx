@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Heart } from 'lucide-react';
+import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
+import { getReviewCount } from '@/lib/spaced-repetition';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function ProjectPage() {
@@ -54,6 +55,9 @@ export default function ProjectPage() {
 
     loadData();
   }, [projectId, repository, router, authLoading]);
+
+  const isPro = subscription?.status === 'active';
+  const reviewDueCount = getReviewCount(words);
 
   const stats = {
     total: words.length,
@@ -152,13 +156,24 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        {/* Start quiz button */}
+        {/* Action buttons */}
         {words.length > 0 && (
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center gap-3 mb-6">
             <Link href={`/quiz/${projectId}`}>
               <Button size="lg">
                 <Play className="w-5 h-5 mr-2" />
-                クイズを始める
+                クイズ
+              </Button>
+            </Link>
+            <Link href={`/review/${projectId}`}>
+              <Button size="lg" variant={isPro ? 'primary' : 'secondary'} className={isPro ? 'bg-purple-600 hover:bg-purple-700' : ''}>
+                <Brain className="w-5 h-5 mr-2" />
+                復習
+                {isPro && reviewDueCount > 0 && (
+                  <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                    {reviewDueCount}
+                  </span>
+                )}
               </Button>
             </Link>
           </div>
@@ -289,6 +304,15 @@ function WordItem({
             )}
           </div>
           <p className="text-gray-600 mt-0.5">{word.japanese}</p>
+          {/* Example sentence (Pro feature) */}
+          {word.exampleSentence && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <p className="text-sm text-gray-700 italic">{word.exampleSentence}</p>
+              {word.exampleSentenceJa && (
+                <p className="text-xs text-gray-500 mt-0.5">{word.exampleSentenceJa}</p>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
           <button

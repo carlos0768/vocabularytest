@@ -8,8 +8,17 @@ export interface Word {
   english: string;
   japanese: string;
   distractors: string[]; // 3 wrong answers for quiz
+  exampleSentence?: string; // Example sentence using the word (Pro feature)
+  exampleSentenceJa?: string; // Japanese translation of example sentence
   status: WordStatus;
   createdAt: string; // ISO string
+  // Spaced repetition fields (SM-2 algorithm)
+  lastReviewedAt?: string; // ISO string - when last reviewed
+  nextReviewAt?: string; // ISO string - when to review next
+  easeFactor: number; // SM-2 ease factor (default 2.5)
+  intervalDays: number; // Days until next review (default 0)
+  repetition: number; // Number of successful repetitions (default 0)
+  // Favorite marking
   isFavorite: boolean; // User marked as difficult/important
 }
 
@@ -26,6 +35,8 @@ export interface AIWordExtraction {
   english: string;
   japanese: string;
   distractors: string[];
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
 }
 
 export interface AIResponse {
@@ -55,7 +66,7 @@ export interface WordRepository {
   deleteProject(id: string): Promise<void>;
 
   // Words
-  createWords(words: Omit<Word, 'id' | 'createdAt' | 'isFavorite'>[]): Promise<Word[]>;
+  createWords(words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite'>[]): Promise<Word[]>;
   getWords(projectId: string): Promise<Word[]>;
   getWord(id: string): Promise<Word | undefined>;
   updateWord(id: string, updates: Partial<Word>): Promise<void>;

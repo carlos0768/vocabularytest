@@ -187,11 +187,11 @@ export default function Dashboard() {
         )
       );
 
-      // Call API
+      // Call API (Pro users get example sentences)
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ image: base64, isPro }),
       });
 
       const result = await response.json();
