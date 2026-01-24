@@ -138,6 +138,8 @@ export default function ConfirmPage() {
           english: w.english,
           japanese: w.japanese,
           distractors: w.distractors,
+          exampleSentence: w.exampleSentence,
+          exampleSentenceJa: w.exampleSentenceJa,
           status: 'new' as const,
         }))
       );

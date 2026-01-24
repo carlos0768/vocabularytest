@@ -1,18 +1,37 @@
 import OpenAI from 'openai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
-import { WORD_EXTRACTION_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE } from './prompts';
+import {
+  WORD_EXTRACTION_SYSTEM_PROMPT,
+  USER_PROMPT_TEMPLATE,
+  WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT,
+  USER_PROMPT_WITH_EXAMPLES_TEMPLATE,
+} from './prompts';
 
 export type ExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string };
 
+export interface ExtractionOptions {
+  includeExamples?: boolean; // Pro feature: include example sentences
+}
+
 // Extracts words from an image using OpenAI's vision API
 // Returns validated word data or an error message
 export async function extractWordsFromImage(
   imageBase64: string,
-  apiKey: string
+  apiKey: string,
+  options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
   const openai = new OpenAI({ apiKey });
+  const { includeExamples = false } = options;
+
+  // Select prompts based on whether examples are requested (Pro feature)
+  const systemPrompt = includeExamples
+    ? WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT
+    : WORD_EXTRACTION_SYSTEM_PROMPT;
+  const userPrompt = includeExamples
+    ? USER_PROMPT_WITH_EXAMPLES_TEMPLATE
+    : USER_PROMPT_TEMPLATE;
 
   try {
     const response = await openai.chat.completions.create({
@@ -21,14 +40,14 @@ export async function extractWordsFromImage(
       messages: [
         {
           role: 'system',
-          content: WORD_EXTRACTION_SYSTEM_PROMPT,
+          content: systemPrompt,
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: USER_PROMPT_TEMPLATE,
+              text: userPrompt,
             },
             {
               type: 'image_url',

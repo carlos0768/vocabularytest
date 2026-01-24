@@ -7,7 +7,7 @@ import { extractWordsFromImage } from '@/lib/ai';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { image } = body as { image?: string };
+    const { image, isPro } = body as { image?: string; isPro?: boolean };
 
     if (!image) {
       return NextResponse.json(
@@ -27,7 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract words using OpenAI
-    const result = await extractWordsFromImage(image, apiKey);
+    // Pro users get example sentences included
+    const result = await extractWordsFromImage(image, apiKey, {
+      includeExamples: isPro === true,
+    });
 
     if (!result.success) {
       return NextResponse.json(

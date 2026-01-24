@@ -18,7 +18,8 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "ノートやプリントを撮影して単語を抽出するために使用します",
-        "NSPhotoLibraryUsageDescription": "写真から単語を抽出するために使用します"
+        "NSPhotoLibraryUsageDescription": "写真から単語を抽出するために使用します",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -32,7 +33,8 @@
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -44,8 +46,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "651ce90a-7400-4c4c-958b-528e74459a76"
       }
-    }
+    },
+    "owner": "carlosalrashid"
   }
 }

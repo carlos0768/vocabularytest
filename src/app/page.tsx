@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap, Check } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap, Check, Heart } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
   const [totalMastered, setTotalMastered] = useState(0);
   const [totalWords, setTotalWords] = useState(0);
+  const [totalFavorites, setTotalFavorites] = useState(0);
   const [showStats, setShowStats] = useState(true);
 
   // Modals
@@ -78,19 +79,22 @@ export default function Dashboard() {
       const data = await repository.getProjects(userId);
       setProjects(data);
 
-      // Load word counts for each project and count mastered words
+      // Load word counts for each project and count mastered/favorite words
       const counts: Record<string, number> = {};
       let mastered = 0;
       let total = 0;
+      let favorites = 0;
       for (const project of data) {
         const words = await repository.getWords(project.id);
         counts[project.id] = words.length;
         total += words.length;
         mastered += words.filter(w => w.status === 'mastered').length;
+        favorites += words.filter(w => w.isFavorite).length;
       }
       setProjectWordCounts(counts);
       setTotalMastered(mastered);
       setTotalWords(total);
+      setTotalFavorites(favorites);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -183,11 +187,11 @@ export default function Dashboard() {
         )
       );
 
-      // Call API
+      // Call API (Pro users get example sentences)
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ image: base64, isPro }),
       });
 
       const result = await response.json();
@@ -308,6 +312,19 @@ export default function Dashboard() {
                   `${scanInfo.count}/${FREE_DAILY_SCAN_LIMIT}`
                 )}
               </span>
+
+              {/* Favorites link */}
+              <Link
+                href="/favorites"
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors relative"
+              >
+                <Heart className={`w-5 h-5 ${totalFavorites > 0 ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                {totalFavorites > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
+                    {totalFavorites > 9 ? '9+' : totalFavorites}
+                  </span>
+                )}
+              </Link>
 
               {/* Settings - always visible */}
               <Link

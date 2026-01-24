@@ -9,6 +9,9 @@ export const AIWordSchema = z.object({
   distractors: z
     .array(z.string().min(1))
     .length(3, 'Exactly 3 distractors required'),
+  // Optional example sentence fields (Pro feature)
+  exampleSentence: z.string().optional(),
+  exampleSentenceJa: z.string().optional(),
 });
 
 export const AIResponseSchema = z.object({

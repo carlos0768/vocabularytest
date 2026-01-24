@@ -16,6 +16,18 @@ export class ScanVocabDB extends Dexie {
       projects: 'id, userId, createdAt',
       words: 'id, projectId, status, createdAt',
     });
+
+    // Version 2: Add spaced repetition fields
+    this.version(2).stores({
+      projects: 'id, userId, createdAt',
+      words: 'id, projectId, status, createdAt, nextReviewAt',
+    });
+
+    // Version 3: Add isFavorite for favorite marking
+    this.version(3).stores({
+      projects: 'id, userId, createdAt',
+      words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite',
+    });
   }
 }
 
