@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.scanvocab.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "ノートやプリントを撮影して単語を抽出するために使用します",
         "NSPhotoLibraryUsageDescription": "写真から単語を抽出するために使用します"
@@ -28,6 +29,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.scanvocab.app",
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE"
@@ -38,8 +40,12 @@
     },
     "plugins": [
       "expo-camera",
-      "expo-image-picker",
-      "expo-secure-store"
-    ]
+      "expo-image-picker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
   }
 }
