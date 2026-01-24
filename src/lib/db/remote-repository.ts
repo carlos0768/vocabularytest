@@ -38,6 +38,7 @@ export class RemoteWordRepository implements WordRepository {
       userId: data.user_id,
       title: data.title,
       createdAt: data.created_at,
+      shareId: data.share_id,
     };
   }
 
@@ -55,6 +56,7 @@ export class RemoteWordRepository implements WordRepository {
       userId: p.user_id,
       title: p.title,
       createdAt: p.created_at,
+      shareId: p.share_id,
     }));
   }
 
@@ -75,15 +77,18 @@ export class RemoteWordRepository implements WordRepository {
       userId: data.user_id,
       title: data.title,
       createdAt: data.created_at,
+      shareId: data.share_id,
     };
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<void> {
+    const updateData: Record<string, unknown> = {};
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
+
     const { error } = await this.supabase
       .from('projects')
-      .update({
-        title: updates.title,
-      })
+      .update(updateData)
       .eq('id', id);
 
     if (error) throw new Error(`Failed to update project: ${error.message}`);
@@ -236,6 +241,121 @@ export class RemoteWordRepository implements WordRepository {
       .eq('project_id', projectId);
 
     if (error) throw new Error(`Failed to delete words: ${error.message}`);
+  }
+
+  // ============ Share Methods ============
+
+  /**
+   * Generate a unique share ID for a project
+   */
+  async generateShareId(projectId: string): Promise<string> {
+    // Generate a random 12-character alphanumeric string
+    const shareId = Array.from(crypto.getRandomValues(new Uint8Array(9)))
+      .map((b) => b.toString(36).padStart(2, '0'))
+      .join('')
+      .slice(0, 12);
+
+    const { error } = await this.supabase
+      .from('projects')
+      .update({ share_id: shareId })
+      .eq('id', projectId);
+
+    if (error) throw new Error(`Failed to generate share ID: ${error.message}`);
+
+    return shareId;
+  }
+
+  /**
+   * Get a project by its share ID
+   */
+  async getProjectByShareId(shareId: string): Promise<Project | undefined> {
+    const { data, error } = await this.supabase
+      .from('projects')
+      .select('*')
+      .eq('share_id', shareId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw new Error(`Failed to get shared project: ${error.message}`);
+    }
+
+    return {
+      id: data.id,
+      userId: data.user_id,
+      title: data.title,
+      createdAt: data.created_at,
+      shareId: data.share_id,
+    };
+  }
+
+  /**
+   * Get words for a shared project
+   */
+  async getWordsByShareId(shareId: string): Promise<Word[]> {
+    // First get the project to get its ID
+    const project = await this.getProjectByShareId(shareId);
+    if (!project) return [];
+
+    const { data, error } = await this.supabase
+      .from('words')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to get shared words: ${error.message}`);
+
+    const defaultSR = getDefaultSpacedRepetitionFields();
+    return data.map((w) => ({
+      id: w.id,
+      projectId: w.project_id,
+      english: w.english,
+      japanese: w.japanese,
+      distractors: w.distractors,
+      status: w.status,
+      createdAt: w.created_at,
+      lastReviewedAt: w.last_reviewed_at,
+      nextReviewAt: w.next_review_at,
+      easeFactor: w.ease_factor ?? defaultSR.easeFactor,
+      intervalDays: w.interval_days ?? defaultSR.intervalDays,
+      repetition: w.repetition ?? defaultSR.repetition,
+      isFavorite: w.is_favorite ?? false,
+    }));
+  }
+
+  /**
+   * Import a shared project (copy to user's own projects)
+   */
+  async importSharedProject(shareId: string, newUserId: string): Promise<Project> {
+    // Get the shared project
+    const sharedProject = await this.getProjectByShareId(shareId);
+    if (!sharedProject) {
+      throw new Error('Shared project not found');
+    }
+
+    // Get words from the shared project
+    const sharedWords = await this.getWordsByShareId(shareId);
+
+    // Create a new project for the user
+    const newProject = await this.createProject({
+      userId: newUserId,
+      title: `${sharedProject.title} (コピー)`,
+    });
+
+    // Copy words to the new project (reset status to 'new')
+    if (sharedWords.length > 0) {
+      const wordsToCreate = sharedWords.map((w) => ({
+        projectId: newProject.id,
+        english: w.english,
+        japanese: w.japanese,
+        distractors: w.distractors,
+        status: 'new' as const,
+      }));
+
+      await this.createWords(wordsToCreate);
+    }
+
+    return newProject;
   }
 }
 

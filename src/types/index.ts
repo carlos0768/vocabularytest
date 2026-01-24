@@ -28,6 +28,7 @@ export interface Project {
   title: string;
   createdAt: string; // ISO string
   isSynced?: boolean; // Local-only flag for cloud sync status
+  shareId?: string; // Unique share ID for URL sharing (null = private)
 }
 
 // AI Response types
