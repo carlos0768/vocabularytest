@@ -40,9 +40,15 @@ CREATE TABLE IF NOT EXISTS subscription_sessions (
 
 ALTER TABLE subscription_sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own subscription sessions"
+  ON subscription_sessions;
+
 CREATE POLICY "Users can view own subscription sessions"
   ON subscription_sessions FOR SELECT
   USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create own subscription sessions"
+  ON subscription_sessions;
 
 CREATE POLICY "Users can create own subscription sessions"
   ON subscription_sessions FOR INSERT
