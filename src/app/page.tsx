@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag, Play, Layers, BookText, Lock } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
@@ -477,14 +477,14 @@ export default function Dashboard() {
       )}
 
       {/* Main content */}
-      <main className="pb-4">
+      <main className="max-w-2xl mx-auto px-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
           </div>
         ) : projects.length === 0 ? (
           /* Empty state */
-          <div className="text-center py-12 max-w-2xl mx-auto px-4">
+          <div className="text-center py-12">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <BookOpen className="w-7 h-7 text-gray-400" />
             </div>
@@ -506,132 +506,16 @@ export default function Dashboard() {
             )}
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* プロジェクト一覧 */}
-            <section>
-              <h2 className="text-sm font-medium text-gray-500 px-4 mb-3 max-w-2xl mx-auto">
-                プロジェクト一覧
-              </h2>
-              <div className="overflow-x-auto scrollbar-hide">
-                <div className="flex gap-3 px-4 pb-2" style={{ width: 'max-content' }}>
-                  {projects.map((project) => (
-                    <Link
-                      key={project.id}
-                      href={`/project/${project.id}`}
-                      className="flex-shrink-0 w-40 h-28 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Play className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs text-gray-500">
-                          {projectWordCounts[project.id] || 0}語
-                        </span>
-                      </div>
-                      <p className="font-medium text-sm text-gray-900 line-clamp-2">{project.title}</p>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* フラッシュカード一覧 (Pro) */}
-            <section>
-              <div className="flex items-center gap-2 px-4 mb-3 max-w-2xl mx-auto">
-                <h2 className="text-sm font-medium text-gray-500">
-                  フラッシュカード
-                </h2>
-                {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                    <Lock className="w-3 h-3" />
-                    Pro
-                  </span>
-                )}
-              </div>
-              <div className="overflow-x-auto scrollbar-hide">
-                <div className="flex gap-3 px-4 pb-2" style={{ width: 'max-content' }}>
-                  {projects.map((project) => (
-                    isPro ? (
-                      <Link
-                        key={project.id}
-                        href={`/flashcard/${project.id}`}
-                        className="flex-shrink-0 w-40 h-28 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-blue-600" />
-                          <span className="text-xs text-gray-500">
-                            {projectWordCounts[project.id] || 0}語
-                          </span>
-                        </div>
-                        <p className="font-medium text-sm text-gray-900 line-clamp-2">{project.title}</p>
-                      </Link>
-                    ) : (
-                      <div
-                        key={project.id}
-                        onClick={() => router.push('/subscription')}
-                        className="flex-shrink-0 w-40 h-28 bg-gray-50 border border-gray-200 rounded-2xl p-4 flex flex-col justify-between cursor-pointer hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs text-gray-400">
-                            {projectWordCounts[project.id] || 0}語
-                          </span>
-                        </div>
-                        <p className="font-medium text-sm text-gray-400 line-clamp-2">{project.title}</p>
-                      </div>
-                    )
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* 単語帳一覧 (Pro) */}
-            <section>
-              <div className="flex items-center gap-2 px-4 mb-3 max-w-2xl mx-auto">
-                <h2 className="text-sm font-medium text-gray-500">
-                  単語帳
-                </h2>
-                {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                    <Lock className="w-3 h-3" />
-                    Pro
-                  </span>
-                )}
-              </div>
-              <div className="overflow-x-auto scrollbar-hide">
-                <div className="flex gap-3 px-4 pb-2" style={{ width: 'max-content' }}>
-                  {projects.map((project) => (
-                    isPro ? (
-                      <Link
-                        key={project.id}
-                        href={`/wordbook/${project.id}`}
-                        className="flex-shrink-0 w-40 h-28 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center gap-2">
-                          <BookText className="w-4 h-4 text-blue-600" />
-                          <span className="text-xs text-gray-500">
-                            {projectWordCounts[project.id] || 0}語
-                          </span>
-                        </div>
-                        <p className="font-medium text-sm text-gray-900 line-clamp-2">{project.title}</p>
-                      </Link>
-                    ) : (
-                      <div
-                        key={project.id}
-                        onClick={() => router.push('/subscription')}
-                        className="flex-shrink-0 w-40 h-28 bg-gray-50 border border-gray-200 rounded-2xl p-4 flex flex-col justify-between cursor-pointer hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs text-gray-400">
-                            {projectWordCounts[project.id] || 0}語
-                          </span>
-                        </div>
-                        <p className="font-medium text-sm text-gray-400 line-clamp-2">{project.title}</p>
-                      </div>
-                    )
-                  ))}
-                </div>
-              </div>
-            </section>
+          /* Project list */
+          <div className="space-y-2">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                wordCount={projectWordCounts[project.id] || 0}
+                onDelete={handleDeleteProject}
+              />
+            ))}
           </div>
         )}
       </main>

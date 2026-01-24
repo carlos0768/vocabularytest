@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Flag, Share2, Link as LinkIcon, Check } from 'lucide-react';
+import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Flag, Share2, Link as LinkIcon, Check, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -229,17 +229,25 @@ export default function ProjectPage() {
                 </Button>
               </Link>
               {isPro && (
-                <Link href={`/review/${projectId}`}>
-                  <Button size="lg" variant="secondary">
-                    <Brain className="w-5 h-5 mr-2" />
-                    復習
-                    {reviewDueCount > 0 && (
-                      <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                        {reviewDueCount}
-                      </span>
-                    )}
-                  </Button>
-                </Link>
+                <>
+                  <Link href={`/flashcard/${projectId}`}>
+                    <Button size="lg" variant="secondary">
+                      <Layers className="w-5 h-5 mr-2" />
+                      カード
+                    </Button>
+                  </Link>
+                  <Link href={`/review/${projectId}`}>
+                    <Button size="lg" variant="secondary">
+                      <Brain className="w-5 h-5 mr-2" />
+                      復習
+                      {reviewDueCount > 0 && (
+                        <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                          {reviewDueCount}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                </>
               )}
             </div>
           </div>
