@@ -101,7 +101,7 @@ export class RemoteWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'isFavorite'>[]
   ): Promise<Word[]> {
     const wordsToInsert = words.map((w) => ({
       project_id: w.projectId,
@@ -109,6 +109,7 @@ export class RemoteWordRepository implements WordRepository {
       japanese: w.japanese,
       distractors: w.distractors,
       status: w.status,
+      is_favorite: false,
     }));
 
     const { data, error } = await this.supabase
@@ -126,6 +127,7 @@ export class RemoteWordRepository implements WordRepository {
       distractors: w.distractors,
       status: w.status,
       createdAt: w.created_at,
+      isFavorite: w.is_favorite ?? false,
     }));
   }
 
@@ -146,6 +148,7 @@ export class RemoteWordRepository implements WordRepository {
       distractors: w.distractors,
       status: w.status,
       createdAt: w.created_at,
+      isFavorite: w.is_favorite ?? false,
     }));
   }
 
@@ -169,6 +172,7 @@ export class RemoteWordRepository implements WordRepository {
       distractors: data.distractors,
       status: data.status,
       createdAt: data.created_at,
+      isFavorite: data.is_favorite ?? false,
     };
   }
 
@@ -178,6 +182,7 @@ export class RemoteWordRepository implements WordRepository {
     if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
     if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
     if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
 
     const { error } = await this.supabase
       .from('words')
