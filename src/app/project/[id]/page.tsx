@@ -131,59 +131,41 @@ export default function ProjectPage() {
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="bg-blue-50 rounded-xl p-4 text-center">
-            <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
-              <BookOpen className="w-4 h-4" />
-            </div>
-            <p className="text-2xl font-bold text-blue-700">{stats.new}</p>
-            <p className="text-xs text-blue-600">新規</p>
+        {/* Stats - minimal style */}
+        <div className="flex justify-around py-4 mb-4">
+          <div className="text-center">
+            <p className={`text-2xl font-semibold ${stats.new > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{stats.new}</p>
+            <p className="text-xs text-gray-400">新規</p>
           </div>
-          <div className="bg-yellow-50 rounded-xl p-4 text-center">
-            <div className="flex items-center justify-center gap-1 text-yellow-600 mb-1">
-              <RefreshCw className="w-4 h-4" />
-            </div>
-            <p className="text-2xl font-bold text-yellow-700">{stats.review}</p>
-            <p className="text-xs text-yellow-600">復習中</p>
+          <div className="text-center">
+            <p className={`text-2xl font-semibold ${stats.review > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{stats.review}</p>
+            <p className="text-xs text-gray-400">復習中</p>
           </div>
-          <div className="bg-green-50 rounded-xl p-4 text-center">
-            <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-              <CheckCircle className="w-4 h-4" />
-            </div>
-            <p className="text-2xl font-bold text-green-700">{stats.mastered}</p>
-            <p className="text-xs text-green-600">習得済み</p>
+          <div className="text-center">
+            <p className={`text-2xl font-semibold ${stats.mastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{stats.mastered}</p>
+            <p className="text-xs text-gray-400">習得</p>
           </div>
         </div>
 
         {/* Action buttons */}
         {words.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-3 mb-6">
+          <div className="flex justify-center gap-3 mb-6">
             <Link href={`/quiz/${projectId}`}>
               <Button size="lg">
                 <Play className="w-5 h-5 mr-2" />
                 クイズ
               </Button>
             </Link>
-            <Link href={`/review/${projectId}`}>
-              <Button size="lg" variant={isPro ? 'primary' : 'secondary'} className={isPro ? 'bg-purple-600 hover:bg-purple-700' : ''}>
-                <Brain className="w-5 h-5 mr-2" />
-                復習
-                {isPro && reviewDueCount > 0 && (
-                  <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                    {reviewDueCount}
-                  </span>
-                )}
-              </Button>
-            </Link>
-            {isPro && stats.favorites > 0 && (
-              <Link href={`/quiz/${projectId}/favorites`}>
-                <Button size="lg" className="bg-red-500 hover:bg-red-600">
-                  <Heart className="w-5 h-5 mr-2 fill-white" />
-                  苦手だけ
-                  <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                    {stats.favorites}
-                  </span>
+            {isPro && (
+              <Link href={`/review/${projectId}`}>
+                <Button size="lg" variant="secondary">
+                  <Brain className="w-5 h-5 mr-2" />
+                  復習
+                  {reviewDueCount > 0 && (
+                    <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                      {reviewDueCount}
+                    </span>
+                  )}
                 </Button>
               </Link>
             )}
@@ -256,9 +238,9 @@ function WordItem({
   const [japanese, setJapanese] = useState(word.japanese);
 
   const statusColors = {
-    new: 'bg-blue-100 text-blue-700',
-    review: 'bg-yellow-100 text-yellow-700',
-    mastered: 'bg-green-100 text-green-700',
+    new: 'bg-gray-100 text-gray-600',
+    review: 'bg-gray-100 text-gray-600',
+    mastered: 'bg-emerald-50 text-emerald-600',
   };
 
   const statusLabels = {
