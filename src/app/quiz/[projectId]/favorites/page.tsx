@@ -8,7 +8,7 @@ import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
-import type { Word, QuizQuestion, WordStatus, SubscriptionStatus } from '@/types';
+import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 export default function FavoritesQuizPage() {
   const router = useRouter();
@@ -104,23 +104,6 @@ export default function FavoritesQuizPage() {
       correct: prev.correct + (isCorrect ? 1 : 0),
       total: prev.total + 1,
     }));
-
-    // Update word status in database
-    const word = currentQuestion.word;
-    let newStatus: WordStatus = word.status;
-
-    if (isCorrect) {
-      // Progress: new -> review -> mastered
-      if (word.status === 'new') newStatus = 'review';
-      else if (word.status === 'review') newStatus = 'mastered';
-    } else {
-      // Regress: mastered -> review, review stays review, new stays new
-      if (word.status === 'mastered') newStatus = 'review';
-    }
-
-    if (newStatus !== word.status) {
-      await repository.updateWord(word.id, { status: newStatus });
-    }
 
     // Auto-advance after correct answer
     if (isCorrect) {

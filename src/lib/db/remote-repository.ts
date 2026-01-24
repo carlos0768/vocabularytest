@@ -107,7 +107,7 @@ export class RemoteWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>[]
   ): Promise<Word[]> {
     const defaultSR = getDefaultSpacedRepetitionFields();
     const wordsToInsert = words.map((w) => ({
@@ -115,7 +115,9 @@ export class RemoteWordRepository implements WordRepository {
       english: w.english,
       japanese: w.japanese,
       distractors: w.distractors,
-      status: w.status,
+      example_sentence: w.exampleSentence,
+      example_sentence_ja: w.exampleSentenceJa,
+      status: 'new',
       ease_factor: defaultSR.easeFactor,
       interval_days: defaultSR.intervalDays,
       repetition: defaultSR.repetition,
@@ -135,7 +137,9 @@ export class RemoteWordRepository implements WordRepository {
       english: w.english,
       japanese: w.japanese,
       distractors: w.distractors,
-      status: w.status,
+      exampleSentence: w.example_sentence,
+      exampleSentenceJa: w.example_sentence_ja,
+      status: w.status ?? 'new',
       createdAt: w.created_at,
       lastReviewedAt: w.last_reviewed_at,
       nextReviewAt: w.next_review_at,
@@ -162,7 +166,9 @@ export class RemoteWordRepository implements WordRepository {
       english: w.english,
       japanese: w.japanese,
       distractors: w.distractors,
-      status: w.status,
+      exampleSentence: w.example_sentence,
+      exampleSentenceJa: w.example_sentence_ja,
+      status: w.status ?? 'new',
       createdAt: w.created_at,
       lastReviewedAt: w.last_reviewed_at,
       nextReviewAt: w.next_review_at,
@@ -192,7 +198,9 @@ export class RemoteWordRepository implements WordRepository {
       english: data.english,
       japanese: data.japanese,
       distractors: data.distractors,
-      status: data.status,
+      exampleSentence: data.example_sentence,
+      exampleSentenceJa: data.example_sentence_ja,
+      status: data.status ?? 'new',
       createdAt: data.created_at,
       lastReviewedAt: data.last_reviewed_at,
       nextReviewAt: data.next_review_at,
@@ -312,7 +320,9 @@ export class RemoteWordRepository implements WordRepository {
       english: w.english,
       japanese: w.japanese,
       distractors: w.distractors,
-      status: w.status,
+      exampleSentence: w.example_sentence,
+      exampleSentenceJa: w.example_sentence_ja,
+      status: w.status ?? 'new',
       createdAt: w.created_at,
       lastReviewedAt: w.last_reviewed_at,
       nextReviewAt: w.next_review_at,
@@ -342,14 +352,15 @@ export class RemoteWordRepository implements WordRepository {
       title: `${sharedProject.title} (コピー)`,
     });
 
-    // Copy words to the new project (reset status to 'new')
+    // Copy words to the new project
     if (sharedWords.length > 0) {
       const wordsToCreate = sharedWords.map((w) => ({
         projectId: newProject.id,
         english: w.english,
         japanese: w.japanese,
         distractors: w.distractors,
-        status: 'new' as const,
+        exampleSentence: w.exampleSentence,
+        exampleSentenceJa: w.exampleSentenceJa,
       }));
 
       await this.createWords(wordsToCreate);

@@ -64,9 +64,6 @@ export default function ProjectPage() {
 
   const stats = {
     total: words.length,
-    new: words.filter((w) => w.status === 'new').length,
-    review: words.filter((w) => w.status === 'review').length,
-    mastered: words.filter((w) => w.status === 'mastered').length,
     favorites: words.filter((w) => w.isFavorite).length,
   };
 
@@ -178,22 +175,6 @@ export default function ProjectPage() {
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="flex justify-around py-4 mb-4">
-          <div className="text-center">
-            <p className={`text-2xl font-semibold ${stats.new > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{stats.new}</p>
-            <p className="text-xs text-gray-500">新規</p>
-          </div>
-          <div className="text-center">
-            <p className={`text-2xl font-semibold ${stats.review > 0 ? 'text-amber-500' : 'text-gray-300'}`}>{stats.review}</p>
-            <p className="text-xs text-gray-500">復習中</p>
-          </div>
-          <div className="text-center">
-            <p className={`text-2xl font-semibold ${stats.mastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{stats.mastered}</p>
-            <p className="text-xs text-gray-500">習得</p>
-          </div>
-        </div>
-
         {/* Action buttons */}
         {words.length > 0 && (
           <div className="flex justify-center gap-3 mb-6">
@@ -284,18 +265,6 @@ function WordItem({
   const [english, setEnglish] = useState(word.english);
   const [japanese, setJapanese] = useState(word.japanese);
 
-  const statusColors = {
-    new: 'bg-blue-50 text-blue-600',
-    review: 'bg-amber-50 text-amber-600',
-    mastered: 'bg-emerald-50 text-emerald-600',
-  };
-
-  const statusLabels = {
-    new: '新規',
-    review: '復習中',
-    mastered: '習得済み',
-  };
-
   if (isEditing) {
     return (
       <div className="bg-white rounded-xl border-2 border-blue-500 p-4">
@@ -334,11 +303,6 @@ function WordItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-medium text-gray-900">{word.english}</p>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${statusColors[word.status]}`}
-            >
-              {statusLabels[word.status]}
-            </span>
             {word.isFavorite && (
               <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
             )}

@@ -48,7 +48,7 @@ export class LocalWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt'>[]
   ): Promise<Word[]> {
     const now = new Date().toISOString();
     const defaultSR = getDefaultSpacedRepetitionFields();

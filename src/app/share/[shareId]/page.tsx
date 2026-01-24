@@ -97,13 +97,6 @@ export default function SharedProjectPage() {
     return null;
   }
 
-  const stats = {
-    total: words.length,
-    new: words.filter((w) => w.status === 'new').length,
-    review: words.filter((w) => w.status === 'review').length,
-    mastered: words.filter((w) => w.status === 'mastered').length,
-  };
-
   return (
     <div className="min-h-screen pb-24">
       {/* Header */}
@@ -118,7 +111,7 @@ export default function SharedProjectPage() {
             </Link>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-semibold truncate">{project.title}</h1>
-              <p className="text-xs text-gray-500">共有された単語帳</p>
+              <p className="text-xs text-gray-500">共有された単語帳 ({words.length}語)</p>
             </div>
           </div>
         </div>
@@ -126,20 +119,6 @@ export default function SharedProjectPage() {
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="flex justify-around py-4 mb-4">
-          <div className="text-center">
-            <p className="text-2xl font-semibold text-gray-800">{stats.total}</p>
-            <p className="text-xs text-gray-400">全体</p>
-          </div>
-          <div className="text-center">
-            <p className={`text-2xl font-semibold ${stats.mastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
-              {stats.mastered}
-            </p>
-            <p className="text-xs text-gray-400">習得済み</p>
-          </div>
-        </div>
-
         {/* Import button */}
         <div className="flex justify-center mb-6">
           {imported ? (

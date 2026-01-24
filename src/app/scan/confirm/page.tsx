@@ -35,10 +35,11 @@ export default function ConfirmPage() {
   const selectedCount = words.filter(w => w.isSelected).length;
   const showLimitWarning = !isPro && wouldExceed;
 
-  // Load extracted words from session storage
+  // Load extracted words and project name from session storage
   useEffect(() => {
     setMounted(true);
     const stored = sessionStorage.getItem('scanvocab_extracted_words');
+    const storedProjectName = sessionStorage.getItem('scanvocab_project_name');
     if (stored) {
       try {
         const parsed: AIWordExtraction[] = JSON.parse(stored);
@@ -50,11 +51,15 @@ export default function ConfirmPage() {
             isSelected: true, // All selected by default
           }))
         );
-        // Set default title based on date
-        const now = new Date();
-        setProjectTitle(
-          `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
-        );
+        // Use stored project name or default title based on date
+        if (storedProjectName) {
+          setProjectTitle(storedProjectName);
+        } else {
+          const now = new Date();
+          setProjectTitle(
+            `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
+          );
+        }
       } catch {
         router.push('/');
       }
@@ -140,12 +145,12 @@ export default function ConfirmPage() {
           distractors: w.distractors,
           exampleSentence: w.exampleSentence,
           exampleSentenceJa: w.exampleSentenceJa,
-          status: 'new' as const,
         }))
       );
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
+      sessionStorage.removeItem('scanvocab_project_name');
 
       // Refresh word count
       refreshWordCount();

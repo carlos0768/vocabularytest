@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap, Check, Flag } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
@@ -13,6 +13,75 @@ import { getRepository } from '@/lib/db';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, getStreakDays, getDailyStats, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project } from '@/types';
+
+// Project name input modal component
+function ProjectNameModal({
+  isOpen,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const [name, setName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName('');
+      // Focus input after modal opens
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    if (trimmedName) {
+      onConfirm(trimmedName);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+          単語帳の名前
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例: 英語テスト対策"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            maxLength={50}
+          />
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={!name.trim()}
+              className="flex-1 py-2.5 bg-blue-600 rounded-lg text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              次へ
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 // Processing modal component
 function ProcessingModal({
@@ -58,7 +127,6 @@ export default function Dashboard() {
   const [scanInfo, setScanInfo] = useState({ count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true });
   const [streakDays, setStreakDays] = useState(0);
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
-  const [totalMastered, setTotalMastered] = useState(0);
   const [totalWords, setTotalWords] = useState(0);
   const [totalFavorites, setTotalFavorites] = useState(0);
   const [showStats, setShowStats] = useState(true);
@@ -66,6 +134,8 @@ export default function Dashboard() {
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+  const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // Get repository based on subscription status
   const subscriptionStatus = subscription?.status || 'free';
@@ -81,18 +151,15 @@ export default function Dashboard() {
 
       // Load word counts for each project and count mastered/favorite words
       const counts: Record<string, number> = {};
-      let mastered = 0;
       let total = 0;
       let favorites = 0;
       for (const project of data) {
         const words = await repository.getWords(project.id);
         counts[project.id] = words.length;
         total += words.length;
-        mastered += words.filter(w => w.status === 'mastered').length;
         favorites += words.filter(w => w.isFavorite).length;
       }
       setProjectWordCounts(counts);
-      setTotalMastered(mastered);
       setTotalWords(total);
       setTotalFavorites(favorites);
     } catch (error) {
@@ -157,6 +224,21 @@ export default function Dashboard() {
       setShowWordLimitModal(true);
       return;
     }
+
+    // Store file and show project name modal
+    setPendingFile(file);
+    setShowProjectNameModal(true);
+  };
+
+  const handleProjectNameConfirm = async (projectName: string) => {
+    setShowProjectNameModal(false);
+    const file = pendingFile;
+    setPendingFile(null);
+
+    if (!file) return;
+
+    // Store project name for confirm page
+    sessionStorage.setItem('scanvocab_project_name', projectName);
 
     setProcessing(true);
     setProcessingSteps([
@@ -383,15 +465,6 @@ export default function Dashboard() {
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Gem className="w-4 h-4 text-emerald-500" />
-              </div>
-              <p className={`text-2xl font-semibold ${totalMastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
-                {totalMastered}
-              </p>
-              <p className="text-xs text-gray-400">習得</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
                 <Zap className="w-4 h-4 text-amber-500" />
               </div>
               <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
@@ -477,6 +550,16 @@ export default function Dashboard() {
         isOpen={showWordLimitModal}
         onClose={() => setShowWordLimitModal(false)}
         currentCount={totalWords}
+      />
+
+      {/* Project name modal */}
+      <ProjectNameModal
+        isOpen={showProjectNameModal}
+        onClose={() => {
+          setShowProjectNameModal(false);
+          setPendingFile(null);
+        }}
+        onConfirm={handleProjectNameConfirm}
       />
     </div>
   );

@@ -10,7 +10,7 @@ export interface Word {
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence
-  status: WordStatus;
+  status: WordStatus; // Learning status
   createdAt: string; // ISO string
   // Spaced repetition fields (SM-2 algorithm)
   lastReviewedAt?: string; // ISO string - when last reviewed
@@ -67,7 +67,7 @@ export interface WordRepository {
   deleteProject(id: string): Promise<void>;
 
   // Words
-  createWords(words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite'>[]): Promise<Word[]>;
+  createWords(words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>[]): Promise<Word[]>;
   getWords(projectId: string): Promise<Word[]>;
   getWord(id: string): Promise<Word | undefined>;
   updateWord(id: string, updates: Partial<Word>): Promise<void>;
