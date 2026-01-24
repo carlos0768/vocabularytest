@@ -1,24 +1,36 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 import type { Project } from '@/types';
+import type { SubscriptionStatus } from '@/types';
 
-// Hook for managing projects with local IndexedDB
+// Hook for managing projects with appropriate storage based on subscription
 export function useProjects() {
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const repository = getRepository('free');
+  // Get repository based on subscription status
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Get user ID based on authentication status
+  const userId = useMemo(() => {
+    return isPro && user ? user.id : getGuestUserId();
+  }, [isPro, user]);
 
   // Load projects
   const loadProjects = useCallback(async () => {
+    // Wait for auth to be ready
+    if (authLoading) return;
+
     try {
       setLoading(true);
       setError(null);
-      const userId = getGuestUserId();
       const data = await repository.getProjects(userId);
       setProjects(data);
     } catch (e) {
@@ -27,13 +39,12 @@ export function useProjects() {
     } finally {
       setLoading(false);
     }
-  }, [repository]);
+  }, [repository, userId, authLoading]);
 
   // Create project
   const createProject = useCallback(
     async (title: string): Promise<Project | null> => {
       try {
-        const userId = getGuestUserId();
         const project = await repository.createProject({ userId, title });
         setProjects((prev) => [project, ...prev]);
         return project;
@@ -43,7 +54,7 @@ export function useProjects() {
         return null;
       }
     },
-    [repository]
+    [repository, userId]
   );
 
   // Delete project
@@ -80,10 +91,12 @@ export function useProjects() {
     [repository]
   );
 
-  // Initial load
+  // Initial load - wait for auth to be ready
   useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+    if (!authLoading) {
+      loadProjects();
+    }
+  }, [authLoading, loadProjects]);
 
   return {
     projects,

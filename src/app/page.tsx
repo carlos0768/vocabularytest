@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap, Check } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
-import { ProgressSteps, type ProgressStep } from '@/components/ui';
+import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
+import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { getRepository } from '@/lib/db';
-import { getDailyScanInfo, incrementScanCount, getGuestUserId, getStreakDays, getDailyStats } from '@/lib/utils';
+import { getDailyScanInfo, incrementScanCount, getGuestUserId, getStreakDays, getDailyStats, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project } from '@/types';
 
@@ -45,28 +47,33 @@ function ProcessingModal({
 export default function Dashboard() {
   const router = useRouter();
   const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
+  const { count: wordCount, isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
+  const { showToast } = useToast();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectWordCounts, setProjectWordCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 10, canScan: true });
+  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true });
   const [streakDays, setStreakDays] = useState(0);
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
   const [totalMastered, setTotalMastered] = useState(0);
+  const [totalWords, setTotalWords] = useState(0);
   const [showStats, setShowStats] = useState(true);
+
+  // Modals
+  const [showScanLimitModal, setShowScanLimitModal] = useState(false);
+  const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
   // Get repository based on subscription status
   const subscriptionStatus = subscription?.status || 'free';
-  const repository = getRepository(subscriptionStatus);
+  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Load projects
   const loadProjects = useCallback(async () => {
     try {
       setLoading(true);
-      // For local storage (free users), always use guest ID
-      // For remote storage (pro users), use authenticated user ID
       const userId = isPro && user ? user.id : getGuestUserId();
       const data = await repository.getProjects(userId);
       setProjects(data);
@@ -74,13 +81,16 @@ export default function Dashboard() {
       // Load word counts for each project and count mastered words
       const counts: Record<string, number> = {};
       let mastered = 0;
+      let total = 0;
       for (const project of data) {
         const words = await repository.getWords(project.id);
         counts[project.id] = words.length;
+        total += words.length;
         mastered += words.filter(w => w.status === 'mastered').length;
       }
       setProjectWordCounts(counts);
       setTotalMastered(mastered);
+      setTotalWords(total);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -108,17 +118,40 @@ export default function Dashboard() {
     }
   }, [authLoading, loadProjects]);
 
-  // Check if user can scan (Pro = unlimited, Free = 3/day)
+  // Check if user can scan (Pro = unlimited, Free = limited)
   const canScan = isPro || scanInfo.canScan;
+
+  // Get scan count display info
+  const getScanCountColor = () => {
+    if (isPro) return 'text-emerald-600';
+    if (scanInfo.remaining <= 0) return 'text-gray-400';
+    if (scanInfo.remaining <= 2) return 'text-amber-500';
+    return 'text-gray-500';
+  };
+
+  // Get word count progress info
+  const wordCountPercentage = isPro ? 0 : Math.min(100, Math.round((totalWords / FREE_WORD_LIMIT) * 100));
+  const getWordCountColor = () => {
+    if (isPro) return 'bg-emerald-500';
+    if (wordCountPercentage >= 95) return 'bg-red-500';
+    if (wordCountPercentage >= 80) return 'bg-amber-500';
+    return 'bg-blue-500';
+  };
 
   const handleImageSelect = async (file: File) => {
     // Check scan limit for free users
     if (!isPro) {
       const currentScanInfo = getDailyScanInfo();
       if (!currentScanInfo.canScan) {
-        router.push('/subscription');
+        setShowScanLimitModal(true);
         return;
       }
+    }
+
+    // Check word limit for free users
+    if (!isPro && isAtLimit) {
+      setShowWordLimitModal(true);
+      return;
     }
 
     setProcessing(true);
@@ -183,7 +216,21 @@ export default function Dashboard() {
       // Increment scan count (only for free users)
       if (!isPro) {
         incrementScanCount();
-        setScanInfo(getDailyScanInfo());
+        const newScanInfo = getDailyScanInfo();
+        setScanInfo(newScanInfo);
+
+        // Show toast when 1 scan remaining (after 4th scan)
+        if (newScanInfo.remaining === 1) {
+          showToast({
+            message: '今日のスキャン残り1回。Proなら無制限',
+            type: 'warning',
+            action: {
+              label: '詳しく',
+              onClick: () => router.push('/subscription'),
+            },
+            duration: 4000,
+          });
+        }
       }
 
       // Store extracted words temporarily and navigate to confirm page
@@ -220,6 +267,7 @@ export default function Dashboard() {
     if (confirm('このプロジェクトを削除しますか？')) {
       await repository.deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
+      refreshWordCount();
     }
   };
 
@@ -228,10 +276,13 @@ export default function Dashboard() {
     ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
     : 0;
 
-  // Home page doesn't require auth - show UI immediately
-  // Auth state will update reactively when loaded
   return (
     <div className="min-h-screen bg-white pb-24">
+      {/* Word limit banner (95+ words) */}
+      {!isPro && isAlmostFull && (
+        <WordLimitBanner currentCount={totalWords} />
+      )}
+
       {/* Header */}
       <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
         <div className="max-w-2xl mx-auto px-4 py-3">
@@ -246,12 +297,17 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              {/* Scan limit (free users only) */}
-              {!isPro && (
-                <span className="text-xs text-gray-400">
-                  残り{scanInfo.remaining}回
-                </span>
-              )}
+              {/* Scan count */}
+              <span className={`text-xs font-medium ${getScanCountColor()}`}>
+                {isPro ? (
+                  <span className="flex items-center gap-1">
+                    無制限
+                    <Check className="w-3 h-3" />
+                  </span>
+                ) : (
+                  `${scanInfo.count}/${FREE_DAILY_SCAN_LIMIT}`
+                )}
+              </span>
 
               {/* Settings - always visible */}
               <Link
@@ -264,6 +320,27 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {/* Word count progress bar (free users only) */}
+      {!isPro && (
+        <div className="max-w-2xl mx-auto px-4 pt-2">
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+            <span>保存中の単語</span>
+            <span className={wordCountPercentage >= 95 ? 'text-red-500 font-medium' : ''}>
+              {totalWords}/{FREE_WORD_LIMIT}
+            </span>
+          </div>
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${getWordCountColor()} transition-all duration-300`}
+              style={{ width: `${wordCountPercentage}%` }}
+            />
+          </div>
+          {wordCountPercentage >= 95 && (
+            <p className="text-xs text-red-500 mt-1">まもなく上限</p>
+          )}
+        </div>
+      )}
 
       {/* Stats bar */}
       {showStats && (
@@ -356,7 +433,7 @@ export default function Dashboard() {
       {/* Floating action button */}
       <ScanButton
         onImageSelect={handleImageSelect}
-        disabled={processing || !canScan}
+        disabled={processing || (!isPro && !canScan)}
       />
 
       {/* Processing modal */}
@@ -370,6 +447,20 @@ export default function Dashboard() {
           }
         />
       )}
+
+      {/* Scan limit modal */}
+      <ScanLimitModal
+        isOpen={showScanLimitModal}
+        onClose={() => setShowScanLimitModal(false)}
+        todayWordsLearned={dailyStats.todayCount}
+      />
+
+      {/* Word limit modal */}
+      <WordLimitModal
+        isOpen={showWordLimitModal}
+        onClose={() => setShowWordLimitModal(false)}
+        currentCount={totalWords}
+      />
     </div>
   );
 }
