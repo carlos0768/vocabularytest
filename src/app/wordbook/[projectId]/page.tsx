@@ -94,7 +94,7 @@ export default function WordbookPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">単語帳を読み込み中...</p>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function WordbookPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 bg-white/90 backdrop-blur-sm border-b border-gray-200 z-40">
         <div className="max-w-2xl mx-auto px-4 py-3">
@@ -135,7 +135,7 @@ export default function WordbookPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="単語を検索..."
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             {searchQuery && (
               <button
@@ -173,8 +173,8 @@ export default function WordbookPage() {
             {letters.map(letter => (
               <div key={letter}>
                 {/* Letter header */}
-                <div className="sticky top-[73px] bg-emerald-100/80 backdrop-blur-sm px-3 py-1.5 rounded-lg mb-2 z-30">
-                  <span className="text-sm font-bold text-emerald-700">{letter}</span>
+                <div className="sticky top-[73px] bg-blue-50/80 backdrop-blur-sm px-3 py-1.5 rounded-lg mb-2 z-30">
+                  <span className="text-sm font-bold text-blue-600">{letter}</span>
                 </div>
 
                 {/* Words */}

@@ -94,7 +94,7 @@ export default function FlashcardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">フラッシュカードを準備中...</p>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function FlashcardPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-indigo-50 to-white">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="p-4 flex items-center justify-between">
         <button
@@ -159,7 +159,7 @@ export default function FlashcardPage() {
 
             {/* Back (Japanese) */}
             <div
-              className="absolute inset-0 bg-indigo-600 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center"
+              className="absolute inset-0 bg-blue-600 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center"
               style={{
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
