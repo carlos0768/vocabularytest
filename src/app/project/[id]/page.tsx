@@ -1,27 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
-import type { Project, Word } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
+  const { subscription, loading: authLoading } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
 
-  const repository = getRepository('free');
+  // Get repository based on subscription status
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Load project and words
   useEffect(() => {
+    // Wait for auth to be ready
+    if (authLoading) return;
+
     const loadData = async () => {
       try {
         const [projectData, wordsData] = await Promise.all([
@@ -45,7 +52,7 @@ export default function ProjectPage() {
     };
 
     loadData();
-  }, [projectId, repository, router]);
+  }, [projectId, repository, router, authLoading]);
 
   const stats = {
     total: words.length,

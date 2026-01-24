@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { X, ChevronRight, Trophy, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
-import type { Word, QuizQuestion, WordStatus } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import type { Word, QuizQuestion, WordStatus, SubscriptionStatus } from '@/types';
 
 export default function QuizPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.projectId as string;
+  const { subscription, loading: authLoading } = useAuth();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -25,7 +27,9 @@ export default function QuizPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const repository = getRepository('free');
+  // Get repository based on subscription status
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Generate quiz questions from words
   const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {
@@ -53,6 +57,9 @@ export default function QuizPage() {
 
   // Load words and create questions
   useEffect(() => {
+    // Wait for auth to be ready
+    if (authLoading) return;
+
     const loadWords = async () => {
       try {
         const words = await repository.getWords(projectId);
@@ -71,7 +78,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions]);
+  }, [projectId, repository, router, generateQuestions, authLoading]);
 
   const currentQuestion = questions[currentIndex];
 

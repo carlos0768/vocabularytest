@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getRepository } from '@/lib/db';
-import type { Word, WordStatus } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import type { Word, WordStatus, SubscriptionStatus } from '@/types';
 
 // Hook for managing words within a project
 export function useWords(projectId: string | null) {
+  const { subscription, loading: authLoading } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const repository = getRepository('free');
+  // Get repository based on subscription status
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Load words for project
   const loadWords = useCallback(async () => {
@@ -19,6 +23,9 @@ export function useWords(projectId: string | null) {
       setLoading(false);
       return;
     }
+
+    // Wait for auth to be ready
+    if (authLoading) return;
 
     try {
       setLoading(true);
@@ -31,7 +38,7 @@ export function useWords(projectId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [projectId, repository]);
+  }, [projectId, repository, authLoading]);
 
   // Add words (bulk)
   const addWords = useCallback(
@@ -116,10 +123,12 @@ export function useWords(projectId: string | null) {
     [repository]
   );
 
-  // Initial load
+  // Initial load - wait for auth to be ready
   useEffect(() => {
-    loadWords();
-  }, [loadWords]);
+    if (!authLoading) {
+      loadWords();
+    }
+  }, [authLoading, loadWords]);
 
   // Stats
   const stats = {
