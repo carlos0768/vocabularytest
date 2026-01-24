@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag, Play, Layers, BookText, Lock } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
@@ -477,14 +477,14 @@ export default function Dashboard() {
       )}
 
       {/* Main content */}
-      <main className="max-w-2xl mx-auto px-4">
+      <main className="pb-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
           </div>
         ) : projects.length === 0 ? (
           /* Empty state */
-          <div className="text-center py-12">
+          <div className="text-center py-12 max-w-2xl mx-auto px-4">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <BookOpen className="w-7 h-7 text-gray-400" />
             </div>
@@ -506,16 +506,132 @@ export default function Dashboard() {
             )}
           </div>
         ) : (
-          /* Project list */
-          <div className="space-y-2">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                wordCount={projectWordCounts[project.id] || 0}
-                onDelete={handleDeleteProject}
-              />
-            ))}
+          <div className="space-y-8">
+            {/* プロジェクト一覧 */}
+            <section>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-4 mb-3 max-w-2xl mx-auto">
+                プロジェクト一覧
+              </h2>
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-3 px-4 pb-2" style={{ width: 'max-content' }}>
+                  {projects.map((project) => (
+                    <Link
+                      key={project.id}
+                      href={`/project/${project.id}`}
+                      className="flex-shrink-0 w-40 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 flex flex-col justify-between text-white shadow-lg hover:shadow-xl transition-shadow"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Play className="w-5 h-5" />
+                        <span className="text-xs font-medium opacity-80">
+                          {projectWordCounts[project.id] || 0}語
+                        </span>
+                      </div>
+                      <p className="font-semibold text-sm line-clamp-2">{project.title}</p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* フラッシュカード一覧 (Pro) */}
+            <section>
+              <div className="flex items-center gap-2 px-4 mb-3 max-w-2xl mx-auto">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                  フラッシュカード
+                </h2>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                    <Lock className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-3 px-4 pb-2" style={{ width: 'max-content' }}>
+                  {projects.map((project) => (
+                    isPro ? (
+                      <Link
+                        key={project.id}
+                        href={`/flashcard/${project.id}`}
+                        className="flex-shrink-0 w-40 h-32 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 flex flex-col justify-between text-white shadow-lg hover:shadow-xl transition-shadow"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-5 h-5" />
+                          <span className="text-xs font-medium opacity-80">
+                            {projectWordCounts[project.id] || 0}語
+                          </span>
+                        </div>
+                        <p className="font-semibold text-sm line-clamp-2">{project.title}</p>
+                      </Link>
+                    ) : (
+                      <div
+                        key={project.id}
+                        onClick={() => router.push('/subscription')}
+                        className="flex-shrink-0 w-40 h-32 bg-gradient-to-br from-gray-300 to-gray-400 rounded-2xl p-4 flex flex-col justify-between text-white shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-5 h-5" />
+                          <span className="text-xs font-medium opacity-80">
+                            {projectWordCounts[project.id] || 0}語
+                          </span>
+                        </div>
+                        <p className="font-semibold text-sm line-clamp-2">{project.title}</p>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* 単語帳一覧 (Pro) */}
+            <section>
+              <div className="flex items-center gap-2 px-4 mb-3 max-w-2xl mx-auto">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                  単語帳
+                </h2>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                    <Lock className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-3 px-4 pb-2" style={{ width: 'max-content' }}>
+                  {projects.map((project) => (
+                    isPro ? (
+                      <Link
+                        key={project.id}
+                        href={`/wordbook/${project.id}`}
+                        className="flex-shrink-0 w-40 h-32 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 flex flex-col justify-between text-white shadow-lg hover:shadow-xl transition-shadow"
+                      >
+                        <div className="flex items-center gap-2">
+                          <BookText className="w-5 h-5" />
+                          <span className="text-xs font-medium opacity-80">
+                            {projectWordCounts[project.id] || 0}語
+                          </span>
+                        </div>
+                        <p className="font-semibold text-sm line-clamp-2">{project.title}</p>
+                      </Link>
+                    ) : (
+                      <div
+                        key={project.id}
+                        onClick={() => router.push('/subscription')}
+                        className="flex-shrink-0 w-40 h-32 bg-gradient-to-br from-gray-300 to-gray-400 rounded-2xl p-4 flex flex-col justify-between text-white shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-5 h-5" />
+                          <span className="text-xs font-medium opacity-80">
+                            {projectWordCounts[project.id] || 0}語
+                          </span>
+                        </div>
+                        <p className="font-semibold text-sm line-clamp-2">{project.title}</p>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            </section>
           </div>
         )}
       </main>

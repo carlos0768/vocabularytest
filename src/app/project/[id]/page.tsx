@@ -139,8 +139,8 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col">
+      {/* Header (top) */}
       <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
@@ -174,33 +174,8 @@ export default function ProjectPage() {
       </header>
 
       {/* Main content */}
-      <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Action buttons */}
-        {words.length > 0 && (
-          <div className="flex justify-center gap-3 mb-6">
-            <Link href={`/quiz/${projectId}`}>
-              <Button size="lg">
-                <Play className="w-5 h-5 mr-2" />
-                クイズ
-              </Button>
-            </Link>
-            {isPro && (
-              <Link href={`/review/${projectId}`}>
-                <Button size="lg" variant="secondary">
-                  <Brain className="w-5 h-5 mr-2" />
-                  復習
-                  {reviewDueCount > 0 && (
-                    <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                      {reviewDueCount}
-                    </span>
-                  )}
-                </Button>
-              </Link>
-            )}
-          </div>
-        )}
-
-        {/* Word list */}
+      <main className="flex-1 max-w-lg mx-auto px-4 py-6 w-full pb-32">
+        {/* Word list header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-medium text-gray-900">
             {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
@@ -241,6 +216,35 @@ export default function ProjectPage() {
           </div>
         )}
       </main>
+
+      {/* Bottom fixed action buttons */}
+      {words.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
+          <div className="max-w-lg mx-auto px-4">
+            <div className="flex justify-center gap-3 py-4">
+              <Link href={`/quiz/${projectId}`}>
+                <Button size="lg">
+                  <Play className="w-5 h-5 mr-2" />
+                  クイズ
+                </Button>
+              </Link>
+              {isPro && (
+                <Link href={`/review/${projectId}`}>
+                  <Button size="lg" variant="secondary">
+                    <Brain className="w-5 h-5 mr-2" />
+                    復習
+                    {reviewDueCount > 0 && (
+                      <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                        {reviewDueCount}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
