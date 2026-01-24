@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save } from 'lucide-react';
+import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,6 +19,7 @@ export default function ProjectPage() {
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -59,7 +60,12 @@ export default function ProjectPage() {
     new: words.filter((w) => w.status === 'new').length,
     review: words.filter((w) => w.status === 'review').length,
     mastered: words.filter((w) => w.status === 'mastered').length,
+    favorites: words.filter((w) => w.isFavorite).length,
   };
+
+  const filteredWords = showFavoritesOnly
+    ? words.filter((w) => w.isFavorite)
+    : words;
 
   const handleDeleteWord = async (wordId: string) => {
     if (confirm('この単語を削除しますか？')) {
@@ -76,6 +82,18 @@ export default function ProjectPage() {
       )
     );
     setEditingWordId(null);
+  };
+
+  const handleToggleFavorite = async (wordId: string) => {
+    const word = words.find((w) => w.id === wordId);
+    if (!word) return;
+    const newFavorite = !word.isFavorite;
+    await repository.updateWord(wordId, { isFavorite: newFavorite });
+    setWords((prev) =>
+      prev.map((w) =>
+        w.id === wordId ? { ...w, isFavorite: newFavorite } : w
+      )
+    );
   };
 
   if (loading) {
@@ -148,11 +166,26 @@ export default function ProjectPage() {
 
         {/* Word list */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-medium text-gray-900">単語一覧 ({stats.total}語)</h2>
+          <h2 className="font-medium text-gray-900">
+            {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
+          </h2>
+          {stats.favorites > 0 && (
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                showFavoritesOnly
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-red-500' : ''}`} />
+              苦手 {stats.favorites}
+            </button>
+          )}
         </div>
 
         <div className="space-y-2">
-          {words.map((word) => (
+          {filteredWords.map((word) => (
             <WordItem
               key={`${word.id}:${word.english}:${word.japanese}`}
               word={word}
@@ -161,6 +194,7 @@ export default function ProjectPage() {
               onCancel={() => setEditingWordId(null)}
               onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
               onDelete={() => handleDeleteWord(word.id)}
+              onToggleFavorite={() => handleToggleFavorite(word.id)}
             />
           ))}
         </div>
@@ -182,6 +216,7 @@ function WordItem({
   onCancel,
   onSave,
   onDelete,
+  onToggleFavorite,
 }: {
   word: Word;
   isEditing: boolean;
@@ -189,6 +224,7 @@ function WordItem({
   onCancel: () => void;
   onSave: (english: string, japanese: string) => void;
   onDelete: () => void;
+  onToggleFavorite: () => void;
 }) {
   const [english, setEnglish] = useState(word.english);
   const [japanese, setJapanese] = useState(word.japanese);
@@ -248,10 +284,24 @@ function WordItem({
             >
               {statusLabels[word.status]}
             </span>
+            {word.isFavorite && (
+              <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+            )}
           </div>
           <p className="text-gray-600 mt-0.5">{word.japanese}</p>
         </div>
         <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={onToggleFavorite}
+            className="p-2 hover:bg-red-50 rounded-full transition-colors"
+            aria-label={word.isFavorite ? '苦手を解除' : '苦手にマーク'}
+          >
+            <Heart
+              className={`w-4 h-4 ${
+                word.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-400'
+              }`}
+            />
+          </button>
           <button
             onClick={onEdit}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"

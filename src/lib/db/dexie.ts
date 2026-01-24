@@ -16,6 +16,12 @@ export class ScanVocabDB extends Dexie {
       projects: 'id, userId, createdAt',
       words: 'id, projectId, status, createdAt',
     });
+
+    // Version 2: Add isFavorite for favorite marking
+    this.version(2).stores({
+      projects: 'id, userId, createdAt',
+      words: 'id, projectId, status, createdAt, isFavorite',
+    });
   }
 }
 

@@ -47,13 +47,14 @@ export class LocalWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'isFavorite'>[]
   ): Promise<Word[]> {
     const now = new Date().toISOString();
     const newWords: Word[] = words.map((word) => ({
       ...word,
       id: uuidv4(),
       createdAt: now,
+      isFavorite: false,
     }));
 
     await db.words.bulkAdd(newWords);

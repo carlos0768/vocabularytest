@@ -197,7 +197,7 @@ async function handlePaymentCaptured(
     .update({
       status: 'active',
       plan: 'pro',
-      komoju_customer_id: data.customer?.id || null,
+      komoju_customer_id: (asRecord(data.customer) && getStringField(asRecord(data.customer) as JsonRecord, 'id')) || null,
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
       updated_at: now.toISOString(),

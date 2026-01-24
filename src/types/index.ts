@@ -10,6 +10,7 @@ export interface Word {
   distractors: string[]; // 3 wrong answers for quiz
   status: WordStatus;
   createdAt: string; // ISO string
+  isFavorite: boolean; // User marked as difficult/important
 }
 
 export interface Project {
@@ -54,7 +55,7 @@ export interface WordRepository {
   deleteProject(id: string): Promise<void>;
 
   // Words
-  createWords(words: Omit<Word, 'id' | 'createdAt'>[]): Promise<Word[]>;
+  createWords(words: Omit<Word, 'id' | 'createdAt' | 'isFavorite'>[]): Promise<Word[]>;
   getWords(projectId: string): Promise<Word[]>;
   getWord(id: string): Promise<Word | undefined>;
   updateWord(id: string, updates: Partial<Word>): Promise<void>;
