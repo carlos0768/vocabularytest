@@ -14,9 +14,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import {
   BookOpen,
-  Loader2,
-  Settings,
-  Sparkles,
   Orbit,
   Hexagon,
   Gem,

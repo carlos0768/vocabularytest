@@ -97,6 +97,7 @@ export function useWordCount() {
   }, [isPro, state.count, state.isAtLimit]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadWordCount();
   }, [loadWordCount]);
 

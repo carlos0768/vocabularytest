@@ -191,7 +191,7 @@ export function ProjectScreen() {
         <View style={styles.wordList}>
           {words.map((word) => (
             <WordItem
-              key={word.id}
+              key={`${word.id}:${word.english}:${word.japanese}`}
               word={word}
               isEditing={editingWordId === word.id}
               onEdit={() => setEditingWordId(word.id)}
@@ -230,11 +230,6 @@ function WordItem({
 }) {
   const [english, setEnglish] = useState(word.english);
   const [japanese, setJapanese] = useState(word.japanese);
-
-  useEffect(() => {
-    setEnglish(word.english);
-    setJapanese(word.japanese);
-  }, [word.english, word.japanese]);
 
   const statusColors = {
     new: {

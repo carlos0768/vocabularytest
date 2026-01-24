@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { BookOpen, Sparkles } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
-import { FREE_WORD_LIMIT } from '@/lib/utils';
 
 interface WordLimitModalProps {
   isOpen: boolean;

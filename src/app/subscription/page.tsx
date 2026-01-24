@@ -10,7 +10,7 @@ import { KOMOJU_CONFIG } from '@/lib/komoju/config';
 
 export default function SubscriptionPage() {
   const router = useRouter();
-  const { user, subscription, loading: authLoading, isPro } = useAuth();
+  const { user, loading: authLoading, isPro } = useAuth();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

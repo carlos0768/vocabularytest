@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { TouchableOpacity, Text, View, StyleSheet, Animated } from 'react-native';
 import colors from '../../constants/colors';
 
@@ -22,7 +22,7 @@ export function QuizOption({
   disabled,
 }: QuizOptionProps) {
   const optionLabels = ['A', 'B', 'C', 'D'];
-  const flashAnim = useRef(new Animated.Value(1)).current;
+  const flashAnim = useMemo(() => new Animated.Value(1), []);
 
   // Flash animation for correct answer
   useEffect(() => {

@@ -12,17 +12,43 @@ interface AuthState {
   error: string | null;
 }
 
+// Global state to share across all useAuth() instances
+let globalAuthState: AuthState = {
+  user: null,
+  subscription: null,
+  loading: true,
+  error: null,
+};
+const globalListeners: Set<(state: AuthState) => void> = new Set();
+let isGlobalLoading = false;
+let hasInitialized = false;
+
+function notifyListeners(newState: AuthState) {
+  globalAuthState = newState;
+  globalListeners.forEach(listener => listener(newState));
+}
+
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    subscription: null,
-    loading: true,
-    error: null,
-  });
+  const [state, setState] = useState<AuthState>(globalAuthState);
 
   // Refs to track component lifecycle
   const isMountedRef = useRef(true);
-  const isLoadingRef = useRef(false);
+
+  // Subscribe to global state changes
+  useEffect(() => {
+    const listener = (newState: AuthState) => {
+      if (isMountedRef.current) {
+        setState(newState);
+      }
+    };
+    globalListeners.add(listener);
+    // Sync with current global state
+    setState(globalAuthState);
+
+    return () => {
+      globalListeners.delete(listener);
+    };
+  }, []);
 
   // Get supabase client (singleton)
   const getSupabase = useCallback(() => {
@@ -83,13 +109,13 @@ export function useAuth() {
     return { user, subscription };
   }, [getSupabase]);
 
-  // Public loadUser function with deduplication and timeout
+  // Public loadUser function with global deduplication and timeout
   const loadUser = useCallback(async () => {
-    // Prevent concurrent calls
-    if (isLoadingRef.current) {
+    // Prevent concurrent calls globally (across all useAuth instances)
+    if (isGlobalLoading) {
       return;
     }
-    isLoadingRef.current = true;
+    isGlobalLoading = true;
 
     try {
       // Add timeout to prevent infinite loading
@@ -102,17 +128,14 @@ export function useAuth() {
         timeoutPromise,
       ]);
 
-      if (isMountedRef.current) {
-        setState({
-          user: result.user,
-          subscription: result.subscription,
-          loading: false,
-          error: null,
-        });
-      }
+      const newState: AuthState = {
+        user: result.user,
+        subscription: result.subscription,
+        loading: false,
+        error: null,
+      };
+      notifyListeners(newState);
     } catch (error) {
-      if (!isMountedRef.current) return;
-
       const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
       const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
 
@@ -120,14 +143,15 @@ export function useAuth() {
         console.error('Auth error:', error);
       }
 
-      setState({
+      const newState: AuthState = {
         user: null,
         subscription: null,
         loading: false,
         error: isSessionMissing || isTimeout ? null : '認証エラーが発生しました',
-      });
+      };
+      notifyListeners(newState);
     } finally {
-      isLoadingRef.current = false;
+      isGlobalLoading = false;
     }
   }, [loadUserCore]);
 
@@ -138,7 +162,7 @@ export function useAuth() {
       return { success: false, error: 'Supabase not initialized' };
     }
 
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    notifyListeners({ ...globalAuthState, loading: true, error: null });
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -149,11 +173,11 @@ export function useAuth() {
     });
 
     if (error) {
-      setState((prev) => ({ ...prev, loading: false, error: error.message }));
+      notifyListeners({ ...globalAuthState, loading: false, error: error.message });
       return { success: false, error: error.message };
     }
 
-    setState((prev) => ({ ...prev, loading: false }));
+    notifyListeners({ ...globalAuthState, loading: false });
     return { success: true, data };
   }, [getSupabase]);
 
@@ -164,7 +188,7 @@ export function useAuth() {
       return { success: false, error: 'Supabase not initialized' };
     }
 
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    notifyListeners({ ...globalAuthState, loading: true, error: null });
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -172,7 +196,7 @@ export function useAuth() {
     });
 
     if (error) {
-      setState((prev) => ({ ...prev, loading: false, error: error.message }));
+      notifyListeners({ ...globalAuthState, loading: false, error: error.message });
       return { success: false, error: error.message };
     }
 
@@ -185,35 +209,38 @@ export function useAuth() {
     const supabase = getSupabase();
     if (!supabase) return;
     await supabase.auth.signOut();
-    setState({ user: null, subscription: null, loading: false, error: null });
+    notifyListeners({ user: null, subscription: null, loading: false, error: null });
+    hasInitialized = false; // Reset for next login
   }, [getSupabase]);
 
-  // Initialize auth state
+  // Initialize auth state - only once globally
   useEffect(() => {
     isMountedRef.current = true;
 
     const supabase = getSupabase();
     if (!supabase) {
-      setState((prev) => ({ ...prev, loading: false }));
+      notifyListeners({ ...globalAuthState, loading: false });
       return;
     }
 
-    // Load user on mount
-    loadUser();
+    // Only initialize once globally
+    if (!hasInitialized) {
+      hasInitialized = true;
+      loadUser();
+    }
 
-    // Listen for auth changes
+    // Listen for auth changes - only set up once per component instance
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event) => {
-        if (!isMountedRef.current) return;
-
         // Handle specific events
         if (event === 'SIGNED_OUT') {
-          setState({ user: null, subscription: null, loading: false, error: null });
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Reload user data when signed in or token refreshed
+          notifyListeners({ user: null, subscription: null, loading: false, error: null });
+          hasInitialized = false;
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Only reload on token refresh, not on SIGNED_IN (which is handled by signIn function)
           loadUser();
         }
-        // Ignore INITIAL_SESSION - we handle that with loadUser() above
+        // Ignore INITIAL_SESSION and SIGNED_IN - handled elsewhere
       }
     );
 

@@ -266,7 +266,7 @@ export default function ConfirmPage() {
         <div className="space-y-3">
           {words.map((word) => (
             <WordCard
-              key={word.tempId}
+              key={`${word.tempId}:${word.english}:${word.japanese}`}
               word={word}
               showCheckbox={!isPro && showLimitWarning}
               onToggle={() => handleToggleWord(word.tempId)}
@@ -336,11 +336,6 @@ function WordCard({
 }) {
   const [english, setEnglish] = useState(word.english);
   const [japanese, setJapanese] = useState(word.japanese);
-
-  useEffect(() => {
-    setEnglish(word.english);
-    setJapanese(word.japanese);
-  }, [word.english, word.japanese]);
 
   if (word.isEditing) {
     return (

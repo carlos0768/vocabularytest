@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Mail, Lock } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { Button, Input } from '../components/ui';
 import colors from '../constants/colors';
 import type { RootStackParamList } from '../types';
@@ -56,7 +56,7 @@ export function LoginScreen() {
         '開発中',
         'ログイン機能は現在開発中です。無料プランでお使いください。'
       );
-    } catch (error) {
+    } catch {
       Alert.alert('エラー', 'ログインに失敗しました');
     } finally {
       setLoading(false);

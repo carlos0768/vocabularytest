@@ -200,8 +200,11 @@ export function recordCorrectAnswer(becameMastered: boolean = false): void {
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
 }
 
-export function recordWrongAnswer(wordId: string, english: string, japanese: string): void {
+export function recordWrongAnswer(_wordId: string, _english: string, _japanese: string): void {
   if (typeof window === 'undefined') return;
+  void _wordId;
+  void _english;
+  void _japanese;
 
   const today = new Date().toISOString().split('T')[0];
   const stored = localStorage.getItem(DAILY_STATS_KEY);

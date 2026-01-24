@@ -3,7 +3,7 @@
 
 import { db } from './dexie';
 import { remoteRepository } from './remote-repository';
-import type { Project, Word } from '@/types';
+import type { Project } from '@/types';
 
 export interface MigrationResult {
   success: boolean;

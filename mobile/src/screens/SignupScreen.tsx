@@ -71,7 +71,7 @@ export function SignupScreen() {
         '開発中',
         '登録機能は現在開発中です。無料プランでお使いください。'
       );
-    } catch (error) {
+    } catch {
       Alert.alert('エラー', '登録に失敗しました');
     } finally {
       setLoading(false);

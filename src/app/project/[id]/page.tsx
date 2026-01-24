@@ -136,12 +136,14 @@ export default function ProjectPage() {
 
         {/* Start quiz button */}
         {words.length > 0 && (
-          <Link href={`/quiz/${projectId}`}>
-            <Button className="w-full mb-6" size="lg">
-              <Play className="w-5 h-5 mr-2" />
-              クイズを始める
-            </Button>
-          </Link>
+          <div className="flex justify-center mb-6">
+            <Link href={`/quiz/${projectId}`}>
+              <Button size="lg">
+                <Play className="w-5 h-5 mr-2" />
+                クイズを始める
+              </Button>
+            </Link>
+          </div>
         )}
 
         {/* Word list */}
@@ -152,7 +154,7 @@ export default function ProjectPage() {
         <div className="space-y-2">
           {words.map((word) => (
             <WordItem
-              key={word.id}
+              key={`${word.id}:${word.english}:${word.japanese}`}
               word={word}
               isEditing={editingWordId === word.id}
               onEdit={() => setEditingWordId(word.id)}
@@ -190,11 +192,6 @@ function WordItem({
 }) {
   const [english, setEnglish] = useState(word.english);
   const [japanese, setJapanese] = useState(word.japanese);
-
-  useEffect(() => {
-    setEnglish(word.english);
-    setJapanese(word.japanese);
-  }, [word.english, word.japanese]);
 
   const statusColors = {
     new: 'bg-blue-100 text-blue-700',

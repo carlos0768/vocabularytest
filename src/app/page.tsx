@@ -47,7 +47,7 @@ function ProcessingModal({
 export default function Dashboard() {
   const router = useRouter();
   const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
-  const { count: wordCount, isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
+  const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
 
   const [projects, setProjects] = useState<Project[]>([]);

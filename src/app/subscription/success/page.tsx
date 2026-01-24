@@ -1,15 +1,12 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 
 function SuccessContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { refresh } = useAuth();
   const [verifying, setVerifying] = useState(true);
 

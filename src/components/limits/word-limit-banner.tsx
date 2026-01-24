@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { AlertTriangle, X, ChevronRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FREE_WORD_LIMIT } from '@/lib/utils';
 
 interface WordLimitBannerProps {
