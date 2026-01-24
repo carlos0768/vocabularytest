@@ -271,11 +271,20 @@ function extractCurrency(data: any): string | null {
 function extractSessionId(data: any): string | null {
   const raw =
     data?.session_id ||
+    data?.session ||
     data?.session?.id ||
     data?.metadata?.session_id ||
     data?.payment?.session_id;
 
-  return typeof raw === 'string' ? raw : null;
+  if (typeof raw === 'string') {
+    return raw;
+  }
+
+  if (raw && typeof raw === 'object' && typeof raw.id === 'string') {
+    return raw.id;
+  }
+
+  return null;
 }
 
 async function recordWebhookEvent(
