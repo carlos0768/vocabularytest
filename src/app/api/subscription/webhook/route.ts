@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { KOMOJU_CONFIG, verifyWebhookSignature } from '@/lib/komoju';
 
+type JsonRecord = Record<string, unknown>;
+type WebhookEvent = {
+  id?: unknown;
+  type?: unknown;
+  data?: unknown;
+};
+
 class WebhookError extends Error {
   status: number;
 
@@ -43,15 +50,16 @@ export async function POST(request: NextRequest) {
       throw new WebhookError('Invalid signature', 401);
     }
 
-    let event: any;
+    let event: WebhookEvent;
     try {
-      event = JSON.parse(payload);
-    } catch (parseError) {
+      event = JSON.parse(payload) as WebhookEvent;
+    } catch {
       throw new WebhookError('Invalid JSON payload', 400);
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    const eventId = deriveEventId(event);
+    const eventType = getStringValue(event.type) ?? 'unknown';
+    const eventId = deriveEventId(event, eventType);
 
     if (!eventId) {
       throw new WebhookError('Missing event id', 400);
@@ -71,21 +79,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    console.log('KOMOJU webhook event:', event.type, eventId);
+    console.log('KOMOJU webhook event:', eventType, eventId);
 
     // Handle different event types
     let handled = false;
+    const eventData = asRecord(event.data);
 
-    switch (event.type) {
+    switch (eventType) {
       // Payment captured - activate Pro plan
       case 'payment.captured':
-        await handlePaymentCaptured(supabaseAdmin, event.data);
+        if (!eventData) {
+          throw new WebhookError('Invalid event data', 400);
+        }
+        await handlePaymentCaptured(supabaseAdmin, eventData);
         handled = true;
         break;
 
       // Payment refunded - deactivate Pro plan
       case 'payment.refunded':
-        await handlePaymentRefunded(supabaseAdmin, event.data);
+        if (!eventData) {
+          throw new WebhookError('Invalid event data', 400);
+        }
+        await handlePaymentRefunded(supabaseAdmin, eventData);
         handled = true;
         break;
 
@@ -94,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (handled) {
-      await recordWebhookEvent(supabaseAdmin, eventId, event.type);
+      await recordWebhookEvent(supabaseAdmin, eventId, eventType);
     }
 
     return NextResponse.json({ received: true });
@@ -110,9 +125,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handlePaymentCaptured(supabaseAdmin: SupabaseClient, data: any) {
-  const userId = data.metadata?.user_id;
+async function handlePaymentCaptured(
+  supabaseAdmin: SupabaseClient,
+  data: JsonRecord
+) {
+  const metadata = asRecord(data.metadata);
+  const userId = metadata ? getStringField(metadata, 'user_id') : null;
 
   if (!userId) {
     throw new WebhookError('No user_id in payment metadata', 400);
@@ -120,9 +138,9 @@ async function handlePaymentCaptured(supabaseAdmin: SupabaseClient, data: any) {
 
   // Check if this is a Pro plan payment
   const planConfig = KOMOJU_CONFIG.plans.pro;
-  const planId = data.metadata?.plan_id;
+  const planId = metadata ? getStringField(metadata, 'plan_id') : null;
 
-  if (data.metadata?.plan !== 'pro') {
+  if (metadata && getStringField(metadata, 'plan') !== 'pro') {
     throw new WebhookError('Payment is not for Pro plan', 400);
   }
 
@@ -204,18 +222,21 @@ async function handlePaymentCaptured(supabaseAdmin: SupabaseClient, data: any) {
   console.log(`Pro plan activated for user: ${userId}`);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handlePaymentRefunded(supabaseAdmin: SupabaseClient, data: any) {
-  const userId = data.metadata?.user_id;
+async function handlePaymentRefunded(
+  supabaseAdmin: SupabaseClient,
+  data: JsonRecord
+) {
+  const metadata = asRecord(data.metadata);
+  const userId = metadata ? getStringField(metadata, 'user_id') : null;
 
   if (!userId) {
     throw new WebhookError('No user_id in payment metadata', 400);
   }
 
   const planConfig = KOMOJU_CONFIG.plans.pro;
-  const planId = data.metadata?.plan_id;
+  const planId = metadata ? getStringField(metadata, 'plan_id') : null;
 
-  if (data.metadata?.plan !== 'pro') {
+  if (metadata && getStringField(metadata, 'plan') !== 'pro') {
     throw new WebhookError('Refund is not for Pro plan', 400);
   }
 
@@ -239,52 +260,66 @@ async function handlePaymentRefunded(supabaseAdmin: SupabaseClient, data: any) {
   console.log(`Subscription cancelled due to refund for user: ${userId}`);
 }
 
-function deriveEventId(event: any): string | null {
-  if (event?.id) {
-    return `event:${event.id}`;
+function deriveEventId(event: WebhookEvent, eventType: string): string | null {
+  const eventId = getStringValue(event.id);
+  if (eventId) {
+    return `event:${eventId}`;
   }
 
+  const data = asRecord(event.data);
+  const payment = data ? asRecord(data.payment) : null;
   const paymentId =
-    event?.data?.payment?.id ||
-    event?.data?.payment_id ||
-    event?.data?.id ||
-    event?.data?.payment?.payment_id;
+    (payment ? getStringField(payment, 'id') : null) ||
+    (data ? getStringField(data, 'payment_id') : null) ||
+    (data ? getStringField(data, 'id') : null) ||
+    (payment ? getStringField(payment, 'payment_id') : null);
 
   if (paymentId) {
-    return `payment:${event?.type || 'unknown'}:${paymentId}`;
+    return `payment:${eventType || 'unknown'}:${paymentId}`;
   }
 
   return null;
 }
 
-function extractAmount(data: any): number | null {
-  const raw = data?.amount ?? data?.payment?.amount ?? data?.payment?.total_amount;
-  const amount = typeof raw === 'string' ? Number(raw) : raw;
-  return Number.isFinite(amount) ? Number(amount) : null;
+function extractAmount(data: JsonRecord): number | null {
+  const payment = asRecord(data.payment);
+  return (
+    getNumberField(data, 'amount') ??
+    (payment ? getNumberField(payment, 'amount') : null) ??
+    (payment ? getNumberField(payment, 'total_amount') : null)
+  );
 }
 
-function extractCurrency(data: any): string | null {
-  const raw = data?.currency ?? data?.payment?.currency;
-  return typeof raw === 'string' ? raw.toUpperCase() : null;
+function extractCurrency(data: JsonRecord): string | null {
+  const payment = asRecord(data.payment);
+  const currency =
+    getStringField(data, 'currency') ??
+    (payment ? getStringField(payment, 'currency') : null);
+  return currency ? currency.toUpperCase() : null;
 }
 
-function extractSessionId(data: any): string | null {
-  const raw =
-    data?.session_id ||
-    data?.session ||
-    data?.session?.id ||
-    data?.metadata?.session_id ||
-    data?.payment?.session_id;
+function extractSessionId(data: JsonRecord): string | null {
+  const session = data.session;
+  const metadata = asRecord(data.metadata);
+  const payment = asRecord(data.payment);
 
-  if (typeof raw === 'string') {
-    return raw;
+  if (typeof session === 'string') {
+    return session;
   }
 
-  if (raw && typeof raw === 'object' && typeof raw.id === 'string') {
-    return raw.id;
+  if (session && typeof session === 'object') {
+    const sessionRecord = asRecord(session);
+    const sessionId = sessionRecord ? getStringField(sessionRecord, 'id') : null;
+    if (sessionId) {
+      return sessionId;
+    }
   }
 
-  return null;
+  return (
+    getStringField(data, 'session_id') ??
+    (metadata ? getStringField(metadata, 'session_id') : null) ??
+    (payment ? getStringField(payment, 'session_id') : null)
+  );
 }
 
 async function recordWebhookEvent(
@@ -299,4 +334,31 @@ async function recordWebhookEvent(
   if (error && error.code !== '23505') {
     throw error;
   }
+}
+
+function asRecord(value: unknown): JsonRecord | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as JsonRecord;
+}
+
+function getStringValue(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function getStringField(record: JsonRecord, key: string): string | null {
+  return getStringValue(record[key]);
+}
+
+function getNumberField(record: JsonRecord, key: string): number | null {
+  const value = record[key];
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }

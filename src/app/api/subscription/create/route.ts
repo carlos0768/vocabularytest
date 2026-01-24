@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createSubscriptionSession, KOMOJU_CONFIG } from '@/lib/komoju';
+import { createSubscriptionSession } from '@/lib/komoju';
 
 // POST /api/subscription/create
 // Creates a KOMOJU subscription session and returns the payment URL

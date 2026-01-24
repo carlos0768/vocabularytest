@@ -1,6 +1,7 @@
 // KOMOJU API Client
 // Server-side only - contains secret key
 
+import { createHmac, timingSafeEqual } from 'crypto';
 import { KOMOJU_CONFIG } from './config';
 
 const KOMOJU_SECRET_KEY = process.env.KOMOJU_SECRET_KEY!;
@@ -204,15 +205,14 @@ export function verifyWebhookSignature(
   signature: string,
   secret: string
 ): boolean {
-  const crypto = require('crypto');
   const normalized = signature.trim().replace(/^sha256=/, '');
-  const expected = crypto.createHmac('sha256', secret).update(payload).digest();
+  const expected = createHmac('sha256', secret).update(payload).digest();
 
   if (isHex(normalized)) {
     if (normalized.length !== expected.length * 2) {
       return false;
     }
-    return crypto.timingSafeEqual(
+    return timingSafeEqual(
       Buffer.from(normalized, 'hex'),
       expected
     );
@@ -223,7 +223,7 @@ export function verifyWebhookSignature(
     if (decoded.length !== expected.length) {
       return false;
     }
-    return crypto.timingSafeEqual(decoded, expected);
+    return timingSafeEqual(decoded, expected);
   }
 
   return false;

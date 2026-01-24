@@ -4,7 +4,7 @@ import { cancelSubscription } from '@/lib/komoju';
 
 // POST /api/subscription/cancel
 // Cancels the user's active subscription
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createClient();
 
