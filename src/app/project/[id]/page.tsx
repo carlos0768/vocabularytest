@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Heart } from 'lucide-react';
+import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Heart, Share2, Link as LinkIcon, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
+import { remoteRepository } from '@/lib/db/remote-repository';
 import { useAuth } from '@/hooks/use-auth';
 import { getReviewCount } from '@/lib/spaced-repetition';
 import type { Project, Word, SubscriptionStatus } from '@/types';
@@ -14,13 +15,15 @@ export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  const { subscription, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -100,6 +103,32 @@ export default function ProjectPage() {
     );
   };
 
+  const handleShare = async () => {
+    if (!project || !user) return;
+
+    setSharing(true);
+    try {
+      let shareId = project.shareId;
+
+      // Generate share ID if not exists
+      if (!shareId) {
+        shareId = await remoteRepository.generateShareId(project.id);
+        setProject((prev) => prev ? { ...prev, shareId } : null);
+      }
+
+      // Copy share URL to clipboard
+      const shareUrl = `${window.location.origin}/share/${shareId}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to share:', error);
+      alert('共有リンクの生成に失敗しました');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -124,26 +153,44 @@ export default function ProjectPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-lg font-semibold truncate">{project.title}</h1>
+            <h1 className="flex-1 text-lg font-semibold truncate">{project.title}</h1>
+            {user && (
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title={project.shareId ? 'リンクをコピー' : '共有リンクを作成'}
+              >
+                {sharing ? (
+                  <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+                ) : shareCopied ? (
+                  <Check className="w-5 h-5 text-emerald-600" />
+                ) : project.shareId ? (
+                  <LinkIcon className="w-5 h-5 text-blue-600" />
+                ) : (
+                  <Share2 className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Stats - minimal style */}
+        {/* Stats */}
         <div className="flex justify-around py-4 mb-4">
           <div className="text-center">
-            <p className={`text-2xl font-semibold ${stats.new > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{stats.new}</p>
-            <p className="text-xs text-gray-400">新規</p>
+            <p className={`text-2xl font-semibold ${stats.new > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{stats.new}</p>
+            <p className="text-xs text-gray-500">新規</p>
           </div>
           <div className="text-center">
-            <p className={`text-2xl font-semibold ${stats.review > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{stats.review}</p>
-            <p className="text-xs text-gray-400">復習中</p>
+            <p className={`text-2xl font-semibold ${stats.review > 0 ? 'text-amber-500' : 'text-gray-300'}`}>{stats.review}</p>
+            <p className="text-xs text-gray-500">復習中</p>
           </div>
           <div className="text-center">
             <p className={`text-2xl font-semibold ${stats.mastered > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{stats.mastered}</p>
-            <p className="text-xs text-gray-400">習得</p>
+            <p className="text-xs text-gray-500">習得</p>
           </div>
         </div>
 
@@ -238,8 +285,8 @@ function WordItem({
   const [japanese, setJapanese] = useState(word.japanese);
 
   const statusColors = {
-    new: 'bg-gray-100 text-gray-600',
-    review: 'bg-gray-100 text-gray-600',
+    new: 'bg-blue-50 text-blue-600',
+    review: 'bg-amber-50 text-amber-600',
     mastered: 'bg-emerald-50 text-emerald-600',
   };
 
