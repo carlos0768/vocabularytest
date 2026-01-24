@@ -150,6 +150,8 @@ async function handlePaymentCaptured(
 
   const amount = extractAmount(data);
   const currency = extractCurrency(data);
+  const customer = asRecord(data.customer);
+  const customerId = customer ? getStringField(customer, 'id') : null;
 
   if (amount === null || amount !== planConfig.price) {
     throw new WebhookError('Amount mismatch', 400);
@@ -197,7 +199,7 @@ async function handlePaymentCaptured(
     .update({
       status: 'active',
       plan: 'pro',
-      komoju_customer_id: data.customer?.id || null,
+      komoju_customer_id: customerId,
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
       updated_at: now.toISOString(),
