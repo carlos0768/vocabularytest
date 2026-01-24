@@ -35,12 +35,13 @@ export function getGuestUserId(): string {
 // Daily scan limit tracking for free users
 const SCAN_COUNT_KEY = 'scanvocab_scan_count';
 const SCAN_DATE_KEY = 'scanvocab_scan_date';
-// Note: Actual limit is defined in KOMOJU_CONFIG.freePlan.dailyScanLimit (currently 3)
-const FREE_DAILY_LIMIT = 3;
+// Free plan limits
+export const FREE_DAILY_SCAN_LIMIT = 5;
+export const FREE_WORD_LIMIT = 100;
 
 export function getDailyScanInfo(): { count: number; remaining: number; canScan: boolean } {
   if (typeof window === 'undefined') {
-    return { count: 0, remaining: FREE_DAILY_LIMIT, canScan: true };
+    return { count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true };
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -50,13 +51,13 @@ export function getDailyScanInfo(): { count: number; remaining: number; canScan:
   if (storedDate !== today) {
     localStorage.setItem(SCAN_DATE_KEY, today);
     localStorage.setItem(SCAN_COUNT_KEY, '0');
-    return { count: 0, remaining: FREE_DAILY_LIMIT, canScan: true };
+    return { count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true };
   }
 
   const count = parseInt(localStorage.getItem(SCAN_COUNT_KEY) || '0', 10);
-  const remaining = Math.max(0, FREE_DAILY_LIMIT - count);
+  const remaining = Math.max(0, FREE_DAILY_SCAN_LIMIT - count);
 
-  return { count, remaining, canScan: count < FREE_DAILY_LIMIT };
+  return { count, remaining, canScan: count < FREE_DAILY_SCAN_LIMIT };
 }
 
 export function incrementScanCount(): void {
