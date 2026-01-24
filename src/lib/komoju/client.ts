@@ -205,13 +205,34 @@ export function verifyWebhookSignature(
   secret: string
 ): boolean {
   const crypto = require('crypto');
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
+  const normalized = signature.trim().replace(/^sha256=/, '');
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest();
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+  if (isHex(normalized)) {
+    if (normalized.length !== expected.length * 2) {
+      return false;
+    }
+    return crypto.timingSafeEqual(
+      Buffer.from(normalized, 'hex'),
+      expected
+    );
+  }
+
+  if (isBase64(normalized)) {
+    const decoded = Buffer.from(normalized, 'base64');
+    if (decoded.length !== expected.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(decoded, expected);
+  }
+
+  return false;
+}
+
+function isHex(value: string): boolean {
+  return /^[0-9a-fA-F]+$/.test(value);
+}
+
+function isBase64(value: string): boolean {
+  return /^[A-Za-z0-9+/=]+$/.test(value);
 }

@@ -46,6 +46,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const { error: sessionError } = await supabase
+      .from('subscription_sessions')
+      .insert({
+        id: session.id,
+        user_id: user.id,
+        plan_id: 'pro_monthly',
+      });
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
     return NextResponse.json({
       success: true,
       sessionId: session.id,

@@ -49,17 +49,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update local subscription status
-    const { error: updateError } = await supabase
-      .from('subscriptions')
-      .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id);
+    // Update local subscription status via RPC (prevents client-side escalations)
+    const { error: cancelError } = await supabase.rpc('cancel_own_subscription');
 
-    if (updateError) {
-      throw updateError;
+    if (cancelError) {
+      throw cancelError;
     }
 
     return NextResponse.json({
