@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, Play, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Flag, Play, Loader2, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
@@ -87,7 +87,7 @@ export default function FavoritesPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="flex items-center gap-2">
-              <Heart className="w-5 h-5 fill-red-500 text-red-500" />
+              <Flag className="w-5 h-5 fill-orange-500 text-orange-500" />
               <h1 className="text-lg font-semibold">苦手な単語</h1>
             </div>
           </div>
@@ -99,13 +99,13 @@ export default function FavoritesPage() {
         {favorites.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Heart className="w-8 h-8 text-gray-400" />
+              <Flag className="w-8 h-8 text-gray-400" />
             </div>
             <h2 className="text-lg font-medium text-gray-900 mb-2">
               苦手な単語はありません
             </h2>
             <p className="text-gray-500 mb-6">
-              クイズ中にハートをタップして
+              クイズ中にフラグをタップして
               <br />
               苦手な単語をマークしましょう
             </p>
@@ -119,13 +119,13 @@ export default function FavoritesPage() {
         ) : (
           <>
             {/* Stats */}
-            <div className="bg-red-50 rounded-xl p-4 mb-6">
+            <div className="bg-orange-50 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-red-600 text-sm font-medium">苦手な単語</p>
-                  <p className="text-2xl font-bold text-red-700">{favorites.length}語</p>
+                  <p className="text-orange-600 text-sm font-medium">苦手な単語</p>
+                  <p className="text-2xl font-bold text-orange-700">{favorites.length}語</p>
                 </div>
-                <Heart className="w-10 h-10 fill-red-200 text-red-200" />
+                <Flag className="w-10 h-10 fill-orange-200 text-orange-200" />
               </div>
             </div>
 
@@ -140,7 +140,7 @@ export default function FavoritesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-gray-900">{word.english}</p>
-                        <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                        <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
                       </div>
                       <p className="text-gray-600">{word.japanese}</p>
                       <Link
@@ -152,10 +152,10 @@ export default function FavoritesPage() {
                     </div>
                     <button
                       onClick={() => handleToggleFavorite(word.id)}
-                      className="p-2 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-2 hover:bg-orange-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
                       aria-label="苦手を解除"
                     >
-                      <Heart className="w-5 h-5 fill-red-500 text-red-500" />
+                      <Flag className="w-5 h-5 fill-orange-500 text-orange-500" />
                     </button>
                   </div>
                 </div>

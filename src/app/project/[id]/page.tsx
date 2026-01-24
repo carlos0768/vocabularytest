@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Heart, Share2, Link as LinkIcon, Check } from 'lucide-react';
+import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Flag, Share2, Link as LinkIcon, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -229,11 +229,11 @@ export default function ProjectPage() {
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 showFavoritesOnly
-                  ? 'bg-red-100 text-red-700'
+                  ? 'bg-orange-100 text-orange-700'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-red-500' : ''}`} />
+              <Flag className={`w-4 h-4 ${showFavoritesOnly ? 'fill-orange-500' : ''}`} />
               苦手 {stats.favorites}
             </button>
           )}
@@ -340,7 +340,7 @@ function WordItem({
               {statusLabels[word.status]}
             </span>
             {word.isFavorite && (
-              <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+              <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
             )}
           </div>
           <p className="text-gray-600 mt-0.5">{word.japanese}</p>
@@ -357,12 +357,12 @@ function WordItem({
         <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={onToggleFavorite}
-            className="p-2 hover:bg-red-50 rounded-full transition-colors"
+            className="p-2 hover:bg-orange-50 rounded-full transition-colors"
             aria-label={word.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
-            <Heart
+            <Flag
               className={`w-4 h-4 ${
-                word.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-400'
+                word.isFavorite ? 'fill-orange-500 text-orange-500' : 'text-gray-400'
               }`}
             />
           </button>

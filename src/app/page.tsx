@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap, Check, Heart } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Gem, Zap, Check, Flag } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
@@ -318,9 +318,9 @@ export default function Dashboard() {
                 href="/favorites"
                 className="p-1.5 hover:bg-gray-100 rounded-md transition-colors relative"
               >
-                <Heart className={`w-5 h-5 ${totalFavorites > 0 ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                <Flag className={`w-5 h-5 ${totalFavorites > 0 ? 'fill-orange-500 text-orange-500' : 'text-gray-400'}`} />
                 {totalFavorites > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
                     {totalFavorites > 9 ? '9+' : totalFavorites}
                   </span>
                 )}

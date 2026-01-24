@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { X, ChevronRight, Trophy, RotateCcw, Heart } from 'lucide-react';
+import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
@@ -276,10 +276,10 @@ export default function QuizPage() {
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
-            <Heart
+            <Flag
               className={`w-6 h-6 transition-colors ${
                 currentQuestion?.word.isFavorite
-                  ? 'fill-red-500 text-red-500'
+                  ? 'fill-orange-500 text-orange-500'
                   : 'text-gray-400'
               }`}
             />
