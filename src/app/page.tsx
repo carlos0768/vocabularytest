@@ -736,7 +736,7 @@ export default function HomePage() {
       </header>
 
       {/* Stats bar */}
-      <div className="bg-gray-50 border-b border-gray-100">
+      <div className="bg-white">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="grid grid-cols-4 gap-2">
             <div className="text-center">
