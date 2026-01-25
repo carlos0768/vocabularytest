@@ -3,6 +3,18 @@
 
 // Maximum image size in bytes (2MB to stay well under Vercel's 4.5MB limit after base64 encoding)
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+
+/**
+ * Read the first few bytes of a file to determine its actual format
+ * Returns hex string of the file header
+ */
+async function readFileHeader(file: File): Promise<string> {
+  const slice = file.slice(0, 4);
+  const buffer = await slice.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Maximum dimension for resizing
 const MAX_DIMENSION = 2048;
 
@@ -47,10 +59,18 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
     return result;
   } catch (error) {
     console.error('HEIC conversion failed:', error);
-    // If conversion fails, try to return original file
-    // Safari on iOS sometimes reports HEIC but actually provides JPEG
-    console.log('Returning original file after conversion failure');
-    return file;
+
+    // Check if the file might actually be a JPEG despite having .heic extension
+    // This can happen on some iOS devices
+    const fileHeader = await readFileHeader(file);
+    if (fileHeader.startsWith('ffd8ff')) {
+      // File is actually JPEG (starts with JPEG magic bytes)
+      console.log('File appears to be JPEG despite .heic extension, returning as-is');
+      return new File([file], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+    }
+
+    // If it's truly a HEIC file and conversion failed, throw an error
+    throw new Error('HEIC画像の変換に失敗しました。カメラアプリの設定で「互換性優先」を選択するか、スクリーンショットをお試しください。');
   }
 }
 
