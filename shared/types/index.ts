@@ -32,6 +32,7 @@ export interface Project {
   createdAt: string; // ISO string
   isSynced?: boolean; // Local-only flag for cloud sync status
   shareId?: string; // Unique share ID for URL sharing (null = private)
+  isFavorite?: boolean; // User bookmarked this project (defaults to false)
 }
 
 // ============ AI Response Types ============
