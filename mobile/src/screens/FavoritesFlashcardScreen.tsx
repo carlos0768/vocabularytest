@@ -328,7 +328,16 @@ export function FavoritesFlashcardScreen() {
           >
             {/* Front (English) */}
             <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
-              <Text style={styles.englishText}>{currentWord?.english}</Text>
+              <View style={styles.cardTextContainer}>
+                <Text
+                  style={styles.englishText}
+                  numberOfLines={4}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {currentWord?.english}
+                </Text>
+              </View>
               <View style={styles.cardHint}>
                 <Eye size={16} color={colors.gray[400]} />
                 <Text style={styles.hintText}>タップで意味を見る</Text>
@@ -337,8 +346,16 @@ export function FavoritesFlashcardScreen() {
 
             {/* Back (Japanese) */}
             <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
-              <Text style={styles.japaneseText}>{currentWord?.japanese}</Text>
-
+              <View style={styles.cardTextContainer}>
+                <Text
+                  style={styles.japaneseText}
+                  numberOfLines={4}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {currentWord?.japanese}
+                </Text>
+              </View>
               <View style={styles.cardHintBack}>
                 <EyeOff size={16} color="rgba(255,255,255,0.6)" />
                 <Text style={styles.hintTextBack}>タップで戻る</Text>
@@ -469,17 +486,27 @@ const styles = StyleSheet.create({
   cardBack: {
     backgroundColor: colors.orange[500],
   },
+  cardTextContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 40,
+  },
   englishText: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
+    width: '100%',
   },
   japaneseText: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.white,
     textAlign: 'center',
+    width: '100%',
   },
   cardHint: {
     position: 'absolute',
