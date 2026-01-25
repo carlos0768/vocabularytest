@@ -1,5 +1,10 @@
 // Image utility functions
-// Handles HEIC conversion and other image processing
+// Handles HEIC conversion, compression, and other image processing
+
+// Maximum image size in bytes (2MB to stay well under Vercel's 4.5MB limit after base64 encoding)
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+// Maximum dimension for resizing
+const MAX_DIMENSION = 2048;
 
 /**
  * Convert HEIC/HEIF image to JPEG
@@ -50,11 +55,110 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
 }
 
 /**
+ * Compress and resize image to reduce file size
+ * Uses canvas to resize and compress
+ */
+export async function compressImage(file: File): Promise<File> {
+  console.log('compressImage called:', { name: file.name, type: file.type, size: file.size });
+
+  // Skip if already small enough
+  if (file.size <= MAX_IMAGE_SIZE) {
+    console.log('Image is small enough, skipping compression');
+    return file;
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    img.onload = () => {
+      try {
+        let { width, height } = img;
+        console.log('Original dimensions:', { width, height });
+
+        // Calculate new dimensions while maintaining aspect ratio
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
+          } else {
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
+          }
+        }
+        console.log('New dimensions:', { width, height });
+
+        canvas.width = width;
+        canvas.height = height;
+
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Start with quality 0.8 and reduce if needed
+        let quality = 0.8;
+        const tryCompress = () => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image'));
+                return;
+              }
+
+              console.log('Compressed size:', blob.size, 'quality:', quality);
+
+              // If still too large and quality can be reduced, try again
+              if (blob.size > MAX_IMAGE_SIZE && quality > 0.3) {
+                quality -= 0.1;
+                tryCompress();
+                return;
+              }
+
+              const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                type: 'image/jpeg',
+              });
+              console.log('Compression complete:', { size: compressedFile.size, quality });
+              resolve(compressedFile);
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+
+        tryCompress();
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image for compression'));
+    };
+
+    // Create object URL for the image
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/**
  * Process image file for upload
  * - Converts HEIC to JPEG
+ * - Compresses large images
  * - Returns processed file ready for base64 encoding
  */
 export async function processImageFile(file: File): Promise<File> {
   console.log('processImageFile called:', { name: file.name, type: file.type, size: file.size });
-  return convertHeicToJpeg(file);
+
+  // First convert HEIC if needed
+  let processedFile = await convertHeicToJpeg(file);
+
+  // Then compress if too large
+  processedFile = await compressImage(processedFile);
+
+  console.log('Final processed file:', { name: processedFile.name, type: processedFile.type, size: processedFile.size });
+  return processedFile;
 }
