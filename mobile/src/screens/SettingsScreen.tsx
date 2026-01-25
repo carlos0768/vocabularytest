@@ -96,11 +96,11 @@ export function SettingsScreen() {
   };
 
   const handleTerms = () => {
-    Linking.openURL('https://scanvocab.vercel.app/terms');
+    Linking.openURL('https://vocabularytest-omega.vercel.app/terms');
   };
 
   const handlePrivacy = () => {
-    Linking.openURL('https://scanvocab.vercel.app/privacy');
+    Linking.openURL('https://vocabularytest-omega.vercel.app/privacy');
   };
 
   return (

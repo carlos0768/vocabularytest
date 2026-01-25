@@ -4,7 +4,7 @@ import type { AIWordExtraction } from '../../types';
 // For development, use local server (port 3000). For production, use Vercel.
 const API_URL = __DEV__
   ? 'http://192.168.0.86:3000/api/extract'
-  : 'https://scanvocab.vercel.app/api/extract';
+  : 'https://vocabularytest-omega.vercel.app/api/extract';
 
 // Log which URL we're using
 console.log('Using API URL:', API_URL);

@@ -32,7 +32,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal, Button } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
-import { InlineQuizCard, StudyModeCard, WordList } from '@/components/home';
+import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, getDailyStats, getStreakDays, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
@@ -1156,9 +1156,9 @@ export default function HomePage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-8">
-        {/* Inline Quiz Card */}
+        {/* Inline Flashcard */}
         <div className="mb-6">
-          <InlineQuizCard words={showFavoritesOnly ? allFavoriteWords : words} />
+          <InlineFlashcard words={showFavoritesOnly ? allFavoriteWords : words} />
         </div>
 
         {/* Study Mode Cards - 2 column grid */}
