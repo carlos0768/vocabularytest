@@ -1237,7 +1237,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 'auto',
   },
   headerButton: {
     padding: 8,
