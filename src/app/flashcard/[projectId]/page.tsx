@@ -184,6 +184,36 @@ export default function FlashcardPage() {
     setIsFlipped(false);
   };
 
+  // Keyboard navigation for PC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isAnimating) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          handlePrev(true);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleNext(true);
+          break;
+        case ' ':
+        case 'ArrowUp':
+        case 'ArrowDown':
+          e.preventDefault();
+          handleFlip();
+          break;
+        case 'Escape':
+          router.push(`/project/${projectId}`);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAnimating, currentIndex, words.length, isFlipped, projectId, router]);
+
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
     const newFavorite = !currentWord.isFavorite;
