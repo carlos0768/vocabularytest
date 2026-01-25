@@ -829,10 +829,27 @@ export default function HomePage() {
       router.push('/scan/confirm');
     } catch (error) {
       console.error('Scan error:', error);
+      // Log full error details for debugging
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+
+      let errorMessage = '予期しないエラー';
+      if (error instanceof Error) {
+        // Make common errors more user-friendly
+        if (error.message.includes('did not match the expected pattern')) {
+          errorMessage = '画像の読み込みに失敗しました。別の画像をお試しください。';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       setProcessingSteps((prev) =>
         prev.map((s) =>
           s.status === 'active' || s.status === 'pending'
-            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
+            ? { ...s, status: 'error', label: errorMessage }
             : s
         )
       );
