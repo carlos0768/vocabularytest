@@ -18,6 +18,7 @@ export class LocalWordRepository implements WordRepository {
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       isSynced: false,
+      isFavorite: project.isFavorite ?? false,
     };
 
     await db.projects.add(newProject);

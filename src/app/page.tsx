@@ -23,6 +23,7 @@ import {
   Camera,
   CircleDot,
   BookText,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -346,6 +347,7 @@ function ProjectSelectionSheet({
   onSelectProject,
   onSelectFavorites,
   onCreateNewProject,
+  onToggleProjectFavorite,
   showFavoritesOnly,
   favoriteWords,
   projectFavoriteCounts,
@@ -357,11 +359,22 @@ function ProjectSelectionSheet({
   onSelectProject: (index: number) => void;
   onSelectFavorites: () => void;
   onCreateNewProject: () => void;
+  onToggleProjectFavorite: (projectId: string) => void;
   showFavoritesOnly: boolean;
   favoriteWords: Word[];
   projectFavoriteCounts: Record<string, number>;
 }) {
   if (!isOpen) return null;
+
+  // Sort projects: bookmarked first, then by creation date
+  const sortedProjects = [...projects].sort((a, b) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // Get original index for selection
+  const getOriginalIndex = (project: Project) => projects.findIndex(p => p.id === project.id);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -452,25 +465,33 @@ function ProjectSelectionSheet({
             </button>
 
             <div className="space-y-2">
-              {projects.map((project, index) => {
-                const isSelected = index === currentProjectIndex && !showFavoritesOnly;
+              {sortedProjects.map((project) => {
+                const originalIndex = getOriginalIndex(project);
+                const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly;
                 const favoriteCount = projectFavoriteCounts[project.id] || 0;
                 return (
-                  <button
+                  <div
                     key={project.id}
-                    onClick={() => {
-                      onSelectProject(index);
-                      onClose();
-                    }}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                    className={`w-full p-4 rounded-xl border-2 transition-all ${
                       isSelected
                         ? 'border-emerald-500 bg-white'
                         : 'border-gray-200 bg-white hover:border-gray-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{project.title}</p>
+                      <button
+                        onClick={() => {
+                          onSelectProject(originalIndex);
+                          onClose();
+                        }}
+                        className="flex-1 text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">{project.title}</p>
+                          {project.isFavorite && (
+                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <p className="text-sm text-gray-500">
                             {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
@@ -482,14 +503,32 @@ function ProjectSelectionSheet({
                             </span>
                           )}
                         </div>
+                      </button>
+                      <div className="flex items-center gap-2 ml-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleProjectFavorite(project.id);
+                          }}
+                          className="p-2 hover:bg-yellow-50 rounded-full transition-colors"
+                          title={project.isFavorite ? 'ブックマーク解除' : 'ブックマーク'}
+                        >
+                          <Star
+                            className={`w-5 h-5 ${
+                              project.isFavorite
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-gray-300 hover:text-yellow-400'
+                            }`}
+                          />
+                        </button>
+                        {isSelected && (
+                          <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
                       </div>
-                      {isSelected && (
-                        <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
-                          <Check className="w-4 h-4 text-white" />
-                        </div>
-                      )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -819,6 +858,23 @@ export default function HomePage() {
       ...prev,
       [projectId]: (prev[projectId] || 0) + (newFavorite ? 1 : -1),
     }));
+  };
+
+  // Toggle project bookmark
+  const handleToggleProjectFavorite = async (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const newFavorite = !project.isFavorite;
+    try {
+      await repository.updateProject(projectId, { isFavorite: newFavorite });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, isFavorite: newFavorite } : p))
+      );
+    } catch (error) {
+      console.error('Failed to toggle project favorite:', error);
+      showToast({ message: 'ブックマークの変更に失敗しました', type: 'error' });
+    }
   };
 
   // Project handlers
@@ -1557,6 +1613,7 @@ export default function HomePage() {
         onSelectProject={selectProject}
         onSelectFavorites={() => setShowFavoritesOnly(true)}
         onCreateNewProject={() => handleScanButtonClick(false)}
+        onToggleProjectFavorite={handleToggleProjectFavorite}
         showFavoritesOnly={showFavoritesOnly}
         favoriteWords={allFavoriteWords}
         projectFavoriteCounts={projectFavoriteCounts}
