@@ -56,11 +56,33 @@ export async function POST(request: NextRequest) {
       eikenLevel?: EikenLevel;
     };
 
-    console.log('Extract API called:', { mode, eikenLevel, imageLength: image?.length });
+    // Detailed logging for debugging
+    const imageLength = image?.length || 0;
+    const hasDataPrefix = image?.startsWith('data:') || false;
+    const dataTypeMatch = image?.match(/^data:([^;,]+)/);
+    const detectedType = dataTypeMatch ? dataTypeMatch[1] : 'unknown';
+
+    console.log('Extract API called:', {
+      mode,
+      eikenLevel,
+      imageLength,
+      hasDataPrefix,
+      detectedType,
+      first50Chars: image?.slice(0, 50),
+    });
 
     if (!image) {
       return NextResponse.json(
         { success: false, error: '画像が必要です' },
+        { status: 400 }
+      );
+    }
+
+    // Validate base64 data URL format
+    if (!image.startsWith('data:image/')) {
+      console.error('Invalid image format - does not start with data:image/', { first100: image.slice(0, 100) });
+      return NextResponse.json(
+        { success: false, error: '画像の形式が不正です。JPEG/PNG形式の画像を使用してください。' },
         { status: 400 }
       );
     }
