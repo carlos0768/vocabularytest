@@ -344,7 +344,16 @@ export function FlashcardScreen() {
           >
             {/* Front (English) */}
             <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
-              <Text style={styles.englishText}>{currentWord?.english}</Text>
+              <View style={styles.cardTextContainer}>
+                <Text
+                  style={styles.englishText}
+                  numberOfLines={4}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {currentWord?.english}
+                </Text>
+              </View>
               <View style={styles.cardHint}>
                 <Eye size={16} color={colors.gray[400]} />
                 <Text style={styles.hintText}>タップで意味を見る</Text>
@@ -353,8 +362,16 @@ export function FlashcardScreen() {
 
             {/* Back (Japanese) */}
             <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
-              <Text style={styles.japaneseText}>{currentWord?.japanese}</Text>
-
+              <View style={styles.cardTextContainer}>
+                <Text
+                  style={styles.japaneseText}
+                  numberOfLines={4}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {currentWord?.japanese}
+                </Text>
+              </View>
               <View style={styles.cardHintBack}>
                 <EyeOff size={16} color="rgba(255,255,255,0.6)" />
                 <Text style={styles.hintTextBack}>タップで戻る</Text>
