@@ -91,13 +91,6 @@ export default function QuizPage() {
       correct: prev.correct + (isCorrect ? 1 : 0),
       total: prev.total + 1,
     }));
-
-    // Auto-advance after correct answer
-    if (isCorrect) {
-      setTimeout(() => {
-        moveToNext();
-      }, 500);
-    }
   };
 
   // Move to next question
@@ -292,8 +285,8 @@ export default function QuizPage() {
         )}
       </main>
 
-      {/* Fixed bottom next button (only shown when wrong answer selected) */}
-      {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
+      {/* Fixed bottom next button (shown after answering) */}
+      {isRevealed && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-bottom z-50">
           <Button onClick={moveToNext} className="w-full" size="lg">
             次へ
