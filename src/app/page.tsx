@@ -3,16 +3,39 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Check, Flag } from 'lucide-react';
+import {
+  BookOpen,
+  Settings,
+  Sparkles,
+  Check,
+  Flag,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Layers,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Save,
+  Share2,
+  Link as LinkIcon,
+  Loader2,
+  Orbit,
+  Target,
+  Trophy,
+  Zap,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { ProjectCard, ScanButton } from '@/components/project';
-import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal } from '@/components/ui';
+import { ScanButton } from '@/components/project';
+import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal, Button } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { getRepository } from '@/lib/db';
-import { getDailyScanInfo, incrementScanCount, getGuestUserId, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
+import { remoteRepository } from '@/lib/db/remote-repository';
+import { getDailyScanInfo, incrementScanCount, getGuestUserId, getDailyStats, getStreakDays, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
-import type { AIWordExtraction, Project } from '@/types';
+import type { AIWordExtraction, Project, Word } from '@/types';
 
 // Project name input modal component
 function ProjectNameModal({
@@ -30,7 +53,6 @@ function ProjectNameModal({
   useEffect(() => {
     if (isOpen) {
       setName('');
-      // Focus input after modal opens
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
@@ -113,20 +135,138 @@ function ProcessingModal({
   );
 }
 
-export default function Dashboard() {
+// Word item component
+function WordItem({
+  word,
+  isEditing,
+  onEdit,
+  onCancel,
+  onSave,
+  onDelete,
+  onToggleFavorite,
+}: {
+  word: Word;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: (english: string, japanese: string) => void;
+  onDelete: () => void;
+  onToggleFavorite: () => void;
+}) {
+  const [english, setEnglish] = useState(word.english);
+  const [japanese, setJapanese] = useState(word.japanese);
+
+  if (isEditing) {
+    return (
+      <div className="bg-white rounded-xl border-2 border-blue-500 p-4">
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={english}
+            onChange={(e) => setEnglish(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none text-lg"
+            autoFocus
+          />
+          <input
+            type="text"
+            value={japanese}
+            onChange={(e) => setJapanese(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+          />
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={onCancel} className="flex-1">
+              <X className="w-4 h-4 mr-1" />
+              キャンセル
+            </Button>
+            <Button size="sm" onClick={() => onSave(english, japanese)} className="flex-1">
+              <Save className="w-4 h-4 mr-1" />
+              保存
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 group hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-gray-900">{word.english}</p>
+            {word.isFavorite && (
+              <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
+            )}
+          </div>
+          <p className="text-gray-600 mt-0.5">{word.japanese}</p>
+          {word.exampleSentence && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <p className="text-sm text-gray-700 italic">{word.exampleSentence}</p>
+              {word.exampleSentenceJa && (
+                <p className="text-xs text-gray-500 mt-0.5">{word.exampleSentenceJa}</p>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={onToggleFavorite}
+            className="p-2 hover:bg-orange-50 rounded-full transition-colors"
+          >
+            <Flag
+              className={`w-4 h-4 ${
+                word.isFavorite ? 'fill-orange-500 text-orange-500' : 'text-gray-400'
+              }`}
+            />
+          </button>
+          <button
+            onClick={onEdit}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <Edit2 className="w-4 h-4 text-gray-500" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-2 hover:bg-red-50 rounded-full transition-colors"
+          >
+            <Trash2 className="w-4 h-4 text-red-500" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function HomePage() {
   const router = useRouter();
   const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
 
+  // Projects & navigation
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectWordCounts, setProjectWordCounts] = useState<Record<string, number>>({});
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+  const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wordsLoading, setWordsLoading] = useState(false);
+
+  // Word editing
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // Stats
+  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
+  const [streakDays, setStreakDays] = useState(0);
+
+  // Sharing
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // Scan processing
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [scanInfo, setScanInfo] = useState({ count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true });
   const [totalWords, setTotalWords] = useState(0);
-  const [totalFavorites, setTotalFavorites] = useState(0);
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
@@ -134,14 +274,26 @@ export default function Dashboard() {
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
-  // Delete modal
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  // Delete modals
+  const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
+  const [deleteWordTargetId, setDeleteWordTargetId] = useState<string | null>(null);
+  const [deleteWordLoading, setDeleteWordLoading] = useState(false);
+  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
+  const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
 
-  // Get repository based on subscription status
+  // Get repository
   const subscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Current project
+  const currentProject = projects[currentProjectIndex] || null;
+
+  // Load daily stats
+  useEffect(() => {
+    setDailyStats(getDailyStats());
+    setStreakDays(getStreakDays());
+    setScanInfo(getDailyScanInfo());
+  }, []);
 
   // Load projects
   const loadProjects = useCallback(async () => {
@@ -151,19 +303,13 @@ export default function Dashboard() {
       const data = await repository.getProjects(userId);
       setProjects(data);
 
-      // Load word counts for each project and count mastered/favorite words
-      const counts: Record<string, number> = {};
+      // Calculate total words
       let total = 0;
-      let favorites = 0;
       for (const project of data) {
-        const words = await repository.getWords(project.id);
-        counts[project.id] = words.length;
-        total += words.length;
-        favorites += words.filter(w => w.isFavorite).length;
+        const projectWords = await repository.getWords(project.id);
+        total += projectWords.length;
       }
-      setProjectWordCounts(counts);
       setTotalWords(total);
-      setTotalFavorites(favorites);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -171,40 +317,164 @@ export default function Dashboard() {
     }
   }, [isPro, user, repository]);
 
-  // Load scan info immediately (doesn't need auth)
-  useEffect(() => {
-    setScanInfo(getDailyScanInfo());
-  }, []);
+  // Load words for current project
+  const loadWords = useCallback(async () => {
+    if (!currentProject) {
+      setWords([]);
+      return;
+    }
 
-  // Load projects only after auth state is determined
+    try {
+      setWordsLoading(true);
+      const wordsData = await repository.getWords(currentProject.id);
+      setWords(wordsData);
+    } catch (error) {
+      console.error('Failed to load words:', error);
+    } finally {
+      setWordsLoading(false);
+    }
+  }, [currentProject, repository]);
+
+  // Load projects after auth
   useEffect(() => {
     if (!authLoading) {
       loadProjects();
     }
   }, [authLoading, loadProjects]);
 
-  // Check if user can scan (Pro = unlimited, Free = limited)
+  // Load words when project changes
+  useEffect(() => {
+    loadWords();
+  }, [loadWords]);
+
+  // Stats calculations
+  const stats = {
+    total: words.length,
+    favorites: words.filter((w) => w.isFavorite).length,
+    mastered: words.filter((w) => w.status === 'mastered').length,
+  };
+
+  const accuracy = dailyStats.todayCount > 0
+    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
+    : 0;
+
+  const filteredWords = showFavoritesOnly
+    ? words.filter((w) => w.isFavorite)
+    : words;
+
+  // Navigation
+  const goToPrevProject = () => {
+    if (currentProjectIndex > 0) {
+      setCurrentProjectIndex(currentProjectIndex - 1);
+      setShowFavoritesOnly(false);
+    }
+  };
+
+  const goToNextProject = () => {
+    if (currentProjectIndex < projects.length - 1) {
+      setCurrentProjectIndex(currentProjectIndex + 1);
+      setShowFavoritesOnly(false);
+    }
+  };
+
+  // Word handlers
+  const handleDeleteWord = (wordId: string) => {
+    setDeleteWordTargetId(wordId);
+    setDeleteWordModalOpen(true);
+  };
+
+  const handleConfirmDeleteWord = async () => {
+    if (!deleteWordTargetId) return;
+
+    setDeleteWordLoading(true);
+    try {
+      await repository.deleteWord(deleteWordTargetId);
+      setWords((prev) => prev.filter((w) => w.id !== deleteWordTargetId));
+      showToast({ message: '単語を削除しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete word:', error);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setDeleteWordLoading(false);
+      setDeleteWordModalOpen(false);
+      setDeleteWordTargetId(null);
+    }
+  };
+
+  const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
+    await repository.updateWord(wordId, { english, japanese });
+    setWords((prev) =>
+      prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w))
+    );
+    setEditingWordId(null);
+  };
+
+  const handleToggleFavorite = async (wordId: string) => {
+    const word = words.find((w) => w.id === wordId);
+    if (!word) return;
+    const newFavorite = !word.isFavorite;
+    await repository.updateWord(wordId, { isFavorite: newFavorite });
+    setWords((prev) =>
+      prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w))
+    );
+  };
+
+  // Project handlers
+  const handleDeleteProject = () => {
+    setDeleteProjectModalOpen(true);
+  };
+
+  const handleConfirmDeleteProject = async () => {
+    if (!currentProject) return;
+
+    setDeleteProjectLoading(true);
+    try {
+      await repository.deleteProject(currentProject.id);
+      const newProjects = projects.filter((p) => p.id !== currentProject.id);
+      setProjects(newProjects);
+      if (currentProjectIndex >= newProjects.length && newProjects.length > 0) {
+        setCurrentProjectIndex(newProjects.length - 1);
+      }
+      refreshWordCount();
+      showToast({ message: '単語帳を削除しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setDeleteProjectLoading(false);
+      setDeleteProjectModalOpen(false);
+    }
+  };
+
+  // Share handler
+  const handleShare = async () => {
+    if (!currentProject || !user) return;
+
+    setSharing(true);
+    try {
+      let shareId = currentProject.shareId;
+      if (!shareId) {
+        shareId = await remoteRepository.generateShareId(currentProject.id);
+        setProjects((prev) =>
+          prev.map((p) => (p.id === currentProject.id ? { ...p, shareId } : p))
+        );
+      }
+      const shareUrl = `${window.location.origin}/share/${shareId}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to share:', error);
+      showToast({ message: '共有リンクの生成に失敗しました', type: 'error' });
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Scan handlers
   const canScan = isPro || scanInfo.canScan;
 
-  // Get scan count display info
-  const getScanCountColor = () => {
-    if (isPro) return 'text-emerald-600';
-    if (scanInfo.remaining <= 0) return 'text-gray-400';
-    if (scanInfo.remaining <= 2) return 'text-amber-500';
-    return 'text-gray-500';
-  };
-
-  // Get word count progress info
-  const wordCountPercentage = isPro ? 0 : Math.min(100, Math.round((totalWords / FREE_WORD_LIMIT) * 100));
-  const getWordCountColor = () => {
-    if (isPro) return 'bg-emerald-500';
-    if (wordCountPercentage >= 95) return 'bg-red-500';
-    if (wordCountPercentage >= 80) return 'bg-amber-500';
-    return 'bg-blue-500';
-  };
-
   const handleImageSelect = async (file: File) => {
-    // Check scan limit for free users
     if (!isPro) {
       const currentScanInfo = getDailyScanInfo();
       if (!currentScanInfo.canScan) {
@@ -213,13 +483,11 @@ export default function Dashboard() {
       }
     }
 
-    // Check word limit for free users
     if (!isPro && isAtLimit) {
       setShowWordLimitModal(true);
       return;
     }
 
-    // Store file and show project name modal
     setPendingFile(file);
     setShowProjectNameModal(true);
   };
@@ -231,7 +499,6 @@ export default function Dashboard() {
 
     if (!file) return;
 
-    // Store project name for confirm page
     sessionStorage.setItem('scanvocab_project_name', projectName);
 
     setProcessing(true);
@@ -242,10 +509,7 @@ export default function Dashboard() {
     ]);
 
     try {
-      // Process image (convert HEIC to JPEG if needed)
       const processedFile = await processImageFile(file);
-
-      // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -255,15 +519,11 @@ export default function Dashboard() {
 
       setProcessingSteps((prev) =>
         prev.map((s) =>
-          s.id === 'upload'
-            ? { ...s, status: 'complete' }
-            : s.id === 'analyze'
-            ? { ...s, status: 'active' }
-            : s
+          s.id === 'upload' ? { ...s, status: 'complete' } :
+          s.id === 'analyze' ? { ...s, status: 'active' } : s
         )
       );
 
-      // Call API (Pro users get example sentences)
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,67 +531,35 @@ export default function Dashboard() {
       });
 
       const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error);
-      }
+      if (!result.success) throw new Error(result.error);
 
       setProcessingSteps((prev) =>
         prev.map((s) =>
-          s.id === 'analyze'
-            ? { ...s, status: 'complete' }
-            : s.id === 'generate'
-            ? { ...s, status: 'active' }
-            : s
+          s.id === 'analyze' ? { ...s, status: 'complete' } :
+          s.id === 'generate' ? { ...s, status: 'active' } : s
         )
       );
 
-      // Small delay for UX
       await new Promise((r) => setTimeout(r, 500));
 
       setProcessingSteps((prev) =>
         prev.map((s) => (s.id === 'generate' ? { ...s, status: 'complete' } : s))
       );
 
-      // Increment scan count (only for free users)
       if (!isPro) {
         incrementScanCount();
-        const newScanInfo = getDailyScanInfo();
-        setScanInfo(newScanInfo);
-
-        // Show toast when 1 scan remaining (after 4th scan)
-        if (newScanInfo.remaining === 1) {
-          showToast({
-            message: '今日のスキャン残り1回。Proなら無制限',
-            type: 'warning',
-            action: {
-              label: '詳しく',
-              onClick: () => router.push('/subscription'),
-            },
-            duration: 4000,
-          });
-        }
+        setScanInfo(getDailyScanInfo());
       }
 
-      // Store extracted words temporarily and navigate to confirm page
-      const words: AIWordExtraction[] = result.words;
-      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(words));
-
-      // Navigate to confirm page
+      const extractedWords: AIWordExtraction[] = result.words;
+      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(extractedWords));
       router.push('/scan/confirm');
     } catch (error) {
       console.error('Scan error:', error);
       setProcessingSteps((prev) =>
         prev.map((s) =>
           s.status === 'active' || s.status === 'pending'
-            ? {
-                ...s,
-                status: 'error',
-                label:
-                  error instanceof Error
-                    ? error.message
-                    : '予期しないエラーが発生しました',
-              }
+            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
             : s
         )
       );
@@ -343,87 +571,138 @@ export default function Dashboard() {
     setProcessingSteps([]);
   };
 
-  const handleDeleteProject = (id: string) => {
-    setDeleteTargetId(id);
-    setDeleteModalOpen(true);
-  };
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTargetId) return;
-
-    setDeleteLoading(true);
-    try {
-      await repository.deleteProject(deleteTargetId);
-      setProjects((prev) => prev.filter((p) => p.id !== deleteTargetId));
-      refreshWordCount();
-      showToast({
-        message: '単語帳を削除しました',
-        type: 'success',
-      });
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-      showToast({
-        message: '削除に失敗しました',
-        type: 'error',
-      });
-    } finally {
-      setDeleteLoading(false);
-      setDeleteModalOpen(false);
-      setDeleteTargetId(null);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* Word limit banner (95+ words) */}
-      {!isPro && isAlmostFull && (
-        <WordLimitBanner currentCount={totalWords} />
-      )}
-
-      {/* Header */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-lg font-bold text-white bg-blue-600 px-3 py-1 rounded-lg">WordSnap</h1>
-              {isPro && (
-                <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-medium">
-                  <Sparkles className="w-3 h-3" />
-                  Pro
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Scan count */}
-              <span className={`text-xs font-medium ${getScanCountColor()}`}>
-                {isPro ? (
-                  <span className="flex items-center gap-1">
-                    無制限
-                    <Check className="w-3 h-3" />
-                  </span>
-                ) : (
-                  `${scanInfo.count}/${FREE_DAILY_SCAN_LIMIT}`
-                )}
-              </span>
-
-              {/* Favorites link */}
-              <Link
-                href="/favorites"
-                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors relative"
-              >
-                <Flag className={`w-5 h-5 ${totalFavorites > 0 ? 'fill-orange-500 text-orange-500' : 'text-gray-400'}`} />
-                {totalFavorites > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
-                    {totalFavorites > 9 ? '9+' : totalFavorites}
+  // Empty state - no projects
+  if (projects.length === 0) {
+    return (
+      <div className="min-h-screen bg-white">
+        <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
+          <div className="max-w-lg mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-blue-600">WordSnap</h1>
+                {isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
                   </span>
                 )}
+              </div>
+              <Link href="/settings" className="p-2 hover:bg-gray-100 rounded-full">
+                <Settings className="w-5 h-5 text-gray-500" />
               </Link>
+            </div>
+          </div>
+        </header>
 
-              {/* Settings - always visible */}
-              <Link
-                href="/settings"
-                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+        <main className="flex flex-col items-center justify-center px-4 py-20">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+            <BookOpen className="w-8 h-8 text-gray-400" />
+          </div>
+          <h2 className="text-lg font-medium text-gray-900 mb-2">単語帳がありません</h2>
+          <p className="text-gray-500 text-sm text-center mb-8">
+            右下のボタンから<br />ノートやプリントを撮影しましょう
+          </p>
+          {!isAuthenticated && (
+            <p className="text-xs text-gray-400">
+              <Link href="/signup" className="text-blue-600 hover:underline">
+                アカウント登録
+              </Link>
+              でクラウド保存
+            </p>
+          )}
+        </main>
+
+        <ScanButton onImageSelect={handleImageSelect} disabled={processing || (!isPro && !canScan)} />
+
+        {processing && (
+          <ProcessingModal
+            steps={processingSteps}
+            onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
+          />
+        )}
+
+        <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
+        <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
+        <ProjectNameModal
+          isOpen={showProjectNameModal}
+          onClose={() => { setShowProjectNameModal(false); setPendingFile(null); }}
+          onConfirm={handleProjectNameConfirm}
+        />
+      </div>
+    );
+  }
+
+  // Main view with project
+  return (
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Word limit banner */}
+      {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
+
+      {/* Header with project navigation */}
+      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
+        <div className="max-w-lg mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Left: Project nav */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={goToPrevProject}
+                disabled={currentProjectIndex === 0}
+                className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="text-center min-w-0">
+                <h1 className="font-semibold text-gray-900 truncate max-w-[160px]">
+                  {currentProject?.title}
+                </h1>
+                <p className="text-xs text-gray-400">
+                  {currentProjectIndex + 1} / {projects.length}
+                </p>
+              </div>
+              <button
+                onClick={goToNextProject}
+                disabled={currentProjectIndex === projects.length - 1}
+                className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1">
+              {user && (
+                <button
+                  onClick={handleShare}
+                  disabled={sharing}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  {sharing ? (
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                  ) : shareCopied ? (
+                    <Check className="w-5 h-5 text-emerald-600" />
+                  ) : currentProject?.shareId ? (
+                    <LinkIcon className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <Share2 className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+              )}
+              <button
+                onClick={handleDeleteProject}
+                className="p-2 hover:bg-red-50 rounded-full transition-colors"
+              >
+                <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500" />
+              </button>
+              <Link href="/settings" className="p-2 hover:bg-gray-100 rounded-full">
                 <Settings className="w-5 h-5 text-gray-500" />
               </Link>
             </div>
@@ -431,124 +710,185 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Word count progress bar (free users only) */}
-      {!isPro && (
-        <div className="max-w-2xl mx-auto px-4 pt-2">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span>保存中の単語</span>
-            <span className={wordCountPercentage >= 95 ? 'text-red-500 font-medium' : ''}>
-              {totalWords}/{FREE_WORD_LIMIT}
-            </span>
+      {/* Stats bar */}
+      <div className="bg-gray-50 border-b border-gray-100">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <div className="grid grid-cols-4 gap-2">
+            <div className="text-center">
+              <Orbit className="w-5 h-5 text-blue-500 mx-auto mb-1" />
+              <p className={`text-xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+                {dailyStats.todayCount}
+              </p>
+              <p className="text-xs text-gray-400">今日</p>
+            </div>
+            <div className="text-center">
+              <Target className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+              <p className={`text-xl font-semibold ${accuracy > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
+                {accuracy}%
+              </p>
+              <p className="text-xs text-gray-400">正答率</p>
+            </div>
+            <div className="text-center">
+              <Trophy className="w-5 h-5 text-purple-500 mx-auto mb-1" />
+              <p className={`text-xl font-semibold ${stats.mastered > 0 ? 'text-purple-600' : 'text-gray-300'}`}>
+                {stats.mastered}
+              </p>
+              <p className="text-xs text-gray-400">習得</p>
+            </div>
+            <div className="text-center">
+              <Zap className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+              <p className={`text-xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+                {streakDays}
+              </p>
+              <p className="text-xs text-gray-400">連続</p>
+            </div>
           </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full ${getWordCountColor()} transition-all duration-300`}
-              style={{ width: `${wordCountPercentage}%` }}
-            />
-          </div>
-          {wordCountPercentage >= 95 && (
-            <p className="text-xs text-red-500 mt-1">まもなく上限</p>
-          )}
         </div>
-      )}
+      </div>
 
       {/* Main content */}
-      <main className="max-w-2xl mx-auto px-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-          </div>
-        ) : projects.length === 0 ? (
-          /* Empty state */
-          <div className="text-center py-12">
-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <BookOpen className="w-7 h-7 text-gray-400" />
-            </div>
-            <h2 className="text-base font-medium text-gray-900 mb-2">
-              単語帳がありません
-            </h2>
-            <p className="text-gray-500 text-sm mb-6">
-              右下のボタンから
-              <br />
-              ノートやプリントを撮影しましょう
-            </p>
-            {!isAuthenticated && (
-              <p className="text-xs text-gray-400">
-                <Link href="/signup" className="text-blue-600 hover:underline">
-                  アカウント登録
-                </Link>
-                でクラウド保存
-              </p>
+      <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-40">
+        {/* Word list header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium text-gray-900">
+            {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
+          </h2>
+          <div className="flex items-center gap-2">
+            {stats.favorites > 0 && (
+              <button
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  showFavoritesOnly
+                    ? 'bg-orange-100 text-orange-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Flag className={`w-4 h-4 ${showFavoritesOnly ? 'fill-orange-500' : ''}`} />
+                苦手 {stats.favorites}
+              </button>
             )}
+            <Link
+              href={`/scan?projectId=${currentProject?.id}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              追加
+            </Link>
+          </div>
+        </div>
+
+        {/* Word list */}
+        {wordsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+          </div>
+        ) : filteredWords.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {showFavoritesOnly ? '苦手な単語がありません' : '単語がありません'}
           </div>
         ) : (
-          /* Project list */
           <div className="space-y-2">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                wordCount={projectWordCounts[project.id] || 0}
-                onDelete={handleDeleteProject}
+            {filteredWords.map((word) => (
+              <WordItem
+                key={`${word.id}:${word.english}:${word.japanese}`}
+                word={word}
+                isEditing={editingWordId === word.id}
+                onEdit={() => setEditingWordId(word.id)}
+                onCancel={() => setEditingWordId(null)}
+                onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
+                onDelete={() => handleDeleteWord(word.id)}
+                onToggleFavorite={() => handleToggleFavorite(word.id)}
               />
             ))}
           </div>
         )}
       </main>
 
-      {/* Floating action button */}
-      <ScanButton
-        onImageSelect={handleImageSelect}
-        disabled={processing || (!isPro && !canScan)}
-      />
+      {/* Bottom action buttons */}
+      {stats.total > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
+          <div className="max-w-lg mx-auto px-4">
+            <div className="flex justify-center gap-3 py-4">
+              {showFavoritesOnly && stats.favorites > 0 ? (
+                <>
+                  <Link href={`/quiz/${currentProject?.id}/favorites`}>
+                    <Button size="lg" className="bg-orange-500 hover:bg-orange-600">
+                      <Play className="w-5 h-5 mr-2" />
+                      苦手クイズ
+                    </Button>
+                  </Link>
+                  <Link href={`/flashcard/${currentProject?.id}?favorites=true`}>
+                    <Button size="lg" variant="secondary">
+                      <Layers className="w-5 h-5 mr-2" />
+                      苦手カード
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href={`/quiz/${currentProject?.id}`}>
+                    <Button size="lg">
+                      <Play className="w-5 h-5 mr-2" />
+                      クイズ
+                    </Button>
+                  </Link>
+                  {isPro ? (
+                    <Link href={`/flashcard/${currentProject?.id}`}>
+                      <Button size="lg" variant="secondary">
+                        <Layers className="w-5 h-5 mr-2" />
+                        カード
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href="/subscription">
+                      <Button size="lg" variant="secondary" className="opacity-70">
+                        <Layers className="w-5 h-5 mr-2" />
+                        カード (Pro)
+                      </Button>
+                    </Link>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Processing modal */}
+      {/* Scan button */}
+      <ScanButton onImageSelect={handleImageSelect} disabled={processing || (!isPro && !canScan)} />
+
+      {/* Modals */}
       {processing && (
         <ProcessingModal
           steps={processingSteps}
-          onClose={
-            processingSteps.some((s) => s.status === 'error')
-              ? handleCloseModal
-              : undefined
-          }
+          onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
         />
       )}
 
-      {/* Scan limit modal */}
-      <ScanLimitModal
-        isOpen={showScanLimitModal}
-        onClose={() => setShowScanLimitModal(false)}
-        todayWordsLearned={0}
-      />
-
-      {/* Word limit modal */}
-      <WordLimitModal
-        isOpen={showWordLimitModal}
-        onClose={() => setShowWordLimitModal(false)}
-        currentCount={totalWords}
-      />
-
-      {/* Project name modal */}
+      <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
+      <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
       <ProjectNameModal
         isOpen={showProjectNameModal}
-        onClose={() => {
-          setShowProjectNameModal(false);
-          setPendingFile(null);
-        }}
+        onClose={() => { setShowProjectNameModal(false); setPendingFile(null); }}
         onConfirm={handleProjectNameConfirm}
       />
 
-      {/* Delete confirm modal */}
       <DeleteConfirmModal
-        isOpen={deleteModalOpen}
-        onClose={() => {
-          setDeleteModalOpen(false);
-          setDeleteTargetId(null);
-        }}
-        onConfirm={handleConfirmDelete}
+        isOpen={deleteWordModalOpen}
+        onClose={() => { setDeleteWordModalOpen(false); setDeleteWordTargetId(null); }}
+        onConfirm={handleConfirmDeleteWord}
+        title="単語を削除"
+        message="この単語を削除します。この操作は取り消せません。"
+        isLoading={deleteWordLoading}
+      />
+
+      <DeleteConfirmModal
+        isOpen={deleteProjectModalOpen}
+        onClose={() => setDeleteProjectModalOpen(false)}
+        onConfirm={handleConfirmDeleteProject}
         title="単語帳を削除"
         message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
-        isLoading={deleteLoading}
+        isLoading={deleteProjectLoading}
       />
     </div>
   );
