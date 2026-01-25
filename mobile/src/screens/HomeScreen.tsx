@@ -1220,11 +1220,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    borderRadius: 8,
+    paddingHorizontal: 0,
   },
   projectTitle: {
     flex: 1,
