@@ -380,23 +380,15 @@ function WordItem({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 group hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-medium text-gray-900">{word.english}</p>
+            <p className="text-lg font-semibold text-gray-900">{word.english}</p>
             {word.isFavorite && (
               <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
             )}
           </div>
-          <p className="text-gray-600 mt-0.5">{word.japanese}</p>
-          {word.exampleSentence && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
-              <p className="text-sm text-gray-700 italic">{word.exampleSentence}</p>
-              {word.exampleSentenceJa && (
-                <p className="text-xs text-gray-500 mt-0.5">{word.exampleSentenceJa}</p>
-              )}
-            </div>
-          )}
+          <p className="text-gray-500 mt-0.5">{word.japanese}</p>
         </div>
         <div className="flex gap-1 ml-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
