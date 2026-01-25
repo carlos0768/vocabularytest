@@ -1673,14 +1673,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   sheetContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    flex: 1,
     backgroundColor: colors.gray[50],
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
+    marginTop: 60,
   },
   sheetHeader: {
     flexDirection: 'row',
