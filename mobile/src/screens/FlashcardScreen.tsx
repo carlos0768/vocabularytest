@@ -20,7 +20,9 @@ import {
   Flag,
   Eye,
   EyeOff,
+  Volume2,
 } from 'lucide-react-native';
+import * as Speech from 'expo-speech';
 import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
 import { shuffleArray } from '../lib/utils';
@@ -344,6 +346,17 @@ export function FlashcardScreen() {
           >
             {/* Front (English) */}
             <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
+              {/* Voice button above the word */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (currentWord?.english) {
+                    Speech.speak(currentWord.english, { language: 'en-US', rate: 0.9 });
+                  }
+                }}
+                style={styles.voiceButton}
+              >
+                <Volume2 size={24} color={colors.gray[400]} />
+              </TouchableOpacity>
               <View style={styles.cardTextContainer}>
                 <Text
                   style={styles.englishText}
