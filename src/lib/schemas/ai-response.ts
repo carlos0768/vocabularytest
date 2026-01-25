@@ -4,18 +4,20 @@ import { z } from 'zod';
 // This ensures robustness against malformed AI outputs
 
 export const AIWordSchema = z.object({
-  english: z.string().min(1, 'English word is required'),
-  japanese: z.string().min(1, 'Japanese translation is required'),
+  english: z.string().min(1, '英単語が必要です'),
+  japanese: z.string().min(1, '日本語訳が必要です'),
   distractors: z
-    .array(z.string().min(1))
-    .length(3, 'Exactly 3 distractors required'),
+    .array(z.string())
+    .min(3, '誤答が3つ必要です')
+    .max(4, '誤答が多すぎます')
+    .transform((arr) => arr.slice(0, 3).map(s => s || '---')), // Ensure 3 items, replace empty with placeholder
   // Optional example sentence fields (Pro feature)
   exampleSentence: z.string().optional(),
   exampleSentenceJa: z.string().optional(),
 });
 
 export const AIResponseSchema = z.object({
-  words: z.array(AIWordSchema).min(1, 'At least one word is required'),
+  words: z.array(AIWordSchema).min(1, '単語が見つかりませんでした'),
 });
 
 export type ValidatedAIResponse = z.infer<typeof AIResponseSchema>;
