@@ -20,10 +20,6 @@ import {
   Share2,
   Link as LinkIcon,
   Loader2,
-  Orbit,
-  Target,
-  Trophy,
-  Zap,
   Camera,
   CircleDot,
   BookText,
@@ -35,7 +31,7 @@ import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/li
 import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { getDailyScanInfo, incrementScanCount, getGuestUserId, getDailyStats, getStreakDays, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
+import { getDailyScanInfo, incrementScanCount, getGuestUserId, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -537,10 +533,6 @@ export default function HomePage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isWordListExpanded, setIsWordListExpanded] = useState(false);
 
-  // Stats
-  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
-  const [streakDays, setStreakDays] = useState(0);
-
   // Sharing
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -575,22 +567,23 @@ export default function HomePage() {
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
 
-  // Load daily stats
+  // Load scan info
   useEffect(() => {
-    setDailyStats(getDailyStats());
-    setStreakDays(getStreakDays());
     setScanInfo(getDailyScanInfo());
   }, []);
 
   // Control body scroll based on word list expansion (mobile Safari requires touch event prevention)
+  // But allow scroll when modals are open
   useEffect(() => {
     const preventScroll = (e: TouchEvent) => {
-      if (!isWordListExpanded) {
-        e.preventDefault();
+      // Allow scroll if any modal/sheet is open or word list is expanded
+      if (isWordListExpanded || isProjectDropdownOpen) {
+        return;
       }
+      e.preventDefault();
     };
 
-    if (!isWordListExpanded) {
+    if (!isWordListExpanded && !isProjectDropdownOpen) {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
@@ -610,7 +603,7 @@ export default function HomePage() {
       document.body.style.height = '';
       document.removeEventListener('touchmove', preventScroll);
     };
-  }, [isWordListExpanded]);
+  }, [isWordListExpanded, isProjectDropdownOpen]);
 
   // Load projects
   const loadProjects = useCallback(async () => {
@@ -674,17 +667,6 @@ export default function HomePage() {
   useEffect(() => {
     loadWords();
   }, [loadWords]);
-
-  // Stats calculations
-  const stats = {
-    total: words.length,
-    favorites: words.filter((w) => w.isFavorite).length,
-    mastered: words.filter((w) => w.status === 'mastered').length,
-  };
-
-  const accuracy = dailyStats.todayCount > 0
-    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
-    : 0;
 
   const filteredWords = showFavoritesOnly
     ? allFavoriteWords
@@ -840,10 +822,10 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
-    // Handle grammar mode separately - navigate directly to grammar page
+    // Handle grammar mode separately - navigate directly to grammar scan page
     if (mode === 'grammar') {
       if (currentProject) {
-        router.push(`/grammar/${currentProject.id}`);
+        router.push(`/grammar/${currentProject.id}/scan`);
       } else {
         // If no project exists, show toast and do nothing
         showToast({ message: 'まず単語帳を作成してください', type: 'error' });
@@ -1175,42 +1157,6 @@ export default function HomePage() {
           </div>
         </div>
       </header>
-
-      {/* Stats bar */}
-      <div className="bg-white">
-        <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="grid grid-cols-4 gap-2">
-            <div className="text-center">
-              <Orbit className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <p className={`text-xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
-                {dailyStats.todayCount}
-              </p>
-              <p className="text-xs text-gray-400">今日</p>
-            </div>
-            <div className="text-center">
-              <Target className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-              <p className={`text-xl font-semibold ${accuracy > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
-                {accuracy}%
-              </p>
-              <p className="text-xs text-gray-400">正答率</p>
-            </div>
-            <div className="text-center">
-              <Trophy className="w-5 h-5 text-purple-500 mx-auto mb-1" />
-              <p className={`text-xl font-semibold ${stats.mastered > 0 ? 'text-purple-600' : 'text-gray-300'}`}>
-                {stats.mastered}
-              </p>
-              <p className="text-xs text-gray-400">習得</p>
-            </div>
-            <div className="text-center">
-              <Zap className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <p className={`text-xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
-                {streakDays}
-              </p>
-              <p className="text-xs text-gray-400">連続</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-8">
