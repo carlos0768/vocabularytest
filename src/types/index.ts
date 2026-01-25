@@ -24,6 +24,15 @@ export type {
   GrammarQuizQuestion,
   AIGrammarExtraction,
   AIGrammarResponse,
+  // New Duolingo-style grammar quiz types
+  GrammarQuizType,
+  LegacyGrammarQuizType,
+  WordOption,
+  GrammarQuizQuestionNew,
+  AIGrammarQuizQuestionLegacy,
+  AIGrammarQuizQuestionNew,
+  AIGrammarQuizQuestion,
+  AIGrammarExtractionLegacy,
 } from '../../shared/types';
 
 // ============ Web-Specific Types ============
