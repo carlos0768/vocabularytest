@@ -345,6 +345,7 @@ function ProjectSelectionSheet({
   currentProjectIndex,
   onSelectProject,
   onSelectFavorites,
+  onCreateNewProject,
   showFavoritesOnly,
   favoriteWords,
   projectFavoriteCounts,
@@ -355,6 +356,7 @@ function ProjectSelectionSheet({
   currentProjectIndex: number;
   onSelectProject: (index: number) => void;
   onSelectFavorites: () => void;
+  onCreateNewProject: () => void;
   showFavoritesOnly: boolean;
   favoriteWords: Word[];
   projectFavoriteCounts: Record<string, number>;
@@ -425,10 +427,30 @@ function ProjectSelectionSheet({
 
           {/* Projects Section */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen className="w-5 h-5 text-blue-500" />
-              <h3 className="font-medium text-gray-700">単語帳一覧</h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-blue-500" />
+                <h3 className="font-medium text-gray-700">単語帳一覧</h3>
+              </div>
             </div>
+
+            {/* New Project Button */}
+            <button
+              onClick={() => {
+                onClose();
+                onCreateNewProject();
+              }}
+              className="w-full flex items-center gap-3 p-4 mb-2 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 transition-all"
+            >
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Plus className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-blue-700">新しい単語帳を作成</p>
+                <p className="text-sm text-blue-500">写真から単語を抽出</p>
+              </div>
+            </button>
+
             <div className="space-y-2">
               {projects.map((project, index) => {
                 const isSelected = index === currentProjectIndex && !showFavoritesOnly;
@@ -1384,11 +1406,12 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Center: New project button */}
+            {/* Center: Add to current project button */}
             <button
-              onClick={() => handleScanButtonClick()}
+              onClick={() => handleScanButtonClick(true)}
               disabled={processing || (!isPro && !canScan)}
               className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="現在の単語帳に追加"
             >
               <Plus className="w-5 h-5" />
             </button>
@@ -1533,6 +1556,7 @@ export default function HomePage() {
         currentProjectIndex={currentProjectIndex}
         onSelectProject={selectProject}
         onSelectFavorites={() => setShowFavoritesOnly(true)}
+        onCreateNewProject={() => handleScanButtonClick(false)}
         showFavoritesOnly={showFavoritesOnly}
         favoriteWords={allFavoriteWords}
         projectFavoriteCounts={projectFavoriteCounts}
