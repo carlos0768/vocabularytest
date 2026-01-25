@@ -4,20 +4,28 @@ import { z } from 'zod';
 // This ensures robustness against malformed AI outputs
 
 export const AIWordSchema = z.object({
-  english: z.string().min(1, '英単語が必要です'),
-  japanese: z.string().min(1, '日本語訳が必要です'),
-  distractors: z
-    .array(z.string())
-    .min(3, '誤答が3つ必要です')
-    .max(4, '誤答が多すぎます')
-    .transform((arr) => arr.slice(0, 3).map(s => s || '---')), // Ensure 3 items, replace empty with placeholder
+  english: z.string(),
+  japanese: z.string(),
+  distractors: z.array(z.string()).default([]),
   // Optional example sentence fields (Pro feature)
-  exampleSentence: z.string().optional(),
-  exampleSentenceJa: z.string().optional(),
-});
+  exampleSentence: z.string().optional().nullable(),
+  exampleSentenceJa: z.string().optional().nullable(),
+}).transform((word) => ({
+  ...word,
+  english: word.english || '---',
+  japanese: word.japanese || '---',
+  // Ensure exactly 3 distractors, fill with placeholders if needed
+  distractors: [
+    word.distractors[0] || '選択肢1',
+    word.distractors[1] || '選択肢2',
+    word.distractors[2] || '選択肢3',
+  ],
+  exampleSentence: word.exampleSentence || undefined,
+  exampleSentenceJa: word.exampleSentenceJa || undefined,
+}));
 
 export const AIResponseSchema = z.object({
-  words: z.array(AIWordSchema).min(1, '単語が見つかりませんでした'),
+  words: z.array(AIWordSchema).default([]),
 });
 
 export type ValidatedAIResponse = z.infer<typeof AIResponseSchema>;
@@ -29,9 +37,12 @@ export function parseAIResponse(data: unknown): {
   data?: ValidatedAIResponse;
   error?: string;
 } {
+  console.log('parseAIResponse input:', JSON.stringify(data, null, 2));
+
   const result = AIResponseSchema.safeParse(data);
 
   if (result.success) {
+    console.log('parseAIResponse success:', JSON.stringify(result.data, null, 2));
     return { success: true, data: result.data };
   }
 
@@ -40,5 +51,8 @@ export function parseAIResponse(data: unknown): {
     .map((e) => `${e.path.join('.')}: ${e.message}`)
     .join(', ');
 
-  return { success: false, error: errorMessages };
+  console.error('parseAIResponse error:', errorMessages);
+  console.error('Zod issues:', JSON.stringify(result.error.issues, null, 2));
+
+  return { success: false, error: 'AIの応答形式が不正です。もう一度お試しください。' };
 }
