@@ -126,7 +126,7 @@ export default function QuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">クイズを準備中...</p>
@@ -140,7 +140,7 @@ export default function QuizPage() {
     const percentage = Math.round((results.correct / results.total) * 100);
 
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
         {/* Header */}
         <header className="p-4">
           <button
@@ -203,9 +203,9 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
-      <header className="p-4 flex items-center justify-between">
+      <header className="flex-shrink-0 p-4 flex items-center justify-between">
         <button
           onClick={() => router.push(`/project/${projectId}`)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -230,9 +230,9 @@ export default function QuizPage() {
       </header>
 
       {/* Question */}
-      <main className="flex-1 flex flex-col p-6">
+      <main className="flex-1 flex flex-col p-6 min-h-0 overflow-hidden">
         {/* English word */}
-        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex-shrink-0 flex flex-col items-center justify-center py-4">
           <h1 className="text-4xl font-bold text-gray-900 text-center mb-4">
             {currentQuestion?.word.english}
           </h1>
@@ -265,7 +265,7 @@ export default function QuizPage() {
         </div>
 
         {/* Options */}
-        <div className="space-y-3 mb-6">
+        <div className="flex-shrink-0 space-y-3 mb-4">
           {currentQuestion?.options.map((option, index) => (
             <QuizOption
               key={index}
@@ -282,7 +282,7 @@ export default function QuizPage() {
 
         {/* Example sentence (shown after answering, Pro feature) */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="mb-4 p-4 bg-blue-50 rounded-xl">
+          <div className="flex-shrink-0 mb-4 p-4 bg-blue-50 rounded-xl">
             <p className="text-sm font-medium text-blue-800 mb-1">例文</p>
             <p className="text-blue-900 italic">{currentQuestion.word.exampleSentence}</p>
             {currentQuestion.word.exampleSentenceJa && (
@@ -293,7 +293,7 @@ export default function QuizPage() {
 
         {/* Next button (only shown when wrong answer selected) */}
         {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
-          <Button onClick={moveToNext} className="w-full" size="lg">
+          <Button onClick={moveToNext} className="flex-shrink-0 w-full" size="lg">
             次へ
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>
