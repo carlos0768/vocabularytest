@@ -50,6 +50,24 @@ export function FlashcardScreen() {
   const swipeAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
+  // Refs to track current state for PanResponder
+  const currentIndexRef = useRef(currentIndex);
+  const wordsLengthRef = useRef(words.length);
+  const isAnimatingRef = useRef(isAnimating);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    wordsLengthRef.current = words.length;
+  }, [words.length]);
+
+  useEffect(() => {
+    isAnimatingRef.current = isAnimating;
+  }, [isAnimating]);
+
   // Authenticated users use remote repository (Supabase), guests use local SQLite
   const repository = getRepository(isAuthenticated ? 'active' : 'free');
 
@@ -169,29 +187,45 @@ export function FlashcardScreen() {
     swipeAnim.setValue(0);
   };
 
+  // Refs for handler functions
+  const handleNextRef = useRef<(withAnimation?: boolean) => void>(() => {});
+  const handlePrevRef = useRef<(withAnimation?: boolean) => void>(() => {});
+
+  // Update handler refs when functions change
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+    handlePrevRef.current = handlePrev;
+  });
+
   // Pan responder for swipe gestures
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         // Only respond to horizontal swipes
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 5;
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 5;
+      },
+      onPanResponderGrant: () => {
+        // Reset animations when starting a new gesture
       },
       onPanResponderMove: (_, gestureState) => {
-        if (!isAnimating) {
+        if (!isAnimatingRef.current) {
           swipeAnim.setValue(gestureState.dx);
           rotateAnim.setValue(gestureState.dx * 0.02);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (isAnimating) return;
+        if (isAnimatingRef.current) return;
 
-        if (gestureState.dx < -SWIPE_THRESHOLD && currentIndex < words.length - 1) {
+        if (gestureState.dx < -SWIPE_THRESHOLD && currentIndexRef.current < wordsLengthRef.current - 1) {
           // Swipe left - next
-          handleNext(true);
-        } else if (gestureState.dx > SWIPE_THRESHOLD && currentIndex > 0) {
+          handleNextRef.current(true);
+        } else if (gestureState.dx > SWIPE_THRESHOLD && currentIndexRef.current > 0) {
           // Swipe right - prev
-          handlePrev(true);
+          handlePrevRef.current(true);
         } else {
           // Reset position
           Animated.spring(swipeAnim, {
@@ -199,6 +233,14 @@ export function FlashcardScreen() {
             useNativeDriver: true,
           }).start();
         }
+        rotateAnim.setValue(0);
+      },
+      onPanResponderTerminate: () => {
+        // Reset if gesture is terminated
+        Animated.spring(swipeAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
         rotateAnim.setValue(0);
       },
     })

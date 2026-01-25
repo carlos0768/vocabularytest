@@ -367,14 +367,6 @@ function WordItem({
           )}
         </View>
         <Text style={styles.wordItemJapanese}>{word.japanese}</Text>
-        {word.exampleSentence && (
-          <View style={styles.exampleSection}>
-            <Text style={styles.exampleSentence}>{word.exampleSentence}</Text>
-            {word.exampleSentenceJa && (
-              <Text style={styles.exampleSentenceJa}>{word.exampleSentenceJa}</Text>
-            )}
-          </View>
-        )}
       </View>
       <View style={styles.wordItemActions}>
         <TouchableOpacity onPress={onToggleFavorite} style={styles.wordActionButton}>

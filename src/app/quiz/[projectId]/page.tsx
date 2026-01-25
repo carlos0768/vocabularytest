@@ -85,12 +85,24 @@ export default function QuizPage() {
     setIsRevealed(true);
 
     const isCorrect = index === currentQuestion.correctIndex;
+    const word = currentQuestion.word;
 
     // Update results
     setResults((prev) => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
       total: prev.total + 1,
     }));
+
+    // Record stats for daily tracking
+    if (isCorrect) {
+      // Check if word becomes mastered (you could add logic here)
+      recordCorrectAnswer(false);
+    } else {
+      recordWrongAnswer(word.id, word.english, word.japanese);
+    }
+
+    // Record activity for streak tracking
+    recordActivity();
   };
 
   // Move to next question
