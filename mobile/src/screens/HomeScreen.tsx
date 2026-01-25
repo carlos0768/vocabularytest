@@ -61,7 +61,7 @@ import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const SHARE_BASE_URL = 'https://scanvocab.vercel.app/share';
+const SHARE_BASE_URL = 'https://vocabularytest-omega.vercel.app/share';
 
 // Extraction modes
 type ExtractMode = 'all' | 'circled';

@@ -41,7 +41,7 @@ import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, 'Project'>;
 
-const SHARE_BASE_URL = 'https://scanvocab.vercel.app/share';
+const SHARE_BASE_URL = 'https://vocabularytest-omega.vercel.app/share';
 
 export function ProjectScreen() {
   const navigation = useNavigation<NavigationProp>();

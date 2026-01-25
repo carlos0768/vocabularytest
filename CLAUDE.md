@@ -187,12 +187,15 @@ Row Level Security (RLS) ensures users can only access their own data.
 1. **AI Response Handling**: Always validate with Zod - AI output can be malformed
 2. **Progress UX**: Show step-by-step progress during AI processing to prevent user drop-off
 3. **Quiz Logic**:
-   - Correct → green flash, auto-advance 0.5s
-   - Wrong → show correct answer, wait for user to tap "Next"
+   - Both correct and wrong answers show "次へ" button - user taps to proceed
+   - Correct → green highlight, Wrong → red highlight with correct answer shown
    - Status progression: new → review → mastered (regresses on wrong answer)
+   - Daily stats recorded: todayCount, correctCount, streakDays
 4. **Free Plan**: 3 scans/day tracked in localStorage (reset daily)
 5. **SSR Compatibility**: Supabase clients use lazy initialization to avoid build-time errors
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
+7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
+8. **Favorites Mode**: Shows all favorite words across all projects, not just current project
 
 ## Testing KOMOJU Webhooks Locally
 
@@ -213,22 +216,15 @@ ngrok http 3000
 
 以下は将来実装予定の機能です。別セッションでも認識できるよう記録しています。
 
-### 1. 丸をつけた単語だけを抽出する機能
+### 1. 丸をつけた単語だけを抽出する機能 ✅ 完了
 - **概要**: ユーザーが手書きで丸をつけた単語のみをOCRで認識・抽出する
-- **実装ポイント**:
-  - OpenAI Vision APIのプロンプト調整が必要
-  - 丸の検出ロジック（形状認識）
-- **優先度**: 中
-- **ステータス**: 未着手
+- **実装**: ScanModeModalで「丸をつけた単語のみ」モードを選択可能
+- **ステータス**: 完了
 
-### 2. 英検の級を絞って単語を抽出する機能
+### 2. 英検の級を絞って単語を抽出する機能 ✅ 完了
 - **概要**: 英検5級〜1級の範囲を指定して、その級に該当する単語のみを抽出
-- **実装ポイント**:
-  - 英検の級別単語リストのデータベース構築または外部API連携
-  - スキャン時に級を選択するUI追加
-  - フィルタリングロジックの実装
-- **優先度**: 中
-- **ステータス**: 未着手
+- **実装**: ScanModeModalでEIKENレベル（5級〜1級）を選択してフィルタリング可能
+- **ステータス**: 完了
 
 ### 3. 文法抽出機能（AI比較検証）
 - **概要**: 画像から文法項目を抽出する機能。単語機能とは別の学習モード
