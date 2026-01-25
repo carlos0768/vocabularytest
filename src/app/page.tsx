@@ -33,8 +33,9 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
-import type { AIWordExtraction, Project, Word } from '@/types';
+import type { AIWordExtraction, AIGrammarExtraction, Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+import type { EikenGrammarLevel } from '@/types';
 
 // EIKEN level options for the dropdown
 const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
@@ -550,8 +551,9 @@ export default function HomePage() {
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [isAddingToExisting, setIsAddingToExisting] = useState(false); // true = add to current project, false = new project
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
+  const [selectedScanMode, setSelectedScanMode] = useState<ScanMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
+  const [isGrammarMode, setIsGrammarMode] = useState(false);
 
   // Delete modals
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
@@ -822,17 +824,19 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
-    // Handle grammar mode separately - navigate directly to grammar scan page
+    // Handle grammar mode - requires existing project
     if (mode === 'grammar') {
-      if (currentProject) {
-        router.push(`/grammar/${currentProject.id}/scan`);
-      } else {
-        // If no project exists, show toast and do nothing
+      if (!currentProject) {
         showToast({ message: 'まず単語帳を作成してください', type: 'error' });
+        return;
       }
+      setIsGrammarMode(true);
+      setSelectedEikenLevel(eikenLevel);
+      fileInputRef.current?.click();
       return;
     }
 
+    setIsGrammarMode(false);
     setSelectedScanMode(mode);
     setSelectedEikenLevel(eikenLevel);
     fileInputRef.current?.click();
@@ -845,6 +849,16 @@ export default function HomePage() {
         setShowScanLimitModal(true);
         return;
       }
+    }
+
+    // Grammar mode - process directly without project name modal
+    if (isGrammarMode) {
+      if (!currentProject) {
+        showToast({ message: 'まず単語帳を作成してください', type: 'error' });
+        return;
+      }
+      processGrammarImage(file);
+      return;
     }
 
     if (!isPro && isAtLimit) {
@@ -950,6 +964,105 @@ export default function HomePage() {
         } else {
           errorMessage = error.message;
         }
+      }
+
+      setProcessingSteps((prev) =>
+        prev.map((s) =>
+          s.status === 'active' || s.status === 'pending'
+            ? { ...s, status: 'error', label: errorMessage }
+            : s
+        )
+      );
+    }
+  };
+
+  // Grammar image processing function
+  const processGrammarImage = async (file: File) => {
+    if (!currentProject) return;
+
+    setProcessing(true);
+    setProcessingSteps([
+      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
+      { id: 'ocr', label: 'テキストを抽出中...', status: 'pending' },
+      { id: 'analyze', label: '文法を解析中...', status: 'pending' },
+    ]);
+
+    try {
+      let processedFile: File;
+      try {
+        processedFile = await processImageFile(file);
+      } catch (imageError) {
+        console.error('Image processing error:', imageError);
+        throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
+      }
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          if (!result || !result.includes(',')) {
+            reject(new Error('画像データの読み取りに失敗しました'));
+            return;
+          }
+          resolve(result);
+        };
+        reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
+        reader.readAsDataURL(processedFile);
+      });
+
+      setProcessingSteps((prev) =>
+        prev.map((s) =>
+          s.id === 'upload' ? { ...s, status: 'complete' } :
+          s.id === 'ocr' ? { ...s, status: 'active' } : s
+        )
+      );
+
+      // Call grammar API
+      const eikenLevel: EikenGrammarLevel = selectedEikenLevel as EikenGrammarLevel;
+      const response = await fetch('/api/grammar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, eikenLevel }),
+      });
+
+      setProcessingSteps((prev) =>
+        prev.map((s) =>
+          s.id === 'ocr' ? { ...s, status: 'complete' } :
+          s.id === 'analyze' ? { ...s, status: 'active' } : s
+        )
+      );
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '文法解析に失敗しました');
+      }
+
+      await new Promise((r) => setTimeout(r, 500));
+
+      setProcessingSteps((prev) =>
+        prev.map((s) => (s.id === 'analyze' ? { ...s, status: 'complete' } : s))
+      );
+
+      if (!isPro) {
+        incrementScanCount();
+        setScanInfo(getDailyScanInfo());
+      }
+
+      // Store patterns and project ID in sessionStorage, then navigate to confirm page
+      const patterns: AIGrammarExtraction[] = result.patterns;
+      sessionStorage.setItem('scanvocab_grammar_patterns', JSON.stringify(patterns));
+      sessionStorage.setItem('scanvocab_project_id', currentProject.id);
+
+      setProcessing(false);
+      setIsGrammarMode(false);
+      router.push('/grammar/confirm');
+    } catch (error) {
+      console.error('Grammar scan error:', error);
+
+      let errorMessage = '予期しないエラー';
+      if (error instanceof Error) {
+        errorMessage = error.message;
       }
 
       setProcessingSteps((prev) =>
