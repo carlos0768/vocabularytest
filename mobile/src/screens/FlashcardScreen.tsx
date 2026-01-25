@@ -497,17 +497,27 @@ const styles = StyleSheet.create({
   cardBack: {
     backgroundColor: colors.primary[600],
   },
+  cardTextContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 40,
+  },
   englishText: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
+    width: '100%',
   },
   japaneseText: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.white,
     textAlign: 'center',
+    width: '100%',
   },
   cardHint: {
     position: 'absolute',
