@@ -20,6 +20,7 @@
     "expo-file-system": "^19.0.21",
     "expo-image-picker": "^17.0.10",
     "expo-linking": "^8.0.11",
+    "expo-speech": "~13.1.1",
     "expo-sqlite": "^16.0.10",
     "expo-status-bar": "~3.0.9",
     "lucide-react-native": "^0.563.0",
