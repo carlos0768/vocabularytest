@@ -768,7 +768,7 @@ export function HomeScreen() {
       );
 
       const result = await extractWordsFromImage(imageDataUrl, {
-        mode: selectedScanMode,
+        mode: selectedScanMode as 'all' | 'circled', // Grammar mode is handled separately
         eikenLevel: selectedEikenLevel,
         isPro,
       });
@@ -982,6 +982,7 @@ export function HomeScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        scrollEnabled={isWordListExpanded}
       >
         {/* Inline Flashcard */}
         <View style={styles.flashcardSection}>

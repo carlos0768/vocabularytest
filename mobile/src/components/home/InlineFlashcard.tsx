@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
-import * as Speech from 'expo-speech';
 import { Volume2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react-native';
 import colors from '../../constants/colors';
 import type { Word } from '../../types';
@@ -44,14 +44,11 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
 
   const currentWord = shuffledWords[currentIndex];
 
-  // Text-to-speech
+  // Text-to-speech (disabled for now - requires native module rebuild)
   const speakWord = () => {
-    if (currentWord?.english) {
-      Speech.speak(currentWord.english, {
-        language: 'en-US',
-        rate: 0.9,
-      });
-    }
+    // TODO: Implement TTS when native modules are rebuilt
+    // For now, just show an alert
+    Alert.alert('音声機能', '音声再生機能は現在準備中です');
   };
 
   // Navigation
@@ -133,18 +130,6 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
             <View style={styles.cardContent}>
               <Text style={styles.smallEnglishText}>{currentWord.english}</Text>
               <Text style={styles.japaneseText}>{currentWord.japanese}</Text>
-              {currentWord.exampleSentence && (
-                <View style={styles.exampleSection}>
-                  <Text style={styles.exampleText}>
-                    "{currentWord.exampleSentence}"
-                  </Text>
-                  {currentWord.exampleSentenceJa && (
-                    <Text style={styles.exampleTextJa}>
-                      {currentWord.exampleSentenceJa}
-                    </Text>
-                  )}
-                </View>
-              )}
             </View>
           )}
         </TouchableOpacity>

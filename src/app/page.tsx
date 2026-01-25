@@ -57,10 +57,12 @@ function ScanModeModal({
   isOpen,
   onClose,
   onSelectMode,
+  isPro,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
+  isPro: boolean;
 }) {
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
   const [isEikenDropdownOpen, setIsEikenDropdownOpen] = useState(false);
@@ -145,13 +147,21 @@ function ScanModeModal({
           </button>
           <button
             onClick={() => onSelectMode('circled', selectedEiken)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-colors text-left"
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-colors text-left relative"
           >
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
               <CircleDot className="w-6 h-6 text-purple-600" />
             </div>
-            <div>
-              <p className="font-medium text-gray-900">丸をつけた単語だけ</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900">丸をつけた単語だけ</p>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500">マークした単語だけを抽出します</p>
             </div>
           </button>
@@ -162,8 +172,16 @@ function ScanModeModal({
             <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
               <BookText className="w-6 h-6 text-emerald-600" />
             </div>
-            <div>
-              <p className="font-medium text-gray-900">文法をスキャン</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900">文法をスキャン</p>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500">文法問題を抽出して学習します</p>
             </div>
           </button>
@@ -824,6 +842,12 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
+    // Pro-only features: circled mode and grammar mode
+    if ((mode === 'circled' || mode === 'grammar') && !isPro) {
+      router.push('/subscription');
+      return;
+    }
+
     // Handle grammar mode - requires existing project
     if (mode === 'grammar') {
       if (!currentProject) {
@@ -1178,6 +1202,7 @@ export default function HomePage() {
           isOpen={showScanModeModal}
           onClose={() => setShowScanModeModal(false)}
           onSelectMode={handleScanModeSelect}
+          isPro={isPro}
         />
         <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
         <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
@@ -1299,14 +1324,15 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Grammar Mode Card - Full width */}
+        {/* Grammar Mode Card - Full width (Pro only) */}
         <div className="mb-6">
           <StudyModeCard
             title="文法問題"
             description="文法をスキャンして学習"
             icon={BookText}
-            href={`/grammar/${currentProject?.id}`}
+            href={isPro ? `/grammar/${currentProject?.id}` : '/subscription'}
             variant="green"
+            badge={!isPro ? 'Pro' : undefined}
           />
         </div>
 
@@ -1341,6 +1367,7 @@ export default function HomePage() {
         isOpen={showScanModeModal}
         onClose={() => setShowScanModeModal(false)}
         onSelectMode={handleScanModeSelect}
+        isPro={isPro}
       />
       <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
       <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
