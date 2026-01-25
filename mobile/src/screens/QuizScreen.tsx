@@ -25,7 +25,7 @@ export function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const projectId = route.params.projectId;
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { subscription, isAuthenticated, loading: authLoading } = useAuth();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -36,7 +36,7 @@ export function QuizScreen() {
   const [loading, setLoading] = useState(true);
 
   // Authenticated users use remote repository (Supabase), guests use local SQLite
-  const repository = getRepository(isAuthenticated ? 'active' : 'free');
+  const repository = getRepository(subscription?.status || 'free');
 
   // Generate quiz questions
   const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {

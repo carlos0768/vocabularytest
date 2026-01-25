@@ -21,7 +21,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function FavoritesQuizScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -31,7 +31,7 @@ export function FavoritesQuizScreen() {
   const [loading, setLoading] = useState(true);
   const [quizComplete, setQuizComplete] = useState(false);
 
-  const repository = getRepository(isAuthenticated ? 'active' : 'free');
+  const repository = getRepository(subscription?.status || 'free');
 
   // Generate quiz questions from favorite words
   const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {
@@ -82,10 +82,15 @@ export function FavoritesQuizScreen() {
   }, [repository, navigation, generateQuestions, authLoading, isAuthenticated, user]);
 
   useEffect(() => {
-    if (!authLoading) {
-      loadFavorites();
+    if (authLoading) return;
+
+    if (!isPro) {
+      navigation.navigate('Subscription');
+      return;
     }
-  }, [loadFavorites, authLoading]);
+
+    loadFavorites();
+  }, [loadFavorites, authLoading, isPro, navigation]);
 
   const currentQuestion = questions[currentIndex];
 

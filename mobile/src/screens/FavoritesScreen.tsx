@@ -26,12 +26,12 @@ interface FavoriteWordWithProject extends Word {
 
 export function FavoritesScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, subscription, isAuthenticated, loading: authLoading } = useAuth();
 
   const [favoriteWords, setFavoriteWords] = useState<FavoriteWordWithProject[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const repository = getRepository(isAuthenticated ? 'active' : 'free');
+  const repository = getRepository(subscription?.status || 'free');
 
   const loadFavorites = useCallback(async () => {
     if (authLoading) return;

@@ -24,12 +24,12 @@ export const KOMOJU_CONFIG = {
 
   // Free plan limits
   freePlan: {
-    dailyScanLimit: 5,
+    dailyScanLimit: 3,
     wordLimit: 100,
   },
 
-  // Payment methods to show (subscriptions only support credit_card)
-  paymentMethods: ['credit_card'],
+  // Payment methods to show
+  paymentMethods: ['credit_card', 'paypay'],
 };
 
 export type PlanId = keyof typeof KOMOJU_CONFIG.plans;

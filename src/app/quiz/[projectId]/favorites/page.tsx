@@ -14,7 +14,7 @@ export default function FavoritesQuizPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.projectId as string;
-  const { subscription, loading: authLoading } = useAuth();
+  const { subscription, isPro, loading: authLoading } = useAuth();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -58,6 +58,11 @@ export default function FavoritesQuizPage() {
     // Wait for auth to be ready
     if (authLoading) return;
 
+    if (!isPro) {
+      router.push('/subscription');
+      return;
+    }
+
     const loadWords = async () => {
       try {
         const words = await repository.getWords(projectId);
@@ -79,7 +84,7 @@ export default function FavoritesQuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading]);
+  }, [projectId, repository, router, generateQuestions, authLoading, isPro]);
 
   const currentQuestion = questions[currentIndex];
 

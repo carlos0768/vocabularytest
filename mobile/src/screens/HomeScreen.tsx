@@ -59,14 +59,13 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const SHARE_BASE_URL = 'https://vocabularytest-omega.vercel.app/share';
 
-// Extraction modes (including grammar)
-type ScanMode = 'all' | 'circled' | 'grammar';
+// Extraction modes (including grammar and eiken filter)
+type ScanMode = 'all' | 'circled' | 'eiken' | 'grammar';
 
 // EIKEN levels
 type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
 
 const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
-  { value: null, label: 'フィルターなし' },
   { value: '5', label: '5級' },
   { value: '4', label: '4級' },
   { value: '3', label: '3級' },
@@ -76,28 +75,98 @@ const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
   { value: '1', label: '1級' },
 ];
 
-// Scan Mode Modal Component
+// Scan Mode Modal Component - EIKEN filter is now a separate mode
 function ScanModeModal({
   visible,
   onClose,
   onSelectMode,
+  isPro,
 }: {
   visible: boolean;
   onClose: () => void;
   onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
+  isPro: boolean;
 }) {
-  const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
   const [showEikenPicker, setShowEikenPicker] = useState(false);
+  const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
 
   useEffect(() => {
     if (visible) {
-      setSelectedEiken(null);
       setShowEikenPicker(false);
+      setSelectedEiken(null);
     }
   }, [visible]);
 
-  const selectedLabel = EIKEN_LEVELS.find(l => l.value === selectedEiken)?.label || 'フィルターなし';
+  // EIKEN level picker sub-view
+  if (showEikenPicker) {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.scanModeContent}>
+            <Text style={styles.scanModeTitle}>英検レベルを選択</Text>
+            <Text style={styles.scanModeSubtitle}>抽出する単語のレベルを選んでください</Text>
 
+            <ScrollView style={styles.eikenPickerScroll}>
+              {EIKEN_LEVELS.map((level) => (
+                <TouchableOpacity
+                  key={level.value}
+                  style={[
+                    styles.eikenPickerOption,
+                    selectedEiken === level.value && styles.eikenPickerOptionSelected,
+                  ]}
+                  onPress={() => setSelectedEiken(level.value)}
+                >
+                  <Text
+                    style={[
+                      styles.eikenPickerOptionText,
+                      selectedEiken === level.value && styles.eikenPickerOptionTextSelected,
+                    ]}
+                  >
+                    {level.label}
+                  </Text>
+                  {selectedEiken === level.value && (
+                    <Check size={20} color={colors.orange[600]} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.eikenPickerButtons}>
+              <TouchableOpacity
+                style={styles.eikenPickerBackButton}
+                onPress={() => setShowEikenPicker(false)}
+              >
+                <Text style={styles.eikenPickerBackButtonText}>戻る</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.eikenPickerConfirmButton,
+                  !selectedEiken && styles.eikenPickerConfirmButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (selectedEiken) {
+                    onSelectMode('eiken', selectedEiken);
+                  }
+                }}
+                disabled={!selectedEiken}
+              >
+                <Text
+                  style={[
+                    styles.eikenPickerConfirmButtonText,
+                    !selectedEiken && styles.eikenPickerConfirmButtonTextDisabled,
+                  ]}
+                >
+                  スキャン開始
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Main mode selection view
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -105,57 +174,12 @@ function ScanModeModal({
           <Text style={styles.scanModeTitle}>抽出モードを選択</Text>
           <Text style={styles.scanModeSubtitle}>どのように単語を抽出しますか？</Text>
 
-          {/* EIKEN Level Filter */}
-          <View style={styles.eikenSection}>
-            <Text style={styles.eikenLabel}>英検レベルでフィルター</Text>
-            <TouchableOpacity
-              style={styles.eikenSelector}
-              onPress={() => setShowEikenPicker(!showEikenPicker)}
-            >
-              <Text style={selectedEiken ? styles.eikenValueSelected : styles.eikenValue}>
-                {selectedLabel}
-              </Text>
-              <ChevronDown
-                size={16}
-                color={colors.gray[500]}
-                style={showEikenPicker ? { transform: [{ rotate: '180deg' }] } : undefined}
-              />
-            </TouchableOpacity>
-            {showEikenPicker && (
-              <View style={styles.eikenDropdown}>
-                <ScrollView style={styles.eikenDropdownScroll} nestedScrollEnabled>
-                  {EIKEN_LEVELS.map((level) => (
-                    <TouchableOpacity
-                      key={level.value || 'none'}
-                      style={[
-                        styles.eikenOption,
-                        selectedEiken === level.value && styles.eikenOptionSelected,
-                      ]}
-                      onPress={() => {
-                        setSelectedEiken(level.value);
-                        setShowEikenPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.eikenOptionText,
-                          selectedEiken === level.value && styles.eikenOptionTextSelected,
-                        ]}
-                      >
-                        {level.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </View>
-
           {/* Mode buttons */}
           <View style={styles.modeButtons}>
+            {/* All words mode */}
             <TouchableOpacity
               style={styles.modeButton}
-              onPress={() => onSelectMode('all', selectedEiken)}
+              onPress={() => onSelectMode('all', null)}
             >
               <View style={[styles.modeIcon, { backgroundColor: colors.primary[100] }]}>
                 <Camera size={24} color={colors.primary[600]} />
@@ -166,28 +190,68 @@ function ScanModeModal({
               </View>
             </TouchableOpacity>
 
+            {/* Circled words mode (Pro) */}
             <TouchableOpacity
               style={styles.modeButton}
-              onPress={() => onSelectMode('circled', selectedEiken)}
+              onPress={() => onSelectMode('circled', null)}
             >
               <View style={[styles.modeIcon, { backgroundColor: colors.purple[100] }]}>
                 <CircleDot size={24} color={colors.purple[600]} />
               </View>
               <View style={styles.modeTextContainer}>
-                <Text style={styles.modeButtonTitle}>丸をつけた単語だけ</Text>
+                <View style={styles.modeButtonTitleRow}>
+                  <Text style={styles.modeButtonTitle}>丸をつけた単語だけ</Text>
+                  {!isPro && (
+                    <View style={styles.proBadgeSmall}>
+                      <Crown size={10} color={colors.white} />
+                      <Text style={styles.proBadgeSmallText}>Pro</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.modeButtonDesc}>マークした単語だけを抽出します</Text>
               </View>
             </TouchableOpacity>
 
+            {/* EIKEN filter mode (Pro) - NEW */}
             <TouchableOpacity
               style={styles.modeButton}
-              onPress={() => onSelectMode('grammar', selectedEiken)}
+              onPress={() => setShowEikenPicker(true)}
+            >
+              <View style={[styles.modeIcon, { backgroundColor: colors.orange[100] }]}>
+                <BookOpen size={24} color={colors.orange[600]} />
+              </View>
+              <View style={styles.modeTextContainer}>
+                <View style={styles.modeButtonTitleRow}>
+                  <Text style={styles.modeButtonTitle}>英検レベルでフィルター</Text>
+                  {!isPro && (
+                    <View style={styles.proBadgeSmall}>
+                      <Crown size={10} color={colors.white} />
+                      <Text style={styles.proBadgeSmallText}>Pro</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.modeButtonDesc}>指定した級の単語だけを抽出します</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Grammar mode (Pro) */}
+            <TouchableOpacity
+              style={styles.modeButton}
+              onPress={() => onSelectMode('grammar', null)}
             >
               <View style={[styles.modeIcon, { backgroundColor: colors.emerald[100] }]}>
                 <BookText size={24} color={colors.emerald[600]} />
               </View>
               <View style={styles.modeTextContainer}>
-                <Text style={styles.modeButtonTitle}>文法をスキャン</Text>
+                <View style={styles.modeButtonTitleRow}>
+                  <Text style={styles.modeButtonTitle}>文法をスキャン</Text>
+                  {!isPro && (
+                    <View style={styles.proBadgeSmall}>
+                      <Crown size={10} color={colors.white} />
+                      <Text style={styles.proBadgeSmallText}>Pro</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.modeButtonDesc}>文法問題を抽出して学習します</Text>
               </View>
             </TouchableOpacity>
@@ -398,7 +462,7 @@ function WordItem({
 
 export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, isAuthenticated, loading: authLoading } = useAuth();
 
   // Projects & navigation
   const [projects, setProjects] = useState<Project[]>([]);
@@ -415,7 +479,7 @@ export function HomeScreen() {
   const [isWordListExpanded, setIsWordListExpanded] = useState(false);
 
   // Scan info
-  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 10, canScan: true });
+  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 3, canScan: true });
 
   // Sharing
   const [sharing, setSharing] = useState(false);
@@ -436,8 +500,8 @@ export function HomeScreen() {
 
   // Repository
   const repository = useMemo(
-    () => getRepository(isAuthenticated ? 'active' : 'free'),
-    [isAuthenticated]
+    () => getRepository(subscription?.status || 'free'),
+    [subscription?.status]
   );
 
   // Current project
@@ -636,6 +700,12 @@ export function HomeScreen() {
     setSelectedEikenLevel(eikenLevel);
     setShowScanModeModal(false);
 
+    // Circled mode, eiken mode, and grammar mode require Pro subscription
+    if ((mode === 'circled' || mode === 'eiken' || mode === 'grammar') && !isPro) {
+      navigation.navigate('Subscription');
+      return;
+    }
+
     // Grammar mode requires existing project
     if (mode === 'grammar') {
       if (!currentProject) {
@@ -768,7 +838,7 @@ export function HomeScreen() {
       );
 
       const result = await extractWordsFromImage(imageDataUrl, {
-        mode: selectedScanMode as 'all' | 'circled', // Grammar mode is handled separately
+        mode: selectedScanMode as 'all' | 'circled' | 'eiken', // Grammar mode is handled separately
         eikenLevel: selectedEikenLevel,
         isPro,
       });
@@ -875,6 +945,7 @@ export function HomeScreen() {
           visible={showScanModeModal}
           onClose={() => setShowScanModeModal(false)}
           onSelectMode={handleScanModeSelect}
+          isPro={isPro}
         />
 
         <ProcessingModal
@@ -1116,6 +1187,7 @@ export function HomeScreen() {
         visible={showScanModeModal}
         onClose={() => setShowScanModeModal(false)}
         onSelectMode={handleScanModeSelect}
+        isPro={isPro}
       />
 
       <ProcessingModal
@@ -1657,6 +1729,88 @@ const styles = StyleSheet.create({
   },
   modeButtons: {
     gap: 12,
+  },
+  modeButtonTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  proBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary[500],
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 2,
+  },
+  proBadgeSmallText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  // EIKEN picker styles
+  eikenPickerScroll: {
+    maxHeight: 280,
+    marginBottom: 16,
+  },
+  eikenPickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: colors.white,
+  },
+  eikenPickerOptionSelected: {
+    borderColor: colors.orange[500],
+    backgroundColor: colors.orange[50],
+  },
+  eikenPickerOptionText: {
+    fontSize: 16,
+    color: colors.gray[700],
+  },
+  eikenPickerOptionTextSelected: {
+    color: colors.orange[700],
+    fontWeight: '500',
+  },
+  eikenPickerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  eikenPickerBackButton: {
+    flex: 1,
+    paddingVertical: 14,
+    backgroundColor: colors.gray[100],
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  eikenPickerBackButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray[700],
+  },
+  eikenPickerConfirmButton: {
+    flex: 2,
+    paddingVertical: 14,
+    backgroundColor: colors.orange[500],
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  eikenPickerConfirmButtonDisabled: {
+    backgroundColor: colors.gray[200],
+  },
+  eikenPickerConfirmButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  eikenPickerConfirmButtonTextDisabled: {
+    color: colors.gray[400],
   },
   modeButton: {
     flexDirection: 'row',
