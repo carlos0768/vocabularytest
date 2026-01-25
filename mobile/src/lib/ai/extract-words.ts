@@ -9,18 +9,34 @@ const API_URL = __DEV__
 // Log which URL we're using
 console.log('Using API URL:', API_URL);
 
+// Extraction modes
+export type ExtractMode = 'all' | 'circled';
+
+// EIKEN levels (null means no filter)
+export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
+
 export interface ExtractWordsResult {
   success: boolean;
   words?: AIWordExtraction[];
   error?: string;
 }
 
+export interface ExtractWordsOptions {
+  mode?: ExtractMode;
+  eikenLevel?: EikenLevel;
+  isPro?: boolean;
+}
+
 export async function extractWordsFromImage(
-  base64Image: string
+  base64Image: string,
+  options?: ExtractWordsOptions
 ): Promise<ExtractWordsResult> {
+  const { mode = 'all', eikenLevel = null, isPro = false } = options || {};
+
   try {
     console.log('Starting API request to:', API_URL);
     console.log('Image size:', Math.round(base64Image.length / 1024), 'KB');
+    console.log('Options:', { mode, eikenLevel, isPro });
 
     // Add timeout of 90 seconds (AI processing can take time)
     const controller = new AbortController();
@@ -33,6 +49,9 @@ export async function extractWordsFromImage(
       },
       body: JSON.stringify({
         image: base64Image,
+        mode,
+        eikenLevel,
+        isPro,
       }),
       signal: controller.signal,
     });
