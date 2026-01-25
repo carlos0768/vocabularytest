@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage } from '@/lib/ai';
+import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
 
 // Extraction modes
 // - 'all': Extract all words (OpenAI)
 // - 'circled': Extract circled/marked words only (Gemini)
 // - 'eiken': Extract words filtered by EIKEN level (Gemini OCR → GPT analysis)
-export type ExtractMode = 'all' | 'circled' | 'eiken';
+// - 'idiom': Extract idioms and phrases only (OpenAI)
+export type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -67,8 +68,8 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
-    // 'circled' and 'eiken' modes require Pro subscription
-    const requiresPro = mode === 'circled' || mode === 'eiken';
+    // 'circled', 'eiken', and 'idiom' modes require Pro subscription
+    const requiresPro = mode === 'circled' || mode === 'eiken' || mode === 'idiom';
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
 
@@ -110,7 +111,17 @@ export async function POST(request: NextRequest) {
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
-    if (mode === 'eiken') {
+    if (mode === 'idiom') {
+      // Idiom mode: Use OpenAI API for idiom/phrase extraction
+      if (!openaiApiKey) {
+        return NextResponse.json(
+          { success: false, error: 'OpenAI APIキーが設定されていません' },
+          { status: 500 }
+        );
+      }
+
+      result = await extractIdiomsFromImage(image, openaiApiKey);
+    } else if (mode === 'eiken') {
       // EIKEN filter mode: Gemini OCR → GPT analysis (two-stage processing)
       if (!geminiApiKey) {
         return NextResponse.json(
