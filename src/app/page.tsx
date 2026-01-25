@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { ScanButton } from '@/components/project';
 import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal, Button } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { getRepository } from '@/lib/db';
@@ -241,6 +240,7 @@ export default function HomePage() {
   const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Projects & navigation
   const [projects, setProjects] = useState<Project[]>([]);
@@ -613,8 +613,6 @@ export default function HomePage() {
           )}
         </main>
 
-        <ScanButton onImageSelect={handleImageSelect} disabled={processing || (!isPro && !canScan)} />
-
         {processing && (
           <ProcessingModal
             steps={processingSteps}
@@ -639,17 +637,33 @@ export default function HomePage() {
       {/* Word limit banner */}
       {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
+      {/* Hidden file input for new project */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.heic,.heif"
+        capture="environment"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            handleImageSelect(file);
+            e.target.value = '';
+          }
+        }}
+        className="hidden"
+      />
+
       {/* Header with project navigation */}
       <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Left: Project selector dropdown */}
-            <div className="relative">
+            <div className="relative flex-1">
               <button
                 onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <h1 className="font-semibold text-gray-900 truncate max-w-[180px]">
+                <h1 className="font-semibold text-gray-900 truncate max-w-[140px]">
                   {currentProject?.title}
                 </h1>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isProjectDropdownOpen ? 'rotate-180' : ''}`} />
@@ -679,8 +693,17 @@ export default function HomePage() {
               )}
             </div>
 
+            {/* Center: New project button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={processing || (!isPro && !canScan)}
+              className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+
             {/* Right: Actions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-1 justify-end">
               {user && (
                 <button
                   onClick={handleShare}
@@ -807,57 +830,42 @@ export default function HomePage() {
       </main>
 
       {/* Bottom action buttons */}
-      {stats.total > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
-          <div className="max-w-lg mx-auto px-4">
-            <div className="flex justify-center gap-3 py-4">
-              {showFavoritesOnly && stats.favorites > 0 ? (
-                <>
-                  <Link href={`/quiz/${currentProject?.id}/favorites`}>
-                    <Button size="lg" className="bg-orange-500 hover:bg-orange-600">
-                      <Play className="w-5 h-5 mr-2" />
-                      苦手クイズ
-                    </Button>
-                  </Link>
-                  <Link href={`/flashcard/${currentProject?.id}?favorites=true`}>
-                    <Button size="lg" variant="secondary">
-                      <Layers className="w-5 h-5 mr-2" />
-                      苦手カード
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href={`/quiz/${currentProject?.id}`}>
-                    <Button size="lg">
-                      <Play className="w-5 h-5 mr-2" />
-                      クイズ
-                    </Button>
-                  </Link>
-                  {isPro ? (
-                    <Link href={`/flashcard/${currentProject?.id}`}>
-                      <Button size="lg" variant="secondary">
-                        <Layers className="w-5 h-5 mr-2" />
-                        カード
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Link href="/subscription">
-                      <Button size="lg" variant="secondary" className="opacity-70">
-                        <Layers className="w-5 h-5 mr-2" />
-                        カード (Pro)
-                      </Button>
-                    </Link>
-                  )}
-                </>
-              )}
-            </div>
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
+        <div className="max-w-lg mx-auto px-4">
+          <div className="flex justify-center gap-3 py-4">
+            <Link href={`/quiz/${currentProject?.id}`}>
+              <Button size="lg">
+                <Play className="w-5 h-5 mr-2" />
+                クイズ
+              </Button>
+            </Link>
+            {isPro ? (
+              <Link href={`/flashcard/${currentProject?.id}`}>
+                <Button size="lg" variant="secondary">
+                  <Layers className="w-5 h-5 mr-2" />
+                  カード
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/subscription">
+                <Button size="lg" variant="secondary" className="opacity-70">
+                  <Layers className="w-5 h-5 mr-2" />
+                  カード
+                </Button>
+              </Link>
+            )}
+            <Button
+              size="lg"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={processing || (!isPro && !canScan)}
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              登録
+            </Button>
           </div>
         </div>
-      )}
-
-      {/* Scan button */}
-      <ScanButton onImageSelect={handleImageSelect} disabled={processing || (!isPro && !canScan)} />
+      </div>
 
       {/* Modals */}
       {processing && (
