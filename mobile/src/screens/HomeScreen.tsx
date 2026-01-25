@@ -930,47 +930,50 @@ export function HomeScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.projectSelector}
-          onPress={() => setIsProjectDropdownOpen(true)}
-        >
-          <Text style={styles.projectTitle} numberOfLines={1}>
-            {showFavoritesOnly ? '苦手な単語' : currentProject?.title}
-          </Text>
-          <ChevronDown size={16} color={colors.gray[500]} />
-        </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
+        {/* Left: Project selector */}
+        <View style={styles.headerLeft}>
           <TouchableOpacity
-            style={styles.newProjectButton}
-            onPress={() => handleScanButtonClick()}
+            style={styles.projectSelector}
+            onPress={() => setIsProjectDropdownOpen(true)}
           >
-            <Plus size={20} color={colors.white} />
+            <Text style={styles.projectTitle} numberOfLines={1}>
+              {showFavoritesOnly ? '苦手な単語' : currentProject?.title}
+            </Text>
+            <ChevronDown size={16} color={colors.gray[500]} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.headerActions}>
+        {/* Center: Plus button */}
+        <TouchableOpacity
+          style={styles.newProjectButton}
+          onPress={() => handleScanButtonClick()}
+        >
+          <Plus size={24} color={colors.white} />
+        </TouchableOpacity>
+
+        {/* Right: Action buttons */}
+        <View style={styles.headerRight}>
           {isAuthenticated && (
             <TouchableOpacity onPress={handleShare} disabled={sharing} style={styles.headerButton}>
               {sharing ? (
                 <ActivityIndicator size="small" color={colors.gray[400]} />
               ) : shareCopied ? (
-                <Check size={20} color={colors.emerald[600]} />
+                <Check size={22} color={colors.emerald[600]} />
               ) : currentProject?.shareId ? (
-                <Link2 size={20} color={colors.primary[600]} />
+                <Link2 size={22} color={colors.primary[600]} />
               ) : (
-                <Share2 size={20} color={colors.gray[400]} />
+                <Share2 size={22} color={colors.gray[400]} />
               )}
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={handleDeleteProject} style={styles.headerButton}>
-            <Trash2 size={20} color={colors.gray[400]} />
+            <Trash2 size={22} color={colors.gray[400]} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('Settings')}
             style={styles.headerButton}
           >
-            <Settings size={20} color={colors.gray[500]} />
+            <Settings size={22} color={colors.gray[500]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1181,15 +1184,14 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flex: 1,
   },
   logoContainer: {
     backgroundColor: colors.primary[600],
@@ -1220,28 +1222,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 8,
   },
   projectTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.gray[900],
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
   newProjectButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary[600],
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerActions: {
+  headerRight: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
   },
   headerButton: {
     padding: 8,
