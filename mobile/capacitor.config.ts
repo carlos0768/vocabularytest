@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.scanvocab.app',
-  appName: 'ScanVocab',
+  appId: 'com.wordsnap.app',
+  appName: 'WordSnap',
   webDir: 'out'
 };
 

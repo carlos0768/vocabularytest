@@ -1,7 +1,17 @@
 import { createBrowserClient } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, Word, WordRepository } from '@/types';
-import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
+import {
+  mapProjectFromRow,
+  mapProjectToInsert,
+  mapProjectUpdates,
+  mapWordFromRow,
+  mapWordToInsert,
+  mapWordUpdates,
+  type ProjectRow,
+  type WordRow,
+  type WordInput,
+} from '../../../shared/db';
 
 // Remote implementation of WordRepository using Supabase
 // Used for Pro tier users - data synced across devices
@@ -24,22 +34,13 @@ export class RemoteWordRepository implements WordRepository {
   ): Promise<Project> {
     const { data, error } = await this.supabase
       .from('projects')
-      .insert({
-        user_id: project.userId,
-        title: project.title,
-      })
+      .insert(mapProjectToInsert(project))
       .select()
       .single();
 
     if (error) throw new Error(`Failed to create project: ${error.message}`);
 
-    return {
-      id: data.id,
-      userId: data.user_id,
-      title: data.title,
-      createdAt: data.created_at,
-      shareId: data.share_id,
-    };
+    return mapProjectFromRow(data as ProjectRow);
   }
 
   async getProjects(userId: string): Promise<Project[]> {
@@ -51,13 +52,7 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to get projects: ${error.message}`);
 
-    return data.map((p) => ({
-      id: p.id,
-      userId: p.user_id,
-      title: p.title,
-      createdAt: p.created_at,
-      shareId: p.share_id,
-    }));
+    return (data as ProjectRow[]).map(mapProjectFromRow);
   }
 
   async getProject(id: string): Promise<Project | undefined> {
@@ -72,23 +67,13 @@ export class RemoteWordRepository implements WordRepository {
       throw new Error(`Failed to get project: ${error.message}`);
     }
 
-    return {
-      id: data.id,
-      userId: data.user_id,
-      title: data.title,
-      createdAt: data.created_at,
-      shareId: data.share_id,
-    };
+    return mapProjectFromRow(data as ProjectRow);
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<void> {
-    const updateData: Record<string, unknown> = {};
-    if (updates.title !== undefined) updateData.title = updates.title;
-    if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
-
     const { error } = await this.supabase
       .from('projects')
-      .update(updateData)
+      .update(mapProjectUpdates(updates))
       .eq('id', id);
 
     if (error) throw new Error(`Failed to update project: ${error.message}`);
@@ -106,23 +91,8 @@ export class RemoteWordRepository implements WordRepository {
 
   // ============ Words ============
 
-  async createWords(
-    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>[]
-  ): Promise<Word[]> {
-    const defaultSR = getDefaultSpacedRepetitionFields();
-    const wordsToInsert = words.map((w) => ({
-      project_id: w.projectId,
-      english: w.english,
-      japanese: w.japanese,
-      distractors: w.distractors,
-      example_sentence: w.exampleSentence,
-      example_sentence_ja: w.exampleSentenceJa,
-      status: 'new',
-      ease_factor: defaultSR.easeFactor,
-      interval_days: defaultSR.intervalDays,
-      repetition: defaultSR.repetition,
-      is_favorite: false,
-    }));
+  async createWords(words: WordInput[]): Promise<Word[]> {
+    const wordsToInsert = words.map(mapWordToInsert);
 
     const { data, error } = await this.supabase
       .from('words')
@@ -131,23 +101,7 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to create words: ${error.message}`);
 
-    return data.map((w) => ({
-      id: w.id,
-      projectId: w.project_id,
-      english: w.english,
-      japanese: w.japanese,
-      distractors: w.distractors,
-      exampleSentence: w.example_sentence,
-      exampleSentenceJa: w.example_sentence_ja,
-      status: w.status ?? 'new',
-      createdAt: w.created_at,
-      lastReviewedAt: w.last_reviewed_at,
-      nextReviewAt: w.next_review_at,
-      easeFactor: w.ease_factor ?? defaultSR.easeFactor,
-      intervalDays: w.interval_days ?? defaultSR.intervalDays,
-      repetition: w.repetition ?? defaultSR.repetition,
-      isFavorite: w.is_favorite ?? false,
-    }));
+    return (data as WordRow[]).map(mapWordFromRow);
   }
 
   async getWords(projectId: string): Promise<Word[]> {
@@ -159,24 +113,7 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to get words: ${error.message}`);
 
-    const defaultSR = getDefaultSpacedRepetitionFields();
-    return data.map((w) => ({
-      id: w.id,
-      projectId: w.project_id,
-      english: w.english,
-      japanese: w.japanese,
-      distractors: w.distractors,
-      exampleSentence: w.example_sentence,
-      exampleSentenceJa: w.example_sentence_ja,
-      status: w.status ?? 'new',
-      createdAt: w.created_at,
-      lastReviewedAt: w.last_reviewed_at,
-      nextReviewAt: w.next_review_at,
-      easeFactor: w.ease_factor ?? defaultSR.easeFactor,
-      intervalDays: w.interval_days ?? defaultSR.intervalDays,
-      repetition: w.repetition ?? defaultSR.repetition,
-      isFavorite: w.is_favorite ?? false,
-    }));
+    return (data as WordRow[]).map(mapWordFromRow);
   }
 
   async getWord(id: string): Promise<Word | undefined> {
@@ -191,43 +128,13 @@ export class RemoteWordRepository implements WordRepository {
       throw new Error(`Failed to get word: ${error.message}`);
     }
 
-    const defaultSR = getDefaultSpacedRepetitionFields();
-    return {
-      id: data.id,
-      projectId: data.project_id,
-      english: data.english,
-      japanese: data.japanese,
-      distractors: data.distractors,
-      exampleSentence: data.example_sentence,
-      exampleSentenceJa: data.example_sentence_ja,
-      status: data.status ?? 'new',
-      createdAt: data.created_at,
-      lastReviewedAt: data.last_reviewed_at,
-      nextReviewAt: data.next_review_at,
-      easeFactor: data.ease_factor ?? defaultSR.easeFactor,
-      intervalDays: data.interval_days ?? defaultSR.intervalDays,
-      repetition: data.repetition ?? defaultSR.repetition,
-      isFavorite: data.is_favorite ?? false,
-    };
+    return mapWordFromRow(data as WordRow);
   }
 
   async updateWord(id: string, updates: Partial<Word>): Promise<void> {
-    const updateData: Record<string, unknown> = {};
-    if (updates.english !== undefined) updateData.english = updates.english;
-    if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
-    if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
-    if (updates.status !== undefined) updateData.status = updates.status;
-    // Spaced repetition fields
-    if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;
-    if (updates.nextReviewAt !== undefined) updateData.next_review_at = updates.nextReviewAt;
-    if (updates.easeFactor !== undefined) updateData.ease_factor = updates.easeFactor;
-    if (updates.intervalDays !== undefined) updateData.interval_days = updates.intervalDays;
-    if (updates.repetition !== undefined) updateData.repetition = updates.repetition;
-    if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
-
     const { error } = await this.supabase
       .from('words')
-      .update(updateData)
+      .update(mapWordUpdates(updates))
       .eq('id', id);
 
     if (error) throw new Error(`Failed to update word: ${error.message}`);
@@ -288,13 +195,7 @@ export class RemoteWordRepository implements WordRepository {
       throw new Error(`Failed to get shared project: ${error.message}`);
     }
 
-    return {
-      id: data.id,
-      userId: data.user_id,
-      title: data.title,
-      createdAt: data.created_at,
-      shareId: data.share_id,
-    };
+    return mapProjectFromRow(data as ProjectRow);
   }
 
   /**
@@ -313,24 +214,7 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to get shared words: ${error.message}`);
 
-    const defaultSR = getDefaultSpacedRepetitionFields();
-    return data.map((w) => ({
-      id: w.id,
-      projectId: w.project_id,
-      english: w.english,
-      japanese: w.japanese,
-      distractors: w.distractors,
-      exampleSentence: w.example_sentence,
-      exampleSentenceJa: w.example_sentence_ja,
-      status: w.status ?? 'new',
-      createdAt: w.created_at,
-      lastReviewedAt: w.last_reviewed_at,
-      nextReviewAt: w.next_review_at,
-      easeFactor: w.ease_factor ?? defaultSR.easeFactor,
-      intervalDays: w.interval_days ?? defaultSR.intervalDays,
-      repetition: w.repetition ?? defaultSR.repetition,
-      isFavorite: w.is_favorite ?? false,
-    }));
+    return (data as WordRow[]).map(mapWordFromRow);
   }
 
   /**
@@ -354,7 +238,7 @@ export class RemoteWordRepository implements WordRepository {
 
     // Copy words to the new project
     if (sharedWords.length > 0) {
-      const wordsToCreate = sharedWords.map((w) => ({
+      const wordsToCreate: WordInput[] = sharedWords.map((w) => ({
         projectId: newProject.id,
         english: w.english,
         japanese: w.japanese,

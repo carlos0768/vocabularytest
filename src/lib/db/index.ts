@@ -1,7 +1,7 @@
 // Database layer exports
 // Repository Pattern: UI layer imports from here without knowing the storage backend
 
-export { db } from './dexie';
+export { db, getDb } from './dexie';
 export { LocalWordRepository, localRepository } from './local-repository';
 export { RemoteWordRepository, remoteRepository } from './remote-repository';
 

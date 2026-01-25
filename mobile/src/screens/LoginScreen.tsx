@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'lucide-react-native';
 import { Button, Input } from '../components/ui';
+import { useAuth } from '../hooks/use-auth';
 import colors from '../constants/colors';
 import type { RootStackParamList } from '../types';
 
@@ -21,6 +22,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function LoginScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { signIn, resetPassword } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,15 +53,51 @@ export function LoginScreen() {
 
     setLoading(true);
     try {
-      // TODO: Implement Supabase auth
-      Alert.alert(
-        '開発中',
-        'ログイン機能は現在開発中です。無料プランでお使いください。'
-      );
+      const result = await signIn(email, password);
+
+      if (!result.success) {
+        // Translate common error messages
+        let errorMessage = result.error || 'ログインに失敗しました';
+        if (errorMessage.includes('Invalid login credentials')) {
+          errorMessage = 'メールアドレスまたはパスワードが正しくありません';
+        } else if (errorMessage.includes('Email not confirmed')) {
+          errorMessage = 'メールアドレスの確認が完了していません。メールをご確認ください。';
+        }
+        Alert.alert('エラー', errorMessage);
+      } else {
+        // Success - navigate to main screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+      }
     } catch {
       Alert.alert('エラー', 'ログインに失敗しました');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert('エラー', 'メールアドレスを入力してください');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert('エラー', '有効なメールアドレスを入力してください');
+      return;
+    }
+
+    const result = await resetPassword(email);
+
+    if (result.success) {
+      Alert.alert(
+        'メール送信完了',
+        'パスワードリセット用のメールを送信しました。メールをご確認ください。'
+      );
+    } else {
+      Alert.alert('エラー', result.error || 'メールの送信に失敗しました');
     }
   };
 
@@ -119,7 +157,10 @@ export function LoginScreen() {
               ログイン
             </Button>
 
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity
+              onPress={handleForgotPassword}
+              style={styles.forgotPassword}
+            >
               <Text style={styles.forgotPasswordText}>
                 パスワードをお忘れですか？
               </Text>

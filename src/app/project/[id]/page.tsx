@@ -3,12 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, BookOpen, CheckCircle, RefreshCw, Loader2, Edit2, Trash2, X, Save, Brain, Flag, Share2, Link as LinkIcon, Check, Layers } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowLeft, Play, Loader2, Edit2, Trash2, X, Save, Flag, Share2, Link as LinkIcon, Check, Layers, Plus, Camera } from 'lucide-react';
+import { Button, DeleteConfirmModal, useToast } from '@/components/ui';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { useAuth } from '@/hooks/use-auth';
-import { getReviewCount } from '@/lib/spaced-repetition';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function ProjectPage() {
@@ -24,6 +23,13 @@ export default function ProjectPage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+
+  // Delete modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const { showToast } = useToast();
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -60,7 +66,6 @@ export default function ProjectPage() {
   }, [projectId, repository, router, authLoading]);
 
   const isPro = subscription?.status === 'active';
-  const reviewDueCount = getReviewCount(words);
 
   const stats = {
     total: words.length,
@@ -71,10 +76,32 @@ export default function ProjectPage() {
     ? words.filter((w) => w.isFavorite)
     : words;
 
-  const handleDeleteWord = async (wordId: string) => {
-    if (confirm('この単語を削除しますか？')) {
-      await repository.deleteWord(wordId);
-      setWords((prev) => prev.filter((w) => w.id !== wordId));
+  const handleDeleteWord = (wordId: string) => {
+    setDeleteTargetId(wordId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetId) return;
+
+    setDeleteLoading(true);
+    try {
+      await repository.deleteWord(deleteTargetId);
+      setWords((prev) => prev.filter((w) => w.id !== deleteTargetId));
+      showToast({
+        message: '単語を削除しました',
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to delete word:', error);
+      showToast({
+        message: '削除に失敗しました',
+        type: 'error',
+      });
+    } finally {
+      setDeleteLoading(false);
+      setDeleteModalOpen(false);
+      setDeleteTargetId(null);
     }
   };
 
@@ -180,19 +207,28 @@ export default function ProjectPage() {
           <h2 className="font-medium text-gray-900">
             {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
           </h2>
-          {stats.favorites > 0 && (
-            <button
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                showFavoritesOnly
-                  ? 'bg-orange-100 text-orange-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+          <div className="flex items-center gap-2">
+            {stats.favorites > 0 && (
+              <button
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  showFavoritesOnly
+                    ? 'bg-orange-100 text-orange-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Flag className={`w-4 h-4 ${showFavoritesOnly ? 'fill-orange-500' : ''}`} />
+                苦手 {stats.favorites}
+              </button>
+            )}
+            <Link
+              href={`/scan?projectId=${projectId}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
             >
-              <Flag className={`w-4 h-4 ${showFavoritesOnly ? 'fill-orange-500' : ''}`} />
-              苦手 {stats.favorites}
-            </button>
-          )}
+              <Plus className="w-4 h-4" />
+              単語を追加
+            </Link>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -222,37 +258,63 @@ export default function ProjectPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
           <div className="max-w-lg mx-auto px-4">
             <div className="flex justify-center gap-3 py-4">
-              <Link href={`/quiz/${projectId}`}>
-                <Button size="lg">
-                  <Play className="w-5 h-5 mr-2" />
-                  クイズ
-                </Button>
-              </Link>
-              {isPro && (
+              {showFavoritesOnly && stats.favorites > 0 ? (
                 <>
-                  <Link href={`/flashcard/${projectId}`}>
+                  <Link href={`/quiz/${projectId}/favorites`}>
+                    <Button size="lg" className="bg-orange-500 hover:bg-orange-600">
+                      <Play className="w-5 h-5 mr-2" />
+                      苦手クイズ
+                    </Button>
+                  </Link>
+                  <Link href={`/flashcard/${projectId}?favorites=true`}>
                     <Button size="lg" variant="secondary">
                       <Layers className="w-5 h-5 mr-2" />
-                      カード
+                      苦手カード
                     </Button>
                   </Link>
-                  <Link href={`/review/${projectId}`}>
-                    <Button size="lg" variant="secondary">
-                      <Brain className="w-5 h-5 mr-2" />
-                      復習
-                      {reviewDueCount > 0 && (
-                        <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                          {reviewDueCount}
-                        </span>
-                      )}
+                </>
+              ) : (
+                <>
+                  <Link href={`/quiz/${projectId}`}>
+                    <Button size="lg">
+                      <Play className="w-5 h-5 mr-2" />
+                      クイズ
                     </Button>
                   </Link>
+                  {isPro ? (
+                    <Link href={`/flashcard/${projectId}`}>
+                      <Button size="lg" variant="secondary">
+                        <Layers className="w-5 h-5 mr-2" />
+                        カード
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href="/subscription">
+                      <Button size="lg" variant="secondary" className="opacity-70">
+                        <Layers className="w-5 h-5 mr-2" />
+                        カード (Pro)
+                      </Button>
+                    </Link>
+                  )}
                 </>
               )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Delete confirm modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeleteTargetId(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="単語を削除"
+        message="この単語を削除します。この操作は取り消せません。"
+        isLoading={deleteLoading}
+      />
     </div>
   );
 }

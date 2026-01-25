@@ -10,6 +10,10 @@
  */
 
 import type { Word } from '@/types';
+import { getDefaultSpacedRepetitionFields } from '../../shared/db';
+
+// Re-export from shared for backwards compatibility
+export { getDefaultSpacedRepetitionFields };
 
 // SM-2 algorithm constants
 const MIN_EASE_FACTOR = 1.3;
@@ -114,19 +118,3 @@ export function getReviewCount(words: Word[]): number {
   return getWordsDueForReview(words).length;
 }
 
-/**
- * Initialize spaced repetition fields for a new word
- *
- * @returns Default spaced repetition values
- */
-export function getDefaultSpacedRepetitionFields(): {
-  easeFactor: number;
-  intervalDays: number;
-  repetition: number;
-} {
-  return {
-    easeFactor: DEFAULT_EASE_FACTOR,
-    intervalDays: 0,
-    repetition: 0,
-  };
-}

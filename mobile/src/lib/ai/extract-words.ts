@@ -1,7 +1,13 @@
 import type { AIWordExtraction } from '../../types';
 
 // Use the web app's API endpoint
-const API_URL = 'https://scanvocab.vercel.app/api/extract';
+// For development, use local server (port 3000). For production, use Vercel.
+const API_URL = __DEV__
+  ? 'http://192.168.0.86:3000/api/extract'
+  : 'https://scanvocab.vercel.app/api/extract';
+
+// Log which URL we're using
+console.log('Using API URL:', API_URL);
 
 export interface ExtractWordsResult {
   success: boolean;
@@ -13,6 +19,13 @@ export async function extractWordsFromImage(
   base64Image: string
 ): Promise<ExtractWordsResult> {
   try {
+    console.log('Starting API request to:', API_URL);
+    console.log('Image size:', Math.round(base64Image.length / 1024), 'KB');
+
+    // Add timeout of 90 seconds (AI processing can take time)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -21,10 +34,22 @@ export async function extractWordsFromImage(
       body: JSON.stringify({
         image: base64Image,
       }),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+    console.log('API response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      console.error('API Error Response:', response.status, errorText);
+
+      let error: { error?: string } = {};
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        // Not JSON
+      }
 
       if (response.status === 429) {
         return {
@@ -35,7 +60,7 @@ export async function extractWordsFromImage(
 
       return {
         success: false,
-        error: error.error || 'APIエラーが発生しました',
+        error: error.error || `APIエラー (${response.status}): ${errorText.substring(0, 100)}`,
       };
     }
 
@@ -71,9 +96,32 @@ export async function extractWordsFromImage(
     };
   } catch (error) {
     console.error('Extract words error:', error);
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.name === 'AbortError' || error.message === 'Aborted') {
+        return {
+          success: false,
+          error: 'リクエストがタイムアウトしました。ネットワーク接続を確認して再試行してください。',
+        };
+      }
+
+      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+        return {
+          success: false,
+          error: 'ネットワークエラーが発生しました。インターネット接続を確認してください。',
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : '予期しないエラーが発生しました',
+      error: '予期しないエラーが発生しました',
     };
   }
 }

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 interface Toast {
   id: string;
   message: string;
-  type?: 'info' | 'success' | 'warning';
+  type?: 'info' | 'success' | 'warning' | 'error';
   action?: {
     label: string;
     onClick: () => void;
@@ -58,7 +58,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               'flex items-center gap-3 max-w-sm w-full',
               'animate-in slide-in-from-bottom-4 fade-in duration-200',
               toast.type === 'warning' && 'bg-amber-600',
-              toast.type === 'success' && 'bg-emerald-600'
+              toast.type === 'success' && 'bg-emerald-600',
+              toast.type === 'error' && 'bg-red-600'
             )}
           >
             <span className="text-sm flex-1">{toast.message}</span>

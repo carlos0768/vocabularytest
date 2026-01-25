@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { db } from './dexie';
+import { getDb } from './dexie';
 import type { Project, Word, WordRepository } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 
@@ -12,6 +12,7 @@ export class LocalWordRepository implements WordRepository {
   async createProject(
     project: Omit<Project, 'id' | 'createdAt'>
   ): Promise<Project> {
+    const db = getDb();
     const newProject: Project = {
       ...project,
       id: uuidv4(),
@@ -24,6 +25,7 @@ export class LocalWordRepository implements WordRepository {
   }
 
   async getProjects(userId: string): Promise<Project[]> {
+    const db = getDb();
     return db.projects
       .where('userId')
       .equals(userId)
@@ -32,14 +34,17 @@ export class LocalWordRepository implements WordRepository {
   }
 
   async getProject(id: string): Promise<Project | undefined> {
+    const db = getDb();
     return db.projects.get(id);
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<void> {
+    const db = getDb();
     await db.projects.update(id, updates);
   }
 
   async deleteProject(id: string): Promise<void> {
+    const db = getDb();
     // Delete all words in the project first
     await this.deleteWordsByProject(id);
     await db.projects.delete(id);
@@ -48,8 +53,9 @@ export class LocalWordRepository implements WordRepository {
   // ============ Words ============
 
   async createWords(
-    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt'>[]
+    words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>[]
   ): Promise<Word[]> {
+    const db = getDb();
     const now = new Date().toISOString();
     const defaultSR = getDefaultSpacedRepetitionFields();
     const newWords: Word[] = words.map((word) => ({
@@ -58,6 +64,7 @@ export class LocalWordRepository implements WordRepository {
       id: uuidv4(),
       createdAt: now,
       isFavorite: false,
+      status: 'new' as const,
     }));
 
     await db.words.bulkAdd(newWords);
@@ -65,32 +72,39 @@ export class LocalWordRepository implements WordRepository {
   }
 
   async getWords(projectId: string): Promise<Word[]> {
+    const db = getDb();
     return db.words.where('projectId').equals(projectId).toArray();
   }
 
   async getWord(id: string): Promise<Word | undefined> {
+    const db = getDb();
     return db.words.get(id);
   }
 
   async updateWord(id: string, updates: Partial<Word>): Promise<void> {
+    const db = getDb();
     await db.words.update(id, updates);
   }
 
   async deleteWord(id: string): Promise<void> {
+    const db = getDb();
     await db.words.delete(id);
   }
 
   async deleteWordsByProject(projectId: string): Promise<void> {
+    const db = getDb();
     await db.words.where('projectId').equals(projectId).delete();
   }
 
   // ============ Bulk Operations for Sync ============
 
   async getAllProjectsForSync(): Promise<Project[]> {
+    const db = getDb();
     return db.projects.where('isSynced').equals(0).toArray();
   }
 
   async markProjectsSynced(projectIds: string[]): Promise<void> {
+    const db = getDb();
     await db.projects
       .where('id')
       .anyOf(projectIds)
@@ -98,6 +112,7 @@ export class LocalWordRepository implements WordRepository {
   }
 
   async clearAllData(): Promise<void> {
+    const db = getDb();
     await db.projects.clear();
     await db.words.clear();
   }

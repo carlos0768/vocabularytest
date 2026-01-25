@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Check, Trash2, Edit2, X, Save, AlertTriangle, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Edit2, X, Save, AlertTriangle, Sparkles, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
-import { useProjects } from '@/hooks/use-projects';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
-import { FREE_WORD_LIMIT } from '@/lib/utils';
+import { getRepository } from '@/lib/db';
+import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import type { AIWordExtraction } from '@/types';
 
 interface EditableWord extends AIWordExtraction {
@@ -20,13 +20,13 @@ interface EditableWord extends AIWordExtraction {
 
 export default function ConfirmPage() {
   const router = useRouter();
-  const { createProject } = useProjects();
   const { count: currentWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
-  const { isPro, subscription, loading: authLoading } = useAuth();
+  const { isPro, subscription, user } = useAuth();
   const { showToast } = useToast();
 
   const [words, setWords] = useState<EditableWord[]>([]);
   const [projectTitle, setProjectTitle] = useState('');
+  const [existingProjectId, setExistingProjectId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -35,11 +35,20 @@ export default function ConfirmPage() {
   const selectedCount = words.filter(w => w.isSelected).length;
   const showLimitWarning = !isPro && wouldExceed;
 
+  // Check if adding to existing project
+  const isAddingToExisting = !!existingProjectId;
+
   // Load extracted words and project name from session storage
   useEffect(() => {
     setMounted(true);
     const stored = sessionStorage.getItem('scanvocab_extracted_words');
     const storedProjectName = sessionStorage.getItem('scanvocab_project_name');
+    const storedExistingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
+
+    if (storedExistingProjectId) {
+      setExistingProjectId(storedExistingProjectId);
+    }
+
     if (stored) {
       try {
         const parsed: AIWordExtraction[] = JSON.parse(stored);
@@ -51,14 +60,16 @@ export default function ConfirmPage() {
             isSelected: true, // All selected by default
           }))
         );
-        // Use stored project name or default title based on date
-        if (storedProjectName) {
-          setProjectTitle(storedProjectName);
-        } else {
-          const now = new Date();
-          setProjectTitle(
-            `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
-          );
+        // Use stored project name or default title based on date (only for new projects)
+        if (!storedExistingProjectId) {
+          if (storedProjectName) {
+            setProjectTitle(storedProjectName);
+          } else {
+            const now = new Date();
+            setProjectTitle(
+              `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
+            );
+          }
         }
       } catch {
         router.push('/');
@@ -107,12 +118,6 @@ export default function ConfirmPage() {
   };
 
   const handleSaveProject = async () => {
-    // Wait for auth to be ready
-    if (authLoading) {
-      console.log('Auth still loading, please wait...');
-      return;
-    }
-
     const selectedWords = words.filter(w => w.isSelected);
 
     if (selectedWords.length === 0) {
@@ -120,7 +125,8 @@ export default function ConfirmPage() {
       return;
     }
 
-    if (!projectTitle.trim()) {
+    // Only require project title for new projects
+    if (!isAddingToExisting && !projectTitle.trim()) {
       alert('プロジェクト名を入力してください');
       return;
     }
@@ -133,19 +139,29 @@ export default function ConfirmPage() {
 
     setSaving(true);
     try {
-      // Create project
-      const project = await createProject(projectTitle.trim());
-      if (!project) {
-        throw new Error('プロジェクトの作成に失敗しました');
-      }
-
-      // Add words to project using direct repository call
-      const { getRepository } = await import('@/lib/db');
+      // Get repository and userId
       const subscriptionStatus = subscription?.status || 'free';
       const repository = getRepository(subscriptionStatus);
+      const userId = isPro && user ? user.id : getGuestUserId();
+
+      let targetProjectId: string;
+
+      if (isAddingToExisting && existingProjectId) {
+        // Add to existing project
+        targetProjectId = existingProjectId;
+      } else {
+        // Create new project
+        const project = await repository.createProject({
+          userId,
+          title: projectTitle.trim(),
+        });
+        targetProjectId = project.id;
+      }
+
+      // Add words to project
       await repository.createWords(
         selectedWords.map((w) => ({
-          projectId: project.id,
+          projectId: targetProjectId,
           english: w.english,
           japanese: w.japanese,
           distractors: w.distractors,
@@ -157,6 +173,7 @@ export default function ConfirmPage() {
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
       sessionStorage.removeItem('scanvocab_project_name');
+      sessionStorage.removeItem('scanvocab_existing_project_id');
 
       // Refresh word count
       refreshWordCount();
@@ -175,11 +192,20 @@ export default function ConfirmPage() {
         });
       }
 
+      // Show success message for adding words
+      if (isAddingToExisting) {
+        showToast({
+          message: `${selectedWords.length}語を追加しました`,
+          type: 'success',
+        });
+      }
+
       // Navigate to project page
-      router.push(`/project/${project.id}`);
+      router.push(`/project/${targetProjectId}`);
     } catch (error) {
       console.error('Save error:', error);
-      alert('保存に失敗しました。もう一度お試しください。');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`保存に失敗しました: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -201,7 +227,9 @@ export default function ConfirmPage() {
             >
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">確認・編集</h1>
+            <h1 className="text-lg font-semibold text-gray-900">
+              {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
+            </h1>
           </div>
         </div>
       </header>
@@ -250,19 +278,21 @@ export default function ConfirmPage() {
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Project title input */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            プロジェクト名
-          </label>
-          <input
-            type="text"
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50 focus:bg-white"
-            placeholder="例: ノート P21-23"
-          />
-        </div>
+        {/* Project title input - only for new projects */}
+        {!isAddingToExisting && (
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              プロジェクト名
+            </label>
+            <input
+              type="text"
+              value={projectTitle}
+              onChange={(e) => setProjectTitle(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50 focus:bg-white"
+              placeholder="例: ノート P21-23"
+            />
+          </div>
+        )}
 
         {/* Word count */}
         <div className="flex items-center justify-between mb-4">
@@ -305,14 +335,17 @@ export default function ConfirmPage() {
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleSaveProject}
-            disabled={saving || authLoading || selectedCount === 0 || (!isPro && excessCount > 0)}
+            disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
             className="w-full"
             size="lg"
           >
             {saving ? (
               '保存中...'
-            ) : authLoading ? (
-              '読み込み中...'
+            ) : isAddingToExisting ? (
+              <>
+                <Plus className="w-5 h-5 mr-2" />
+                {selectedCount}語を追加
+              </>
             ) : (
               <>
                 <Check className="w-5 h-5 mr-2" />

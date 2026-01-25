@@ -8,6 +8,10 @@ import type { RootStackParamList } from '../types';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProjectScreen } from '../screens/ProjectScreen';
 import { QuizScreen } from '../screens/QuizScreen';
+import { FlashcardScreen } from '../screens/FlashcardScreen';
+import { FavoritesScreen } from '../screens/FavoritesScreen';
+import { FavoritesFlashcardScreen } from '../screens/FavoritesFlashcardScreen';
+import { FavoritesQuizScreen } from '../screens/FavoritesQuizScreen';
 import { ScanConfirmScreen } from '../screens/ScanConfirmScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
@@ -35,6 +39,31 @@ export function Navigation() {
         <Stack.Screen
           name="Quiz"
           component={QuizScreen}
+          options={{
+            animation: 'fade',
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="Flashcard"
+          component={FlashcardScreen}
+          options={{
+            animation: 'fade',
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen name="Favorites" component={FavoritesScreen} />
+        <Stack.Screen
+          name="FavoritesFlashcard"
+          component={FavoritesFlashcardScreen}
+          options={{
+            animation: 'fade',
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="FavoritesQuiz"
+          component={FavoritesQuizScreen}
           options={{
             animation: 'fade',
             gestureEnabled: false,

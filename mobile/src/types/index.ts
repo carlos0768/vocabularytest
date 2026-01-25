@@ -1,114 +1,28 @@
-// Core domain types for ScanVocab Mobile
+// Types for WordSnap Mobile
+// Re-exports shared types and adds mobile-specific types
 
-export type WordStatus = 'new' | 'review' | 'mastered';
+// ============ Shared Types (from /shared/types) ============
+export type {
+  WordStatus,
+  Word,
+  Project,
+  AIWordExtraction,
+  AIResponse,
+  QuizQuestion,
+  QuizResult,
+  WordRepository,
+  ScanProgress,
+  ProgressStep,
+  SubscriptionStatus,
+  SubscriptionPlan,
+  Subscription,
+  UserState,
+  AuthUser,
+} from '../shared/types';
 
-export interface Word {
-  id: string;
-  projectId: string;
-  english: string;
-  japanese: string;
-  distractors: string[]; // 3 wrong answers for quiz
-  status: WordStatus;
-  createdAt: string; // ISO string
-}
+// ============ Mobile-Specific Types ============
 
-export interface Project {
-  id: string;
-  userId: string;
-  title: string;
-  createdAt: string; // ISO string
-  isSynced?: boolean; // Local-only flag for cloud sync status
-}
-
-// AI Response types
-export interface AIWordExtraction {
-  english: string;
-  japanese: string;
-  distractors: string[];
-}
-
-export interface AIResponse {
-  words: AIWordExtraction[];
-}
-
-// Quiz types
-export interface QuizQuestion {
-  word: Word;
-  options: string[]; // Shuffled: 1 correct + 3 distractors
-  correctIndex: number;
-}
-
-export interface QuizResult {
-  wordId: string;
-  isCorrect: boolean;
-  selectedIndex: number;
-}
-
-// Repository interface for hybrid storage pattern
-export interface WordRepository {
-  // Projects
-  createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project>;
-  getProjects(userId: string): Promise<Project[]>;
-  getProject(id: string): Promise<Project | undefined>;
-  updateProject(id: string, updates: Partial<Project>): Promise<void>;
-  deleteProject(id: string): Promise<void>;
-
-  // Words
-  createWords(words: Omit<Word, 'id' | 'createdAt'>[]): Promise<Word[]>;
-  getWords(projectId: string): Promise<Word[]>;
-  getWord(id: string): Promise<Word | undefined>;
-  updateWord(id: string, updates: Partial<Word>): Promise<void>;
-  deleteWord(id: string): Promise<void>;
-  deleteWordsByProject(projectId: string): Promise<void>;
-}
-
-// App state types
-export interface ScanProgress {
-  step: 'uploading' | 'analyzing' | 'generating' | 'complete' | 'error';
-  message: string;
-}
-
-// Subscription types
-export type SubscriptionStatus = 'free' | 'active' | 'cancelled' | 'past_due';
-export type SubscriptionPlan = 'free' | 'pro';
-
-export interface Subscription {
-  id: string;
-  userId: string;
-  status: SubscriptionStatus;
-  plan: SubscriptionPlan;
-  komojuSubscriptionId?: string;
-  komojuCustomerId?: string;
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserState {
-  id: string;
-  email: string;
-  subscriptionStatus: SubscriptionStatus;
-  subscriptionPlan: SubscriptionPlan;
-  dailyScanCount: number;
-  lastScanDate: string;
-}
-
-// Auth types
-export interface AuthUser {
-  id: string;
-  email: string;
-  subscription?: Subscription;
-}
-
-// Progress step for processing modal
-export interface ProgressStep {
-  id: string;
-  label: string;
-  status: 'pending' | 'active' | 'complete' | 'error';
-}
-
-// Navigation types
+// Navigation types (React Navigation)
 export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
@@ -117,9 +31,13 @@ export type RootStackParamList = {
   Subscription: undefined;
   SubscriptionSuccess: undefined;
   SubscriptionCancel: undefined;
-  ScanConfirm: { words: AIWordExtraction[] };
+  ScanConfirm: { words: import('../shared/types').AIWordExtraction[]; projectName?: string; projectId?: string };
   Project: { projectId: string };
   Quiz: { projectId: string };
+  Flashcard: { projectId: string };
+  Favorites: undefined;
+  FavoritesFlashcard: undefined;
+  FavoritesQuiz: undefined;
 };
 
 export type MainTabParamList = {

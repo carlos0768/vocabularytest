@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
@@ -12,8 +12,11 @@ import type { Word, SubscriptionStatus } from '@/types';
 export default function FlashcardPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  const { subscription, loading: authLoading, isPro } = useAuth();
+  const favoritesOnly = searchParams.get('favorites') === 'true';
+  const { subscription, loading: authLoading } = useAuth();
+  const isPro = subscription?.status === 'active';
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -28,15 +31,19 @@ export default function FlashcardPage() {
   useEffect(() => {
     if (authLoading) return;
 
-    // Redirect non-Pro users
-    if (!isPro) {
+    // Redirect non-Pro users (except for favorites mode which is free)
+    if (!isPro && !favoritesOnly) {
       router.push('/subscription');
       return;
     }
 
     const loadWords = async () => {
       try {
-        const wordsData = await repository.getWords(projectId);
+        const allWords = await repository.getWords(projectId);
+        const wordsData = favoritesOnly
+          ? allWords.filter((w) => w.isFavorite)
+          : allWords;
+
         if (wordsData.length === 0) {
           router.push(`/project/${projectId}`);
           return;
@@ -51,7 +58,7 @@ export default function FlashcardPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, authLoading, isPro]);
+  }, [projectId, repository, router, authLoading, favoritesOnly, isPro]);
 
   const currentWord = words[currentIndex];
 
@@ -113,6 +120,12 @@ export default function FlashcardPage() {
         </button>
 
         <div className="flex items-center gap-2">
+          {favoritesOnly && (
+            <div className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded-full mr-2">
+              <Flag className="w-3 h-3 fill-orange-500 text-orange-500" />
+              <span className="text-xs font-medium text-orange-700">苦手</span>
+            </div>
+          )}
           <span className="text-sm text-gray-500">
             {currentIndex + 1} / {words.length}
           </span>

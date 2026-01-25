@@ -7,6 +7,11 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Modal,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -18,11 +23,18 @@ import {
   Hexagon,
   Gem,
   Zap,
+  X,
+  Settings,
+  Flag,
+  Crown,
+  Check,
 } from 'lucide-react-native';
+import { Button } from '../components/ui';
 import { ProjectCard, ScanButton } from '../components/project';
 import { ProcessingModal } from '../components/ProcessingModal';
 import { getRepository } from '../lib/db';
 import { extractWordsFromImage } from '../lib/ai';
+import { useAuth } from '../hooks/use-auth';
 import {
   getGuestUserId,
   getDailyScanInfo,
@@ -38,6 +50,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { user, isPro, isAuthenticated } = useAuth();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectWordCounts, setProjectWordCounts] = useState<Record<string, number>>({});
@@ -49,33 +62,42 @@ export function HomeScreen() {
   const [streakDays, setStreakDays] = useState(0);
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
   const [totalMastered, setTotalMastered] = useState(0);
+  const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | null>(null);
+  const [totalFavorites, setTotalFavorites] = useState(0);
 
-  const repository = getRepository('free');
+  // Authenticated users use remote repository (Supabase), guests use local SQLite
+  const repository = getRepository(isAuthenticated ? 'active' : 'free');
 
   // Load projects
   const loadProjects = useCallback(async () => {
     try {
-      const userId = await getGuestUserId();
+      // Use authenticated user ID if logged in, otherwise use guest ID
+      const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
       const data = await repository.getProjects(userId);
       setProjects(data);
 
       // Load word counts for each project
       const counts: Record<string, number> = {};
       let mastered = 0;
+      let favorites = 0;
       for (const project of data) {
         const words = await repository.getWords(project.id);
         counts[project.id] = words.length;
         mastered += words.filter((w) => w.status === 'mastered').length;
+        favorites += words.filter((w) => w.isFavorite).length;
       }
       setProjectWordCounts(counts);
       setTotalMastered(mastered);
+      setTotalFavorites(favorites);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [repository]);
+  }, [repository, isAuthenticated, user]);
 
   // Load stats
   const loadStats = useCallback(async () => {
@@ -113,11 +135,13 @@ export function HomeScreen() {
 
   // Handle image selection
   const handleScanPress = async () => {
-    // Check scan limit
-    const currentScanInfo = await getDailyScanInfo();
-    if (!currentScanInfo.canScan) {
-      navigation.navigate('Subscription');
-      return;
+    // Check scan limit (Pro users have unlimited scans)
+    if (!isPro) {
+      const currentScanInfo = await getDailyScanInfo();
+      if (!currentScanInfo.canScan) {
+        navigation.navigate('Subscription');
+        return;
+      }
     }
 
     // Request camera permission
@@ -127,18 +151,29 @@ export function HomeScreen() {
       return;
     }
 
-    // Show action sheet
+    // Generate default title
+    const now = new Date();
+    const defaultTitle = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setProjectName(defaultTitle);
+
+    // Show action sheet to select source first
     Alert.alert(
       '画像を選択',
       'どちらから画像を取得しますか？',
       [
         {
           text: 'カメラで撮影',
-          onPress: () => pickImage('camera'),
+          onPress: () => {
+            setPendingImageSource('camera');
+            setShowProjectNameModal(true);
+          },
         },
         {
           text: 'ライブラリから選択',
-          onPress: () => pickImage('library'),
+          onPress: () => {
+            setPendingImageSource('library');
+            setShowProjectNameModal(true);
+          },
         },
         {
           text: 'キャンセル',
@@ -146,6 +181,23 @@ export function HomeScreen() {
         },
       ]
     );
+  };
+
+  // Handle project name confirmation and start scan
+  const handleProjectNameConfirm = () => {
+    if (!projectName.trim()) {
+      Alert.alert('エラー', 'プロジェクト名を入力してください');
+      return;
+    }
+    const source = pendingImageSource;
+    setShowProjectNameModal(false);
+    setPendingImageSource(null);
+    // Delay to allow modal to close before opening camera/library
+    if (source) {
+      setTimeout(() => {
+        pickImage(source);
+      }, 300);
+    }
   };
 
   const pickImage = async (source: 'camera' | 'library') => {
@@ -237,7 +289,7 @@ export function HomeScreen() {
       setTimeout(() => {
         setProcessing(false);
         setProcessingSteps([]);
-        navigation.navigate('ScanConfirm', { words: result.words! });
+        navigation.navigate('ScanConfirm', { words: result.words!, projectName: projectName.trim() });
       }, 300);
     } catch (error) {
       console.error('Scan error:', error);
@@ -288,10 +340,44 @@ export function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>ScanVocab</Text>
+          <View style={styles.logoContainer}>
+            <Text style={styles.headerTitle}>WordSnap</Text>
+          </View>
+          {isPro && (
+            <View style={styles.proBadge}>
+              <Crown size={10} color={colors.white} />
+              <Text style={styles.proBadgeText}>Pro</Text>
+            </View>
+          )}
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.scanRemaining}>残り{scanInfo.remaining}回</Text>
+          {isPro ? (
+            <View style={styles.unlimitedBadge}>
+              <Check size={12} color={colors.emerald[600]} />
+              <Text style={styles.unlimitedText}>無制限</Text>
+            </View>
+          ) : (
+            <Text style={styles.scanRemaining}>残り{scanInfo.remaining}回</Text>
+          )}
+          <TouchableOpacity
+            style={styles.flagButton}
+            onPress={() => navigation.navigate('Favorites')}
+          >
+            <Flag size={20} color={colors.orange[500]} />
+            {totalFavorites > 0 && (
+              <View style={styles.flagBadge}>
+                <Text style={styles.flagBadgeText}>
+                  {totalFavorites > 99 ? '99+' : totalFavorites}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Settings size={20} color={colors.gray[600]} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -307,7 +393,7 @@ export function HomeScreen() {
         <View style={styles.statItem}>
           <Hexagon size={16} color={colors.gray[400]} />
           <Text style={[styles.statValue, accuracy > 0 && styles.statValueActive]}>
-            {accuracy}
+            {accuracy}%
           </Text>
           <Text style={styles.statLabel}>正答率</Text>
         </View>
@@ -379,6 +465,53 @@ export function HomeScreen() {
             : undefined
         }
       />
+
+      {/* Project name input modal */}
+      <Modal
+        visible={showProjectNameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowProjectNameModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>プロジェクト名</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowProjectNameModal(false);
+                  setPendingImageSource(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <X size={20} color={colors.gray[500]} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalDescription}>
+              スキャンする単語帳の名前を入力してください
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={projectName}
+              onChangeText={setProjectName}
+              placeholder="例: 英検2級 単語帳"
+              placeholderTextColor={colors.gray[400]}
+              autoFocus
+              selectTextOnFocus
+            />
+            <Button
+              onPress={handleProjectNameConfirm}
+              size="lg"
+              style={styles.modalButton}
+            >
+              スキャンを開始
+            </Button>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -400,19 +533,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  logoContainer: {
+    backgroundColor: colors.primary[600],
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.gray[900],
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary[500],
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 2,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  unlimitedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  unlimitedText: {
+    fontSize: 12,
+    color: colors.emerald[600],
+    fontWeight: '500',
+  },
   scanRemaining: {
     fontSize: 12,
     color: colors.gray[400],
+  },
+  flagButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  flagBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: colors.orange[500],
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  flagBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  settingsButton: {
+    padding: 4,
   },
   statsBar: {
     flexDirection: 'row',
@@ -474,5 +661,53 @@ const styles = StyleSheet.create({
   },
   projectList: {
     gap: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.gray[900],
+  },
+  modalCloseButton: {
+    padding: 4,
+    marginRight: -4,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: colors.gray[500],
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: colors.gray[50],
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.gray[900],
+    marginBottom: 16,
+  },
+  modalButton: {
+    width: '100%',
   },
 });

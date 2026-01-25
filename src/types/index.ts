@@ -1,120 +1,28 @@
-// Core domain types for ScanVocab
+// Types for WordSnap Web
+// Re-exports shared types and adds web-specific types
 
-export type WordStatus = 'new' | 'review' | 'mastered';
+// ============ Shared Types (from /shared/types) ============
+export type {
+  WordStatus,
+  Word,
+  Project,
+  AIWordExtraction,
+  AIResponse,
+  QuizQuestion,
+  QuizResult,
+  WordRepository,
+  ScanProgress,
+  ProgressStep,
+  SubscriptionStatus,
+  SubscriptionPlan,
+  Subscription,
+  UserState,
+  AuthUser,
+} from '../../shared/types';
 
-export interface Word {
-  id: string;
-  projectId: string;
-  english: string;
-  japanese: string;
-  distractors: string[]; // 3 wrong answers for quiz
-  exampleSentence?: string; // Example sentence using the word (Pro feature)
-  exampleSentenceJa?: string; // Japanese translation of example sentence
-  status: WordStatus; // Learning status
-  createdAt: string; // ISO string
-  // Spaced repetition fields (SM-2 algorithm)
-  lastReviewedAt?: string; // ISO string - when last reviewed
-  nextReviewAt?: string; // ISO string - when to review next
-  easeFactor: number; // SM-2 ease factor (default 2.5)
-  intervalDays: number; // Days until next review (default 0)
-  repetition: number; // Number of successful repetitions (default 0)
-  // Favorite marking
-  isFavorite: boolean; // User marked as difficult/important
-}
+// ============ Web-Specific Types ============
 
-export interface Project {
-  id: string;
-  userId: string;
-  title: string;
-  createdAt: string; // ISO string
-  isSynced?: boolean; // Local-only flag for cloud sync status
-  shareId?: string; // Unique share ID for URL sharing (null = private)
-}
-
-// AI Response types
-export interface AIWordExtraction {
-  english: string;
-  japanese: string;
-  distractors: string[];
-  exampleSentence?: string;
-  exampleSentenceJa?: string;
-}
-
-export interface AIResponse {
-  words: AIWordExtraction[];
-}
-
-// Quiz types
-export interface QuizQuestion {
-  word: Word;
-  options: string[]; // Shuffled: 1 correct + 3 distractors
-  correctIndex: number;
-}
-
-export interface QuizResult {
-  wordId: string;
-  isCorrect: boolean;
-  selectedIndex: number;
-}
-
-// Repository interface for hybrid storage pattern
-export interface WordRepository {
-  // Projects
-  createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project>;
-  getProjects(userId: string): Promise<Project[]>;
-  getProject(id: string): Promise<Project | undefined>;
-  updateProject(id: string, updates: Partial<Project>): Promise<void>;
-  deleteProject(id: string): Promise<void>;
-
-  // Words
-  createWords(words: Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>[]): Promise<Word[]>;
-  getWords(projectId: string): Promise<Word[]>;
-  getWord(id: string): Promise<Word | undefined>;
-  updateWord(id: string, updates: Partial<Word>): Promise<void>;
-  deleteWord(id: string): Promise<void>;
-  deleteWordsByProject(projectId: string): Promise<void>;
-}
-
-// App state types
-export interface ScanProgress {
-  step: 'uploading' | 'analyzing' | 'generating' | 'complete' | 'error';
-  message: string;
-}
-
-// Subscription types
-export type SubscriptionStatus = 'free' | 'active' | 'cancelled' | 'past_due';
-export type SubscriptionPlan = 'free' | 'pro';
-
-export interface Subscription {
-  id: string;
-  userId: string;
-  status: SubscriptionStatus;
-  plan: SubscriptionPlan;
-  komojuSubscriptionId?: string;
-  komojuCustomerId?: string;
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserState {
-  id: string;
-  email: string;
-  subscriptionStatus: SubscriptionStatus;
-  subscriptionPlan: SubscriptionPlan;
-  dailyScanCount: number;
-  lastScanDate: string;
-}
-
-// Auth types
-export interface AuthUser {
-  id: string;
-  email: string;
-  subscription?: Subscription;
-}
-
-// KOMOJU types
+// KOMOJU Payment types (Web only - payment handled on web)
 export interface KomojuSubscriptionPlan {
   id: string;
   name: string;

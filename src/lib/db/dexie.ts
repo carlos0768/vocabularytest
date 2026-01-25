@@ -4,12 +4,12 @@ import type { Project, Word } from '@/types';
 // Dexie database definition for local IndexedDB storage
 // This serves as the Free tier storage backend
 
-export class ScanVocabDB extends Dexie {
+export class WordSnapDB extends Dexie {
   projects!: EntityTable<Project, 'id'>;
   words!: EntityTable<Word, 'id'>;
 
   constructor() {
-    super('ScanVocabDB');
+    super('WordSnapDB');
 
     this.version(1).stores({
       // Index definitions - only indexed fields listed here
@@ -31,5 +31,18 @@ export class ScanVocabDB extends Dexie {
   }
 }
 
-// Singleton instance
-export const db = new ScanVocabDB();
+// Lazy singleton instance - only initialize on client side
+let _db: WordSnapDB | null = null;
+
+export function getDb(): WordSnapDB {
+  if (typeof window === 'undefined') {
+    throw new Error('IndexedDB is not available on server side');
+  }
+  if (!_db) {
+    _db = new WordSnapDB();
+  }
+  return _db;
+}
+
+// For backward compatibility - use getDb() instead
+export const db = typeof window !== 'undefined' ? new WordSnapDB() : (null as unknown as WordSnapDB);

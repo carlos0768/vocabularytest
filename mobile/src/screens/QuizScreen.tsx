@@ -13,6 +13,7 @@ import { X, ChevronRight, Trophy, RotateCcw } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { QuizOption } from '../components/quiz';
 import { getRepository } from '../lib/db';
+import { useAuth } from '../hooks/use-auth';
 import { shuffleArray, updateDailyStats } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Word, QuizQuestion, WordStatus } from '../types';
@@ -24,6 +25,7 @@ export function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const projectId = route.params.projectId;
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -33,7 +35,8 @@ export function QuizScreen() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const repository = getRepository('free');
+  // Authenticated users use remote repository (Supabase), guests use local SQLite
+  const repository = getRepository(isAuthenticated ? 'active' : 'free');
 
   // Generate quiz questions
   const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {
@@ -60,25 +63,38 @@ export function QuizScreen() {
 
   // Load words
   useEffect(() => {
+    // Wait for auth to be ready
+    if (authLoading) return;
+
     const loadWords = async () => {
       try {
+        console.log('Loading quiz words for project:', projectId, 'isAuthenticated:', isAuthenticated);
         const words = await repository.getWords(projectId);
+        console.log('Quiz words loaded:', words.length);
         if (words.length === 0) {
-          navigation.goBack();
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Main');
+          }
           return;
         }
         const generated = generateQuestions(words);
         setQuestions(generated);
       } catch (error) {
         console.error('Failed to load words:', error);
-        navigation.goBack();
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('Main');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadWords();
-  }, [projectId, repository, navigation, generateQuestions]);
+  }, [projectId, repository, navigation, generateQuestions, authLoading, isAuthenticated]);
 
   const currentQuestion = questions[currentIndex];
 

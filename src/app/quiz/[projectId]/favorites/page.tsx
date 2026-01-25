@@ -30,7 +30,6 @@ export default function FavoritesQuizPage() {
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
-  const isPro = subscription?.status === 'active';
 
   // Generate quiz questions from favorite words only
   const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {
@@ -59,12 +58,6 @@ export default function FavoritesQuizPage() {
     // Wait for auth to be ready
     if (authLoading) return;
 
-    // Redirect non-Pro users
-    if (!isPro) {
-      router.push(`/project/${projectId}`);
-      return;
-    }
-
     const loadWords = async () => {
       try {
         const words = await repository.getWords(projectId);
@@ -86,7 +79,7 @@ export default function FavoritesQuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading, isPro]);
+  }, [projectId, repository, router, generateQuestions, authLoading]);
 
   const currentQuestion = questions[currentIndex];
 

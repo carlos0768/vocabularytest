@@ -7,7 +7,7 @@ import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag } from '
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
-import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
+import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { getRepository } from '@/lib/db';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, getStreakDays, getDailyStats, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
@@ -129,13 +129,17 @@ export default function Dashboard() {
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
   const [totalWords, setTotalWords] = useState(0);
   const [totalFavorites, setTotalFavorites] = useState(0);
-  const [showStats, setShowStats] = useState(true);
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  // Delete modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Get repository based on subscription status
   const subscriptionStatus = subscription?.status || 'free';
@@ -174,12 +178,6 @@ export default function Dashboard() {
     setScanInfo(getDailyScanInfo());
     setStreakDays(getStreakDays());
     setDailyStats(getDailyStats());
-
-    // Load show stats setting
-    const savedShowStats = localStorage.getItem('scanvocab_show_stats');
-    if (savedShowStats !== null) {
-      setShowStats(savedShowStats === 'true');
-    }
   }, []);
 
   // Load projects only after auth state is determined
@@ -349,11 +347,33 @@ export default function Dashboard() {
     setProcessingSteps([]);
   };
 
-  const handleDeleteProject = async (id: string) => {
-    if (confirm('このプロジェクトを削除しますか？')) {
-      await repository.deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
+  const handleDeleteProject = (id: string) => {
+    setDeleteTargetId(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetId) return;
+
+    setDeleteLoading(true);
+    try {
+      await repository.deleteProject(deleteTargetId);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteTargetId));
       refreshWordCount();
+      showToast({
+        message: '単語帳を削除しました',
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      showToast({
+        message: '削除に失敗しました',
+        type: 'error',
+      });
+    } finally {
+      setDeleteLoading(false);
+      setDeleteModalOpen(false);
+      setDeleteTargetId(null);
     }
   };
 
@@ -373,8 +393,8 @@ export default function Dashboard() {
       <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-gray-900">ScanVocab</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-bold text-white bg-blue-600 px-3 py-1 rounded-lg">WordSnap</h1>
               {isPro && (
                 <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-medium">
                   <Sparkles className="w-3 h-3" />
@@ -442,39 +462,37 @@ export default function Dashboard() {
       )}
 
       {/* Stats bar */}
-      {showStats && (
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="flex justify-around">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Orbit className="w-4 h-4 text-blue-500" />
-              </div>
-              <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
-                {dailyStats.todayCount}
-              </p>
-              <p className="text-xs text-gray-400">今日</p>
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="flex justify-around">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Orbit className="w-4 h-4 text-blue-500" />
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Hexagon className="w-4 h-4 text-gray-400" />
-              </div>
-              <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
-                {accuracy}
-              </p>
-              <p className="text-xs text-gray-400">正答率</p>
+            <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+              {dailyStats.todayCount}
+            </p>
+            <p className="text-xs text-gray-400">今日</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Hexagon className="w-4 h-4 text-gray-400" />
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Zap className="w-4 h-4 text-amber-500" />
-              </div>
-              <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
-                {streakDays}
-              </p>
-              <p className="text-xs text-gray-400">連続</p>
+            <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+              {accuracy}
+            </p>
+            <p className="text-xs text-gray-400">正答率</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Zap className="w-4 h-4 text-amber-500" />
             </div>
+            <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+              {streakDays}
+            </p>
+            <p className="text-xs text-gray-400">連続</p>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Main content */}
       <main className="max-w-2xl mx-auto px-4">
@@ -560,6 +578,19 @@ export default function Dashboard() {
           setPendingFile(null);
         }}
         onConfirm={handleProjectNameConfirm}
+      />
+
+      {/* Delete confirm modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeleteTargetId(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="単語帳を削除"
+        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        isLoading={deleteLoading}
       />
     </div>
   );

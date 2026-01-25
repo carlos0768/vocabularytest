@@ -1,6 +1,6 @@
-# ScanVocab Mobile
+# WordSnap Mobile
 
-React Native (Expo) で作成されたScanVocabのモバイルアプリです。Webアプリと同じデザインと機能を提供します。
+React Native (Expo) で作成されたWordSnapのモバイルアプリです。Webアプリと同じデザインと機能を提供します。
 
 ## 機能
 

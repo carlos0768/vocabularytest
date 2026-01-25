@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, Check, Trash2, Edit2, X, Save } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { getRepository } from '../lib/db';
+import { useAuth } from '../hooks/use-auth';
 import { getGuestUserId } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, AIWordExtraction } from '../types';
@@ -31,7 +32,13 @@ interface EditableWord extends AIWordExtraction {
 export function ScanConfirmScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
+  const { user, isAuthenticated } = useAuth();
   const initialWords = route.params?.words || [];
+  const initialProjectName = route.params?.projectName;
+  const existingProjectId = route.params?.projectId;
+
+  // Check if we are adding words to an existing project
+  const isAddingToExisting = !!existingProjectId;
 
   const [words, setWords] = useState<EditableWord[]>(
     initialWords.map((w, i) => ({
@@ -41,14 +48,15 @@ export function ScanConfirmScreen() {
     }))
   );
 
-  // Generate default title
+  // Use passed project name or generate default title
   const now = new Date();
-  const defaultTitle = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const defaultTitle = initialProjectName || `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const [projectTitle, setProjectTitle] = useState(defaultTitle);
   const [saving, setSaving] = useState(false);
 
-  const repository = getRepository('free');
+  // Authenticated users use remote repository (Supabase), guests use local SQLite
+  const repository = getRepository(isAuthenticated ? 'active' : 'free');
 
   const handleDeleteWord = (tempId: string) => {
     setWords((prev) => prev.filter((w) => w.tempId !== tempId));
@@ -86,29 +94,39 @@ export function ScanConfirmScreen() {
       return;
     }
 
-    if (!projectTitle.trim()) {
+    if (!isAddingToExisting && !projectTitle.trim()) {
       Alert.alert('エラー', 'プロジェクト名を入力してください');
       return;
     }
 
     setSaving(true);
     try {
-      const userId = await getGuestUserId();
+      let targetProjectId: string;
 
-      // Create project
-      const project = await repository.createProject({
-        userId,
-        title: projectTitle.trim(),
-      });
+      if (isAddingToExisting) {
+        // Add words to existing project
+        targetProjectId = existingProjectId!;
+      } else {
+        // Use authenticated user ID if logged in, otherwise use guest ID
+        const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
+
+        // Create new project
+        const project = await repository.createProject({
+          userId,
+          title: projectTitle.trim(),
+        });
+        targetProjectId = project.id;
+      }
 
       // Add words to project
       await repository.createWords(
         words.map((w) => ({
-          projectId: project.id,
+          projectId: targetProjectId,
           english: w.english,
           japanese: w.japanese,
           distractors: w.distractors,
-          status: 'new' as const,
+          exampleSentence: w.exampleSentence,
+          exampleSentenceJa: w.exampleSentenceJa,
         }))
       );
 
@@ -117,7 +135,7 @@ export function ScanConfirmScreen() {
         index: 1,
         routes: [
           { name: 'Main' },
-          { name: 'Project', params: { projectId: project.id } },
+          { name: 'Project', params: { projectId: targetProjectId } },
         ],
       });
     } catch (error) {
@@ -138,7 +156,9 @@ export function ScanConfirmScreen() {
         >
           <ArrowLeft size={20} color={colors.gray[600]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>確認・編集</Text>
+        <Text style={styles.headerTitle}>
+          {isAddingToExisting ? '単語を追加' : '確認・編集'}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -152,22 +172,33 @@ export function ScanConfirmScreen() {
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Project title input */}
-          <View style={styles.titleSection}>
-            <Text style={styles.label}>プロジェクト名</Text>
-            <TextInput
-              style={styles.titleInput}
-              value={projectTitle}
-              onChangeText={setProjectTitle}
-              placeholder="例: ノート P21-23"
-              placeholderTextColor={colors.gray[400]}
-            />
-          </View>
+          {/* Project title input - only show for new projects */}
+          {!isAddingToExisting && (
+            <View style={styles.titleSection}>
+              <Text style={styles.label}>プロジェクト名</Text>
+              <TextInput
+                style={styles.titleInput}
+                value={projectTitle}
+                onChangeText={setProjectTitle}
+                placeholder="例: ノート P21-23"
+                placeholderTextColor={colors.gray[400]}
+              />
+            </View>
+          )}
+
+          {/* Info text for adding to existing project */}
+          {isAddingToExisting && (
+            <View style={styles.addingInfo}>
+              <Text style={styles.addingInfoText}>
+                「{initialProjectName}」に単語を追加します
+              </Text>
+            </View>
+          )}
 
           {/* Word count */}
           <View style={styles.wordCountRow}>
             <Text style={styles.wordCountLabel}>
-              抽出された単語{' '}
+              {isAddingToExisting ? '追加する単語' : '抽出された単語'}{' '}
               <Text style={styles.wordCountValue}>({words.length}語)</Text>
             </Text>
           </View>
@@ -205,7 +236,7 @@ export function ScanConfirmScreen() {
             style={styles.saveButton}
             icon={<Check size={20} color={colors.white} />}
           >
-            保存して学習を始める
+            {isAddingToExisting ? `${words.length}語を追加` : '保存して学習を始める'}
           </Button>
         </View>
       </KeyboardAvoidingView>
@@ -335,6 +366,18 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     marginBottom: 24,
+  },
+  addingInfo: {
+    backgroundColor: colors.primary[50],
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  addingInfoText: {
+    fontSize: 14,
+    color: colors.primary[700],
+    textAlign: 'center',
+    fontWeight: '500',
   },
   label: {
     fontSize: 14,

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "ScanVocab",
-    "slug": "scanvocab",
+    "name": "WordSnap",
+    "slug": "wordsnap",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.scanvocab.app",
+      "bundleIdentifier": "com.wordsnap.app",
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "ノートやプリントを撮影して単語を抽出するために使用します",
@@ -29,7 +29,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.scanvocab.app",
+      "package": "com.wordsnap.app",
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",

@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'lucide-react-native';
 import { Button, Input } from '../components/ui';
+import { useAuth } from '../hooks/use-auth';
 import colors from '../constants/colors';
 import type { RootStackParamList } from '../types';
 
@@ -21,6 +22,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function SignupScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { signUp } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,11 +68,36 @@ export function SignupScreen() {
 
     setLoading(true);
     try {
-      // TODO: Implement Supabase auth
-      Alert.alert(
-        '開発中',
-        '登録機能は現在開発中です。無料プランでお使いください。'
-      );
+      const result = await signUp(email, password);
+
+      if (!result.success) {
+        // Translate common error messages
+        let errorMessage = result.error || '登録に失敗しました';
+        if (errorMessage.includes('User already registered')) {
+          errorMessage = 'このメールアドレスは既に登録されています';
+        } else if (errorMessage.includes('Password should be')) {
+          errorMessage = 'パスワードが要件を満たしていません';
+        }
+        Alert.alert('エラー', errorMessage);
+      } else if (result.needsConfirmation) {
+        // Email confirmation required
+        Alert.alert(
+          '確認メールを送信しました',
+          'メールアドレスに確認リンクを送信しました。メールを確認して登録を完了してください。',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login'),
+            },
+          ]
+        );
+      } else {
+        // Success - navigate to main screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+      }
     } catch {
       Alert.alert('エラー', '登録に失敗しました');
     } finally {

@@ -38,7 +38,7 @@ function LoginForm() {
     <div className="w-full max-w-sm">
       {/* Logo */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">ScanVocab</h1>
+        <h1 className="text-3xl font-bold text-gray-900">WordSnap</h1>
         <p className="text-gray-500 mt-2">アカウントにログイン</p>
       </div>
 
@@ -135,7 +135,7 @@ function LoginFormFallback() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">ScanVocab</h1>
+        <h1 className="text-3xl font-bold text-gray-900">WordSnap</h1>
         <p className="text-gray-500 mt-2">アカウントにログイン</p>
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
