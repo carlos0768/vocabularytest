@@ -196,7 +196,13 @@ export async function analyzeGrammarPatterns(
         return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
       }
       if (error.status === 400) {
-        return { success: false, error: 'リクエストが不正です。別の画像をお試しください。' };
+        // Log the actual error for debugging
+        console.error('OpenAI 400 error details:', error.message);
+        // Check if it's a token limit issue
+        if (error.message.includes('token') || error.message.includes('length')) {
+          return { success: false, error: 'テキストが長すぎます。より短い画像をお試しください。' };
+        }
+        return { success: false, error: `リクエストエラー: ${error.message.slice(0, 100)}` };
       }
     }
 
