@@ -526,6 +526,7 @@ export default function HomePage() {
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
+  const [isAddingToExisting, setIsAddingToExisting] = useState(false); // true = add to current project, false = new project
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
@@ -741,7 +742,8 @@ export default function HomePage() {
   // Scan handlers
   const canScan = isPro || scanInfo.canScan;
 
-  const handleScanButtonClick = () => {
+  const handleScanButtonClick = (addToExisting: boolean = false) => {
+    setIsAddingToExisting(addToExisting);
     setShowScanModeModal(true);
   };
 
@@ -767,18 +769,19 @@ export default function HomePage() {
     }
 
     setPendingFile(file);
-    setShowProjectNameModal(true);
+
+    // If adding to existing project, skip project name modal
+    if (isAddingToExisting && currentProject) {
+      sessionStorage.setItem('scanvocab_project_id', currentProject.id);
+      sessionStorage.removeItem('scanvocab_project_name');
+      processImage(file);
+    } else {
+      setShowProjectNameModal(true);
+    }
   };
 
-  const handleProjectNameConfirm = async (projectName: string) => {
-    setShowProjectNameModal(false);
-    const file = pendingFile;
-    setPendingFile(null);
-
-    if (!file) return;
-
-    sessionStorage.setItem('scanvocab_project_name', projectName);
-
+  // Common image processing function
+  const processImage = async (file: File) => {
     setProcessing(true);
     setProcessingSteps([
       { id: 'upload', label: '画像をアップロード中...', status: 'active' },
@@ -875,6 +878,18 @@ export default function HomePage() {
     }
   };
 
+  const handleProjectNameConfirm = async (projectName: string) => {
+    setShowProjectNameModal(false);
+    const file = pendingFile;
+    setPendingFile(null);
+
+    if (!file) return;
+
+    sessionStorage.setItem('scanvocab_project_name', projectName);
+    sessionStorage.removeItem('scanvocab_project_id');
+    processImage(file);
+  };
+
   const handleCloseModal = () => {
     setProcessing(false);
     setProcessingSteps([]);
@@ -948,7 +963,7 @@ export default function HomePage() {
 
         {/* Floating action button */}
         <button
-          onClick={handleScanButtonClick}
+          onClick={() => handleScanButtonClick()}
           disabled={processing || (!isPro && !canScan)}
           className="fixed bottom-6 right-6 w-14 h-14 flex items-center justify-center bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
         >
@@ -1019,7 +1034,7 @@ export default function HomePage() {
 
             {/* Center: New project button */}
             <button
-              onClick={handleScanButtonClick}
+              onClick={() => handleScanButtonClick()}
               disabled={processing || (!isPro && !canScan)}
               className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1116,13 +1131,13 @@ export default function HomePage() {
                 苦手 {stats.favorites}
               </button>
             )}
-            <Link
-              href={`/scan?projectId=${currentProject?.id}`}
+            <button
+              onClick={() => handleScanButtonClick(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
             >
               <Plus className="w-4 h-4" />
               追加
-            </Link>
+            </button>
           </div>
         </div>
 
