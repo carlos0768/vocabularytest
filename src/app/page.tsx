@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Settings, Sparkles, Orbit, Hexagon, Zap, Check, Flag } from 'lucide-react';
+import { BookOpen, Settings, Sparkles, Check, Flag } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProjectCard, ScanButton } from '@/components/project';
 import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { getRepository } from '@/lib/db';
-import { getDailyScanInfo, incrementScanCount, getGuestUserId, getStreakDays, getDailyStats, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
+import { getDailyScanInfo, incrementScanCount, getGuestUserId, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project } from '@/types';
 
@@ -125,8 +125,6 @@ export default function Dashboard() {
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [scanInfo, setScanInfo] = useState({ count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true });
-  const [streakDays, setStreakDays] = useState(0);
-  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
   const [totalWords, setTotalWords] = useState(0);
   const [totalFavorites, setTotalFavorites] = useState(0);
 
@@ -173,11 +171,9 @@ export default function Dashboard() {
     }
   }, [isPro, user, repository]);
 
-  // Load scan info and stats immediately (doesn't need auth)
+  // Load scan info immediately (doesn't need auth)
   useEffect(() => {
     setScanInfo(getDailyScanInfo());
-    setStreakDays(getStreakDays());
-    setDailyStats(getDailyStats());
   }, []);
 
   // Load projects only after auth state is determined
@@ -377,11 +373,6 @@ export default function Dashboard() {
     }
   };
 
-  // Calculate accuracy
-  const accuracy = dailyStats.todayCount > 0
-    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
-    : 0;
-
   return (
     <div className="min-h-screen bg-white pb-24">
       {/* Word limit banner (95+ words) */}
@@ -461,39 +452,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats bar */}
-      <div className="max-w-2xl mx-auto px-4 py-4">
-        <div className="flex justify-around">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Orbit className="w-4 h-4 text-blue-500" />
-            </div>
-            <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
-              {dailyStats.todayCount}
-            </p>
-            <p className="text-xs text-gray-400">今日</p>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Hexagon className="w-4 h-4 text-gray-400" />
-            </div>
-            <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
-              {accuracy}
-            </p>
-            <p className="text-xs text-gray-400">正答率</p>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Zap className="w-4 h-4 text-amber-500" />
-            </div>
-            <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
-              {streakDays}
-            </p>
-            <p className="text-xs text-gray-400">連続</p>
-          </div>
-        </div>
-      </div>
-
       {/* Main content */}
       <main className="max-w-2xl mx-auto px-4">
         {loading ? (
@@ -560,7 +518,7 @@ export default function Dashboard() {
       <ScanLimitModal
         isOpen={showScanLimitModal}
         onClose={() => setShowScanLimitModal(false)}
-        todayWordsLearned={dailyStats.todayCount}
+        todayWordsLearned={0}
       />
 
       {/* Word limit modal */}

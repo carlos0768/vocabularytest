@@ -3,11 +3,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, Loader2, Edit2, Trash2, X, Save, Flag, Share2, Link as LinkIcon, Check, Layers, Plus, Camera } from 'lucide-react';
+import { ArrowLeft, Play, Loader2, Edit2, Trash2, X, Save, Flag, Share2, Link as LinkIcon, Check, Layers, Plus, Orbit, Target, Trophy, Zap } from 'lucide-react';
 import { Button, DeleteConfirmModal, useToast } from '@/components/ui';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { useAuth } from '@/hooks/use-auth';
+import { getDailyStats, getStreakDays } from '@/lib/utils';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function ProjectPage() {
@@ -23,6 +24,8 @@ export default function ProjectPage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
+  const [streakDays, setStreakDays] = useState(0);
 
   // Delete modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -34,6 +37,12 @@ export default function ProjectPage() {
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Load daily stats and streak
+  useEffect(() => {
+    setDailyStats(getDailyStats());
+    setStreakDays(getStreakDays());
+  }, []);
 
   // Load project and words
   useEffect(() => {
@@ -70,7 +79,13 @@ export default function ProjectPage() {
   const stats = {
     total: words.length,
     favorites: words.filter((w) => w.isFavorite).length,
+    mastered: words.filter((w) => w.status === 'mastered').length,
   };
+
+  // Calculate accuracy
+  const accuracy = dailyStats.todayCount > 0
+    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
+    : 0;
 
   const filteredWords = showFavoritesOnly
     ? words.filter((w) => w.isFavorite)
@@ -200,8 +215,50 @@ export default function ProjectPage() {
         </div>
       </header>
 
+      {/* Stats bar */}
+      <div className="max-w-lg mx-auto px-4 py-4">
+        <div className="flex justify-around bg-gray-50 rounded-xl py-4">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Orbit className="w-4 h-4 text-blue-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${dailyStats.todayCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+              {dailyStats.todayCount}
+            </p>
+            <p className="text-xs text-gray-400">今日</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Target className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${accuracy > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
+              {accuracy}<span className="text-sm">%</span>
+            </p>
+            <p className="text-xs text-gray-400">正答率</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Trophy className="w-4 h-4 text-purple-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${stats.mastered > 0 ? 'text-purple-600' : 'text-gray-300'}`}>
+              {stats.mastered}
+            </p>
+            <p className="text-xs text-gray-400">習得</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Zap className="w-4 h-4 text-amber-500" />
+            </div>
+            <p className={`text-2xl font-semibold ${streakDays > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+              {streakDays}
+            </p>
+            <p className="text-xs text-gray-400">連続</p>
+          </div>
+        </div>
+      </div>
+
       {/* Main content */}
-      <main className="flex-1 max-w-lg mx-auto px-4 py-6 w-full pb-32">
+      <main className="flex-1 max-w-lg mx-auto px-4 pb-32 w-full">
         {/* Word list header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-medium text-gray-900">
