@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -324,6 +324,22 @@ export default function FlashcardPage() {
               className="absolute inset-0 bg-white rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center backface-hidden"
               style={{ backfaceVisibility: 'hidden' }}
             >
+              {/* Voice button above the word */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (currentWord?.english && typeof window !== 'undefined') {
+                    const utterance = new SpeechSynthesisUtterance(currentWord.english);
+                    utterance.lang = 'en-US';
+                    utterance.rate = 0.9;
+                    window.speechSynthesis.speak(utterance);
+                  }
+                }}
+                className="p-3 hover:bg-gray-100 rounded-full transition-colors mb-4"
+                aria-label="発音を聞く"
+              >
+                <Volume2 className="w-6 h-6 text-gray-400" />
+              </button>
               <p className="text-3xl font-bold text-gray-900 text-center">
                 {currentWord?.english}
               </p>
