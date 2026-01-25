@@ -24,6 +24,7 @@ import {
   CircleDot,
   BookText,
   Star,
+  Languages,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -50,7 +51,7 @@ const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
   { value: '1', label: '1級' },
 ];
 
-// Scan mode types
+// Scan mode types (ExtractMode already includes 'idiom')
 type ScanMode = ExtractMode | 'grammar';
 
 // Scan mode selection modal - EIKEN filter is now a separate mode
@@ -204,6 +205,28 @@ function ScanModeModal({
                 )}
               </div>
               <p className="text-sm text-gray-500">指定した級の単語だけを抽出します</p>
+            </div>
+          </button>
+
+          {/* Idiom mode (Pro) */}
+          <button
+            onClick={() => onSelectMode('idiom', null)}
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-teal-300 hover:bg-teal-50/50 transition-colors text-left"
+          >
+            <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <Languages className="w-6 h-6 text-teal-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900">熟語・イディオム</p>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500">熟語・句動詞を抽出します</p>
             </div>
           </button>
 
@@ -959,8 +982,8 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
-    // Pro-only features: circled, eiken filter, and grammar modes
-    if ((mode === 'circled' || mode === 'eiken' || mode === 'grammar') && !isPro) {
+    // Pro-only features: circled, eiken filter, idiom, and grammar modes
+    if ((mode === 'circled' || mode === 'eiken' || mode === 'idiom' || mode === 'grammar') && !isPro) {
       router.push('/subscription');
       return;
     }
