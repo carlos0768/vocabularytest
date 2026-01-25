@@ -940,12 +940,14 @@ export function HomeScreen() {
           <ChevronDown size={16} color={colors.gray[500]} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.newProjectButton}
-          onPress={() => handleScanButtonClick()}
-        >
-          <Plus size={20} color={colors.white} />
-        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <TouchableOpacity
+            style={styles.newProjectButton}
+            onPress={() => handleScanButtonClick()}
+          >
+            <Plus size={20} color={colors.white} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.headerActions}>
           {isAuthenticated && (
@@ -1225,19 +1227,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.gray[900],
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   newProjectButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.primary[600],
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 'auto',
   },
   headerButton: {
     padding: 8,
