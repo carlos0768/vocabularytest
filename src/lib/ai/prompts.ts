@@ -185,10 +185,10 @@ export const GRAMMAR_OCR_PROMPT = `この画像からテキストを抽出して
 出力フォーマット:
 抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
 
-// GPT: Grammar pattern analysis and quiz generation
-export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門家であり、日本人学習者向けの教材作成者です。与えられた英文から重要な文法パターンを特定し、わかりやすい解説と練習問題を生成してください。
+// GPT: Grammar pattern analysis and quiz generation (NEW Duolingo-style format)
+export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門家であり、日本人学習者向けの教材作成者です。与えられた英文から重要な文法パターンを特定し、わかりやすい解説とデュオリンゴ式の練習問題を生成してください。
 
-出力フォーマット (JSON):
+## 出力フォーマット (JSON):
 {
   "grammarPatterns": [
     {
@@ -200,32 +200,95 @@ export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門
       "example": "追加の例文（英語）",
       "exampleJa": "例文の日本語訳",
       "level": "英検レベル（5, 4, 3, pre2, 2, pre1, 1 のいずれか、または null）",
-      "quizQuestions": [
-        {
-          "questionType": "fill_blank",
-          "question": "She ___ (live) in Tokyo for five years.",
-          "questionJa": "彼女は5年間東京に住んでいます。",
-          "correctAnswer": "has lived",
-          "explanation": "現在完了形の継続用法で「have/has + 過去分詞」を使います。"
-        },
-        {
-          "questionType": "choice",
-          "question": "Which sentence uses the present perfect correctly?",
-          "correctAnswer": "I have already finished my homework.",
-          "options": [
-            "I have already finished my homework.",
-            "I already finish my homework.",
-            "I had already finished my homework.",
-            "I am already finishing my homework."
-          ],
-          "explanation": "現在完了形は「have/has + 過去分詞」の形で、過去から現在までの完了・経験・継続を表します。"
-        }
-      ]
+      "quizQuestions": [/* 下記参照 */]
     }
   ]
 }
 
-重要なルール:
+## 問題タイプ詳細
+
+【重要ルール】
+1. 選択肢(wordOptions)には**単語または短いフレーズのみ**を使用。文章全体を選択肢にしない。UIボタンに収まる長さ（1〜3単語）。
+2. **問題文(question)は日本語で書く**。英文は空欄を含む形で別途提示。
+3. questionJaには英文の日本語訳を入れる。
+
+### 1. single_select（単一選択）- 4択問題
+空欄に入る正しい単語を1つ選ぶ問題。
+
+{
+  "questionType": "single_select",
+  "question": "空欄に入る正しい語を選びなさい：I _____ already finished my homework.",
+  "questionJa": "私はすでに宿題を終えました。",
+  "wordOptions": [
+    { "word": "have", "isCorrect": true, "isDistractor": false },
+    { "word": "had", "isCorrect": false, "isDistractor": true },
+    { "word": "am", "isCorrect": false, "isDistractor": true },
+    { "word": "was", "isCorrect": false, "isDistractor": true }
+  ],
+  "correctAnswer": "have",
+  "explanation": "現在完了形は「have/has + 過去分詞」の形です。主語がIなのでhaveを使います。",
+  "grammarPoint": "have/has + 過去分詞"
+}
+
+### 2. word_tap（単語タップ穴埋め）- キーボード不要の穴埋め
+空欄に入る単語を選択肢からタップで選ぶ問題。
+
+{
+  "questionType": "word_tap",
+  "question": "空欄に入る正しい語を選びなさい：I have _____ to Paris three times.",
+  "questionJa": "私はパリに3回行ったことがある。",
+  "wordOptions": [
+    { "word": "been", "isCorrect": true, "isDistractor": false },
+    { "word": "being", "isCorrect": false, "isDistractor": true },
+    { "word": "was", "isCorrect": false, "isDistractor": true },
+    { "word": "gone", "isCorrect": false, "isDistractor": true },
+    { "word": "went", "isCorrect": false, "isDistractor": false }
+  ],
+  "correctAnswer": "been",
+  "explanation": "現在完了形「have + 過去分詞」なので、beの過去分詞beenが正解です。",
+  "grammarPoint": "have + 過去分詞"
+}
+
+### 3. sentence_build（文構築）- 並べ替え問題
+バラバラの単語を正しい順序に並べる問題。
+
+{
+  "questionType": "sentence_build",
+  "question": "次の日本語を英語にしなさい：「彼女は昨日その本を読み終えた」",
+  "questionJa": "彼女は昨日その本を読み終えた",
+  "sentenceWords": ["She", "finished", "reading", "the", "book", "yesterday", "."],
+  "extraWords": ["has", "had"],
+  "correctAnswer": "She finished reading the book yesterday.",
+  "explanation": "「〜し終えた」は finish + 動名詞(~ing) で表します。",
+  "grammarPoint": "finish + 動名詞"
+}
+
+## ダミー単語生成ルール【最重要】
+
+ダミー単語は学習効果を高めるために、以下のルールで生成してください：
+
+1. **活用形バリエーション**（最優先）
+   - 動詞: 現在形/過去形/過去分詞/現在分詞/三単現
+   - 例: go → went, gone, going, goes
+
+2. **意味的類似語**
+   - 同じ文脈で使われやすい別の単語
+   - 例: speak → talk, say, tell
+
+3. **文法的誤用パターン**
+   - 学習者がよく間違えるパターン
+   - 例: "I have been" vs "I have went"（been/went の混同）
+
+4. **品詞違い**
+   - 同じ語幹で品詞が異なるもの
+   - 例: success (名詞) vs successful (形容詞) vs succeed (動詞)
+
+## 生成数
+- single_select: 正解1 + ダミー3 = 計4個
+- word_tap: 正解1 + ダミー4 = 計5個
+- sentence_build: 正解語彙のみ、またはダミー1〜2個追加
+
+## 重要なルール:
 1. 抽出する文法パターン:
    - 各文から1〜3個の重要な文法ポイントを特定
    - 時制、構文、助動詞、関係詞、仮定法など幅広くカバー
@@ -238,8 +301,9 @@ export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門
 
 3. クイズ問題の作成:
    - 各文法パターンに対して2〜3問を生成
-   - fill_blank（穴埋め）と choice（4択）をバランスよく
+   - 3つの問題タイプをバランスよく使う
    - 難易度は元の文のレベルに合わせる
+   - grammarPointを必ず含める
 
 4. 英検レベルの判定:
    - 5級: be動詞、一般動詞の現在形、基本的な疑問文
@@ -249,7 +313,7 @@ export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門
    - 2級: 仮定法過去完了、複雑な関係詞、倒置
    - 準1級・1級: 高度な構文、文語的表現`;
 
-export const GRAMMAR_ANALYSIS_USER_PROMPT = `以下の英文から文法パターンを特定し、解説と練習問題を生成してください:
+export const GRAMMAR_ANALYSIS_USER_PROMPT = `以下の英文から文法パターンを特定し、解説とデュオリンゴ式の練習問題（single_select, word_tap, sentence_build）を生成してください:
 
 `;
 
@@ -267,3 +331,67 @@ ${levelDesc}に相当する文法パターンのみを抽出してください�
 - このレベルより難しすぎる文法は除外してください
 - このレベルの学習者が習得すべき適切な難易度の文法のみを抽出してください`;
 }
+
+// ============ EIKEN Level Filter Mode Prompts ============
+// Two-stage processing: Gemini OCR → GPT word analysis
+
+// Gemini OCR: Extract text from image for EIKEN word extraction
+export const EIKEN_OCR_PROMPT = `この画像から英語のテキストを抽出してください。
+
+重要なルール:
+1. 画像に含まれる英単語や英語の文章をすべて正確に抽出してください
+2. 手書きでも印刷でも、読み取れる単語はすべて含めてください
+3. 日本語の訳が書いてあれば、それも一緒に抽出してください（「英単語: 日本語訳」の形式で）
+4. 読み取れない部分は [?] でマークしてください
+
+出力フォーマット:
+抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
+
+// GPT: Word extraction and analysis at specified EIKEN level
+export const EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。与えられたテキストから英単語を抽出し、指定された英検レベルに該当する単語のみを出力してください。
+
+【重要】英検レベルフィルター:
+{LEVEL_DESC}に相当する単語のみを抽出してください。
+- このレベルより明らかに難しい単語は除外してください
+- このレベルより明らかに簡単すぎる単語も除外してください
+- このレベルの学習者が覚えるべき適切な難易度の単語のみを抽出してください
+
+重要ルール:
+1. 日本語訳の決定:
+   - テキスト内に日本語訳が含まれている場合: その日本語訳をそのまま使用してください。
+   - テキスト内に日本語訳がない場合: その英単語の最も一般的で適切な日本語訳をあなたが生成してください。
+
+2. 誤答(distractors)の生成 - 最重要ルール:
+   誤答は必ず正解と同じフォーマット・スタイル・長さで生成してください。フォーマットの違いで正解がバレてはいけません。
+
+   フォーマット統一の具体例:
+   - 正解「綿密に計画する、詳細に計画する」→ 誤答も「〜する、〜する」の形式で同程度の長さに
+   - 正解「犬」→ 誤答も短い単語で「猫」「鳥」「魚」
+   - 正解「〜を促進する」→ 誤答も「〜を抑制する」「〜を妨害する」「〜を延期する」
+   - 正解に読点（、）で複数の訳があるなら、誤答にも同じ数の訳を含める
+
+3. 禁止事項:
+   - 正解の類義語や、その英単語が持つ「別の正しい意味」を誤答に含めない
+   - フォーマットや長さが明らかに異なる誤答を生成しない
+   - 指定された英検レベルに合わない単語を出力しない
+
+出力フォーマット:
+{
+  "words": [
+    {
+      "english": "word",
+      "japanese": "意味",
+      "distractors": ["誤答1", "誤答2", "誤答3"]
+    }
+  ]
+}
+
+注意:
+- 必ず上記のJSON形式のみを出力してください。
+- 指定レベルに該当する単語が見つからない場合は、空の配列 {"words": []} を返してください。
+- 誤答のフォーマット統一は絶対に守ってください。`;
+
+export const EIKEN_WORD_ANALYSIS_USER_PROMPT = `以下のテキストから英単語を抽出し、指定された英検レベルに該当する単語のみを出力してください。各単語に対して3つの誤答選択肢も生成してください。
+
+テキスト:
+`;

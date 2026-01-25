@@ -147,10 +147,60 @@ export interface GrammarPattern {
   createdAt: string;
 }
 
+// ============ New Grammar Quiz Types (Duolingo-style) ============
+
+/**
+ * 新しい問題タイプ（デュオリンゴ式）
+ * - single_select: 1つの単語/フレーズを選択（旧choice）
+ * - word_tap: 空欄に入る単語をタップで選択（旧fill_blank）
+ * - sentence_build: 全単語を正しい順序に並べる（旧reorder）
+ */
+export type GrammarQuizType = 'single_select' | 'word_tap' | 'sentence_build';
+
+/**
+ * 旧問題タイプ（後方互換性のため保持）
+ */
+export type LegacyGrammarQuizType = 'fill_blank' | 'choice' | 'reorder';
+
+/**
+ * 単語オプション（ダミー含む）
+ * - word: 表示する単語
+ * - isCorrect: 正解かどうか
+ * - isDistractor: 類似単語のダミーかどうか（活用形違いなど）
+ */
+export interface WordOption {
+  word: string;
+  isCorrect: boolean;
+  isDistractor: boolean;
+}
+
+/**
+ * 新形式のクイズ問題構造（デュオリンゴ式）
+ */
+export interface GrammarQuizQuestionNew {
+  questionType: GrammarQuizType;
+  question: string;           // 問題文（空欄は _____ で表記）
+  questionJa?: string;        // 日本語訳/ヒント
+
+  // Single Select / Word Tap 用
+  wordOptions?: WordOption[]; // 選択肢（正解 + ダミー）
+  correctAnswer: string;      // 正解（単一単語 or 完全文）
+
+  // Sentence Build 用
+  sentenceWords?: string[];   // 正解の語順（配列）
+  extraWords?: string[];      // ダミー単語（難易度調整用）
+
+  explanation: string;        // 解説
+  grammarPoint?: string;      // この問題で問われる文法ポイント
+}
+
+/**
+ * 旧形式のクイズ問題（後方互換性のため保持）
+ */
 export interface GrammarQuizQuestion {
   id: string;
   patternId: string;
-  questionType: 'fill_blank' | 'choice' | 'reorder';
+  questionType: LegacyGrammarQuizType;
   question: string; // The question text
   questionJa?: string; // Japanese hint/translation
   correctAnswer: string;
@@ -159,6 +209,39 @@ export interface GrammarQuizQuestion {
   createdAt: string;
 }
 
+/**
+ * AIから返される旧形式のクイズ問題
+ */
+export interface AIGrammarQuizQuestionLegacy {
+  questionType: LegacyGrammarQuizType;
+  question: string;
+  questionJa?: string;
+  correctAnswer: string;
+  options?: string[];
+  explanation: string;
+}
+
+/**
+ * AIから返される新形式のクイズ問題
+ */
+export interface AIGrammarQuizQuestionNew {
+  questionType: GrammarQuizType;
+  question: string;
+  questionJa?: string;
+  wordOptions?: WordOption[];
+  correctAnswer: string;
+  sentenceWords?: string[];
+  extraWords?: string[];
+  explanation: string;
+  grammarPoint?: string;
+}
+
+// 型エイリアス: AIGrammarQuizQuestion は新形式を指す
+export type AIGrammarQuizQuestion = AIGrammarQuizQuestionNew;
+
+/**
+ * AIから返される文法パターン抽出結果（新形式）
+ */
 export interface AIGrammarExtraction {
   patternName: string;
   patternNameEn: string;
@@ -168,14 +251,22 @@ export interface AIGrammarExtraction {
   example: string;
   exampleJa: string;
   level: EikenGrammarLevel;
-  quizQuestions: {
-    questionType: 'fill_blank' | 'choice' | 'reorder';
-    question: string;
-    questionJa?: string;
-    correctAnswer: string;
-    options?: string[];
-    explanation: string;
-  }[];
+  quizQuestions: AIGrammarQuizQuestion[];
+}
+
+/**
+ * AIから返される旧形式の文法パターン（マイグレーション用）
+ */
+export interface AIGrammarExtractionLegacy {
+  patternName: string;
+  patternNameEn: string;
+  originalSentence: string;
+  explanation: string;
+  structure: string;
+  example: string;
+  exampleJa: string;
+  level: EikenGrammarLevel;
+  quizQuestions: AIGrammarQuizQuestionLegacy[];
 }
 
 export interface AIGrammarResponse {
