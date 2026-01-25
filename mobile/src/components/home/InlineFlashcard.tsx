@@ -116,7 +116,9 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
           {!isFlipped ? (
             // Front: English
             <View style={styles.cardContent}>
-              <Text style={styles.englishText}>{currentWord.english}</Text>
+              <Text style={styles.englishText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.5}>
+                {currentWord.english}
+              </Text>
               <TouchableOpacity
                 onPress={speakWord}
                 style={styles.speakButton}
@@ -128,8 +130,12 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
           ) : (
             // Back: Japanese (same layout as front)
             <View style={styles.cardContent}>
-              <Text style={styles.smallTopText}>{currentWord.english}</Text>
-              <Text style={styles.japaneseText}>{currentWord.japanese}</Text>
+              <Text style={styles.smallTopText} numberOfLines={1}>
+                {currentWord.english}
+              </Text>
+              <Text style={styles.japaneseText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.5}>
+                {currentWord.japanese}
+              </Text>
               <Text style={styles.hintText}>タップして英語を表示</Text>
             </View>
           )}
@@ -213,13 +219,18 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardContent: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 8,
   },
   englishText: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
+    width: '100%',
   },
   speakButton: {
     padding: 8,
@@ -235,11 +246,13 @@ const styles = StyleSheet.create({
     color: colors.gray[400],
     marginBottom: 8,
     textAlign: 'center',
+    width: '100%',
   },
   japaneseText: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
+    width: '100%',
   },
 });
