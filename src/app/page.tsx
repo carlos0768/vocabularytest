@@ -24,7 +24,6 @@ import {
   Target,
   Trophy,
   Zap,
-  Camera,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -855,14 +854,6 @@ export default function HomePage() {
                 </Button>
               </Link>
             )}
-            <Button
-              size="lg"
-              variant="secondary"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={processing || (!isPro && !canScan)}
-            >
-              <Camera className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </div>
