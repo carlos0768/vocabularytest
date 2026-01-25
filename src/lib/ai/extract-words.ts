@@ -82,7 +82,7 @@ export async function extractWordsFromImage(
           ],
         },
       ],
-      max_tokens: 4096,
+      max_tokens: 16384,
     });
 
     const content = response.choices[0]?.message?.content;
