@@ -26,11 +26,13 @@ import {
   Zap,
   Camera,
   CircleDot,
+  BookText,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal, Button } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
+import { InlineQuizCard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, getDailyStats, getStreakDays, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
@@ -1153,91 +1155,62 @@ export default function HomePage() {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-40">
-        {/* Word list header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-medium text-gray-900">
-            {showFavoritesOnly ? `苦手 (${allFavoriteWords.length}語)` : `単語一覧 (${stats.total}語)`}
-          </h2>
-          <div className="flex items-center gap-2">
-            {allFavoriteWords.length > 0 && (
-              <button
-                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  showFavoritesOnly
-                    ? 'bg-orange-100 text-orange-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <Flag className={`w-4 h-4 ${showFavoritesOnly ? 'fill-orange-500' : ''}`} />
-                苦手 {allFavoriteWords.length}
-              </button>
-            )}
-            <button
-              onClick={() => handleScanButtonClick(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              追加
-            </button>
-          </div>
+      <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-8">
+        {/* Inline Quiz Card */}
+        <div className="mb-6">
+          <InlineQuizCard words={showFavoritesOnly ? allFavoriteWords : words} />
         </div>
 
-        {/* Word list */}
+        {/* Study Mode Cards - 2 column grid */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <StudyModeCard
+            title="クイズ"
+            description="4択で単語をテスト"
+            icon={Play}
+            href={`/quiz/${currentProject?.id}`}
+            variant="red"
+            disabled={words.length === 0}
+          />
+          <StudyModeCard
+            title="フラッシュカード"
+            description="カードをめくって学習"
+            icon={Layers}
+            href={isPro ? `/flashcard/${currentProject?.id}` : '/subscription'}
+            variant="blue"
+            disabled={words.length === 0}
+            badge={!isPro ? 'Pro' : undefined}
+          />
+        </div>
+
+        {/* Grammar Mode Card - Full width */}
+        <div className="mb-6">
+          <StudyModeCard
+            title="文法問題"
+            description="文法をスキャンして学習"
+            icon={BookText}
+            href={`/grammar/${currentProject?.id}`}
+            variant="green"
+          />
+        </div>
+
+        {/* Collapsible Word List */}
         {wordsLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
           </div>
-        ) : filteredWords.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {showFavoritesOnly ? '苦手な単語がありません' : '単語がありません'}
-          </div>
         ) : (
-          <div className="space-y-2">
-            {filteredWords.map((word) => (
-              <WordItem
-                key={`${word.id}:${word.english}:${word.japanese}`}
-                word={word}
-                isEditing={editingWordId === word.id}
-                onEdit={() => setEditingWordId(word.id)}
-                onCancel={() => setEditingWordId(null)}
-                onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
-                onDelete={() => handleDeleteWord(word.id)}
-                onToggleFavorite={() => handleToggleFavorite(word.id)}
-              />
-            ))}
-          </div>
+          <WordList
+            words={showFavoritesOnly ? allFavoriteWords : words}
+            editingWordId={editingWordId}
+            onEditStart={(wordId) => setEditingWordId(wordId)}
+            onEditCancel={() => setEditingWordId(null)}
+            onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
+            onDelete={(wordId) => handleDeleteWord(wordId)}
+            onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
+            onAddClick={() => handleScanButtonClick(true)}
+          />
         )}
       </main>
-
-      {/* Bottom action buttons */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
-        <div className="max-w-lg mx-auto px-4">
-          <div className="flex justify-center gap-3 py-4">
-            <Link href={`/quiz/${currentProject?.id}`}>
-              <Button size="lg">
-                <Play className="w-5 h-5 mr-2" />
-                クイズ
-              </Button>
-            </Link>
-            {isPro ? (
-              <Link href={`/flashcard/${currentProject?.id}`}>
-                <Button size="lg" variant="secondary">
-                  <Layers className="w-5 h-5 mr-2" />
-                  カード
-                </Button>
-              </Link>
-            ) : (
-              <Link href="/subscription">
-                <Button size="lg" variant="secondary" className="opacity-70">
-                  <Layers className="w-5 h-5 mr-2" />
-                  カード
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Modals */}
       {processing && (

@@ -170,3 +170,100 @@ export function getEikenFilterInstruction(eikenLevel: string | null): string {
 - このレベルより簡単すぎる単語も除外してください
 - このレベルの学習者が覚えるべき適切な難易度の単語のみを抽出してください`;
 }
+
+// ============ Grammar Extraction Prompts ============
+
+// Gemini OCR: Extract text from image
+export const GRAMMAR_OCR_PROMPT = `この画像からテキストを抽出してください。
+
+重要なルール:
+1. 画像に含まれる英語の文章をすべて正確に抽出してください
+2. 手書きでも印刷でも、読み取れる文章はすべて含めてください
+3. 改行や段落構造はそのまま維持してください
+4. 読み取れない部分は [?] でマークしてください
+
+出力フォーマット:
+抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
+
+// GPT: Grammar pattern analysis and quiz generation
+export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門家であり、日本人学習者向けの教材作成者です。与えられた英文から重要な文法パターンを特定し、わかりやすい解説と練習問題を生成してください。
+
+出力フォーマット (JSON):
+{
+  "grammarPatterns": [
+    {
+      "patternName": "文法パターン名（日本語）",
+      "patternNameEn": "Grammar Pattern Name (English)",
+      "originalSentence": "元の文（画像から抽出した文）",
+      "explanation": "日本語での詳しい解説（100〜200文字程度）",
+      "structure": "文法構造（例: have/has + 過去分詞）",
+      "example": "追加の例文（英語）",
+      "exampleJa": "例文の日本語訳",
+      "level": "英検レベル（5, 4, 3, pre2, 2, pre1, 1 のいずれか、または null）",
+      "quizQuestions": [
+        {
+          "questionType": "fill_blank",
+          "question": "She ___ (live) in Tokyo for five years.",
+          "questionJa": "彼女は5年間東京に住んでいます。",
+          "correctAnswer": "has lived",
+          "explanation": "現在完了形の継続用法で「have/has + 過去分詞」を使います。"
+        },
+        {
+          "questionType": "choice",
+          "question": "Which sentence uses the present perfect correctly?",
+          "correctAnswer": "I have already finished my homework.",
+          "options": [
+            "I have already finished my homework.",
+            "I already finish my homework.",
+            "I had already finished my homework.",
+            "I am already finishing my homework."
+          ],
+          "explanation": "現在完了形は「have/has + 過去分詞」の形で、過去から現在までの完了・経験・継続を表します。"
+        }
+      ]
+    }
+  ]
+}
+
+重要なルール:
+1. 抽出する文法パターン:
+   - 各文から1〜3個の重要な文法ポイントを特定
+   - 時制、構文、助動詞、関係詞、仮定法など幅広くカバー
+   - 同じパターンが複数の文に現れる場合は、代表的な1つを選ぶ
+
+2. 解説のポイント:
+   - 日本人学習者がつまずきやすいポイントを重点的に解説
+   - 日本語との違いを明確にする
+   - 実用的な使い方のコツを含める
+
+3. クイズ問題の作成:
+   - 各文法パターンに対して2〜3問を生成
+   - fill_blank（穴埋め）と choice（4択）をバランスよく
+   - 難易度は元の文のレベルに合わせる
+
+4. 英検レベルの判定:
+   - 5級: be動詞、一般動詞の現在形、基本的な疑問文
+   - 4級: 過去形、進行形、will/can
+   - 3級: 現在完了、受動態、不定詞、動名詞
+   - 準2級: 関係代名詞、分詞構文、仮定法過去
+   - 2級: 仮定法過去完了、複雑な関係詞、倒置
+   - 準1級・1級: 高度な構文、文語的表現`;
+
+export const GRAMMAR_ANALYSIS_USER_PROMPT = `以下の英文から文法パターンを特定し、解説と練習問題を生成してください:
+
+`;
+
+// Grammar level filter instruction
+export function getGrammarLevelFilterInstruction(eikenLevel: string | null): string {
+  if (!eikenLevel || !EIKEN_LEVEL_DESCRIPTIONS[eikenLevel]) {
+    return '';
+  }
+
+  const levelDesc = EIKEN_LEVEL_DESCRIPTIONS[eikenLevel];
+  return `
+
+【重要】英検レベルフィルター:
+${levelDesc}に相当する文法パターンのみを抽出してください。
+- このレベルより難しすぎる文法は除外してください
+- このレベルの学習者が習得すべき適切な難易度の文法のみを抽出してください`;
+}

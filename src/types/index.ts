@@ -18,6 +18,12 @@ export type {
   Subscription,
   UserState,
   AuthUser,
+  // Grammar types
+  EikenGrammarLevel,
+  GrammarPattern,
+  GrammarQuizQuestion,
+  AIGrammarExtraction,
+  AIGrammarResponse,
 } from '../../shared/types';
 
 // ============ Web-Specific Types ============
