@@ -207,7 +207,7 @@ function WordItem({
             </div>
           )}
         </div>
-        <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1 ml-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             onClick={onToggleFavorite}
             className="p-2 hover:bg-orange-50 rounded-full transition-colors"
