@@ -768,11 +768,25 @@ export default function HomePage() {
     ]);
 
     try {
-      const processedFile = await processImageFile(file);
+      let processedFile: File;
+      try {
+        processedFile = await processImageFile(file);
+      } catch (imageError) {
+        console.error('Image processing error:', imageError);
+        throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
+      }
+
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
+        reader.onload = () => {
+          const result = reader.result as string;
+          if (!result || !result.includes(',')) {
+            reject(new Error('画像データの読み取りに失敗しました'));
+            return;
+          }
+          resolve(result);
+        };
+        reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
         reader.readAsDataURL(processedFile);
       });
 

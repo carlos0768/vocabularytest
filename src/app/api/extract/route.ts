@@ -12,13 +12,25 @@ export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.error('JSON parse error:', jsonError);
+      return NextResponse.json(
+        { success: false, error: 'リクエストの解析に失敗しました' },
+        { status: 400 }
+      );
+    }
+
     const { image, isPro, mode = 'all', eikenLevel = null } = body as {
       image?: string;
       isPro?: boolean;
       mode?: ExtractMode;
       eikenLevel?: EikenLevel;
     };
+
+    console.log('Extract API called:', { mode, eikenLevel, isPro, imageLength: image?.length });
 
     if (!image) {
       return NextResponse.json(

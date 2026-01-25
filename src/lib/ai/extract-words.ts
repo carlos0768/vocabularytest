@@ -24,6 +24,20 @@ export async function extractWordsFromImage(
   apiKey: string,
   options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
+  // Validate input
+  if (!imageBase64 || typeof imageBase64 !== 'string') {
+    console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
+    return { success: false, error: '画像データが無効です' };
+  }
+
+  // Validate data URL format
+  if (imageBase64.startsWith('data:') && !imageBase64.includes(',')) {
+    console.error('Invalid data URL format: no comma found');
+    return { success: false, error: '画像データの形式が不正です' };
+  }
+
+  console.log('OpenAI API call:', { imageLength: imageBase64.length, startsWithData: imageBase64.startsWith('data:') });
+
   const openai = new OpenAI({ apiKey });
   const { includeExamples = false, eikenLevel = null } = options;
 
@@ -105,20 +119,37 @@ export async function extractWordsFromImage(
 
     return { success: true, data: validated.data! };
   } catch (error) {
+    console.error('OpenAI extraction error:', error);
+
     // Handle specific OpenAI errors
     if (error instanceof OpenAI.APIError) {
+      console.error('OpenAI API Error:', { status: error.status, message: error.message });
       if (error.status === 401) {
         return { success: false, error: 'APIキーが無効です' };
       }
       if (error.status === 429) {
         return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
       }
-      return { success: false, error: `API Error: ${error.message}` };
+      if (error.status === 400) {
+        return { success: false, error: '画像の形式が不正です。別の画像をお試しください。' };
+      }
     }
 
+    // Handle pattern mismatch error
+    if (error instanceof Error) {
+      const errorMessage = error.message;
+      console.error('Error message:', errorMessage);
+
+      if (errorMessage.includes('did not match the expected pattern')) {
+        console.error('Pattern mismatch error - likely invalid base64 data');
+        return { success: false, error: '画像データの処理に問題が発生しました。別の画像をお試しください。' };
+      }
+    }
+
+    // Generic error - don't expose internal error message
     return {
       success: false,
-      error: '予期しないエラーが発生しました。もう一度お試しください。',
+      error: '画像の解析に失敗しました。もう一度お試しください。',
     };
   }
 }

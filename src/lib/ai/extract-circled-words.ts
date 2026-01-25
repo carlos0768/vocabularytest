@@ -15,32 +15,54 @@ export interface CircledExtractionOptions {
 }
 
 // Extracts only circled/marked words from an image using Google Gemini API
-// Uses gemini-2.0-flash-thinking-exp model for enhanced reasoning
+// Uses gemini-2.0-flash model for image analysis
 export async function extractCircledWordsFromImage(
   imageBase64: string,
   apiKey: string,
   options: CircledExtractionOptions = {}
 ): Promise<CircledExtractionResult> {
   const { eikenLevel = null } = options;
+
+  // Validate input
+  if (!imageBase64 || typeof imageBase64 !== 'string') {
+    console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
+    return { success: false, error: '画像データが無効です' };
+  }
+
   const ai = new GoogleGenAI({ apiKey });
 
-  // Remove data URL prefix if present
-  const base64Data = imageBase64.startsWith('data:')
-    ? imageBase64.split(',')[1]
-    : imageBase64;
-
-  // Determine MIME type from data URL or default to jpeg
+  // Remove data URL prefix if present and validate
+  let base64Data: string;
   let mimeType = 'image/jpeg';
+
   if (imageBase64.startsWith('data:')) {
-    const match = imageBase64.match(/^data:([^;]+);/);
-    if (match) {
-      mimeType = match[1];
+    // Parse data URL format: data:[<mediatype>][;base64],<data>
+    const commaIndex = imageBase64.indexOf(',');
+    if (commaIndex === -1) {
+      console.error('Invalid data URL format: no comma found');
+      return { success: false, error: '画像データの形式が不正です' };
     }
+
+    base64Data = imageBase64.slice(commaIndex + 1);
+    const headerMatch = imageBase64.slice(0, commaIndex).match(/^data:([^;]+)/);
+    if (headerMatch) {
+      mimeType = headerMatch[1];
+    }
+  } else {
+    base64Data = imageBase64;
   }
+
+  // Validate base64 data
+  if (!base64Data || base64Data.length === 0) {
+    console.error('Empty base64 data');
+    return { success: false, error: '画像データが空です' };
+  }
+
+  console.log('Gemini API call:', { mimeType, base64Length: base64Data.length });
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-thinking-exp',
+      model: 'gemini-2.0-flash',
       contents: [
         {
           role: 'user',
@@ -116,17 +138,29 @@ export async function extractCircledWordsFromImage(
 
     // Handle specific errors
     if (error instanceof Error) {
-      if (error.message.includes('API key')) {
+      const errorMessage = error.message;
+      console.error('Gemini error message:', errorMessage);
+
+      if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
         return { success: false, error: 'Gemini APIキーが無効です' };
       }
-      if (error.message.includes('quota') || error.message.includes('rate')) {
+      if (errorMessage.includes('quota') || errorMessage.includes('rate')) {
         return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
+      }
+      if (errorMessage.includes('did not match the expected pattern')) {
+        console.error('Pattern mismatch error - likely invalid base64 or model issue');
+        return { success: false, error: '画像データの処理に問題が発生しました。別の画像をお試しください。' };
+      }
+      if (errorMessage.includes('model') || errorMessage.includes('not found')) {
+        console.error('Model not found error');
+        return { success: false, error: 'AIモデルが利用できません。しばらく待ってから再試行してください。' };
       }
     }
 
+    // Generic error - don't expose internal error message
     return {
       success: false,
-      error: '予期しないエラーが発生しました。もう一度お試しください。',
+      error: '画像の解析に失敗しました。もう一度お試しください。',
     };
   }
 }
