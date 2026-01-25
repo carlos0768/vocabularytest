@@ -1221,7 +1221,9 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: colors.gray[50],
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
     borderRadius: 8,
   },
   projectTitle: {
@@ -1671,10 +1673,11 @@ const styles = StyleSheet.create({
   // Project selection sheet
   sheetOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   sheetContent: {
     position: 'absolute',
