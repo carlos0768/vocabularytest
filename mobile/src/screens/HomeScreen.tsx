@@ -1674,10 +1674,10 @@ const styles = StyleSheet.create({
   sheetOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   sheetContent: {
     position: 'absolute',
