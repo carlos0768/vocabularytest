@@ -289,8 +289,7 @@ function ProjectSelectionSheet({
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/30"
-        style={{ animation: 'fadeIn 0.2s ease-out' }}
+        className="absolute inset-0"
         onClick={onClose}
       />
 

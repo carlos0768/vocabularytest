@@ -6,7 +6,7 @@ import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
-import { shuffleArray } from '@/lib/utils';
+import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
