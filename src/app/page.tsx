@@ -702,7 +702,26 @@ export default function HomePage() {
     try {
       let shareId = currentProject.shareId;
       if (!shareId) {
-        shareId = await remoteRepository.generateShareId(currentProject.id);
+        // Retry up to 2 times if first attempt fails
+        let lastError: Error | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            shareId = await remoteRepository.generateShareId(currentProject.id);
+            break;
+          } catch (error) {
+            console.error(`Share ID generation attempt ${attempt + 1} failed:`, error);
+            lastError = error instanceof Error ? error : new Error('Unknown error');
+            // Wait a bit before retry
+            if (attempt < 1) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
+        }
+
+        if (!shareId) {
+          throw lastError || new Error('Failed to generate share ID');
+        }
+
         setProjects((prev) =>
           prev.map((p) => (p.id === currentProject.id ? { ...p, shareId } : p))
         );
