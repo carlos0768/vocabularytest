@@ -31,7 +31,7 @@ import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/li
 import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { getDailyScanInfo, incrementScanCount, getGuestUserId, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
+import { getGuestUserId, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, AIGrammarExtraction, Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -52,7 +52,7 @@ const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
 // Scan mode types
 type ScanMode = ExtractMode | 'grammar';
 
-// Scan mode selection modal with EIKEN filter
+// Scan mode selection modal - EIKEN filter is now a separate mode
 function ScanModeModal({
   isOpen,
   onClose,
@@ -64,21 +64,79 @@ function ScanModeModal({
   onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
   isPro: boolean;
 }) {
+  const [showEikenPicker, setShowEikenPicker] = useState(false);
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
-  const [isEikenDropdownOpen, setIsEikenDropdownOpen] = useState(false);
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
+      setShowEikenPicker(false);
       setSelectedEiken(null);
-      setIsEikenDropdownOpen(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const selectedLabel = EIKEN_LEVELS.find(l => l.value === selectedEiken)?.label || 'フィルターなし';
+  // EIKEN level picker sub-view
+  if (showEikenPicker) {
+    return (
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+          <h2 className="text-base font-medium mb-2 text-center text-gray-900">
+            英検レベルを選択
+          </h2>
+          <p className="text-sm text-gray-500 text-center mb-4">
+            抽出する単語のレベルを選んでください
+          </p>
 
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {EIKEN_LEVELS.filter(l => l.value !== null).map((level) => (
+              <button
+                key={level.value}
+                onClick={() => setSelectedEiken(level.value)}
+                className={`w-full flex items-center justify-between px-4 py-3 border rounded-lg transition-colors text-left ${
+                  selectedEiken === level.value
+                    ? 'border-orange-400 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <span className="font-medium">{level.label}</span>
+                {selectedEiken === level.value && (
+                  <Check className="w-5 h-5 text-orange-600" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={() => setShowEikenPicker(false)}
+              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+            >
+              戻る
+            </button>
+            <button
+              onClick={() => {
+                if (selectedEiken) {
+                  onSelectMode('eiken', selectedEiken);
+                }
+              }}
+              disabled={!selectedEiken}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                selectedEiken
+                  ? 'bg-orange-500 text-white hover:bg-orange-600'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              スキャン開始
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main mode selection view
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
@@ -89,52 +147,10 @@ function ScanModeModal({
           どのように単語を抽出しますか？
         </p>
 
-        {/* EIKEN Level Filter */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            英検レベルでフィルター
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsEikenDropdownOpen(!isEikenDropdownOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg bg-white hover:border-gray-300 transition-colors"
-            >
-              <span className={selectedEiken ? 'text-gray-900' : 'text-gray-500'}>
-                {selectedLabel}
-              </span>
-              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isEikenDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {isEikenDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsEikenDropdownOpen(false)}
-                />
-                <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 max-h-48 overflow-y-auto">
-                  {EIKEN_LEVELS.map((level) => (
-                    <button
-                      key={level.value || 'none'}
-                      onClick={() => {
-                        setSelectedEiken(level.value);
-                        setIsEikenDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors ${
-                        selectedEiken === level.value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                      }`}
-                    >
-                      {level.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
         <div className="space-y-3">
+          {/* All words mode */}
           <button
-            onClick={() => onSelectMode('all', selectedEiken)}
+            onClick={() => onSelectMode('all', null)}
             className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left"
           >
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -145,8 +161,10 @@ function ScanModeModal({
               <p className="text-sm text-gray-500">写真内のすべての英単語を抽出します</p>
             </div>
           </button>
+
+          {/* Circled words mode (Pro) */}
           <button
-            onClick={() => onSelectMode('circled', selectedEiken)}
+            onClick={() => onSelectMode('circled', null)}
             className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-colors text-left relative"
           >
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -165,8 +183,32 @@ function ScanModeModal({
               <p className="text-sm text-gray-500">マークした単語だけを抽出します</p>
             </div>
           </button>
+
+          {/* EIKEN filter mode (Pro) - NEW */}
           <button
-            onClick={() => onSelectMode('grammar', selectedEiken)}
+            onClick={() => setShowEikenPicker(true)}
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50/50 transition-colors text-left"
+          >
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <BookOpen className="w-6 h-6 text-orange-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900">英検レベルでフィルター</p>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500">指定した級の単語だけを抽出します</p>
+            </div>
+          </button>
+
+          {/* Grammar mode (Pro) */}
+          <button
+            onClick={() => onSelectMode('grammar', null)}
             className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors text-left"
           >
             <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -559,7 +601,7 @@ export default function HomePage() {
   // Scan processing
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true });
+  const [, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
   const [totalWords, setTotalWords] = useState(0);
 
   // Modals
@@ -587,10 +629,7 @@ export default function HomePage() {
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
 
-  // Load scan info
-  useEffect(() => {
-    setScanInfo(getDailyScanInfo());
-  }, []);
+  // Scan info is populated from server responses
 
   // Control body scroll based on word list expansion (mobile Safari requires touch event prevention)
   // But allow scroll when modals are open
@@ -832,7 +871,7 @@ export default function HomePage() {
   };
 
   // Scan handlers
-  const canScan = isPro || scanInfo.canScan;
+  const canScan = isAuthenticated;
 
   const handleScanButtonClick = (addToExisting: boolean = false) => {
     setIsAddingToExisting(addToExisting);
@@ -842,8 +881,8 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
-    // Pro-only features: circled mode and grammar mode
-    if ((mode === 'circled' || mode === 'grammar') && !isPro) {
+    // Pro-only features: circled, eiken filter, and grammar modes
+    if ((mode === 'circled' || mode === 'eiken' || mode === 'grammar') && !isPro) {
       router.push('/subscription');
       return;
     }
@@ -861,18 +900,23 @@ export default function HomePage() {
     }
 
     setIsGrammarMode(false);
-    setSelectedScanMode(mode);
+    setSelectedScanMode(mode as ExtractMode);
     setSelectedEikenLevel(eikenLevel);
     fileInputRef.current?.click();
   };
 
   const handleImageSelect = async (file: File) => {
-    if (!isPro) {
-      const currentScanInfo = getDailyScanInfo();
-      if (!currentScanInfo.canScan) {
-        setShowScanLimitModal(true);
-        return;
-      }
+    if (!isAuthenticated) {
+      showToast({
+        message: 'ログインが必要です',
+        type: 'error',
+        action: {
+          label: 'ログイン',
+          onClick: () => router.push('/login'),
+        },
+        duration: 4000,
+      });
+      return;
     }
 
     // Grammar mode - process directly without project name modal
@@ -944,10 +988,62 @@ export default function HomePage() {
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, isPro, mode: selectedScanMode, eikenLevel: selectedEikenLevel }),
+        body: JSON.stringify({ image: base64, mode: selectedScanMode, eikenLevel: selectedEikenLevel }),
       });
 
       const result = await response.json();
+
+      if (response.status === 401) {
+        setProcessing(false);
+        showToast({
+          message: 'ログインが必要です',
+          type: 'error',
+          action: {
+            label: 'ログイン',
+            onClick: () => router.push('/login'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (response.status === 403) {
+        setProcessing(false);
+        showToast({
+          message: 'この機能はProプラン限定です',
+          type: 'error',
+          action: {
+            label: 'プランを見る',
+            onClick: () => router.push('/subscription'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (response.status === 403) {
+        setProcessing(false);
+        showToast({
+          message: 'この機能はProプラン限定です',
+          type: 'error',
+          action: {
+            label: 'プランを見る',
+            onClick: () => router.push('/subscription'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (response.status === 429 || result.limitReached) {
+        setProcessing(false);
+        if (result.scanInfo) {
+          setScanInfo(result.scanInfo);
+        }
+        setShowScanLimitModal(true);
+        return;
+      }
+
       if (!result.success) throw new Error(result.error);
 
       setProcessingSteps((prev) =>
@@ -963,9 +1059,21 @@ export default function HomePage() {
         prev.map((s) => (s.id === 'generate' ? { ...s, status: 'complete' } : s))
       );
 
-      if (!isPro) {
-        incrementScanCount();
-        setScanInfo(getDailyScanInfo());
+      if (result.scanInfo) {
+        setScanInfo(result.scanInfo);
+
+        if (!result.scanInfo.isPro && result.scanInfo.limit &&
+          result.scanInfo.limit - result.scanInfo.currentCount === 1) {
+          showToast({
+            message: '今日のスキャン残り1回。Proなら無制限',
+            type: 'warning',
+            action: {
+              label: '詳しく',
+              onClick: () => router.push('/subscription'),
+            },
+            duration: 4000,
+          });
+        }
       }
 
       const extractedWords: AIWordExtraction[] = result.words;
@@ -1058,6 +1166,29 @@ export default function HomePage() {
 
       const result = await response.json();
 
+      if (response.status === 401) {
+        setProcessing(false);
+        showToast({
+          message: 'ログインが必要です',
+          type: 'error',
+          action: {
+            label: 'ログイン',
+            onClick: () => router.push('/login'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (response.status === 429 || result.limitReached) {
+        setProcessing(false);
+        if (result.scanInfo) {
+          setScanInfo(result.scanInfo);
+        }
+        setShowScanLimitModal(true);
+        return;
+      }
+
       if (!result.success) {
         throw new Error(result.error || '文法解析に失敗しました');
       }
@@ -1068,9 +1199,8 @@ export default function HomePage() {
         prev.map((s) => (s.id === 'analyze' ? { ...s, status: 'complete' } : s))
       );
 
-      if (!isPro) {
-        incrementScanCount();
-        setScanInfo(getDailyScanInfo());
+      if (result.scanInfo) {
+        setScanInfo(result.scanInfo);
       }
 
       // Store patterns and project ID in sessionStorage, then navigate to confirm page

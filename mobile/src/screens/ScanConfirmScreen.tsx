@@ -32,7 +32,7 @@ interface EditableWord extends AIWordExtraction {
 export function ScanConfirmScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
-  const { user, isAuthenticated } = useAuth();
+  const { user, subscription, isAuthenticated } = useAuth();
   const initialWords = route.params?.words || [];
   const initialProjectName = route.params?.projectName;
   const existingProjectId = route.params?.projectId;
@@ -56,7 +56,7 @@ export function ScanConfirmScreen() {
   const [saving, setSaving] = useState(false);
 
   // Authenticated users use remote repository (Supabase), guests use local SQLite
-  const repository = getRepository(isAuthenticated ? 'active' : 'free');
+  const repository = getRepository(subscription?.status || 'free');
 
   const handleDeleteWord = (tempId: string) => {
     setWords((prev) => prev.filter((w) => w.tempId !== tempId));

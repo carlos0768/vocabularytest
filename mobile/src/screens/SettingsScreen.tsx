@@ -49,7 +49,7 @@ export function SettingsScreen() {
     const loadWordCount = async () => {
       try {
         // Authenticated users use remote repository (Supabase), guests use local SQLite
-        const repository = getRepository(isAuthenticated ? 'active' : 'free');
+        const repository = getRepository(subscription?.status || 'free');
         // Use authenticated user ID if logged in, otherwise use guest ID
         const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
         const projects = await repository.getProjects(userId);

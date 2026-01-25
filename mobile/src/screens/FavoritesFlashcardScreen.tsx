@@ -34,7 +34,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function FavoritesFlashcardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, subscription, isAuthenticated, loading: authLoading } = useAuth();
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -47,7 +47,7 @@ export function FavoritesFlashcardScreen() {
   const swipeAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  const repository = getRepository(isAuthenticated ? 'active' : 'free');
+  const repository = getRepository(subscription?.status || 'free');
 
   // Load favorite words from all projects
   const loadFavorites = useCallback(async () => {
@@ -339,16 +339,6 @@ export function FavoritesFlashcardScreen() {
             <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
               <Text style={styles.japaneseText}>{currentWord?.japanese}</Text>
 
-              {/* Example sentence */}
-              {currentWord?.exampleSentence && (
-                <View style={styles.exampleContainer}>
-                  <Text style={styles.exampleText}>{currentWord.exampleSentence}</Text>
-                  {currentWord.exampleSentenceJa && (
-                    <Text style={styles.exampleTextJa}>{currentWord.exampleSentenceJa}</Text>
-                  )}
-                </View>
-              )}
-
               <View style={styles.cardHintBack}>
                 <EyeOff size={16} color="rgba(255,255,255,0.6)" />
                 <Text style={styles.hintTextBack}>タップで戻る</Text>
@@ -490,24 +480,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
     textAlign: 'center',
-  },
-  exampleContainer: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-  },
-  exampleText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  exampleTextJa: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    marginTop: 4,
   },
   cardHint: {
     position: 'absolute',

@@ -15,8 +15,7 @@ export default function FlashcardPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const favoritesOnly = searchParams.get('favorites') === 'true';
-  const { subscription, loading: authLoading } = useAuth();
-  const isPro = subscription?.status === 'active';
+  const { subscription, isPro, loading: authLoading } = useAuth();
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -345,18 +344,6 @@ export default function FlashcardPage() {
               <p className="text-2xl font-bold text-white text-center mb-4">
                 {currentWord?.japanese}
               </p>
-              {currentWord?.exampleSentence && (
-                <div className="mt-4 p-4 bg-white/10 rounded-xl">
-                  <p className="text-white/90 text-sm italic text-center">
-                    {currentWord.exampleSentence}
-                  </p>
-                  {currentWord.exampleSentenceJa && (
-                    <p className="text-white/70 text-xs text-center mt-1">
-                      {currentWord.exampleSentenceJa}
-                    </p>
-                  )}
-                </div>
-              )}
               <div className="absolute bottom-6 flex items-center gap-2 text-white/60">
                 <EyeOff className="w-4 h-4" />
                 <span className="text-sm">タップで戻る</span>

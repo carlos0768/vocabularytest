@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, use } from 'react';
+import { useState, useRef, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -127,7 +127,7 @@ export default function GrammarScanPage({
   const { projectId } = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isAuthenticated, isPro } = useAuth();
+  const { isAuthenticated, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   // State
@@ -142,6 +142,13 @@ export default function GrammarScanPage({
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
 
   const selectedLabel = EIKEN_LEVELS.find(l => l.value === selectedEiken)?.label || 'フィルターなし';
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isPro) {
+      router.push('/subscription');
+    }
+  }, [authLoading, isPro, router]);
 
   // Handle image selection and processing
   const handleImageSelect = async (file: File) => {
@@ -214,6 +221,20 @@ export default function GrammarScanPage({
           action: {
             label: 'ログイン',
             onClick: () => router.push('/login'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (response.status === 403) {
+        setProcessing(false);
+        showToast({
+          message: 'この機能はProプラン限定です',
+          type: 'error',
+          action: {
+            label: 'プランを見る',
+            onClick: () => router.push('/subscription'),
           },
           duration: 4000,
         });

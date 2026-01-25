@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractGrammarFromImage } from '@/lib/ai';
 import type { EikenGrammarLevel } from '@/types';
-
-// Free tier daily scan limit (shared with /api/extract)
-const FREE_DAILY_SCAN_LIMIT = 3;
 
 // API Route: POST /api/grammar
 // Extracts grammar patterns from an uploaded image using Gemini (OCR) + GPT (analysis)
@@ -15,8 +12,12 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 1. AUTHENTICATION CHECK
     // ============================================
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const supabase = await createRouteHandlerClient(request);
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const { data: { user }, error: authError } = bearerToken
+      ? await supabase.auth.getUser(bearerToken)
+      : await supabase.auth.getUser();
 
     if (authError || !user) {
       console.log('Auth failed:', authError?.message || 'No user');
@@ -27,59 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 2. GET SUBSCRIPTION STATUS (SERVER-SIDE VERIFICATION)
-    // ============================================
-    const { data: subscription, error: subError } = await supabase
-      .from('subscriptions')
-      .select('status, plan')
-      .eq('user_id', user.id)
-      .single();
-
-    if (subError) {
-      console.error('Subscription fetch error:', subError);
-      // If no subscription found, treat as free user
-    }
-
-    const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
-    const scanLimit = isPro ? Infinity : FREE_DAILY_SCAN_LIMIT;
-
-    console.log('User:', user.id, 'isPro:', isPro, 'plan:', subscription?.plan);
-
-    // ============================================
-    // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
-    // ============================================
-    const today = new Date().toISOString().split('T')[0];
-
-    // Get current scan count for today
-    const { data: usageData, error: usageError } = await supabase
-      .from('daily_scan_usage')
-      .select('scan_count')
-      .eq('user_id', user.id)
-      .eq('scan_date', today)
-      .single();
-
-    let currentCount = 0;
-    if (!usageError && usageData) {
-      currentCount = usageData.scan_count;
-    }
-
-    // Check if limit exceeded (only for non-Pro users)
-    if (!isPro && currentCount >= scanLimit) {
-      console.log('Scan limit exceeded:', currentCount, '>=', scanLimit);
-      return NextResponse.json(
-        {
-          success: false,
-          error: `本日のスキャン上限（${scanLimit}回）に達しました。Proプランにアップグレードすると無制限にスキャンできます。`,
-          limitReached: true,
-          currentCount,
-          limit: scanLimit
-        },
-        { status: 429 }
-      );
-    }
-
-    // ============================================
-    // 4. PARSE REQUEST BODY
+    // 2. PARSE REQUEST BODY
     // ============================================
     let body;
     try {
@@ -107,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 5. CHECK API KEYS
+    // 3. CHECK API KEYS
     // ============================================
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -127,7 +76,44 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 6. EXTRACT GRAMMAR
+    // 4. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
+    // ============================================
+    const { data: scanData, error: scanError } = await supabase
+      .rpc('check_and_increment_scan', { p_require_pro: true });
+
+    if (scanError || !scanData) {
+      console.error('Scan limit check error:', scanError);
+      return NextResponse.json(
+        { success: false, error: 'スキャン制限の確認に失敗しました' },
+        { status: 500 }
+      );
+    }
+
+    if (scanData.requires_pro) {
+      return NextResponse.json(
+        { success: false, error: 'この機能はProプラン限定です。' },
+        { status: 403 }
+      );
+    }
+
+    if (!scanData.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。Proプランにアップグレードすると無制限にスキャンできます。`,
+          limitReached: true,
+          scanInfo: {
+            currentCount: scanData.current_count,
+            limit: scanData.limit,
+            isPro: scanData.is_pro,
+          },
+        },
+        { status: 429 }
+      );
+    }
+
+    // ============================================
+    // 5. EXTRACT GRAMMAR
     // ============================================
     const result = await extractGrammarFromImage(
       image,
@@ -144,36 +130,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 7. INCREMENT SCAN COUNT AFTER SUCCESSFUL EXTRACTION
-    // ============================================
-    if (usageData) {
-      // Update existing record
-      await supabase
-        .from('daily_scan_usage')
-        .update({ scan_count: currentCount + 1 })
-        .eq('user_id', user.id)
-        .eq('scan_date', today);
-    } else {
-      // Insert new record for today
-      await supabase
-        .from('daily_scan_usage')
-        .insert({ user_id: user.id, scan_date: today, scan_count: 1 });
-    }
-
-    console.log('Grammar scan successful. New count:', currentCount + 1);
-
-    // ============================================
-    // 8. RETURN SUCCESS RESPONSE
+    // 6. RETURN SUCCESS RESPONSE
     // ============================================
     return NextResponse.json({
       success: true,
       extractedText: result.extractedText,
       patterns: result.patterns,
       scanInfo: {
-        currentCount: currentCount + 1,
-        limit: isPro ? null : scanLimit,
-        isPro
-      }
+        currentCount: scanData.current_count,
+        limit: scanData.limit,
+        isPro: scanData.is_pro,
+      },
     });
   } catch (error) {
     console.error('Grammar API error:', error);

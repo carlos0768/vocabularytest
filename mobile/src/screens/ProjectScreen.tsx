@@ -47,7 +47,7 @@ export function ProjectScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const projectId = route.params.projectId;
-  const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, isAuthenticated, loading: authLoading } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -60,7 +60,7 @@ export function ProjectScreen() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Authenticated users use remote repository (Supabase), guests use local SQLite
-  const repository = getRepository(isAuthenticated ? 'active' : 'free');
+  const repository = getRepository(subscription?.status || 'free');
 
   const loadData = useCallback(async () => {
     // Wait for auth to be ready before loading data

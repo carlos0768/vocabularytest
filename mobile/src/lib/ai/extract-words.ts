@@ -1,4 +1,5 @@
 import type { AIWordExtraction } from '../../types';
+import { supabase } from '../supabase';
 
 // Use the web app's API endpoint
 // For development, use local server (port 3000). For production, use Vercel.
@@ -10,7 +11,7 @@ const API_URL = __DEV__
 console.log('Using API URL:', API_URL);
 
 // Extraction modes
-export type ExtractMode = 'all' | 'circled';
+export type ExtractMode = 'all' | 'circled' | 'eiken';
 
 // EIKEN levels (null means no filter)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -34,6 +35,19 @@ export async function extractWordsFromImage(
   const { mode = 'all', eikenLevel = null, isPro = false } = options || {};
 
   try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error('Failed to get session:', sessionError);
+    }
+
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      return {
+        success: false,
+        error: 'ログインが必要です。ログイン後に再試行してください。',
+      };
+    }
+
     console.log('Starting API request to:', API_URL);
     console.log('Image size:', Math.round(base64Image.length / 1024), 'KB');
     console.log('Options:', { mode, eikenLevel, isPro });
@@ -46,12 +60,12 @@ export async function extractWordsFromImage(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         image: base64Image,
         mode,
         eikenLevel,
-        isPro,
       }),
       signal: controller.signal,
     });
@@ -70,10 +84,17 @@ export async function extractWordsFromImage(
         // Not JSON
       }
 
+      if (response.status === 401) {
+        return {
+          success: false,
+          error: 'ログインが必要です。ログイン後に再試行してください。',
+        };
+      }
+
       if (response.status === 429) {
         return {
           success: false,
-          error: 'API利用制限に達しました。しばらく待ってから再試行してください。',
+          error: error.error || 'API利用制限に達しました。しばらく待ってから再試行してください。',
         };
       }
 
