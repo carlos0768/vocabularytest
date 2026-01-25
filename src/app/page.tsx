@@ -9,8 +9,7 @@ import {
   Sparkles,
   Check,
   Flag,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   Play,
   Layers,
   Plus,
@@ -249,6 +248,7 @@ export default function HomePage() {
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
   // Word editing
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
@@ -363,18 +363,10 @@ export default function HomePage() {
     : words;
 
   // Navigation
-  const goToPrevProject = () => {
-    if (currentProjectIndex > 0) {
-      setCurrentProjectIndex(currentProjectIndex - 1);
-      setShowFavoritesOnly(false);
-    }
-  };
-
-  const goToNextProject = () => {
-    if (currentProjectIndex < projects.length - 1) {
-      setCurrentProjectIndex(currentProjectIndex + 1);
-      setShowFavoritesOnly(false);
-    }
+  const selectProject = (index: number) => {
+    setCurrentProjectIndex(index);
+    setShowFavoritesOnly(false);
+    setIsProjectDropdownOpen(false);
   };
 
   // Word handlers
@@ -651,30 +643,40 @@ export default function HomePage() {
       <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Left: Project nav */}
-            <div className="flex items-center gap-1">
+            {/* Left: Project selector dropdown */}
+            <div className="relative">
               <button
-                onClick={goToPrevProject}
-                disabled={currentProjectIndex === 0}
-                className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <div className="text-center min-w-0">
-                <h1 className="font-semibold text-gray-900 truncate max-w-[160px]">
+                <h1 className="font-semibold text-gray-900 truncate max-w-[180px]">
                   {currentProject?.title}
                 </h1>
-                <p className="text-xs text-gray-400">
-                  {currentProjectIndex + 1} / {projects.length}
-                </p>
-              </div>
-              <button
-                onClick={goToNextProject}
-                disabled={currentProjectIndex === projects.length - 1}
-                className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isProjectDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* Dropdown */}
+              {isProjectDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsProjectDropdownOpen(false)}
+                  />
+                  <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-2 min-w-[200px] max-h-[300px] overflow-y-auto">
+                    {projects.map((project, index) => (
+                      <button
+                        key={project.id}
+                        onClick={() => selectProject(index)}
+                        className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors ${
+                          index === currentProjectIndex ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                        }`}
+                      >
+                        <p className="font-medium truncate">{project.title}</p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Right: Actions */}
