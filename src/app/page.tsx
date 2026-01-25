@@ -24,6 +24,8 @@ import {
   Target,
   Trophy,
   Zap,
+  Camera,
+  CircleDot,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -34,6 +36,65 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, getDailyStats, getStreakDays, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project, Word } from '@/types';
+import type { ExtractMode } from '@/app/api/extract/route';
+
+// Scan mode selection modal
+function ScanModeModal({
+  isOpen,
+  onClose,
+  onSelectMode,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectMode: (mode: ExtractMode) => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+        <h2 className="text-base font-medium mb-2 text-center text-gray-900">
+          抽出モードを選択
+        </h2>
+        <p className="text-sm text-gray-500 text-center mb-5">
+          どのように単語を抽出しますか？
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={() => onSelectMode('all')}
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left"
+          >
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <Camera className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">すべての単語を抽出</p>
+              <p className="text-sm text-gray-500">写真内のすべての英単語を抽出します</p>
+            </div>
+          </button>
+          <button
+            onClick={() => onSelectMode('circled')}
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-colors text-left"
+          >
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <CircleDot className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">丸をつけた単語だけ</p>
+              <p className="text-sm text-gray-500">マークした単語だけを抽出します</p>
+            </div>
+          </button>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-4 w-full py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+        >
+          キャンセル
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Project name input modal component
 function ProjectNameModal({
@@ -128,6 +189,137 @@ function ProcessingModal({
             閉じる
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Project selection bottom sheet component
+function ProjectSelectionSheet({
+  isOpen,
+  onClose,
+  projects,
+  currentProjectIndex,
+  onSelectProject,
+  onSelectFavorites,
+  showFavoritesOnly,
+  favoriteWords,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  projects: Project[];
+  currentProjectIndex: number;
+  onSelectProject: (index: number) => void;
+  onSelectFavorites: () => void;
+  showFavoritesOnly: boolean;
+  favoriteWords: Word[];
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/30"
+        style={{ animation: 'fadeIn 0.2s ease-out' }}
+        onClick={onClose}
+      />
+
+      {/* Bottom sheet */}
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-gray-50 rounded-t-2xl max-h-[85vh] flex flex-col"
+        style={{ animation: 'slideUp 0.3s ease-out' }}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-gray-50 rounded-t-2xl px-4 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onClose}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <X className="w-6 h-6 text-emerald-600" />
+            </button>
+            <h2 className="text-base font-medium text-gray-900">学習コース選択</h2>
+            <div className="w-10" /> {/* Spacer for centering */}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-8">
+          {/* Favorites Section */}
+          {favoriteWords.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Flag className="w-5 h-5 text-orange-500" />
+                <h3 className="font-medium text-gray-700">苦手な単語</h3>
+              </div>
+              <button
+                onClick={() => {
+                  onSelectFavorites();
+                  onClose();
+                }}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                  showFavoritesOnly
+                    ? 'border-emerald-500 bg-white'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">苦手な単語を復習</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{favoriteWords.length}語の苦手な単語</p>
+                  </div>
+                  {showFavoritesOnly && (
+                    <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Projects Section */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-5 h-5 text-blue-500" />
+              <h3 className="font-medium text-gray-700">単語帳一覧</h3>
+            </div>
+            <div className="space-y-2">
+              {projects.map((project, index) => {
+                const isSelected = index === currentProjectIndex && !showFavoritesOnly;
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => {
+                      onSelectProject(index);
+                      onClose();
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? 'border-emerald-500 bg-white'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">{project.title}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -272,7 +464,9 @@ export default function HomePage() {
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
 
   // Delete modals
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
@@ -466,6 +660,16 @@ export default function HomePage() {
   // Scan handlers
   const canScan = isPro || scanInfo.canScan;
 
+  const handleScanButtonClick = () => {
+    setShowScanModeModal(true);
+  };
+
+  const handleScanModeSelect = (mode: ExtractMode) => {
+    setSelectedScanMode(mode);
+    setShowScanModeModal(false);
+    fileInputRef.current?.click();
+  };
+
   const handleImageSelect = async (file: File) => {
     if (!isPro) {
       const currentScanInfo = getDailyScanInfo();
@@ -519,7 +723,7 @@ export default function HomePage() {
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, isPro }),
+        body: JSON.stringify({ image: base64, isPro, mode: selectedScanMode }),
       });
 
       const result = await response.json();
@@ -576,6 +780,22 @@ export default function HomePage() {
   if (projects.length === 0) {
     return (
       <div className="min-h-screen bg-white">
+        {/* Hidden file input for empty state */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.heic,.heif"
+          capture="environment"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              handleImageSelect(file);
+              e.target.value = '';
+            }
+          }}
+          className="hidden"
+        />
+
         <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
           <div className="max-w-lg mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
@@ -613,6 +833,15 @@ export default function HomePage() {
           )}
         </main>
 
+        {/* Floating action button */}
+        <button
+          onClick={handleScanButtonClick}
+          disabled={processing || (!isPro && !canScan)}
+          className="fixed bottom-6 right-6 w-14 h-14 flex items-center justify-center bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+
         {processing && (
           <ProcessingModal
             steps={processingSteps}
@@ -620,6 +849,11 @@ export default function HomePage() {
           />
         )}
 
+        <ScanModeModal
+          isOpen={showScanModeModal}
+          onClose={() => setShowScanModeModal(false)}
+          onSelectMode={handleScanModeSelect}
+        />
         <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
         <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
         <ProjectNameModal
@@ -657,45 +891,22 @@ export default function HomePage() {
       <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Left: Project selector dropdown */}
-            <div className="relative flex-1">
+            {/* Left: Project selector toggle */}
+            <div className="flex-1">
               <button
-                onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                onClick={() => setIsProjectDropdownOpen(true)}
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <h1 className="font-semibold text-gray-900 truncate max-w-[140px]">
-                  {currentProject?.title}
+                  {showFavoritesOnly ? '苦手な単語' : currentProject?.title}
                 </h1>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isProjectDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
-
-              {/* Dropdown */}
-              {isProjectDropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setIsProjectDropdownOpen(false)}
-                  />
-                  <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-2 min-w-[200px] max-h-[300px] overflow-y-auto">
-                    {projects.map((project, index) => (
-                      <button
-                        key={project.id}
-                        onClick={() => selectProject(index)}
-                        className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors ${
-                          index === currentProjectIndex ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                        }`}
-                      >
-                        <p className="font-medium truncate">{project.title}</p>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
 
             {/* Center: New project button */}
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={handleScanButtonClick}
               disabled={processing || (!isPro && !canScan)}
               className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -866,6 +1077,11 @@ export default function HomePage() {
         />
       )}
 
+      <ScanModeModal
+        isOpen={showScanModeModal}
+        onClose={() => setShowScanModeModal(false)}
+        onSelectMode={handleScanModeSelect}
+      />
       <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
       <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
       <ProjectNameModal
@@ -890,6 +1106,18 @@ export default function HomePage() {
         title="単語帳を削除"
         message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
         isLoading={deleteProjectLoading}
+      />
+
+      {/* Project selection bottom sheet */}
+      <ProjectSelectionSheet
+        isOpen={isProjectDropdownOpen}
+        onClose={() => setIsProjectDropdownOpen(false)}
+        projects={projects}
+        currentProjectIndex={currentProjectIndex}
+        onSelectProject={selectProject}
+        onSelectFavorites={() => setShowFavoritesOnly(true)}
+        showFavoritesOnly={showFavoritesOnly}
+        favoriteWords={words.filter((w) => w.isFavorite)}
       />
     </div>
   );
