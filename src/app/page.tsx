@@ -312,13 +312,13 @@ function ProjectSelectionSheet({
         onClick={onClose}
       />
 
-      {/* Bottom sheet */}
+      {/* Full screen sheet */}
       <div
-        className="absolute bottom-0 left-0 right-0 bg-gray-50 rounded-t-2xl max-h-[85vh] flex flex-col"
+        className="absolute inset-0 bg-gray-50 flex flex-col"
         style={{ animation: 'slideUp 0.3s ease-out' }}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gray-50 rounded-t-2xl px-4 py-4 border-b border-gray-200">
+        <div className="sticky top-0 bg-gray-50 px-4 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <button
               onClick={onClose}
@@ -581,6 +581,36 @@ export default function HomePage() {
     setStreakDays(getStreakDays());
     setScanInfo(getDailyScanInfo());
   }, []);
+
+  // Control body scroll based on word list expansion (mobile Safari requires touch event prevention)
+  useEffect(() => {
+    const preventScroll = (e: TouchEvent) => {
+      if (!isWordListExpanded) {
+        e.preventDefault();
+      }
+    };
+
+    if (!isWordListExpanded) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.removeEventListener('touchmove', preventScroll);
+    };
+  }, [isWordListExpanded]);
 
   // Load projects
   const loadProjects = useCallback(async () => {
@@ -1235,7 +1265,6 @@ export default function HomePage() {
             onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
             onDelete={(wordId) => handleDeleteWord(wordId)}
             onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-            onAddClick={() => handleScanButtonClick(true)}
             onExpandChange={setIsWordListExpanded}
           />
         )}
