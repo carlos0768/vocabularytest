@@ -125,18 +125,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
               <h2 className="text-2xl font-bold text-gray-900">
                 {currentWord.japanese}
               </h2>
-              {currentWord.exampleSentence && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-sm text-gray-600 italic">
-                    "{currentWord.exampleSentence}"
-                  </p>
-                  {currentWord.exampleSentenceJa && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {currentWord.exampleSentenceJa}
-                    </p>
-                  )}
-                </div>
-              )}
+              <p className="text-sm text-gray-400 mt-2">タップして英語を表示</p>
             </div>
           )}
         </div>
