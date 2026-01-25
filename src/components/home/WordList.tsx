@@ -117,6 +117,7 @@ interface WordListProps {
   onDelete: (wordId: string) => void;
   onToggleFavorite: (wordId: string) => void;
   onAddClick?: () => void;
+  onExpandChange?: (expanded: boolean) => void;
 }
 
 export function WordList({
@@ -128,14 +129,21 @@ export function WordList({
   onDelete,
   onToggleFavorite,
   onAddClick,
+  onExpandChange,
 }: WordListProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleToggleExpand = () => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    onExpandChange?.(newExpanded);
+  };
 
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
       {/* Header */}
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={handleToggleExpand}
         className="w-full flex items-center justify-between p-4 hover:bg-gray-100 transition-colors"
       >
         <div className="flex items-center gap-3">

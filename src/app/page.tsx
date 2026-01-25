@@ -52,6 +52,9 @@ const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
   { value: '1', label: '1級' },
 ];
 
+// Scan mode types
+type ScanMode = ExtractMode | 'grammar';
+
 // Scan mode selection modal with EIKEN filter
 function ScanModeModal({
   isOpen,
@@ -60,7 +63,7 @@ function ScanModeModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSelectMode: (mode: ExtractMode, eikenLevel: EikenLevel) => void;
+  onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
 }) {
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
   const [isEikenDropdownOpen, setIsEikenDropdownOpen] = useState(false);
@@ -153,6 +156,18 @@ function ScanModeModal({
             <div>
               <p className="font-medium text-gray-900">丸をつけた単語だけ</p>
               <p className="text-sm text-gray-500">マークした単語だけを抽出します</p>
+            </div>
+          </button>
+          <button
+            onClick={() => onSelectMode('grammar', selectedEiken)}
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors text-left"
+          >
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <BookText className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">文法をスキャン</p>
+              <p className="text-sm text-gray-500">文法問題を抽出して学習します</p>
             </div>
           </button>
         </div>
@@ -520,6 +535,7 @@ export default function HomePage() {
   // Word editing
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [isWordListExpanded, setIsWordListExpanded] = useState(false);
 
   // Stats
   const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
@@ -791,10 +807,22 @@ export default function HomePage() {
     setShowScanModeModal(true);
   };
 
-  const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
+  const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
+    setShowScanModeModal(false);
+
+    // Handle grammar mode separately - navigate directly to grammar page
+    if (mode === 'grammar') {
+      if (currentProject) {
+        router.push(`/grammar/${currentProject.id}`);
+      } else {
+        // If no project exists, show toast and do nothing
+        showToast({ message: 'まず単語帳を作成してください', type: 'error' });
+      }
+      return;
+    }
+
     setSelectedScanMode(mode);
     setSelectedEikenLevel(eikenLevel);
-    setShowScanModeModal(false);
     fileInputRef.current?.click();
   };
 
@@ -1039,7 +1067,7 @@ export default function HomePage() {
 
   // Main view with project
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className={`min-h-screen bg-white flex flex-col ${!isWordListExpanded ? 'h-screen overflow-hidden' : ''}`}>
       {/* Word limit banner */}
       {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
@@ -1165,15 +1193,15 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-3 mb-6">
           <StudyModeCard
             title="クイズ"
-            description="4択で単語をテスト"
+            description="4択単語テスト"
             icon={Play}
             href={`/quiz/${currentProject?.id}`}
             variant="red"
             disabled={words.length === 0}
           />
           <StudyModeCard
-            title="フラッシュカード"
-            description="カードをめくって学習"
+            title="カード"
+            description="フラッシュカード"
             icon={Layers}
             href={isPro ? `/flashcard/${currentProject?.id}` : '/subscription'}
             variant="blue"
@@ -1208,6 +1236,7 @@ export default function HomePage() {
             onDelete={(wordId) => handleDeleteWord(wordId)}
             onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
             onAddClick={() => handleScanButtonClick(true)}
+            onExpandChange={setIsWordListExpanded}
           />
         )}
       </main>

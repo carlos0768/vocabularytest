@@ -61,7 +61,7 @@ export function StudyModeCard({
 
   const content = (
     <div
-      className={`relative p-4 rounded-2xl border-2 ${styles.border} ${styles.bg} ${
+      className={`relative p-3 rounded-2xl border-2 ${styles.border} ${styles.bg} ${
         disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md transition-shadow cursor-pointer'
       }`}
     >
@@ -70,13 +70,13 @@ export function StudyModeCard({
           {badge}
         </span>
       )}
-      <div className="flex items-start gap-3">
-        <div className={`p-2 rounded-xl ${styles.iconBg}`}>
+      <div className="flex items-center gap-2">
+        <div className={`p-2 rounded-xl ${styles.iconBg} flex-shrink-0`}>
           <Icon className={`w-5 h-5 ${styles.iconColor}`} />
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{description}</p>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-gray-900 text-sm whitespace-nowrap">{title}</h3>
+          <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">{description}</p>
         </div>
       </div>
     </div>
