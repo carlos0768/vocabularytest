@@ -26,7 +26,8 @@ export default function FlashcardPage() {
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [animateDirection, setAnimateDirection] = useState<'left' | 'right' | null>(null);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [slidePhase, setSlidePhase] = useState<'exit' | 'enter' | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
@@ -74,12 +75,25 @@ export default function FlashcardPage() {
     if (currentIndex < words.length - 1 && !isAnimating) {
       if (withAnimation) {
         setIsAnimating(true);
-        setAnimateDirection('left');
+        setSlideDirection('left');
+        // Phase 1: Current card exits to the left
+        setSlidePhase('exit');
         setTimeout(() => {
+          // Change to next card and prepare to enter from right
           setCurrentIndex(prev => prev + 1);
           setIsFlipped(false);
-          setAnimateDirection(null);
-          setIsAnimating(false);
+          // Phase 2: New card enters from the right
+          setSlidePhase('enter');
+          // Wait a frame then animate to center
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setSlidePhase(null);
+              setTimeout(() => {
+                setSlideDirection(null);
+                setIsAnimating(false);
+              }, 200);
+            });
+          });
         }, 200);
       } else {
         setCurrentIndex(prev => prev + 1);
@@ -92,12 +106,25 @@ export default function FlashcardPage() {
     if (currentIndex > 0 && !isAnimating) {
       if (withAnimation) {
         setIsAnimating(true);
-        setAnimateDirection('right');
+        setSlideDirection('right');
+        // Phase 1: Current card exits to the right
+        setSlidePhase('exit');
         setTimeout(() => {
+          // Change to prev card and prepare to enter from left
           setCurrentIndex(prev => prev - 1);
           setIsFlipped(false);
-          setAnimateDirection(null);
-          setIsAnimating(false);
+          // Phase 2: New card enters from the left
+          setSlidePhase('enter');
+          // Wait a frame then animate to center
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setSlidePhase(null);
+              setTimeout(() => {
+                setSlideDirection(null);
+                setIsAnimating(false);
+              }, 200);
+            });
+          });
         }, 200);
       } else {
         setCurrentIndex(prev => prev - 1);
@@ -170,12 +197,27 @@ export default function FlashcardPage() {
 
   // Calculate card transform
   const getCardTransform = () => {
-    if (animateDirection === 'left') {
-      return 'translateX(-120%)';
+    // Exit phase: card moves out in the swipe direction
+    if (slidePhase === 'exit') {
+      if (slideDirection === 'left') {
+        return 'translateX(-120%)';
+      }
+      if (slideDirection === 'right') {
+        return 'translateX(120%)';
+      }
     }
-    if (animateDirection === 'right') {
-      return 'translateX(120%)';
+    // Enter phase: card starts from opposite side and moves to center
+    if (slidePhase === 'enter') {
+      // Left swipe = next card = enters from right
+      if (slideDirection === 'left') {
+        return 'translateX(120%)';
+      }
+      // Right swipe = prev card = enters from left
+      if (slideDirection === 'right') {
+        return 'translateX(-120%)';
+      }
     }
+    // Normal swipe tracking
     if (swipeX !== 0) {
       return `translateX(${swipeX}px) rotate(${swipeX * 0.02}deg)`;
     }
@@ -236,8 +278,7 @@ export default function FlashcardPage() {
           className="w-full max-w-sm aspect-[3/4] cursor-pointer perspective-1000"
           style={{
             transform: getCardTransform(),
-            transition: isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none',
-            opacity: isAnimating ? 0 : 1,
+            transition: slidePhase === 'enter' ? 'none' : (isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none'),
           }}
         >
           <div
