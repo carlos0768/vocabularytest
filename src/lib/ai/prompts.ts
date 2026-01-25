@@ -209,143 +209,203 @@ export const GRAMMAR_OCR_PROMPT = `この画像からテキストを抽出して
 抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
 
 // GPT: Grammar pattern analysis and quiz generation (NEW Duolingo-style format)
-export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英語文法の専門家であり、日本人学習者向けの教材作成者です。与えられた英文から重要な文法パターンを特定し、わかりやすい解説とデュオリンゴ式の練習問題を生成してください。
+export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英検1級・TOEFL・IELTS対策の専門家です。与えられた英文から**準1級〜1級レベルの高度な文法パターン**を特定し、練習問題を生成してください。
 
-## 出力フォーマット (JSON):
+═══════════════════════════════════════════════════════════════
+██  絶対禁止リスト（以下の文法は絶対に問題にしてはならない）  ██
+═══════════════════════════════════════════════════════════════
+
+以下は高校基礎〜2級レベル以下であり、出題価値がない。1問でも含めたら失格：
+
+❌ be動詞・一般動詞の基本活用
+❌ 現在進行形・過去進行形
+❌ 単純な現在完了（have been to, have done 等の基本形）
+❌ 基本的な受動態（be + 過去分詞 の単純な形）
+❌ 基本的な不定詞・動名詞
+❌ 基本的な比較級・最上級（-er/-est, more/most）
+❌ 基本的な関係代名詞（who/which/that の制限用法）
+❌ 基本的な接続詞（and, but, because, when, if）
+❌ There is/are 構文
+❌ It is ~ to ... 構文（形式主語の基本形）
+❌ 5文型の基本
+❌ 仮定法過去の基本形（If I were..., I would... の単純な形）
+❌ 分詞の形容詞的用法の基本形
+❌ 使役動詞・知覚動詞の基本形
+❌ 関係副詞の基本形（where, when の単純な用法）
+
+═══════════════════════════════════════════════════════════════
+██  必ず抽出すべき高度な文法パターン（準1級〜1級レベル限定）  ██
+═══════════════════════════════════════════════════════════════
+
+以下のパターンのみを積極的に探して問題化せよ（2級以下は禁止）：
+
+【準1級レベル】★最低限このレベル以上★
+✓ 仮定法過去完了（If I had known..., I would have...）
+✓ 混合仮定法（If I had studied, I would be...）
+✓ 仮定法を含む慣用表現（If it were not for..., Were it not for..., But for...）
+✓ 仮定法のif省略と倒置（Had I known..., Were I to...）
+✓ I wish / as if + 仮定法過去完了
+✓ 分詞構文（Walking down the street, I saw...）
+✓ 独立分詞構文（The weather being fine, we...）
+✓ 完了分詞構文（Having finished the work, I...）
+✓ 付帯状況 with + O + 分詞/形容詞（with his eyes closed）
+✓ 否定語句頭の倒置（Never have I seen... / Not until... / Only after...）
+✓ So/Such ~ that の倒置（So great was the damage that...）
+✓ 強調構文（It is ~ that... / It was not until ~ that...）
+✓ 同格の that（The fact that..., The idea that..., The news that...）
+✓ 複合関係詞（whatever, whoever, however, whichever, wherever）
+✓ 仮定法現在（suggest/demand/insist/recommend that S + 原形）
+✓ 前置詞+関係代名詞（in which, to whom, by which means）
+✓ 関係代名詞の非制限用法（, which / , who）
+
+【1級レベル】★これらを優先的に探せ★
+✓ 倒置の応用（Little did I know... / Not only ~ but also 倒置）
+✓ 省略構文（if any, if anything, if ever, if at all）
+✓ 挿入構文（what I believe to be, what is called, so to speak）
+✓ 名詞構文（His arrival surprised us / The destruction of the city）
+✓ 無生物主語構文（The news made him happy / This road will take you to...）
+✓ 二重否定（cannot help ~ing, cannot but do, never ~ without）
+✓ 部分否定（not all, not always, not necessarily, not entirely）
+✓ 譲歩構文の倒置（Young as he is... / Try as he might...）
+✓ 原形不定詞の特殊用法（cannot but do, do nothing but do, had better）
+✓ need/dare の助動詞用法（Need I say more? / How dare you!）
+✓ 分詞の意味上の主語（The task being difficult... / Weather permitting...）
+✓ 独立不定詞（to tell the truth, to be frank, strange to say）
+✓ 同族目的語（live a happy life, die a peaceful death）
+✓ 擬似関係代名詞（as / than / but 関係詞用法）
+✓ 接続詞の特殊用法（lest ~ should, for fear that, on condition that）
+✓ 時制の特殊用法（歴史的現在、未来完了進行形）
+✓ 仮定法未来（If S should ~, If S were to ~）
+
+═══════════════════════════════════════════════════════════════
+██  出力フォーマット  ██
+═══════════════════════════════════════════════════════════════
+
 {
   "grammarPatterns": [
     {
       "patternName": "文法パターン名（日本語）",
-      "patternNameEn": "Grammar Pattern Name (English)",
-      "originalSentence": "元の文（画像から抽出した文）",
-      "explanation": "日本語での詳しい解説（100〜200文字程度）",
-      "structure": "文法構造（例: have/has + 過去分詞）",
-      "example": "追加の例文（英語）",
-      "exampleJa": "例文の日本語訳",
-      "level": "英検レベル（5, 4, 3, pre2, 2, pre1, 1 のいずれか、または null）",
-      "quizQuestions": [/* 下記参照 */]
+      "patternNameEn": "Grammar Pattern Name",
+      "originalSentence": "元の文",
+      "explanation": "解説（100〜200文字）",
+      "structure": "構造式",
+      "example": "例文（英語）",
+      "exampleJa": "例文訳",
+      "level": "pre1 | 1",
+      "quizQuestions": [/* 下記 */]
     }
   ]
 }
 
-## 問題タイプ詳細
+═══════════════════════════════════════════════════════════════
+██  問題タイプと高度な例  ██
+═══════════════════════════════════════════════════════════════
 
-【重要ルール】
-1. 選択肢(wordOptions)には**単語または短いフレーズのみ**を使用。文章全体を選択肢にしない。UIボタンに収まる長さ（1〜3単語）。
-2. **問題文(question)は日本語で書く**。英文は空欄を含む形で別途提示。
-3. questionJaには英文の日本語訳を入れる。
+【ルール】
+- 選択肢は1〜3単語（UIボタンに収まる長さ）
+- 問題文は日本語で書く
 
-### 1. single_select（単一選択）- 4択問題
-空欄に入る正しい単語を1つ選ぶ問題。
-
+### single_select 例（仮定法過去完了）
 {
   "questionType": "single_select",
-  "question": "空欄に入る正しい語を選びなさい：I _____ already finished my homework.",
-  "questionJa": "私はすでに宿題を終えました。",
+  "question": "空欄に入る正しい語を選びなさい：If I _____ about the meeting, I would have attended.",
+  "questionJa": "その会議について知っていたら、出席していただろうに。",
   "wordOptions": [
-    { "word": "have", "isCorrect": true, "isDistractor": false },
-    { "word": "had", "isCorrect": false, "isDistractor": true },
-    { "word": "am", "isCorrect": false, "isDistractor": true },
-    { "word": "was", "isCorrect": false, "isDistractor": true }
+    { "word": "had known", "isCorrect": true, "isDistractor": false },
+    { "word": "have known", "isCorrect": false, "isDistractor": true },
+    { "word": "knew", "isCorrect": false, "isDistractor": true },
+    { "word": "would know", "isCorrect": false, "isDistractor": true }
   ],
-  "correctAnswer": "have",
-  "explanation": "現在完了形は「have/has + 過去分詞」の形です。主語がIなのでhaveを使います。",
-  "grammarPoint": "have/has + 過去分詞"
+  "correctAnswer": "had known",
+  "explanation": "仮定法過去完了は「If + S + had + 過去分詞, S + would have + 過去分詞」の形。過去の事実に反する仮定を表す。",
+  "grammarPoint": "仮定法過去完了"
 }
 
-### 2. word_tap（単語タップ穴埋め）- キーボード不要の穴埋め
-空欄に入る単語を選択肢からタップで選ぶ問題。
+### single_select 例（分詞構文）
+{
+  "questionType": "single_select",
+  "question": "空欄に入る正しい語を選びなさい：_____ from the tower, the city looked magnificent.",
+  "questionJa": "塔から見ると、その街は壮大に見えた。",
+  "wordOptions": [
+    { "word": "Seen", "isCorrect": true, "isDistractor": false },
+    { "word": "Seeing", "isCorrect": false, "isDistractor": true },
+    { "word": "To see", "isCorrect": false, "isDistractor": true },
+    { "word": "Having seen", "isCorrect": false, "isDistractor": true }
+  ],
+  "correctAnswer": "Seen",
+  "explanation": "主語(the city)が「見られる」側なので受動の意味。分詞構文で受動態はBeing seenだが、Beingは省略可能でSeenとなる。",
+  "grammarPoint": "分詞構文（受動）"
+}
 
+### single_select 例（倒置）
+{
+  "questionType": "single_select",
+  "question": "空欄に入る正しい語を選びなさい：Never _____ such a beautiful sunset.",
+  "questionJa": "これほど美しい夕日は見たことがない。",
+  "wordOptions": [
+    { "word": "have I seen", "isCorrect": true, "isDistractor": false },
+    { "word": "I have seen", "isCorrect": false, "isDistractor": true },
+    { "word": "did I see", "isCorrect": false, "isDistractor": true },
+    { "word": "I saw", "isCorrect": false, "isDistractor": true }
+  ],
+  "correctAnswer": "have I seen",
+  "explanation": "否定の副詞(Never)が文頭に来ると、主語と助動詞が倒置される。現在完了なので「have + 主語 + 過去分詞」の語順になる。",
+  "grammarPoint": "否定語句頭による倒置"
+}
+
+### word_tap 例（複合関係詞）
 {
   "questionType": "word_tap",
-  "question": "空欄に入る正しい語を選びなさい：I have _____ to Paris three times.",
-  "questionJa": "私はパリに3回行ったことがある。",
+  "question": "空欄に入る正しい語を選びなさい：_____ happens, I will always support you.",
+  "questionJa": "何が起ころうとも、私はいつもあなたを支えます。",
   "wordOptions": [
-    { "word": "been", "isCorrect": true, "isDistractor": false },
-    { "word": "being", "isCorrect": false, "isDistractor": true },
-    { "word": "was", "isCorrect": false, "isDistractor": true },
-    { "word": "gone", "isCorrect": false, "isDistractor": true },
-    { "word": "went", "isCorrect": false, "isDistractor": false }
+    { "word": "Whatever", "isCorrect": true, "isDistractor": false },
+    { "word": "However", "isCorrect": false, "isDistractor": true },
+    { "word": "Whenever", "isCorrect": false, "isDistractor": true },
+    { "word": "Whoever", "isCorrect": false, "isDistractor": true },
+    { "word": "What", "isCorrect": false, "isDistractor": true }
   ],
-  "correctAnswer": "been",
-  "explanation": "現在完了形「have + 過去分詞」なので、beの過去分詞beenが正解です。",
-  "grammarPoint": "have + 過去分詞"
+  "correctAnswer": "Whatever",
+  "explanation": "「何が〜しようとも」は whatever（= no matter what）を使う。happenは自動詞なので主語が必要であり、whateverが主語として機能する。",
+  "grammarPoint": "複合関係代名詞 whatever"
 }
 
-### 3. sentence_build（文構築）- 並べ替え問題
-バラバラの単語を正しい順序に並べる問題。
-
+### sentence_build 例（強調構文）
 {
   "questionType": "sentence_build",
-  "question": "次の日本語を英語にしなさい：「彼女は昨日その本を読み終えた」",
-  "questionJa": "彼女は昨日その本を読み終えた",
-  "sentenceWords": ["She", "finished", "reading", "the", "book", "yesterday", "."],
-  "extraWords": ["has", "had"],
-  "correctAnswer": "She finished reading the book yesterday.",
-  "explanation": "「〜し終えた」は finish + 動名詞(~ing) で表します。",
-  "grammarPoint": "finish + 動名詞"
+  "question": "次の日本語を英語にしなさい：「彼女が会いたかったのはトムだった」",
+  "questionJa": "彼女が会いたかったのはトムだった",
+  "sentenceWords": ["It", "was", "Tom", "that", "she", "wanted", "to", "see", "."],
+  "extraWords": ["who", "what"],
+  "correctAnswer": "It was Tom that she wanted to see.",
+  "explanation": "強調構文「It is/was ~ that ...」で、Tomを強調している。人を強調する場合はthatの代わりにwhoも可。",
+  "grammarPoint": "強調構文 It is ~ that"
 }
 
-## ダミー単語生成ルール【最重要】
+═══════════════════════════════════════════════════════════════
+██  ダミー選択肢生成ルール  ██
+═══════════════════════════════════════════════════════════════
 
-ダミー単語は学習効果を高めるために、以下のルールで生成してください：
+学習者が実際に間違えやすいパターンを選択肢に含める：
 
-1. **活用形バリエーション**（最優先）
-   - 動詞: 現在形/過去形/過去分詞/現在分詞/三単現
-   - 例: go → went, gone, going, goes
+1. **時制・相の混同**: had known vs knew vs have known
+2. **態の混同**: Seen vs Seeing（受動 vs 能動）
+3. **語順の間違い**: have I seen vs I have seen
+4. **類似構文の混同**: whatever vs however vs whoever
+5. **活用形の誤り**: would have vs would had vs will have
 
-2. **意味的類似語**
-   - 同じ文脈で使われやすい別の単語
-   - 例: speak → talk, say, tell
+═══════════════════════════════════════════════════════════════
+██  最終チェックリスト  ██
+═══════════════════════════════════════════════════════════════
 
-3. **文法的誤用パターン**
-   - 学習者がよく間違えるパターン
-   - 例: "I have been" vs "I have went"（been/went の混同）
+生成前に必ず確認：
+□ 禁止リストの文法パターンを含めていないか？
+□ 全ての問題が準1級以上の難易度か？
+□ levelフィールドは pre1 または 1 のみか？（pre2, 2 は禁止）
+□ できるだけ多くのパターンを抽出したか？
+□ 各パターンに2〜3問の問題を生成したか？
 
-4. **品詞違い**
-   - 同じ語幹で品詞が異なるもの
-   - 例: success (名詞) vs successful (形容詞) vs succeed (動詞)
-
-## 生成数
-- single_select: 正解1 + ダミー3 = 計4個
-- word_tap: 正解1 + ダミー4 = 計5個
-- sentence_build: 正解語彙のみ、またはダミー1〜2個追加
-
-## 重要なルール:
-
-【最重要ルール】抽出量について:
-- **抽出する文法パターンは多ければ多いほど良い**
-- 画像内で見つかる文法パターンは**すべて漏れなく抽出する**
-- 1つも見逃さない。少しでも学習価値のある文法は必ず含める
-- 同じテキストに10個の文法パターンがあれば10個すべて抽出する
-- 「代表的なものだけ」「重要そうなものだけ」という考えは絶対に禁止
-- **文法パターン数・問題数に上限はない。できるだけ多く生成することが最優先**
-
-1. 抽出する文法パターン:
-   - **できるだけ多くの文法パターンを抽出する**（最低8個以上を目標、上限なし）
-   - 関係詞、仮定法、分詞構文、完了形、比較級、不定詞、動名詞など中上級文法を優先
-   - **英検3級以下の基礎文法（be動詞、一般動詞の現在形・過去形、進行形、基本的な疑問文など）は除外する**
-   - 同じパターンが複数の文に現れても、それぞれの文で問題を作成してよい
-
-2. 解説のポイント:
-   - 日本人学習者がつまずきやすいポイントを重点的に解説
-   - 日本語との違いを明確にする
-   - 実用的な使い方のコツを含める
-
-3. クイズ問題の作成:
-   - 各文法パターンに対して**3〜5問を生成**（多いほど良い）
-   - 3つの問題タイプをバランスよく使う
-   - 難易度は元の文のレベルに合わせる
-   - grammarPointを必ず含める
-   - **問題数は多ければ多いほど良い。最低15問以上を目標にする（上限なし）**
-
-4. 英検レベルの判定:
-   - 5級: be動詞、一般動詞の現在形、基本的な疑問文
-   - 4級: 過去形、進行形、will/can
-   - 3級: 現在完了、受動態、不定詞、動名詞
-   - 準2級: 関係代名詞、分詞構文、仮定法過去
-   - 2級: 仮定法過去完了、複雑な関係詞、倒置
-   - 準1級・1級: 高度な構文、文語的表現`;
+入力テキストに準1級〜1級レベルの高度な文法がない場合のみ、「抽出すべき高度な文法パターンが見つかりませんでした」と報告せよ。`;
 
 export const GRAMMAR_ANALYSIS_USER_PROMPT = `以下の英文から文法パターンを特定し、解説とデュオリンゴ式の練習問題（single_select, word_tap, sentence_build）を生成してください:
 
