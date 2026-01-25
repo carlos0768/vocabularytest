@@ -273,6 +273,7 @@ function ProjectSelectionSheet({
   onSelectFavorites,
   showFavoritesOnly,
   favoriteWords,
+  projectFavoriteCounts,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -282,6 +283,7 @@ function ProjectSelectionSheet({
   onSelectFavorites: () => void;
   showFavoritesOnly: boolean;
   favoriteWords: Word[];
+  projectFavoriteCounts: Record<string, number>;
 }) {
   if (!isOpen) return null;
 
@@ -314,12 +316,12 @@ function ProjectSelectionSheet({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-8">
-          {/* Favorites Section */}
+          {/* All Favorites Section */}
           {favoriteWords.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <Flag className="w-5 h-5 text-orange-500" />
-                <h3 className="font-medium text-gray-700">苦手な単語</h3>
+                <h3 className="font-medium text-gray-700">苦手な単語（すべて）</h3>
               </div>
               <button
                 onClick={() => {
@@ -328,17 +330,17 @@ function ProjectSelectionSheet({
                 }}
                 className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                   showFavoritesOnly
-                    ? 'border-emerald-500 bg-white'
+                    ? 'border-orange-500 bg-orange-50'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">苦手な単語を復習</p>
+                    <p className="font-medium text-gray-900">全プロジェクトの苦手単語</p>
                     <p className="text-sm text-gray-500 mt-0.5">{favoriteWords.length}語の苦手な単語</p>
                   </div>
                   {showFavoritesOnly && (
-                    <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
@@ -356,6 +358,7 @@ function ProjectSelectionSheet({
             <div className="space-y-2">
               {projects.map((project, index) => {
                 const isSelected = index === currentProjectIndex && !showFavoritesOnly;
+                const favoriteCount = projectFavoriteCounts[project.id] || 0;
                 return (
                   <button
                     key={project.id}
@@ -372,9 +375,17 @@ function ProjectSelectionSheet({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">{project.title}</p>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                          {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-sm text-gray-500">
+                            {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
+                          </p>
+                          {favoriteCount > 0 && (
+                            <span className="flex items-center gap-1 text-sm text-orange-600">
+                              <Flag className="w-3 h-3 fill-orange-500" />
+                              {favoriteCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {isSelected && (
                         <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
@@ -498,6 +509,8 @@ export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
   const [words, setWords] = useState<Word[]>([]);
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // All favorite words across all projects
+  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>({}); // Favorite count per project
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
@@ -559,13 +572,24 @@ export default function HomePage() {
       const data = await repository.getProjects(userId);
       setProjects(data);
 
-      // Calculate total words
+      // Calculate total words and collect all favorite words
       let total = 0;
+      const allFavorites: Word[] = [];
+      const favoriteCounts: Record<string, number> = {};
+
       for (const project of data) {
         const projectWords = await repository.getWords(project.id);
         total += projectWords.length;
+
+        // Count and collect favorites for this project
+        const projectFavorites = projectWords.filter(w => w.isFavorite);
+        favoriteCounts[project.id] = projectFavorites.length;
+        allFavorites.push(...projectFavorites);
       }
+
       setTotalWords(total);
+      setAllFavoriteWords(allFavorites);
+      setProjectFavoriteCounts(favoriteCounts);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -615,7 +639,7 @@ export default function HomePage() {
     : 0;
 
   const filteredWords = showFavoritesOnly
-    ? words.filter((w) => w.isFavorite)
+    ? allFavoriteWords
     : words;
 
   // Navigation
@@ -658,13 +682,32 @@ export default function HomePage() {
   };
 
   const handleToggleFavorite = async (wordId: string) => {
-    const word = words.find((w) => w.id === wordId);
+    // Find word in current project words or all favorite words
+    const word = words.find((w) => w.id === wordId) || allFavoriteWords.find((w) => w.id === wordId);
     if (!word) return;
     const newFavorite = !word.isFavorite;
     await repository.updateWord(wordId, { isFavorite: newFavorite });
+
+    // Update current project words
     setWords((prev) =>
       prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w))
     );
+
+    // Update all favorite words
+    if (newFavorite) {
+      // Add to favorites
+      setAllFavoriteWords((prev) => [...prev, { ...word, isFavorite: true }]);
+    } else {
+      // Remove from favorites
+      setAllFavoriteWords((prev) => prev.filter((w) => w.id !== wordId));
+    }
+
+    // Update project favorite counts
+    const projectId = word.projectId;
+    setProjectFavoriteCounts((prev) => ({
+      ...prev,
+      [projectId]: (prev[projectId] || 0) + (newFavorite ? 1 : -1),
+    }));
   };
 
   // Project handlers
@@ -1025,7 +1068,7 @@ export default function HomePage() {
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <h1 className="font-semibold text-gray-900 truncate max-w-[140px]">
-                  {showFavoritesOnly ? '苦手な単語' : currentProject?.title}
+                  {currentProject?.title || '単語帳'}
                 </h1>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
@@ -1114,10 +1157,10 @@ export default function HomePage() {
         {/* Word list header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-medium text-gray-900">
-            {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
+            {showFavoritesOnly ? `苦手 (${allFavoriteWords.length}語)` : `単語一覧 (${stats.total}語)`}
           </h2>
           <div className="flex items-center gap-2">
-            {stats.favorites > 0 && (
+            {allFavoriteWords.length > 0 && (
               <button
                 onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -1127,7 +1170,7 @@ export default function HomePage() {
                 }`}
               >
                 <Flag className={`w-4 h-4 ${showFavoritesOnly ? 'fill-orange-500' : ''}`} />
-                苦手 {stats.favorites}
+                苦手 {allFavoriteWords.length}
               </button>
             )}
             <button
@@ -1244,7 +1287,8 @@ export default function HomePage() {
         onSelectProject={selectProject}
         onSelectFavorites={() => setShowFavoritesOnly(true)}
         showFavoritesOnly={showFavoritesOnly}
-        favoriteWords={words.filter((w) => w.isFavorite)}
+        favoriteWords={allFavoriteWords}
+        projectFavoriteCounts={projectFavoriteCounts}
       />
     </div>
   );

@@ -948,32 +948,30 @@ export function HomeScreen() {
           style={styles.newProjectButton}
           onPress={() => handleScanButtonClick()}
         >
-          <Plus size={24} color={colors.white} />
+          <Plus size={18} color={colors.white} />
         </TouchableOpacity>
 
         {/* Right: Action buttons */}
         <View style={styles.headerRight}>
-          {isAuthenticated && (
-            <TouchableOpacity onPress={handleShare} disabled={sharing} style={styles.headerButton}>
-              {sharing ? (
-                <ActivityIndicator size="small" color={colors.gray[400]} />
-              ) : shareCopied ? (
-                <Check size={22} color={colors.emerald[600]} />
-              ) : currentProject?.shareId ? (
-                <Link2 size={22} color={colors.primary[600]} />
-              ) : (
-                <Share2 size={22} color={colors.gray[400]} />
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={handleShare} disabled={sharing} style={styles.headerButton}>
+            {sharing ? (
+              <ActivityIndicator size="small" color={colors.gray[400]} />
+            ) : shareCopied ? (
+              <Check size={20} color={colors.emerald[600]} />
+            ) : currentProject?.shareId ? (
+              <Link2 size={20} color={colors.primary[600]} />
+            ) : (
+              <Share2 size={20} color={colors.gray[400]} />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteProject} style={styles.headerButton}>
-            <Trash2 size={22} color={colors.gray[400]} />
+            <Trash2 size={20} color={colors.gray[400]} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('Settings')}
             style={styles.headerButton}
           >
-            <Settings size={22} color={colors.gray[500]} />
+            <Settings size={20} color={colors.gray[500]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1089,14 +1087,14 @@ export function HomeScreen() {
             style={styles.actionButton}
             onPress={() => navigation.navigate('Quiz', { projectId: currentProject!.id })}
           >
-            <Play size={20} color={colors.white} fill={colors.white} />
+            <Play size={16} color={colors.white} fill={colors.white} />
             <Text style={styles.actionButtonText}>クイズ</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
             onPress={() => navigation.navigate('Flashcard', { projectId: currentProject!.id })}
           >
-            <Layers size={20} color={colors.primary[600]} />
+            <Layers size={16} color={colors.primary[600]} />
             <Text style={styles.actionButtonTextSecondary}>カード</Text>
           </TouchableOpacity>
         </View>
@@ -1184,7 +1182,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -1222,16 +1219,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginLeft: -8,
   },
   projectTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.gray[900],
+    maxWidth: 140,
   },
   newProjectButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
@@ -1241,7 +1242,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 4,
+    gap: 0,
   },
   headerButton: {
     padding: 8,
@@ -1453,10 +1454,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     backgroundColor: colors.primary[500],
-    gap: 8,
+    gap: 6,
   },
   actionButtonSecondary: {
     backgroundColor: colors.primary[50],
@@ -1464,12 +1465,12 @@ const styles = StyleSheet.create({
     borderColor: colors.primary[200],
   },
   actionButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.white,
   },
   actionButtonTextSecondary: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.primary[600],
   },
