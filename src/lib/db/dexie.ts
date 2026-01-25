@@ -23,9 +23,15 @@ export class WordSnapDB extends Dexie {
       words: 'id, projectId, status, createdAt, nextReviewAt',
     });
 
-    // Version 3: Add isFavorite for favorite marking
+    // Version 3: Add isFavorite for favorite marking (words)
     this.version(3).stores({
       projects: 'id, userId, createdAt',
+      words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite',
+    });
+
+    // Version 4: Add isFavorite for project bookmarking
+    this.version(4).stores({
+      projects: 'id, userId, createdAt, isFavorite',
       words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite',
     });
   }
