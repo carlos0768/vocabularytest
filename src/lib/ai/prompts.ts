@@ -143,3 +143,30 @@ export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習�
 - 誤答のフォーマット統一は絶対に守ってください。`;
 
 export const CIRCLED_WORD_USER_PROMPT = `この画像から、丸（○）やチェックマーク、下線、ハイライトなど何らかのマークがついた英単語のみを抽出してください。マークのない単語は無視してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。各単語に対して3つの誤答選択肢と、その単語を使った実用的な例文（英語と日本語訳）も生成してください。`;
+
+// EIKEN level descriptions for AI prompts
+export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  '5': '英検5級（中学初級程度、基礎的な日常会話レベル）',
+  '4': '英検4級（中学中級程度、簡単な日常会話レベル）',
+  '3': '英検3級（中学卒業程度、日常生活に必要な英語レベル）',
+  'pre2': '英検準2級（高校中級程度、日常生活に役立つ英語レベル）',
+  '2': '英検2級（高校卒業程度、社会生活に必要な英語レベル）',
+  'pre1': '英検準1級（大学中級程度、社会生活で求められる英語レベル）',
+  '1': '英検1級（大学上級程度、広く社会生活で求められる英語レベル）',
+};
+
+// Generate EIKEN filter instruction
+export function getEikenFilterInstruction(eikenLevel: string | null): string {
+  if (!eikenLevel || !EIKEN_LEVEL_DESCRIPTIONS[eikenLevel]) {
+    return '';
+  }
+
+  const levelDesc = EIKEN_LEVEL_DESCRIPTIONS[eikenLevel];
+  return `
+
+【重要】英検レベルフィルター:
+抽出した単語の中から、${levelDesc}に相当する単語のみを出力してください。
+- このレベルより難しすぎる単語は除外してください
+- このレベルより簡単すぎる単語も除外してください
+- このレベルの学習者が覚えるべき適切な難易度の単語のみを抽出してください`;
+}

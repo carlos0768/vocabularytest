@@ -3,18 +3,25 @@ import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-resp
 import {
   CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT,
   CIRCLED_WORD_USER_PROMPT,
+  getEikenFilterInstruction,
 } from './prompts';
 
 export type CircledExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string };
 
+export interface CircledExtractionOptions {
+  eikenLevel?: string | null;
+}
+
 // Extracts only circled/marked words from an image using Google Gemini API
 // Uses gemini-2.0-flash-thinking-exp model for enhanced reasoning
 export async function extractCircledWordsFromImage(
   imageBase64: string,
-  apiKey: string
+  apiKey: string,
+  options: CircledExtractionOptions = {}
 ): Promise<CircledExtractionResult> {
+  const { eikenLevel = null } = options;
   const ai = new GoogleGenAI({ apiKey });
 
   // Remove data URL prefix if present
@@ -39,7 +46,7 @@ export async function extractCircledWordsFromImage(
           role: 'user',
           parts: [
             {
-              text: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}\n\n${CIRCLED_WORD_USER_PROMPT}`,
+              text: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}${getEikenFilterInstruction(eikenLevel)}\n\n${CIRCLED_WORD_USER_PROMPT}`,
             },
             {
               inlineData: {

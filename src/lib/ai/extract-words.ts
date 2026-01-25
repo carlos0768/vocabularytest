@@ -5,6 +5,7 @@ import {
   USER_PROMPT_TEMPLATE,
   WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT,
   USER_PROMPT_WITH_EXAMPLES_TEMPLATE,
+  getEikenFilterInstruction,
 } from './prompts';
 
 export type ExtractionResult =
@@ -13,6 +14,7 @@ export type ExtractionResult =
 
 export interface ExtractionOptions {
   includeExamples?: boolean; // Pro feature: include example sentences
+  eikenLevel?: string | null; // EIKEN level filter
 }
 
 // Extracts words from an image using OpenAI's vision API
@@ -23,12 +25,17 @@ export async function extractWordsFromImage(
   options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
   const openai = new OpenAI({ apiKey });
-  const { includeExamples = false } = options;
+  const { includeExamples = false, eikenLevel = null } = options;
 
   // Select prompts based on whether examples are requested (Pro feature)
-  const systemPrompt = includeExamples
+  const baseSystemPrompt = includeExamples
     ? WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT
     : WORD_EXTRACTION_SYSTEM_PROMPT;
+
+  // Add EIKEN filter instruction if level is specified
+  const eikenInstruction = getEikenFilterInstruction(eikenLevel);
+  const systemPrompt = baseSystemPrompt + eikenInstruction;
+
   const userPrompt = includeExamples
     ? USER_PROMPT_WITH_EXAMPLES_TEMPLATE
     : USER_PROMPT_TEMPLATE;

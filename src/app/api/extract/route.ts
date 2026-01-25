@@ -4,16 +4,20 @@ import { extractWordsFromImage, extractCircledWordsFromImage } from '@/lib/ai';
 // Extraction modes
 export type ExtractMode = 'all' | 'circled';
 
+// EIKEN levels (null means no filter)
+export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
+
 // API Route: POST /api/extract
 // Extracts words from an uploaded image using OpenAI Vision API or Gemini API
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { image, isPro, mode = 'all' } = body as {
+    const { image, isPro, mode = 'all', eikenLevel = null } = body as {
       image?: string;
       isPro?: boolean;
       mode?: ExtractMode;
+      eikenLevel?: EikenLevel;
     };
 
     if (!image) {
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const result = await extractCircledWordsFromImage(image, geminiApiKey);
+      const result = await extractCircledWordsFromImage(image, geminiApiKey, { eikenLevel });
 
       if (!result.success) {
         return NextResponse.json(
@@ -64,6 +68,7 @@ export async function POST(request: NextRequest) {
     // Pro users get example sentences included
     const result = await extractWordsFromImage(image, openaiApiKey, {
       includeExamples: isPro === true,
+      eikenLevel,
     });
 
     if (!result.success) {

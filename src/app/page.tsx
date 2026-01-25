@@ -36,9 +36,21 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { getDailyScanInfo, incrementScanCount, getGuestUserId, getDailyStats, getStreakDays, FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction, Project, Word } from '@/types';
-import type { ExtractMode } from '@/app/api/extract/route';
+import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
-// Scan mode selection modal
+// EIKEN level options for the dropdown
+const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
+  { value: null, label: 'フィルターなし' },
+  { value: '5', label: '5級' },
+  { value: '4', label: '4級' },
+  { value: '3', label: '3級' },
+  { value: 'pre2', label: '準2級' },
+  { value: '2', label: '2級' },
+  { value: 'pre1', label: '準1級' },
+  { value: '1', label: '1級' },
+];
+
+// Scan mode selection modal with EIKEN filter
 function ScanModeModal({
   isOpen,
   onClose,
@@ -46,9 +58,22 @@ function ScanModeModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSelectMode: (mode: ExtractMode) => void;
+  onSelectMode: (mode: ExtractMode, eikenLevel: EikenLevel) => void;
 }) {
+  const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
+  const [isEikenDropdownOpen, setIsEikenDropdownOpen] = useState(false);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedEiken(null);
+      setIsEikenDropdownOpen(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const selectedLabel = EIKEN_LEVELS.find(l => l.value === selectedEiken)?.label || 'フィルターなし';
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -56,12 +81,56 @@ function ScanModeModal({
         <h2 className="text-base font-medium mb-2 text-center text-gray-900">
           抽出モードを選択
         </h2>
-        <p className="text-sm text-gray-500 text-center mb-5">
+        <p className="text-sm text-gray-500 text-center mb-4">
           どのように単語を抽出しますか？
         </p>
+
+        {/* EIKEN Level Filter */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            英検レベルでフィルター
+          </label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsEikenDropdownOpen(!isEikenDropdownOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg bg-white hover:border-gray-300 transition-colors"
+            >
+              <span className={selectedEiken ? 'text-gray-900' : 'text-gray-500'}>
+                {selectedLabel}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isEikenDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isEikenDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsEikenDropdownOpen(false)}
+                />
+                <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 max-h-48 overflow-y-auto">
+                  {EIKEN_LEVELS.map((level) => (
+                    <button
+                      key={level.value || 'none'}
+                      onClick={() => {
+                        setSelectedEiken(level.value);
+                        setIsEikenDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors ${
+                        selectedEiken === level.value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                      }`}
+                    >
+                      {level.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-3">
           <button
-            onClick={() => onSelectMode('all')}
+            onClick={() => onSelectMode('all', selectedEiken)}
             className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left"
           >
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -73,7 +142,7 @@ function ScanModeModal({
             </div>
           </button>
           <button
-            onClick={() => onSelectMode('circled')}
+            onClick={() => onSelectMode('circled', selectedEiken)}
             className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-colors text-left"
           >
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -459,6 +528,7 @@ export default function HomePage() {
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
+  const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
 
   // Delete modals
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
@@ -656,8 +726,9 @@ export default function HomePage() {
     setShowScanModeModal(true);
   };
 
-  const handleScanModeSelect = (mode: ExtractMode) => {
+  const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
     setSelectedScanMode(mode);
+    setSelectedEikenLevel(eikenLevel);
     setShowScanModeModal(false);
     fileInputRef.current?.click();
   };
@@ -715,7 +786,7 @@ export default function HomePage() {
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, isPro, mode: selectedScanMode }),
+        body: JSON.stringify({ image: base64, isPro, mode: selectedScanMode, eikenLevel: selectedEikenLevel }),
       });
 
       const result = await response.json();
