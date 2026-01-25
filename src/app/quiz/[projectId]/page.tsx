@@ -230,7 +230,7 @@ export default function QuizPage() {
       </header>
 
       {/* Question */}
-      <main className="flex-1 flex flex-col p-6 overflow-y-auto">
+      <main className="flex-1 flex flex-col p-6 overflow-y-auto pb-24">
         {/* English word */}
         <div className="flex flex-col items-center justify-center py-4">
           <h1 className="text-4xl font-bold text-gray-900 text-center mb-4">
@@ -290,17 +290,17 @@ export default function QuizPage() {
             )}
           </div>
         )}
-
-        {/* Next button (only shown when wrong answer selected) */}
-        {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
-          <div className="mt-auto pt-4">
-            <Button onClick={moveToNext} className="w-full" size="lg">
-              次へ
-              <ChevronRight className="w-5 h-5 ml-1" />
-            </Button>
-          </div>
-        )}
       </main>
+
+      {/* Fixed bottom next button (only shown when wrong answer selected) */}
+      {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-bottom z-50">
+          <Button onClick={moveToNext} className="w-full" size="lg">
+            次へ
+            <ChevronRight className="w-5 h-5 ml-1" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
