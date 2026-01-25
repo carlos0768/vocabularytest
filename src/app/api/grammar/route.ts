@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
+      console.error('Grammar extraction failed:', result.error);
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 422 }

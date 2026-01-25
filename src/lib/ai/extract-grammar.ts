@@ -195,6 +195,14 @@ export async function analyzeGrammarPatterns(
       if (error.status === 429) {
         return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
       }
+      if (error.status === 400) {
+        return { success: false, error: 'リクエストが不正です。別の画像をお試しください。' };
+      }
+    }
+
+    // Log the full error for debugging
+    if (error instanceof Error) {
+      console.error('Error details:', { name: error.name, message: error.message, stack: error.stack });
     }
 
     return {
