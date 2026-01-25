@@ -1215,15 +1215,12 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   projectSelector: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingVertical: 8,
-    paddingHorizontal: 0,
   },
   projectTitle: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: colors.gray[900],
