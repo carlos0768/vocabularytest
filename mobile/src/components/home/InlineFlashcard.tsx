@@ -116,15 +116,15 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
           {!isFlipped ? (
             // Front: English
             <View style={styles.cardContent}>
-              <Text style={styles.englishText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.5}>
-                {currentWord.english}
-              </Text>
               <TouchableOpacity
                 onPress={speakWord}
                 style={styles.speakButton}
               >
                 <Volume2 size={20} color={colors.gray[400]} />
               </TouchableOpacity>
+              <Text style={styles.englishText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.5}>
+                {currentWord.english}
+              </Text>
               <Text style={styles.hintText}>タップして意味を表示</Text>
             </View>
           ) : (
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   speakButton: {
     padding: 8,
-    marginTop: 12,
+    marginBottom: 12,
   },
   hintText: {
     fontSize: 13,
