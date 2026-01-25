@@ -507,6 +507,11 @@ const styles = StyleSheet.create({
   cardFront: {
     backgroundColor: colors.white,
   },
+  voiceButton: {
+    position: 'absolute',
+    top: 24,
+    padding: 8,
+  },
   cardBack: {
     backgroundColor: colors.primary[600],
   },
