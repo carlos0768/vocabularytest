@@ -21,6 +21,7 @@ export interface ProjectRow {
   title: string;
   created_at: string;
   share_id?: string | null;
+  is_favorite?: boolean | null;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -30,6 +31,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     title: row.title,
     createdAt: row.created_at,
     shareId: row.share_id ?? undefined,
+    isFavorite: row.is_favorite ?? false,
   };
 }
 
@@ -47,6 +49,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
+  if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
   return updateData;
 }
 

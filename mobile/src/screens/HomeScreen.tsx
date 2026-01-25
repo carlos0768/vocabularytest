@@ -38,6 +38,7 @@ import {
   Camera,
   CircleDot,
   BookText,
+  Star,
 } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { ScanButton } from '../components/project';
@@ -274,6 +275,7 @@ function ProjectSelectionSheet({
   currentProjectIndex,
   onSelectProject,
   onSelectFavorites,
+  onToggleProjectFavorite,
   showFavoritesOnly,
   favoriteCount,
 }: {
@@ -283,9 +285,20 @@ function ProjectSelectionSheet({
   currentProjectIndex: number;
   onSelectProject: (index: number) => void;
   onSelectFavorites: () => void;
+  onToggleProjectFavorite: (projectId: string) => void;
   showFavoritesOnly: boolean;
   favoriteCount: number;
 }) {
+  // Sort projects: bookmarked first, then by creation date
+  const sortedProjects = [...projects].sort((a, b) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // Get original index for selection
+  const getOriginalIndex = (project: Project) => projects.findIndex(p => p.id === project.id);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.sheetOverlay}>
@@ -336,32 +349,52 @@ function ProjectSelectionSheet({
                 <BookOpen size={20} color={colors.primary[500]} />
                 <Text style={styles.sheetSectionTitle}>単語帳一覧</Text>
               </View>
-              {projects.map((project, index) => {
-                const isSelected = index === currentProjectIndex && !showFavoritesOnly;
+              {sortedProjects.map((project) => {
+                const originalIndex = getOriginalIndex(project);
+                const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly;
                 return (
-                  <TouchableOpacity
+                  <View
                     key={project.id}
                     style={[
                       styles.sheetItem,
                       isSelected && styles.sheetItemSelected,
                     ]}
-                    onPress={() => {
-                      onSelectProject(index);
-                      onClose();
-                    }}
                   >
-                    <View style={styles.sheetItemContent}>
-                      <Text style={styles.sheetItemTitle}>{project.title}</Text>
+                    <TouchableOpacity
+                      style={styles.sheetItemContent}
+                      onPress={() => {
+                        onSelectProject(originalIndex);
+                        onClose();
+                      }}
+                    >
+                      <View style={styles.sheetItemTitleRow}>
+                        <Text style={styles.sheetItemTitle}>{project.title}</Text>
+                        {project.isFavorite && (
+                          <Star size={14} color={colors.yellow[400]} fill={colors.yellow[400]} />
+                        )}
+                      </View>
                       <Text style={styles.sheetItemSubtitle}>
                         {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
                       </Text>
+                    </TouchableOpacity>
+                    <View style={styles.sheetItemActions}>
+                      <TouchableOpacity
+                        style={styles.sheetItemStarButton}
+                        onPress={() => onToggleProjectFavorite(project.id)}
+                      >
+                        <Star
+                          size={20}
+                          color={project.isFavorite ? colors.yellow[400] : colors.gray[300]}
+                          fill={project.isFavorite ? colors.yellow[400] : 'transparent'}
+                        />
+                      </TouchableOpacity>
+                      {isSelected && (
+                        <View style={styles.sheetItemCheck}>
+                          <Check size={16} color={colors.white} />
+                        </View>
+                      )}
                     </View>
-                    {isSelected && (
-                      <View style={styles.sheetItemCheck}>
-                        <Check size={16} color={colors.white} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
             </View>
@@ -616,6 +649,23 @@ export function HomeScreen() {
     setWords((prev) =>
       prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w))
     );
+  };
+
+  // Toggle project bookmark
+  const handleToggleProjectFavorite = async (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const newFavorite = !project.isFavorite;
+    try {
+      await repository.updateProject(projectId, { isFavorite: newFavorite });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, isFavorite: newFavorite } : p))
+      );
+    } catch (error) {
+      console.error('Failed to toggle project favorite:', error);
+      Alert.alert('エラー', 'ブックマークの変更に失敗しました');
+    }
   };
 
   // Project handlers
@@ -1179,6 +1229,7 @@ export function HomeScreen() {
         currentProjectIndex={currentProjectIndex}
         onSelectProject={selectProject}
         onSelectFavorites={() => setShowFavoritesOnly(true)}
+        onToggleProjectFavorite={handleToggleProjectFavorite}
         showFavoritesOnly={showFavoritesOnly}
         favoriteCount={stats.favorites}
       />
@@ -1932,6 +1983,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: colors.gray[900],
+  },
+  sheetItemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sheetItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 12,
+  },
+  sheetItemStarButton: {
+    padding: 8,
+    borderRadius: 20,
   },
   sheetItemSubtitle: {
     fontSize: 13,
