@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,14 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Swipe state
+  const [swipeX, setSwipeX] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animateDirection, setAnimateDirection] = useState<'left' | 'right' | null>(null);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const isSwiping = useRef(false);
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -62,22 +70,85 @@ export default function FlashcardPage() {
 
   const currentWord = words[currentIndex];
 
-  const handleNext = () => {
-    if (currentIndex < words.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      setIsFlipped(false);
+  const handleNext = (withAnimation = false) => {
+    if (currentIndex < words.length - 1 && !isAnimating) {
+      if (withAnimation) {
+        setIsAnimating(true);
+        setAnimateDirection('left');
+        setTimeout(() => {
+          setCurrentIndex(prev => prev + 1);
+          setIsFlipped(false);
+          setAnimateDirection(null);
+          setIsAnimating(false);
+        }, 200);
+      } else {
+        setCurrentIndex(prev => prev + 1);
+        setIsFlipped(false);
+      }
     }
   };
 
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      setIsFlipped(false);
+  const handlePrev = (withAnimation = false) => {
+    if (currentIndex > 0 && !isAnimating) {
+      if (withAnimation) {
+        setIsAnimating(true);
+        setAnimateDirection('right');
+        setTimeout(() => {
+          setCurrentIndex(prev => prev - 1);
+          setIsFlipped(false);
+          setAnimateDirection(null);
+          setIsAnimating(false);
+        }, 200);
+      } else {
+        setCurrentIndex(prev => prev - 1);
+        setIsFlipped(false);
+      }
     }
   };
 
   const handleFlip = () => {
-    setIsFlipped(!isFlipped);
+    if (!isAnimating && !isSwiping.current) {
+      setIsFlipped(!isFlipped);
+    }
+  };
+
+  // Touch handlers for swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isSwiping.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isAnimating) return;
+
+    const deltaX = e.touches[0].clientX - touchStartX.current;
+    const deltaY = e.touches[0].clientY - touchStartY.current;
+
+    // Only swipe if horizontal movement is greater than vertical
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+      isSwiping.current = true;
+      setSwipeX(deltaX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isAnimating) return;
+
+    const threshold = 80;
+
+    if (swipeX < -threshold && currentIndex < words.length - 1) {
+      // Swipe left - next
+      handleNext(true);
+    } else if (swipeX > threshold && currentIndex > 0) {
+      // Swipe right - prev
+      handlePrev(true);
+    }
+
+    setSwipeX(0);
+    setTimeout(() => {
+      isSwiping.current = false;
+    }, 50);
   };
 
   const handleShuffle = () => {
@@ -97,9 +168,23 @@ export default function FlashcardPage() {
     );
   };
 
+  // Calculate card transform
+  const getCardTransform = () => {
+    if (animateDirection === 'left') {
+      return 'translateX(-120%)';
+    }
+    if (animateDirection === 'right') {
+      return 'translateX(120%)';
+    }
+    if (swipeX !== 0) {
+      return `translateX(${swipeX}px) rotate(${swipeX * 0.02}deg)`;
+    }
+    return 'translateX(0)';
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">フラッシュカードを準備中...</p>
@@ -109,7 +194,7 @@ export default function FlashcardPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
       {/* Header */}
       <header className="p-4 flex items-center justify-between">
         <button
@@ -141,11 +226,19 @@ export default function FlashcardPage() {
       </header>
 
       {/* Card area */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 touch-pan-y">
         {/* Flashcard */}
         <div
           onClick={handleFlip}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           className="w-full max-w-sm aspect-[3/4] cursor-pointer perspective-1000"
+          style={{
+            transform: getCardTransform(),
+            transition: isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none',
+            opacity: isAnimating ? 0 : 1,
+          }}
         >
           <div
             className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${
@@ -222,8 +315,8 @@ export default function FlashcardPage() {
         <Button
           variant="secondary"
           size="lg"
-          onClick={handlePrev}
-          disabled={currentIndex === 0}
+          onClick={() => handlePrev(true)}
+          disabled={currentIndex === 0 || isAnimating}
           className="rounded-full w-14 h-14 p-0"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -232,8 +325,8 @@ export default function FlashcardPage() {
         <Button
           variant="secondary"
           size="lg"
-          onClick={handleNext}
-          disabled={currentIndex === words.length - 1}
+          onClick={() => handleNext(true)}
+          disabled={currentIndex === words.length - 1 || isAnimating}
           className="rounded-full w-14 h-14 p-0"
         >
           <ChevronRight className="w-6 h-6" />
