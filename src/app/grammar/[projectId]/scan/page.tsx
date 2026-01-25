@@ -11,7 +11,9 @@ import {
   Check,
   Save,
 } from 'lucide-react';
-import { ProgressSteps, type ProgressStep } from '@/components/ui';
+import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
+import { ScanLimitModal } from '@/components/limits';
+import { useAuth } from '@/hooks/use-auth';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIGrammarExtraction, EikenGrammarLevel } from '@/types';
 
@@ -125,6 +127,8 @@ export default function GrammarScanPage({
   const { projectId } = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isAuthenticated, isPro } = useAuth();
+  const { showToast } = useToast();
 
   // State
   const [patterns, setPatterns] = useState<AIGrammarExtraction[]>([]);
@@ -135,11 +139,26 @@ export default function GrammarScanPage({
   const [selectedEiken, setSelectedEiken] = useState<EikenGrammarLevel>(null);
   const [isEikenDropdownOpen, setIsEikenDropdownOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showScanLimitModal, setShowScanLimitModal] = useState(false);
 
   const selectedLabel = EIKEN_LEVELS.find(l => l.value === selectedEiken)?.label || 'フィルターなし';
 
   // Handle image selection and processing
   const handleImageSelect = async (file: File) => {
+    // Check if user is authenticated (required for API)
+    if (!isAuthenticated) {
+      showToast({
+        message: 'ログインが必要です',
+        type: 'error',
+        action: {
+          label: 'ログイン',
+          onClick: () => router.push('/login'),
+        },
+        duration: 4000,
+      });
+      return;
+    }
+
     setProcessing(true);
     setProcessingSteps([
       { id: 'upload', label: '画像をアップロード中...', status: 'active' },
@@ -177,12 +196,36 @@ export default function GrammarScanPage({
         )
       );
 
-      // Call grammar API
+      // Call grammar API (server determines isPro from authentication)
       const response = await fetch('/api/grammar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64, eikenLevel: selectedEiken }),
       });
+
+      const result = await response.json();
+
+      // Handle authentication error (401)
+      if (response.status === 401) {
+        setProcessing(false);
+        showToast({
+          message: 'ログインが必要です',
+          type: 'error',
+          action: {
+            label: 'ログイン',
+            onClick: () => router.push('/login'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      // Handle rate limit error (429)
+      if (response.status === 429 || result.limitReached) {
+        setProcessing(false);
+        setShowScanLimitModal(true);
+        return;
+      }
 
       setProcessingSteps(prev =>
         prev.map(s =>
@@ -190,8 +233,6 @@ export default function GrammarScanPage({
           s.id === 'analyze' ? { ...s, status: 'active' } : s
         )
       );
-
-      const result = await response.json();
 
       if (!result.success) {
         throw new Error(result.error || '文法解析に失敗しました');
@@ -410,6 +451,13 @@ export default function GrammarScanPage({
           </div>
         )}
       </main>
+
+      {/* Scan limit modal */}
+      <ScanLimitModal
+        isOpen={showScanLimitModal}
+        onClose={() => setShowScanLimitModal(false)}
+        todayWordsLearned={0}
+      />
     </div>
   );
 }

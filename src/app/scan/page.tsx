@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Camera, Image as ImageIcon, Upload } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
-import { getDailyScanInfo, incrementScanCount, FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
+import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { AIWordExtraction } from '@/types';
 
@@ -17,33 +17,35 @@ function ScanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
-  const { isPro, loading: authLoading } = useAuth();
+  const { isPro, isAuthenticated, loading: authLoading } = useAuth();
   const { isAtLimit } = useWordCount();
   const { showToast } = useToast();
 
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true });
+  // Scan info now comes from server response
+  const [scanInfo, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
-  useEffect(() => {
-    setScanInfo(getDailyScanInfo());
-  }, []);
-
   const handleImageSelect = useCallback(async (file: File) => {
-    // Check scan limit for free users
-    if (!isPro) {
-      const currentScanInfo = getDailyScanInfo();
-      if (!currentScanInfo.canScan) {
-        setShowScanLimitModal(true);
-        return;
-      }
+    // Check if user is authenticated (required for API)
+    if (!isAuthenticated) {
+      showToast({
+        message: 'ログインが必要です',
+        type: 'error',
+        action: {
+          label: 'ログイン',
+          onClick: () => router.push('/login'),
+        },
+        duration: 4000,
+      });
+      return;
     }
 
-    // Check word limit for free users
+    // Check word limit for free users (client-side check for UX)
     if (!isPro && isAtLimit) {
       setShowWordLimitModal(true);
       return;
@@ -83,14 +85,37 @@ function ScanPageContent() {
         )
       );
 
-      // Call API (Pro users get example sentences)
+      // Call API (server determines isPro from authentication)
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, isPro }),
+        body: JSON.stringify({ image: base64 }),
       });
 
       const result = await response.json();
+
+      // Handle authentication error (401)
+      if (response.status === 401) {
+        setProcessing(false);
+        showToast({
+          message: 'ログインが必要です',
+          type: 'error',
+          action: {
+            label: 'ログイン',
+            onClick: () => router.push('/login'),
+          },
+          duration: 4000,
+        });
+        return;
+      }
+
+      // Handle rate limit error (429)
+      if (response.status === 429 || result.limitReached) {
+        setProcessing(false);
+        setScanInfo(result.scanInfo || { currentCount: result.currentCount, limit: result.limit, isPro: false });
+        setShowScanLimitModal(true);
+        return;
+      }
 
       if (!result.success) {
         throw new Error(result.error);
@@ -113,14 +138,13 @@ function ScanPageContent() {
         prev.map((s) => (s.id === 'generate' ? { ...s, status: 'complete' } : s))
       );
 
-      // Increment scan count (only for free users)
-      if (!isPro) {
-        incrementScanCount();
-        const newScanInfo = getDailyScanInfo();
-        setScanInfo(newScanInfo);
+      // Update scan info from server response
+      if (result.scanInfo) {
+        setScanInfo(result.scanInfo);
 
-        // Show toast when 1 scan remaining (after 4th scan)
-        if (newScanInfo.remaining === 1) {
+        // Show toast when 1 scan remaining
+        if (!result.scanInfo.isPro && result.scanInfo.limit &&
+            result.scanInfo.limit - result.scanInfo.currentCount === 1) {
           showToast({
             message: '今日のスキャン残り1回。Proなら無制限',
             type: 'warning',
@@ -156,7 +180,7 @@ function ScanPageContent() {
         )
       );
     }
-  }, [isPro, isAtLimit, projectId, router, showToast]);
+  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -170,7 +194,8 @@ function ScanPageContent() {
     setProcessingSteps([]);
   };
 
-  const canScan = isPro || scanInfo.canScan;
+  // Allow scan if authenticated (server will enforce limits)
+  const canScan = isAuthenticated;
 
   return (
     <div className="min-h-screen bg-white">
@@ -247,11 +272,18 @@ function ScanPageContent() {
           </label>
         </div>
 
-        {/* Scan count info */}
-        {!isPro && (
+        {/* Scan count info (shown after first scan or if scanInfo is available) */}
+        {!isPro && scanInfo && scanInfo.limit && (
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500">
-              今日のスキャン: {scanInfo.count}/{FREE_DAILY_SCAN_LIMIT}
+              今日のスキャン: {scanInfo.currentCount}/{scanInfo.limit}
+            </p>
+          </div>
+        )}
+        {!isPro && !scanInfo && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              無料プラン: 1日{FREE_DAILY_SCAN_LIMIT}回までスキャン可能
             </p>
           </div>
         )}

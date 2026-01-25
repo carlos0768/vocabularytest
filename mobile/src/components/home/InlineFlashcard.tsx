@@ -126,10 +126,11 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
               <Text style={styles.hintText}>タップして意味を表示</Text>
             </View>
           ) : (
-            // Back: Japanese
+            // Back: Japanese (same layout as front)
             <View style={styles.cardContent}>
-              <Text style={styles.smallEnglishText}>{currentWord.english}</Text>
+              <Text style={styles.smallTopText}>{currentWord.english}</Text>
               <Text style={styles.japaneseText}>{currentWord.japanese}</Text>
+              <Text style={styles.hintText}>タップして英語を表示</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -229,33 +230,16 @@ const styles = StyleSheet.create({
     color: colors.gray[400],
     marginTop: 8,
   },
-  smallEnglishText: {
+  smallTopText: {
     fontSize: 13,
     color: colors.gray[400],
     marginBottom: 8,
+    textAlign: 'center',
   },
   japaneseText: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
-    textAlign: 'center',
-  },
-  exampleSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
-  },
-  exampleText: {
-    fontSize: 13,
-    color: colors.gray[600],
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  exampleTextJa: {
-    fontSize: 12,
-    color: colors.gray[400],
-    marginTop: 4,
     textAlign: 'center',
   },
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2, Sparkles } from 'lucide-react';
@@ -16,14 +16,8 @@ export default function SubscriptionPage() {
 
   const plan = KOMOJU_CONFIG.plans.pro;
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login?redirect=/subscription');
-    }
-  }, [authLoading, user, router]);
-
   const handleSubscribe = async () => {
+    // Redirect to login if not authenticated
     if (!user) {
       router.push('/login?redirect=/subscription');
       return;
@@ -51,8 +45,8 @@ export default function SubscriptionPage() {
     }
   };
 
-  // Show loading while checking auth or redirecting
-  if (authLoading || !user) {
+  // Show loading while checking auth
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
@@ -156,10 +150,15 @@ export default function SubscriptionPage() {
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   処理中...
                 </>
-              ) : (
+              ) : user ? (
                 <>
                   <Sparkles className="w-5 h-5 mr-2" />
                   Proプランに登録
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  ログインして登録
                 </>
               )}
             </Button>
