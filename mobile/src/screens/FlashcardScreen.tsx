@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -25,6 +27,9 @@ import { shuffleArray } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Word } from '../types';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = 80;
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, 'Flashcard'>;
 
@@ -39,6 +44,11 @@ export function FlashcardScreen() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [flipAnim] = useState(new Animated.Value(0));
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Swipe animation
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   // Authenticated users use remote repository (Supabase), guests use local SQLite
   const repository = getRepository(isAuthenticated ? 'active' : 'free');
@@ -77,6 +87,7 @@ export function FlashcardScreen() {
   const currentWord = words[currentIndex];
 
   const handleFlip = () => {
+    if (isAnimating) return;
     const toValue = isFlipped ? 0 : 1;
     Animated.spring(flipAnim, {
       toValue,
@@ -87,28 +98,111 @@ export function FlashcardScreen() {
     setIsFlipped(!isFlipped);
   };
 
-  const handleNext = () => {
-    if (currentIndex < words.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setIsFlipped(false);
-      flipAnim.setValue(0);
+  const handleNext = (withAnimation = false) => {
+    if (currentIndex < words.length - 1 && !isAnimating) {
+      if (withAnimation) {
+        setIsAnimating(true);
+        // Exit to left
+        Animated.timing(swipeAnim, {
+          toValue: -SCREEN_WIDTH * 1.2,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setCurrentIndex((prev) => prev + 1);
+          setIsFlipped(false);
+          flipAnim.setValue(0);
+          // Enter from right
+          swipeAnim.setValue(SCREEN_WIDTH * 1.2);
+          Animated.timing(swipeAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            setIsAnimating(false);
+          });
+        });
+      } else {
+        setCurrentIndex((prev) => prev + 1);
+        setIsFlipped(false);
+        flipAnim.setValue(0);
+      }
     }
   };
 
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-      setIsFlipped(false);
-      flipAnim.setValue(0);
+  const handlePrev = (withAnimation = false) => {
+    if (currentIndex > 0 && !isAnimating) {
+      if (withAnimation) {
+        setIsAnimating(true);
+        // Exit to right
+        Animated.timing(swipeAnim, {
+          toValue: SCREEN_WIDTH * 1.2,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setCurrentIndex((prev) => prev - 1);
+          setIsFlipped(false);
+          flipAnim.setValue(0);
+          // Enter from left
+          swipeAnim.setValue(-SCREEN_WIDTH * 1.2);
+          Animated.timing(swipeAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            setIsAnimating(false);
+          });
+        });
+      } else {
+        setCurrentIndex((prev) => prev - 1);
+        setIsFlipped(false);
+        flipAnim.setValue(0);
+      }
     }
   };
 
   const handleShuffle = () => {
+    if (isAnimating) return;
     setWords(shuffleArray([...words]));
     setCurrentIndex(0);
     setIsFlipped(false);
     flipAnim.setValue(0);
+    swipeAnim.setValue(0);
   };
+
+  // Pan responder for swipe gestures
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to horizontal swipes
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (!isAnimating) {
+          swipeAnim.setValue(gestureState.dx);
+          rotateAnim.setValue(gestureState.dx * 0.02);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (isAnimating) return;
+
+        if (gestureState.dx < -SWIPE_THRESHOLD && currentIndex < words.length - 1) {
+          // Swipe left - next
+          handleNext(true);
+        } else if (gestureState.dx > SWIPE_THRESHOLD && currentIndex > 0) {
+          // Swipe right - prev
+          handlePrev(true);
+        } else {
+          // Reset position
+          Animated.spring(swipeAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+        rotateAnim.setValue(0);
+      },
+    })
+  ).current;
 
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
@@ -180,40 +274,57 @@ export function FlashcardScreen() {
 
       {/* Card area */}
       <View style={styles.cardContainer}>
-        <TouchableOpacity
-          activeOpacity={0.95}
-          onPress={handleFlip}
-          style={styles.cardTouchable}
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={[
+            styles.cardTouchable,
+            {
+              transform: [
+                { translateX: swipeAnim },
+                { rotate: rotateAnim.interpolate({
+                  inputRange: [-10, 10],
+                  outputRange: ['-10deg', '10deg'],
+                  extrapolate: 'clamp',
+                }) },
+              ],
+            },
+          ]}
         >
-          {/* Front (English) */}
-          <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
-            <Text style={styles.englishText}>{currentWord?.english}</Text>
-            <View style={styles.cardHint}>
-              <Eye size={16} color={colors.gray[400]} />
-              <Text style={styles.hintText}>タップで意味を見る</Text>
-            </View>
-          </Animated.View>
-
-          {/* Back (Japanese) */}
-          <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
-            <Text style={styles.japaneseText}>{currentWord?.japanese}</Text>
-
-            {/* Example sentence */}
-            {currentWord?.exampleSentence && (
-              <View style={styles.exampleContainer}>
-                <Text style={styles.exampleText}>{currentWord.exampleSentence}</Text>
-                {currentWord.exampleSentenceJa && (
-                  <Text style={styles.exampleTextJa}>{currentWord.exampleSentenceJa}</Text>
-                )}
+          <TouchableOpacity
+            activeOpacity={0.95}
+            onPress={handleFlip}
+            style={styles.cardTouchableInner}
+          >
+            {/* Front (English) */}
+            <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
+              <Text style={styles.englishText}>{currentWord?.english}</Text>
+              <View style={styles.cardHint}>
+                <Eye size={16} color={colors.gray[400]} />
+                <Text style={styles.hintText}>タップで意味を見る</Text>
               </View>
-            )}
+            </Animated.View>
 
-            <View style={styles.cardHintBack}>
-              <EyeOff size={16} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.hintTextBack}>タップで戻る</Text>
-            </View>
-          </Animated.View>
-        </TouchableOpacity>
+            {/* Back (Japanese) */}
+            <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
+              <Text style={styles.japaneseText}>{currentWord?.japanese}</Text>
+
+              {/* Example sentence */}
+              {currentWord?.exampleSentence && (
+                <View style={styles.exampleContainer}>
+                  <Text style={styles.exampleText}>{currentWord.exampleSentence}</Text>
+                  {currentWord.exampleSentenceJa && (
+                    <Text style={styles.exampleTextJa}>{currentWord.exampleSentenceJa}</Text>
+                  )}
+                </View>
+              )}
+
+              <View style={styles.cardHintBack}>
+                <EyeOff size={16} color="rgba(255,255,255,0.6)" />
+                <Text style={styles.hintTextBack}>タップで戻る</Text>
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* Favorite button */}
         <TouchableOpacity
@@ -231,31 +342,31 @@ export function FlashcardScreen() {
       {/* Navigation */}
       <View style={styles.navigation}>
         <TouchableOpacity
-          onPress={handlePrev}
-          disabled={currentIndex === 0}
+          onPress={() => handlePrev(true)}
+          disabled={currentIndex === 0 || isAnimating}
           style={[
             styles.navButton,
-            currentIndex === 0 && styles.navButtonDisabled,
+            (currentIndex === 0 || isAnimating) && styles.navButtonDisabled,
           ]}
         >
           <ChevronLeft
             size={24}
-            color={currentIndex === 0 ? colors.gray[300] : colors.gray[600]}
+            color={(currentIndex === 0 || isAnimating) ? colors.gray[300] : colors.gray[600]}
           />
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={handleNext}
-          disabled={currentIndex === words.length - 1}
+          onPress={() => handleNext(true)}
+          disabled={currentIndex === words.length - 1 || isAnimating}
           style={[
             styles.navButton,
-            currentIndex === words.length - 1 && styles.navButtonDisabled,
+            (currentIndex === words.length - 1 || isAnimating) && styles.navButtonDisabled,
           ]}
         >
           <ChevronRight
             size={24}
             color={
-              currentIndex === words.length - 1
+              (currentIndex === words.length - 1 || isAnimating)
                 ? colors.gray[300]
                 : colors.gray[600]
             }
@@ -306,6 +417,10 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     aspectRatio: 3 / 4,
+  },
+  cardTouchableInner: {
+    width: '100%',
+    height: '100%',
   },
   card: {
     position: 'absolute',
