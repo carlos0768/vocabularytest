@@ -203,7 +203,7 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
       {/* Header */}
       <header className="flex-shrink-0 p-4 flex items-center justify-between">
         <button
@@ -230,9 +230,9 @@ export default function QuizPage() {
       </header>
 
       {/* Question */}
-      <main className="flex-1 flex flex-col p-6 min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col p-6 overflow-y-auto">
         {/* English word */}
-        <div className="flex-shrink-0 flex flex-col items-center justify-center py-4">
+        <div className="flex flex-col items-center justify-center py-4">
           <h1 className="text-4xl font-bold text-gray-900 text-center mb-4">
             {currentQuestion?.word.english}
           </h1>
@@ -265,7 +265,7 @@ export default function QuizPage() {
         </div>
 
         {/* Options */}
-        <div className="flex-shrink-0 space-y-3 mb-4">
+        <div className="space-y-3 mb-4">
           {currentQuestion?.options.map((option, index) => (
             <QuizOption
               key={index}
@@ -282,7 +282,7 @@ export default function QuizPage() {
 
         {/* Example sentence (shown after answering, Pro feature) */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="flex-shrink-0 mb-4 p-4 bg-blue-50 rounded-xl">
+          <div className="mb-4 p-4 bg-blue-50 rounded-xl">
             <p className="text-sm font-medium text-blue-800 mb-1">例文</p>
             <p className="text-blue-900 italic">{currentQuestion.word.exampleSentence}</p>
             {currentQuestion.word.exampleSentenceJa && (
@@ -293,10 +293,12 @@ export default function QuizPage() {
 
         {/* Next button (only shown when wrong answer selected) */}
         {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
-          <Button onClick={moveToNext} className="flex-shrink-0 w-full" size="lg">
-            次へ
-            <ChevronRight className="w-5 h-5 ml-1" />
-          </Button>
+          <div className="mt-auto pt-4">
+            <Button onClick={moveToNext} className="w-full" size="lg">
+              次へ
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </div>
         )}
       </main>
     </div>
