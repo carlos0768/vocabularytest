@@ -579,13 +579,13 @@ export default function HomePage() {
   useEffect(() => {
     const preventScroll = (e: TouchEvent) => {
       // Allow scroll if any modal/sheet is open or word list is expanded
-      if (isWordListExpanded || isProjectDropdownOpen) {
+      if (isWordListExpanded || isProjectDropdownOpen || showScanModeModal) {
         return;
       }
       e.preventDefault();
     };
 
-    if (!isWordListExpanded && !isProjectDropdownOpen) {
+    if (!isWordListExpanded && !isProjectDropdownOpen && !showScanModeModal) {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
@@ -605,7 +605,7 @@ export default function HomePage() {
       document.body.style.height = '';
       document.removeEventListener('touchmove', preventScroll);
     };
-  }, [isWordListExpanded, isProjectDropdownOpen]);
+  }, [isWordListExpanded, isProjectDropdownOpen, showScanModeModal]);
 
   // Load projects
   const loadProjects = useCallback(async () => {

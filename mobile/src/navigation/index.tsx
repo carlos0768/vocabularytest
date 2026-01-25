@@ -17,6 +17,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SubscriptionScreen } from '../screens/SubscriptionScreen';
+import { GrammarScreen } from '../screens/GrammarScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -50,6 +51,13 @@ export function Navigation() {
           options={{
             animation: 'fade',
             gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="Grammar"
+          component={GrammarScreen}
+          options={{
+            animation: 'slide_from_right',
           }}
         />
         <Stack.Screen name="Favorites" component={FavoritesScreen} />

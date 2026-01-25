@@ -20,16 +20,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import {
   BookOpen,
-  Orbit,
-  Target,
-  Trophy,
-  Zap,
   X,
   Settings,
   Flag,
   Crown,
   Check,
   ChevronDown,
+  ChevronUp,
   Plus,
   Play,
   Layers,
@@ -40,11 +37,12 @@ import {
   Link2,
   Camera,
   CircleDot,
-  Loader2,
+  BookText,
 } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { ScanButton } from '../components/project';
 import { ProcessingModal } from '../components/ProcessingModal';
+import { InlineFlashcard, StudyModeCard } from '../components/home';
 import { getRepository } from '../lib/db';
 import { extractWordsFromImage } from '../lib/ai';
 import { useAuth } from '../hooks/use-auth';
@@ -53,8 +51,6 @@ import {
   getGuestUserId,
   getDailyScanInfo,
   incrementScanCount,
-  getStreakDays,
-  getDailyStats,
 } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
@@ -63,8 +59,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const SHARE_BASE_URL = 'https://vocabularytest-omega.vercel.app/share';
 
-// Extraction modes
-type ExtractMode = 'all' | 'circled';
+// Extraction modes (including grammar)
+type ScanMode = 'all' | 'circled' | 'grammar';
 
 // EIKEN levels
 type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -88,7 +84,7 @@ function ScanModeModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSelectMode: (mode: ExtractMode, eikenLevel: EikenLevel) => void;
+  onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
 }) {
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
   const [showEikenPicker, setShowEikenPicker] = useState(false);
@@ -180,6 +176,19 @@ function ScanModeModal({
               <View style={styles.modeTextContainer}>
                 <Text style={styles.modeButtonTitle}>丸をつけた単語だけ</Text>
                 <Text style={styles.modeButtonDesc}>マークした単語だけを抽出します</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modeButton}
+              onPress={() => onSelectMode('grammar', selectedEiken)}
+            >
+              <View style={[styles.modeIcon, { backgroundColor: colors.emerald[100] }]}>
+                <BookText size={24} color={colors.emerald[600]} />
+              </View>
+              <View style={styles.modeTextContainer}>
+                <Text style={styles.modeButtonTitle}>文法をスキャン</Text>
+                <Text style={styles.modeButtonDesc}>文法問題を抽出して学習します</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -403,10 +412,9 @@ export function HomeScreen() {
   // Word editing
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [isWordListExpanded, setIsWordListExpanded] = useState(false);
 
-  // Stats
-  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
-  const [streakDays, setStreakDays] = useState(0);
+  // Scan info
   const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 10, canScan: true });
 
   // Sharing
@@ -423,7 +431,7 @@ export function HomeScreen() {
   const [isAddingToExisting, setIsAddingToExisting] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | null>(null);
-  const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
+  const [selectedScanMode, setSelectedScanMode] = useState<ScanMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
 
   // Repository
@@ -467,25 +475,19 @@ export function HomeScreen() {
     }
   }, [currentProject, repository]);
 
-  // Load stats
-  const loadStats = useCallback(async () => {
-    const [scanInfoData, streak, stats] = await Promise.all([
-      getDailyScanInfo(),
-      getStreakDays(),
-      getDailyStats(),
-    ]);
+  // Load scan info
+  const loadScanInfo = useCallback(async () => {
+    const scanInfoData = await getDailyScanInfo();
     setScanInfo(scanInfoData);
-    setStreakDays(streak);
-    setDailyStats(stats);
   }, []);
 
   // Initial load
   useEffect(() => {
     if (!authLoading) {
       loadProjects();
-      loadStats();
+      loadScanInfo();
     }
-  }, [authLoading, loadProjects, loadStats]);
+  }, [authLoading, loadProjects, loadScanInfo]);
 
   // Load words when project changes
   useEffect(() => {
@@ -497,10 +499,10 @@ export function HomeScreen() {
     const unsubscribe = navigation.addListener('focus', () => {
       loadProjects();
       loadWords();
-      loadStats();
+      loadScanInfo();
     });
     return unsubscribe;
-  }, [navigation, loadProjects, loadWords, loadStats]);
+  }, [navigation, loadProjects, loadWords, loadScanInfo]);
 
   // Stats calculations
   const stats = {
@@ -508,10 +510,6 @@ export function HomeScreen() {
     favorites: words.filter((w) => w.isFavorite).length,
     mastered: words.filter((w) => w.status === 'mastered').length,
   };
-
-  const accuracy = dailyStats.todayCount > 0
-    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
-    : 0;
 
   const filteredWords = showFavoritesOnly
     ? words.filter((w) => w.isFavorite)
@@ -633,10 +631,21 @@ export function HomeScreen() {
     setShowScanModeModal(true);
   };
 
-  const handleScanModeSelect = async (mode: ExtractMode, eikenLevel: EikenLevel) => {
+  const handleScanModeSelect = async (mode: ScanMode, eikenLevel: EikenLevel) => {
     setSelectedScanMode(mode);
     setSelectedEikenLevel(eikenLevel);
     setShowScanModeModal(false);
+
+    // Grammar mode requires existing project
+    if (mode === 'grammar') {
+      if (!currentProject) {
+        Alert.alert('エラー', 'まず単語帳を作成してください');
+        return;
+      }
+      // Navigate to grammar screen
+      navigation.navigate('Grammar', { projectId: currentProject.id });
+      return;
+    }
 
     // Check scan limit
     if (!isPro) {
@@ -655,7 +664,7 @@ export function HomeScreen() {
     }
 
     // If adding to existing project, go directly to image picker
-    if (addToExisting && currentProject) {
+    if (isAddingToExisting && currentProject) {
       Alert.alert('画像を選択', 'どちらから画像を取得しますか？', [
         {
           text: 'カメラで撮影',
@@ -812,8 +821,8 @@ export function HomeScreen() {
     setRefreshing(true);
     loadProjects();
     loadWords();
-    loadStats();
-  }, [loadProjects, loadWords, loadStats]);
+    loadScanInfo();
+  }, [loadProjects, loadWords, loadScanInfo]);
 
   // Loading state
   if (loading || authLoading) {
@@ -968,129 +977,127 @@ export function HomeScreen() {
         </View>
       </View>
 
-      {/* Stats bar */}
-      <View style={styles.statsBar}>
-        <View style={styles.statItem}>
-          <Orbit size={20} color={colors.primary[500]} />
-          <Text style={[styles.statValue, dailyStats.todayCount > 0 && styles.statValueActive]}>
-            {dailyStats.todayCount}
-          </Text>
-          <Text style={styles.statLabel}>今日</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Target size={20} color={colors.emerald[500]} />
-          <Text style={[styles.statValue, accuracy > 0 && { color: colors.emerald[600] }]}>
-            {accuracy}%
-          </Text>
-          <Text style={styles.statLabel}>正答率</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Trophy size={20} color={colors.purple[500]} />
-          <Text style={[styles.statValue, stats.mastered > 0 && { color: colors.purple[600] }]}>
-            {stats.mastered}
-          </Text>
-          <Text style={styles.statLabel}>習得</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Zap size={20} color={colors.amber[500]} />
-          <Text style={[styles.statValue, streakDays > 0 && { color: colors.amber[500] }]}>
-            {streakDays}
-          </Text>
-          <Text style={styles.statLabel}>連続</Text>
-        </View>
-      </View>
-
       {/* Main content */}
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Word list header */}
-        <View style={styles.wordListHeader}>
-          <Text style={styles.wordListTitle}>
-            {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
-          </Text>
-          <View style={styles.wordListActions}>
-            {stats.favorites > 0 && (
-              <TouchableOpacity
-                onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                style={[
-                  styles.filterButton,
-                  showFavoritesOnly && styles.filterButtonActive,
-                ]}
-              >
-                <Flag
-                  size={14}
-                  color={showFavoritesOnly ? colors.orange[600] : colors.gray[500]}
-                  fill={showFavoritesOnly ? colors.orange[500] : 'transparent'}
-                />
-                <Text
+        {/* Inline Flashcard */}
+        <View style={styles.flashcardSection}>
+          <InlineFlashcard words={showFavoritesOnly ? filteredWords : words} />
+        </View>
+
+        {/* Study Mode Cards - 2 column grid */}
+        <View style={styles.studyModeGrid}>
+          <View style={styles.studyModeColumn}>
+            <StudyModeCard
+              title="クイズ"
+              description="4択単語テスト"
+              icon={Play}
+              onPress={() => navigation.navigate('Quiz', { projectId: currentProject!.id })}
+              variant="red"
+              disabled={words.length === 0}
+            />
+          </View>
+          <View style={styles.studyModeColumn}>
+            <StudyModeCard
+              title="カード"
+              description="フラッシュカード"
+              icon={Layers}
+              onPress={() => {
+                if (!isPro) {
+                  navigation.navigate('Subscription');
+                } else {
+                  navigation.navigate('Flashcard', { projectId: currentProject!.id });
+                }
+              }}
+              variant="blue"
+              disabled={words.length === 0}
+              badge={!isPro ? 'Pro' : undefined}
+            />
+          </View>
+        </View>
+
+        {/* Grammar Mode Card - Full width */}
+        <View style={styles.grammarCardSection}>
+          <StudyModeCard
+            title="文法問題"
+            description="文法をスキャンして学習"
+            icon={BookText}
+            onPress={() => navigation.navigate('Grammar', { projectId: currentProject!.id })}
+            variant="green"
+          />
+        </View>
+
+        {/* Collapsible Word List */}
+        <View style={styles.wordListSection}>
+          {/* Word list header */}
+          <TouchableOpacity
+            style={styles.wordListHeader}
+            onPress={() => setIsWordListExpanded(!isWordListExpanded)}
+          >
+            <Text style={styles.wordListTitle}>
+              {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
+            </Text>
+            <View style={styles.wordListHeaderRight}>
+              {stats.favorites > 0 && (
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    setShowFavoritesOnly(!showFavoritesOnly);
+                  }}
                   style={[
-                    styles.filterButtonText,
-                    showFavoritesOnly && styles.filterButtonTextActive,
+                    styles.filterButton,
+                    showFavoritesOnly && styles.filterButtonActive,
                   ]}
                 >
-                  苦手 {stats.favorites}
+                  <Flag
+                    size={14}
+                    color={showFavoritesOnly ? colors.orange[600] : colors.gray[500]}
+                    fill={showFavoritesOnly ? colors.orange[500] : 'transparent'}
+                  />
+                </TouchableOpacity>
+              )}
+              {isWordListExpanded ? (
+                <ChevronUp size={20} color={colors.gray[500]} />
+              ) : (
+                <ChevronDown size={20} color={colors.gray[500]} />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* Word list content */}
+          {isWordListExpanded && (
+            <>
+              {wordsLoading ? (
+                <View style={styles.wordsLoading}>
+                  <ActivityIndicator size="small" color={colors.gray[400]} />
+                </View>
+              ) : filteredWords.length === 0 ? (
+                <Text style={styles.emptyWordsText}>
+                  {showFavoritesOnly ? '苦手な単語がありません' : '単語がありません'}
                 </Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={() => handleScanButtonClick(true)}
-              style={styles.addButton}
-            >
-              <Plus size={14} color={colors.primary[700]} />
-              <Text style={styles.addButtonText}>追加</Text>
-            </TouchableOpacity>
-          </View>
+              ) : (
+                <View style={styles.wordList}>
+                  {filteredWords.map((word) => (
+                    <WordItem
+                      key={`${word.id}:${word.english}:${word.japanese}`}
+                      word={word}
+                      isEditing={editingWordId === word.id}
+                      onEdit={() => setEditingWordId(word.id)}
+                      onCancel={() => setEditingWordId(null)}
+                      onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
+                      onDelete={() => handleDeleteWord(word.id)}
+                      onToggleFavorite={() => handleToggleFavorite(word.id)}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
         </View>
-
-        {/* Word list */}
-        {wordsLoading ? (
-          <View style={styles.wordsLoading}>
-            <ActivityIndicator size="small" color={colors.gray[400]} />
-          </View>
-        ) : filteredWords.length === 0 ? (
-          <Text style={styles.emptyWordsText}>
-            {showFavoritesOnly ? '苦手な単語がありません' : '単語がありません'}
-          </Text>
-        ) : (
-          <View style={styles.wordList}>
-            {filteredWords.map((word) => (
-              <WordItem
-                key={`${word.id}:${word.english}:${word.japanese}`}
-                word={word}
-                isEditing={editingWordId === word.id}
-                onEdit={() => setEditingWordId(word.id)}
-                onCancel={() => setEditingWordId(null)}
-                onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
-                onDelete={() => handleDeleteWord(word.id)}
-                onToggleFavorite={() => handleToggleFavorite(word.id)}
-              />
-            ))}
-          </View>
-        )}
       </ScrollView>
-
-      {/* Bottom action buttons */}
-      {stats.total > 0 && (
-        <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('Quiz', { projectId: currentProject!.id })}
-          >
-            <Play size={16} color={colors.white} fill={colors.white} />
-            <Text style={styles.actionButtonText}>クイズ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => navigation.navigate('Flashcard', { projectId: currentProject!.id })}
-          >
-            <Layers size={16} color={colors.primary[600]} />
-            <Text style={styles.actionButtonTextSecondary}>カード</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Modals */}
       <ProjectSelectionSheet
@@ -1274,6 +1281,38 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
     paddingBottom: 120,
+  },
+
+  // Flashcard section
+  flashcardSection: {
+    marginBottom: 16,
+  },
+
+  // Study mode grid
+  studyModeGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  studyModeColumn: {
+    flex: 1,
+  },
+
+  // Grammar card section
+  grammarCardSection: {
+    marginBottom: 16,
+  },
+
+  // Word list section
+  wordListSection: {
+    backgroundColor: colors.gray[50],
+    borderRadius: 16,
+    padding: 16,
+  },
+  wordListHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 
   // Word list header

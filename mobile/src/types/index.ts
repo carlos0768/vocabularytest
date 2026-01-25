@@ -18,6 +18,12 @@ export type {
   Subscription,
   UserState,
   AuthUser,
+  // Grammar types
+  EikenGrammarLevel,
+  GrammarPattern,
+  GrammarQuizQuestion,
+  AIGrammarExtraction,
+  AIGrammarResponse,
 } from '../shared/types';
 
 // ============ Mobile-Specific Types ============
@@ -35,6 +41,9 @@ export type RootStackParamList = {
   Project: { projectId: string };
   Quiz: { projectId: string };
   Flashcard: { projectId: string };
+  Grammar: { projectId: string };
+  GrammarScan: { projectId: string };
+  GrammarQuiz: { projectId: string };
   Favorites: undefined;
   FavoritesFlashcard: undefined;
   FavoritesQuiz: undefined;
