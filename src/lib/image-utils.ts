@@ -1,8 +1,8 @@
 // Image utility functions
 // Handles HEIC conversion, compression, and other image processing
 
-// Maximum image size in bytes (2MB to stay well under Vercel's 4.5MB limit after base64 encoding)
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+// Maximum image size in bytes (1MB to reduce OpenAI API processing time and avoid Vercel timeout)
+const MAX_IMAGE_SIZE = 1 * 1024 * 1024;
 
 /**
  * Read the first few bytes of a file to determine its actual format
@@ -15,8 +15,8 @@ async function readFileHeader(file: File): Promise<string> {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Maximum dimension for resizing
-const MAX_DIMENSION = 2048;
+// Maximum dimension for resizing (reduced to speed up OpenAI API processing)
+const MAX_DIMENSION = 1024;
 
 /**
  * Convert HEIC/HEIF image to JPEG
@@ -81,11 +81,8 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
 export async function compressImage(file: File): Promise<File> {
   console.log('compressImage called:', { name: file.name, type: file.type, size: file.size });
 
-  // Skip if already small enough
-  if (file.size <= MAX_IMAGE_SIZE) {
-    console.log('Image is small enough, skipping compression');
-    return file;
-  }
+  // Always resize to MAX_DIMENSION to speed up API processing, even if file size is small
+  // This ensures consistent processing time regardless of original image dimensions
 
   return new Promise((resolve, reject) => {
     const img = new Image();
