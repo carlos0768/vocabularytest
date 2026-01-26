@@ -1481,7 +1481,7 @@ export default function HomePage() {
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <h1 className="font-semibold text-gray-900 truncate max-w-[140px]">
-                  {currentProject?.title || '単語帳'}
+                  {showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
                 </h1>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
