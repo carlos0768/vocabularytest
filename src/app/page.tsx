@@ -1039,7 +1039,7 @@ export default function HomePage() {
 
     // If adding to existing project, skip project name modal
     if (isAddingToExisting && currentProject) {
-      sessionStorage.setItem('scanvocab_project_id', currentProject.id);
+      sessionStorage.setItem('scanvocab_existing_project_id', currentProject.id);
       sessionStorage.removeItem('scanvocab_project_name');
       processImage(file);
     } else {
