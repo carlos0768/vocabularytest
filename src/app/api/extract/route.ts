@@ -87,6 +87,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Reject unsupported image formats (HEIC/HEIF are not supported by OpenAI Vision API)
+    // This can happen when client-side HEIC conversion fails
+    if (image.startsWith('data:image/heic') || image.startsWith('data:image/heif')) {
+      console.error('Unsupported image format: HEIC/HEIF detected', { detectedType });
+      return NextResponse.json(
+        { success: false, error: 'HEIC/HEIF形式は対応していません。カメラアプリの設定で「互換性優先」を選択するか、スクリーンショットをお試しください。' },
+        { status: 400 }
+      );
+    }
+
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
