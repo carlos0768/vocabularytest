@@ -331,6 +331,77 @@ function ProjectNameModal({
   );
 }
 
+// Edit project name modal component
+function EditProjectNameModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  currentName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  currentName: string;
+}) {
+  const [name, setName] = useState(currentName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(currentName);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen, currentName]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim() && name !== currentName) {
+      onConfirm();
+    } else if (name === currentName) {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+          単語帳の名前を変更
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="単語帳の名前"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            maxLength={50}
+          />
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={!name.trim() || name === currentName}
+              className="flex-1 py-2.5 bg-blue-600 rounded-lg text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              変更
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // Processing modal component
 function ProcessingModal({
   steps,
@@ -371,6 +442,7 @@ function ProjectSelectionSheet({
   onSelectFavorites,
   onCreateNewProject,
   onToggleProjectFavorite,
+  onEditProject,
   showFavoritesOnly,
   favoriteWords,
   projectFavoriteCounts,
@@ -383,6 +455,7 @@ function ProjectSelectionSheet({
   onSelectFavorites: () => void;
   onCreateNewProject: () => void;
   onToggleProjectFavorite: (projectId: string) => void;
+  onEditProject: (projectId: string, currentName: string) => void;
   showFavoritesOnly: boolean;
   favoriteWords: Word[];
   projectFavoriteCounts: Record<string, number>;
@@ -543,6 +616,16 @@ function ProjectSelectionSheet({
                                 : 'text-gray-300 hover:text-yellow-400'
                             }`}
                           />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditProject(project.id, project.title);
+                          }}
+                          className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+                          title="名前を編集"
+                        >
+                          <Edit2 className="w-4 h-4 text-gray-500 hover:text-blue-600" />
                         </button>
                         {isSelected && (
                           <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
@@ -705,6 +788,11 @@ export default function HomePage() {
   const [deleteWordLoading, setDeleteWordLoading] = useState(false);
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
+
+  // Edit project name modal
+  const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
+  const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [editProjectNewName, setEditProjectNewName] = useState('');
 
   // Get repository
   const subscriptionStatus = subscription?.status || 'free';
@@ -924,6 +1012,31 @@ export default function HomePage() {
     } finally {
       setDeleteProjectLoading(false);
       setDeleteProjectModalOpen(false);
+    }
+  };
+
+  const handleEditProjectName = (projectId: string, currentName: string) => {
+    setEditProjectId(projectId);
+    setEditProjectNewName(currentName);
+    setEditProjectModalOpen(true);
+  };
+
+  const handleConfirmEditProjectName = async () => {
+    if (!editProjectId || !editProjectNewName.trim()) return;
+
+    try {
+      await repository.updateProject(editProjectId, { title: editProjectNewName.trim() });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === editProjectId ? { ...p, title: editProjectNewName.trim() } : p))
+      );
+      showToast({ message: '単語帳の名前を変更しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to update project name:', error);
+      showToast({ message: '名前の変更に失敗しました', type: 'error' });
+    } finally {
+      setEditProjectModalOpen(false);
+      setEditProjectId(null);
+      setEditProjectNewName('');
     }
   };
 
@@ -1611,6 +1724,13 @@ export default function HomePage() {
         onConfirm={handleProjectNameConfirm}
       />
 
+      <EditProjectNameModal
+        isOpen={editProjectModalOpen}
+        onClose={() => { setEditProjectModalOpen(false); setEditProjectId(null); }}
+        onConfirm={handleConfirmEditProjectName}
+        currentName={editProjectNewName}
+      />
+
       <DeleteConfirmModal
         isOpen={deleteWordModalOpen}
         onClose={() => { setDeleteWordModalOpen(false); setDeleteWordTargetId(null); }}
@@ -1639,6 +1759,7 @@ export default function HomePage() {
         onSelectFavorites={() => setShowFavoritesOnly(true)}
         onCreateNewProject={() => handleScanButtonClick(false)}
         onToggleProjectFavorite={handleToggleProjectFavorite}
+        onEditProject={handleEditProjectName}
         showFavoritesOnly={showFavoritesOnly}
         favoriteWords={allFavoriteWords}
         projectFavoriteCounts={projectFavoriteCounts}
