@@ -72,12 +72,21 @@ export default function ConfirmPage() {
           }
         }
       } catch {
+        showToast({
+          message: 'データの読み込みに失敗しました。もう一度スキャンしてください。',
+          type: 'error',
+        });
         router.push('/');
       }
     } else {
+      // Show a more helpful message instead of silently redirecting
+      showToast({
+        message: 'スキャンデータが見つかりません。もう一度スキャンしてください。',
+        type: 'error',
+      });
       router.push('/');
     }
-  }, [router]);
+  }, [router, showToast]);
 
   const handleToggleWord = (tempId: string) => {
     setWords((prev) =>
@@ -115,6 +124,20 @@ export default function ConfirmPage() {
         w.tempId === tempId ? { ...w, isEditing: false } : w
       )
     );
+  };
+
+  const handleAddManualWord = () => {
+    const newWord: EditableWord = {
+      english: '',
+      japanese: '',
+      distractors: [],
+      exampleSentence: '',
+      exampleSentenceJa: '',
+      tempId: `word-manual-${Date.now()}`,
+      isEditing: true,
+      isSelected: true,
+    };
+    setWords((prev) => [...prev, newWord]);
   };
 
   const handleSaveProject = async () => {
@@ -294,15 +317,24 @@ export default function ConfirmPage() {
           </div>
         )}
 
-        {/* Word count */}
+        {/* Word count and add button */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-gray-500">
             抽出された単語
           </h2>
-          <span className={`text-sm font-medium ${showLimitWarning && excessCount > 0 ? 'text-red-600' : 'text-blue-600'}`}>
-            {selectedCount}語選択中
-            {!isPro && ` / 残り${availableSlots}語`}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${showLimitWarning && excessCount > 0 ? 'text-red-600' : 'text-blue-600'}`}>
+              {selectedCount}語選択中
+              {!isPro && ` / 残り${availableSlots}語`}
+            </span>
+            <button
+              onClick={handleAddManualWord}
+              className="p-1.5 hover:bg-blue-100 rounded-full transition-colors text-blue-600"
+              title="手で入力"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Word list */}
