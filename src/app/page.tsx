@@ -1193,7 +1193,9 @@ export default function HomePage() {
       if (error instanceof Error) {
         // Make common errors more user-friendly
         if (error.message.includes('did not match the expected pattern')) {
-          errorMessage = '画像の読み込みに失敗しました。別の画像をお試しください。';
+          errorMessage = '画像データの処理に問題が発生しました。カメラ設定を「互換性優先」にするか、スクリーンショットをお試しください。';
+        } else if (error.message.includes('HEIC') || error.message.includes('HEIF')) {
+          errorMessage = error.message; // HEIC関連のエラーはそのまま表示
         } else {
           errorMessage = error.message;
         }
