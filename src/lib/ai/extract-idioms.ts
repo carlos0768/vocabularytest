@@ -1,15 +1,18 @@
-import OpenAI from 'openai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
   IDIOM_EXTRACTION_SYSTEM_PROMPT,
   IDIOM_USER_PROMPT,
 } from './prompts';
+import { AI_CONFIG } from './config';
+import { getProvider, AIError } from './providers';
+import { prepareImageForProvider } from './utils/image';
+import { safeParseJSON } from './utils/json';
 
 export type IdiomExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string };
 
-// Extracts idioms and phrases from an image using OpenAI's vision API
+// Extracts idioms and phrases from an image using AI provider (configured in config.ts)
 // Returns validated word data (using same schema as words) or an error message
 export async function extractIdiomsFromImage(
   imageBase64: string,
@@ -27,57 +30,49 @@ export async function extractIdiomsFromImage(
     return { success: false, error: '画像データの形式が不正です' };
   }
 
-  console.log('OpenAI Idiom API call:', { imageLength: imageBase64.length, startsWithData: imageBase64.startsWith('data:') });
+  const config = AI_CONFIG.extraction.idioms;
+  console.log('AI API call (idioms):', {
+    provider: config.provider,
+    model: config.model,
+    imageLength: imageBase64.length,
+    startsWithData: imageBase64.startsWith('data:')
+  });
 
-  const openai = new OpenAI({ apiKey });
+  const provider = getProvider(config.provider, apiKey);
+
+  // Prepare image for provider
+  const image = prepareImageForProvider(imageBase64);
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: IDIOM_EXTRACTION_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: IDIOM_USER_PROMPT,
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: imageBase64.startsWith('data:')
-                  ? imageBase64
-                  : `data:image/jpeg;base64,${imageBase64}`,
-                detail: 'high',
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 16384,
+    const response = await provider.generate({
+      systemPrompt: IDIOM_EXTRACTION_SYSTEM_PROMPT,
+      prompt: IDIOM_USER_PROMPT,
+      image,
+      config: {
+        ...config,
+        responseFormat: 'json',
+      },
     });
 
-    const content = response.choices[0]?.message?.content;
+    if (!response.success) {
+      return { success: false, error: response.error || '画像を読み取れませんでした' };
+    }
+
+    const content = response.content;
 
     if (!content) {
       return { success: false, error: '画像を読み取れませんでした' };
     }
 
     // Parse JSON response
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
+    const parseResult = safeParseJSON(content);
+    if (!parseResult.success) {
+      console.error('JSON parse error:', parseResult.error);
       return { success: false, error: 'AIの応答を解析できませんでした' };
     }
 
     // Validate with Zod schema (uses same schema as words)
-    const validated = parseAIResponse(parsed);
+    const validated = parseAIResponse(parseResult.data);
 
     if (!validated.success) {
       return {
@@ -96,31 +91,11 @@ export async function extractIdiomsFromImage(
 
     return { success: true, data: validated.data! };
   } catch (error) {
-    console.error('OpenAI idiom extraction error:', error);
+    console.error('AI idiom extraction error:', error);
 
-    // Handle specific OpenAI errors
-    if (error instanceof OpenAI.APIError) {
-      console.error('OpenAI API Error:', { status: error.status, message: error.message });
-      if (error.status === 401) {
-        return { success: false, error: 'APIキーが無効です' };
-      }
-      if (error.status === 429) {
-        return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
-      }
-      if (error.status === 400) {
-        return { success: false, error: '画像の形式が不正です。別の画像をお試しください。' };
-      }
-    }
-
-    // Handle pattern mismatch error
-    if (error instanceof Error) {
-      const errorMessage = error.message;
-      console.error('Error message:', errorMessage);
-
-      if (errorMessage.includes('did not match the expected pattern')) {
-        console.error('Pattern mismatch error - likely invalid base64 data');
-        return { success: false, error: '画像データの処理に問題が発生しました。別の画像をお試しください。' };
-      }
+    // Handle AIError from provider
+    if (error instanceof AIError) {
+      return { success: false, error: error.message };
     }
 
     // Generic error - don't expose internal error message

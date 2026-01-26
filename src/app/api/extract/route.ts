@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
+import { AI_CONFIG } from '@/lib/ai/config';
 
 // Extraction modes
 // - 'all': Extract all words (OpenAI)
@@ -144,15 +145,18 @@ export async function POST(request: NextRequest) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
     if (mode === 'idiom') {
-      // Idiom mode: Use OpenAI API for idiom/phrase extraction
-      if (!openaiApiKey) {
+      // Idiom mode: Use configured provider for idiom/phrase extraction
+      const idiomsProvider = AI_CONFIG.extraction.idioms.provider;
+      const idiomsApiKey = idiomsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+
+      if (!idiomsApiKey) {
         return NextResponse.json(
-          { success: false, error: 'OpenAI APIキーが設定されていません' },
+          { success: false, error: `${idiomsProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
           { status: 500 }
         );
       }
 
-      result = await extractIdiomsFromImage(image, openaiApiKey);
+      result = await extractIdiomsFromImage(image, idiomsApiKey);
     } else if (mode === 'eiken') {
       // EIKEN filter mode: Gemini OCR → GPT analysis (two-stage processing)
       if (!geminiApiKey) {
@@ -187,17 +191,20 @@ export async function POST(request: NextRequest) {
       // Note: eikenLevel is NOT used for circled mode anymore
       result = await extractCircledWordsFromImage(image, geminiApiKey, {});
     } else {
-      // Default 'all' mode: Use OpenAI API for all word extraction
-      if (!openaiApiKey) {
+      // Default 'all' mode: Use configured provider for all word extraction
+      const wordsProvider = AI_CONFIG.extraction.words.provider;
+      const wordsApiKey = wordsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+
+      if (!wordsApiKey) {
         return NextResponse.json(
-          { success: false, error: 'OpenAI APIキーが設定されていません' },
+          { success: false, error: `${wordsProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
           { status: 500 }
         );
       }
 
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
       // Pro users get example sentences included (determined server-side)
-      result = await extractWordsFromImage(image, openaiApiKey, {
+      result = await extractWordsFromImage(image, wordsApiKey, {
         includeExamples: scanData.is_pro === true,
       });
     }
