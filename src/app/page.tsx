@@ -402,6 +402,104 @@ function EditProjectNameModal({
   );
 }
 
+// Manual word input modal component
+function ManualWordInputModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isLoading,
+  english,
+  setEnglish,
+  japanese,
+  setJapanese,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isLoading: boolean;
+  english: string;
+  setEnglish: (value: string) => void;
+  japanese: string;
+  setJapanese: (value: string) => void;
+}) {
+  const englishInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => englishInputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (english.trim() && japanese.trim()) {
+      onConfirm();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+          単語を手で入力
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                英単語
+              </label>
+              <input
+                ref={englishInputRef}
+                type="text"
+                value={english}
+                onChange={(e) => setEnglish(e.target.value)}
+                placeholder="例: beautiful"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isLoading}
+                maxLength={50}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                日本語訳
+              </label>
+              <input
+                type="text"
+                value={japanese}
+                onChange={(e) => setJapanese(e.target.value)}
+                placeholder="例: 美しい"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isLoading}
+                maxLength={100}
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={!english.trim() || !japanese.trim() || isLoading}
+              className="flex-1 py-2.5 bg-blue-600 rounded-lg text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? '保存中...' : '保存'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // Processing modal component
 function ProcessingModal({
   steps,
@@ -794,6 +892,12 @@ export default function HomePage() {
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
   const [editProjectNewName, setEditProjectNewName] = useState('');
 
+  // Manual word input modal
+  const [showManualWordModal, setShowManualWordModal] = useState(false);
+  const [manualWordEnglish, setManualWordEnglish] = useState('');
+  const [manualWordJapanese, setManualWordJapanese] = useState('');
+  const [manualWordSaving, setManualWordSaving] = useState(false);
+
   // Get repository
   const subscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
@@ -1037,6 +1141,44 @@ export default function HomePage() {
       setEditProjectModalOpen(false);
       setEditProjectId(null);
       setEditProjectNewName('');
+    }
+  };
+
+  const handleSaveManualWord = async () => {
+    if (!currentProject) {
+      showToast({ message: 'まず単語帳を選択してください', type: 'error' });
+      return;
+    }
+
+    if (!manualWordEnglish.trim() || !manualWordJapanese.trim()) {
+      showToast({ message: '英単語と日本語訳を入力してください', type: 'error' });
+      return;
+    }
+
+    setManualWordSaving(true);
+    try {
+      await repository.createWords([
+        {
+          projectId: currentProject.id,
+          english: manualWordEnglish.trim(),
+          japanese: manualWordJapanese.trim(),
+          distractors: [],
+          exampleSentence: '',
+          exampleSentenceJa: '',
+        },
+      ]);
+
+      showToast({ message: '単語を追加しました', type: 'success' });
+      setManualWordEnglish('');
+      setManualWordJapanese('');
+      setShowManualWordModal(false);
+      loadWords();
+      refreshWordCount();
+    } catch (error) {
+      console.error('Failed to save manual word:', error);
+      showToast({ message: '単語の保存に失敗しました', type: 'error' });
+    } finally {
+      setManualWordSaving(false);
     }
   };
 
@@ -1600,15 +1742,25 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Center: Add to current project button */}
-            <button
-              onClick={() => handleScanButtonClick(true)}
-              disabled={processing || (!isPro && !canScan)}
-              className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="現在の単語帳に追加"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
+            {/* Center: Add to current project buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowManualWordModal(true)}
+                disabled={!currentProject}
+                className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-full text-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="手で入力"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleScanButtonClick(true)}
+                disabled={processing || (!isPro && !canScan)}
+                className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="スキャン追加"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
 
             {/* Right: Actions */}
             <div className="flex items-center gap-1 flex-1 justify-end">
@@ -1729,6 +1881,17 @@ export default function HomePage() {
         onClose={() => { setEditProjectModalOpen(false); setEditProjectId(null); }}
         onConfirm={handleConfirmEditProjectName}
         currentName={editProjectNewName}
+      />
+
+      <ManualWordInputModal
+        isOpen={showManualWordModal}
+        onClose={() => { setShowManualWordModal(false); setManualWordEnglish(''); setManualWordJapanese(''); }}
+        onConfirm={handleSaveManualWord}
+        isLoading={manualWordSaving}
+        english={manualWordEnglish}
+        setEnglish={setManualWordEnglish}
+        japanese={manualWordJapanese}
+        setJapanese={setManualWordJapanese}
       />
 
       <DeleteConfirmModal
