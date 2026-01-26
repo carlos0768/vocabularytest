@@ -197,6 +197,29 @@ Row Level Security (RLS) ensures users can only access their own data.
 7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
 8. **Favorites Mode**: Shows all favorite words across all projects, not just current project
 
+## 運用上の注意点・過去のトラブル
+
+### 手動でユーザーをProに昇格させる場合
+**`plan`だけでなく`status`も変更が必要！**
+
+```sql
+-- 正しい方法
+UPDATE subscriptions
+SET status = 'active', plan = 'pro'
+WHERE user_id = 'ユーザーのUUID';
+
+-- ダメな例（planだけ変更）
+UPDATE subscriptions SET plan = 'pro' WHERE user_id = '...';
+-- → check_and_increment_scan関数が status='active' AND plan='pro' をチェックするため、
+--   statusがfreeのままだとPro機能が使えない
+```
+
+**原因**: `check_and_increment_scan`関数（003_add_scan_usage_tracking.sql）は以下のロジックでPro判定している：
+```sql
+SELECT (status = 'active' AND plan = 'pro') INTO v_is_pro FROM subscriptions ...
+```
+両方の条件を満たさないとProとして認識されない。
+
 ## Testing KOMOJU Webhooks Locally
 
 Use ngrok to expose local server:
