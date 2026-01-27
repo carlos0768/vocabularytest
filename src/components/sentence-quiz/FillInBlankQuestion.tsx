@@ -23,7 +23,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   );
 
   // すべての選択肢をフラットに（各空欄の正解 + 誤答）
-  const [allOptions] = useState<string[]>(() => {
+  const [allOptions, setAllOptions] = useState<string[]>(() => {
     const options: string[] = [];
     question.blanks.forEach((blank) => {
       blank.options.forEach((opt) => {
@@ -38,6 +38,29 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
 
   const [isRevealed, setIsRevealed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+
+  // タップで選択/解除（フォールバック）
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // 問題が変わったら状態をリセット
+  const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
+  if (question.wordId !== currentQuestionId) {
+    setCurrentQuestionId(question.wordId);
+    setFilledBlanks(new Array(question.blanks.length).fill(null));
+    // 新しい選択肢をシャッフル
+    const newOptions: string[] = [];
+    question.blanks.forEach((blank) => {
+      blank.options.forEach((opt) => {
+        if (!newOptions.includes(opt)) {
+          newOptions.push(opt);
+        }
+      });
+    });
+    setAllOptions(newOptions.sort(() => Math.random() - 0.5));
+    setIsRevealed(false);
+    setIsCorrect(false);
+    setSelectedOption(null);
+  }
 
   // ドラッグ状態
   const [dragState, setDragState] = useState<DragState>({
@@ -140,9 +163,6 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       currentY: 0,
     });
   };
-
-  // タップで選択/解除（フォールバック）
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   const handleTapOption = (option: string) => {
     if (isRevealed) return;
