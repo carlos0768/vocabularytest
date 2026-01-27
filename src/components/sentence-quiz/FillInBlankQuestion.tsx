@@ -82,48 +82,50 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* 日本語訳 - 上部固定 */}
-      <div className="flex-shrink-0 mb-2 p-2 bg-purple-50 rounded-xl">
+      <div className="flex-shrink-0 mb-3 p-2 bg-purple-50 rounded-xl">
         <p className="text-purple-800 font-medium text-sm">{question.japaneseMeaning}</p>
       </div>
 
-      {/* 例文（空欄付き） - 中央 */}
-      <div className="flex-1 flex items-center justify-center px-2 min-h-0">
+      {/* 例文（空欄付き） */}
+      <div className="flex-shrink-0 px-2 mb-6">
         {renderSentence()}
       </div>
 
-      {/* 選択肢 + ボタン - 下部固定 */}
-      <div className="flex-shrink-0 pb-2">
-        {/* 選択肢 - Duolingo風に横並び */}
-        <div className="flex flex-wrap justify-center gap-2 mb-3">
-          {options.map((option) => {
-            const isSelected = selectedOption === option;
-            const isCorrectOption = isRevealed && option === blank.correctAnswer;
-            const isWrongSelected = isRevealed && isSelected && !isCorrect;
+      {/* 選択肢 - Duolingo風に横並び */}
+      <div className="flex-shrink-0 flex flex-wrap justify-center gap-2">
+        {options.map((option) => {
+          const isSelected = selectedOption === option;
+          const isCorrectOption = isRevealed && option === blank.correctAnswer;
+          const isWrongSelected = isRevealed && isSelected && !isCorrect;
 
-            return (
-              <button
-                key={option}
-                onClick={() => handleSelectOption(option)}
-                disabled={isRevealed}
-                className={`py-2 px-4 rounded-2xl font-medium text-sm transition-all border-2 ${
-                  isRevealed
-                    ? isCorrectOption
-                      ? 'bg-green-100 text-green-700 border-green-400'
-                      : isWrongSelected
-                      ? 'bg-red-100 text-red-700 border-red-400'
-                      : 'bg-gray-100 text-gray-400 border-gray-200'
-                    : isSelected
-                    ? 'bg-purple-600 text-white border-purple-600 shadow-lg'
-                    : 'bg-white text-gray-700 border-gray-300 active:bg-purple-50 active:border-purple-400'
-                }`}
-              >
-                {option}
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={option}
+              onClick={() => handleSelectOption(option)}
+              disabled={isRevealed}
+              className={`py-2 px-4 rounded-2xl font-medium text-sm transition-all border-2 ${
+                isRevealed
+                  ? isCorrectOption
+                    ? 'bg-green-100 text-green-700 border-green-400'
+                    : isWrongSelected
+                    ? 'bg-red-100 text-red-700 border-red-400'
+                    : 'bg-gray-100 text-gray-400 border-gray-200'
+                  : isSelected
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-lg'
+                  : 'bg-white text-gray-700 border-gray-300 active:bg-purple-50 active:border-purple-400'
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* ボタン */}
+      {/* スペーサー */}
+      <div className="flex-1" />
+
+      {/* ボタン - 下部固定 */}
+      <div className="flex-shrink-0">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
