@@ -20,7 +20,7 @@ const fillInBlankAISchema = z.object({
   blanks: z.array(z.object({
     correctAnswer: z.string(),
     options: z.array(z.string()).length(4),
-  })).length(3),
+  })).length(1),
   japaneseMeaning: z.string(),
 });
 
@@ -36,22 +36,24 @@ const FILL_IN_BLANK_SYSTEM_PROMPT = `あなたは英語教師です。与えら�
 【ルール】
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成
 2. 例文は中学〜高校レベルの難易度
-3. 必ず3つの空欄を設ける（対象単語を含む）
-4. 各空欄に4つの選択肢を用意（1つが正解、3つが誤答）
+3. 空欄は1つだけ（対象単語の部分）
+4. 選択肢は4つ（1つが正解、3つが誤答）
 
-【選択肢のルール】
-- 空欄1（対象単語）: 正解の単語の活用形バリエーション（go/goes/went/going等）
-- 空欄2・3: 副詞、前置詞、冠詞、代名詞など文法的に紛らわしい選択肢
+【選択肢のルール - 重要】
+誤答は単純な活用形変化（三人称形、過去形等）を使わないでください！
+意味が似ている別の単語、または同じ品詞で文脈に合いそうな別の単語を使用してください。
+
+例: "go"の誤答 → "come", "arrive", "leave"（×goes, went, goingは禁止）
+例: "happy"の誤答 → "glad", "pleased", "excited"（×happier, happiestは禁止）
+例: "quickly"の誤答 → "slowly", "carefully", "suddenly"
 
 【出力形式】JSON
 {
-  "sentence": "I ___ to school ___ day ___.",
+  "sentence": "She ___ to the store to buy some food.",
   "blanks": [
-    { "correctAnswer": "go", "options": ["go", "goes", "went", "going"] },
-    { "correctAnswer": "every", "options": ["every", "very", "many", "much"] },
-    { "correctAnswer": "early", "options": ["early", "lately", "late", "soon"] }
+    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned"] }
   ],
-  "japaneseMeaning": "私は毎日早く学校に行く。"
+  "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
 }`;
 
 // 並び替え問題生成プロンプト
