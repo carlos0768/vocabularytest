@@ -254,7 +254,7 @@ export default function SentenceQuizPage() {
         onClose={handleGoHome}
       />
 
-      <main className="flex-1 flex flex-col px-3 pb-3 overflow-hidden">
+      <main className="flex-1 flex flex-col px-4 pb-4 min-h-0 overflow-hidden">
         {currentQuestion.type === 'fill-in-blank' ? (
           <FillInBlankQuestion
             question={currentQuestion}
