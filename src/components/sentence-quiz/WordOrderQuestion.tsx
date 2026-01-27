@@ -214,17 +214,17 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       )}
 
       {/* コンテンツエリア（スクロール無効） */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {/* 日本語訳（ヒント） */}
-        <div className="mb-2 p-2 bg-purple-50 rounded-lg">
-          <p className="text-purple-800 font-medium text-sm">{question.japaneseMeaning}</p>
+        <div className="mb-1 p-1.5 bg-purple-50 rounded">
+          <p className="text-purple-800 font-medium text-xs">{question.japaneseMeaning}</p>
         </div>
 
         {/* 選択した単語（回答エリア）- ドロップゾーン */}
-        <div className="mb-2">
+        <div className="mb-1">
           <div
             ref={dropZoneRef}
-            className={`min-h-[56px] p-2 rounded-lg border-2 border-dashed transition-all ${
+            className={`min-h-[40px] p-1.5 rounded border-2 border-dashed transition-all ${
               isRevealed
                 ? isCorrect
                   ? 'border-green-500 bg-green-50'
@@ -235,11 +235,11 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
             }`}
           >
             {selectedWords.length === 0 ? (
-              <p className="text-gray-400 text-center text-sm py-2">
-                {dragState.isDragging ? 'ここにドロップ' : '単語をドラッグ or タップ'}
+              <p className="text-gray-400 text-center text-xs py-1">
+                {dragState.isDragging ? 'ここにドロップ' : '単語をタップ'}
               </p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {selectedWords.map((word, index) => {
                   const isWordCorrect = isRevealed && word === question.correctOrder[index];
                   const isWordIncorrect = isRevealed && word !== question.correctOrder[index];
@@ -253,7 +253,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                       key={`selected-${index}`}
                       onTouchStart={(e) => handleTouchStart(e, word, index, 'selected')}
                       onClick={() => !dragState.isDragging && handleTap(word, index, 'selected')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
+                      className={`px-2 py-1 rounded text-xs font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
                         isBeingDragged
                           ? 'opacity-30'
                           : isWordCorrect
@@ -273,29 +273,29 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
 
           {/* 正解を表示（不正解時） */}
           {isRevealed && !isCorrect && (
-            <div className="mt-1 p-2 bg-green-50 rounded-lg">
-              <p className="text-green-800 text-sm">{question.correctOrder.join(' ')}</p>
+            <div className="mt-1 p-1 bg-green-50 rounded">
+              <p className="text-green-800 text-xs">{question.correctOrder.join(' ')}</p>
             </div>
           )}
         </div>
 
         {/* 残りの単語 - 単語プール */}
-        <div className="flex-1">
+        <div className="flex-1 min-h-0">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-gray-500">単語を選択</p>
+            <p className="text-[10px] text-gray-500">単語を選択</p>
             {!isRevealed && selectedWords.length > 0 && (
               <button
                 onClick={handleReset}
-                className="text-xs text-purple-600 flex items-center gap-1 active:text-purple-700"
+                className="text-[10px] text-purple-600 flex items-center gap-0.5 active:text-purple-700"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-2.5 h-2.5" />
                 リセット
               </button>
             )}
           </div>
           <div
             ref={wordPoolRef}
-            className={`flex flex-wrap gap-1.5 min-h-[44px] p-2 rounded-lg transition-all ${
+            className={`flex flex-wrap gap-1 min-h-[36px] p-1.5 rounded transition-all ${
               dragState.isDragging && dragState.sourceType === 'selected'
                 ? 'bg-gray-100 border-2 border-dashed border-gray-300'
                 : 'bg-gray-50'
@@ -312,7 +312,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                   key={`remaining-${index}`}
                   onTouchStart={(e) => handleTouchStart(e, word, index, 'remaining')}
                   onClick={() => !dragState.isDragging && handleTap(word, index, 'remaining')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
+                  className={`px-2 py-1 rounded text-xs font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
                     isBeingDragged
                       ? 'opacity-30'
                       : isRevealed
@@ -324,41 +324,38 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                 </div>
               );
             })}
-            {remainingWords.length === 0 && !dragState.isDragging && (
-              <p className="text-gray-400 text-xs">すべて選択済み</p>
-            )}
           </div>
         </div>
       </div>
 
       {/* 固定ボタンエリア */}
-      <div className="flex-shrink-0 pt-2">
+      <div className="flex-shrink-0 pt-1">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={selectedWords.length !== question.correctOrder.length}
-            className="w-full bg-purple-600 hover:bg-purple-700"
+            className="w-full bg-purple-600 hover:bg-purple-700 h-9 text-sm"
           >
             回答する
           </Button>
         ) : (
-          <div className="space-y-2">
+          <div className="flex items-center gap-2">
             <div
-              className={`p-2 rounded-lg text-center ${
+              className={`flex-1 py-1.5 rounded text-center ${
                 isCorrect ? 'bg-green-100' : 'bg-red-100'
               }`}
             >
               <p
-                className={`font-bold ${
+                className={`font-bold text-sm ${
                   isCorrect ? 'text-green-700' : 'text-red-700'
                 }`}
               >
-                {isCorrect ? '正解！' : '不正解...'}
+                {isCorrect ? '正解！' : '不正解'}
               </p>
             </div>
             <Button
               onClick={handleNext}
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 h-9 text-sm"
             >
               次へ
             </Button>
