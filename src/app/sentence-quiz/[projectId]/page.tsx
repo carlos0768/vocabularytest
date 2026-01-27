@@ -6,13 +6,17 @@ import {
   LoadingScreen,
   QuizProgress,
   FillInBlankQuestion,
+  MultiFillInBlankQuestion,
   WordOrderQuestion,
   QuizResult,
 } from '@/components/sentence-quiz';
 import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
-import type { Word, SentenceQuizQuestion, SubscriptionStatus } from '@/types';
+import type { Word, SentenceQuizQuestion, MultiFillInBlankQuestion as MultiFillInBlankQuestionType, SubscriptionStatus } from '@/types';
+
+// 統合された問題タイプ
+type QuizQuestion = SentenceQuizQuestion | MultiFillInBlankQuestionType;
 
 const QUIZ_SIZE = 15; // 1回15問
 const MIN_WORDS_REQUIRED = 10; // 最低10単語必要
@@ -24,7 +28,7 @@ export default function SentenceQuizPage() {
   const { subscription, loading: authLoading, user } = useAuth();
 
   const [allWords, setAllWords] = useState<Word[]>([]);
-  const [questions, setQuestions] = useState<SentenceQuizQuestion[]>([]);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<{ correct: number; total: number }>({
     correct: 0,
@@ -247,15 +251,20 @@ export default function SentenceQuizPage() {
   const currentQuestion = questions[currentIndex];
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0 touch-none">
+    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden fixed inset-0 touch-none">
       <QuizProgress
         currentIndex={currentIndex}
         total={questions.length}
         onClose={handleGoHome}
       />
 
-      <main className="flex-1 flex flex-col px-4 pb-4 min-h-0 overflow-hidden">
-        {currentQuestion.type === 'fill-in-blank' ? (
+      <main className="flex-1 flex flex-col px-4 pb-4 min-h-0">
+        {currentQuestion.type === 'multi-fill-in-blank' ? (
+          <MultiFillInBlankQuestion
+            question={currentQuestion}
+            onAnswer={handleAnswer}
+          />
+        ) : currentQuestion.type === 'fill-in-blank' ? (
           <FillInBlankQuestion
             question={currentQuestion}
             onAnswer={handleAnswer}

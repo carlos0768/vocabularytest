@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import OpenAI from 'openai';
 import { z } from 'zod';
-import type { SentenceQuizQuestion, FillInBlankQuestion, WordOrderQuestion, WordStatus } from '@/types';
+import { generateWordEmbedding } from '@/lib/embeddings';
+import type {
+  SentenceQuizQuestion,
+  FillInBlankQuestion,
+  WordOrderQuestion,
+  MultiFillInBlankQuestion,
+  EnhancedBlankSlot,
+  VectorSearchResult,
+  BlankPrediction,
+} from '@/types';
 
 // リクエストスキーマ
 const requestSchema = z.object({
@@ -11,10 +20,12 @@ const requestSchema = z.object({
     english: z.string(),
     japanese: z.string(),
     status: z.enum(['new', 'review', 'mastered']),
-  })).min(1).max(15), // 最大15単語
+  })).min(1).max(15),
+  // 新機能: VectorDB検索を使うかどうか（デフォルトはtrue）
+  useVectorSearch: z.boolean().optional().default(true),
 });
 
-// AIレスポンススキーマ（穴埋め問題）
+// AIレスポンススキーマ（従来の穴埋め問題）
 const fillInBlankAISchema = z.object({
   sentence: z.string(),
   blanks: z.array(z.object({
@@ -24,36 +35,79 @@ const fillInBlankAISchema = z.object({
   japaneseMeaning: z.string(),
 });
 
+// AIレスポンススキーマ（複数空欄問題 - Phase 1）
+// 最低1つの空欄を受け入れ（理想は3つだが、LLMが少なく返す場合もある）
+const multiBlankAISchema = z.object({
+  sentence: z.string(),
+  blanks: z.array(z.object({
+    position: z.number(),
+    word: z.string(),
+    type: z.enum(['target', 'content', 'grammar']),
+    contextHint: z.string().optional(),
+  })).min(1), // 最低1つに緩和（少なくともtargetは必要）
+  japaneseMeaning: z.string(),
+});
+
+// AIレスポンススキーマ（誤答生成 - Phase 3）
+const distractorsAISchema = z.object({
+  options: z.array(z.string()).length(4),
+});
+
 // AIレスポンススキーマ（並び替え問題）
 const wordOrderAISchema = z.object({
   correctOrder: z.array(z.string()).min(4),
   japaneseMeaning: z.string(),
 });
 
-// 穴埋め問題生成プロンプト
-const FILL_IN_BLANK_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、Duolingo形式の穴埋め問題を生成してください。
+// 複数空欄問題生成プロンプト（Phase 1）
+const MULTI_BLANK_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、【必ず3つの空欄】がある穴埋め問題を生成してください。
+
+【重要：空欄は絶対に3つ必要です】
+blanks配列には必ず3つの要素を入れてください。2つや1つではエラーになります。
+
+【最重要：空欄は必ず単語1つだけ】
+- 各空欄には必ず「単語1つだけ」を入れてください
+- 熟語やフレーズ（例: "look forward to", "take care of"）を1つの空欄にしないでください
+- 熟語が与えられた場合は、その中の1単語だけを空欄にし、残りは文中に表示してください
+- 例: "look forward to" → "I ___ forward to meeting you." (空欄は "look" のみ)
 
 【ルール】
-1. 与えられた単語を必ず含む、自然で実用的な例文を作成
+1. 与えられた単語/熟語を必ず含む、自然で実用的な例文を作成
 2. 例文は中学〜高校レベルの難易度
-3. 空欄は1つだけ（対象単語の部分）
-4. 選択肢は4つ（1つが正解、3つが誤答）
+3. 空欄は【必ず3つ】：
+   - 空欄1（type: "target"）: 与えられた単語（熟語の場合は核となる1単語のみ）【必須】
+   - 空欄2（type: "content"）: 文脈に合う内容語（名詞、動詞、形容詞など）【必須】
+   - 空欄3（type: "grammar"）: 文法的要素（前置詞、副詞、冠詞、時を表す語など）【必須】
+4. content空欄には、その位置に最も適切な単語を予測して入れてください
+5. 文は十分な長さ（7単語以上）にして、3つの空欄が自然に入るようにしてください
 
-【選択肢のルール - 重要】
-誤答は単純な活用形変化（三人称形、過去形等）を使わないでください！
-意味が似ている別の単語、または同じ品詞で文脈に合いそうな別の単語を使用してください。
+【出力形式】JSON - blanks配列は必ず3要素、各wordは単語1つのみ
+{
+  "sentence": "I ___ to the ___ every ___.",
+  "blanks": [
+    { "position": 0, "word": "go", "type": "target" },
+    { "position": 1, "word": "library", "type": "content", "contextHint": "場所" },
+    { "position": 2, "word": "day", "type": "grammar" }
+  ],
+  "japaneseMeaning": "私は毎日図書館に行く。"
+}`;
 
-例: "go"の誤答 → "come", "arrive", "leave"（×goes, went, goingは禁止）
-例: "happy"の誤答 → "glad", "pleased", "excited"（×happier, happiestは禁止）
-例: "quickly"の誤答 → "slowly", "carefully", "suddenly"
+// 誤答生成プロンプト（Phase 3）
+const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問題の誤答選択肢を生成してください。
+
+【最重要：選択肢は必ず単語1つだけ】
+- 各選択肢は必ず「単語1つだけ」にしてください
+- 熟語やフレーズを選択肢にしないでください
+
+【ルール】
+1. 正解を含めて4つの選択肢を生成（全て単語1つのみ）
+2. 誤答は単純な活用形変化（三人称形、過去形等）を使わない
+3. 文脈的に意味が通りそうだが間違っている単語を選ぶ
+4. 難易度は中学〜高校レベル
 
 【出力形式】JSON
 {
-  "sentence": "She ___ to the store to buy some food.",
-  "blanks": [
-    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned"] }
-  ],
-  "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
+  "options": ["正解", "誤答1", "誤答2", "誤答3"]
 }`;
 
 // 並び替え問題生成プロンプト
@@ -81,7 +135,197 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-// 穴埋め問題を生成
+// VectorDB検索でユーザーの学習済み単語から類似語を探す
+async function findSimilarUserWord(
+  supabase: ReturnType<typeof createRouteHandlerClient> extends Promise<infer T> ? T : never,
+  userId: string,
+  prediction: string,
+  excludeWordIds: string[]
+): Promise<VectorSearchResult | null> {
+  try {
+    // 予測単語のembeddingを生成
+    const embedding = await generateWordEmbedding(prediction);
+
+    // pgvector関数を呼び出して類似単語を検索
+    const { data, error } = await supabase.rpc('match_words_by_embedding', {
+      query_embedding: embedding,
+      user_id_filter: userId,
+      exclude_word_ids: excludeWordIds,
+      match_threshold: 0.5,
+      match_count: 1,
+    });
+
+    if (error) {
+      console.error('VectorDB search error:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    return {
+      id: data[0].id,
+      projectId: data[0].project_id,
+      english: data[0].english,
+      japanese: data[0].japanese,
+      similarity: data[0].similarity,
+    };
+  } catch (error) {
+    console.error('findSimilarUserWord error:', error);
+    return null;
+  }
+}
+
+// Phase 3: 誤答選択肢を生成
+async function generateDistractors(
+  openai: OpenAI,
+  correctAnswer: string,
+  context: string,
+  blankType: 'target' | 'content' | 'grammar'
+): Promise<string[]> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: DISTRACTORS_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `文: "${context}"
+空欄タイプ: ${blankType}
+正解: "${correctAnswer}"
+
+この空欄に対する4択（正解1つ + 誤答3つ）を生成してください。`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      return [correctAnswer, 'option1', 'option2', 'option3'];
+    }
+
+    const parsed = JSON.parse(content);
+    const validated = distractorsAISchema.parse(parsed);
+
+    // 正解が含まれていることを確認
+    if (!validated.options.includes(correctAnswer)) {
+      validated.options[0] = correctAnswer;
+    }
+
+    return shuffleArray(validated.options);
+  } catch (error) {
+    console.error('generateDistractors error:', error);
+    return shuffleArray([correctAnswer, 'alternative1', 'alternative2', 'alternative3']);
+  }
+}
+
+// 複数空欄穴埋め問題を生成（VectorDB統合）
+async function generateMultiFillInBlank(
+  openai: OpenAI,
+  supabase: ReturnType<typeof createRouteHandlerClient> extends Promise<infer T> ? T : never,
+  userId: string,
+  wordId: string,
+  english: string,
+  japanese: string,
+  excludeWordIds: string[]
+): Promise<MultiFillInBlankQuestion | null> {
+  try {
+    // ============================================
+    // Phase 1: LLMで3空欄の例文を生成（予測付き）
+    // ============================================
+    const phase1Response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: MULTI_BLANK_SYSTEM_PROMPT },
+        { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+    });
+
+    const phase1Content = phase1Response.choices[0]?.message?.content;
+    if (!phase1Content) return null;
+
+    const phase1Parsed = JSON.parse(phase1Content);
+    const phase1Validated = multiBlankAISchema.parse(phase1Parsed);
+
+    // 空欄数が3未満の場合はログ出力（デバッグ用）
+    if (phase1Validated.blanks.length < 3) {
+      console.warn(`LLM returned ${phase1Validated.blanks.length} blanks instead of 3 for word: ${english}`);
+    }
+
+    // ============================================
+    // Phase 2: VectorDB検索でcontent空欄の単語を置換
+    // ============================================
+    const blanks: EnhancedBlankSlot[] = [];
+    const relatedWordIds: string[] = [];
+
+    for (const blankPrediction of phase1Validated.blanks) {
+      let finalWord = blankPrediction.word;
+      let source: EnhancedBlankSlot['source'] = blankPrediction.type === 'target'
+        ? 'target'
+        : blankPrediction.type === 'grammar'
+          ? 'grammar'
+          : 'llm-predicted';
+      let sourceWordId: string | undefined;
+      let sourceJapanese: string | undefined;
+
+      // content空欄の場合、VectorDB検索を試みる
+      if (blankPrediction.type === 'content') {
+        const vectorResult = await findSimilarUserWord(
+          supabase,
+          userId,
+          blankPrediction.word,
+          [...excludeWordIds, wordId]
+        );
+
+        if (vectorResult) {
+          // VectorDBでマッチした単語を使用
+          finalWord = vectorResult.english;
+          source = 'vector-matched';
+          sourceWordId = vectorResult.id;
+          sourceJapanese = vectorResult.japanese;
+          relatedWordIds.push(vectorResult.id);
+        }
+      }
+
+      // Phase 3: 誤答選択肢を生成
+      const options = await generateDistractors(
+        openai,
+        finalWord,
+        phase1Validated.sentence,
+        blankPrediction.type
+      );
+
+      blanks.push({
+        index: blankPrediction.position,
+        correctAnswer: finalWord,
+        options,
+        source,
+        sourceWordId,
+        sourceJapanese,
+      });
+    }
+
+    return {
+      type: 'multi-fill-in-blank',
+      wordId,
+      targetWord: english,
+      sentence: phase1Validated.sentence,
+      blanks,
+      japaneseMeaning: phase1Validated.japaneseMeaning,
+      relatedWordIds,
+    };
+  } catch (error) {
+    console.error('Multi fill-in-blank generation error:', error);
+    return null;
+  }
+}
+
+// 従来の穴埋め問題を生成（フォールバック用）
 async function generateFillInBlank(
   openai: OpenAI,
   wordId: string,
@@ -92,7 +336,32 @@ async function generateFillInBlank(
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: FILL_IN_BLANK_SYSTEM_PROMPT },
+        {
+          role: 'system',
+          content: `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、Duolingo形式の穴埋め問題を生成してください。
+
+【ルール】
+1. 与えられた単語を必ず含む、自然で実用的な例文を作成
+2. 例文は中学〜高校レベルの難易度
+3. 空欄は1つだけ（対象単語の部分）
+4. 選択肢は4つ（1つが正解、3つが誤答）
+
+【選択肢のルール - 重要】
+誤答は単純な活用形変化（三人称形、過去形等）を使わないでください！
+意味が似ている別の単語、または同じ品詞で文脈に合いそうな別の単語を使用してください。
+
+例: "go"の誤答 → "come", "arrive", "leave"（×goes, went, goingは禁止）
+例: "happy"の誤答 → "glad", "pleased", "excited"（×happier, happiestは禁止）
+
+【出力形式】JSON
+{
+  "sentence": "She ___ to the store to buy some food.",
+  "blanks": [
+    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned"] }
+  ],
+  "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
+}`,
+        },
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
       ],
       response_format: { type: 'json_object' },
@@ -219,7 +488,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { words } = parseResult.data;
+    const { words, useVectorSearch } = parseResult.data;
 
     // ============================================
     // 4. CHECK OPENAI API KEY
@@ -237,14 +506,30 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. GENERATE QUESTIONS
     // ============================================
-    const questions: SentenceQuizQuestion[] = [];
+    const questions: (SentenceQuizQuestion | MultiFillInBlankQuestion)[] = [];
+    const allWordIds = words.map(w => w.id);
 
     // 並列で問題生成（パフォーマンス向上）
     const generatePromises = words.map(async (word) => {
-      const questionType: 'fill-in-blank' | 'word-order' =
-        word.status === 'new' ? 'fill-in-blank' : 'word-order';
+      // status === 'new' なら穴埋め問題、それ以外は並び替え問題
+      const shouldUseFillIn = word.status === 'new';
 
-      if (questionType === 'fill-in-blank') {
+      if (shouldUseFillIn) {
+        // VectorDB検索を使う場合は複数空欄問題を生成
+        if (useVectorSearch) {
+          const multiResult = await generateMultiFillInBlank(
+            openai,
+            supabase,
+            user.id,
+            word.id,
+            word.english,
+            word.japanese,
+            allWordIds
+          );
+          if (multiResult) return multiResult;
+        }
+
+        // フォールバック: 従来の1空欄問題
         return generateFillInBlank(openai, word.id, word.english, word.japanese);
       } else {
         return generateWordOrder(openai, word.id, word.english, word.japanese);
