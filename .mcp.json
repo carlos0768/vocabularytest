@@ -3,6 +3,11 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=ryoyvpayoacgeqgoehgk"
+    },
+    "scanvocab-context": {
+      "type": "http",
+      "url": "http://localhost:5000",
+      "description": "ScanVocab context-aware quiz generation with vector search"
     }
   }
 }

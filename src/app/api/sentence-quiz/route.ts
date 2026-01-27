@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/genai';
 import { z } from 'zod';
 import type { SentenceQuizQuestion, FillInBlankQuestion, WordOrderQuestion, WordStatus } from '@/types';
+import { searchRelatedWords, loadUserWords } from '@/lib/mcp/client';
 
 // リクエストスキーマ
 const requestSchema = z.object({
@@ -30,33 +31,30 @@ const wordOrderAISchema = z.object({
   japaneseMeaning: z.string(),
 });
 
-// 穴埋め問題生成プロンプト
+// 穴埋め問題生成プロンプト（MCP統合版）
 const FILL_IN_BLANK_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、Duolingo形式の穴埋め問題を生成してください。
 
 【ルール】
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成
 2. 例文は中学〜高校レベルの難易度
 3. 空欄は1つだけ（対象単語の部分）
-4. 選択肢は4つ（1つが正解、3つが誤答）
+4. 選択肢は4つ（1つが正解、3つがユーザーの既習単語）
 
 【選択肢のルール - 重要】
-誤答は単純な活用形変化（三人称形、過去形等）を使わないでください！
-意味が似ている別の単語、または同じ品詞で文脈に合いそうな別の単語を使用してください。
-
-例: "go"の誤答 → "come", "arrive", "leave"（×goes, went, goingは禁止）
-例: "happy"の誤答 → "glad", "pleased", "excited"（×happier, happiestは禁止）
-例: "quickly"の誤答 → "slowly", "carefully", "suddenly"
+- 正解: 対象の単語
+- 誤答3つ: ユーザーが既に学習した関連単語を使用してください
+  これにより、ユーザーの既習知識を復習できる問題になります
 
 【出力形式】JSON
 {
   "sentence": "She ___ to the store to buy some food.",
   "blanks": [
-    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned"] }
+    { "correctAnswer": "went", "options": ["went", "visited", "attended", "traveled"] }
   ],
   "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
 }`;
 
-// 並び替え問題生成プロンプト
+// 並び替え問題生成プロンプト（MCP統合版）
 const WORD_ORDER_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、Duolingo形式の並び替え問題を生成してください。
 
 【ルール】
@@ -81,27 +79,40 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-// 穴埋め問題を生成
+// 穴埋め問題を生成（Gemini + MCP統合版）
 async function generateFillInBlank(
-  openai: OpenAI,
+  genai: GoogleGenerativeAI,
   wordId: string,
   english: string,
-  japanese: string
+  japanese: string,
+  relatedWords: Array<{ english: string; japanese: string }>
 ): Promise<FillInBlankQuestion | null> {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: FILL_IN_BLANK_SYSTEM_PROMPT },
-        { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
+    const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    // MCPから取得した関連単語を選択肢に利用
+    const relatedWordsList = relatedWords
+      .slice(0, 3)
+      .map(w => w.english)
+      .join(', ');
+
+    const userMessage = `単語: "${english}" (意味: ${japanese})
+ユーザーの既習関連単語: ${relatedWordsList}
+
+上記の関連単語を誤答として使用して、穴埋め問題を生成してください。`;
+
+    const response = await model.generateContent({
+      contents: [
+        { role: 'user', parts: [{ text: FILL_IN_BLANK_SYSTEM_PROMPT }] },
+        { role: 'user', parts: [{ text: userMessage }] },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
+      generationConfig: {
+        temperature: 0.7,
+        responseMimeType: 'application/json',
+      },
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) return null;
-
+    const content = response.response.text();
     const parsed = JSON.parse(content);
     const validated = fillInBlankAISchema.parse(parsed);
 
@@ -125,25 +136,26 @@ async function generateFillInBlank(
 
 // 並び替え問題を生成
 async function generateWordOrder(
-  openai: OpenAI,
+  genai: GoogleGenerativeAI,
   wordId: string,
   english: string,
   japanese: string
 ): Promise<WordOrderQuestion | null> {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: WORD_ORDER_SYSTEM_PROMPT },
-        { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
+    const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const response = await model.generateContent({
+      contents: [
+        { role: 'user', parts: [{ text: WORD_ORDER_SYSTEM_PROMPT }] },
+        { role: 'user', parts: [{ text: `単語: "${english}" (意味: ${japanese})` }] },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
+      generationConfig: {
+        temperature: 0.7,
+        responseMimeType: 'application/json',
+      },
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) return null;
-
+    const content = response.response.text();
     const parsed = JSON.parse(content);
     const validated = wordOrderAISchema.parse(parsed);
 
@@ -222,20 +234,30 @@ export async function POST(request: NextRequest) {
     const { words } = parseResult.data;
 
     // ============================================
-    // 4. CHECK OPENAI API KEY
+    // 4. CHECK GEMINI API KEY
     // ============================================
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
+    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!geminiApiKey) {
       return NextResponse.json(
-        { success: false, error: 'OpenAI APIキーが設定されていません' },
+        { success: false, error: 'Gemini APIキーが設定されていません' },
         { status: 500 }
       );
     }
 
-    const openai = new OpenAI({ apiKey: openaiApiKey });
+    const genai = new GoogleGenerativeAI({ apiKey: geminiApiKey });
 
     // ============================================
-    // 5. GENERATE QUESTIONS
+    // 5. LOAD USER WORDS TO MCP SERVER
+    // ============================================
+    try {
+      await loadUserWords(user.id, words);
+    } catch (error) {
+      console.warn('Failed to load user words to MCP:', error);
+      // Continue anyway - MCP is optional for graceful degradation
+    }
+
+    // ============================================
+    // 6. GENERATE QUESTIONS
     // ============================================
     const questions: SentenceQuizQuestion[] = [];
 
@@ -244,10 +266,22 @@ export async function POST(request: NextRequest) {
       const questionType: 'fill-in-blank' | 'word-order' =
         word.status === 'new' ? 'fill-in-blank' : 'word-order';
 
+      let relatedWords: Array<{ english: string; japanese: string }> = [];
+
+      // MCPから関連単語を取得
       if (questionType === 'fill-in-blank') {
-        return generateFillInBlank(openai, word.id, word.english, word.japanese);
+        try {
+          relatedWords = await searchRelatedWords(user.id, word.english, 3);
+        } catch (error) {
+          console.warn(`Failed to get related words for ${word.english}:`, error);
+          // Continue without related words
+        }
+      }
+
+      if (questionType === 'fill-in-blank') {
+        return generateFillInBlank(genai, word.id, word.english, word.japanese, relatedWords);
       } else {
-        return generateWordOrder(openai, word.id, word.english, word.japanese);
+        return generateWordOrder(genai, word.id, word.english, word.japanese);
       }
     });
 
@@ -268,7 +302,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 6. RETURN SUCCESS RESPONSE
+    // 7. RETURN SUCCESS RESPONSE
     // ============================================
     return NextResponse.json({
       success: true,
