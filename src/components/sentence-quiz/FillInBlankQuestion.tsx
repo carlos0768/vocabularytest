@@ -278,8 +278,8 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
         </div>
       )}
 
-      {/* スクロール可能なコンテンツエリア */}
-      <div className="flex-1 overflow-y-auto pb-4">
+      {/* コンテンツエリア（スクロール無効） */}
+      <div className="flex-1 overflow-hidden pb-4">
         {/* 日本語訳 */}
         <div className="mb-4 p-3 bg-purple-50 rounded-xl">
           <p className="text-purple-800 font-medium">{question.japaneseMeaning}</p>

@@ -247,14 +247,14 @@ export default function SentenceQuizPage() {
   const currentQuestion = questions[currentIndex];
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0 touch-none">
       <QuizProgress
         currentIndex={currentIndex}
         total={questions.length}
         onClose={handleGoHome}
       />
 
-      <main className="flex-1 flex flex-col p-6 overflow-y-auto pb-24">
+      <main className="flex-1 flex flex-col p-6 overflow-hidden">
         {/* 学習対象の単語を表示 */}
         <div className="mb-4 text-center">
           <span className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
