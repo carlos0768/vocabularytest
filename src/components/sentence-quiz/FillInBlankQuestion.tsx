@@ -279,17 +279,17 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       )}
 
       {/* コンテンツエリア（スクロール無効） */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {/* 日本語訳 */}
-        <div className="mb-2 p-2 bg-purple-50 rounded-lg">
-          <p className="text-purple-800 font-medium text-sm">{question.japaneseMeaning}</p>
+        <div className="mb-1 p-1.5 bg-purple-50 rounded">
+          <p className="text-purple-800 font-medium text-xs">{question.japaneseMeaning}</p>
         </div>
 
         {/* 例文（空欄付き） */}
-        <div className="mb-2 text-center py-2">{renderSentence()}</div>
+        <div className="mb-1 text-center py-1">{renderSentence()}</div>
 
         {/* 選択肢エリア */}
-        <div className="flex-1 grid grid-cols-2 gap-1.5 content-start">
+        <div className="grid grid-cols-2 gap-1 content-start">
           {allOptions.map((option) => {
             const isUsed = usedOptions.includes(option);
             const isSelected = selectedOption === option;
@@ -300,7 +300,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
                 key={option}
                 onTouchStart={(e) => handleTouchStart(e, option)}
                 onClick={() => !dragState.isDragging && handleTapOption(option)}
-                className={`py-2 px-3 rounded-lg font-medium transition-all text-center text-sm select-none cursor-grab active:cursor-grabbing ${
+                className={`py-1.5 px-2 rounded font-medium transition-all text-center text-xs select-none cursor-grab active:cursor-grabbing ${
                   isBeingDragged
                     ? 'opacity-30'
                     : isRevealed
@@ -308,7 +308,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
                     : isUsed
                     ? 'bg-gray-200 text-gray-400 opacity-50'
                     : isSelected
-                    ? 'bg-purple-600 text-white border-2 border-purple-600 scale-105 shadow-lg'
+                    ? 'bg-purple-600 text-white border-2 border-purple-600'
                     : 'bg-white text-gray-700 border border-gray-200 active:bg-purple-50 active:border-purple-400'
                 }`}
               >
@@ -320,33 +320,33 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       </div>
 
       {/* 固定ボタンエリア */}
-      <div className="flex-shrink-0 pt-2">
+      <div className="flex-shrink-0 pt-1">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={filledBlanks.some((b) => b === null)}
-            className="w-full bg-purple-600 hover:bg-purple-700"
+            className="w-full bg-purple-600 hover:bg-purple-700 h-9 text-sm"
           >
             回答する
           </Button>
         ) : (
-          <div className="space-y-2">
+          <div className="flex items-center gap-2">
             <div
-              className={`p-2 rounded-lg text-center ${
+              className={`flex-1 py-1.5 rounded text-center ${
                 isCorrect ? 'bg-green-100' : 'bg-red-100'
               }`}
             >
               <p
-                className={`font-bold ${
+                className={`font-bold text-sm ${
                   isCorrect ? 'text-green-700' : 'text-red-700'
                 }`}
               >
-                {isCorrect ? '正解！' : '不正解...'}
+                {isCorrect ? '正解！' : '不正解'}
               </p>
             </div>
             <Button
               onClick={handleNext}
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 h-9 text-sm"
             >
               次へ
             </Button>

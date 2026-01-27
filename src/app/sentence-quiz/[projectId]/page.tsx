@@ -254,14 +254,7 @@ export default function SentenceQuizPage() {
         onClose={handleGoHome}
       />
 
-      <main className="flex-1 flex flex-col px-4 py-2 overflow-hidden">
-        {/* 学習対象の単語を表示 */}
-        <div className="mb-2 text-center">
-          <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-            {currentQuestion.targetWord}
-          </span>
-        </div>
-
+      <main className="flex-1 flex flex-col px-3 pb-3 overflow-hidden">
         {currentQuestion.type === 'fill-in-blank' ? (
           <FillInBlankQuestion
             question={currentQuestion}
