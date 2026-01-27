@@ -216,7 +216,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       {/* コンテンツエリア（スクロール無効） */}
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {/* 日本語訳（ヒント） */}
-        <div className="mb-1 p-1.5 bg-purple-50 rounded">
+        <div className="mb-1 p-2 bg-purple-50 rounded-xl">
           <p className="text-purple-800 font-medium text-xs">{question.japaneseMeaning}</p>
         </div>
 
@@ -224,7 +224,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
         <div className="mb-1">
           <div
             ref={dropZoneRef}
-            className={`min-h-[40px] p-1.5 rounded border-2 border-dashed transition-all ${
+            className={`min-h-[44px] p-2 rounded-xl border-2 border-dashed transition-all ${
               isRevealed
                 ? isCorrect
                   ? 'border-green-500 bg-green-50'
@@ -253,7 +253,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                       key={`selected-${index}`}
                       onTouchStart={(e) => handleTouchStart(e, word, index, 'selected')}
                       onClick={() => !dragState.isDragging && handleTap(word, index, 'selected')}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
+                      className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
                         isBeingDragged
                           ? 'opacity-30'
                           : isWordCorrect
@@ -273,7 +273,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
 
           {/* 正解を表示（不正解時） */}
           {isRevealed && !isCorrect && (
-            <div className="mt-1 p-1 bg-green-50 rounded">
+            <div className="mt-1 p-2 bg-green-50 rounded-xl">
               <p className="text-green-800 text-xs">{question.correctOrder.join(' ')}</p>
             </div>
           )}
@@ -295,7 +295,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
           </div>
           <div
             ref={wordPoolRef}
-            className={`flex flex-wrap gap-1 min-h-[36px] p-1.5 rounded transition-all ${
+            className={`flex flex-wrap gap-1.5 min-h-[40px] p-2 rounded-xl transition-all ${
               dragState.isDragging && dragState.sourceType === 'selected'
                 ? 'bg-gray-100 border-2 border-dashed border-gray-300'
                 : 'bg-gray-50'
@@ -312,7 +312,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                   key={`remaining-${index}`}
                   onTouchStart={(e) => handleTouchStart(e, word, index, 'remaining')}
                   onClick={() => !dragState.isDragging && handleTap(word, index, 'remaining')}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
+                  className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
                     isBeingDragged
                       ? 'opacity-30'
                       : isRevealed
@@ -329,19 +329,19 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       </div>
 
       {/* 固定ボタンエリア */}
-      <div className="flex-shrink-0 pt-1">
+      <div className="flex-shrink-0 pt-2">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={selectedWords.length !== question.correctOrder.length}
-            className="w-full bg-purple-600 hover:bg-purple-700 h-9 text-sm"
+            className="w-full bg-purple-600 hover:bg-purple-700 h-10 text-sm rounded-xl"
           >
             回答する
           </Button>
         ) : (
           <div className="flex items-center gap-2">
             <div
-              className={`flex-1 py-1.5 rounded text-center ${
+              className={`flex-1 py-2 rounded-xl text-center ${
                 isCorrect ? 'bg-green-100' : 'bg-red-100'
               }`}
             >
@@ -355,7 +355,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
             </div>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 h-9 text-sm"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 h-10 text-sm rounded-xl"
             >
               次へ
             </Button>
