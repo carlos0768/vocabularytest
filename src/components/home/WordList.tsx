@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { BookOpen, ChevronDown, ChevronUp, Flag, Edit2, Trash2, X, Save, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { BookOpen, ChevronDown, ChevronUp, Flag, Edit2, Trash2, X, Save, Plus, Search } from 'lucide-react';
 import type { Word } from '@/types';
 
 interface WordItemProps {
@@ -132,12 +132,28 @@ export function WordList({
   onExpandChange,
 }: WordListProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleToggleExpand = () => {
     const newExpanded = !isExpanded;
     setIsExpanded(newExpanded);
     onExpandChange?.(newExpanded);
+    // Clear search when collapsing
+    if (!newExpanded) {
+      setSearchQuery('');
+    }
   };
+
+  // Filter words by search query
+  const filteredWords = useMemo(() => {
+    if (!searchQuery.trim()) return words;
+    const query = searchQuery.toLowerCase().trim();
+    return words.filter(
+      (word) =>
+        word.english.toLowerCase().includes(query) ||
+        word.japanese.toLowerCase().includes(query)
+    );
+  }, [words, searchQuery]);
 
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
@@ -176,24 +192,58 @@ export function WordList({
         </div>
       </button>
 
-      {/* Word list */}
+      {/* Search bar and Word list */}
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-2 max-h-[400px] overflow-y-auto">
-          {words.length === 0 ? (
-            <p className="text-center text-gray-500 py-4">単語がありません</p>
-          ) : (
-            words.map((word) => (
-              <WordItem
-                key={word.id}
-                word={word}
-                isEditing={editingWordId === word.id}
-                onEdit={() => onEditStart(word.id)}
-                onCancel={onEditCancel}
-                onSave={(english, japanese) => onSave(word.id, english, japanese)}
-                onDelete={() => onDelete(word.id)}
-                onToggleFavorite={() => onToggleFavorite(word.id)}
+        <div className="px-4 pb-4">
+          {/* Search input */}
+          {words.length > 0 && (
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="単語を検索..."
+                className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            ))
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Word list */}
+          <div className="space-y-2 max-h-[350px] overflow-y-auto">
+            {words.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">単語がありません</p>
+            ) : filteredWords.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">「{searchQuery}」に一致する単語がありません</p>
+            ) : (
+              filteredWords.map((word) => (
+                <WordItem
+                  key={word.id}
+                  word={word}
+                  isEditing={editingWordId === word.id}
+                  onEdit={() => onEditStart(word.id)}
+                  onCancel={onEditCancel}
+                  onSave={(english, japanese) => onSave(word.id, english, japanese)}
+                  onDelete={() => onDelete(word.id)}
+                  onToggleFavorite={() => onToggleFavorite(word.id)}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Search result count */}
+          {searchQuery && filteredWords.length > 0 && (
+            <p className="text-xs text-gray-400 text-center mt-2">
+              {filteredWords.length}件の検索結果
+            </p>
           )}
         </div>
       )}
