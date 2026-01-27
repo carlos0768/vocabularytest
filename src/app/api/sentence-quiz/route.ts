@@ -108,15 +108,20 @@ const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問
 【重要：正解と同じ意味の単語は誤答にしない】
 - 誤答には、正解と同じ意味や類義語を含めないでください
 - 例: 正解が "favor" なら、"support", "back", "endorse" は誤答に使わない
-- 例: 正解が "big" なら、"large", "huge", "enormous" は誤答に使わない
-- 誤答は文脈に入れると明らかに意味がおかしくなる単語を選んでください
+
+【重要：文脈に関連する単語を誤答にする】
+- 誤答は文の内容やトピックに関連した単語を選んでください
+- 全く無関係な単語（例: 料理の文に "gaseous"、スポーツの文に "liquid"）は使わない
+- 誤答は「惜しいけど間違い」という感じの単語を選ぶ
+- 例: "practice speaking" の誤答なら "writing", "reading", "listening" など関連する活動を選ぶ
 
 【ルール】
 1. 正解を含めて4つの選択肢を生成（全て単語1つのみ）
 2. 誤答は単純な活用形変化（三人称形、過去形等）を使わない
 3. 誤答は正解の類義語を絶対に使わない
-4. 誤答は同じ品詞だが、文脈に入れると意味が通らない単語を選ぶ
-5. 難易度は中学〜高校レベル
+4. 誤答は同じ品詞で、文の内容に関連するが正解ではない単語を選ぶ
+5. 誤答に全く無関係な単語（科学用語、専門用語など）を使わない
+6. 難易度は中学〜高校レベル
 
 【出力形式】JSON
 {
@@ -160,11 +165,12 @@ async function findSimilarUserWord(
     const embedding = await generateWordEmbedding(prediction);
 
     // pgvector関数を呼び出して類似単語を検索
+    // 類似度しきい値を0.75に設定（高い類似度のみ採用）
     const { data, error } = await supabase.rpc('match_words_by_embedding', {
       query_embedding: embedding,
       user_id_filter: userId,
       exclude_word_ids: excludeWordIds,
-      match_threshold: 0.5,
+      match_threshold: 0.75, // 高いしきい値で厳密にマッチ
       match_count: 1,
     });
 
@@ -176,6 +182,9 @@ async function findSimilarUserWord(
     if (!data || data.length === 0) {
       return null;
     }
+
+    // 類似度が十分に高いかログ出力（デバッグ用）
+    console.log(`VectorDB match: "${prediction}" → "${data[0].english}" (similarity: ${data[0].similarity.toFixed(3)})`);
 
     return {
       id: data[0].id,
