@@ -28,6 +28,14 @@ export type {
   AISentenceWordOrder,
   SentenceQuizWordInput,
   SentenceQuizResponse,
+  // Enhanced Sentence Quiz types (VectorDB)
+  BlankSource,
+  EnhancedBlankSlot,
+  MultiFillInBlankQuestion,
+  VectorSearchResult,
+  BlankPrediction,
+  AIMultiBlankResponse,
+  EnhancedSentenceQuizQuestion,
 } from '../../shared/types';
 
 // ============ Web-Specific Types ============

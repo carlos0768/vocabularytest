@@ -213,8 +213,8 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
         </div>
       )}
 
-      {/* コンテンツエリア（スクロール無効） */}
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+      {/* コンテンツエリア */}
+      <div className="flex-1 flex flex-col overflow-auto min-h-0">
         {/* 日本語訳（ヒント） */}
         <div className="mb-1 p-2 bg-purple-50 rounded-xl">
           <p className="text-purple-800 font-medium text-xs">{question.japaneseMeaning}</p>
@@ -328,25 +328,25 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
         </div>
       </div>
 
-      {/* 固定ボタンエリア */}
-      <div className="flex-shrink-0 pt-2">
+      {/* 固定ボタンエリア - 常に下部に表示 */}
+      <div className="flex-shrink-0 pt-2 pb-safe mt-auto bg-gray-50">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={selectedWords.length !== question.correctOrder.length}
-            className="w-full bg-purple-600 hover:bg-purple-700 h-10 text-sm rounded-xl"
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:text-gray-500 h-12 text-base font-bold rounded-xl"
           >
             回答する
           </Button>
         ) : (
           <div className="flex items-center gap-2">
             <div
-              className={`flex-1 py-2 rounded-xl text-center ${
+              className={`flex-1 py-3 rounded-xl text-center ${
                 isCorrect ? 'bg-green-100' : 'bg-red-100'
               }`}
             >
               <p
-                className={`font-bold text-sm ${
+                className={`font-bold text-base ${
                   isCorrect ? 'text-green-700' : 'text-red-700'
                 }`}
               >
@@ -355,7 +355,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
             </div>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 h-10 text-sm rounded-xl"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 h-12 text-base font-bold rounded-xl"
             >
               次へ
             </Button>

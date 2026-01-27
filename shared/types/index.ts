@@ -213,3 +213,77 @@ export interface SentenceQuizWordInput {
 export interface SentenceQuizResponse {
   questions: SentenceQuizQuestion[];
 }
+
+// ============ Enhanced Sentence Quiz Types (VectorDB) ============
+
+/**
+ * 空欄のソース情報
+ * - target: 指定された学習単語
+ * - vector-matched: VectorDB検索でマッチした過去学習単語
+ * - llm-predicted: LLMが予測した単語（VectorDBでマッチなし）
+ * - grammar: 前置詞、副詞、冠詞などの文法要素
+ */
+export type BlankSource = 'target' | 'vector-matched' | 'llm-predicted' | 'grammar';
+
+/**
+ * 拡張版空欄情報（ソース追跡付き）
+ */
+export interface EnhancedBlankSlot {
+  index: number;           // 文中の空欄番号（0, 1, 2...）
+  correctAnswer: string;   // 正解
+  options: string[];       // 4択（正解含む、シャッフル済み）
+  source: BlankSource;     // この空欄の出典
+  sourceWordId?: string;   // VectorDB検索でマッチした場合の元wordId
+  sourceJapanese?: string; // マッチした単語の日本語訳（復習用表示）
+}
+
+/**
+ * 複数空欄穴埋め問題（VectorDB統合版）
+ */
+export interface MultiFillInBlankQuestion {
+  type: 'multi-fill-in-blank';
+  wordId: string;            // 主となる学習単語ID
+  targetWord: string;        // 学習対象の単語
+  sentence: string;          // 空欄付き文（"I ___ to the ___ every ___."）
+  blanks: EnhancedBlankSlot[]; // 最低3つの空欄情報
+  japaneseMeaning: string;   // 日本語訳
+  relatedWordIds: string[];  // VectorDB検索で使用された単語ID一覧
+}
+
+/**
+ * VectorDB検索結果
+ */
+export interface VectorSearchResult {
+  id: string;
+  projectId: string;
+  english: string;
+  japanese: string;
+  similarity: number;
+}
+
+/**
+ * LLMの空欄予測情報
+ */
+export interface BlankPrediction {
+  position: number;                              // 文中の位置（0, 1, 2...）
+  word: string;                                  // 予測された単語
+  type: 'target' | 'content' | 'grammar';        // 空欄タイプ
+  contextHint?: string;                          // 文脈ヒント（「場所」「時間」など）
+}
+
+/**
+ * AIから返される複数空欄問題データ（Phase 1）
+ */
+export interface AIMultiBlankResponse {
+  sentence: string;          // 空欄付き文
+  blanks: BlankPrediction[]; // 各空欄の予測情報
+  japaneseMeaning: string;   // 日本語訳
+}
+
+/**
+ * 例文クイズの問題（穴埋め、複数空欄穴埋め、または並び替え）
+ */
+export type EnhancedSentenceQuizQuestion =
+  | FillInBlankQuestion
+  | MultiFillInBlankQuestion
+  | WordOrderQuestion;
