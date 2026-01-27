@@ -27,6 +27,16 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
   const [isRevealed, setIsRevealed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
 
+  // 問題が変わったら状態をリセット
+  const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
+  if (question.wordId !== currentQuestionId) {
+    setCurrentQuestionId(question.wordId);
+    setSelectedWords([]);
+    setRemainingWords(question.shuffledWords);
+    setIsRevealed(false);
+    setIsCorrect(false);
+  }
+
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     word: null,
