@@ -213,8 +213,8 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
         </div>
       )}
 
-      {/* スクロール可能なコンテンツエリア */}
-      <div className="flex-1 overflow-y-auto pb-4">
+      {/* コンテンツエリア（スクロール無効） */}
+      <div className="flex-1 overflow-hidden pb-4">
         {/* 日本語訳（ヒント） */}
         <div className="mb-4 p-3 bg-purple-50 rounded-xl">
           <p className="text-sm text-purple-600 mb-1">この文を英語で並べてください</p>
