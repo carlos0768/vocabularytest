@@ -340,7 +340,7 @@ function EditProjectNameModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (newName: string) => void;
   currentName: string;
 }) {
   const [name, setName] = useState(currentName);
@@ -356,7 +356,7 @@ function EditProjectNameModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim() && name !== currentName) {
-      onConfirm();
+      onConfirm(name.trim());
     } else if (name === currentName) {
       onClose();
     }
@@ -365,7 +365,7 @@ function EditProjectNameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
         <h2 className="text-base font-medium mb-4 text-center text-gray-900">
           単語帳の名前を変更
@@ -1125,13 +1125,13 @@ export default function HomePage() {
     setEditProjectModalOpen(true);
   };
 
-  const handleConfirmEditProjectName = async () => {
-    if (!editProjectId || !editProjectNewName.trim()) return;
+  const handleConfirmEditProjectName = async (newName: string) => {
+    if (!editProjectId || !newName.trim()) return;
 
     try {
-      await repository.updateProject(editProjectId, { title: editProjectNewName.trim() });
+      await repository.updateProject(editProjectId, { title: newName.trim() });
       setProjects((prev) =>
-        prev.map((p) => (p.id === editProjectId ? { ...p, title: editProjectNewName.trim() } : p))
+        prev.map((p) => (p.id === editProjectId ? { ...p, title: newName.trim() } : p))
       );
       showToast({ message: '単語帳の名前を変更しました', type: 'success' });
     } catch (error) {
