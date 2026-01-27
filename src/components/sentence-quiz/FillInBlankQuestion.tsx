@@ -142,23 +142,24 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
 
   return (
     <div className="flex flex-col h-full">
-      {/* 日本語訳 */}
-      <div className="mb-4 p-3 bg-purple-50 rounded-xl">
-        <p className="text-purple-800 font-medium">{question.japaneseMeaning}</p>
-      </div>
+      {/* スクロール可能なコンテンツエリア */}
+      <div className="flex-1 overflow-y-auto pb-4">
+        {/* 日本語訳 */}
+        <div className="mb-4 p-3 bg-purple-50 rounded-xl">
+          <p className="text-purple-800 font-medium">{question.japaneseMeaning}</p>
+        </div>
 
-      {/* 例文（空欄付き） */}
-      <div className="mb-6 text-center py-4">{renderSentence()}</div>
+        {/* 例文（空欄付き） */}
+        <div className="mb-6 text-center py-4">{renderSentence()}</div>
 
-      {/* 操作説明 */}
-      <p className="text-sm text-gray-500 mb-3 text-center">
-        {selectedOption
-          ? `「${selectedOption}」を入れる空欄をタップ`
-          : '単語を選んで空欄に配置'}
-      </p>
+        {/* 操作説明 */}
+        <p className="text-sm text-gray-500 mb-3 text-center">
+          {selectedOption
+            ? `「${selectedOption}」を入れる空欄をタップ`
+            : '単語を選んで空欄に配置'}
+        </p>
 
-      {/* 選択肢エリア */}
-      <div className="flex-1">
+        {/* 選択肢エリア */}
         <div className="grid grid-cols-2 gap-2">
           {allOptions.map((option) => {
             const isUsed = usedOptions.includes(option);
@@ -184,10 +185,27 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
             );
           })}
         </div>
+
+        {/* 結果表示（回答後） */}
+        {isRevealed && (
+          <div
+            className={`mt-4 p-4 rounded-xl text-center ${
+              isCorrect ? 'bg-green-100' : 'bg-red-100'
+            }`}
+          >
+            <p
+              className={`font-bold text-lg ${
+                isCorrect ? 'text-green-700' : 'text-red-700'
+              }`}
+            >
+              {isCorrect ? '正解！' : '不正解...'}
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* 回答/次へボタン */}
-      <div className="mt-6">
+      {/* 固定ボタンエリア */}
+      <div className="flex-shrink-0 pt-4">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
@@ -198,29 +216,13 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
             回答する
           </Button>
         ) : (
-          <div className="space-y-3">
-            {/* 結果表示 */}
-            <div
-              className={`p-4 rounded-xl text-center ${
-                isCorrect ? 'bg-green-100' : 'bg-red-100'
-              }`}
-            >
-              <p
-                className={`font-bold text-lg ${
-                  isCorrect ? 'text-green-700' : 'text-red-700'
-                }`}
-              >
-                {isCorrect ? '正解！' : '不正解...'}
-              </p>
-            </div>
-            <Button
-              onClick={handleNext}
-              className="w-full bg-purple-600 hover:bg-purple-700"
-              size="lg"
-            >
-              次へ
-            </Button>
-          </div>
+          <Button
+            onClick={handleNext}
+            className="w-full bg-purple-600 hover:bg-purple-700"
+            size="lg"
+          >
+            次へ
+          </Button>
         )}
       </div>
     </div>
