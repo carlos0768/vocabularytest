@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
+import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
 import { AI_CONFIG } from '@/lib/ai/config';
 
 // Extraction modes
 // - 'all': Extract all words (OpenAI)
 // - 'circled': Extract circled/marked words only (Gemini)
+// - 'highlighted': Extract highlighted/marker words only (Gemini 2.5 Flash)
 // - 'eiken': Extract words filtered by EIKEN level (Gemini OCR → GPT analysis)
 // - 'idiom': Extract idioms and phrases only (OpenAI)
-export type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom';
+export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -101,8 +102,8 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
-    // 'circled', 'eiken', and 'idiom' modes require Pro subscription
-    const requiresPro = mode === 'circled' || mode === 'eiken' || mode === 'idiom';
+    // 'circled', 'highlighted', 'eiken', and 'idiom' modes require Pro subscription
+    const requiresPro = mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom';
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
 
@@ -190,6 +191,16 @@ export async function POST(request: NextRequest) {
 
       // Note: eikenLevel is NOT used for circled mode anymore
       result = await extractCircledWordsFromImage(image, geminiApiKey, {});
+    } else if (mode === 'highlighted') {
+      // Highlighted mode: Use Gemini 2.5 Flash API for highlighted/marker word extraction
+      if (!geminiApiKey) {
+        return NextResponse.json(
+          { success: false, error: 'Gemini APIキーが設定されていません' },
+          { status: 500 }
+        );
+      }
+
+      result = await extractHighlightedWordsFromImage(image, geminiApiKey);
     } else {
       // Default 'all' mode: Use configured provider for all word extraction
       const wordsProvider = AI_CONFIG.extraction.words.provider;
