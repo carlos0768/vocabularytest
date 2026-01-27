@@ -16,6 +16,7 @@ export default function QuizPage() {
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading } = useAuth();
 
+  const [allWords, setAllWords] = useState<Word[]>([]); // Store all words for restart
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -62,6 +63,7 @@ export default function QuizPage() {
           router.push(`/project/${projectId}`);
           return;
         }
+        setAllWords(words); // Store all words for restart
         const generated = generateQuestions(words);
         setQuestions(generated);
       } catch (error) {
@@ -116,11 +118,10 @@ export default function QuizPage() {
     }
   };
 
-  // Restart quiz
+  // Restart quiz with new random questions from all words
   const handleRestart = () => {
-    const regenerated = generateQuestions(
-      questions.map((q) => q.word)
-    );
+    // Use allWords to get completely new random 10 questions
+    const regenerated = generateQuestions(allWords);
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);

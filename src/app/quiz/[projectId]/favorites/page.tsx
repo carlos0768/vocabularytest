@@ -16,6 +16,7 @@ export default function FavoritesQuizPage() {
   const projectId = params.projectId as string;
   const { subscription, isPro, loading: authLoading } = useAuth();
 
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // Store all favorite words for restart
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -73,6 +74,7 @@ export default function FavoritesQuizPage() {
           return;
         }
 
+        setAllFavoriteWords(favoriteWords); // Store all favorite words for restart
         const generated = generateQuestions(words);
         setQuestions(generated);
       } catch (error) {
@@ -122,11 +124,10 @@ export default function FavoritesQuizPage() {
     }
   };
 
-  // Restart quiz
+  // Restart quiz with new random questions from all favorite words
   const handleRestart = () => {
-    const regenerated = generateQuestions(
-      questions.map((q) => q.word)
-    );
+    // Use allFavoriteWords to get completely new random 10 questions
+    const regenerated = generateQuestions(allFavoriteWords);
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);
