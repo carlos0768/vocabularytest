@@ -92,7 +92,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       </div>
 
       {/* 選択肢 - Duolingo風に横並び */}
-      <div className="flex-shrink-0 flex flex-wrap justify-center gap-2 mb-4">
+      <div className="flex-shrink-0 flex flex-wrap justify-center gap-2 mb-6">
         {options.map((option) => {
           const isSelected = selectedOption === option;
           const isCorrectOption = isRevealed && option === blank.correctAnswer;
@@ -121,11 +121,8 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
         })}
       </div>
 
-      {/* スペーサー */}
-      <div className="flex-1 min-h-0" />
-
-      {/* ボタン - 下部固定 */}
-      <div className="flex-shrink-0 pb-1">
+      {/* ボタン - 選択肢の直下 */}
+      <div className="flex-shrink-0">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
@@ -158,6 +155,9 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
           </div>
         )}
       </div>
+
+      {/* 残りのスペースを埋める */}
+      <div className="flex-1" />
     </div>
   );
 }
