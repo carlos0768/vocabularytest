@@ -122,38 +122,46 @@ MCPを導入すると...
 
 ---
 
-#### **MCP Server 2: User Learning Context Server**
-**目的**: ユーザーの学習状態・進度をClaudeに提供
+#### **MCP Server 2: User Learning Context Server (細粒度ツール)**
+**目的**: ユーザーの学習状態をClaudeが必要に応じて段階的に取得
+
+**原則**: 「疑問に対する最小限の答え」を返す（トークン効率重視）
 
 ```typescript
-// Resource: users/{userId}/learning-context
-// Tools:
-// - get_user_stats(userId)
-// - get_weak_areas(userId, topN=5)
-// - get_learning_history(userId, days=7)
-// - get_mastered_words(userId)
-// - get_review_needed(userId)
+// ツール一覧（細粒度）
 
-// 返り値例:
-{
-  totalWords: 342,
-  masteredCount: 120,
-  reviewCount: 98,
-  newCount: 124,
-  currentStreak: 15,  // days
-  weakAreas: [
-    { eiken: "1級", score: 0.45 },  // 不得意な級
-    { category: "TOEIC", score: 0.52 }
-  ],
-  recentErrors: [
-    { word: "ephemeral", correctRate: 0.3 },
-    { word: "ameliorate", correctRate: 0.4 }
-  ]
-}
+Tools:
+  // 1. レベル判定（1トークン）
+  get_user_proficiency_level(userId)
+    → "beginner" | "intermediate" | "advanced"
 
-// 使用例:
-// Claude: "このユーザーは1級の単語が弱い傾向。
-//          歪曲オプションは1級レベルの類似単語を選ぼう"
+  // 2. 弱い分野（5-10トークン）
+  get_weak_areas(userId, topN = 3)
+    → ["1級", "ビジネス英語", "phrasal verbs"]
+
+  // 3. 特定の単語をユーザーが知っているか（1トークン）
+  does_user_know_word(userId, word)
+    → true | false | "partially" (status: new/review/mastered)
+
+  // 4. 特定の単語に似ていて、ユーザーが知らない単語を検索（10-20トークン）
+  find_similar_unknown_words(userId, targetWord, limit = 3)
+    → ["transient", "momentary", "fleeting"]
+
+  // 5. ユーザーが何度も間違えた単語（5-15トークン）
+  find_common_mistakes(userId, limit = 3)
+    → [{word: "ephemeral", error_count: 3}, {word: "euphemism", error_count: 2}]
+
+  // 6. ユーザーのパターン判定（1トークン）
+  identify_user_pattern(userId)
+    → "exam-focused" | "business-specialist" | "fast-learner" | "error-prone"
+
+  // 7. 特定レベルの単語でユーザーが知らないものを取得（10-20トークン）
+  find_unknown_words_by_level(userId, eikenLevel, limit = 5)
+    → ["obfuscate", "pragmatic", "ephemeral"]
+
+  // 8. 最近学習した単語（10トークン）
+  get_recent_words(userId, days = 7, limit = 5)
+    → ["persistent", "ameliorate", "transient"]
 ```
 
 **実装ファイル**:
@@ -162,7 +170,7 @@ MCPを導入すると...
 
 **データソース**:
 - `words` テーブル (status, updatedAt, correctCount)
-- `daily_stats` テーブル (新規作成: 毎日の学習記録)
+- `daily_stats` テーブル (毎日の学習記録)
 
 ---
 
@@ -279,53 +287,60 @@ MCPを導入すると...
    - 月額 ≈ $200-300
 ```
 
-**MCP統合後** (品質: 高、ユーザー選択率予測: 94%、コスト: 70%)
+**MCP統合後** (品質: 高、ユーザー選択率予測: 94%、トークン効率: 85%削減)
 ```
 1. User uploads image
 2. Gemini: OCR → single words list
 3. Claude (via MCP) で INTELLIGENT distractor generation:
 
-   ステップA: ユーザーコンテキスト集約
-   ├─ MCP: Vocabulary Data Server
-   │  └─ 既存500単語リストを取得
-   │     (重複回避用)
+   ステップA: 最小限のユーザーコンテキストを段階的に取得
+   ├─ MCP: get_user_proficiency_level(userId)
+   │  → "intermediate" (1トークン)
    │
-   ├─ MCP: User Learning Context Server
-   │  ├─ 弱い分野: ["1級単語", "ビジネス英語"]
-   │  ├─ 正答率低い単語: ["ephemeral"=45%, "ameliorate"=38%]
-   │  ├─ マスター済み: ["persistent", "improve"]
-   │  └─ 学習レベル: 準1級相当
+   ├─ MCP: get_weak_areas(userId, topN=3)
+   │  → ["1級", "ビジネス英語"] (10トークン)
    │
-   └─ MCP: Prompt Template Library Server
-      └─ distractor_generation テンプレート
-         (バージョン管理済み)
+   ├─ MCP: identify_user_pattern(userId)
+   │  → "exam-focused" (1トークン)
+   │
+   └─ 各単語ごとに必要なデータだけ取得:
+      ├─ MCP: find_similar_unknown_words(userId, "ephemeral", limit=3)
+      │  → ["transient", "momentary", "fleeting"] (15トークン)
+      │
+      ├─ MCP: find_common_mistakes(userId, limit=3)
+      │  → [{word: "euphemism", error_count: 2}, ...] (10トークン)
+      │
+      └─ MCP: does_user_know_word(userId, "eternal")
+         → false (1トークン)
 
-   ステップB: Claudeで高度な推論
-   ├─ 抽出単語の各々について:
-   │  ├─ 意味的に「近い」が「間違っている」単語を選択
-   │  │  (ex: "ephemeral" の場合、反対の意味 "eternal")
-   │  ├─ ユーザーが苦手な分野の類似単語を選択
-   │  │  (ex: 1級単語で、"ephemeral"と同じ難度帯)
-   │  └─ 既存単語と重複しないように確認
+   ステップB: Claudeで高度な推論（必要なデータだけ含める）
+   ├─ 「このユーザーはintermediate, 1級が弱い, 試験対策タイプ」
+   │  という最小限のコンテキストで判断
    │
-   └─ 結果の品質チェック
-      └─ 3つ全てが「教育的価値がある」ことを確認
+   ├─ 抽出単語ごとに：
+   │  ├─ transient/momentaryは知らないので、これを歪曲に使う
+   │  ├─ 反対の意味「eternal」を第1歪曲に選ぶ
+   │  └─ ユーザーが誤解しやすい「fleeting」を第2歪曲に選ぶ
+   │
+   └─ 各選択肢をMCPで検証（ユーザーが知っているか）
 
    結果例: "ephemeral" (はかない)
    ✅ A. eternal            ← 反対の意味（最高品質）
-   ✅ B. transient          ← 1級で「はかない」の類義語（ユーザーが混同）
-   ✅ C. momentary          ← 同じく「一時的な」で学習価値あり
+   ✅ B. transient          ← ユーザーが知らない類義語（引っかかりやすい）
+   ✅ C. momentary          ← 同様に知らない類義語（学習価値高い）
 
    特徴:
    ✓ ユーザーが「どれが正解か」悩む選択肢
    ✓ 3つ全て教育的価値がある
-   ✓ 確実に選択外の選択肢がない
+   ✓ データは「疑問に対する最小限の答え」のみ
 
-   コスト: プロバイダー切り替えで最適化
-   - MCPはプロトコル → API料金は直接的には削減しない
-   - ただし、Claudeに切り替える場合：
-     * Claudeの価格: OpenAIの1/2 ～ 1/3
-     * 月額 ≈ $80-120 (OpenAI $250から削減可)
+   トークン効率:
+   - 従来: 500単語全返 → ~2000トークン
+   - MCP: 細粒度ツール → ~90トークン (95%削減)
+
+   コスト最適化:
+   - MCPはプロトコル → API料金は直接削減しない
+   - Claudeに切り替える場合、料金最適化可能
    - **注釈**: 料金削減はMCPではなく「プロバイダー選択」の効果
 ```
 
@@ -365,32 +380,48 @@ const distractor_strategies: Record<string, DistractorStrategy[]> = {
 };
 
 // 実装例: 中級ユーザーの "ephemeral" に対する歪曲生成
+// トークン効率重視: 必要なデータだけを呼び出す
 const generateSmartDistracters = async (
   word: string,              // "ephemeral"
   userId: string,
   mcpClient: MCPClient      // Claude側のMCPクライアント
 ) => {
-  // 1. MCPサーバー経由でユーザーコンテキストを取得
-  // (MCPサーバーがDBからデータを取得して返す)
-  const userContext = await mcpClient.tools.call("get_learning_context", {
-    userId,
-    depth: "detailed"  // 学習パターンの詳細情報を含める
+  // MCPツール呼び出しはステップバイステップで最小限のデータを取得
+
+  // Step 1: ユーザーのレベル確認（1トークン）
+  const userLevel = await mcpClient.tools.call("get_user_proficiency_level", {
+    userId
   });
 
-  const userLevel = userContext.proficiencyLevel;  // "intermediate"
-  const weakAreas = userContext.weakAreas;         // ["1級", "ビジネス英語"]
-
-  // 2. この単語に対するユーザーの既知情報
-  const existingWords = await mcpClient.tools.call("search_vocabulary", {
+  // Step 2: ユーザーの弱い分野を確認（5-10トークン）
+  const weakAreas = await mcpClient.tools.call("get_weak_areas", {
     userId,
-    semanticSimilarity: word,
-    limit: 20
+    topN: 3
   });
 
-  // 3. 戦略を選択
+  // Step 3: この単語に似ていて、ユーザーが知らない単語を検索（10-20トークン）
+  const similarUnknownWords = await mcpClient.tools.call("find_similar_unknown_words", {
+    userId,
+    targetWord: word,
+    limit: 3
+  });
+
+  // Step 4: ユーザーが何度も間違えた単語を確認（5-15トークン）
+  const commonMistakes = await mcpClient.tools.call("find_common_mistakes", {
+    userId,
+    limit: 3
+  });
+
+  // Step 5: ユーザーのパターン判定（1トークン）
+  const userPattern = await mcpClient.tools.call("identify_user_pattern", {
+    userId
+  });
+
+  // Step 6: 戦略を選択
   const strategies = distractor_strategies[userLevel];
+  const strategyConfig = dynamicDistractorSelection[userPattern] || defaults;
 
-  // 4. プロンプトのレンダリング
+  // Step 7: プロンプトのレンダリング
   const promptTemplate = await mcpClient.resources.read(
     `prompts/distractor_generation/v2`
   );
@@ -401,7 +432,9 @@ const generateSmartDistracters = async (
     user_level: userLevel,
     strategies: strategies.map(s => `${s.weight * 100}% - ${s.type}`),
     weak_areas: weakAreas.join(", "),
-    exclude_words: existingWords.map(w => w.english).join(", "),
+    similar_words: similarUnknownWords.join(", "),
+    common_mistakes: commonMistakes.map(m => `${m.word}(${m.error_count}x)`).join(", "),
+    user_pattern: userPattern,
     quality_criteria: [
       "各選択肢がユーザーを「悩ませる」必要がある",
       "反対の意味、類似の意味、異なる分野など多様性を確保",
@@ -410,29 +443,48 @@ const generateSmartDistracters = async (
     ]
   });
 
-  // 5. Claudeで推論
+  // Step 8: Claudeで推論
   const response = await mcpClient.tools.call("call_nlp", {
     prompt,
-    provider: "claude",  // 推論能力が必要
+    provider: "claude",
     temperature: 0.6,
     max_tokens: 500
   });
 
-  // 6. 結果の検証と品質スコアリング
+  // Step 9: 結果の検証と品質スコアリング
   const distractors = parseDistracters(response);
-  const qualityScores = await validateDistracters(
-    word,
-    distractors,
-    userContext,
-    mcpClient
+
+  // 各歪曲オプションについて「ユーザーが知らないか」を確認
+  const qualityChecks = await Promise.all(
+    distractors.map(async (distractor) => ({
+      word: distractor.option,
+      userKnows: await mcpClient.tools.call("does_user_know_word", {
+        userId,
+        word: distractor.option
+      })
+    }))
   );
 
   return {
     distractors,
-    quality_scores: qualityScores,
+    quality_checks: qualityChecks,
     strategy_used: userLevel,
+    pattern_used: userPattern,
     reasoning: response.reasoning
   };
+
+  /**
+   * トークン計算:
+   * Step 1: 1
+   * Step 2: 10
+   * Step 3: 15
+   * Step 4: 10
+   * Step 5: 1
+   * Step 6-7: プロンプト生成 (~50)
+   * Step 8: Claude処理 (別途)
+   * Step 9: 3個 x 1 = 3
+   * 合計: ~90トークン（従来の500単語全返の2000+トークンから95%削減）
+   */
 };
 ```
 
@@ -604,7 +656,7 @@ const dynamicDistractorSelection = {
 };
 ```
 
-**実装**:
+**実装（トークン効率重視）**:
 ```typescript
 // src/app/api/extract/route.ts
 const extractAndGenerateDistracters = async (
@@ -612,67 +664,88 @@ const extractAndGenerateDistracters = async (
   words: string[],
   projectId: string
 ) => {
-  // MCPクライアント（Next.js側）
-  // これはMCPサーバーとの通信を行うクライアント
   const mcpClient = getMCPClient();
 
-  // 1. MCPサーバー経由でユーザーのコンテキストを取得
-  // (MCPサーバーがDexie/Supabaseからデータを取得して返す)
-  const context = await mcpClient.tools.call("get_learning_context", {
-    userId,
-    depth: "detailed"
+  // 1. ユーザーの基本情報を段階的に取得（最小限）
+  const userLevel = await mcpClient.tools.call("get_user_proficiency_level", {
+    userId
   });
 
-  // 既に学習済みの単語リストを取得
-  const existingWords = await mcpClient.tools.call("search_vocabulary", {
+  const weakAreas = await mcpClient.tools.call("get_weak_areas", {
     userId,
-    limit: 500
+    topN: 3
   });
 
-  // 2. ユーザーの学習パターンに基づいた戦略を選択
-  const userPattern = identifyUserPattern(context);
-  const strategyConfig = dynamicDistractorSelection[userPattern] || defaults;
+  const userPattern = await mcpClient.tools.call("identify_user_pattern", {
+    userId
+  });
 
-  // 3. プロンプトをレンダリング
-  const promptTemplate = await mcpClient.resources.read(
-    `prompts/distractor_generation/v2`
+  const recentWords = await mcpClient.tools.call("get_recent_words", {
+    userId,
+    days: 7,
+    limit: 5
+  });
+
+  // 2. 各単語について個別に歪曲生成（パラレル処理）
+  const allDistracters = await Promise.all(
+    words.map(async (word) => {
+      // 各単語ごとに必要なデータだけ取得
+      const similarUnknown = await mcpClient.tools.call("find_similar_unknown_words", {
+        userId,
+        targetWord: word,
+        limit: 3
+      });
+
+      // プロンプトを生成して Claudeに処理させる
+      const promptTemplate = await mcpClient.resources.read(
+        `prompts/distractor_generation/v2`
+      );
+
+      const prompt = Mustache.render(promptTemplate, {
+        target_word: word,
+        user_level: userLevel,
+        weak_areas: weakAreas.join(", "),
+        similar_words: similarUnknown.join(", "),
+        user_pattern: userPattern,
+        quality_criteria: [
+          "このユーザーが悩む選択肢",
+          "教育的価値のある誤り",
+          "既知単語との重複なし"
+        ]
+      });
+
+      const response = await mcpClient.tools.call("call_nlp", {
+        prompt,
+        provider: "claude",
+        temperature: 0.6,
+        max_tokens: 300
+      });
+
+      return {
+        word,
+        distractors: parseDistracters(response),
+        reasoning: response.reasoning
+      };
+    })
   );
 
-  const prompt = Mustache.render(promptTemplate, {
-    words: words.join(", "),
-    userWeakAreas: context.weakAreas,
-    existingWords: existingWords.map(w => w.english),
-    userLevel: context.recommendedLevel,
-    strategies: strategyConfig.weight,
-    recentErrors: context.commonMistakes,
-    userPattern: userPattern
-  });
-
-  // 4. Claudeで処理
-  const distractors = await mcpClient.tools.call("call_nlp", {
-    prompt,
-    provider: "claude",  // 推論能力が重要
-    temperature: 0.6,
-    max_tokens: 1000
-  });
-
-  // 5. 品質スコアリング
-  const scoredDistracters = await scoreDistracters(
-    words,
-    distractors,
-    context,
-    mcpClient
-  );
-
+  // 3. 結果をまとめて返す
   return {
     words: words,
-    distractors: scoredDistracters,
-    quality_metrics: {
-      average_educational_value: scoredDistracters.avg(d => d.quality_score),
-      user_challenge_level: strategyConfig.prioritize,
-      pattern_used: userPattern
+    distractors_by_word: allDistracters,
+    user_profile: {
+      level: userLevel,
+      weak_areas: weakAreas,
+      pattern: userPattern
     }
   };
+
+  /**
+   * トークン計算（50単語の場合）:
+   * 基本情報取得: 1 + 10 + 1 + 10 = 22
+   * 50単語 x (15トークン/単語) = 750
+   * 合計: ~770トークン（従来の5000+から85%削減）
+   */
 };
 ```
 
