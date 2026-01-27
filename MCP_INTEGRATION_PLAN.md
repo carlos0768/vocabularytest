@@ -368,9 +368,10 @@ const distractor_strategies: Record<string, DistractorStrategy[]> = {
 const generateSmartDistracters = async (
   word: string,              // "ephemeral"
   userId: string,
-  mcpClient: MCPClient
+  mcpClient: MCPClient      // Claude側のMCPクライアント
 ) => {
-  // 1. ユーザーコンテキスト取得
+  // 1. MCPサーバー経由でユーザーコンテキストを取得
+  // (MCPサーバーがDBからデータを取得して返す)
   const userContext = await mcpClient.tools.call("get_learning_context", {
     userId,
     depth: "detailed"  // 学習パターンの詳細情報を含める
@@ -611,15 +612,18 @@ const extractAndGenerateDistracters = async (
   words: string[],
   projectId: string
 ) => {
-  // MCPサーバーへのクライアント
+  // MCPクライアント（Next.js側）
+  // これはMCPサーバーとの通信を行うクライアント
   const mcpClient = getMCPClient();
 
-  // 1. ユーザーのコンテキストを取得
+  // 1. MCPサーバー経由でユーザーのコンテキストを取得
+  // (MCPサーバーがDexie/Supabaseからデータを取得して返す)
   const context = await mcpClient.tools.call("get_learning_context", {
     userId,
     depth: "detailed"
   });
 
+  // 既に学習済みの単語リストを取得
   const existingWords = await mcpClient.tools.call("search_vocabulary", {
     userId,
     limit: 500
@@ -789,30 +793,32 @@ src/
 
 ## 5. アーキテクチャの詳細設計
 
-### 5.1 MCP サーバー間の通信
+### 5.1 MCPデータフロー
 
 ```
-┌──────────────────────────────────────────┐
-│  Next.js API Route                        │
-│  (e.g., /api/extract)                    │
-└──────────────┬───────────────────────────┘
-               │
-               ↓
-      ┌────────────────────┐
-      │  MCP Client Pool   │
-      │  (管理: mcp.ts)    │
-      └────────────┬───────┘
-                   │
-        ┌──────────┼──────────┬──────────┐
-        ↓          ↓          ↓          ↓
-    [Server1]  [Server2]  [Server3]  [Server4]
-    (Vocab)    (Context)  (Prompts)  (AI)
-        │          │          │          │
-        └──────────┼──────────┼──────────┘
-                   ↓
-            実装: stdio/HTTP
-                のいずれか
+Claude                MCPクライアント            MCPサーバー          データベース
+  │                       │                        │                    │
+  │ Tool Call:            │                        │                    │
+  │ "get_learning_context"│                        │                    │
+  ├──────────────────────→│                        │                    │
+  │                       │  Read from server:    │                    │
+  │                       ├───────────────────────→│                    │
+  │                       │                        │  Query DB          │
+  │                       │                        ├───────────────────→│
+  │                       │                        │                    │
+  │                       │                        │←── data ───────────┤
+  │                       │←─── response ──────────┤                    │
+  │←── Tool Result ───────┤                        │                    │
+  │  (embed in prompt)    │                        │                    │
+  │                       │                        │                    │
 ```
+
+**重要**: MCPサーバーが「送る」のではなく、
+Claudeが「MCPツール」を呼び出して、
+MCPサーバーがそれに応答してデータを返す。
+
+Claudeはそのデータをプロンプトに埋め込んで推論する。
+
 
 ### 5.2 エラーハンドリング戦略
 
@@ -928,21 +934,60 @@ MCPは品質・統合・柔軟性を提供するプロトコル。
 ### 8.1 認証・認可
 
 ```typescript
-// MCPサーバーへのアクセス制御
-// - 各MCPサーバーはJWT検証を必須に
-// - ユーザーIDはトークンから取得 (リクエストで受け取らない)
-// - RLS (Row Level Security) はそのまま継続
+// MCPサーバーの認証・認可
+// - MCPサーバーは認証済みコンテキストで実行
+// - 呼び出しには auth.user.id が含まれる
+// - MCPサーバー内で RLS (Row Level Security) を適用
+// - ユーザー自身のデータのみを返す
 
-middleware.ts で検証後、
-MCPクライアントに認証済みトークンを渡す
+// MCPサーバー実装例:
+export const userContextServer = {
+  tools: {
+    get_learning_context: async (userId: string, auth: AuthContext) => {
+      // ✓ 認可チェック: 要求者はこのユーザーのデータを取得できるか？
+      if (auth.user.id !== userId && !auth.user.isAdmin) {
+        throw new UnauthorizedError("Cannot access other user's data");
+      }
+
+      // ✓ RLS適用: auth.user.idのデータのみ返す
+      const words = await db.words
+        .where("user_id").equals(auth.user.id)
+        .toArray();
+
+      return processContext(words);
+    }
+  }
+};
+
+// Next.js API側でMCPを呼び出す際：
+const context = await mcpClient.tools.call(
+  "get_learning_context",
+  {userId: req.auth.user.id},  // ユーザーIDはauth tokenから
+  {auth: req.auth}              // 認証コンテキストを渡す
+);
 ```
 
 ### 8.2 データプライバシー
 
 ```
-- MCPサーバー同士の通信は暗号化 (TLS/mTLS)
-- キャッシュデータはRedisで暗号化
-- MCPログには個人情報を記録しない
+データフロー:
+- MCPクライアント (Next.js) → MCPサーバー:
+  * ユーザーID + 認証トークンのみ送信
+
+- MCPサーバー → MCPクライアント:
+  * 認可されたユーザーのデータのみ返す
+  * ユーザー識別情報（ID、メール）は除外
+  * 学習状態のメタデータのみ
+
+- MCPクライアント → Claude:
+  * プロンプトに埋め込まれるのは「レベル」「弱点」など
+  * PII（個人識別情報）は含めない
+
+セキュリティ対策:
+- MCPサーバー↔MCPクライアント通信は TLS/mTLS
+- プロンプトキャッシュ（Redis等）は暗号化
+- MCPログには学習メタデータのみ記録（個人情報は除外）
+- Claudeの外部トレーニングに個人データが使われない
 ```
 
 ---
@@ -991,8 +1036,18 @@ MCPクライアントに認証済みトークンを渡す
 
 ## 10. 質問と回答
 
-**Q1: MCPはいつ立ち上げる？**
-A: Next.jsサーバー起動時に `mcp-servers/index.ts` でMCPサーバープロセスを起動。child_processで別プロセスとして実行。
+**Q1: MCPサーバーはいつ立ち上げる？**
+A: Next.jsサーバー起動時に `mcp-servers/index.ts` でMCPサーバーを初期化。
+   実装方法は複数選択肢がある：
+   - Option A: child_processで別プロセス（stdio通信）
+   - Option B: Next.js同プロセス内で実行（メモリ効率的）
+   - Option C: HTTP/WebSocket経由の別プロセス（スケーラブル）
+
+**Q1.5: MCPサーバーとMCPクライアントの関係は？**
+A: - MCPサーバー: Dexie/Supabaseへのアクセス権を持つ
+     src/mcp-servers/user-context-server.ts など
+   - MCPクライアント: Claude（またはNext.js）がMCPサーバーを呼び出す
+     MCPプロトコル経由でツールを実行
 
 **Q2: 既存のOpenAI呼び出しはどうする？**
 A: 段階的に移行。Phase 1はDexieアクセスのみMCP化。OpenAI呼び出しはPhase 2以降。
