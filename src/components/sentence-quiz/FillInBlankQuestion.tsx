@@ -279,26 +279,17 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       )}
 
       {/* コンテンツエリア（スクロール無効） */}
-      <div className="flex-1 overflow-hidden pb-4">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* 日本語訳 */}
-        <div className="mb-4 p-3 bg-purple-50 rounded-xl">
-          <p className="text-purple-800 font-medium">{question.japaneseMeaning}</p>
+        <div className="mb-2 p-2 bg-purple-50 rounded-lg">
+          <p className="text-purple-800 font-medium text-sm">{question.japaneseMeaning}</p>
         </div>
 
         {/* 例文（空欄付き） */}
-        <div className="mb-6 text-center py-4">{renderSentence()}</div>
-
-        {/* 操作説明 */}
-        <p className="text-sm text-gray-500 mb-3 text-center">
-          {dragState.isDragging
-            ? '空欄にドロップしてください'
-            : selectedOption
-            ? `「${selectedOption}」を入れる空欄をタップ`
-            : '単語をドラッグ or タップして空欄に配置'}
-        </p>
+        <div className="mb-2 text-center py-2">{renderSentence()}</div>
 
         {/* 選択肢エリア */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex-1 grid grid-cols-2 gap-1.5 content-start">
           {allOptions.map((option) => {
             const isUsed = usedOptions.includes(option);
             const isSelected = selectedOption === option;
@@ -309,7 +300,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
                 key={option}
                 onTouchStart={(e) => handleTouchStart(e, option)}
                 onClick={() => !dragState.isDragging && handleTapOption(option)}
-                className={`py-3 px-4 rounded-xl font-medium transition-all text-center select-none cursor-grab active:cursor-grabbing ${
+                className={`py-2 px-3 rounded-lg font-medium transition-all text-center text-sm select-none cursor-grab active:cursor-grabbing ${
                   isBeingDragged
                     ? 'opacity-30'
                     : isRevealed
@@ -326,44 +317,40 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
             );
           })}
         </div>
-
-        {/* 結果表示（回答後） */}
-        {isRevealed && (
-          <div
-            className={`mt-4 p-4 rounded-xl text-center ${
-              isCorrect ? 'bg-green-100' : 'bg-red-100'
-            }`}
-          >
-            <p
-              className={`font-bold text-lg ${
-                isCorrect ? 'text-green-700' : 'text-red-700'
-              }`}
-            >
-              {isCorrect ? '正解！' : '不正解...'}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* 固定ボタンエリア */}
-      <div className="flex-shrink-0 pt-4">
+      <div className="flex-shrink-0 pt-2">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={filledBlanks.some((b) => b === null)}
             className="w-full bg-purple-600 hover:bg-purple-700"
-            size="lg"
           >
             回答する
           </Button>
         ) : (
-          <Button
-            onClick={handleNext}
-            className="w-full bg-purple-600 hover:bg-purple-700"
-            size="lg"
-          >
-            次へ
-          </Button>
+          <div className="space-y-2">
+            <div
+              className={`p-2 rounded-lg text-center ${
+                isCorrect ? 'bg-green-100' : 'bg-red-100'
+              }`}
+            >
+              <p
+                className={`font-bold ${
+                  isCorrect ? 'text-green-700' : 'text-red-700'
+                }`}
+              >
+                {isCorrect ? '正解！' : '不正解...'}
+              </p>
+            </div>
+            <Button
+              onClick={handleNext}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              次へ
+            </Button>
+          </div>
         )}
       </div>
     </div>
