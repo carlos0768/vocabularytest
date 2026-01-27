@@ -130,147 +130,86 @@ export interface AuthUser {
   subscription?: Subscription;
 }
 
-// ============ Grammar Types ============
+// ============ Sentence Quiz Types (Duolingo-style) ============
 
-export type EikenGrammarLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
+/**
+ * 例文クイズの問題タイプ
+ * - fill-in-blank: 穴埋め問題（3箇所空欄）
+ * - word-order: 並び替え問題（単語単位）
+ */
+export type SentenceQuizType = 'fill-in-blank' | 'word-order';
 
-export interface GrammarPattern {
+/**
+ * 穴埋め問題の空欄情報
+ */
+export interface BlankSlot {
+  index: number;           // 文中の空欄番号（0, 1, 2）
+  correctAnswer: string;   // 正解
+  options: string[];       // 4択（正解含む、シャッフル済み）
+}
+
+/**
+ * 穴埋め問題
+ */
+export interface FillInBlankQuestion {
+  type: 'fill-in-blank';
+  wordId: string;          // 元の単語ID
+  targetWord: string;      // 学習対象の単語
+  sentence: string;        // 空欄付き文（"I ___ to school ___ day ___."）
+  blanks: BlankSlot[];     // 3つの空欄情報
+  japaneseMeaning: string; // 日本語訳
+}
+
+/**
+ * 並び替え問題
+ */
+export interface WordOrderQuestion {
+  type: 'word-order';
+  wordId: string;           // 元の単語ID
+  targetWord: string;       // 学習対象の単語
+  shuffledWords: string[];  // シャッフルされた単語配列
+  correctOrder: string[];   // 正解の順序
+  japaneseMeaning: string;  // 日本語訳（ヒントとして表示）
+}
+
+/**
+ * 例文クイズの問題（穴埋めまたは並び替え）
+ */
+export type SentenceQuizQuestion = FillInBlankQuestion | WordOrderQuestion;
+
+/**
+ * AIから返される穴埋め問題データ
+ */
+export interface AISentenceFillInBlank {
+  sentence: string;        // 空欄付き文
+  blanks: {
+    correctAnswer: string;
+    options: string[];     // 4択（正解含む）
+  }[];
+  japaneseMeaning: string;
+}
+
+/**
+ * AIから返される並び替え問題データ
+ */
+export interface AISentenceWordOrder {
+  correctOrder: string[];   // 正解の語順
+  japaneseMeaning: string;
+}
+
+/**
+ * APIリクエスト用の単語情報
+ */
+export interface SentenceQuizWordInput {
   id: string;
-  projectId: string;
-  patternName: string; // e.g., "現在完了形", "関係代名詞"
-  patternNameEn: string; // e.g., "Present Perfect", "Relative Pronouns"
-  originalSentence: string; // Original sentence from the image
-  explanation: string; // Japanese explanation of the grammar
-  structure: string; // e.g., "have/has + 過去分詞"
-  example: string; // Example sentence demonstrating the pattern
-  exampleJa: string; // Japanese translation of example
-  level: EikenGrammarLevel; // EIKEN level association
-  createdAt: string;
-}
-
-// ============ New Grammar Quiz Types (Duolingo-style) ============
-
-/**
- * 新しい問題タイプ（デュオリンゴ式）
- * - single_select: 1つの単語/フレーズを選択（旧choice）
- * - word_tap: 空欄に入る単語をタップで選択（旧fill_blank）
- * - sentence_build: 全単語を正しい順序に並べる（旧reorder）
- */
-export type GrammarQuizType = 'single_select' | 'word_tap' | 'sentence_build';
-
-/**
- * 旧問題タイプ（後方互換性のため保持）
- */
-export type LegacyGrammarQuizType = 'fill_blank' | 'choice' | 'reorder';
-
-/**
- * 単語オプション（ダミー含む）
- * - word: 表示する単語
- * - isCorrect: 正解かどうか
- * - isDistractor: 類似単語のダミーかどうか（活用形違いなど）
- */
-export interface WordOption {
-  word: string;
-  isCorrect: boolean;
-  isDistractor: boolean;
+  english: string;
+  japanese: string;
+  status: WordStatus;
 }
 
 /**
- * 新形式のクイズ問題構造（デュオリンゴ式）
+ * APIレスポンス
  */
-export interface GrammarQuizQuestionNew {
-  questionType: GrammarQuizType;
-  question: string;           // 問題文（空欄は _____ で表記）
-  questionJa?: string;        // 日本語訳/ヒント
-
-  // Single Select / Word Tap 用
-  wordOptions?: WordOption[]; // 選択肢（正解 + ダミー）
-  correctAnswer: string;      // 正解（単一単語 or 完全文）
-
-  // Sentence Build 用
-  sentenceWords?: string[];   // 正解の語順（配列）
-  extraWords?: string[];      // ダミー単語（難易度調整用）
-
-  explanation: string;        // 解説
-  grammarPoint?: string;      // この問題で問われる文法ポイント
-}
-
-/**
- * 旧形式のクイズ問題（後方互換性のため保持）
- */
-export interface GrammarQuizQuestion {
-  id: string;
-  patternId: string;
-  questionType: LegacyGrammarQuizType;
-  question: string; // The question text
-  questionJa?: string; // Japanese hint/translation
-  correctAnswer: string;
-  options?: string[]; // For choice type
-  explanation: string; // Why this is correct
-  createdAt: string;
-}
-
-/**
- * AIから返される旧形式のクイズ問題
- */
-export interface AIGrammarQuizQuestionLegacy {
-  questionType: LegacyGrammarQuizType;
-  question: string;
-  questionJa?: string;
-  correctAnswer: string;
-  options?: string[];
-  explanation: string;
-}
-
-/**
- * AIから返される新形式のクイズ問題
- */
-export interface AIGrammarQuizQuestionNew {
-  questionType: GrammarQuizType;
-  question: string;
-  questionJa?: string;
-  wordOptions?: WordOption[];
-  correctAnswer: string;
-  sentenceWords?: string[];
-  extraWords?: string[];
-  explanation: string;
-  grammarPoint?: string;
-}
-
-// 型エイリアス: AIGrammarQuizQuestion は新形式を指す
-export type AIGrammarQuizQuestion = AIGrammarQuizQuestionNew;
-
-/**
- * AIから返される文法パターン抽出結果（新形式）
- */
-export interface AIGrammarExtraction {
-  patternName: string;
-  patternNameEn: string;
-  originalSentence: string;
-  explanation: string;
-  structure: string;
-  example: string;
-  exampleJa: string;
-  level: EikenGrammarLevel;
-  quizQuestions: AIGrammarQuizQuestion[];
-}
-
-/**
- * AIから返される旧形式の文法パターン（マイグレーション用）
- */
-export interface AIGrammarExtractionLegacy {
-  patternName: string;
-  patternNameEn: string;
-  originalSentence: string;
-  explanation: string;
-  structure: string;
-  example: string;
-  exampleJa: string;
-  level: EikenGrammarLevel;
-  quizQuestions: AIGrammarQuizQuestionLegacy[];
-}
-
-export interface AIGrammarResponse {
-  extractedText: string; // Full text extracted from image
-  grammarPatterns: AIGrammarExtraction[];
+export interface SentenceQuizResponse {
+  questions: SentenceQuizQuestion[];
 }
