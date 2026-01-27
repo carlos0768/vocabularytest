@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { FillInBlankQuestion as FillInBlankQuestionType } from '@/types';
 
@@ -31,66 +31,56 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
 
   const [isRevealed, setIsRevealed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
-  const [draggedOption, setDraggedOption] = useState<string | null>(null);
+
+  // 選択中の単語（タップで選択→空欄タップで配置）
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   // 使用済みの選択肢
   const usedOptions = filledBlanks.filter((b) => b !== null) as string[];
 
-  // ドラッグ開始
-  const handleDragStart = (option: string) => {
-    setDraggedOption(option);
-  };
-
-  // ドラッグ終了
-  const handleDragEnd = () => {
-    setDraggedOption(null);
-  };
-
-  // 空欄にドロップ
-  const handleDropOnBlank = (blankIndex: number) => {
-    if (!draggedOption || isRevealed) return;
-
-    // もし別の空欄に既にある場合は、そこから外す
-    const existingIndex = filledBlanks.indexOf(draggedOption);
-
-    setFilledBlanks((prev) => {
-      const newBlanks = [...prev];
-      // 既存の場所から削除
-      if (existingIndex !== -1) {
-        newBlanks[existingIndex] = null;
-      }
-      // ドロップ先に既に別の単語がある場合は入れ替え
-      const currentWord = newBlanks[blankIndex];
-      newBlanks[blankIndex] = draggedOption;
-      // 入れ替え先が空でなければ、元の場所に移動
-      if (currentWord && existingIndex !== -1) {
-        newBlanks[existingIndex] = currentWord;
-      }
-      return newBlanks;
-    });
-    setDraggedOption(null);
-  };
-
-  // 空欄をタップして選択肢を外す
-  const handleRemoveFromBlank = (blankIndex: number) => {
-    if (isRevealed) return;
-    setFilledBlanks((prev) => {
-      const newBlanks = [...prev];
-      newBlanks[blankIndex] = null;
-      return newBlanks;
-    });
-  };
-
-  // 選択肢をタップして空欄に入れる（モバイル用）
+  // 選択肢をタップ
   const handleTapOption = (option: string) => {
-    if (isRevealed || usedOptions.includes(option)) return;
+    if (isRevealed) return;
 
-    // 最初の空いている空欄に入れる
-    const emptyIndex = filledBlanks.findIndex((b) => b === null);
-    if (emptyIndex !== -1) {
+    // 既に使用済みなら何もしない
+    if (usedOptions.includes(option)) return;
+
+    // 同じものをタップしたら選択解除
+    if (selectedOption === option) {
+      setSelectedOption(null);
+    } else {
+      setSelectedOption(option);
+    }
+  };
+
+  // 空欄をタップ
+  const handleTapBlank = (blankIndex: number) => {
+    if (isRevealed) return;
+
+    const currentWord = filledBlanks[blankIndex];
+
+    // 選択中の単語がある場合 → その空欄に配置
+    if (selectedOption) {
       setFilledBlanks((prev) => {
         const newBlanks = [...prev];
-        newBlanks[emptyIndex] = option;
+        // 既にこの単語が別の空欄にある場合は外す
+        const existingIndex = newBlanks.indexOf(selectedOption);
+        if (existingIndex !== -1) {
+          newBlanks[existingIndex] = null;
+        }
+        // 配置先に別の単語があれば入れ替え
+        if (currentWord && existingIndex !== -1) {
+          newBlanks[existingIndex] = currentWord;
+        }
+        newBlanks[blankIndex] = selectedOption;
+        return newBlanks;
+      });
+      setSelectedOption(null);
+    } else if (currentWord) {
+      // 選択中の単語がない & 空欄に単語がある → 外す
+      setFilledBlanks((prev) => {
+        const newBlanks = [...prev];
+        newBlanks[blankIndex] = null;
         return newBlanks;
       });
     }
@@ -114,34 +104,35 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   const renderSentence = () => {
     const parts = question.sentence.split('___');
     return (
-      <div className="text-xl font-medium text-gray-900 leading-relaxed flex flex-wrap items-center justify-center gap-1">
+      <div className="text-lg font-medium text-gray-900 leading-relaxed flex flex-wrap items-center justify-center gap-1">
         {parts.map((part, index) => (
           <span key={index} className="flex items-center">
             <span>{part}</span>
             {index < parts.length - 1 && (
-              <span
-                onClick={() => handleRemoveFromBlank(index)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDropOnBlank(index)}
-                className={`inline-flex items-center justify-center min-w-[80px] h-10 mx-1 px-3 rounded-lg text-center font-bold cursor-pointer transition-all ${
+              <button
+                onClick={() => handleTapBlank(index)}
+                disabled={isRevealed}
+                className={`inline-flex items-center justify-center min-w-[70px] h-9 mx-1 px-2 rounded-lg text-center font-bold transition-all ${
                   isRevealed
                     ? filledBlanks[index] === question.blanks[index].correctAnswer
                       ? 'bg-green-100 text-green-700 border-2 border-green-500'
                       : 'bg-red-100 text-red-700 border-2 border-red-500'
                     : filledBlanks[index]
-                    ? 'bg-purple-600 text-white border-2 border-purple-600'
+                    ? 'bg-purple-600 text-white border-2 border-purple-600 active:bg-purple-700'
+                    : selectedOption
+                    ? 'bg-purple-100 text-purple-600 border-2 border-dashed border-purple-400 animate-pulse'
                     : 'bg-gray-100 text-gray-400 border-2 border-dashed border-gray-300'
                 }`}
               >
                 {isRevealed && filledBlanks[index] !== question.blanks[index].correctAnswer ? (
-                  <span className="flex flex-col items-center text-sm">
+                  <span className="flex flex-col items-center text-xs">
                     <span className="line-through text-red-500">{filledBlanks[index] || '?'}</span>
-                    <span className="text-green-600 text-xs">{question.blanks[index].correctAnswer}</span>
+                    <span className="text-green-600">{question.blanks[index].correctAnswer}</span>
                   </span>
                 ) : (
-                  filledBlanks[index] || `(${index + 1})`
+                  <span className="text-sm">{filledBlanks[index] || `(${index + 1})`}</span>
                 )}
-              </span>
+              </button>
             )}
           </span>
         ))}
@@ -157,32 +148,35 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       </div>
 
       {/* 例文（空欄付き） */}
-      <div className="mb-8 text-center py-4">{renderSentence()}</div>
+      <div className="mb-6 text-center py-4">{renderSentence()}</div>
 
-      {/* 選択肢エリア（すべてフラット） */}
+      {/* 操作説明 */}
+      <p className="text-sm text-gray-500 mb-3 text-center">
+        {selectedOption
+          ? `「${selectedOption}」を入れる空欄をタップ`
+          : '単語を選んで空欄に配置'}
+      </p>
+
+      {/* 選択肢エリア */}
       <div className="flex-1">
-        <p className="text-sm text-gray-500 mb-3">単語を空欄にドラッグ、またはタップして配置</p>
         <div className="grid grid-cols-2 gap-2">
           {allOptions.map((option) => {
             const isUsed = usedOptions.includes(option);
-            const isDragging = draggedOption === option;
+            const isSelected = selectedOption === option;
 
             return (
               <button
                 key={option}
-                draggable={!isRevealed && !isUsed}
-                onDragStart={() => handleDragStart(option)}
-                onDragEnd={handleDragEnd}
                 onClick={() => handleTapOption(option)}
                 disabled={isRevealed}
                 className={`py-3 px-4 rounded-xl font-medium transition-all text-center ${
                   isRevealed
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gray-100 text-gray-400'
                     : isUsed
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
-                    : isDragging
-                    ? 'bg-purple-200 text-purple-700 border-2 border-purple-500 scale-105'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:border-purple-400 hover:bg-purple-50 cursor-grab active:cursor-grabbing'
+                    ? 'bg-gray-200 text-gray-400 opacity-50'
+                    : isSelected
+                    ? 'bg-purple-600 text-white border-2 border-purple-600 scale-105 shadow-lg'
+                    : 'bg-white text-gray-700 border border-gray-200 active:bg-purple-50 active:border-purple-400'
                 }`}
               >
                 {option}
