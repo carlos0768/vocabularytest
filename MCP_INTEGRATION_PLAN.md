@@ -144,8 +144,11 @@ Tools:
     → true | false | "partially" (status: new/review/mastered)
 
   // 4. 特定の単語に似ていて、ユーザーが知らない単語を検索（10-20トークン）
+  // Vector DB (Supabase + pgvector) を使用して意味的に類似した単語を検索
   find_similar_unknown_words(userId, targetWord, limit = 3)
     → ["transient", "momentary", "fleeting"]
+    // 例: "ephemeral" の埋め込みベクトルに近い単語を検索
+    //     ユーザーが mastered していない単語のみ返す
 
   // 5. ユーザーが何度も間違えた単語（5-15トークン）
   find_common_mistakes(userId, limit = 3)
@@ -168,9 +171,73 @@ Tools:
 - `src/mcp-servers/user-context-server.ts`
 - `src/lib/mcp-tools/learning-analytics.ts`
 
-**データソース**:
-- `words` テーブル (status, updatedAt, correctCount)
-- `daily_stats` テーブル (毎日の学習記録)
+**データソース** (Vector DB + RDB):
+- `words` テーブル: status, updatedAt, correctCount
+- `word_embeddings` テーブル: 各単語の埋め込みベクトル (pgvector)
+- `daily_stats` テーブル: 毎日の学習記録
+
+**Vector DB セットアップ (Supabase + pgvector)**:
+```sql
+-- pgvector 拡張を有効化
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 単語の埋め込みを格納するテーブル
+CREATE TABLE word_embeddings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  word text NOT NULL UNIQUE,
+  definition text,
+  embedding vector(1536),  -- OpenAI embedding-3-small: 1536次元
+  cefr_level text,         -- A1, A2, B1, B2, C1, C2
+  category text,           -- business, academic, general, etc.
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Vector インデックス作成（検索性能向上）
+CREATE INDEX ON word_embeddings USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Vector を使った類似単語検索用の SQL 関数
+CREATE OR REPLACE FUNCTION match_similar_words(
+  query_embedding vector,
+  match_threshold float DEFAULT 0.7,
+  match_count int DEFAULT 3
+) RETURNS TABLE (
+  word text,
+  similarity float
+) LANGUAGE sql AS $$
+  SELECT
+    we.word,
+    1 - (we.embedding <=> query_embedding) as similarity
+  FROM word_embeddings we
+  WHERE 1 - (we.embedding <=> query_embedding) > match_threshold
+  ORDER BY we.embedding <=> query_embedding
+  LIMIT match_count;
+$$ STABLE;
+
+-- ユーザーが知らない類似単語を取得する関数
+CREATE OR REPLACE FUNCTION match_unknown_words(
+  p_user_id uuid,
+  query_embedding vector,
+  match_threshold float DEFAULT 0.7,
+  match_count int DEFAULT 3
+) RETURNS TABLE (
+  word text,
+  similarity float,
+  user_status text
+) LANGUAGE sql AS $$
+  SELECT
+    we.word,
+    1 - (we.embedding <=> query_embedding) as similarity,
+    COALESCE(w.status, 'unknown') as user_status
+  FROM word_embeddings we
+  LEFT JOIN words w ON we.word = w.english AND w.user_id = p_user_id
+  WHERE 1 - (we.embedding <=> query_embedding) > match_threshold
+    AND (w.status IS NULL OR w.status != 'mastered')
+  ORDER BY we.embedding <=> query_embedding
+  LIMIT match_count;
+$$ STABLE;
+```
 
 ---
 
@@ -378,6 +445,156 @@ const distractor_strategies: Record<string, DistractorStrategy[]> = {
     { type: "frequency-similar", weight: 0.1, condition: () => true }
   ]
 };
+
+---
+
+#### 2.1 find_similar_unknown_words の実装 (Vector DB版)
+
+```typescript
+// src/mcp-servers/user-context-server.ts
+
+import { createClient } from '@supabase/supabase-js';
+
+export const userContextServer = {
+  tools: {
+    find_similar_unknown_words: async (
+      userId: string,
+      targetWord: string,
+      limit: number = 3
+    ) => {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // Step 1: ターゲット単語の埋め込みを取得
+      const { data: targetEmbeddingData, error: embeddingError } = await supabase
+        .from('word_embeddings')
+        .select('embedding')
+        .eq('word', targetWord)
+        .single();
+
+      if (embeddingError || !targetEmbeddingData) {
+        // 埋め込みが無い場合は空配列を返す
+        return [];
+      }
+
+      // Step 2: Vector DB で類似単語を検索（RLS で user_id フィルタリング）
+      const { data: similarWords, error: searchError } = await supabase
+        .rpc('match_unknown_words', {
+          p_user_id: userId,
+          query_embedding: targetEmbeddingData.embedding,
+          match_threshold: 0.65,  // コサイン類似度 0.65以上
+          match_count: limit
+        });
+
+      if (searchError) {
+        console.error('Vector search failed:', searchError);
+        return [];
+      }
+
+      // Step 3: ユーザーが確実に知らない単語のみを返す
+      const unknownWords = (similarWords || [])
+        .filter(w => w.user_status === 'unknown' || w.user_status === null)
+        .map(w => w.word);
+
+      return unknownWords;
+    }
+  }
+};
+
+/**
+ * データフロー:
+ * 1. "ephemeral" の埋め込みベクトル取得
+ * 2. Vector DB でコサイン類似度を計算
+ * 3. トップ N 件を取得（similarity > 0.65）
+ * 4. ユーザーが mastered していない単語を返す
+ *
+ * 例: "ephemeral"
+ * → 埋め込みベクトル: [0.1, 0.2, ..., 0.9]
+ * → 類似度検索: "transient"(0.89), "momentary"(0.87), "fleeting"(0.84)
+ * → ユーザーが知らない: ["transient", "momentary", "fleeting"]
+ *
+ * 処理時間: ~50ms (Vector index による高速検索)
+ * トークン消費: 15 (結果データのみ)
+ */
+```
+
+#### 2.2 埋め込みベクトルの初期化とメンテナンス
+
+```typescript
+// src/scripts/initialize-embeddings.ts
+// 1回だけ実行: すべての単語の埋め込みを計算して格納
+
+import { createClient } from '@supabase/supabase-js';
+import { OpenAIClient } from 'openai';
+
+const supabase = createClient(...);
+const openai = new OpenAIClient(...);
+
+async function initializeWordEmbeddings() {
+  // Step 1: DB から全単語を取得（英語のみ）
+  const { data: allWords } = await supabase
+    .from('words')
+    .select('DISTINCT english')
+    .neq('english', null);
+
+  // Step 2: バッチで埋め込みを計算
+  const uniqueWords = [...new Set(allWords?.map(w => w.english) || [])];
+
+  const embeddings = await openai.embeddings.create({
+    model: 'text-embedding-3-small',  // 低コスト, 1536次元
+    input: uniqueWords
+  });
+
+  // Step 3: Supabase に格納
+  const records = uniqueWords.map((word, idx) => ({
+    word,
+    embedding: embeddings.data[idx].embedding,
+    category: categorizeWord(word),
+    cefr_level: estimateCEFRLevel(word)
+  }));
+
+  await supabase
+    .from('word_embeddings')
+    .upsert(records, { onConflict: 'word' });
+
+  console.log(`Initialized embeddings for ${uniqueWords.length} words`);
+}
+
+// 毎月実行: 新しく追加された単語の埋め込みを計算
+async function updateNewWordEmbeddings() {
+  // 埋め込みが無い新規単語を取得
+  const { data: newWords } = await supabase
+    .from('words')
+    .select('DISTINCT english')
+    .not('english', 'in', `(SELECT word FROM word_embeddings)`);
+
+  if (!newWords || newWords.length === 0) return;
+
+  const embeddings = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: newWords.map(w => w.english)
+  });
+
+  const records = newWords.map((word, idx) => ({
+    word: word.english,
+    embedding: embeddings.data[idx].embedding,
+    category: categorizeWord(word.english),
+    cefr_level: estimateCEFRLevel(word.english)
+  }));
+
+  await supabase
+    .from('word_embeddings')
+    .upsert(records, { onConflict: 'word' });
+}
+
+// コスト: OpenAI embedding-3-small は約 $0.02 / 1M トークン
+// 1000単語 = 約 $0.00002 (ほぼ無料)
+// 5000単語 = 約 $0.0001
+```
+
+---
 
 // 実装例: 中級ユーザーの "ephemeral" に対する歪曲生成
 // トークン効率重視: 必要なデータだけを呼び出す
@@ -813,30 +1030,53 @@ const generatePersonalizedQuiz = async (userId: string, projectId: string) => {
 
 ## 4. 実装ロードマップ
 
-### Phase 1: 基盤構築 (2-3週間)
+### Phase 1: 基盤構築 (3-4週間)
 
+**Infrastructure**:
+- [ ] Supabase で pgvector 拡張を有効化
+- [ ] `word_embeddings` テーブル作成
+- [ ] Vector インデックス作成
+- [ ] SQL 関数 `match_similar_words`, `match_unknown_words` 作成
 - [ ] MCP SDK統合 (Next.jsプロジェクトにMCP client追加)
-- [ ] Vocabulary Data Server実装
-  - 既存リポジトリ (Dexie/Supabase) をMCP化
-  - word クエリツール作成
-- [ ] User Context Server実装
-  - `daily_stats` テーブル作成
-  - 学習分析ツール実装
-- [ ] 開発環境でのテスト
+
+**Vocabulary Data Server実装**:
+- [ ] 既存リポジトリ (Dexie/Supabase) をMCP化
+- [ ] word クエリツール作成
+
+**User Context Server実装**:
+- [ ] `daily_stats` テーブル作成
+- [ ] `find_similar_unknown_words` を Vector DB で実装
+- [ ] その他の学習分析ツール実装 (get_weak_areas, identify_user_pattern など)
+
+**埋め込みベクトル初期化**:
+- [ ] `initialize-embeddings.ts` スクリプト作成
+- [ ] 既存全単語の埋め込みを計算・格納
+- [ ] `updateNewWordEmbeddings` スクリプト作成（毎月実行）
+
+**開発環境でのテスト**:
+- [ ] MCP ツール単体テスト
+- [ ] Vector 検索の精度テスト
+- [ ] レイテンシ測定（目標: <100ms）
 
 **ファイル構成**:
 ```
 src/
 ├── mcp-servers/
 │   ├── vocabulary-data-server.ts
-│   ├── user-context-server.ts
+│   ├── user-context-server.ts      (← Vector DB 統合)
 │   └── index.ts (サーバー起動)
 ├── lib/mcp-tools/
 │   ├── word-queries.ts
 │   ├── learning-analytics.ts
+│   ├── vector-similarity.ts         (← 新規: Vector DB ユーティリティ)
 │   └── mcp-client.ts (クライアント統合)
-└── app/api/
-    └── mcp-debug/  (開発用エンドポイント)
+├── scripts/
+│   ├── initialize-embeddings.ts    (← 新規: 初期化スクリプト)
+│   └── update-embeddings.ts        (← 新規: 毎月更新スクリプト)
+├── app/api/
+│   └── mcp-debug/  (開発用エンドポイント)
+└── migrations/
+    └── 002_add_word_embeddings.sql (← 新規: pgvector 初期化)
 ```
 
 ### Phase 2: AI統合 (2-3週間)
@@ -1107,29 +1347,74 @@ const context = await mcpClient.tools.call(
 
 ---
 
-## 10. 質問と回答
+## 10. Vector DB (Supabase + pgvector) のコスト計算
 
-**Q1: MCPサーバーはいつ立ち上げる？**
+```
+OpenAI Embeddings API:
+- Model: text-embedding-3-small ($0.02 / 1M tokens)
+- 初期化: 5,000単語 × 100 tokens/単語 ≈ $0.01 (一回限り)
+- 毎月更新: 100新規単語 ≈ $0.0000167 (ほぼ無料)
+
+Supabase pgvector:
+- Storage: 無制限（Vector テーブル = 標準テーブル）
+- Compute: Vector index は計算コストなし（Storage に含まれる）
+- 検索: Supabase RPC 呼び出し = Database operation として計算
+  * Pro tier: $25/月 + $0.125 per 100k operations
+  * 1日 100万検索 = 3000万操作/月 = $375/月（High volume 向け）
+  * 1日 10万検索 = 300万操作/月 = $28.75/月（適切）
+
+総コスト見積もり（ScanVocabの規模で）:
+- 初期セットアップ: $0.01（一回）
+- 毎月: $0.02（埋め込み更新） + $25-30（Supabase Pro）
+= 約 $25-30/月（著者独立）
+
+対比: OpenAI API で全て処理
+- 月2000単語スキャン × 50トークン/単語 ≈ $2/月
+- でも品質は低い、トークン効率も悪い
+
+MCPで正確なVector検索を導入する価値は十分
+```
+
+---
+
+## 10.5 質問と回答
+
+**Q1: Vector DB (pgvector) は必須？**
+A: Yes. `find_similar_unknown_words` が主要な役割なので、正確な意味検索が必要。
+   - Dictionary-based: メンテナンス負荷が大きい（同義語辞書を手動管理）
+   - Vector DB: 自動で類似度検索が可能、精度も高い
+   - 初期化は1回だけ ($0.01)、運用コストも低い
+
+**Q2: MCPサーバーはいつ立ち上げる？**
 A: Next.jsサーバー起動時に `mcp-servers/index.ts` でMCPサーバーを初期化。
    実装方法は複数選択肢がある：
    - Option A: child_processで別プロセス（stdio通信）
    - Option B: Next.js同プロセス内で実行（メモリ効率的）
    - Option C: HTTP/WebSocket経由の別プロセス（スケーラブル）
 
-**Q1.5: MCPサーバーとMCPクライアントの関係は？**
-A: - MCPサーバー: Dexie/Supabaseへのアクセス権を持つ
+**Q3: MCPサーバーとMCPクライアントの関係は？**
+A: - MCPサーバー: Dexie/Supabase（含 pgvector）へのアクセス権を持つ
      src/mcp-servers/user-context-server.ts など
    - MCPクライアント: Claude（またはNext.js）がMCPサーバーを呼び出す
      MCPプロトコル経由でツールを実行
 
-**Q2: 既存のOpenAI呼び出しはどうする？**
-A: 段階的に移行。Phase 1はDexieアクセスのみMCP化。OpenAI呼び出しはPhase 2以降。
+**Q4: 既存のOpenAI呼び出しはどうする？**
+A: 段階的に移行。Phase 1は Vector DB + Vocabulary Data Server のみMCP化。
+   OpenAI呼び出し（歪曲生成）はPhase 2以降。
 
-**Q3: 本番環境でのMCPサーバー冗長化は？**
-A: MCPサーバーを複数インスタンス起動し、ロードバランサーの後ろに。フェイルオーバーは自動。
+**Q5: Vector 検索のレイテンシは？**
+A: Supabase + pgvector (IVFFlat インデックス使用):
+   - 単語数: 5,000語未満 → <50ms
+   - 単語数: 50,000語 → <200ms
+   - インデックスが大きくなったら HNSW インデックスに切り替え
 
-**Q4: MCPログ/デバッグはどうする？**
-A: `src/app/api/mcp-debug/` エンドポイントで開発環境でのみテスト。本番はStructured Loggingで記録。
+**Q6: 本番環境でのMCPサーバー冗長化は？**
+A: MCPサーバーを複数インスタンス起動し、ロードバランサーの後ろに。
+   Vector DB (Supabase) は自動的にレプリケーション。
+
+**Q7: MCPログ/デバッグはどうする？**
+A: `src/app/api/mcp-debug/` エンドポイントで開発環境でのみテスト。
+   本番は Structured Logging で記録。Vector 検索の精度監視も追加。
 
 ---
 
