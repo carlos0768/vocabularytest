@@ -1,5 +1,13 @@
 import { GoogleGenAI } from '@google/genai';
-import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
+import { type ValidatedAIResponse } from '@/lib/schemas/ai-response';
+import {
+  parseHighlightedResponse,
+  filterByConfidence,
+  removeDuplicates,
+  convertToStandardFormat,
+  CONFIDENCE_THRESHOLD,
+  type HighlightedResponse,
+} from '@/lib/schemas/highlighted-response';
 import {
   HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,
   HIGHLIGHTED_WORD_USER_PROMPT,
@@ -10,7 +18,8 @@ export type HighlightedExtractionResult =
   | { success: false; error: string };
 
 // Extracts only highlighted/marker words from an image using Google Gemini API
-// Uses gemini-2.5-flash model for image analysis (better at detecting subtle visual features)
+// Uses gemini-2.5-flash-preview model for image analysis (optimized for visual feature detection)
+// Features: color detection, confidence scoring, bounding box coordinates
 export async function extractHighlightedWordsFromImage(
   imageBase64: string,
   apiKey: string
@@ -50,7 +59,11 @@ export async function extractHighlightedWordsFromImage(
     return { success: false, error: '画像データが空です' };
   }
 
-  console.log('Gemini API call (highlighted mode):', { mimeType, base64Length: base64Data.length });
+  console.log('Gemini API call (highlighted mode):', {
+    mimeType,
+    base64Length: base64Data.length,
+    confidenceThreshold: CONFIDENCE_THRESHOLD,
+  });
 
   try {
     const response = await ai.models.generateContent({
@@ -72,8 +85,8 @@ export async function extractHighlightedWordsFromImage(
         },
       ],
       config: {
-        temperature: 0.7,
-        maxOutputTokens: 4096,
+        temperature: 0.5, // Lower temperature for more consistent detection
+        maxOutputTokens: 8192, // Increased for detailed bounding box data
       },
     });
 
@@ -82,6 +95,8 @@ export async function extractHighlightedWordsFromImage(
     if (!content) {
       return { success: false, error: '画像を読み取れませんでした' };
     }
+
+    console.log('Gemini raw response (highlighted mode):', content.slice(0, 500) + '...');
 
     // Extract JSON from response (Gemini may include markdown code blocks)
     let jsonContent = content;
@@ -106,25 +121,72 @@ export async function extractHighlightedWordsFromImage(
       return { success: false, error: 'AIの応答を解析できませんでした' };
     }
 
-    // Validate with Zod schema
-    const validated = parseAIResponse(parsed);
+    // Validate with enhanced highlighted response schema
+    const validated = parseHighlightedResponse(parsed);
 
     if (!validated.success) {
+      console.error('Schema validation failed:', validated.error);
       return {
         success: false,
         error: validated.error || 'データ形式が不正です',
       };
     }
 
-    // Check if any words were extracted
-    if (validated.data!.words.length === 0) {
+    const highlightedData = validated.data as HighlightedResponse;
+
+    // Log detection metadata
+    console.log('Highlighted word detection metadata:', {
+      totalWordsDetected: highlightedData.words.length,
+      detectedColors: highlightedData.detectedColors,
+      totalHighlightedRegions: highlightedData.totalHighlightedRegions,
+    });
+
+    // Apply confidence filtering
+    const filteredWords = filterByConfidence(highlightedData.words, CONFIDENCE_THRESHOLD);
+
+    console.log('Confidence filtering result:', {
+      beforeFilter: highlightedData.words.length,
+      afterFilter: filteredWords.length,
+      threshold: CONFIDENCE_THRESHOLD,
+      filteredOut: highlightedData.words.length - filteredWords.length,
+    });
+
+    // Remove duplicate words (keep highest confidence)
+    const uniqueWords = removeDuplicates(filteredWords);
+
+    console.log('Duplicate removal result:', {
+      beforeDedup: filteredWords.length,
+      afterDedup: uniqueWords.length,
+      duplicatesRemoved: filteredWords.length - uniqueWords.length,
+    });
+
+    // Log individual word confidence scores for debugging
+    uniqueWords.forEach((word, index) => {
+      console.log(`Word ${index + 1}: "${word.english}" - confidence: ${word.confidence}, color: ${word.markerColor}`);
+    });
+
+    // Check if any words were extracted after filtering
+    if (uniqueWords.length === 0) {
+      // Check if there were words before filtering
+      if (highlightedData.words.length > 0) {
+        return {
+          success: false,
+          error: `検出された単語（${highlightedData.words.length}語）の確信度が低すぎました（閾値: ${CONFIDENCE_THRESHOLD * 100}%）。より鮮明なマーカーで再度お試しください。`,
+        };
+      }
       return {
         success: false,
         error: 'マーカーでハイライトされた単語が見つかりませんでした。蛍光ペンで線を引いた単語がある画像を撮影してください。',
       };
     }
 
-    return { success: true, data: validated.data! };
+    // Convert to standard format for compatibility with existing app infrastructure
+    const standardFormat = convertToStandardFormat({
+      ...highlightedData,
+      words: uniqueWords,
+    });
+
+    return { success: true, data: standardFormat };
   } catch (error) {
     console.error('Gemini API error (highlighted mode):', error);
 
