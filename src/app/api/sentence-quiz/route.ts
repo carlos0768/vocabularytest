@@ -62,10 +62,16 @@ const wordOrderAISchema = z.object({
 // 複数空欄問題生成プロンプト（Phase 1）
 const MULTI_BLANK_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、【必ず3つの空欄】がある穴埋め問題を生成してください。
 
-【重要：空欄は絶対に3つ必要です】
-blanks配列には必ず3つの要素を入れてください。2つや1つではエラーになります。
+【最重要：sentenceの___の数とblanks配列の要素数を一致させる】
+- sentenceに含まれる「___」の数と、blanks配列の要素数は【必ず同じ】にしてください
+- 例: sentenceに「___」が3つあるなら、blanks配列も3要素
+- これが一致しないとエラーになります
 
-【最重要：空欄は必ず単語1つだけ】
+【重要：空欄は絶対に3つ必要です】
+- sentenceには「___」を必ず3つ入れてください
+- blanks配列には必ず3つの要素を入れてください
+
+【重要：空欄は必ず単語1つだけ】
 - 各空欄には必ず「単語1つだけ」を入れてください
 - 熟語やフレーズ（例: "look forward to", "take care of"）を1つの空欄にしないでください
 - 熟語が与えられた場合は、その中の1単語だけを空欄にし、残りは文中に表示してください
@@ -81,7 +87,7 @@ blanks配列には必ず3つの要素を入れてください。2つや1つで�
 4. content空欄には、その位置に最も適切な単語を予測して入れてください
 5. 文は十分な長さ（7単語以上）にして、3つの空欄が自然に入るようにしてください
 
-【出力形式】JSON - blanks配列は必ず3要素、各wordは単語1つのみ
+【出力形式】JSON - sentenceの___の数 = blanks配列の要素数 = 3
 {
   "sentence": "I ___ to the ___ every ___.",
   "blanks": [
@@ -252,6 +258,15 @@ async function generateMultiFillInBlank(
     const phase1Parsed = JSON.parse(phase1Content);
     const phase1Validated = multiBlankAISchema.parse(phase1Parsed);
 
+    // 文中の空欄数（___の数）とblanks配列の長さを検証
+    const blankCountInSentence = (phase1Validated.sentence.match(/___/g) || []).length;
+    const blanksArrayLength = phase1Validated.blanks.length;
+
+    if (blankCountInSentence !== blanksArrayLength) {
+      console.warn(`Blank count mismatch for word "${english}": sentence has ${blankCountInSentence} blanks, but blanks array has ${blanksArrayLength} items. Falling back to single-blank question.`);
+      return null; // フォールバックして従来の1空欄問題を使用
+    }
+
     // 空欄数が3未満の場合はログ出力（デバッグ用）
     if (phase1Validated.blanks.length < 3) {
       console.warn(`LLM returned ${phase1Validated.blanks.length} blanks instead of 3 for word: ${english}`);
@@ -283,12 +298,39 @@ async function generateMultiFillInBlank(
         );
 
         if (vectorResult) {
-          // VectorDBでマッチした単語を使用
-          finalWord = vectorResult.english;
-          source = 'vector-matched';
-          sourceWordId = vectorResult.id;
-          sourceJapanese = vectorResult.japanese;
-          relatedWordIds.push(vectorResult.id);
+          // 文法的な互換性をチェック（単数/複数、品詞など）
+          const originalWord = blankPrediction.word.toLowerCase();
+          const matchedWord = vectorResult.english.toLowerCase();
+
+          // 単語が1語かどうかチェック（熟語は除外）
+          const isSingleWord = !matchedWord.includes(' ');
+
+          // 簡易的な単数/複数チェック
+          const isOriginalPlural = originalWord.endsWith('s') || originalWord.endsWith('es') || ['people', 'children', 'men', 'women'].includes(originalWord);
+          const isMatchedPlural = matchedWord.endsWith('s') || matchedWord.endsWith('es') || ['people', 'children', 'men', 'women'].includes(matchedWord);
+
+          // 文の前後の文脈をチェック（"a" や "an" があるかどうか）
+          const sentenceLower = phase1Validated.sentence.toLowerCase();
+          const blankIndex = phase1Validated.sentence.split('___').slice(0, blankPrediction.position + 1).join('___').lastIndexOf('___');
+          const beforeBlank = phase1Validated.sentence.substring(0, blankIndex).toLowerCase();
+          const hasIndefiniteArticle = beforeBlank.endsWith('a ') || beforeBlank.endsWith('an ');
+
+          // 文法的に互換性があるかチェック
+          const isGrammaticallyCompatible =
+            isSingleWord &&
+            (isOriginalPlural === isMatchedPlural) &&
+            !(hasIndefiniteArticle && isMatchedPlural); // "a/an" + 複数形は不可
+
+          if (isGrammaticallyCompatible) {
+            // VectorDBでマッチした単語を使用
+            finalWord = vectorResult.english;
+            source = 'vector-matched';
+            sourceWordId = vectorResult.id;
+            sourceJapanese = vectorResult.japanese;
+            relatedWordIds.push(vectorResult.id);
+          } else {
+            console.warn(`Skipping VectorDB match "${vectorResult.english}" for "${blankPrediction.word}" due to grammatical incompatibility`);
+          }
         }
       }
 
@@ -310,13 +352,48 @@ async function generateMultiFillInBlank(
       });
     }
 
+    // ============================================
+    // Phase 4: VectorDB置換があった場合、日本語訳を再生成
+    // ============================================
+    let finalJapaneseMeaning = phase1Validated.japaneseMeaning;
+
+    if (relatedWordIds.length > 0) {
+      // 完成した英文を作成
+      const completedSentence = phase1Validated.sentence
+        .split('___')
+        .map((part, idx) => idx < blanks.length ? part + blanks[idx].correctAnswer : part)
+        .join('');
+
+      try {
+        const translationResponse = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: '与えられた英文を自然な日本語に翻訳してください。翻訳のみを出力してください。',
+            },
+            { role: 'user', content: completedSentence },
+          ],
+          temperature: 0.3,
+        });
+
+        const translatedText = translationResponse.choices[0]?.message?.content;
+        if (translatedText) {
+          finalJapaneseMeaning = translatedText.trim();
+        }
+      } catch (translationError) {
+        console.warn('Failed to regenerate Japanese translation:', translationError);
+        // 失敗した場合は元の翻訳を使用
+      }
+    }
+
     return {
       type: 'multi-fill-in-blank',
       wordId,
       targetWord: english,
       sentence: phase1Validated.sentence,
       blanks,
-      japaneseMeaning: phase1Validated.japaneseMeaning,
+      japaneseMeaning: finalJapaneseMeaning,
       relatedWordIds,
     };
   } catch (error) {
