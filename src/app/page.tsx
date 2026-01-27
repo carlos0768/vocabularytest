@@ -36,9 +36,8 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
-import type { AIWordExtraction, AIGrammarExtraction, Project, Word } from '@/types';
+import type { AIWordExtraction, Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
-import type { EikenGrammarLevel } from '@/types';
 
 // EIKEN level options for the dropdown
 const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
@@ -53,7 +52,7 @@ const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
 ];
 
 // Scan mode types (ExtractMode already includes 'idiom')
-type ScanMode = ExtractMode | 'grammar';
+type ScanMode = ExtractMode;
 
 // Scan mode selection modal - EIKEN filter is now a separate mode
 function ScanModeModal({
@@ -253,27 +252,6 @@ function ScanModeModal({
             </div>
           </button>
 
-          {/* Grammar mode (Pro) */}
-          <button
-            onClick={() => onSelectMode('grammar', null)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors text-left"
-          >
-            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <BookText className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900">文法をスキャン</p>
-                {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
-                    <Sparkles className="w-3 h-3" />
-                    Pro
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-gray-500">文法問題を抽出して学習します</p>
-            </div>
-          </button>
         </div>
         <button
           onClick={onClose}
@@ -901,7 +879,6 @@ export default function HomePage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [selectedScanMode, setSelectedScanMode] = useState<ScanMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
-  const [isGrammarMode, setIsGrammarMode] = useState(false);
 
   // Delete modals
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
@@ -1260,25 +1237,12 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
-    // Pro-only features: circled, highlighted, eiken filter, idiom, and grammar modes
-    if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom' || mode === 'grammar') && !isPro) {
+    // Pro-only features: circled, highlighted, eiken filter, idiom modes
+    if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
       router.push('/subscription');
       return;
     }
 
-    // Handle grammar mode - requires existing project
-    if (mode === 'grammar') {
-      if (!currentProject) {
-        showToast({ message: 'まず単語帳を作成してください', type: 'error' });
-        return;
-      }
-      setIsGrammarMode(true);
-      setSelectedEikenLevel(eikenLevel);
-      fileInputRef.current?.click();
-      return;
-    }
-
-    setIsGrammarMode(false);
     setSelectedScanMode(mode as ExtractMode);
     setSelectedEikenLevel(eikenLevel);
     fileInputRef.current?.click();
@@ -1295,16 +1259,6 @@ export default function HomePage() {
         },
         duration: 4000,
       });
-      return;
-    }
-
-    // Grammar mode - process directly without project name modal
-    if (isGrammarMode) {
-      if (!currentProject) {
-        showToast({ message: 'まず単語帳を作成してください', type: 'error' });
-        return;
-      }
-      processGrammarImage(file);
       return;
     }
 
@@ -1477,127 +1431,6 @@ export default function HomePage() {
         } else {
           errorMessage = error.message;
         }
-      }
-
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.status === 'active' || s.status === 'pending'
-            ? { ...s, status: 'error', label: errorMessage }
-            : s
-        )
-      );
-    }
-  };
-
-  // Grammar image processing function
-  const processGrammarImage = async (file: File) => {
-    if (!currentProject) return;
-
-    setProcessing(true);
-    setProcessingSteps([
-      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-      { id: 'ocr', label: 'テキストを抽出中...', status: 'pending' },
-      { id: 'analyze', label: '文法を解析中...', status: 'pending' },
-    ]);
-
-    try {
-      let processedFile: File;
-      try {
-        processedFile = await processImageFile(file);
-      } catch (imageError) {
-        console.error('Image processing error:', imageError);
-        throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
-      }
-
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          if (!result || !result.includes(',')) {
-            reject(new Error('画像データの読み取りに失敗しました'));
-            return;
-          }
-          resolve(result);
-        };
-        reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
-        reader.readAsDataURL(processedFile);
-      });
-
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'upload' ? { ...s, status: 'complete' } :
-          s.id === 'ocr' ? { ...s, status: 'active' } : s
-        )
-      );
-
-      // Call grammar API
-      const eikenLevel: EikenGrammarLevel = selectedEikenLevel as EikenGrammarLevel;
-      const response = await fetch('/api/grammar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, eikenLevel }),
-      });
-
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'ocr' ? { ...s, status: 'complete' } :
-          s.id === 'analyze' ? { ...s, status: 'active' } : s
-        )
-      );
-
-      const result = await response.json();
-
-      if (response.status === 401) {
-        setProcessing(false);
-        showToast({
-          message: 'ログインが必要です',
-          type: 'error',
-          action: {
-            label: 'ログイン',
-            onClick: () => router.push('/login'),
-          },
-          duration: 4000,
-        });
-        return;
-      }
-
-      if (response.status === 429 || result.limitReached) {
-        setProcessing(false);
-        if (result.scanInfo) {
-          setScanInfo(result.scanInfo);
-        }
-        setShowScanLimitModal(true);
-        return;
-      }
-
-      if (!result.success) {
-        throw new Error(result.error || '文法解析に失敗しました');
-      }
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      setProcessingSteps((prev) =>
-        prev.map((s) => (s.id === 'analyze' ? { ...s, status: 'complete' } : s))
-      );
-
-      if (result.scanInfo) {
-        setScanInfo(result.scanInfo);
-      }
-
-      // Store patterns and project ID in sessionStorage, then navigate to confirm page
-      const patterns: AIGrammarExtraction[] = result.patterns;
-      sessionStorage.setItem('scanvocab_grammar_patterns', JSON.stringify(patterns));
-      sessionStorage.setItem('scanvocab_project_id', currentProject.id);
-
-      setProcessing(false);
-      setIsGrammarMode(false);
-      router.push('/grammar/confirm');
-    } catch (error) {
-      console.error('Grammar scan error:', error);
-
-      let errorMessage = '予期しないエラー';
-      if (error instanceof Error) {
-        errorMessage = error.message;
       }
 
       setProcessingSteps((prev) =>
@@ -1846,14 +1679,15 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Grammar Mode Card - Full width (Pro only) */}
+        {/* Sentence Quiz Card - Full width (Pro only) */}
         <div className="mb-6">
           <StudyModeCard
-            title="文法問題"
-            description="文法をスキャンして学習"
+            title="例文クイズ"
+            description="例文で単語を覚える"
             icon={BookText}
-            href={isPro ? `/grammar/${currentProject?.id}` : '/subscription'}
-            variant="green"
+            href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
+            variant="purple"
+            disabled={words.length === 0}
             badge={!isPro ? 'Pro' : undefined}
           />
         </div>

@@ -4,14 +4,6 @@ export { extractCircledWordsFromImage, type CircledExtractionResult } from './ex
 export { extractHighlightedWordsFromImage, type HighlightedExtractionResult } from './extract-highlighted-words';
 export { extractIdiomsFromImage, type IdiomExtractionResult } from './extract-idioms';
 export {
-  extractTextFromImage,
-  analyzeGrammarPatterns,
-  extractGrammarFromImage,
-  type OCRResult,
-  type GrammarAnalysisResult,
-  type GrammarExtractionResult,
-} from './extract-grammar';
-export {
   extractTextForEiken,
   analyzeWordsForEiken,
   extractEikenWordsFromImage,

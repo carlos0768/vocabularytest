@@ -18,21 +18,16 @@ export type {
   Subscription,
   UserState,
   AuthUser,
-  // Grammar types
-  EikenGrammarLevel,
-  GrammarPattern,
-  GrammarQuizQuestion,
-  AIGrammarExtraction,
-  AIGrammarResponse,
-  // New Duolingo-style grammar quiz types
-  GrammarQuizType,
-  LegacyGrammarQuizType,
-  WordOption,
-  GrammarQuizQuestionNew,
-  AIGrammarQuizQuestionLegacy,
-  AIGrammarQuizQuestionNew,
-  AIGrammarQuizQuestion,
-  AIGrammarExtractionLegacy,
+  // Sentence Quiz types (Duolingo-style)
+  SentenceQuizType,
+  BlankSlot,
+  FillInBlankQuestion,
+  WordOrderQuestion,
+  SentenceQuizQuestion,
+  AISentenceFillInBlank,
+  AISentenceWordOrder,
+  SentenceQuizWordInput,
+  SentenceQuizResponse,
 } from '../../shared/types';
 
 // ============ Web-Specific Types ============
