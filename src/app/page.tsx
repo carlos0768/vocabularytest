@@ -25,6 +25,7 @@ import {
   BookText,
   Star,
   Languages,
+  Highlighter,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -183,6 +184,28 @@ function ScanModeModal({
                 )}
               </div>
               <p className="text-sm text-gray-500">マークした単語だけを抽出します</p>
+            </div>
+          </button>
+
+          {/* Highlighted words mode (Pro) */}
+          <button
+            onClick={() => onSelectMode('highlighted', null)}
+            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-yellow-400 hover:bg-yellow-50/50 transition-colors text-left relative"
+          >
+            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <Highlighter className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900">マーカーを引いた単語だけ</p>
+                {!isPro && (
+                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500">蛍光ペンでハイライトした単語を抽出します</p>
             </div>
           </button>
 
@@ -1237,8 +1260,8 @@ export default function HomePage() {
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     setShowScanModeModal(false);
 
-    // Pro-only features: circled, eiken filter, idiom, and grammar modes
-    if ((mode === 'circled' || mode === 'eiken' || mode === 'idiom' || mode === 'grammar') && !isPro) {
+    // Pro-only features: circled, highlighted, eiken filter, idiom, and grammar modes
+    if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom' || mode === 'grammar') && !isPro) {
       router.push('/subscription');
       return;
     }
