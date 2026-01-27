@@ -231,7 +231,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
                   blankRefs.current[index] = el;
                 }}
                 onClick={() => handleTapBlank(index)}
-                className={`inline-flex items-center justify-center min-w-[70px] h-9 mx-1 px-2 rounded-lg text-center font-bold transition-all cursor-pointer ${
+                className={`inline-flex items-center justify-center min-w-[70px] h-9 mx-1 px-2 rounded-xl text-center font-bold transition-all cursor-pointer ${
                   isRevealed
                     ? filledBlanks[index] === question.blanks[index].correctAnswer
                       ? 'bg-green-100 text-green-700 border-2 border-green-500'
@@ -281,7 +281,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       {/* コンテンツエリア（スクロール無効） */}
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {/* 日本語訳 */}
-        <div className="mb-1 p-1.5 bg-purple-50 rounded">
+        <div className="mb-1 p-1.5 bg-purple-50 rounded-xl">
           <p className="text-purple-800 font-medium text-xs">{question.japaneseMeaning}</p>
         </div>
 
@@ -300,7 +300,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
                 key={option}
                 onTouchStart={(e) => handleTouchStart(e, option)}
                 onClick={() => !dragState.isDragging && handleTapOption(option)}
-                className={`py-1.5 px-2 rounded font-medium transition-all text-center text-xs select-none cursor-grab active:cursor-grabbing ${
+                className={`py-2.5 px-3 rounded-xl font-medium transition-all text-center text-sm select-none cursor-grab active:cursor-grabbing ${
                   isBeingDragged
                     ? 'opacity-30'
                     : isRevealed
@@ -320,19 +320,19 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
       </div>
 
       {/* 固定ボタンエリア */}
-      <div className="flex-shrink-0 pt-1">
+      <div className="flex-shrink-0 pt-2">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={filledBlanks.some((b) => b === null)}
-            className="w-full bg-purple-600 hover:bg-purple-700 h-9 text-sm"
+            className="w-full bg-purple-600 hover:bg-purple-700 h-10 text-sm rounded-xl"
           >
             回答する
           </Button>
         ) : (
           <div className="flex items-center gap-2">
             <div
-              className={`flex-1 py-1.5 rounded text-center ${
+              className={`flex-1 py-2 rounded-xl text-center ${
                 isCorrect ? 'bg-green-100' : 'bg-red-100'
               }`}
             >
@@ -346,7 +346,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
             </div>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 h-9 text-sm"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 h-10 text-sm rounded-xl"
             >
               次へ
             </Button>
