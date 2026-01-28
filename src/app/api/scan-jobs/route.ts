@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError);
-      return NextResponse.json({ success: false, error: '画像のアップロードに失敗しました' }, { status: 500 });
+      console.error('Upload details:', { fileName, userId: user.id, bucketName: 'scan-images' });
+      return NextResponse.json({
+        success: false,
+        error: '画像のアップロードに失敗しました',
+        details: uploadError.message
+      }, { status: 500 });
     }
 
     // スキャンジョブを作成
@@ -57,9 +62,14 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Job insert error:', insertError);
+      console.error('Insert details:', { userId: user.id, scanMode, fileName });
       // アップロードした画像を削除
       await supabase.storage.from('scan-images').remove([fileName]);
-      return NextResponse.json({ success: false, error: 'ジョブの作成に失敗しました' }, { status: 500 });
+      return NextResponse.json({
+        success: false,
+        error: 'ジョブの作成に失敗しました',
+        details: insertError.message
+      }, { status: 500 });
     }
 
     return NextResponse.json({
