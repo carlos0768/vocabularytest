@@ -2,6 +2,9 @@
 // Re-exports shared types and adds web-specific types
 
 // ============ Shared Types (from /shared/types) ============
+// Import for local use
+import type { AIWordExtraction as AIWordExtractionType } from '../../shared/types';
+
 export type {
   WordStatus,
   Word,
@@ -68,7 +71,7 @@ export interface ScanJob {
   project_id: string | null;
   project_title: string | null;
   image_path: string;
-  result: AIWordExtraction[] | null;
+  result: AIWordExtractionType[] | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
