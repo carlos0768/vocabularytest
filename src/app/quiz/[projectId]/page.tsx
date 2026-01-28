@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
@@ -10,11 +10,22 @@ import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } 
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
+// Question count options
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20, 30];
+const DEFAULT_QUESTION_COUNT = 10;
+
 export default function QuizPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading } = useAuth();
+
+  // Get question count from URL or show selection screen
+  const countFromUrl = searchParams.get('count');
+  const [questionCount, setQuestionCount] = useState<number | null>(
+    countFromUrl ? parseInt(countFromUrl, 10) : null
+  );
 
   const [allWords, setAllWords] = useState<Word[]>([]); // Store all words for restart
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -33,9 +44,9 @@ export default function QuizPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Generate quiz questions from words
-  const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {
-    // Shuffle and take up to 10 questions per session
-    const selected = shuffleArray(words).slice(0, 10);
+  const generateQuestions = useCallback((words: Word[], count: number): QuizQuestion[] => {
+    // Shuffle and take up to count questions per session
+    const selected = shuffleArray(words).slice(0, count);
 
     return selected.map((word) => {
       // Shuffle correct answer with distractors
@@ -64,8 +75,12 @@ export default function QuizPage() {
           return;
         }
         setAllWords(words); // Store all words for restart
-        const generated = generateQuestions(words);
-        setQuestions(generated);
+
+        // Only generate questions if question count is set
+        if (questionCount) {
+          const generated = generateQuestions(words, questionCount);
+          setQuestions(generated);
+        }
       } catch (error) {
         console.error('Failed to load words:', error);
         router.push('/');
@@ -75,7 +90,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading]);
+  }, [projectId, repository, router, generateQuestions, authLoading, questionCount]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -120,14 +135,23 @@ export default function QuizPage() {
 
   // Restart quiz with new random questions from all words
   const handleRestart = () => {
-    // Use allWords to get completely new random 10 questions
-    const regenerated = generateQuestions(allWords);
+    // Use allWords to get completely new random questions
+    const regenerated = generateQuestions(allWords, questionCount || DEFAULT_QUESTION_COUNT);
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);
     setIsRevealed(false);
     setResults({ correct: 0, total: 0 });
     setIsComplete(false);
+  };
+
+  // Handle question count selection
+  const handleSelectCount = (count: number) => {
+    setQuestionCount(count);
+    if (allWords.length > 0) {
+      const generated = generateQuestions(allWords, count);
+      setQuestions(generated);
+    }
   };
 
   if (loading) {
@@ -137,6 +161,63 @@ export default function QuizPage() {
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">クイズを準備中...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Question count selection screen
+  if (!questionCount) {
+    // Calculate available question counts based on word count
+    const maxQuestions = allWords.length;
+    const availableOptions = QUESTION_COUNT_OPTIONS.filter(n => n <= maxQuestions);
+    // Add "All" option if words count doesn't match any preset
+    const showAllOption = maxQuestions > 0 && !QUESTION_COUNT_OPTIONS.includes(maxQuestions);
+
+    return (
+      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+        {/* Header */}
+        <header className="flex-shrink-0 p-4">
+          <button
+            onClick={() => router.push(`/project/${projectId}`)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </header>
+
+        {/* Selection */}
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="w-full max-w-sm">
+            <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+              問題数を選択
+            </h1>
+            <p className="text-gray-500 text-center mb-8">
+              全{maxQuestions}問から出題
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {availableOptions.map((count) => (
+                <button
+                  key={count}
+                  onClick={() => handleSelectCount(count)}
+                  className="p-4 bg-white rounded-xl shadow-sm border-2 border-gray-100 hover:border-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  <span className="text-2xl font-bold text-gray-900">{count}</span>
+                  <span className="text-sm text-gray-500 ml-1">問</span>
+                </button>
+              ))}
+              {showAllOption && (
+                <button
+                  onClick={() => handleSelectCount(maxQuestions)}
+                  className="p-4 bg-white rounded-xl shadow-sm border-2 border-gray-100 hover:border-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  <span className="text-2xl font-bold text-gray-900">全部</span>
+                  <span className="text-sm text-gray-500 ml-1">({maxQuestions}問)</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
