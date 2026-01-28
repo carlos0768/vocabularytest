@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -224,6 +224,32 @@ export default function FlashcardPage() {
     );
   };
 
+  const handleDeleteWord = async () => {
+    if (!currentWord) return;
+
+    const confirmed = window.confirm(`「${currentWord.english}」を削除しますか？`);
+    if (!confirmed) return;
+
+    await repository.deleteWord(currentWord.id);
+
+    // Remove word from state
+    const newWords = words.filter((_, i) => i !== currentIndex);
+
+    if (newWords.length === 0) {
+      // No more words, go back to project page
+      router.push(`/project/${projectId}`);
+      return;
+    }
+
+    // Adjust index if we deleted the last word
+    if (currentIndex >= newWords.length) {
+      setCurrentIndex(newWords.length - 1);
+    }
+
+    setWords(newWords);
+    setIsFlipped(false);
+  };
+
   // Calculate card transform
   const getCardTransform = () => {
     // Exit phase: card moves out in the swipe direction
@@ -368,20 +394,29 @@ export default function FlashcardPage() {
           </div>
         </div>
 
-        {/* Favorite button */}
-        <button
-          onClick={handleToggleFavorite}
-          className="mt-6 p-3 rounded-full hover:bg-gray-100 transition-colors"
-          aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
-        >
-          <Flag
-            className={`w-6 h-6 transition-colors ${
-              currentWord?.isFavorite
-                ? 'fill-orange-500 text-orange-500'
-                : 'text-gray-400'
-            }`}
-          />
-        </button>
+        {/* Action buttons */}
+        <div className="mt-6 flex items-center gap-4">
+          <button
+            onClick={handleToggleFavorite}
+            className="p-3 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
+          >
+            <Flag
+              className={`w-6 h-6 transition-colors ${
+                currentWord?.isFavorite
+                  ? 'fill-orange-500 text-orange-500'
+                  : 'text-gray-400'
+              }`}
+            />
+          </button>
+          <button
+            onClick={handleDeleteWord}
+            className="p-3 rounded-full hover:bg-red-50 transition-colors"
+            aria-label="この単語を削除"
+          >
+            <Trash2 className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors" />
+          </button>
+        </div>
       </main>
 
       {/* Navigation */}
