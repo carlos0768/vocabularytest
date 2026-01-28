@@ -198,6 +198,9 @@ export function recordCorrectAnswer(becameMastered: boolean = false): void {
   }
 
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+
+  // Also record to activity history for heatmap
+  recordDailyActivity(true);
 }
 
 // Wrong answers storage
@@ -245,6 +248,9 @@ export function recordWrongAnswer(
 
   stats.todayCount += 1;
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+
+  // Also record to activity history for heatmap
+  recordDailyActivity(false);
 
   // Save wrong answer to list
   const wrongAnswers = getWrongAnswers();
@@ -298,4 +304,85 @@ export function removeWrongAnswer(wordId: string): void {
 export function clearAllWrongAnswers(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(WRONG_ANSWERS_KEY);
+}
+
+// Weekly activity heatmap tracking
+const ACTIVITY_HISTORY_KEY = 'scanvocab_activity_history';
+
+export interface DailyActivity {
+  date: string; // YYYY-MM-DD
+  quizCount: number;
+  correctCount: number;
+}
+
+// Get activity history for the past N weeks (default 4 weeks = 28 days)
+export function getActivityHistory(weeks: number = 4): DailyActivity[] {
+  if (typeof window === 'undefined') return [];
+
+  const stored = localStorage.getItem(ACTIVITY_HISTORY_KEY);
+  let history: DailyActivity[] = [];
+
+  if (stored) {
+    try {
+      history = JSON.parse(stored);
+    } catch {
+      history = [];
+    }
+  }
+
+  // Generate array for past N weeks
+  const result: DailyActivity[] = [];
+  const today = new Date();
+  const daysToShow = weeks * 7;
+
+  for (let i = daysToShow - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+
+    const existing = history.find(h => h.date === dateStr);
+    result.push(existing || { date: dateStr, quizCount: 0, correctCount: 0 });
+  }
+
+  return result;
+}
+
+// Record activity for today (called when answering quiz)
+export function recordDailyActivity(isCorrect: boolean): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const stored = localStorage.getItem(ACTIVITY_HISTORY_KEY);
+  let history: DailyActivity[] = [];
+
+  if (stored) {
+    try {
+      history = JSON.parse(stored);
+    } catch {
+      history = [];
+    }
+  }
+
+  // Find or create today's entry
+  const todayIndex = history.findIndex(h => h.date === today);
+  if (todayIndex >= 0) {
+    history[todayIndex].quizCount += 1;
+    if (isCorrect) {
+      history[todayIndex].correctCount += 1;
+    }
+  } else {
+    history.push({
+      date: today,
+      quizCount: 1,
+      correctCount: isCorrect ? 1 : 0,
+    });
+  }
+
+  // Keep only last 60 days to prevent localStorage bloat
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 60);
+  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+  history = history.filter(h => h.date >= cutoffStr);
+
+  localStorage.setItem(ACTIVITY_HISTORY_KEY, JSON.stringify(history));
 }

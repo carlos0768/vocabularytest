@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Sparkles } from 'lucide-react';
 
 type ColorVariant = 'red' | 'blue' | 'green' | 'purple' | 'orange';
 
@@ -15,36 +15,53 @@ interface StudyModeCardProps {
   badge?: string;
 }
 
-const variantStyles: Record<ColorVariant, { border: string; bg: string; iconBg: string; iconColor: string }> = {
+const variantStyles: Record<ColorVariant, {
+  bg: string;
+  iconBg: string;
+  iconColor: string;
+  textColor: string;
+  descColor: string;
+  glow: string;
+}> = {
   red: {
-    border: 'border-red-200',
-    bg: 'bg-red-50/50',
-    iconBg: 'bg-red-100',
-    iconColor: 'text-red-600',
+    bg: 'bg-[var(--color-primary)]',
+    iconBg: 'bg-white/20',
+    iconColor: 'text-white',
+    textColor: 'text-white',
+    descColor: 'text-white/80',
+    glow: 'shadow-[0_8px_20px_rgba(255,107,107,0.3)]',
   },
   blue: {
-    border: 'border-blue-200',
-    bg: 'bg-blue-50/50',
-    iconBg: 'bg-blue-100',
-    iconColor: 'text-blue-600',
+    bg: 'bg-[var(--color-peach-light)] dark:bg-[var(--color-surface)]',
+    iconBg: 'bg-[var(--color-peach)]/20',
+    iconColor: 'text-[var(--color-primary)]',
+    textColor: 'text-[var(--color-foreground)]',
+    descColor: 'text-[var(--color-muted)]',
+    glow: 'shadow-soft',
   },
   green: {
-    border: 'border-emerald-200',
-    bg: 'bg-emerald-50/50',
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
+    bg: 'bg-[var(--color-success-light)]',
+    iconBg: 'bg-[var(--color-success)]/20',
+    iconColor: 'text-[var(--color-success)]',
+    textColor: 'text-[var(--color-foreground)]',
+    descColor: 'text-[var(--color-muted)]',
+    glow: 'shadow-soft',
   },
   purple: {
-    border: 'border-purple-200',
-    bg: 'bg-purple-50/50',
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
+    bg: 'bg-purple-100 dark:bg-purple-900/30',
+    iconBg: 'bg-purple-200 dark:bg-purple-800/50',
+    iconColor: 'text-purple-600 dark:text-purple-400',
+    textColor: 'text-[var(--color-foreground)]',
+    descColor: 'text-[var(--color-muted)]',
+    glow: 'shadow-soft',
   },
   orange: {
-    border: 'border-orange-200',
-    bg: 'bg-orange-50/50',
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
+    bg: 'bg-[var(--color-peach-light)]',
+    iconBg: 'bg-[var(--color-peach)]/30',
+    iconColor: 'text-[var(--color-peach)]',
+    textColor: 'text-[var(--color-foreground)]',
+    descColor: 'text-[var(--color-muted)]',
+    glow: 'shadow-soft',
   },
 };
 
@@ -61,22 +78,27 @@ export function StudyModeCard({
 
   const content = (
     <div
-      className={`relative p-3 rounded-2xl border-2 ${styles.border} ${styles.bg} ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md transition-shadow cursor-pointer'
+      className={`relative p-5 rounded-[2rem] ${styles.bg} ${styles.glow} overflow-hidden group ${
+        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer'
       }`}
     >
+      {/* Decorative blur effect */}
+      <div className={`absolute -right-4 -top-4 w-24 h-24 ${variant === 'red' ? 'bg-white/20' : 'bg-[var(--color-primary)]/10'} rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500`} />
+
       {badge && (
-        <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-medium rounded-full">
+        <span className="absolute top-3 right-3 chip chip-pro">
+          <Sparkles className="w-3 h-3" />
           {badge}
         </span>
       )}
-      <div className="flex items-center gap-2">
-        <div className={`p-2 rounded-xl ${styles.iconBg} flex-shrink-0`}>
+
+      <div className="relative z-10 flex flex-col gap-3">
+        <div className={`w-10 h-10 rounded-full ${styles.iconBg} flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${styles.iconColor}`} />
         </div>
         <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm whitespace-nowrap">{title}</h3>
-          <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">{description}</p>
+          <h3 className={`font-bold text-lg leading-tight ${styles.textColor}`}>{title}</h3>
+          <p className={`text-xs mt-1 font-medium ${styles.descColor}`}>{description}</p>
         </div>
       </div>
     </div>

@@ -62,38 +62,38 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
 
   if (words.length === 0 || !currentWord) {
     return (
-      <div className="bg-gray-100 rounded-3xl p-8 text-center">
-        <p className="text-gray-500">単語を追加して学習を始めましょう</p>
+      <div className="card p-8 text-center">
+        <p className="text-[var(--color-muted)]">単語を追加して学習を始めましょう</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-100 rounded-3xl p-4">
+    <div className="card p-4 bg-[var(--color-peach-light)]">
       {/* Progress indicator */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-gray-500">
+        <span className="text-sm font-medium text-[var(--color-muted)]">
           {currentIndex + 1} / {shuffledWords.length}
         </span>
         <button
           onClick={reshuffleWords}
-          className="p-1.5 hover:bg-gray-200 rounded-full transition-colors"
+          className="p-1.5 hover:bg-[var(--color-primary)]/10 rounded-full transition-colors"
           aria-label="シャッフル"
         >
-          <RotateCcw className="w-4 h-4 text-gray-500" />
+          <RotateCcw className="w-4 h-4 text-[var(--color-muted)]" />
         </button>
       </div>
 
       {/* Flashcard */}
-      <div className="bg-white rounded-2xl p-6 min-h-[160px] flex items-center justify-center shadow-sm mb-4 relative">
+      <div className="bg-[var(--color-surface)] rounded-2xl p-6 min-h-[160px] flex items-center justify-center shadow-soft mb-4 relative">
         {/* Left arrow button */}
         <button
           onClick={goToPrevious}
           disabled={currentIndex === 0}
-          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-[var(--color-background)] hover:bg-[var(--color-peach-light)] rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
           aria-label="前へ"
         >
-          <ChevronLeft className="w-5 h-5 text-gray-600" />
+          <ChevronLeft className="w-5 h-5 text-[var(--color-foreground)]" />
         </button>
 
         {/* Card content - tap to flip */}
@@ -102,30 +102,30 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
           className="flex-1 px-10 cursor-pointer"
         >
           {!isFlipped ? (
-            // Front: English
+            // Front: English - matches back layout position
             <div className="text-center">
-              <h2 className="text-3xl font-bold text-gray-900">
-                {currentWord.english}
-              </h2>
-              <div className="flex items-center justify-center gap-2 mt-3">
+              <div className="flex items-center justify-center mb-2 h-[20px]">
                 <button
                   onClick={speakWord}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-1 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
                   aria-label="発音を聞く"
                 >
-                  <Volume2 className="w-5 h-5 text-gray-400" />
+                  <Volume2 className="w-5 h-5 text-[var(--color-muted)]" />
                 </button>
               </div>
-              <p className="text-sm text-gray-400 mt-2">タップして意味を表示</p>
+              <h2 className="text-3xl font-bold text-[var(--color-foreground)] tracking-tight">
+                {currentWord.english}
+              </h2>
+              <p className="text-sm text-[var(--color-muted)] mt-3">タップして意味を表示</p>
             </div>
           ) : (
-            // Back: Japanese
+            // Back: Japanese - same layout as front
             <div className="text-center">
-              <p className="text-sm text-gray-400 mb-2">{currentWord.english}</p>
-              <h2 className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-[var(--color-muted)] mb-2 h-[20px] flex items-center justify-center">{currentWord.english}</p>
+              <h2 className="text-2xl font-bold text-[var(--color-foreground)]">
                 {currentWord.japanese}
               </h2>
-              <p className="text-sm text-gray-400 mt-2">タップして英語を表示</p>
+              <p className="text-sm text-[var(--color-muted)] mt-3">タップして英語を表示</p>
             </div>
           )}
         </div>
@@ -133,10 +133,10 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
         {/* Right arrow button */}
         <button
           onClick={goToNext}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[var(--color-background)] hover:bg-[var(--color-peach-light)] rounded-full transition-colors shadow-sm"
           aria-label="次へ"
         >
-          <ChevronRight className="w-5 h-5 text-gray-600" />
+          <ChevronRight className="w-5 h-5 text-[var(--color-foreground)]" />
         </button>
       </div>
     </div>

@@ -341,7 +341,7 @@ export default function FlashcardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+    <div className="h-[100dvh] grid grid-rows-[auto_1fr_auto] bg-[var(--color-background)] fixed inset-0">
       {/* Header */}
       <header className="p-4 flex items-center justify-between">
         <button
@@ -377,14 +377,14 @@ export default function FlashcardPage() {
       )}
 
       {/* Card area */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 touch-pan-y">
+      <main className="flex items-center justify-center px-6 touch-pan-y overflow-hidden min-h-0">
         {/* Flashcard */}
         <div
           onClick={handleFlip}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="flashcard w-full max-w-sm aspect-[3/4] cursor-pointer"
+          className="flashcard w-full max-w-sm aspect-[3/4] max-h-full cursor-pointer"
           style={{
             transform: getCardTransform(),
             transition: slidePhase === 'enter' ? 'none' : (isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none'),
@@ -438,9 +438,12 @@ export default function FlashcardPage() {
       </main>
 
       {/* Bottom controls */}
-      <div className="p-6 pb-8 safe-area-bottom">
+      <div
+        className="px-6 pt-2 pb-8"
+        style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
+      >
         {/* Action buttons */}
-        <div className="flex justify-center gap-4 mb-6">
+        <div className="flex justify-center gap-4 mb-4">
           <button
             onClick={handleShuffle}
             className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
@@ -469,13 +472,6 @@ export default function FlashcardPage() {
             aria-label="この単語を削除"
           >
             <Trash2 className="w-5 h-5" />
-          </button>
-
-          <button
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="ブックマーク"
-          >
-            <Bookmark className="w-5 h-5" />
           </button>
         </div>
 

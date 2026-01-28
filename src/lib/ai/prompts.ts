@@ -442,6 +442,50 @@ export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英検1級専門の�
 5. **活用形の誤り**: would have vs would had vs will have
 
 ═══════════════════════════════════════════════════════════════
+██  【超重要】空欄に使う単語レベルの制限  ██
+═══════════════════════════════════════════════════════════════
+
+このアプリの対象は大学受験生である。英検5級〜準2級レベルの基本語彙は
+全員が既に習得済みと見なす。
+
+【絶対禁止】以下のような基本語彙を空欄の正解にしてはならない：
+
+❌ 基本動詞: go, come, take, make, see, get, have, do, give, put,
+   run, walk, eat, drink, sleep, talk, speak, read, write, know,
+   think, want, like, love, need, use, try, help, look, find, keep
+
+❌ 基本形容詞: good, bad, big, small, large, new, old, young, long,
+   short, high, low, hot, cold, warm, fast, slow, easy, hard,
+   happy, sad, beautiful, important, different, same
+
+❌ 基本副詞: very, really, always, never, sometimes, often, well,
+   quickly, slowly, already, still, just, even, also, too
+
+❌ 基本名詞: time, day, year, way, thing, place, person, man, woman,
+   child, school, house, room, door, car, book, water, food
+
+【推奨】空欄には以下のような準1級〜1級レベルの語彙を使用せよ：
+
+✓ 高度な動詞: accomplish, acquire, advocate, alleviate, anticipate,
+   articulate, attribute, commence, compensate, comprehend,
+   constitute, contemplate, contradict, demonstrate, deteriorate
+
+✓ 高度な形容詞: adequate, ambiguous, arbitrary, comprehensive,
+   contradictory, detrimental, eligible, feasible, formidable,
+   indispensable, inevitable, legitimate, plausible, prevalent
+
+✓ 高度な副詞: allegedly, considerably, deliberately, exclusively,
+   fundamentally, predominantly, presumably, substantially
+
+【例外】文法構造そのものをテストする場合は基本動詞の活用形は許容：
+- "If I had known..." → "had known" は仮定法過去完了のテスト
+- "Never have I seen..." → "have I seen" は倒置構文のテスト
+これらは文法形式のテストであり、語彙テストではないため許容する。
+
+ただし、単純な語彙選択問題（「適切な動詞を選べ」など）では
+必ず準1級以上の語彙を使用すること。
+
+═══════════════════════════════════════════════════════════════
 ██  最終チェック（全てYESでなければ出力禁止）  ██
 ═══════════════════════════════════════════════════════════════
 
@@ -459,10 +503,14 @@ export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英検1級専門の�
 4. 問題を解くのに高度な文法知識が必要か？
    → NOなら削除
 
+5. 空欄の正解に英検5級〜準2級の基本語彙（go, make, good, bigなど）を使っていないか？
+   → 使っていたら削除（文法構造テストでの活用形は例外）
+
 【重要】
 - 高度な文法がなければ { "grammarPatterns": [] } を返せ
 - 量より質。1問でも低レベルな問題があれば全体が台無し
-- 迷ったら出力しない`;
+- 迷ったら出力しない
+- 対象は大学受験生。英検準2級以下の単語を知らない奴は対象外`;
 
 export const GRAMMAR_ANALYSIS_USER_PROMPT = `以下の英文から文法パターンを特定し、解説とデュオリンゴ式の練習問題（single_select, word_tap, sentence_build）を生成してください:
 
