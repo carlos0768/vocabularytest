@@ -9,8 +9,13 @@ export async function POST(request: NextRequest) {
 
     // 認証チェック
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('Auth check:', { userId: user?.id, authError: authError?.message });
     if (authError || !user) {
-      return NextResponse.json({ success: false, error: '認証が必要です' }, { status: 401 });
+      return NextResponse.json({
+        success: false,
+        error: '認証が必要です',
+        details: authError?.message || 'No user found'
+      }, { status: 401 });
     }
 
     const body: CreateScanJobRequest = await request.json();
