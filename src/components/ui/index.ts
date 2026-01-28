@@ -4,3 +4,4 @@ export { ProgressSteps, type ProgressStep } from './progress-steps';
 export { Modal } from './modal';
 export { DeleteConfirmModal } from './delete-confirm-modal';
 export { ToastProvider, useToast } from './toast';
+export { BottomNav } from './bottom-nav';

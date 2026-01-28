@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { BookOpen, ChevronDown, ChevronUp, Flag, Edit2, Trash2, X, Save, Plus, Search } from 'lucide-react';
+import { Button } from '@/components/ui';
 import type { Word } from '@/types';
 
 interface WordItemProps {
@@ -34,37 +35,31 @@ function WordItem({
 
   if (isEditing) {
     return (
-      <div className="bg-white rounded-xl p-4 border border-blue-200 shadow-sm">
+      <div className="card p-4 border-2 border-[var(--color-primary)]">
         <div className="space-y-3">
           <input
             type="text"
             value={editEnglish}
             onChange={(e) => setEditEnglish(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border-2 border-[var(--color-border)] rounded-xl bg-[var(--color-background)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             placeholder="英語"
           />
           <input
             type="text"
             value={editJapanese}
             onChange={(e) => setEditJapanese(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border-2 border-[var(--color-border)] rounded-xl bg-[var(--color-background)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             placeholder="日本語"
           />
           <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              className="flex-1 flex items-center justify-center gap-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Save className="w-4 h-4" />
+            <Button onClick={handleSave} className="flex-1" size="sm">
+              <Save className="w-4 h-4 mr-1" />
               保存
-            </button>
-            <button
-              onClick={onCancel}
-              className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <X className="w-4 h-4" />
+            </Button>
+            <Button variant="secondary" onClick={onCancel} className="flex-1" size="sm">
+              <X className="w-4 h-4 mr-1" />
               キャンセル
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -72,36 +67,36 @@ function WordItem({
   }
 
   return (
-    <div className="bg-white rounded-xl p-4 flex items-center justify-between shadow-sm border border-gray-100">
+    <div className="card p-4 flex items-center justify-between">
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-900 truncate">{word.english}</p>
-        <p className="text-sm text-gray-500 truncate">{word.japanese}</p>
+        <p className="font-semibold text-[var(--color-foreground)] truncate">{word.english}</p>
+        <p className="text-sm text-[var(--color-muted)] truncate">{word.japanese}</p>
       </div>
       <div className="flex items-center gap-1 ml-2">
         <button
           onClick={onToggleFavorite}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-[var(--color-peach-light)] rounded-xl transition-colors"
           aria-label={word.isFavorite ? '苦手を解除' : '苦手にマーク'}
         >
           <Flag
             className={`w-4 h-4 ${
-              word.isFavorite ? 'fill-orange-500 text-orange-500' : 'text-gray-400'
+              word.isFavorite ? 'fill-[var(--color-peach)] text-[var(--color-peach)]' : 'text-[var(--color-muted)]'
             }`}
           />
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-[var(--color-peach-light)] rounded-xl transition-colors"
           aria-label="編集"
         >
-          <Edit2 className="w-4 h-4 text-gray-400" />
+          <Edit2 className="w-4 h-4 text-[var(--color-muted)]" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+          className="p-2 hover:bg-[var(--color-error)]/10 rounded-xl transition-colors"
           aria-label="削除"
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
         </button>
       </div>
     </div>
@@ -156,19 +151,19 @@ export function WordList({
   }, [words, searchQuery]);
 
   return (
-    <div className="bg-gray-50 rounded-2xl overflow-hidden">
+    <div className="card overflow-hidden">
       {/* Header */}
       <button
         onClick={handleToggleExpand}
-        className="w-full flex items-center justify-between p-4 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center justify-between p-4 hover:bg-[var(--color-peach-light)] transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-xl">
-            <BookOpen className="w-5 h-5 text-blue-600" />
+          <div className="p-2 bg-[var(--color-primary)]/10 rounded-xl">
+            <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
           </div>
           <div className="text-left">
-            <h3 className="font-semibold text-gray-900">単語帳</h3>
-            <p className="text-sm text-gray-500">{words.length}語</p>
+            <h3 className="font-bold text-[var(--color-foreground)]">単語一覧</h3>
+            <p className="text-sm text-[var(--color-muted)]">{words.length}語</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -178,40 +173,40 @@ export function WordList({
                 e.stopPropagation();
                 onAddClick();
               }}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="p-2 bg-[var(--color-primary)] text-white rounded-xl hover:bg-[var(--color-primary)]/90 transition-colors"
               aria-label="単語を追加"
             >
               <Plus className="w-4 h-4" />
             </button>
           )}
           {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
+            <ChevronUp className="w-5 h-5 text-[var(--color-muted)]" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
+            <ChevronDown className="w-5 h-5 text-[var(--color-muted)]" />
           )}
         </div>
       </button>
 
       {/* Search bar and Word list */}
       {isExpanded && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4 bg-[var(--color-background)]">
           {/* Search input */}
           {words.length > 0 && (
             <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="単語を検索..."
-                className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-8 py-2 bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-xl text-sm focus:outline-none focus:border-[var(--color-primary)] transition-colors"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--color-peach-light)] rounded-full"
                 >
-                  <X className="w-4 h-4 text-gray-400" />
+                  <X className="w-4 h-4 text-[var(--color-muted)]" />
                 </button>
               )}
             </div>
@@ -220,9 +215,9 @@ export function WordList({
           {/* Word list */}
           <div className="space-y-2 max-h-[350px] overflow-y-auto">
             {words.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">単語がありません</p>
+              <p className="text-center text-[var(--color-muted)] py-4">単語がありません</p>
             ) : filteredWords.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">「{searchQuery}」に一致する単語がありません</p>
+              <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
             ) : (
               filteredWords.map((word) => (
                 <WordItem
@@ -241,7 +236,7 @@ export function WordList({
 
           {/* Search result count */}
           {searchQuery && filteredWords.length > 0 && (
-            <p className="text-xs text-gray-400 text-center mt-2">
+            <p className="text-xs text-[var(--color-muted)] text-center mt-2">
               {filteredWords.length}件の検索結果
             </p>
           )}

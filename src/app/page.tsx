@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BookOpen,
-  Settings,
   Sparkles,
   Check,
   Flag,
@@ -30,7 +29,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal, Button } from '@/components/ui';
+import { ProgressSteps, type ProgressStep, useToast, DeleteConfirmModal, Button, BottomNav } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
@@ -39,6 +38,15 @@ import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, ty
 import { processImageFile } from '@/lib/image-utils';
 import type { Project, Word, ScanJob } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+
+// Global cache for projects/words - persists across page navigations within the same session
+let globalProjectsCache: Project[] = [];
+let globalProjectWordsCache: Record<string, Word[]> = {};
+let globalAllFavoritesCache: Word[] = [];
+let globalFavoriteCountsCache: Record<string, number> = {};
+let globalTotalWordsCache = 0;
+let globalHasLoaded = false;
+let globalLoadedUserId: string | null = null;
 
 // EIKEN level options for the dropdown
 const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
@@ -83,12 +91,12 @@ function ScanModeModal({
   // EIKEN level picker sub-view
   if (showEikenPicker) {
     return (
-      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-          <h2 className="text-base font-medium mb-2 text-center text-gray-900">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+          <h2 className="text-lg font-bold mb-2 text-center text-[var(--color-foreground)]">
             英検レベルを選択
           </h2>
-          <p className="text-sm text-gray-500 text-center mb-4">
+          <p className="text-sm text-[var(--color-muted)] text-center mb-4">
             抽出する単語のレベルを選んでください
           </p>
 
@@ -97,42 +105,39 @@ function ScanModeModal({
               <button
                 key={level.value}
                 onClick={() => setSelectedEiken(level.value)}
-                className={`w-full flex items-center justify-between px-4 py-3 border rounded-lg transition-colors text-left ${
+                className={`w-full flex items-center justify-between px-4 py-3 border-2 rounded-2xl transition-all text-left ${
                   selectedEiken === level.value
-                    ? 'border-orange-400 bg-orange-50 text-orange-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
                 }`}
               >
-                <span className="font-medium">{level.label}</span>
+                <span className="font-semibold text-[var(--color-foreground)]">{level.label}</span>
                 {selectedEiken === level.value && (
-                  <Check className="w-5 h-5 text-orange-600" />
+                  <Check className="w-5 h-5 text-[var(--color-primary)]" />
                 )}
               </button>
             ))}
           </div>
 
           <div className="mt-4 flex gap-3">
-            <button
+            <Button
+              variant="secondary"
               onClick={() => setShowEikenPicker(false)}
-              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1"
             >
               戻る
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 if (selectedEiken) {
                   onSelectMode('eiken', selectedEiken);
                 }
               }}
               disabled={!selectedEiken}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedEiken
-                  ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
+              className="flex-1"
             >
               スキャン開始
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -141,12 +146,12 @@ function ScanModeModal({
 
   // Main mode selection view
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-        <h2 className="text-base font-medium mb-2 text-center text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-bold mb-2 text-center text-[var(--color-foreground)]">
           抽出モードを選択
         </h2>
-        <p className="text-sm text-gray-500 text-center mb-4">
+        <p className="text-sm text-[var(--color-muted)] text-center mb-4">
           どのように単語を抽出しますか？
         </p>
 
@@ -154,112 +159,113 @@ function ScanModeModal({
           {/* All words mode */}
           <button
             onClick={() => onSelectMode('all', null)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left"
+            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
           >
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Camera className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/20 transition-colors">
+              <Camera className="w-6 h-6 text-[var(--color-primary)]" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">すべての単語を抽出</p>
-              <p className="text-sm text-gray-500">写真内のすべての英単語を抽出します</p>
+              <p className="font-semibold text-[var(--color-foreground)]">すべての単語を抽出</p>
+              <p className="text-sm text-[var(--color-muted)]">写真内のすべての英単語を抽出します</p>
             </div>
           </button>
 
           {/* Circled words mode (Pro) */}
           <button
             onClick={() => onSelectMode('circled', null)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-colors text-left relative"
+            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-left relative group"
           >
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <CircleDot className="w-6 h-6 text-purple-600" />
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
+              <CircleDot className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900">丸をつけた単語だけ</p>
+                <p className="font-semibold text-[var(--color-foreground)]">丸をつけた単語だけ</p>
                 {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                  <span className="chip chip-pro">
                     <Sparkles className="w-3 h-3" />
                     Pro
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500">マークした単語だけを抽出します</p>
+              <p className="text-sm text-[var(--color-muted)]">マークした単語だけを抽出します</p>
             </div>
           </button>
 
           {/* Highlighted words mode (Pro) */}
           <button
             onClick={() => onSelectMode('highlighted', null)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-yellow-400 hover:bg-yellow-50/50 transition-colors text-left relative"
+            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all text-left relative group"
           >
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Highlighter className="w-6 h-6 text-yellow-600" />
+            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-900/50 transition-colors">
+              <Highlighter className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900">マーカーを引いた単語だけ</p>
+                <p className="font-semibold text-[var(--color-foreground)]">マーカーを引いた単語だけ</p>
                 {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                  <span className="chip chip-pro">
                     <Sparkles className="w-3 h-3" />
                     Pro
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500">蛍光ペンでハイライトした単語を抽出します</p>
+              <p className="text-sm text-[var(--color-muted)]">蛍光ペンでハイライトした単語を抽出します</p>
             </div>
           </button>
 
           {/* EIKEN filter mode (Pro) - NEW */}
           <button
             onClick={() => setShowEikenPicker(true)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50/50 transition-colors text-left"
+            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-[var(--color-peach)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
           >
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <BookOpen className="w-6 h-6 text-orange-600" />
+            <div className="w-12 h-12 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-peach)]/30 transition-colors">
+              <BookOpen className="w-6 h-6 text-[var(--color-peach)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900">英検レベルでフィルター</p>
+                <p className="font-semibold text-[var(--color-foreground)]">英検レベルでフィルター</p>
                 {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                  <span className="chip chip-pro">
                     <Sparkles className="w-3 h-3" />
                     Pro
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500">指定した級の単語だけを抽出します</p>
+              <p className="text-sm text-[var(--color-muted)]">指定した級の単語だけを抽出します</p>
             </div>
           </button>
 
           {/* Idiom mode (Pro) */}
           <button
             onClick={() => onSelectMode('idiom', null)}
-            className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-teal-300 hover:bg-teal-50/50 transition-colors text-left"
+            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-all text-left group"
           >
-            <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Languages className="w-6 h-6 text-teal-600" />
+            <div className="w-12 h-12 bg-[var(--color-success-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-success)]/30 transition-colors">
+              <Languages className="w-6 h-6 text-[var(--color-success)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900">熟語・イディオム</p>
+                <p className="font-semibold text-[var(--color-foreground)]">熟語・イディオム</p>
                 {!isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+                  <span className="chip chip-pro">
                     <Sparkles className="w-3 h-3" />
                     Pro
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500">熟語・句動詞を抽出します</p>
+              <p className="text-sm text-[var(--color-muted)]">熟語・句動詞を抽出します</p>
             </div>
           </button>
 
         </div>
-        <button
+        <Button
+          variant="secondary"
           onClick={onClose}
-          className="mt-4 w-full py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+          className="mt-4 w-full"
         >
           キャンセル
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -296,9 +302,9 @@ function ProjectNameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+        <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           単語帳の名前
         </h2>
         <form onSubmit={handleSubmit}>
@@ -308,24 +314,25 @@ function ProjectNameModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例: 英語テスト対策"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             maxLength={50}
           />
           <div className="flex gap-3 mt-4">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1"
             >
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!name.trim()}
-              className="flex-1 py-2.5 bg-blue-600 rounded-lg text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1"
             >
               次へ
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -367,9 +374,9 @@ function EditProjectNameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+        <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           単語帳の名前を変更
         </h2>
         <form onSubmit={handleSubmit}>
@@ -379,24 +386,25 @@ function EditProjectNameModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="単語帳の名前"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             maxLength={50}
           />
           <div className="flex gap-3 mt-4">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1"
             >
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!name.trim() || name === currentName}
-              className="flex-1 py-2.5 bg-blue-600 rounded-lg text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1"
             >
               変更
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -442,15 +450,15 @@ function ManualWordInputModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+        <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           単語を手で入力
         </h2>
         <form onSubmit={handleSubmit}>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
                 英単語
               </label>
               <input
@@ -459,13 +467,13 @@ function ManualWordInputModal({
                 value={english}
                 onChange={(e) => setEnglish(e.target.value)}
                 placeholder="例: beautiful"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
                 disabled={isLoading}
                 maxLength={50}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
                 日本語訳
               </label>
               <input
@@ -473,28 +481,29 @@ function ManualWordInputModal({
                 value={japanese}
                 onChange={(e) => setJapanese(e.target.value)}
                 placeholder="例: 美しい"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
                 disabled={isLoading}
                 maxLength={100}
               />
             </div>
           </div>
           <div className="flex gap-3 mt-4">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 py-2.5 bg-gray-100 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="flex-1"
             >
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!english.trim() || !japanese.trim() || isLoading}
-              className="flex-1 py-2.5 bg-blue-600 rounded-lg text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1"
             >
               {isLoading ? '保存中...' : '保存'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -513,19 +522,20 @@ function ProcessingModal({
   const hasError = steps.some((s) => s.status === 'error');
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-        <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+        <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           {hasError ? 'エラーが発生しました' : '解析中'}
         </h2>
         <ProgressSteps steps={steps} />
         {hasError && onClose && (
-          <button
+          <Button
+            variant="secondary"
             onClick={onClose}
-            className="mt-4 w-full py-2 bg-gray-100 rounded-lg text-gray-700 text-sm hover:bg-gray-200 transition-colors"
+            className="mt-4 w-full"
           >
             閉じる
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -541,14 +551,17 @@ function ProjectSelectionSheet({
   onSelectProject,
   onSelectFavorites,
   onSelectWrongAnswers,
+  onSelectAllProjects,
   onCreateNewProject,
   onToggleProjectFavorite,
   onEditProject,
   showFavoritesOnly,
   showWrongAnswers,
+  showAllProjects,
   favoriteWords,
   wrongAnswers,
   projectFavoriteCounts,
+  totalWords,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -557,14 +570,17 @@ function ProjectSelectionSheet({
   onSelectProject: (index: number) => void;
   onSelectFavorites: () => void;
   onSelectWrongAnswers: () => void;
+  onSelectAllProjects: () => void;
   onCreateNewProject: () => void;
   onToggleProjectFavorite: (projectId: string) => void;
   onEditProject: (projectId: string, currentName: string) => void;
   showFavoritesOnly: boolean;
   showWrongAnswers: boolean;
+  showAllProjects: boolean;
   favoriteWords: Word[];
   wrongAnswers: WrongAnswer[];
   projectFavoriteCounts: Record<string, number>;
+  totalWords: number;
 }) {
   if (!isOpen) return null;
 
@@ -582,25 +598,24 @@ function ProjectSelectionSheet({
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Full screen sheet */}
       <div
-        className="absolute inset-0 bg-gray-50 flex flex-col"
-        style={{ animation: 'slideUp 0.3s ease-out' }}
+        className="absolute inset-0 bg-[var(--color-background)] flex flex-col animate-fade-in-up"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gray-50 px-4 py-4 border-b border-gray-200">
+        <div className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm px-4 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center justify-between">
             <button
               onClick={onClose}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
-              <X className="w-6 h-6 text-emerald-600" />
+              <X className="w-6 h-6 text-[var(--color-primary)]" />
             </button>
-            <h2 className="text-base font-medium text-gray-900">学習コース選択</h2>
+            <h2 className="text-lg font-bold text-[var(--color-foreground)]">学習コース選択</h2>
             <div className="w-10" /> {/* Spacer for centering */}
           </div>
         </div>
@@ -611,27 +626,27 @@ function ProjectSelectionSheet({
           {wrongAnswers.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-5 h-5 text-red-500" />
-                <h3 className="font-medium text-gray-700">間違え一覧</h3>
+                <AlertCircle className="w-5 h-5 text-[var(--color-error)]" />
+                <h3 className="font-semibold text-[var(--color-foreground)]">間違え一覧</h3>
               </div>
               <button
                 onClick={() => {
                   onSelectWrongAnswers();
                   onClose();
                 }}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
                   showWrongAnswers
-                    ? 'border-red-500 bg-red-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    ? 'border-[var(--color-error)] bg-[var(--color-error)]/10'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-error)]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">間違えた単語を復習</p>
-                    <p className="text-sm text-gray-500 mt-0.5">{wrongAnswers.length}語の間違えた単語</p>
+                    <p className="font-semibold text-[var(--color-foreground)]">間違えた単語を復習</p>
+                    <p className="text-sm text-[var(--color-muted)] mt-0.5">{wrongAnswers.length}語の間違えた単語</p>
                   </div>
                   {showWrongAnswers && (
-                    <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-[var(--color-error)] rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
@@ -644,27 +659,27 @@ function ProjectSelectionSheet({
           {favoriteWords.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <Flag className="w-5 h-5 text-orange-500" />
-                <h3 className="font-medium text-gray-700">苦手な単語（すべて）</h3>
+                <Flag className="w-5 h-5 text-[var(--color-peach)] fill-[var(--color-peach)]" />
+                <h3 className="font-semibold text-[var(--color-foreground)]">苦手な単語（すべて）</h3>
               </div>
               <button
                 onClick={() => {
                   onSelectFavorites();
                   onClose();
                 }}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
                   showFavoritesOnly
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    ? 'border-[var(--color-peach)] bg-[var(--color-peach-light)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-peach)]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">全プロジェクトの苦手単語</p>
-                    <p className="text-sm text-gray-500 mt-0.5">{favoriteWords.length}語の苦手な単語</p>
+                    <p className="font-semibold text-[var(--color-foreground)]">全プロジェクトの苦手単語</p>
+                    <p className="text-sm text-[var(--color-muted)] mt-0.5">{favoriteWords.length}語の苦手な単語</p>
                   </div>
                   {showFavoritesOnly && (
-                    <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-[var(--color-peach)] rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
@@ -677,10 +692,42 @@ function ProjectSelectionSheet({
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-blue-500" />
-                <h3 className="font-medium text-gray-700">単語帳一覧</h3>
+                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
+                <h3 className="font-semibold text-[var(--color-foreground)]">単語帳一覧</h3>
               </div>
             </div>
+
+            {/* All Projects Combined Option */}
+            {projects.length > 1 && totalWords > 0 && (
+              <button
+                onClick={() => {
+                  onSelectAllProjects();
+                  onClose();
+                }}
+                className={`w-full text-left p-4 mb-3 rounded-2xl border-2 transition-all ${
+                  showAllProjects
+                    ? 'border-[var(--color-primary)] bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-peach-light)]'
+                    : 'border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-peach-light)]/50 hover:border-[var(--color-primary)]/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-peach)] rounded-full flex items-center justify-center">
+                      <Layers className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[var(--color-foreground)]">全ての単語</p>
+                      <p className="text-sm text-[var(--color-muted)] mt-0.5">{projects.length}冊 · {totalWords}語</p>
+                    </div>
+                  </div>
+                  {showAllProjects && (
+                    <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </div>
+              </button>
+            )}
 
             {/* New Project Button */}
             <button
@@ -688,29 +735,29 @@ function ProjectSelectionSheet({
                 onClose();
                 onCreateNewProject();
               }}
-              className="w-full flex items-center gap-3 p-4 mb-2 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 transition-all"
+              className="w-full flex items-center gap-3 p-4 mb-3 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/50 bg-[var(--color-peach-light)] hover:bg-[var(--color-primary)]/10 hover:border-[var(--color-primary)] transition-all"
             >
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <Plus className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 bg-[var(--color-primary)]/20 rounded-full flex items-center justify-center">
+                <Plus className="w-5 h-5 text-[var(--color-primary)]" />
               </div>
               <div className="text-left">
-                <p className="font-medium text-blue-700">新しい単語帳を作成</p>
-                <p className="text-sm text-blue-500">写真から単語を抽出</p>
+                <p className="font-semibold text-[var(--color-primary)]">新しい単語帳を作成</p>
+                <p className="text-sm text-[var(--color-primary)]/70">写真から単語を抽出</p>
               </div>
             </button>
 
             <div className="space-y-2">
               {sortedProjects.map((project) => {
                 const originalIndex = getOriginalIndex(project);
-                const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly;
+                const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly && !showWrongAnswers && !showAllProjects;
                 const favoriteCount = projectFavoriteCounts[project.id] || 0;
                 return (
                   <div
                     key={project.id}
-                    className={`w-full p-4 rounded-xl border-2 transition-all ${
+                    className={`w-full p-4 rounded-2xl border-2 transition-all ${
                       isSelected
-                        ? 'border-emerald-500 bg-white'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
+                        ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]/50'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -722,18 +769,18 @@ function ProjectSelectionSheet({
                         className="flex-1 text-left"
                       >
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900">{project.title}</p>
+                          <p className="font-semibold text-[var(--color-foreground)]">{project.title}</p>
                           {project.isFavorite && (
                             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-[var(--color-muted)]">
                             {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
                           </p>
                           {favoriteCount > 0 && (
-                            <span className="flex items-center gap-1 text-sm text-orange-600">
-                              <Flag className="w-3 h-3 fill-orange-500" />
+                            <span className="flex items-center gap-1 text-sm text-[var(--color-peach)]">
+                              <Flag className="w-3 h-3 fill-[var(--color-peach)]" />
                               {favoriteCount}
                             </span>
                           )}
@@ -745,14 +792,14 @@ function ProjectSelectionSheet({
                             e.stopPropagation();
                             onToggleProjectFavorite(project.id);
                           }}
-                          className="p-2 hover:bg-yellow-50 rounded-full transition-colors"
+                          className="p-2 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-full transition-colors"
                           title={project.isFavorite ? 'ブックマーク解除' : 'ブックマーク'}
                         >
                           <Star
                             className={`w-5 h-5 ${
                               project.isFavorite
                                 ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-gray-300 hover:text-yellow-400'
+                                : 'text-[var(--color-muted)] hover:text-yellow-400'
                             }`}
                           />
                         </button>
@@ -761,13 +808,13 @@ function ProjectSelectionSheet({
                             e.stopPropagation();
                             onEditProject(project.id, project.title);
                           }}
-                          className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+                          className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
                           title="名前を編集"
                         >
-                          <Edit2 className="w-4 h-4 text-gray-500 hover:text-blue-600" />
+                          <Edit2 className="w-4 h-4 text-[var(--color-muted)] hover:text-[var(--color-primary)]" />
                         </button>
                         {isSelected && (
-                          <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
                             <Check className="w-4 h-4 text-white" />
                           </div>
                         )}
@@ -885,15 +932,20 @@ export default function HomePage() {
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Projects & navigation
-  const [projects, setProjects] = useState<Project[]>([]);
+  // Projects & navigation - Initialize from cache if available
+  const [projects, setProjects] = useState<Project[]>(globalProjectsCache);
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
-  const [words, setWords] = useState<Word[]>([]);
-  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // All favorite words across all projects
-  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>({}); // Favorite count per project
-  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]); // Wrong answers list
+  const [words, setWords] = useState<Word[]>(
+    globalProjectsCache[0] ? globalProjectWordsCache[globalProjectsCache[0].id] || [] : []
+  );
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>(globalAllFavoritesCache);
+  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>(globalFavoriteCountsCache);
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>(() => getWrongAnswers());
   const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
-  const [loading, setLoading] = useState(true);
+  const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
+  const [totalWords, setTotalWords] = useState(globalTotalWordsCache);
+  // Start with loading=false if cache is already populated
+  const [loading, setLoading] = useState(!globalHasLoaded);
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
@@ -910,7 +962,6 @@ export default function HomePage() {
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
-  const [totalWords, setTotalWords] = useState(0);
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
@@ -1129,65 +1180,88 @@ export default function HomePage() {
 
   // Scan info is populated from server responses
 
-  // Control body scroll based on word list expansion (mobile Safari requires touch event prevention)
-  // But allow scroll when modals are open
-  useEffect(() => {
-    const preventScroll = (e: TouchEvent) => {
-      // Allow scroll if any modal/sheet is open or word list is expanded
-      if (isWordListExpanded || isProjectDropdownOpen || showScanModeModal) {
-        return;
-      }
-      e.preventDefault();
-    };
+  // Note: Body scroll locking removed to allow page scrolling
 
-    if (!isWordListExpanded && !isProjectDropdownOpen && !showScanModeModal) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
-      document.addEventListener('touchmove', preventScroll, { passive: false });
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      document.removeEventListener('touchmove', preventScroll);
-    };
-  }, [isWordListExpanded, isProjectDropdownOpen, showScanModeModal]);
+  // Note: Global cache variables (globalProjectWordsCache, globalHasLoaded, globalLoadedUserId)
+  // are used directly in loadProjects/loadWords to persist across page navigations
 
   // Load projects
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (forceReload = false) => {
+    const userId = isPro && user ? user.id : getGuestUserId();
+
+    // Skip if already loaded for this user (unless force reload)
+    if (!forceReload && globalHasLoaded && globalLoadedUserId === userId) {
+      // Restore from cache immediately
+      setProjects(globalProjectsCache);
+      setWords(globalProjectsCache[0] ? globalProjectWordsCache[globalProjectsCache[0].id] || [] : []);
+      setAllFavoriteWords(globalAllFavoritesCache);
+      setProjectFavoriteCounts(globalFavoriteCountsCache);
+      setTotalWords(globalTotalWordsCache);
+      setWrongAnswers(getWrongAnswers());
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const userId = isPro && user ? user.id : getGuestUserId();
       const data = await repository.getProjects(userId);
       setProjects(data);
 
-      // Calculate total words and collect all favorite words
+      if (data.length === 0) {
+        setTotalWords(0);
+        setAllFavoriteWords([]);
+        setProjectFavoriteCounts({});
+        setWords([]);
+        // Update cache
+        globalProjectsCache = [];
+        globalProjectWordsCache = {};
+        globalAllFavoritesCache = [];
+        globalFavoriteCountsCache = {};
+        globalTotalWordsCache = 0;
+        globalHasLoaded = true;
+        globalLoadedUserId = userId;
+        setLoading(false);
+        return;
+      }
+
+      // Calculate total words and collect all favorite words - load in parallel
+      const wordPromises = data.map(project => repository.getWords(project.id));
+      const allProjectWords = await Promise.all(wordPromises);
+
       let total = 0;
       const allFavorites: Word[] = [];
       const favoriteCounts: Record<string, number> = {};
+      const wordsCache: Record<string, Word[]> = {};
 
-      for (const project of data) {
-        const projectWords = await repository.getWords(project.id);
+      data.forEach((project, index) => {
+        const projectWords = allProjectWords[index];
+        wordsCache[project.id] = projectWords;
         total += projectWords.length;
 
         // Count and collect favorites for this project
         const projectFavorites = projectWords.filter(w => w.isFavorite);
         favoriteCounts[project.id] = projectFavorites.length;
         allFavorites.push(...projectFavorites);
-      }
+      });
+
+      // Update global cache
+      globalProjectsCache = data;
+      globalProjectWordsCache = wordsCache;
+      globalAllFavoritesCache = allFavorites;
+      globalFavoriteCountsCache = favoriteCounts;
+      globalTotalWordsCache = total;
+      globalHasLoaded = true;
+      globalLoadedUserId = userId;
 
       setTotalWords(total);
       setAllFavoriteWords(allFavorites);
       setProjectFavoriteCounts(favoriteCounts);
+
+      // Set current project words from cache
+      const firstProject = data[0];
+      if (firstProject && wordsCache[firstProject.id]) {
+        setWords(wordsCache[firstProject.id]);
+      }
 
       // Load wrong answers
       const wrongAnswersList = getWrongAnswers();
@@ -1199,17 +1273,26 @@ export default function HomePage() {
     }
   }, [isPro, user, repository]);
 
-  // Load words for current project
+  // Load words for current project - use cache if available
   const loadWords = useCallback(async () => {
     if (!currentProject) {
       setWords([]);
       return;
     }
 
+    // Check global cache first
+    const cachedWords = globalProjectWordsCache[currentProject.id];
+    if (cachedWords) {
+      setWords(cachedWords);
+      return;
+    }
+
+    // Fallback to API if not in cache
     try {
       setWordsLoading(true);
       const wordsData = await repository.getWords(currentProject.id);
       setWords(wordsData);
+      globalProjectWordsCache[currentProject.id] = wordsData;
     } catch (error) {
       console.error('Failed to load words:', error);
     } finally {
@@ -1247,10 +1330,17 @@ export default function HomePage() {
     }));
   }, [wrongAnswers]);
 
+  // Get all words from all projects for "All Projects" mode
+  const allProjectsWords = useMemo(() => {
+    return Object.values(globalProjectWordsCache).flat();
+  }, [projects, words]); // Recalculate when projects or words change
+
   const filteredWords = showWrongAnswers
     ? wrongAnswerWords
     : showFavoritesOnly
     ? allFavoriteWords
+    : showAllProjects
+    ? allProjectsWords
     : words;
 
   // Navigation
@@ -1258,6 +1348,7 @@ export default function HomePage() {
     setCurrentProjectIndex(index);
     setShowFavoritesOnly(false);
     setShowWrongAnswers(false);
+    setShowAllProjects(false);
     setIsProjectDropdownOpen(false);
   };
 
@@ -1705,8 +1796,8 @@ export default function HomePage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+        <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -1714,7 +1805,7 @@ export default function HomePage() {
   // Empty state - no projects
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[var(--color-background)] pb-48">
         {/* Hidden file input for empty state */}
         <input
           ref={fileInputRef}
@@ -1731,36 +1822,33 @@ export default function HomePage() {
           className="hidden"
         />
 
-        <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
-          <div className="max-w-lg mx-auto px-4 py-3">
+        <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
+          <div className="max-w-lg mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-blue-600">WordSnap</h1>
+                <h1 className="text-2xl font-extrabold text-[var(--color-primary)] tracking-tight">WordSnap</h1>
                 {isPro && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-medium">
+                  <span className="chip chip-pro">
                     <Sparkles className="w-3 h-3" />
                     Pro
                   </span>
                 )}
               </div>
-              <Link href="/settings" className="p-2 hover:bg-gray-100 rounded-full">
-                <Settings className="w-5 h-5 text-gray-500" />
-              </Link>
             </div>
           </div>
         </header>
 
-        <main className="flex flex-col items-center justify-center px-4 py-20">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-            <BookOpen className="w-8 h-8 text-gray-400" />
+        <main className="flex flex-col items-center justify-center px-6 py-20">
+          <div className="w-20 h-20 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center mb-6">
+            <BookOpen className="w-10 h-10 text-[var(--color-primary)]" />
           </div>
-          <h2 className="text-lg font-medium text-gray-900 mb-2">単語帳がありません</h2>
-          <p className="text-gray-500 text-sm text-center mb-8">
+          <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
+          <p className="text-[var(--color-muted)] text-center mb-8">
             右下のボタンから<br />ノートやプリントを撮影しましょう
           </p>
           {!isAuthenticated && (
-            <p className="text-xs text-gray-400">
-              <Link href="/signup" className="text-blue-600 hover:underline">
+            <p className="text-sm text-[var(--color-muted)]">
+              <Link href="/signup" className="text-[var(--color-primary)] font-semibold hover:underline">
                 アカウント登録
               </Link>
               でクラウド保存
@@ -1772,10 +1860,13 @@ export default function HomePage() {
         <button
           onClick={() => handleScanButtonClick()}
           disabled={processing || (!isPro && !canScan)}
-          className="fixed bottom-6 right-6 w-14 h-14 flex items-center justify-center bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
+          className="fixed bottom-[88px] left-1/2 -translate-x-1/2 w-14 h-14 flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-peach)] text-white rounded-full shadow-glow hover:shadow-glow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed z-30"
         >
           <Plus className="w-7 h-7" />
         </button>
+
+        {/* Bottom Navigation */}
+        <BottomNav />
 
         {processing && (
           <ProcessingModal
@@ -1803,7 +1894,7 @@ export default function HomePage() {
 
   // Main view with project
   return (
-    <div className={`min-h-screen bg-white flex flex-col ${!isWordListExpanded ? 'h-screen overflow-hidden' : ''}`}>
+    <div className="min-h-screen bg-[var(--color-background)] flex flex-col pb-48">
       {/* Word limit banner */}
       {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
@@ -1823,81 +1914,65 @@ export default function HomePage() {
         className="hidden"
       />
 
-      {/* Header with project navigation */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100">
-        <div className="max-w-lg mx-auto px-4 py-3">
+      {/* Header */}
+      <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
+        <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between">
-            {/* Left: Project selector toggle */}
-            <div className="flex-1">
-              <button
-                onClick={() => setIsProjectDropdownOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <h1 className="font-semibold text-gray-900 truncate max-w-[140px]">
-                  {showWrongAnswers ? '間違え一覧' : showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
-                </h1>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </button>
+            {/* Left: Logo */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-extrabold text-[var(--color-primary)] tracking-tight">WordSnap</h1>
+              {isPro && (
+                <span className="chip chip-pro">
+                  <Sparkles className="w-3 h-3" />
+                  Pro
+                </span>
+              )}
             </div>
 
-            {/* Center: Add to current project buttons (hidden in wrong answers mode) */}
-            {!showWrongAnswers && !showFavoritesOnly && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setShowManualWordModal(true)}
-                  disabled={!currentProject}
-                  className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-full text-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="手で入力"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleScanButtonClick(true)}
-                  disabled={processing || (!isPro && !canScan)}
-                  className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="スキャン追加"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
             {/* Right: Actions */}
-            <div className="flex items-center gap-1 flex-1 justify-end">
-              {/* Share button - Pro only */}
-              {isPro && (
+            <div className="flex items-center gap-1">
+              {/* Project Selector - Circular Button */}
+              <button
+                onClick={() => setIsProjectDropdownOpen(true)}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all"
+                title={showWrongAnswers ? '間違え一覧' : showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
+              >
+                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
+              </button>
+
+              {isPro && !showWrongAnswers && !showFavoritesOnly && (
                 <button
                   onClick={handleShare}
                   disabled={sharing}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 >
                   {sharing ? (
-                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                    <Loader2 className="w-5 h-5 text-[var(--color-muted)] animate-spin" />
                   ) : shareCopied ? (
-                    <Check className="w-5 h-5 text-emerald-600" />
+                    <Check className="w-5 h-5 text-[var(--color-success)]" />
                   ) : currentProject?.shareId ? (
-                    <LinkIcon className="w-5 h-5 text-blue-600" />
+                    <LinkIcon className="w-5 h-5 text-[var(--color-primary)]" />
                   ) : (
-                    <Share2 className="w-5 h-5 text-gray-400" />
+                    <Share2 className="w-5 h-5 text-[var(--color-muted)]" />
                   )}
                 </button>
               )}
-              <button
-                onClick={handleDeleteProject}
-                className="p-2 hover:bg-red-50 rounded-full transition-colors"
-              >
-                <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500" />
-              </button>
-              <Link href="/settings" className="p-2 hover:bg-gray-100 rounded-full">
-                <Settings className="w-5 h-5 text-gray-500" />
-              </Link>
+              {!showWrongAnswers && !showFavoritesOnly && (
+                <button
+                  onClick={handleDeleteProject}
+                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[var(--color-error)]/10 transition-colors"
+                >
+                  <Trash2 className="w-5 h-5 text-[var(--color-muted)] hover:text-[var(--color-error)]" />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-8">
+      <main className="flex-1 max-w-lg mx-auto px-6 py-4 w-full">
+
         {/* Inline Flashcard */}
         <div className="mb-6">
           <InlineFlashcard words={filteredWords} />
@@ -1905,8 +1980,8 @@ export default function HomePage() {
 
         {/* Study Mode Cards - 2 column grid (hidden in wrong answers mode) */}
         {!showWrongAnswers && (
-          <>
-            <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-2 gap-4">
               <StudyModeCard
                 title="クイズ"
                 description="4択単語テスト"
@@ -1927,24 +2002,22 @@ export default function HomePage() {
             </div>
 
             {/* Sentence Quiz Card - Full width (Pro only) */}
-            <div className="mb-6">
-              <StudyModeCard
-                title="例文クイズ"
-                description="例文で単語を覚える"
-                icon={BookText}
-                href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
-                variant="purple"
-                disabled={filteredWords.length === 0}
-                badge={!isPro ? 'Pro' : undefined}
-              />
-            </div>
-          </>
+            <StudyModeCard
+              title="例文クイズ"
+              description="例文で単語を覚える"
+              icon={BookText}
+              href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
+              variant="purple"
+              disabled={filteredWords.length === 0}
+              badge={!isPro ? 'Pro' : undefined}
+            />
+          </div>
         )}
 
         {/* Collapsible Word List */}
         {wordsLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+            <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <WordList
@@ -1968,6 +2041,31 @@ export default function HomePage() {
           />
         )}
       </main>
+
+      {/* Floating Action Button (Add to project) - hidden in wrong answers/favorites mode */}
+      {!showWrongAnswers && !showFavoritesOnly && (
+        <div className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-[var(--color-surface)] px-4 py-2 rounded-full shadow-card border border-[var(--color-border)]">
+          <button
+            onClick={() => setShowManualWordModal(true)}
+            disabled={!currentProject}
+            className="w-10 h-10 flex items-center justify-center bg-[var(--color-peach-light)] text-[var(--color-foreground)] rounded-full hover:bg-[var(--color-peach)]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="手で入力"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleScanButtonClick(true)}
+            disabled={processing || (!isPro && !canScan)}
+            className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-peach)] text-white rounded-full shadow-glow hover:shadow-glow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="スキャン追加"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+      )}
+
+      {/* Bottom Navigation */}
+      <BottomNav />
 
       {/* Modals */}
       {processing && (
@@ -2037,19 +2135,28 @@ export default function HomePage() {
         onSelectFavorites={() => {
           setShowFavoritesOnly(true);
           setShowWrongAnswers(false);
+          setShowAllProjects(false);
         }}
         onSelectWrongAnswers={() => {
           setShowWrongAnswers(true);
           setShowFavoritesOnly(false);
+          setShowAllProjects(false);
+        }}
+        onSelectAllProjects={() => {
+          setShowAllProjects(true);
+          setShowFavoritesOnly(false);
+          setShowWrongAnswers(false);
         }}
         onCreateNewProject={() => handleScanButtonClick(false)}
         onToggleProjectFavorite={handleToggleProjectFavorite}
         onEditProject={handleEditProjectName}
         showFavoritesOnly={showFavoritesOnly}
         showWrongAnswers={showWrongAnswers}
+        showAllProjects={showAllProjects}
         favoriteWords={allFavoriteWords}
         wrongAnswers={wrongAnswers}
         projectFavoriteCounts={projectFavoriteCounts}
+        totalWords={totalWords}
       />
     </div>
   );
