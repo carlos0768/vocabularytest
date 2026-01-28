@@ -922,6 +922,11 @@ export default function HomePage() {
   const handleCompletedJob = useCallback(async (job: ScanJob) => {
     if (!job.result) return;
 
+    // Stop any ongoing polling first
+    stopPolling();
+    setCurrentJobId(null);
+    setProcessing(false);
+
     // Save result to sessionStorage
     sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(job.result));
     if (job.project_id) {
@@ -940,7 +945,7 @@ export default function HomePage() {
 
     // Navigate to confirm page
     router.push('/scan/confirm');
-  }, [router]);
+  }, [router, stopPolling]);
 
   // Helper: Start polling for job status
   const startPolling = useCallback((jobId: string) => {
@@ -957,6 +962,12 @@ export default function HomePage() {
         if (!data.success) {
           stopPolling();
           setProcessing(false);
+          // 404 (job not found) means job was already processed/deleted - silently stop
+          // This can happen when returning from confirm page after successful save
+          if (response.status === 404) {
+            console.log('Job not found (already processed), stopping poll');
+            return;
+          }
           showToast({ message: data.error || 'エラーが発生しました', type: 'error' });
           return;
         }
