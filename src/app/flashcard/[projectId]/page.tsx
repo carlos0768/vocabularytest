@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,17 @@ import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
+
+// Progress storage key generator
+const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
+  `flashcard_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
+
+// Progress data structure
+interface FlashcardProgress {
+  wordIds: string[];  // Order of word IDs (to preserve shuffle order)
+  currentIndex: number;
+  savedAt: number;  // Timestamp
+}
 
 export default function FlashcardPage() {
   const router = useRouter();
@@ -35,6 +46,16 @@ export default function FlashcardPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
+  // Save progress to localStorage
+  const saveProgress = useCallback((wordList: Word[], index: number) => {
+    const progress: FlashcardProgress = {
+      wordIds: wordList.map(w => w.id),
+      currentIndex: index,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(getProgressKey(projectId, favoritesOnly), JSON.stringify(progress));
+  }, [projectId, favoritesOnly]);
+
   // Load words
   useEffect(() => {
     if (authLoading) return;
@@ -56,6 +77,39 @@ export default function FlashcardPage() {
           router.push(`/project/${projectId}`);
           return;
         }
+
+        // Check for saved progress
+        const progressKey = getProgressKey(projectId, favoritesOnly);
+        const savedProgressStr = localStorage.getItem(progressKey);
+
+        if (savedProgressStr) {
+          try {
+            const progress: FlashcardProgress = JSON.parse(savedProgressStr);
+            // Only use saved progress if it's less than 7 days old
+            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+            if (progress.savedAt > sevenDaysAgo) {
+              // Reconstruct word order from saved IDs
+              const wordMap = new Map(wordsData.map(w => [w.id, w]));
+              const orderedWords = progress.wordIds
+                .map(id => wordMap.get(id))
+                .filter((w): w is Word => w !== undefined);
+
+              // If most words still exist, resume automatically
+              if (orderedWords.length >= wordsData.length * 0.8) {
+                setWords(orderedWords);
+                setCurrentIndex(progress.currentIndex);
+                setLoading(false);
+                return;
+              }
+            }
+          } catch {
+            // Invalid progress data, ignore
+            localStorage.removeItem(progressKey);
+          }
+        }
+
+        // No valid saved progress - start fresh with shuffled words
         setWords(shuffleArray(wordsData));
       } catch (error) {
         console.error('Failed to load words:', error);
@@ -67,6 +121,25 @@ export default function FlashcardPage() {
 
     loadWords();
   }, [projectId, repository, router, authLoading, favoritesOnly, isPro]);
+
+  // Auto-save progress when index changes
+  useEffect(() => {
+    if (words.length > 0) {
+      saveProgress(words, currentIndex);
+    }
+  }, [currentIndex, words, saveProgress]);
+
+  // Save progress when leaving the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (words.length > 0) {
+        saveProgress(words, currentIndex);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [words, currentIndex, saveProgress]);
 
   const currentWord = words[currentIndex];
 
@@ -178,9 +251,12 @@ export default function FlashcardPage() {
   };
 
   const handleShuffle = () => {
-    setWords(shuffleArray([...words]));
+    const shuffled = shuffleArray([...words]);
+    setWords(shuffled);
     setCurrentIndex(0);
     setIsFlipped(false);
+    // Save new shuffled order with index 0
+    saveProgress(shuffled, 0);
   };
 
   // Keyboard navigation for PC
