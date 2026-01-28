@@ -182,3 +182,49 @@ export interface AIGrammarResponse {
   extractedText: string; // Full text extracted from image
   grammarPatterns: AIGrammarExtraction[];
 }
+
+// ============ Sentence Quiz Types (Pro Feature) ============
+
+export type SentenceQuestionType = 'fill-in-blank' | 'word-order' | 'multi-fill-in-blank';
+
+export interface BlankSlot {
+  index: number;
+  correctAnswer: string;
+  options: string[];
+}
+
+export interface EnhancedBlankSlot extends BlankSlot {
+  source: 'target' | 'vector-matched' | 'llm-predicted' | 'grammar';
+  sourceWordId?: string;
+  sourceJapanese?: string;
+}
+
+export interface FillInBlankQuestion {
+  type: 'fill-in-blank';
+  wordId: string;
+  targetWord: string;
+  sentence: string;
+  blanks: BlankSlot[];
+  japaneseMeaning: string;
+}
+
+export interface WordOrderQuestion {
+  type: 'word-order';
+  wordId: string;
+  targetWord: string;
+  shuffledWords: string[];
+  correctOrder: string[];
+  japaneseMeaning: string;
+}
+
+export interface MultiFillInBlankQuestion {
+  type: 'multi-fill-in-blank';
+  wordId: string;
+  targetWord: string;
+  sentence: string;
+  blanks: EnhancedBlankSlot[];
+  japaneseMeaning: string;
+  relatedWordIds: string[];
+}
+
+export type SentenceQuizQuestion = FillInBlankQuestion | WordOrderQuestion | MultiFillInBlankQuestion;

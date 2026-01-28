@@ -5,21 +5,31 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronRight, Trophy, RotateCcw } from 'lucide-react-native';
+import { X, ChevronRight, Trophy, RotateCcw, Settings, Flag } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { QuizOption } from '../components/quiz';
 import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
-import { shuffleArray, updateDailyStats } from '../lib/utils';
+import { shuffleArray, updateDailyStats, recordWrongAnswer } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Word, QuizQuestion, WordStatus } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, 'Quiz'>;
+
+const DEFAULT_QUESTION_COUNT = 10;
+
+interface WrongAnswerItem {
+  word: Word;
+  selectedAnswer: string;
+}
 
 export function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -27,6 +37,7 @@ export function QuizScreen() {
   const projectId = route.params.projectId;
   const { subscription, isAuthenticated, loading: authLoading } = useAuth();
 
+  const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -34,19 +45,24 @@ export function QuizScreen() {
   const [results, setResults] = useState({ correct: 0, total: 0 });
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswerItem[]>([]);
+
+  // Question count selection
+  const [questionCount, setQuestionCount] = useState<number | null>(null);
+  const [inputCount, setInputCount] = useState('');
 
   // Authenticated users use remote repository (Supabase), guests use local SQLite
   const repository = getRepository(subscription?.status || 'free');
 
   // Generate quiz questions
-  const generateQuestions = useCallback((words: Word[]): QuizQuestion[] => {
+  const generateQuestions = useCallback((words: Word[], count: number): QuizQuestion[] => {
     // Prioritize non-mastered words
     const prioritized = words
       .filter((w) => w.status !== 'mastered')
       .concat(words.filter((w) => w.status === 'mastered'));
 
-    // Take up to 10 questions
-    const selected = shuffleArray(prioritized).slice(0, 10);
+    // Take up to count questions
+    const selected = shuffleArray(prioritized).slice(0, count);
 
     return selected.map((word) => {
       const allOptions = [word.japanese, ...word.distractors];
@@ -79,8 +95,13 @@ export function QuizScreen() {
           }
           return;
         }
-        const generated = generateQuestions(words);
-        setQuestions(generated);
+        setAllWords(words);
+
+        // Only generate questions if question count is set
+        if (questionCount) {
+          const generated = generateQuestions(words, questionCount);
+          setQuestions(generated);
+        }
       } catch (error) {
         console.error('Failed to load words:', error);
         if (navigation.canGoBack()) {
@@ -94,7 +115,7 @@ export function QuizScreen() {
     };
 
     loadWords();
-  }, [projectId, repository, navigation, generateQuestions, authLoading, isAuthenticated]);
+  }, [projectId, repository, navigation, generateQuestions, authLoading, isAuthenticated, questionCount]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -126,6 +147,19 @@ export function QuizScreen() {
       }
     } else {
       if (word.status === 'mastered') newStatus = 'review';
+      // Track wrong answer
+      setWrongAnswers((prev) => [
+        ...prev,
+        { word, selectedAnswer: currentQuestion.options[index] },
+      ]);
+      // Record to persistent storage
+      await recordWrongAnswer(
+        word.id,
+        word.english,
+        word.japanese,
+        projectId,
+        word.distractors
+      );
     }
 
     if (newStatus !== word.status) {
@@ -154,15 +188,46 @@ export function QuizScreen() {
     }
   };
 
-  // Restart quiz
+  // Handle question count selection
+  const handleSelectCount = (count: number) => {
+    setQuestionCount(count);
+    if (allWords.length > 0) {
+      const generated = generateQuestions(allWords, count);
+      setQuestions(generated);
+      setCurrentIndex(0);
+      setSelectedIndex(null);
+      setIsRevealed(false);
+      setResults({ correct: 0, total: 0 });
+      setWrongAnswers([]);
+      setIsComplete(false);
+    }
+  };
+
+  // Restart quiz with new random questions
   const handleRestart = () => {
-    const regenerated = generateQuestions(questions.map((q) => q.word));
+    const regenerated = generateQuestions(allWords, questionCount || DEFAULT_QUESTION_COUNT);
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);
     setIsRevealed(false);
     setResults({ correct: 0, total: 0 });
+    setWrongAnswers([]);
     setIsComplete(false);
+  };
+
+  // Toggle favorite
+  const handleToggleFavorite = async () => {
+    if (!currentQuestion) return;
+    const word = currentQuestion.word;
+    const newFavorite = !word.isFavorite;
+    await repository.updateWord(word.id, { isFavorite: newFavorite });
+    setQuestions((prev) =>
+      prev.map((q, i) =>
+        i === currentIndex
+          ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
+          : q
+      )
+    );
   };
 
   if (loading) {
@@ -171,6 +236,63 @@ export function QuizScreen() {
         <ActivityIndicator size="large" color={colors.primary[600]} />
         <Text style={styles.loadingText}>クイズを準備中...</Text>
       </View>
+    );
+  }
+
+  // Question count selection screen
+  if (!questionCount) {
+    const maxQuestions = allWords.length;
+    const parsedInput = parseInt(inputCount, 10);
+    const isValidInput = !isNaN(parsedInput) && parsedInput >= 1 && parsedInput <= maxQuestions;
+
+    const handleSubmit = () => {
+      if (isValidInput) {
+        handleSelectCount(parsedInput);
+      }
+    };
+
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.closeButton}
+          >
+            <X size={24} color={colors.gray[600]} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.countSelectionContainer}>
+          <Text style={styles.countSelectionTitle}>問題数を入力</Text>
+          <Text style={styles.countSelectionSubtitle}>
+            1〜{maxQuestions}問まで
+          </Text>
+
+          <View style={styles.countInputContainer}>
+            <TextInput
+              style={styles.countInput}
+              value={inputCount}
+              onChangeText={setInputCount}
+              keyboardType="number-pad"
+              placeholder={String(DEFAULT_QUESTION_COUNT)}
+              placeholderTextColor={colors.gray[400]}
+              autoFocus
+              maxLength={3}
+              onSubmitEditing={handleSubmit}
+            />
+            <Text style={styles.countUnit}>問</Text>
+          </View>
+
+          <Button
+            onPress={handleSubmit}
+            disabled={!isValidInput}
+            size="lg"
+            style={styles.startButton}
+          >
+            スタート
+          </Button>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -197,7 +319,7 @@ export function QuizScreen() {
         </View>
 
         {/* Results */}
-        <View style={styles.resultsContainer}>
+        <ScrollView contentContainerStyle={styles.resultsScrollContent}>
           <View style={styles.resultsCard}>
             <View style={styles.trophyIcon}>
               <Trophy size={40} color={colors.yellow[600]} />
@@ -213,6 +335,28 @@ export function QuizScreen() {
             </View>
 
             <Text style={styles.message}>{getMessage()}</Text>
+
+            {/* Wrong answers list */}
+            {wrongAnswers.length > 0 && (
+              <View style={styles.wrongAnswersSection}>
+                <Text style={styles.wrongAnswersTitle}>
+                  間違えた問題 ({wrongAnswers.length}問)
+                </Text>
+                {wrongAnswers.map((item, index) => (
+                  <View key={index} style={styles.wrongAnswerItem}>
+                    <Text style={styles.wrongAnswerEnglish}>
+                      {item.word.english}
+                    </Text>
+                    <Text style={styles.wrongAnswerCorrect}>
+                      正解: {item.word.japanese}
+                    </Text>
+                    <Text style={styles.wrongAnswerSelected}>
+                      あなたの回答: {item.selectedAnswer}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <View style={styles.resultActions}>
               <Button
@@ -233,7 +377,7 @@ export function QuizScreen() {
               </Button>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -271,6 +415,17 @@ export function QuizScreen() {
       <View style={styles.questionContainer}>
         <View style={styles.wordDisplay}>
           <Text style={styles.wordText}>{currentQuestion?.word.english}</Text>
+          {/* Favorite button */}
+          <TouchableOpacity
+            onPress={handleToggleFavorite}
+            style={styles.favoriteButton}
+          >
+            <Flag
+              size={24}
+              color={currentQuestion?.word.isFavorite ? colors.orange[500] : colors.gray[400]}
+              fill={currentQuestion?.word.isFavorite ? colors.orange[500] : 'transparent'}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Options */}
@@ -289,8 +444,8 @@ export function QuizScreen() {
           ))}
         </View>
 
-        {/* Next button (only on wrong answer) */}
-        {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
+        {/* Next button (shown after any answer) */}
+        {isRevealed && (
           <Button
             onPress={moveToNext}
             size="lg"
@@ -365,6 +520,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  favoriteButton: {
+    padding: 8,
+    borderRadius: 20,
   },
   optionsContainer: {
     marginBottom: 24,
@@ -372,8 +532,54 @@ const styles = StyleSheet.create({
   nextButton: {
     marginTop: 12,
   },
-  resultsContainer: {
+  // Count selection styles
+  countSelectionContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  countSelectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.gray[900],
+    marginBottom: 8,
+  },
+  countSelectionSubtitle: {
+    fontSize: 16,
+    color: colors.gray[500],
+    marginBottom: 32,
+  },
+  countInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  countInput: {
+    width: 100,
+    fontSize: 32,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: colors.gray[200],
+    borderRadius: 16,
+    color: colors.gray[900],
+    backgroundColor: colors.white,
+  },
+  countUnit: {
+    fontSize: 20,
+    color: colors.gray[500],
+    marginLeft: 8,
+  },
+  startButton: {
+    width: '100%',
+    maxWidth: 200,
+  },
+  // Results styles
+  resultsScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -424,7 +630,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.gray[600],
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
+  },
+  // Wrong answers section
+  wrongAnswersSection: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  wrongAnswersTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.red[600],
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  wrongAnswerItem: {
+    backgroundColor: colors.red[50],
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  wrongAnswerEnglish: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[900],
+    marginBottom: 4,
+  },
+  wrongAnswerCorrect: {
+    fontSize: 14,
+    color: colors.emerald[600],
+    marginBottom: 2,
+  },
+  wrongAnswerSelected: {
+    fontSize: 14,
+    color: colors.red[600],
   },
   resultActions: {
     width: '100%',

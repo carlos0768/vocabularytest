@@ -143,7 +143,9 @@ export default function SentenceQuizPage() {
       recordWrongAnswer(
         currentQuestion.wordId,
         currentQuestion.targetWord,
-        currentQuestion.japaneseMeaning
+        currentQuestion.japaneseMeaning,
+        projectId,
+        [] // 例文クイズにはdistractorsがない
       );
     }
     recordActivity();

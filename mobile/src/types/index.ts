@@ -24,6 +24,14 @@ export type {
   GrammarQuizQuestion,
   AIGrammarExtraction,
   AIGrammarResponse,
+  // Sentence Quiz types
+  SentenceQuestionType,
+  BlankSlot,
+  EnhancedBlankSlot,
+  FillInBlankQuestion,
+  WordOrderQuestion,
+  MultiFillInBlankQuestion,
+  SentenceQuizQuestion,
 } from '../shared/types';
 
 // ============ Mobile-Specific Types ============
@@ -40,13 +48,15 @@ export type RootStackParamList = {
   ScanConfirm: { words: import('../shared/types').AIWordExtraction[]; projectName?: string; projectId?: string };
   Project: { projectId: string };
   Quiz: { projectId: string };
-  Flashcard: { projectId: string };
+  Flashcard: { projectId: string; favoritesOnly?: boolean };
   Grammar: { projectId: string };
   GrammarScan: { projectId: string };
   GrammarQuiz: { projectId: string };
   Favorites: undefined;
   FavoritesFlashcard: undefined;
   FavoritesQuiz: undefined;
+  WrongAnswers: undefined;
+  WrongAnswersQuiz: undefined;
 };
 
 export type MainTabParamList = {

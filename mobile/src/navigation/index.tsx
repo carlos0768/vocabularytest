@@ -17,7 +17,8 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SubscriptionScreen } from '../screens/SubscriptionScreen';
-import { GrammarScreen } from '../screens/GrammarScreen';
+import { SentenceQuizScreen } from '../screens/SentenceQuizScreen';
+import { WrongAnswersScreen } from '../screens/WrongAnswersScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -55,9 +56,10 @@ export function Navigation() {
         />
         <Stack.Screen
           name="Grammar"
-          component={GrammarScreen}
+          component={SentenceQuizScreen}
           options={{
-            animation: 'slide_from_right',
+            animation: 'fade',
+            gestureEnabled: false,
           }}
         />
         <Stack.Screen name="Favorites" component={FavoritesScreen} />
@@ -104,6 +106,9 @@ export function Navigation() {
         {/* Settings & Subscription */}
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+
+        {/* Wrong Answers */}
+        <Stack.Screen name="WrongAnswers" component={WrongAnswersScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

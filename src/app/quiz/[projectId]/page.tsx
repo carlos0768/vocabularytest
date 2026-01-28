@@ -25,7 +25,7 @@ export default function QuizPage() {
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
 
-  const [allWords, setAllWords] = useState<Word[]>([]); // Store all words for restart
+  const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -36,19 +36,15 @@ export default function QuizPage() {
   });
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [inputCount, setInputCount] = useState(''); // User input for question count
+  const [inputCount, setInputCount] = useState('');
 
-  // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
-  // Generate quiz questions from words
   const generateQuestions = useCallback((words: Word[], count: number): QuizQuestion[] => {
-    // Shuffle and take up to count questions per session
     const selected = shuffleArray(words).slice(0, count);
 
     return selected.map((word) => {
-      // Shuffle correct answer with distractors
       const allOptions = [word.japanese, ...word.distractors];
       const shuffled = shuffleArray(allOptions);
       const correctIndex = shuffled.indexOf(word.japanese);
@@ -61,9 +57,7 @@ export default function QuizPage() {
     });
   }, []);
 
-  // Load words and create questions
   useEffect(() => {
-    // Wait for auth to be ready
     if (authLoading) return;
 
     const loadWords = async () => {
@@ -73,9 +67,8 @@ export default function QuizPage() {
           router.push(`/project/${projectId}`);
           return;
         }
-        setAllWords(words); // Store all words for restart
+        setAllWords(words);
 
-        // Only generate questions if question count is set
         if (questionCount) {
           const generated = generateQuestions(words, questionCount);
           setQuestions(generated);
@@ -93,7 +86,6 @@ export default function QuizPage() {
 
   const currentQuestion = questions[currentIndex];
 
-  // Handle option selection
   const handleSelect = async (index: number) => {
     if (isRevealed || selectedIndex !== null) return;
 
@@ -103,25 +95,20 @@ export default function QuizPage() {
     const isCorrect = index === currentQuestion.correctIndex;
     const word = currentQuestion.word;
 
-    // Update results
     setResults((prev) => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
       total: prev.total + 1,
     }));
 
-    // Record stats for daily tracking
     if (isCorrect) {
-      // Check if word becomes mastered (you could add logic here)
       recordCorrectAnswer(false);
     } else {
       recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
     }
 
-    // Record activity for streak tracking
     recordActivity();
   };
 
-  // Move to next question
   const moveToNext = () => {
     if (currentIndex + 1 >= questions.length) {
       setIsComplete(true);
@@ -132,9 +119,7 @@ export default function QuizPage() {
     }
   };
 
-  // Restart quiz with new random questions from all words
   const handleRestart = () => {
-    // Use allWords to get completely new random questions
     const regenerated = generateQuestions(allWords, questionCount || DEFAULT_QUESTION_COUNT);
     setQuestions(regenerated);
     setCurrentIndex(0);
@@ -144,7 +129,6 @@ export default function QuizPage() {
     setIsComplete(false);
   };
 
-  // Handle question count selection
   const handleSelectCount = (count: number) => {
     setQuestionCount(count);
     if (allWords.length > 0) {
@@ -153,12 +137,13 @@ export default function QuizPage() {
     }
   };
 
+  // Loading screen
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">クイズを準備中...</p>
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--color-muted)]">クイズを準備中...</p>
         </div>
       </div>
     );
@@ -177,12 +162,12 @@ export default function QuizPage() {
     };
 
     return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
         <header className="flex-shrink-0 p-4">
           <button
             onClick={() => router.push(`/project/${projectId}`)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
             <X className="w-6 h-6" />
           </button>
@@ -190,16 +175,16 @@ export default function QuizPage() {
 
         {/* Selection */}
         <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+          <div className="w-full max-w-sm animate-fade-in-up">
+            <h1 className="text-2xl font-bold text-[var(--color-foreground)] text-center mb-2">
               問題数を入力
             </h1>
-            <p className="text-gray-500 text-center mb-8">
+            <p className="text-[var(--color-muted)] text-center mb-8">
               1〜{maxQuestions}問まで
             </p>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-center gap-2">
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-3">
                 <input
                   type="number"
                   inputMode="numeric"
@@ -214,10 +199,10 @@ export default function QuizPage() {
                     }
                   }}
                   placeholder={String(DEFAULT_QUESTION_COUNT)}
-                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)] focus:border-[var(--color-primary)] focus:outline-none transition-colors"
                   autoFocus
                 />
-                <span className="text-xl text-gray-500">問</span>
+                <span className="text-xl text-[var(--color-muted)]">問</span>
               </div>
 
               <Button
@@ -240,12 +225,12 @@ export default function QuizPage() {
     const percentage = Math.round((results.correct / results.total) * 100);
 
     return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
         {/* Header */}
         <header className="p-4">
           <button
             onClick={() => router.push(`/project/${projectId}`)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
             <X className="w-6 h-6" />
           </button>
@@ -253,33 +238,32 @@ export default function QuizPage() {
 
         {/* Results */}
         <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="bg-white rounded-3xl shadow-lg p-8 w-full max-w-sm text-center">
-            <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Trophy className="w-10 h-10 text-yellow-600" />
+          <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
+            <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trophy className="w-10 h-10 text-[var(--color-success)]" />
             </div>
 
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              クイズ完了！
+            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
+              クイズ完了!
             </h1>
 
             <div className="mb-6">
-              <p className="text-5xl font-bold text-blue-600 mb-1">
+              <p className="text-5xl font-bold text-[var(--color-primary)] mb-1">
                 {percentage}%
               </p>
-              <p className="text-gray-500">
+              <p className="text-[var(--color-muted)]">
                 {results.total}問中 {results.correct}問正解
               </p>
             </div>
 
-            {/* Performance message */}
-            <p className="text-gray-600 mb-8">
+            <p className="text-[var(--color-foreground)] mb-8">
               {percentage === 100
-                ? 'パーフェクト！素晴らしい！'
+                ? 'パーフェクト! 素晴らしい!'
                 : percentage >= 80
-                ? 'よくできました！'
+                ? 'よくできました!'
                 : percentage >= 60
-                ? 'もう少し！復習しましょう'
-                : '繰り返し練習しましょう！'}
+                ? 'もう少し! 復習しましょう'
+                : '繰り返し練習しましょう!'}
             </p>
 
             <div className="space-y-3">
@@ -302,70 +286,71 @@ export default function QuizPage() {
     );
   }
 
+  // Main quiz screen
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       {/* Header */}
-      <header className="flex-shrink-0 p-4 flex items-center justify-between">
+      <header className="flex-shrink-0 p-4 flex items-center gap-4">
         <button
           onClick={() => router.push(`/project/${projectId}`)}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
           <X className="w-6 h-6" />
         </button>
 
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">
-            {currentIndex + 1} / {questions.length}
-          </span>
-          <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 transition-all duration-300"
-              style={{
-                width: `${((currentIndex + 1) / questions.length) * 100}%`,
-              }}
-            />
-          </div>
+        {/* Progress bar */}
+        <div className="flex-1 progress-bar">
+          <div
+            className="progress-bar-fill"
+            style={{
+              width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            }}
+          />
         </div>
       </header>
 
       {/* Question */}
       <main className="flex-1 flex flex-col p-6 overflow-y-auto pb-24">
         {/* English word */}
-        <div className="flex flex-col items-center justify-center py-4">
-          <h1 className="text-4xl font-bold text-gray-900 text-center mb-4">
+        <div className="flex flex-col items-center justify-center py-8 animate-fade-in-up">
+          <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center mb-4 tracking-tight">
             {currentQuestion?.word.english}
           </h1>
-          {/* Favorite button */}
-          <button
-            onClick={async () => {
-              if (!currentQuestion) return;
-              const word = currentQuestion.word;
-              const newFavorite = !word.isFavorite;
-              await repository.updateWord(word.id, { isFavorite: newFavorite });
-              setQuestions((prev) =>
-                prev.map((q, i) =>
-                  i === currentIndex
-                    ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
-                    : q
-                )
-              );
-            }}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-            aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
-          >
-            <Flag
-              className={`w-6 h-6 transition-colors ${
-                currentQuestion?.word.isFavorite
-                  ? 'fill-orange-500 text-orange-500'
-                  : 'text-gray-400'
-              }`}
-            />
-          </button>
+
+          {/* Tough word chip */}
+          {currentQuestion?.word.isFavorite && (
+            <div className="chip chip-tough mb-4">
+              <Flag className="w-4 h-4 fill-current" />
+              <span>苦手な単語</span>
+            </div>
+          )}
+
+          {/* Favorite toggle button (when not marked) */}
+          {!currentQuestion?.word.isFavorite && (
+            <button
+              onClick={async () => {
+                if (!currentQuestion) return;
+                const word = currentQuestion.word;
+                const newFavorite = !word.isFavorite;
+                await repository.updateWord(word.id, { isFavorite: newFavorite });
+                setQuestions((prev) =>
+                  prev.map((q, i) =>
+                    i === currentIndex
+                      ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
+                      : q
+                  )
+                );
+              }}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              aria-label="苦手にマーク"
+            >
+              <Flag className="w-5 h-5 text-[var(--color-muted)]" />
+            </button>
+          )}
         </div>
 
         {/* Options */}
-        <div className="space-y-3 mb-4">
+        <div className="space-y-3 mb-4 max-w-lg mx-auto w-full">
           {currentQuestion?.options.map((option, index) => (
             <QuizOption
               key={index}
@@ -382,11 +367,11 @@ export default function QuizPage() {
 
         {/* Example sentence (shown after answering, Pro feature) */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="mb-4 p-4 bg-blue-50 rounded-xl">
-            <p className="text-sm font-medium text-blue-800 mb-1">例文</p>
-            <p className="text-blue-900 italic">{currentQuestion.word.exampleSentence}</p>
+          <div className="mb-4 p-4 bg-[var(--color-peach-light)] rounded-2xl max-w-lg mx-auto w-full">
+            <p className="text-sm font-semibold text-[var(--color-primary)] mb-1">例文</p>
+            <p className="text-[var(--color-foreground)] italic">{currentQuestion.word.exampleSentence}</p>
             {currentQuestion.word.exampleSentenceJa && (
-              <p className="text-sm text-blue-700 mt-1">{currentQuestion.word.exampleSentenceJa}</p>
+              <p className="text-sm text-[var(--color-muted)] mt-1">{currentQuestion.word.exampleSentenceJa}</p>
             )}
           </div>
         )}
@@ -394,8 +379,8 @@ export default function QuizPage() {
 
       {/* Fixed bottom next button (shown after answering) */}
       {isRevealed && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-bottom z-50">
-          <Button onClick={moveToNext} className="w-full" size="lg">
+        <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-background)] p-6 safe-area-bottom z-50">
+          <Button onClick={moveToNext} className="w-full max-w-lg mx-auto flex" size="lg">
             次へ
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>

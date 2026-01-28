@@ -27,6 +27,8 @@ import {
   Plus,
   Edit2,
   Trash2,
+  Type,
+  Pencil,
 } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { ProcessingModal } from '../components/ProcessingModal';
@@ -58,6 +60,16 @@ export function ProjectScreen() {
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // Manual word input state
+  const [showAddWordModal, setShowAddWordModal] = useState(false);
+  const [newWordEnglish, setNewWordEnglish] = useState('');
+  const [newWordJapanese, setNewWordJapanese] = useState('');
+  const [addingWord, setAddingWord] = useState(false);
+
+  // Project name editing state
+  const [editingProjectName, setEditingProjectName] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
 
   // Authenticated users use remote repository (Supabase), guests use local SQLite
   const repository = getRepository(subscription?.status || 'free');
@@ -389,6 +401,85 @@ export function ProjectScreen() {
     setProcessingSteps([]);
   };
 
+  // Manual word input handler
+  const handleAddManualWord = async () => {
+    if (!newWordEnglish.trim() || !newWordJapanese.trim()) {
+      Alert.alert('エラー', '英語と日本語の両方を入力してください。');
+      return;
+    }
+
+    setAddingWord(true);
+    try {
+      // Generate simple distractors (in production, you might want to call an API)
+      const distractors = ['選択肢A', '選択肢B', '選択肢C'];
+
+      const newWords = await repository.createWords([{
+        projectId,
+        english: newWordEnglish.trim(),
+        japanese: newWordJapanese.trim(),
+        distractors,
+      }]);
+
+      if (newWords.length > 0) {
+        setWords((prev) => [...prev, newWords[0]]);
+      }
+      setNewWordEnglish('');
+      setNewWordJapanese('');
+      setShowAddWordModal(false);
+    } catch (error) {
+      console.error('Failed to add word:', error);
+      Alert.alert('エラー', '単語の追加に失敗しました。');
+    } finally {
+      setAddingWord(false);
+    }
+  };
+
+  // Project name editing handler
+  const handleEditProjectName = () => {
+    if (project) {
+      setNewProjectName(project.title);
+      setEditingProjectName(true);
+    }
+  };
+
+  const handleSaveProjectName = async () => {
+    if (!newProjectName.trim()) {
+      Alert.alert('エラー', 'プロジェクト名を入力してください。');
+      return;
+    }
+
+    try {
+      await repository.updateProject(projectId, { title: newProjectName.trim() });
+      setProject((prev) => prev ? { ...prev, title: newProjectName.trim() } : null);
+      setEditingProjectName(false);
+    } catch (error) {
+      console.error('Failed to update project name:', error);
+      Alert.alert('エラー', 'プロジェクト名の更新に失敗しました。');
+    }
+  };
+
+  // Show add options (scan or manual)
+  const handleShowAddOptions = () => {
+    Alert.alert(
+      '単語を追加',
+      'どの方法で追加しますか？',
+      [
+        {
+          text: 'スキャンで追加',
+          onPress: handleAddWords,
+        },
+        {
+          text: '手入力で追加',
+          onPress: () => setShowAddWordModal(true),
+        },
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -425,12 +516,34 @@ export function ProjectScreen() {
         >
           <ArrowLeft size={20} color={colors.gray[600]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {project.title}
-        </Text>
+        {editingProjectName ? (
+          <View style={styles.headerTitleEdit}>
+            <TextInput
+              style={styles.headerTitleInput}
+              value={newProjectName}
+              onChangeText={setNewProjectName}
+              autoFocus
+              onBlur={handleSaveProjectName}
+              onSubmitEditing={handleSaveProjectName}
+            />
+            <TouchableOpacity onPress={handleSaveProjectName} style={styles.saveNameButton}>
+              <Check size={18} color={colors.primary[600]} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={handleEditProjectName}
+            style={styles.headerTitleButton}
+          >
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {project.title}
+            </Text>
+            <Pencil size={14} color={colors.gray[400]} />
+          </TouchableOpacity>
+        )}
         <View style={styles.headerActions}>
           <TouchableOpacity
-            onPress={handleAddWords}
+            onPress={handleShowAddOptions}
             style={styles.addButton}
             disabled={processing}
           >
@@ -562,6 +675,73 @@ export function ProjectScreen() {
             : undefined
         }
       />
+
+      {/* Manual word input modal */}
+      {showAddWordModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>単語を手入力</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAddWordModal(false);
+                  setNewWordEnglish('');
+                  setNewWordJapanese('');
+                }}
+                style={styles.modalCloseButton}
+              >
+                <X size={20} color={colors.gray[500]} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>英語</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={newWordEnglish}
+                  onChangeText={setNewWordEnglish}
+                  placeholder="例: apple"
+                  placeholderTextColor={colors.gray[400]}
+                  autoFocus
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>日本語</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={newWordJapanese}
+                  onChangeText={setNewWordJapanese}
+                  placeholder="例: りんご"
+                  placeholderTextColor={colors.gray[400]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  setShowAddWordModal(false);
+                  setNewWordEnglish('');
+                  setNewWordJapanese('');
+                }}
+                style={styles.modalButton}
+              >
+                キャンセル
+              </Button>
+              <Button
+                onPress={handleAddManualWord}
+                disabled={!newWordEnglish.trim() || !newWordJapanese.trim() || addingWord}
+                style={styles.modalButton}
+              >
+                {addingWord ? '追加中...' : '追加'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -699,11 +879,36 @@ const styles = StyleSheet.create({
     marginLeft: -6,
   },
   headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.gray[900],
+  },
+  headerTitleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 12,
+  },
+  headerTitleEdit: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  headerTitleInput: {
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: colors.gray[900],
-    marginLeft: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary[500],
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+  },
+  saveNameButton: {
+    padding: 6,
+    marginLeft: 4,
   },
   headerActions: {
     flexDirection: 'row',
@@ -912,5 +1117,71 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.orange[600],
+  },
+  // Modal styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.gray[900],
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 16,
+    gap: 16,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray[700],
+  },
+  modalInput: {
+    backgroundColor: colors.gray[50],
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.gray[900],
+  },
+  modalActions: {
+    flexDirection: 'row',
+    padding: 16,
+    paddingTop: 8,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

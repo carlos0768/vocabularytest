@@ -45,6 +45,8 @@ const STORAGE_KEYS = {
   STREAK: 'scanvocab_streak',
   LAST_ACTIVITY: 'scanvocab_last_activity',
   DAILY_STATS: 'scanvocab_daily_stats',
+  WRONG_ANSWERS: 'scanvocab_wrong_answers',
+  FLASHCARD_PROGRESS: 'scanvocab_flashcard_progress',
 };
 
 // Get or create guest user ID
@@ -209,6 +211,159 @@ export async function updateDailyStats(isCorrect: boolean, isMastered: boolean):
     await updateStreak();
   } catch (error) {
     console.error('Error updating daily stats:', error);
+  }
+}
+
+// Wrong answers tracking
+export interface WrongAnswer {
+  wordId: string;
+  projectId: string;
+  english: string;
+  japanese: string;
+  distractors: string[];
+  wrongCount: number;
+  lastWrongAt: number;
+}
+
+export async function recordWrongAnswer(
+  wordId: string,
+  english: string,
+  japanese: string,
+  projectId: string = '',
+  distractors: string[] = []
+): Promise<void> {
+  try {
+    const wrongAnswers = await getWrongAnswers();
+    const existingIndex = wrongAnswers.findIndex(w => w.wordId === wordId);
+
+    if (existingIndex >= 0) {
+      // Update existing entry
+      wrongAnswers[existingIndex].wrongCount += 1;
+      wrongAnswers[existingIndex].lastWrongAt = Date.now();
+      if (distractors.length > 0) {
+        wrongAnswers[existingIndex].distractors = distractors;
+      }
+    } else {
+      // Add new entry
+      wrongAnswers.push({
+        wordId,
+        projectId,
+        english,
+        japanese,
+        distractors,
+        wrongCount: 1,
+        lastWrongAt: Date.now(),
+      });
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEYS.WRONG_ANSWERS, JSON.stringify(wrongAnswers));
+  } catch (error) {
+    console.error('Error recording wrong answer:', error);
+  }
+}
+
+export async function getWrongAnswers(): Promise<WrongAnswer[]> {
+  try {
+    const stored = await AsyncStorage.getItem(STORAGE_KEYS.WRONG_ANSWERS);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+export async function removeWrongAnswer(wordId: string): Promise<void> {
+  try {
+    const wrongAnswers = await getWrongAnswers();
+    const filtered = wrongAnswers.filter(w => w.wordId !== wordId);
+    await AsyncStorage.setItem(STORAGE_KEYS.WRONG_ANSWERS, JSON.stringify(filtered));
+  } catch (error) {
+    console.error('Error removing wrong answer:', error);
+  }
+}
+
+export async function clearAllWrongAnswers(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.WRONG_ANSWERS);
+  } catch (error) {
+    console.error('Error clearing wrong answers:', error);
+  }
+}
+
+// Flashcard progress tracking
+export interface FlashcardProgress {
+  wordIds: string[];
+  currentIndex: number;
+  savedAt: number;
+}
+
+const getProgressKey = (projectId: string, favoritesOnly: boolean): string =>
+  `${STORAGE_KEYS.FLASHCARD_PROGRESS}_${projectId}${favoritesOnly ? '_favorites' : ''}`;
+
+export async function saveFlashcardProgress(
+  projectId: string,
+  favoritesOnly: boolean,
+  wordIds: string[],
+  currentIndex: number
+): Promise<void> {
+  try {
+    const progress: FlashcardProgress = {
+      wordIds,
+      currentIndex,
+      savedAt: Date.now(),
+    };
+    await AsyncStorage.setItem(getProgressKey(projectId, favoritesOnly), JSON.stringify(progress));
+  } catch (error) {
+    console.error('Error saving flashcard progress:', error);
+  }
+}
+
+export async function loadFlashcardProgress(
+  projectId: string,
+  favoritesOnly: boolean
+): Promise<FlashcardProgress | null> {
+  try {
+    const stored = await AsyncStorage.getItem(getProgressKey(projectId, favoritesOnly));
+    if (!stored) return null;
+
+    const progress: FlashcardProgress = JSON.parse(stored);
+    // Only return progress if it's less than 7 days old
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    if (progress.savedAt > sevenDaysAgo) {
+      return progress;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearFlashcardProgress(
+  projectId: string,
+  favoritesOnly: boolean
+): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(getProgressKey(projectId, favoritesOnly));
+  } catch (error) {
+    console.error('Error clearing flashcard progress:', error);
+  }
+}
+
+// Record activity for streak tracking
+export async function recordActivity(): Promise<void> {
+  try {
+    await updateStreak();
+  } catch (error) {
+    console.error('Error recording activity:', error);
+  }
+}
+
+// Record correct answer for stats
+export async function recordCorrectAnswer(isMastered: boolean = false): Promise<void> {
+  try {
+    await updateDailyStats(true, isMastered);
+  } catch (error) {
+    console.error('Error recording correct answer:', error);
   }
 }
 

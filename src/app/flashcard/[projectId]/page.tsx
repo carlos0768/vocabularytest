@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2, Trash2, RefreshCw } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -15,9 +15,9 @@ const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
 
 // Progress data structure
 interface FlashcardProgress {
-  wordIds: string[];  // Order of word IDs (to preserve shuffle order)
+  wordIds: string[];
   currentIndex: number;
-  savedAt: number;  // Timestamp
+  savedAt: number;
 }
 
 export default function FlashcardPage() {
@@ -42,7 +42,6 @@ export default function FlashcardPage() {
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
 
-  // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
@@ -60,7 +59,6 @@ export default function FlashcardPage() {
   useEffect(() => {
     if (authLoading) return;
 
-    // Redirect non-Pro users (except for favorites mode which is free)
     if (!isPro && !favoritesOnly) {
       router.push('/subscription');
       return;
@@ -78,24 +76,20 @@ export default function FlashcardPage() {
           return;
         }
 
-        // Check for saved progress
         const progressKey = getProgressKey(projectId, favoritesOnly);
         const savedProgressStr = localStorage.getItem(progressKey);
 
         if (savedProgressStr) {
           try {
             const progress: FlashcardProgress = JSON.parse(savedProgressStr);
-            // Only use saved progress if it's less than 7 days old
             const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
             if (progress.savedAt > sevenDaysAgo) {
-              // Reconstruct word order from saved IDs
               const wordMap = new Map(wordsData.map(w => [w.id, w]));
               const orderedWords = progress.wordIds
                 .map(id => wordMap.get(id))
                 .filter((w): w is Word => w !== undefined);
 
-              // If most words still exist, resume automatically
               if (orderedWords.length >= wordsData.length * 0.8) {
                 setWords(orderedWords);
                 setCurrentIndex(progress.currentIndex);
@@ -104,12 +98,10 @@ export default function FlashcardPage() {
               }
             }
           } catch {
-            // Invalid progress data, ignore
             localStorage.removeItem(progressKey);
           }
         }
 
-        // No valid saved progress - start fresh with shuffled words
         setWords(shuffleArray(wordsData));
       } catch (error) {
         console.error('Failed to load words:', error);
@@ -148,15 +140,11 @@ export default function FlashcardPage() {
       if (withAnimation) {
         setIsAnimating(true);
         setSlideDirection('left');
-        // Phase 1: Current card exits to the left
         setSlidePhase('exit');
         setTimeout(() => {
-          // Change to next card and prepare to enter from right
           setCurrentIndex(prev => prev + 1);
           setIsFlipped(false);
-          // Phase 2: New card enters from the right
           setSlidePhase('enter');
-          // Wait a frame then animate to center
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               setSlidePhase(null);
@@ -179,15 +167,11 @@ export default function FlashcardPage() {
       if (withAnimation) {
         setIsAnimating(true);
         setSlideDirection('right');
-        // Phase 1: Current card exits to the right
         setSlidePhase('exit');
         setTimeout(() => {
-          // Change to prev card and prepare to enter from left
           setCurrentIndex(prev => prev - 1);
           setIsFlipped(false);
-          // Phase 2: New card enters from the left
           setSlidePhase('enter');
-          // Wait a frame then animate to center
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               setSlidePhase(null);
@@ -224,7 +208,6 @@ export default function FlashcardPage() {
     const deltaX = e.touches[0].clientX - touchStartX.current;
     const deltaY = e.touches[0].clientY - touchStartY.current;
 
-    // Only swipe if horizontal movement is greater than vertical
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
       isSwiping.current = true;
       setSwipeX(deltaX);
@@ -237,10 +220,8 @@ export default function FlashcardPage() {
     const threshold = 80;
 
     if (swipeX < -threshold && currentIndex < words.length - 1) {
-      // Swipe left - next
       handleNext(true);
     } else if (swipeX > threshold && currentIndex > 0) {
-      // Swipe right - prev
       handlePrev(true);
     }
 
@@ -255,7 +236,6 @@ export default function FlashcardPage() {
     setWords(shuffled);
     setCurrentIndex(0);
     setIsFlipped(false);
-    // Save new shuffled order with index 0
     saveProgress(shuffled, 0);
   };
 
@@ -308,16 +288,13 @@ export default function FlashcardPage() {
 
     await repository.deleteWord(currentWord.id);
 
-    // Remove word from state
     const newWords = words.filter((_, i) => i !== currentIndex);
 
     if (newWords.length === 0) {
-      // No more words, go back to project page
       router.push(`/project/${projectId}`);
       return;
     }
 
-    // Adjust index if we deleted the last word
     if (currentIndex >= newWords.length) {
       setCurrentIndex(newWords.length - 1);
     }
@@ -326,29 +303,26 @@ export default function FlashcardPage() {
     setIsFlipped(false);
   };
 
+  // Speak word
+  const speakWord = () => {
+    if (currentWord?.english && typeof window !== 'undefined') {
+      const utterance = new SpeechSynthesisUtterance(currentWord.english);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   // Calculate card transform
   const getCardTransform = () => {
-    // Exit phase: card moves out in the swipe direction
     if (slidePhase === 'exit') {
-      if (slideDirection === 'left') {
-        return 'translateX(-120%)';
-      }
-      if (slideDirection === 'right') {
-        return 'translateX(120%)';
-      }
+      if (slideDirection === 'left') return 'translateX(-120%)';
+      if (slideDirection === 'right') return 'translateX(120%)';
     }
-    // Enter phase: card starts from opposite side and moves to center
     if (slidePhase === 'enter') {
-      // Left swipe = next card = enters from right
-      if (slideDirection === 'left') {
-        return 'translateX(120%)';
-      }
-      // Right swipe = prev card = enters from left
-      if (slideDirection === 'right') {
-        return 'translateX(-120%)';
-      }
+      if (slideDirection === 'left') return 'translateX(120%)';
+      if (slideDirection === 'right') return 'translateX(-120%)';
     }
-    // Normal swipe tracking
     if (swipeX !== 0) {
       return `translateX(${swipeX}px) rotate(${swipeX * 0.02}deg)`;
     }
@@ -357,177 +331,176 @@ export default function FlashcardPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">フラッシュカードを準備中...</p>
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--color-muted)]">フラッシュカードを準備中...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       {/* Header */}
       <header className="p-4 flex items-center justify-between">
         <button
           onClick={() => router.push(`/project/${projectId}`)}
-          className="p-2 hover:bg-white/50 rounded-full transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
           <X className="w-6 h-6" />
         </button>
 
-        <div className="flex items-center gap-2">
-          {favoritesOnly && (
-            <div className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded-full mr-2">
-              <Flag className="w-3 h-3 fill-orange-500 text-orange-500" />
-              <span className="text-xs font-medium text-orange-700">苦手</span>
-            </div>
-          )}
-          <span className="text-sm text-gray-500">
-            {currentIndex + 1} / {words.length}
-          </span>
+        {/* Progress indicator */}
+        <div className="flex items-center gap-2 px-4 py-2 bg-[var(--color-surface)] rounded-full shadow-soft">
+          <span className="text-[var(--color-primary)] font-bold">{currentIndex + 1}</span>
+          <span className="text-[var(--color-muted)]">/</span>
+          <span className="text-[var(--color-muted)]">{words.length}</span>
         </div>
 
         <button
-          onClick={handleShuffle}
-          className="p-2 hover:bg-white/50 rounded-full transition-colors"
-          title="シャッフル"
+          onClick={() => {}}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
-          <RotateCcw className="w-5 h-5 text-gray-600" />
+          <MoreHorizontal className="w-6 h-6" />
         </button>
       </header>
 
+      {/* Favorites badge */}
+      {favoritesOnly && (
+        <div className="flex justify-center -mt-2 mb-2">
+          <div className="chip chip-tough">
+            <Flag className="w-4 h-4 fill-current" />
+            <span>苦手な単語</span>
+          </div>
+        </div>
+      )}
+
       {/* Card area */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 touch-pan-y">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 touch-pan-y">
         {/* Flashcard */}
         <div
           onClick={handleFlip}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="w-full max-w-sm aspect-[3/4] cursor-pointer perspective-1000"
+          className="flashcard w-full max-w-sm aspect-[3/4] cursor-pointer"
           style={{
             transform: getCardTransform(),
             transition: slidePhase === 'enter' ? 'none' : (isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none'),
           }}
         >
-          <div
-            className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${
-              isFlipped ? 'rotate-y-180' : ''
-            }`}
-            style={{
-              transformStyle: 'preserve-3d',
-              transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-            }}
-          >
+          <div className={`flashcard-inner ${isFlipped ? 'flipped' : ''}`}>
             {/* Front (English) */}
-            <div
-              className="absolute inset-0 bg-white rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center backface-hidden"
-              style={{ backfaceVisibility: 'hidden' }}
-            >
-              {/* Voice button above the word */}
+            <div className="flashcard-face flashcard-front shadow-card">
+              {/* Part of speech badge */}
+              <div className="absolute top-6 left-6">
+                <span className="px-3 py-1 bg-[var(--color-peach-light)] text-[var(--color-muted)] text-xs font-semibold rounded-full uppercase tracking-wide">
+                  NOUN
+                </span>
+              </div>
+
+              {/* Voice button */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (currentWord?.english && typeof window !== 'undefined') {
-                    const utterance = new SpeechSynthesisUtterance(currentWord.english);
-                    utterance.lang = 'en-US';
-                    utterance.rate = 0.9;
-                    window.speechSynthesis.speak(utterance);
-                  }
+                  speakWord();
                 }}
-                className="p-3 hover:bg-gray-100 rounded-full transition-colors mb-4"
+                className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[var(--color-primary)]"
                 aria-label="発音を聞く"
               >
-                <Volume2 className="w-6 h-6 text-gray-400" />
+                <Volume2 className="w-6 h-6" />
               </button>
-              <p className="text-3xl font-bold text-gray-900 text-center">
+
+              {/* Word */}
+              <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center tracking-tight">
                 {currentWord?.english}
+              </h1>
+
+              {/* Hint */}
+              <p className="absolute bottom-6 text-sm text-[var(--color-muted)]">
+                タップして意味を表示
               </p>
-              <div className="absolute bottom-6 flex items-center gap-2 text-gray-400">
-                <Eye className="w-4 h-4" />
-                <span className="text-sm">タップで意味を見る</span>
-              </div>
             </div>
 
             {/* Back (Japanese) */}
-            <div
-              className="absolute inset-0 bg-blue-600 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center"
-              style={{
-                backfaceVisibility: 'hidden',
-                transform: 'rotateY(180deg)',
-              }}
-            >
-              <p className="text-2xl font-bold text-white text-center mb-4">
+            <div className="flashcard-face flashcard-back">
+              <h2 className="text-3xl font-bold text-white text-center">
                 {currentWord?.japanese}
+              </h2>
+
+              <p className="absolute bottom-6 text-sm text-white/60">
+                タップして戻る
               </p>
-              <div className="absolute bottom-6 flex items-center gap-2 text-white/60">
-                <EyeOff className="w-4 h-4" />
-                <span className="text-sm">タップで戻る</span>
-              </div>
             </div>
           </div>
         </div>
+      </main>
 
+      {/* Bottom controls */}
+      <div className="p-6 pb-8 safe-area-bottom">
         {/* Action buttons */}
-        <div className="mt-6 flex items-center gap-4">
+        <div className="flex justify-center gap-4 mb-6">
+          <button
+            onClick={handleShuffle}
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            aria-label="シャッフル"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+
           <button
             onClick={handleToggleFavorite}
-            className="p-3 rounded-full hover:bg-gray-100 transition-colors"
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
             aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
             <Flag
-              className={`w-6 h-6 transition-colors ${
+              className={`w-5 h-5 transition-colors ${
                 currentWord?.isFavorite
-                  ? 'fill-orange-500 text-orange-500'
-                  : 'text-gray-400'
+                  ? 'fill-[var(--color-peach)] text-[var(--color-peach)]'
+                  : 'text-[var(--color-muted)]'
               }`}
             />
           </button>
+
           <button
             onClick={handleDeleteWord}
-            className="p-3 rounded-full hover:bg-red-50 transition-colors"
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
             aria-label="この単語を削除"
           >
-            <Trash2 className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors" />
+            <Trash2 className="w-5 h-5" />
+          </button>
+
+          <button
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            aria-label="ブックマーク"
+          >
+            <Bookmark className="w-5 h-5" />
           </button>
         </div>
-      </main>
 
-      {/* Navigation */}
-      <div className="p-6 flex items-center justify-center gap-8">
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={() => handlePrev(true)}
-          disabled={currentIndex === 0 || isAnimating}
-          className="rounded-full w-14 h-14 p-0"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </Button>
+        {/* Navigation */}
+        <div className="flex items-center justify-center gap-6">
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => handlePrev(true)}
+            disabled={currentIndex === 0 || isAnimating}
+            className="w-14 h-14"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
 
-        {/* Flip button - PC only (hidden on mobile) */}
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={handleFlip}
-          disabled={isAnimating}
-          className="hidden md:flex rounded-full w-14 h-14 p-0"
-          title="カードを回転"
-        >
-          <RefreshCw className="w-5 h-5" />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={() => handleNext(true)}
-          disabled={currentIndex === words.length - 1 || isAnimating}
-          className="rounded-full w-14 h-14 p-0"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </Button>
+          {/* Next button - larger and primary */}
+          <Button
+            onClick={() => handleNext(true)}
+            disabled={currentIndex === words.length - 1 || isAnimating}
+            className="w-16 h-16"
+            size="icon"
+          >
+            <ChevronRight className="w-7 h-7" />
+          </Button>
+        </div>
       </div>
     </div>
   );

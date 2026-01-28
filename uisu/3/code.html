@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WordSnap Flashcards</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Theme Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#ff6b6b",
+              "background-light": "#f9f7f2", // Warm off-white
+              "background-dark": "#230f0f",
+              "card-light": "#ffffff",
+              "card-dark": "#2f1a1a",
+              "subtle-text": "#9ca3af",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "1rem", 
+              "lg": "2rem", // Approx 32px, close to the requested 28px
+              "xl": "3rem", 
+              "full": "9999px"
+            },
+            boxShadow: {
+              "soft": "0 20px 40px -10px rgba(0,0,0,0.08)",
+              "inner-light": "inset 0 2px 4px 0 rgba(255, 255, 255, 0.3)"
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* Smooth flip animation setup */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 font-display min-h-screen flex flex-col overflow-hidden selection:bg-primary/30">
+<!-- Top Navigation / Progress -->
+<header class="w-full pt-8 pb-4 px-6 flex justify-between items-center z-10">
+<!-- Close Button -->
+<button class="p-2 rounded-full text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[28px]">close</span>
+</button>
+<!-- Progress Pill -->
+<div class="bg-white dark:bg-card-dark px-5 py-2 rounded-full shadow-sm flex items-center gap-2">
+<span class="text-sm font-semibold text-primary">5</span>
+<span class="text-xs text-slate-300 dark:text-slate-600">/</span>
+<span class="text-sm font-medium text-slate-400 dark:text-slate-500">20</span>
+</div>
+<!-- Settings / Menu -->
+<button class="p-2 rounded-full text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined !text-[28px]">more_horiz</span>
+</button>
+</header>
+<!-- Main Content Area: Flashcard -->
+<main class="flex-grow flex flex-col items-center justify-center p-6 w-full max-w-md mx-auto relative perspective-1000 group/card">
+<!-- The Card -->
+<div class="relative w-full aspect-[3/4] transition-all duration-500 transform-style-3d cursor-pointer hover:scale-[1.02]">
+<!-- Card Front -->
+<div class="absolute inset-0 bg-card-light dark:bg-card-dark rounded-lg shadow-soft flex flex-col p-8 backface-hidden border border-white/50 dark:border-white/5">
+<!-- Card Header (Type) -->
+<div class="w-full flex justify-between items-start">
+<span class="bg-background-light dark:bg-background-dark/50 text-slate-500 dark:text-slate-400 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">Noun</span>
+<button class="text-primary hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined !text-[24px]">volume_up</span>
+</button>
+</div>
+<!-- Card Body (Word) -->
+<div class="flex-grow flex flex-col items-center justify-center gap-4 text-center">
+<h1 class="text-5xl md:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        Serendipity
+                    </h1>
+<p class="text-lg text-slate-400 dark:text-slate-500 font-medium font-serif italic">
+                        /ˌser.ənˈdɪp.ə.ti/
+                    </p>
+</div>
+<!-- Card Footer (Hint/Context) -->
+<div class="w-full mt-auto pt-6 border-t border-slate-100 dark:border-slate-800/50">
+<p class="text-center text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">
+                        Tap to reveal definition
+                    </p>
+</div>
+<!-- Decorative Corner accent -->
+<div class="absolute -bottom-16 -right-16 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none"></div>
+</div>
+</div>
+</main>
+<!-- Bottom Controls -->
+<footer class="w-full pb-10 pt-4 px-8 flex flex-col items-center gap-6">
+<!-- Action Dock -->
+<div class="flex items-center justify-between w-full max-w-sm gap-4">
+<!-- Shuffle -->
+<button aria-label="Shuffle" class="p-3 rounded-full text-slate-400 hover:text-primary hover:bg-primary/10 transition-all duration-300 group">
+<span class="material-symbols-outlined !text-[28px] group-active:scale-90 transition-transform">shuffle</span>
+</button>
+<!-- Previous -->
+<button aria-label="Previous card" class="h-16 w-16 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-300 active:scale-95 bg-background-light dark:bg-background-dark">
+<span class="material-symbols-outlined !text-[32px]">arrow_back</span>
+</button>
+<!-- Next (Primary) -->
+<button aria-label="Next card" class="h-20 w-20 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-red-500 transition-all duration-300 active:scale-95 active:shadow-sm">
+<span class="material-symbols-outlined !text-[40px]">arrow_forward</span>
+</button>
+<!-- Flag/Save -->
+<button aria-label="Bookmark word" class="p-3 rounded-full text-slate-400 hover:text-primary hover:bg-primary/10 transition-all duration-300 group">
+<span class="material-symbols-outlined !text-[28px] group-active:scale-90 transition-transform">bookmark_border</span>
+</button>
+</div>
+</footer>
+</body></html>

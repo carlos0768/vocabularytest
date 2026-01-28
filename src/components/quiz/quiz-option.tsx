@@ -1,5 +1,6 @@
 'use client';
 
+import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface QuizOptionProps {
@@ -23,49 +24,58 @@ export function QuizOption({
 }: QuizOptionProps) {
   const optionLabels = ['A', 'B', 'C', 'D'];
 
+  // Determine the visual state
+  const isCorrectAnswer = isRevealed && isCorrect;
+  const isWrongAnswer = isRevealed && isSelected && !isCorrect;
+  const isInactive = isRevealed && !isSelected && !isCorrect;
+
   return (
     <button
       onClick={onSelect}
       disabled={disabled}
       className={cn(
-        'w-full p-4 rounded-xl text-left transition-all duration-200',
-        'flex items-center gap-3',
-        'active:scale-[0.98]',
-        // Default state
-        !isRevealed && 'bg-gray-50 hover:bg-gray-100',
-        // Revealed states
-        isRevealed && isCorrect && 'bg-emerald-50 animate-correct',
-        isRevealed && isSelected && !isCorrect && 'bg-red-50',
-        isRevealed && !isSelected && !isCorrect && 'bg-gray-50 opacity-40',
-        // Disabled
+        'quiz-option group relative w-full text-left',
+        // Correct answer state
+        isCorrectAnswer && 'quiz-option-correct',
+        // Wrong answer state
+        isWrongAnswer && 'quiz-option-wrong',
+        // Inactive state (not selected, not correct)
+        isInactive && 'opacity-50',
+        // Disabled without reveal
         disabled && !isRevealed && 'cursor-not-allowed opacity-60'
       )}
     >
-      {/* Option label */}
-      <span
+      {/* Option label (A, B, C, D) */}
+      <div
         className={cn(
-          'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium flex-shrink-0',
-          !isRevealed && 'bg-gray-200 text-gray-600',
-          isRevealed && isCorrect && 'bg-emerald-500 text-white',
-          isRevealed && isSelected && !isCorrect && 'bg-red-500 text-white',
-          isRevealed && !isSelected && !isCorrect && 'bg-gray-200 text-gray-400'
+          'quiz-option-label',
+          isCorrectAnswer && 'bg-white/20 text-white',
+          isWrongAnswer && 'bg-white/20 text-white'
         )}
       >
         {optionLabels[index]}
-      </span>
+      </div>
 
       {/* Answer text */}
       <span
         className={cn(
-          'text-base',
-          !isRevealed && 'text-gray-900',
-          isRevealed && isCorrect && 'text-emerald-700 font-medium',
-          isRevealed && isSelected && !isCorrect && 'text-red-700',
-          isRevealed && !isSelected && !isCorrect && 'text-gray-400'
+          'flex-1 px-4 py-3 text-base font-medium leading-tight',
+          !isRevealed && 'text-[var(--color-foreground)]',
+          isCorrectAnswer && 'text-white',
+          isWrongAnswer && 'text-white',
+          isInactive && 'text-[var(--color-muted)]'
         )}
       >
         {label}
       </span>
+
+      {/* Result icon */}
+      {isCorrectAnswer && (
+        <Check className="w-6 h-6 text-white mr-1" strokeWidth={2.5} />
+      )}
+      {isWrongAnswer && (
+        <X className="w-6 h-6 text-white mr-1" strokeWidth={2.5} />
+      )}
     </button>
   );
 }
