@@ -1477,7 +1477,10 @@ export default function HomePage() {
       const createResult = await createResponse.json();
 
       if (!createResponse.ok || !createResult.success) {
-        throw new Error(createResult.error || 'ジョブの作成に失敗しました');
+        const errorMsg = createResult.details
+          ? `${createResult.error}: ${createResult.details}`
+          : (createResult.error || 'ジョブの作成に失敗しました');
+        throw new Error(errorMsg);
       }
 
       setProcessingSteps((prev) =>
