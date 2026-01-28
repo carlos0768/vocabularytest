@@ -11,4 +11,15 @@ export {
   type EikenWordAnalysisResult,
   type EikenExtractionResult,
 } from './extract-eiken-words';
+export {
+  extractTestFromImage,
+  analyzeWrongAnswers,
+  extractWrongAnswersFromImage,
+  type WrongAnswerOCRResult,
+  type WrongAnswerAnalysisResult,
+  type WrongAnswerExtractionResult,
+  type TestOCRData,
+  type TestQuestion,
+  type WrongAnswerSummary,
+} from './extract-wrong-answers';
 export { WORD_EXTRACTION_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE } from './prompts';

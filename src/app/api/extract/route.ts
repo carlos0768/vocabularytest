@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
+import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
 import { AI_CONFIG } from '@/lib/ai/config';
 
 // Extraction modes
@@ -9,7 +9,8 @@ import { AI_CONFIG } from '@/lib/ai/config';
 // - 'highlighted': Extract highlighted/marker words only (Gemini 2.5 Flash)
 // - 'eiken': Extract words filtered by EIKEN level (Gemini OCR → GPT analysis)
 // - 'idiom': Extract idioms and phrases only (OpenAI)
-export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom';
+// - 'wrong': Extract only incorrectly answered words from vocabulary tests (Gemini OCR → GPT analysis)
+export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom' | 'wrong';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -102,8 +103,8 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
-    // 'circled', 'highlighted', 'eiken', and 'idiom' modes require Pro subscription
-    const requiresPro = mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom';
+    // 'circled', 'highlighted', 'eiken', 'idiom', and 'wrong' modes require Pro subscription
+    const requiresPro = mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom' || mode === 'wrong';
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
 
@@ -145,7 +146,23 @@ export async function POST(request: NextRequest) {
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
-    if (mode === 'idiom') {
+    if (mode === 'wrong') {
+      // Wrong answer mode: Gemini OCR → GPT analysis for vocabulary test mistakes
+      if (!geminiApiKey) {
+        return NextResponse.json(
+          { success: false, error: 'Gemini APIキーが設定されていません' },
+          { status: 500 }
+        );
+      }
+      if (!openaiApiKey) {
+        return NextResponse.json(
+          { success: false, error: 'OpenAI APIキーが設定されていません' },
+          { status: 500 }
+        );
+      }
+
+      result = await extractWrongAnswersFromImage(image, geminiApiKey, openaiApiKey);
+    } else if (mode === 'idiom') {
       // Idiom mode: Use configured provider for idiom/phrase extraction
       const idiomsProvider = AI_CONFIG.extraction.idioms.provider;
       const idiomsApiKey = idiomsProvider === 'gemini' ? geminiApiKey : openaiApiKey;

@@ -10,9 +10,8 @@ import { shuffleArray } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
-// Question count options
-const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20, 30];
 const DEFAULT_QUESTION_COUNT = 10;
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20, 30];
 
 export default function FavoritesQuizPage() {
   const router = useRouter();
@@ -38,6 +37,7 @@ export default function FavoritesQuizPage() {
   });
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [inputCount, setInputCount] = useState(''); // User input for question count
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -185,11 +185,15 @@ export default function FavoritesQuizPage() {
 
   // Question count selection screen
   if (!questionCount) {
-    // Calculate available question counts based on word count
     const maxQuestions = allFavoriteWords.length;
-    const availableOptions = QUESTION_COUNT_OPTIONS.filter(n => n <= maxQuestions);
-    // Add "All" option if words count doesn't match any preset
-    const showAllOption = maxQuestions > 0 && !QUESTION_COUNT_OPTIONS.includes(maxQuestions);
+    const parsedInput = parseInt(inputCount, 10);
+    const isValidInput = !isNaN(parsedInput) && parsedInput >= 1 && parsedInput <= maxQuestions;
+
+    const handleSubmit = () => {
+      if (isValidInput) {
+        handleSelectCount(parsedInput);
+      }
+    };
 
     return (
       <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
@@ -212,32 +216,42 @@ export default function FavoritesQuizPage() {
         <main className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
-              問題数を選択
+              問題数を入力
             </h1>
             <p className="text-gray-500 text-center mb-8">
-              苦手{maxQuestions}問から出題
+              1〜{maxQuestions}問まで
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
-              {availableOptions.map((count) => (
-                <button
-                  key={count}
-                  onClick={() => handleSelectCount(count)}
-                  className="p-4 bg-white rounded-xl shadow-sm border-2 border-gray-100 hover:border-orange-500 hover:bg-orange-50 transition-all"
-                >
-                  <span className="text-2xl font-bold text-gray-900">{count}</span>
-                  <span className="text-sm text-gray-500 ml-1">問</span>
-                </button>
-              ))}
-              {showAllOption && (
-                <button
-                  onClick={() => handleSelectCount(maxQuestions)}
-                  className="p-4 bg-white rounded-xl shadow-sm border-2 border-gray-100 hover:border-orange-500 hover:bg-orange-50 transition-all"
-                >
-                  <span className="text-2xl font-bold text-gray-900">全部</span>
-                  <span className="text-sm text-gray-500 ml-1">({maxQuestions}問)</span>
-                </button>
-              )}
+            <div className="space-y-4">
+              <div className="flex items-center justify-center gap-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min={1}
+                  max={maxQuestions}
+                  value={inputCount}
+                  onChange={(e) => setInputCount(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && isValidInput) {
+                      handleSubmit();
+                    }
+                  }}
+                  placeholder={String(DEFAULT_QUESTION_COUNT)}
+                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
+                  autoFocus
+                />
+                <span className="text-xl text-gray-500">問</span>
+              </div>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={!isValidInput}
+                className="w-full bg-orange-500 hover:bg-orange-600"
+                size="lg"
+              >
+                スタート
+              </Button>
             </div>
           </div>
         </main>

@@ -26,6 +26,7 @@ import {
   Star,
   Languages,
   Highlighter,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -34,7 +35,7 @@ import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/li
 import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { getGuestUserId, FREE_WORD_LIMIT } from '@/lib/utils';
+import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
 import type { Project, Word, ScanJob } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -539,11 +540,14 @@ function ProjectSelectionSheet({
   currentProjectIndex,
   onSelectProject,
   onSelectFavorites,
+  onSelectWrongAnswers,
   onCreateNewProject,
   onToggleProjectFavorite,
   onEditProject,
   showFavoritesOnly,
+  showWrongAnswers,
   favoriteWords,
+  wrongAnswers,
   projectFavoriteCounts,
 }: {
   isOpen: boolean;
@@ -552,11 +556,14 @@ function ProjectSelectionSheet({
   currentProjectIndex: number;
   onSelectProject: (index: number) => void;
   onSelectFavorites: () => void;
+  onSelectWrongAnswers: () => void;
   onCreateNewProject: () => void;
   onToggleProjectFavorite: (projectId: string) => void;
   onEditProject: (projectId: string, currentName: string) => void;
   showFavoritesOnly: boolean;
+  showWrongAnswers: boolean;
   favoriteWords: Word[];
+  wrongAnswers: WrongAnswer[];
   projectFavoriteCounts: Record<string, number>;
 }) {
   if (!isOpen) return null;
@@ -600,6 +607,39 @@ function ProjectSelectionSheet({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-8">
+          {/* Wrong Answers Section */}
+          {wrongAnswers.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <h3 className="font-medium text-gray-700">間違え一覧</h3>
+              </div>
+              <button
+                onClick={() => {
+                  onSelectWrongAnswers();
+                  onClose();
+                }}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                  showWrongAnswers
+                    ? 'border-red-500 bg-red-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">間違えた単語を復習</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{wrongAnswers.length}語の間違えた単語</p>
+                  </div>
+                  {showWrongAnswers && (
+                    <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* All Favorites Section */}
           {favoriteWords.length > 0 && (
             <div className="mb-6">
@@ -851,6 +891,8 @@ export default function HomePage() {
   const [words, setWords] = useState<Word[]>([]);
   const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // All favorite words across all projects
   const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>({}); // Favorite count per project
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]); // Wrong answers list
+  const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
@@ -1146,6 +1188,10 @@ export default function HomePage() {
       setTotalWords(total);
       setAllFavoriteWords(allFavorites);
       setProjectFavoriteCounts(favoriteCounts);
+
+      // Load wrong answers
+      const wrongAnswersList = getWrongAnswers();
+      setWrongAnswers(wrongAnswersList);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -1183,7 +1229,27 @@ export default function HomePage() {
     loadWords();
   }, [loadWords]);
 
-  const filteredWords = showFavoritesOnly
+  // Convert wrong answers to Word type for display
+  const wrongAnswerWords: Word[] = useMemo(() => {
+    return wrongAnswers.map(wa => ({
+      id: wa.wordId,
+      projectId: wa.projectId,
+      english: wa.english,
+      japanese: wa.japanese,
+      distractors: wa.distractors,
+      status: 'review' as const,
+      isFavorite: false,
+      createdAt: new Date(wa.lastWrongAt).toISOString(),
+      // Spaced repetition defaults
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+    }));
+  }, [wrongAnswers]);
+
+  const filteredWords = showWrongAnswers
+    ? wrongAnswerWords
+    : showFavoritesOnly
     ? allFavoriteWords
     : words;
 
@@ -1191,6 +1257,7 @@ export default function HomePage() {
   const selectProject = (index: number) => {
     setCurrentProjectIndex(index);
     setShowFavoritesOnly(false);
+    setShowWrongAnswers(false);
     setIsProjectDropdownOpen(false);
   };
 
@@ -1219,11 +1286,41 @@ export default function HomePage() {
   };
 
   const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
+    // Find the original word to check if japanese was changed
+    const originalWord = words.find((w) => w.id === wordId);
+    const japaneseChanged = originalWord && originalWord.japanese !== japanese;
+
+    // Update word immediately with new english/japanese
     await repository.updateWord(wordId, { english, japanese });
     setWords((prev) =>
       prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w))
     );
     setEditingWordId(null);
+
+    // If japanese was changed, regenerate distractors in background
+    if (japaneseChanged) {
+      try {
+        const response = await fetch('/api/regenerate-distractors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ english, japanese }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.distractors) {
+            // Update word with new distractors
+            await repository.updateWord(wordId, { distractors: data.distractors });
+            setWords((prev) =>
+              prev.map((w) => (w.id === wordId ? { ...w, distractors: data.distractors } : w))
+            );
+          }
+        }
+      } catch (error) {
+        // Silently fail - old distractors will remain
+        console.error('Failed to regenerate distractors:', error);
+      }
+    }
   };
 
   const handleToggleFavorite = async (wordId: string) => {
@@ -1737,31 +1834,33 @@ export default function HomePage() {
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <h1 className="font-semibold text-gray-900 truncate max-w-[140px]">
-                  {showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
+                  {showWrongAnswers ? '間違え一覧' : showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
                 </h1>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
-            {/* Center: Add to current project buttons */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setShowManualWordModal(true)}
-                disabled={!currentProject}
-                className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-full text-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="手で入力"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleScanButtonClick(true)}
-                disabled={processing || (!isPro && !canScan)}
-                className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="スキャン追加"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Center: Add to current project buttons (hidden in wrong answers mode) */}
+            {!showWrongAnswers && !showFavoritesOnly && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowManualWordModal(true)}
+                  disabled={!currentProject}
+                  className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-full text-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="手で入力"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleScanButtonClick(true)}
+                  disabled={processing || (!isPro && !canScan)}
+                  className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="スキャン追加"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
             {/* Right: Actions */}
             <div className="flex items-center gap-1 flex-1 justify-end">
@@ -1800,42 +1899,46 @@ export default function HomePage() {
       <main className="flex-1 max-w-lg mx-auto px-4 py-4 w-full pb-8">
         {/* Inline Flashcard */}
         <div className="mb-6">
-          <InlineFlashcard words={showFavoritesOnly ? allFavoriteWords : words} />
+          <InlineFlashcard words={filteredWords} />
         </div>
 
-        {/* Study Mode Cards - 2 column grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <StudyModeCard
-            title="クイズ"
-            description="4択単語テスト"
-            icon={Play}
-            href={`/quiz/${currentProject?.id}`}
-            variant="red"
-            disabled={words.length === 0}
-          />
-          <StudyModeCard
-            title="カード"
-            description="フラッシュカード"
-            icon={Layers}
-            href={isPro ? `/flashcard/${currentProject?.id}` : '/subscription'}
-            variant="blue"
-            disabled={words.length === 0}
-            badge={!isPro ? 'Pro' : undefined}
-          />
-        </div>
+        {/* Study Mode Cards - 2 column grid (hidden in wrong answers mode) */}
+        {!showWrongAnswers && (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <StudyModeCard
+                title="クイズ"
+                description="4択単語テスト"
+                icon={Play}
+                href={`/quiz/${currentProject?.id}`}
+                variant="red"
+                disabled={filteredWords.length === 0}
+              />
+              <StudyModeCard
+                title="カード"
+                description="フラッシュカード"
+                icon={Layers}
+                href={isPro ? `/flashcard/${currentProject?.id}` : '/subscription'}
+                variant="blue"
+                disabled={filteredWords.length === 0}
+                badge={!isPro ? 'Pro' : undefined}
+              />
+            </div>
 
-        {/* Sentence Quiz Card - Full width (Pro only) */}
-        <div className="mb-6">
-          <StudyModeCard
-            title="例文クイズ"
-            description="例文で単語を覚える"
-            icon={BookText}
-            href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
-            variant="purple"
-            disabled={words.length === 0}
-            badge={!isPro ? 'Pro' : undefined}
-          />
-        </div>
+            {/* Sentence Quiz Card - Full width (Pro only) */}
+            <div className="mb-6">
+              <StudyModeCard
+                title="例文クイズ"
+                description="例文で単語を覚える"
+                icon={BookText}
+                href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
+                variant="purple"
+                disabled={filteredWords.length === 0}
+                badge={!isPro ? 'Pro' : undefined}
+              />
+            </div>
+          </>
+        )}
 
         {/* Collapsible Word List */}
         {wordsLoading ? (
@@ -1844,12 +1947,21 @@ export default function HomePage() {
           </div>
         ) : (
           <WordList
-            words={showFavoritesOnly ? allFavoriteWords : words}
+            words={filteredWords}
             editingWordId={editingWordId}
             onEditStart={(wordId) => setEditingWordId(wordId)}
             onEditCancel={() => setEditingWordId(null)}
             onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-            onDelete={(wordId) => handleDeleteWord(wordId)}
+            onDelete={(wordId) => {
+              if (showWrongAnswers) {
+                // Remove from wrong answers list
+                removeWrongAnswer(wordId);
+                setWrongAnswers(getWrongAnswers());
+                showToast({ message: '間違え一覧から削除しました', type: 'success' });
+              } else {
+                handleDeleteWord(wordId);
+              }
+            }}
             onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
             onExpandChange={setIsWordListExpanded}
           />
@@ -1921,12 +2033,21 @@ export default function HomePage() {
         projects={projects}
         currentProjectIndex={currentProjectIndex}
         onSelectProject={selectProject}
-        onSelectFavorites={() => setShowFavoritesOnly(true)}
+        onSelectFavorites={() => {
+          setShowFavoritesOnly(true);
+          setShowWrongAnswers(false);
+        }}
+        onSelectWrongAnswers={() => {
+          setShowWrongAnswers(true);
+          setShowFavoritesOnly(false);
+        }}
         onCreateNewProject={() => handleScanButtonClick(false)}
         onToggleProjectFavorite={handleToggleProjectFavorite}
         onEditProject={handleEditProjectName}
         showFavoritesOnly={showFavoritesOnly}
+        showWrongAnswers={showWrongAnswers}
         favoriteWords={allFavoriteWords}
+        wrongAnswers={wrongAnswers}
         projectFavoriteCounts={projectFavoriteCounts}
       />
     </div>
