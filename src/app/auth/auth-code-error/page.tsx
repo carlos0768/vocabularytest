@@ -15,19 +15,19 @@ export default function AuthCodeErrorPage() {
           認証エラー
         </h1>
         <p className="text-gray-600 mb-6">
-          メール認証に失敗しました。
+          認証に失敗しました。
           <br />
-          リンクの有効期限が切れているか、すでに使用されている可能性があります。
+          認証コードの有効期限が切れているか、すでに使用されている可能性があります。
         </p>
         <div className="space-y-3">
-          <Link href="/signup">
+          <Link href="/login">
             <Button className="w-full">
-              新規登録をやり直す
+              ログインをやり直す
             </Button>
           </Link>
-          <Link href="/login">
+          <Link href="/">
             <Button variant="secondary" className="w-full">
-              ログインページへ
+              ホームに戻る
             </Button>
           </Link>
         </div>

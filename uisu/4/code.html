@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WordSnap Home Dashboard</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff6b6b",
+                        "primary-dark": "#e05555",
+                        "peach": "#FFB366",
+                        "peach-light": "#FFF0E0",
+                        "background-light": "#FFF9F5",
+                        "background-dark": "#230f0f",
+                        "surface-dark": "#3a1d1d",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem", 
+                        "lg": "1.5rem", 
+                        "xl": "2rem", 
+                        "2xl": "2.5rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        "soft": "0 10px 40px -10px rgba(255, 107, 107, 0.15)",
+                        "card": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar hiding for cleaner mobile look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased">
+<div class="relative flex h-full min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display transition-colors duration-300 overflow-hidden">
+<!-- Header -->
+<header class="flex items-center px-6 py-4 justify-between sticky top-0 z-20 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-sm">
+<h2 class="text-primary text-2xl font-extrabold leading-tight tracking-tight">WordSnap</h2>
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[#1d0c0c] dark:text-white">
+<span class="material-symbols-outlined text-2xl">settings</span>
+</button>
+</header>
+<!-- Main Content Scroll Area -->
+<main class="flex-1 overflow-y-auto overflow-x-hidden pb-32 px-6 no-scrollbar">
+<!-- Hero Flashcard -->
+<div class="w-full mt-2">
+<div class="relative w-full aspect-[3/4] rounded-[2rem] overflow-hidden shadow-card group cursor-pointer transition-transform duration-500 hover:scale-[1.02]">
+<!-- Background Image -->
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" data-alt="A warm, blurry photo of a barista pouring latte art in a cozy coffee shop" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDdHB6KLMpJg_x3ADsqM93XDxREIpwGokismqVVIB48h0IrXtqn2W6sxn8V83zQHUrsS6n4tNQFjLdQFvgQYCy7C49Qw0o1247RskIHbmjUPqsINU4Hd7Sm0guo5BVdBmbPJDw6wPTedsGyc1T7qxrQmBp1ZAgU0RZCTSyqZYtac7yCT9zWQlJyBPP_JPlVwX3WM0225GTSKO7YCTY9viAURccExcrU6fiSMFmPf0kroLM-kFHLS0zfD78Zp2tNeYcXSoywjWC8gboX");'>
+</div>
+<!-- Gradient Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10"></div>
+<!-- Content -->
+<div class="absolute inset-0 flex flex-col justify-end p-6 pb-8">
+<div class="backdrop-blur-sm bg-white/10 rounded-2xl p-5 border border-white/10 shadow-lg">
+<div class="flex justify-between items-start mb-2">
+<span class="inline-block px-3 py-1 rounded-full bg-primary/20 backdrop-blur-md border border-primary/30 text-white text-xs font-bold tracking-wide uppercase">Word of the day</span>
+<button class="text-white/80 hover:text-white transition-colors">
+<span class="material-symbols-outlined filled">bookmark_border</span>
+</button>
+</div>
+<h1 class="text-white text-4xl md:text-5xl font-bold tracking-tight mb-2 drop-shadow-md">Barista</h1>
+<div class="flex items-baseline gap-2 mb-3">
+<span class="text-white/60 text-sm font-medium italic">noun</span>
+<span class="text-white/40 text-xs">•</span>
+<span class="text-white/60 text-sm font-medium">/bəˈriːstə/</span>
+</div>
+<p class="text-white/90 text-base md:text-lg leading-snug font-medium mb-5">
+                                A person who prepares and serves coffee drinks, primarily in a coffee shop.
+                            </p>
+<button class="w-full flex items-center justify-center gap-2 h-12 rounded-full bg-primary hover:bg-primary-dark text-white text-sm font-bold tracking-wide shadow-lg shadow-primary/30 transition-all active:scale-95">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>Save to list</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Learning Modes Grid -->
+<div class="mt-8 mb-6">
+<h3 class="text-[#1d0c0c] dark:text-white text-lg font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">school</span>
+                    Practice
+                </h3>
+<div class="grid grid-cols-2 gap-4">
+<!-- Quiz Card -->
+<div class="relative flex flex-col justify-between p-5 h-40 rounded-[2rem] bg-primary text-white shadow-soft cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1 overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+<div class="relative z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined">quiz</span>
+</div>
+<div class="relative z-10">
+<h4 class="text-xl font-bold leading-tight">Daily<br/>Quiz</h4>
+<p class="text-white/80 text-xs mt-1 font-medium">12 words pending</p>
+</div>
+</div>
+<!-- Flashcards Card -->
+<div class="relative flex flex-col justify-between p-5 h-40 rounded-[2rem] bg-peach-light dark:bg-surface-dark text-[#5D4037] dark:text-peach shadow-sm cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 overflow-hidden border border-peach/20 dark:border-peach/10 group">
+<div class="absolute -right-8 -bottom-8 w-32 h-32 bg-peach/20 dark:bg-peach/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+<div class="relative z-10 w-10 h-10 rounded-full bg-peach/20 dark:bg-peach/10 flex items-center justify-center mb-2 text-primary">
+<span class="material-symbols-outlined">style</span>
+</div>
+<div class="relative z-10">
+<h4 class="text-xl font-bold leading-tight text-[#2d1b1b] dark:text-white">My<br/>Collection</h4>
+<p class="text-[#2d1b1b]/60 dark:text-white/60 text-xs mt-1 font-medium">145 Cards</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity / Example List Item -->
+<div class="w-full pb-4">
+<h3 class="text-[#1d0c0c] dark:text-white text-lg font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                    Recent
+                </h3>
+<div class="flex items-center gap-4 p-3 bg-white dark:bg-surface-dark rounded-2xl shadow-sm border border-gray-100 dark:border-white/5">
+<div class="w-14 h-14 rounded-xl bg-cover bg-center shrink-0" data-alt="Small thumbnail of a sunny park" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDVJw5ahNAU01YJxHLElkZeJpE59kA3flvcySy6pvbhpgMQH3ilfiforakYmdPxu8PTED-vnnrEobvzxS0qzSu_WNbjXpoEZ1B3kak9FCNfS5v9Ad0iz7uVhOCVCg4t-gBhwejH6Dw2z8D7g6Ef4nNSYYFeVEeLSLCRPvdAQmggcehZKpmAbuOqCw_g5l9-_U2aZta9K3IlUVQUp1iGEGAkTgL163Uiu56Q4LRGSCJSc32-9L86JqnQrVEACPYtB0A1_MhP9RB0AtEo");'></div>
+<div class="flex-1">
+<p class="font-bold text-[#1d0c0c] dark:text-white">Serendipity</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 truncate">Finding something good without looking for it.</p>
+</div>
+<button class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">volume_up</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<div class="absolute bottom-24 right-6 z-30">
+<button class="flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary to-peach text-white shadow-[0_8px_20px_rgba(255,107,107,0.4)] hover:shadow-[0_12px_24px_rgba(255,107,107,0.5)] hover:scale-105 transition-all duration-300">
+<span class="material-symbols-outlined text-4xl">add</span>
+</button>
+</div>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 w-full bg-background-light dark:bg-background-dark border-t border-gray-100 dark:border-white/5 px-6 pb-6 pt-4 z-40">
+<div class="flex justify-between items-center max-w-sm mx-auto">
+<a class="flex flex-col items-center justify-center gap-1 text-primary w-12 group" href="#">
+<div class="relative">
+<span class="material-symbols-outlined text-[28px] fill-current">home</span>
+<span class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></span>
+</div>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary transition-colors w-12" href="#">
+<span class="material-symbols-outlined text-[28px]">search</span>
+</a>
+<div class="w-12"></div> <!-- Spacer for FAB visual balance if FAB was center, kept for grid alignment -->
+<a class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary transition-colors w-12" href="#">
+<span class="material-symbols-outlined text-[28px]">leaderboard</span>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary transition-colors w-12" href="#">
+<span class="material-symbols-outlined text-[28px]">person</span>
+</a>
+</div>
+</nav>
+</div>
+</body></html>

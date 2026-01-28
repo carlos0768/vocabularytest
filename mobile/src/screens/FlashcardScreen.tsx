@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Animated,
   PanResponder,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -21,11 +22,12 @@ import {
   Eye,
   EyeOff,
   Volume2,
+  Trash2,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
-import { shuffleArray } from '../lib/utils';
+import { shuffleArray, saveFlashcardProgress, loadFlashcardProgress } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Word } from '../types';
 
@@ -39,6 +41,7 @@ export function FlashcardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const projectId = route.params.projectId;
+  const favoritesOnly = route.params.favoritesOnly ?? false;
   const { subscription, isPro, loading: authLoading } = useAuth();
 
   const [words, setWords] = useState<Word[]>([]);
@@ -56,6 +59,7 @@ export function FlashcardScreen() {
   const currentIndexRef = useRef(currentIndex);
   const wordsLengthRef = useRef(words.length);
   const isAnimatingRef = useRef(isAnimating);
+  const wordsRef = useRef(words);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -64,7 +68,8 @@ export function FlashcardScreen() {
 
   useEffect(() => {
     wordsLengthRef.current = words.length;
-  }, [words.length]);
+    wordsRef.current = words;
+  }, [words]);
 
   useEffect(() => {
     isAnimatingRef.current = isAnimating;
@@ -73,18 +78,42 @@ export function FlashcardScreen() {
   // Authenticated users use remote repository (Supabase), guests use local SQLite
   const repository = getRepository(subscription?.status || 'free');
 
+  // Save progress when index or words change
+  const saveProgress = useCallback(async (wordList: Word[], index: number) => {
+    if (wordList.length > 0) {
+      await saveFlashcardProgress(
+        projectId,
+        favoritesOnly,
+        wordList.map(w => w.id),
+        index
+      );
+    }
+  }, [projectId, favoritesOnly]);
+
+  // Save progress when current index changes
+  useEffect(() => {
+    if (words.length > 0 && !loading) {
+      saveProgress(words, currentIndex);
+    }
+  }, [currentIndex, words, saveProgress, loading]);
+
   // Load words
   useEffect(() => {
     if (authLoading) return;
 
-    if (!isPro) {
+    // Only require Pro for non-favorites mode
+    if (!isPro && !favoritesOnly) {
       navigation.navigate('Subscription');
       return;
     }
 
     const loadWords = async () => {
       try {
-        const wordsData = await repository.getWords(projectId);
+        const allWords = await repository.getWords(projectId);
+        const wordsData = favoritesOnly
+          ? allWords.filter((w) => w.isFavorite)
+          : allWords;
+
         if (wordsData.length === 0) {
           if (navigation.canGoBack()) {
             navigation.goBack();
@@ -93,6 +122,27 @@ export function FlashcardScreen() {
           }
           return;
         }
+
+        // Check for saved progress
+        const savedProgress = await loadFlashcardProgress(projectId, favoritesOnly);
+
+        if (savedProgress) {
+          // Reconstruct word order from saved IDs
+          const wordMap = new Map(wordsData.map(w => [w.id, w]));
+          const orderedWords = savedProgress.wordIds
+            .map(id => wordMap.get(id))
+            .filter((w): w is Word => w !== undefined);
+
+          // If most words still exist, resume automatically
+          if (orderedWords.length >= wordsData.length * 0.8) {
+            setWords(orderedWords);
+            setCurrentIndex(savedProgress.currentIndex);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // No valid saved progress - start fresh with shuffled words
         setWords(shuffleArray(wordsData));
       } catch (error) {
         console.error('Failed to load words:', error);
@@ -107,7 +157,7 @@ export function FlashcardScreen() {
     };
 
     loadWords();
-  }, [projectId, repository, navigation, authLoading]);
+  }, [projectId, repository, navigation, authLoading, favoritesOnly, isPro]);
 
   const currentWord = words[currentIndex];
 
@@ -187,11 +237,14 @@ export function FlashcardScreen() {
 
   const handleShuffle = () => {
     if (isAnimating) return;
-    setWords(shuffleArray([...words]));
+    const shuffled = shuffleArray([...words]);
+    setWords(shuffled);
     setCurrentIndex(0);
     setIsFlipped(false);
     flipAnim.setValue(0);
     swipeAnim.setValue(0);
+    // Save new shuffled order
+    saveProgress(shuffled, 0);
   };
 
   // Refs for handler functions
@@ -264,6 +317,45 @@ export function FlashcardScreen() {
     );
   };
 
+  const handleDeleteWord = async () => {
+    if (!currentWord) return;
+
+    Alert.alert(
+      '単語を削除',
+      `「${currentWord.english}」を削除しますか？`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            await repository.deleteWord(currentWord.id);
+
+            // Remove word from state
+            const newWords = words.filter((_, i) => i !== currentIndex);
+
+            if (newWords.length === 0) {
+              // No more words, go back
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Main');
+              }
+              return;
+            }
+
+            // Adjust index if we deleted the last word
+            const newIndex = currentIndex >= newWords.length ? newWords.length - 1 : currentIndex;
+            setWords(newWords);
+            setCurrentIndex(newIndex);
+            setIsFlipped(false);
+            flipAnim.setValue(0);
+          },
+        },
+      ]
+    );
+  };
+
   const handleClose = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -312,9 +404,17 @@ export function FlashcardScreen() {
           <X size={24} color={colors.gray[600]} />
         </TouchableOpacity>
 
-        <Text style={styles.progress}>
-          {currentIndex + 1} / {words.length}
-        </Text>
+        <View style={styles.headerCenter}>
+          {favoritesOnly && (
+            <View style={styles.favoriteBadge}>
+              <Flag size={12} fill={colors.orange[500]} color={colors.orange[500]} />
+              <Text style={styles.favoriteBadgeText}>苦手</Text>
+            </View>
+          )}
+          <Text style={styles.progress}>
+            {currentIndex + 1} / {words.length}
+          </Text>
+        </View>
 
         <TouchableOpacity onPress={handleShuffle} style={styles.headerButton}>
           <RotateCcw size={20} color={colors.gray[600]} />
@@ -393,17 +493,25 @@ export function FlashcardScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Favorite button */}
-        <TouchableOpacity
-          onPress={handleToggleFavorite}
-          style={styles.favoriteButton}
-        >
-          <Flag
-            size={24}
-            color={currentWord?.isFavorite ? colors.orange[500] : colors.gray[400]}
-            fill={currentWord?.isFavorite ? colors.orange[500] : 'transparent'}
-          />
-        </TouchableOpacity>
+        {/* Action buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            onPress={handleToggleFavorite}
+            style={styles.actionButton}
+          >
+            <Flag
+              size={24}
+              color={currentWord?.isFavorite ? colors.orange[500] : colors.gray[400]}
+              fill={currentWord?.isFavorite ? colors.orange[500] : 'transparent'}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleDeleteWord}
+            style={styles.actionButton}
+          >
+            <Trash2 size={24} color={colors.gray[400]} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Navigation */}
@@ -469,6 +577,25 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
+  },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  favoriteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.orange[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  favoriteBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.orange[700],
   },
   progress: {
     fontSize: 14,
@@ -559,8 +686,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
   },
-  favoriteButton: {
+  actionButtons: {
+    flexDirection: 'row',
     marginTop: 24,
+    gap: 16,
+  },
+  actionButton: {
     padding: 12,
     borderRadius: 24,
     backgroundColor: colors.white,

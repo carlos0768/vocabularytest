@@ -38,6 +38,7 @@ import {
   Camera,
   CircleDot,
   BookText,
+  AlertCircle,
 } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { ScanButton } from '../components/project';
@@ -51,6 +52,7 @@ import {
   getGuestUserId,
   getDailyScanInfo,
   incrementScanCount,
+  getWrongAnswers,
 } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
@@ -481,6 +483,9 @@ export function HomeScreen() {
   // Scan info
   const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 3, canScan: true });
 
+  // Wrong answers count
+  const [wrongAnswerCount, setWrongAnswerCount] = useState(0);
+
   // Sharing
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -545,13 +550,20 @@ export function HomeScreen() {
     setScanInfo(scanInfoData);
   }, []);
 
+  // Load wrong answers count
+  const loadWrongAnswerCount = useCallback(async () => {
+    const wrongAnswers = await getWrongAnswers();
+    setWrongAnswerCount(wrongAnswers.length);
+  }, []);
+
   // Initial load
   useEffect(() => {
     if (!authLoading) {
       loadProjects();
       loadScanInfo();
+      loadWrongAnswerCount();
     }
-  }, [authLoading, loadProjects, loadScanInfo]);
+  }, [authLoading, loadProjects, loadScanInfo, loadWrongAnswerCount]);
 
   // Load words when project changes
   useEffect(() => {
@@ -564,9 +576,10 @@ export function HomeScreen() {
       loadProjects();
       loadWords();
       loadScanInfo();
+      loadWrongAnswerCount();
     });
     return unsubscribe;
-  }, [navigation, loadProjects, loadWords, loadScanInfo]);
+  }, [navigation, loadProjects, loadWords, loadScanInfo, loadWrongAnswerCount]);
 
   // Stats calculations
   const stats = {
@@ -892,7 +905,8 @@ export function HomeScreen() {
     loadProjects();
     loadWords();
     loadScanInfo();
-  }, [loadProjects, loadWords, loadScanInfo]);
+    loadWrongAnswerCount();
+  }, [loadProjects, loadWords, loadScanInfo, loadWrongAnswerCount]);
 
   // Loading state
   if (loading || authLoading) {
@@ -1101,6 +1115,25 @@ export function HomeScreen() {
             variant="green"
           />
         </View>
+
+        {/* Wrong Answers Card - Show only if there are wrong answers */}
+        {wrongAnswerCount > 0 && (
+          <View style={styles.wrongAnswersCardSection}>
+            <TouchableOpacity
+              style={styles.wrongAnswersCard}
+              onPress={() => navigation.navigate('WrongAnswers')}
+            >
+              <View style={styles.wrongAnswersIcon}>
+                <AlertCircle size={24} color={colors.red[600]} />
+              </View>
+              <View style={styles.wrongAnswersContent}>
+                <Text style={styles.wrongAnswersTitle}>苦手な単語</Text>
+                <Text style={styles.wrongAnswersCount}>{wrongAnswerCount}語</Text>
+              </View>
+              <ChevronDown size={20} color={colors.gray[400]} style={{ transform: [{ rotate: '-90deg' }] }} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Collapsible Word List */}
         <View style={styles.wordListSection}>
@@ -1373,7 +1406,43 @@ const styles = StyleSheet.create({
 
   // Grammar card section
   grammarCardSection: {
+    marginBottom: 12,
+  },
+
+  // Wrong answers card section
+  wrongAnswersCardSection: {
     marginBottom: 16,
+  },
+  wrongAnswersCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.red[50],
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.red[200],
+  },
+  wrongAnswersIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.red[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  wrongAnswersContent: {
+    flex: 1,
+  },
+  wrongAnswersTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.red[800],
+  },
+  wrongAnswersCount: {
+    fontSize: 13,
+    color: colors.red[600],
+    marginTop: 2,
   },
 
   // Word list section

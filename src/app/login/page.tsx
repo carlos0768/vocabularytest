@@ -95,6 +95,13 @@ function LoginForm() {
           </div>
         </div>
 
+        {/* Forgot password link */}
+        <div className="mt-2 text-right">
+          <Link href="/reset-password" className="text-sm text-blue-600 hover:underline">
+            パスワードをお忘れの方
+          </Link>
+        </div>
+
         {/* Submit */}
         <Button
           type="submit"

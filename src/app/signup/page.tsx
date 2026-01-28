@@ -57,10 +57,13 @@ function SignupForm() {
         <h1 className="text-xl font-bold text-gray-900 mb-2">
           確認メールを送信しました
         </h1>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 mb-4">
           {email} に確認メールを送信しました。
           <br />
           メール内のリンクをクリックして登録を完了してください。
+        </p>
+        <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg mb-6">
+          メールが届かない場合、ほぼ確実に迷惑メールフォルダに入っています
         </p>
         <Link href="/login">
           <Button variant="secondary" className="w-full">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Download, Loader2, BookOpen, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, BookOpen, CheckCircle, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { useAuth } from '@/hooks/use-auth';
@@ -13,7 +13,7 @@ export default function SharedProjectPage() {
   const router = useRouter();
   const params = useParams();
   const shareId = params.shareId as string;
-  const { user, loading: authLoading } = useAuth();
+  const { user, isPro, loading: authLoading } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -74,6 +74,35 @@ export default function SharedProjectPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  // Show upgrade prompt for non-Pro users
+  if (!authLoading && !isPro) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-6">
+          <Crown className="w-10 h-10 text-white" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Pro機能です</h1>
+        <p className="text-gray-600 text-center mb-6">
+          共有された単語帳を見るには<br />Proプランへのアップグレードが必要です
+        </p>
+        <div className="flex flex-col gap-3">
+          <Link href="/subscription">
+            <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+              <Crown className="w-4 h-4 mr-2" />
+              Proにアップグレード
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="secondary">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              ホームに戻る
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

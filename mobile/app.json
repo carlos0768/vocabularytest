@@ -42,8 +42,7 @@
     },
     "plugins": [
       "expo-camera",
-      "expo-image-picker",
-      "expo-speech"
+      "expo-image-picker"
     ],
     "extra": {
       "eas": {

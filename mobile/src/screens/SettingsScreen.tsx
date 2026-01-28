@@ -68,7 +68,7 @@ export function SettingsScreen() {
     };
 
     loadWordCount();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, subscription?.status]);
 
   const handleSignOut = async () => {
     Alert.alert(

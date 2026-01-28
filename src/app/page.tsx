@@ -1459,9 +1459,9 @@ export default function HomePage() {
     }
   };
 
-  // Share handler
+  // Share handler (Pro only)
   const handleShare = async () => {
-    if (!currentProject || !user) return;
+    if (!currentProject || !user || !isPro) return;
 
     setSharing(true);
     try {
@@ -1864,7 +1864,8 @@ export default function HomePage() {
 
             {/* Right: Actions */}
             <div className="flex items-center gap-1 flex-1 justify-end">
-              {user && (
+              {/* Share button - Pro only */}
+              {isPro && (
                 <button
                   onClick={handleShare}
                   disabled={sharing}

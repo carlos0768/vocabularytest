@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WordSnap Scan Mode</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+            extend: {
+                colors: {
+                "primary": "#ff6b6b",
+                "background-light": "#ffffff",
+                "background-dark": "#1a1a1a",
+                },
+                fontFamily: {
+                "display": ["Inter", "sans-serif"]
+                },
+                borderRadius: {
+                    "DEFAULT": "1rem", 
+                    "lg": "2rem", 
+                    "xl": "3rem", 
+                    "full": "9999px"
+                },
+            },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar hide for cleaner UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-gray-100 font-display text-slate-900 flex justify-center items-center min-h-screen p-4">
+<!-- Device Frame Simulation -->
+<div class="relative h-[844px] w-full max-w-[390px] overflow-hidden bg-black rounded-[40px] shadow-2xl border-8 border-black box-content group/design-root">
+<!-- Background: Simulated Camera View -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Blurry book pages seen through a camera lens" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBgE6Mmbep8sAiye2af2LYmOBrVF-dDEcGav-nnk0etDvoBiScDCyyDXRajmjstl5yzr_YT4HMN1R1hXkDR4AyURhQyQCqYsWnebPgjizqOXglyFT1aiOs8w32NwlCeV0T7j4EQXPUYafZLIN9_MfkTonYUPL6k5bTTR7J7j6FDuDe06sWS7jvJjW-oUkQOs-NfLBASoiiadrYAreZVay_pxmcFOnCn2lSsovf1B-VLSp55zufJRovmZUi_jHCfJLaGvyY4o0AChIGl');">
+<!-- Camera UI Overlays (just for context) -->
+<div class="absolute top-12 left-0 right-0 flex justify-between px-6 text-white/80">
+<span class="material-symbols-outlined">flash_off</span>
+<span class="material-symbols-outlined">settings</span>
+</div>
+</div>
+<!-- Dark Overlay with Blur -->
+<div class="absolute inset-0 bg-black/40 backdrop-blur-[6px] z-10 flex flex-col justify-end">
+<!-- Modal Container -->
+<div class="bg-background-light dark:bg-background-dark w-full rounded-t-[28px] px-6 pt-3 pb-10 shadow-lg relative transition-transform duration-300 ease-out transform translate-y-0">
+<!-- Handle -->
+<div class="w-full flex justify-center mb-6">
+<div class="h-1.5 w-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+</div>
+<!-- Headline -->
+<h2 class="text-xl font-bold text-center text-slate-900 dark:text-white mb-8 leading-tight">
+                    How would you like to<br/>extract words?
+                </h2>
+<!-- Options List -->
+<div class="flex flex-col gap-3">
+<!-- Option 1: All Words (Selected) -->
+<label class="group relative flex items-center justify-between p-1 cursor-pointer">
+<div class="flex items-center gap-4">
+<!-- Icon Container -->
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
+<span class="material-symbols-outlined filled">photo_camera</span>
+</div>
+<!-- Text -->
+<span class="text-base font-medium text-slate-900 dark:text-white">All words</span>
+</div>
+<!-- Radio Selection -->
+<div class="relative h-6 w-6">
+<input checked="" class="peer h-6 w-6 appearance-none rounded-full border-2 border-primary checked:border-primary checked:bg-primary transition-all" name="extraction_mode" type="radio"/>
+<span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 pointer-events-none">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</span>
+</div>
+</label>
+<!-- Divider -->
+<div class="h-px w-full bg-gray-100 dark:bg-gray-800 ml-16"></div>
+<!-- Option 2: Circled Words (Pro) -->
+<label class="group relative flex items-center justify-between p-1 cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary/80 transition-colors group-hover:bg-primary/15">
+<span class="material-symbols-outlined">change_history</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-base font-medium text-slate-900 dark:text-white">Circled words</span>
+<!-- Pro Badge -->
+<div class="flex items-center gap-0.5 rounded-full bg-gradient-to-tr from-[#FFD700] via-[#FFA500] to-primary px-2 py-0.5 shadow-sm shadow-orange-200 dark:shadow-none">
+<span class="text-[10px] font-bold tracking-wide text-white">PRO</span>
+<span class="material-symbols-outlined text-[10px] text-white filled">auto_awesome</span>
+</div>
+</div>
+</div>
+<!-- Radio Selection -->
+<div class="relative h-6 w-6">
+<input class="peer h-6 w-6 appearance-none rounded-full border-2 border-gray-200 dark:border-gray-600 checked:border-primary checked:bg-primary transition-all" name="extraction_mode" type="radio"/>
+<span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 pointer-events-none">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</span>
+</div>
+</label>
+<!-- Divider -->
+<div class="h-px w-full bg-gray-100 dark:bg-gray-800 ml-16"></div>
+<!-- Option 3: Highlighted Words (Pro) -->
+<label class="group relative flex items-center justify-between p-1 cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary/80 transition-colors group-hover:bg-primary/15">
+<span class="material-symbols-outlined">ink_highlighter</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-base font-medium text-slate-900 dark:text-white">Highlighted words</span>
+<!-- Pro Badge -->
+<div class="flex items-center gap-0.5 rounded-full bg-gradient-to-tr from-[#FFD700] via-[#FFA500] to-primary px-2 py-0.5 shadow-sm shadow-orange-200 dark:shadow-none">
+<span class="text-[10px] font-bold tracking-wide text-white">PRO</span>
+<span class="material-symbols-outlined text-[10px] text-white filled">auto_awesome</span>
+</div>
+</div>
+</div>
+<!-- Radio Selection -->
+<div class="relative h-6 w-6">
+<input class="peer h-6 w-6 appearance-none rounded-full border-2 border-gray-200 dark:border-gray-600 checked:border-primary checked:bg-primary transition-all" name="extraction_mode" type="radio"/>
+<span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 pointer-events-none">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</span>
+</div>
+</label>
+<!-- Divider -->
+<div class="h-px w-full bg-gray-100 dark:bg-gray-800 ml-16"></div>
+<!-- Option 4: Phrases (Pro) -->
+<label class="group relative flex items-center justify-between p-1 cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary/80 transition-colors group-hover:bg-primary/15">
+<span class="material-symbols-outlined">translate</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-base font-medium text-slate-900 dark:text-white">Phrases</span>
+<!-- Pro Badge -->
+<div class="flex items-center gap-0.5 rounded-full bg-gradient-to-tr from-[#FFD700] via-[#FFA500] to-primary px-2 py-0.5 shadow-sm shadow-orange-200 dark:shadow-none">
+<span class="text-[10px] font-bold tracking-wide text-white">PRO</span>
+<span class="material-symbols-outlined text-[10px] text-white filled">auto_awesome</span>
+</div>
+</div>
+</div>
+<!-- Radio Selection -->
+<div class="relative h-6 w-6">
+<input class="peer h-6 w-6 appearance-none rounded-full border-2 border-gray-200 dark:border-gray-600 checked:border-primary checked:bg-primary transition-all" name="extraction_mode" type="radio"/>
+<span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 pointer-events-none">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</span>
+</div>
+</label>
+</div>
+<!-- Footer Action -->
+<div class="mt-8">
+<button class="w-full py-3 text-center text-sm font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+                        Cancel
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

@@ -6,4 +6,4 @@ export { LoginScreen } from './LoginScreen';
 export { SignupScreen } from './SignupScreen';
 export { SettingsScreen } from './SettingsScreen';
 export { SubscriptionScreen } from './SubscriptionScreen';
-export { GrammarScreen } from './GrammarScreen';
+export { SentenceQuizScreen } from './SentenceQuizScreen';
