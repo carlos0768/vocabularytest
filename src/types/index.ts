@@ -53,3 +53,38 @@ export interface KomojuPaymentSession {
   sessionId: string;
   paymentUrl: string;
 }
+
+// ============ Scan Job Types (Background Processing) ============
+
+export type ScanJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type ScanMode = 'all' | 'circled' | 'eiken' | 'idiom' | 'highlighted';
+
+export interface ScanJob {
+  id: string;
+  user_id: string;
+  status: ScanJobStatus;
+  scan_mode: ScanMode;
+  eiken_level: string | null;
+  project_id: string | null;
+  project_title: string | null;
+  image_path: string;
+  result: AIWordExtraction[] | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateScanJobRequest {
+  image: string; // base64
+  scanMode: ScanMode;
+  eikenLevel?: string;
+  projectId?: string; // 既存プロジェクトに追加する場合
+  projectTitle?: string; // 新規プロジェクトの場合
+}
+
+export interface ScanJobResponse {
+  success: boolean;
+  jobId?: string;
+  job?: ScanJob;
+  error?: string;
+}

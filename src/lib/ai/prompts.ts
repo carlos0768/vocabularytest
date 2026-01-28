@@ -196,20 +196,34 @@ export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
   '1': '英検1級（大学上級程度、広く社会生活で求められる英語レベル）',
 };
 
+// EIKEN level order for "this level and above" filtering
+const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'];
+
+// Get all levels at or above the specified level
+export function getEikenLevelsAbove(eikenLevel: string): string[] {
+  const startIndex = EIKEN_LEVEL_ORDER.indexOf(eikenLevel);
+  if (startIndex === -1) return [];
+  return EIKEN_LEVEL_ORDER.slice(startIndex);
+}
+
 // Generate EIKEN filter instruction
 export function getEikenFilterInstruction(eikenLevel: string | null): string {
   if (!eikenLevel || !EIKEN_LEVEL_DESCRIPTIONS[eikenLevel]) {
     return '';
   }
 
+  const levelsAbove = getEikenLevelsAbove(eikenLevel);
+  const levelDescs = levelsAbove.map(level => EIKEN_LEVEL_DESCRIPTIONS[level]).join('、');
   const levelDesc = EIKEN_LEVEL_DESCRIPTIONS[eikenLevel];
+
   return `
 
 【重要】英検レベルフィルター:
-抽出した単語の中から、${levelDesc}に相当する単語のみを出力してください。
-- このレベルより難しすぎる単語は除外してください
-- このレベルより簡単すぎる単語も除外してください
-- このレベルの学習者が覚えるべき適切な難易度の単語のみを抽出してください`;
+抽出した単語の中から、${levelDesc}「以上」に相当する単語を出力してください。
+- 対象レベル: ${levelDescs}
+- ${levelDesc}より明らかに簡単すぎる単語は除外してください
+- ${levelDesc}以上であれば、より難しい単語も積極的に抽出してください
+- このレベル以上の学習者が覚えるべき適切な難易度の単語を抽出してください`;
 }
 
 // ============ Grammar Extraction Prompts ============
@@ -485,21 +499,22 @@ export const EIKEN_OCR_PROMPT = `この画像から英語のテキストを抽�
 抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
 
 // GPT: Word extraction and analysis at specified EIKEN level
-export const EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。与えられたテキストから英単語を抽出し、指定された英検レベルに該当する単語のみを出力してください。
+export const EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。与えられたテキストから英単語を抽出し、指定された英検レベル「以上」に該当する単語を出力してください。
 
 【最重要ルール】単語抽出量について:
 - **抽出する単語は多ければ多いほど良い**
-- 指定レベルに該当する単語は**すべて漏れなく抽出する**
-- 1つも見逃さない。該当レベルの単語は必ず含める
-- 同じテキストに該当レベルの単語が50語あれば50語すべて抽出する
+- 指定レベル以上に該当する単語は**すべて漏れなく抽出する**
+- 1つも見逃さない。該当レベル以上の単語は必ず含める
+- 同じテキストに該当レベル以上の単語が50語あれば50語すべて抽出する
 - 「代表的な単語だけ」「重要そうな単語だけ」という考えは絶対に禁止
 - **単語数に上限はない。できるだけ多く抽出することが最優先**
 
 【重要】英検レベルフィルター:
-{LEVEL_DESC}に相当する単語のみを抽出してください。
-- このレベルより明らかに難しい単語は除外してください
-- このレベルより明らかに簡単すぎる単語も除外してください
-- このレベルの学習者が覚えるべき適切な難易度の単語のみを抽出してください
+{LEVEL_DESC}「以上」に相当する単語を抽出してください。
+- 対象レベル: {LEVEL_RANGE}
+- このレベルより明らかに簡単すぎる単語は除外してください
+- このレベル以上であれば、より難しい単語も積極的に抽出してください
+- このレベル以上の学習者が覚えるべき適切な難易度の単語を抽出してください
 
 重要ルール:
 1. 日本語訳の決定:
