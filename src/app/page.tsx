@@ -36,7 +36,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
-import type { AIWordExtraction, Project, Word, ScanJob } from '@/types';
+import type { Project, Word, ScanJob } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 // EIKEN level options for the dropdown
@@ -1423,7 +1423,7 @@ export default function HomePage() {
     }
   };
 
-  // Common image processing function
+  // Common image processing function - Job-based for background processing
   const processImage = async (file: File) => {
     setProcessing(true);
     setProcessingSteps([
@@ -1433,6 +1433,7 @@ export default function HomePage() {
     ]);
 
     try {
+      // Process image (convert HEIC to JPEG if needed)
       let processedFile: File;
       try {
         processedFile = await processImageFile(file);
@@ -1441,6 +1442,7 @@ export default function HomePage() {
         throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
       }
 
+      // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -1455,123 +1457,54 @@ export default function HomePage() {
         reader.readAsDataURL(processedFile);
       });
 
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'upload' ? { ...s, status: 'complete' } :
-          s.id === 'analyze' ? { ...s, status: 'active' } : s
-        )
-      );
+      // Get project info from sessionStorage
+      const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
+      const projectTitle = sessionStorage.getItem('scanvocab_project_name');
 
-      const response = await fetch('/api/extract', {
+      // Create scan job
+      const createResponse = await fetch('/api/scan-jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: selectedScanMode, eikenLevel: selectedEikenLevel }),
+        body: JSON.stringify({
+          image: base64,
+          scanMode: selectedScanMode,
+          eikenLevel: selectedEikenLevel,
+          projectId: existingProjectId || undefined,
+          projectTitle: projectTitle || undefined,
+        }),
       });
 
-      const result = await response.json();
+      const createResult = await createResponse.json();
 
-      if (response.status === 401) {
-        setProcessing(false);
-        showToast({
-          message: 'ログインが必要です',
-          type: 'error',
-          action: {
-            label: 'ログイン',
-            onClick: () => router.push('/login'),
-          },
-          duration: 4000,
-        });
-        return;
+      if (!createResponse.ok || !createResult.success) {
+        throw new Error(createResult.error || 'ジョブの作成に失敗しました');
       }
-
-      if (response.status === 403) {
-        setProcessing(false);
-        showToast({
-          message: 'この機能はProプラン限定です',
-          type: 'error',
-          action: {
-            label: 'プランを見る',
-            onClick: () => router.push('/subscription'),
-          },
-          duration: 4000,
-        });
-        return;
-      }
-
-      if (response.status === 403) {
-        setProcessing(false);
-        showToast({
-          message: 'この機能はProプラン限定です',
-          type: 'error',
-          action: {
-            label: 'プランを見る',
-            onClick: () => router.push('/subscription'),
-          },
-          duration: 4000,
-        });
-        return;
-      }
-
-      if (response.status === 429 || result.limitReached) {
-        setProcessing(false);
-        if (result.scanInfo) {
-          setScanInfo(result.scanInfo);
-        }
-        setShowScanLimitModal(true);
-        return;
-      }
-
-      if (!result.success) throw new Error(result.error);
 
       setProcessingSteps((prev) =>
         prev.map((s) =>
-          s.id === 'analyze' ? { ...s, status: 'complete' } :
-          s.id === 'generate' ? { ...s, status: 'active' } : s
+          s.id === 'upload'
+            ? { ...s, status: 'complete' }
+            : s.id === 'analyze'
+            ? { ...s, status: 'active' }
+            : s
         )
       );
 
-      await new Promise((r) => setTimeout(r, 500));
+      // Save job ID and start polling
+      const jobId = createResult.jobId;
+      setCurrentJobId(jobId);
 
-      setProcessingSteps((prev) =>
-        prev.map((s) => (s.id === 'generate' ? { ...s, status: 'complete' } : s))
-      );
-
-      if (result.scanInfo) {
-        setScanInfo(result.scanInfo);
-
-        if (!result.scanInfo.isPro && result.scanInfo.limit &&
-          result.scanInfo.limit - result.scanInfo.currentCount === 1) {
-          showToast({
-            message: '今日のスキャン残り1回。Proなら無制限',
-            type: 'warning',
-            action: {
-              label: '詳しく',
-              onClick: () => router.push('/subscription'),
-            },
-            duration: 4000,
-          });
-        }
-      }
-
-      const extractedWords: AIWordExtraction[] = result.words;
-      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(extractedWords));
-      router.push('/scan/confirm');
+      // Start polling for job status
+      startPolling(jobId);
     } catch (error) {
       console.error('Scan error:', error);
-      // Log full error details for debugging
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
 
       let errorMessage = '予期しないエラー';
       if (error instanceof Error) {
-        // Make common errors more user-friendly
         if (error.message.includes('did not match the expected pattern')) {
           errorMessage = '画像データの処理に問題が発生しました。カメラ設定を「互換性優先」にするか、スクリーンショットをお試しください。';
         } else if (error.message.includes('HEIC') || error.message.includes('HEIF')) {
-          errorMessage = error.message; // HEIC関連のエラーはそのまま表示
+          errorMessage = error.message;
         } else {
           errorMessage = error.message;
         }
