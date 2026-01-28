@@ -1007,38 +1007,45 @@ export default function HomePage() {
     }, 2000);
   }, [stopPolling, handleCompletedJob, showToast]);
 
+  // Check for pending jobs - extracted as callback for reuse
+  const checkPendingJobs = useCallback(async (): Promise<boolean> => {
+    if (!isAuthenticated) return false;
+
+    try {
+      const response = await fetch('/api/scan-jobs');
+      const data = await response.json();
+
+      if (data.success && data.jobs && data.jobs.length > 0) {
+        const pendingJob = data.jobs.find((j: ScanJob) => j.status === 'pending' || j.status === 'processing');
+        const completedJob = data.jobs.find((j: ScanJob) => j.status === 'completed');
+
+        if (completedJob) {
+          // Completed job found - show results
+          handleCompletedJob(completedJob);
+          return true;
+        } else if (pendingJob) {
+          // Processing job found - start polling
+          setCurrentJobId(pendingJob.id);
+          setProcessing(true);
+          setProcessingSteps([
+            { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+            { id: 'analyze', label: '文字を解析中...', status: 'active' },
+            { id: 'generate', label: '問題を作成中...', status: 'pending' },
+          ]);
+          startPolling(pendingJob.id);
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to check pending jobs:', error);
+      return false;
+    }
+  }, [isAuthenticated, handleCompletedJob, startPolling]);
+
   // Check for pending jobs on app startup
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
-
-    const checkPendingJobs = async () => {
-      try {
-        const response = await fetch('/api/scan-jobs');
-        const data = await response.json();
-
-        if (data.success && data.jobs && data.jobs.length > 0) {
-          const pendingJob = data.jobs.find((j: ScanJob) => j.status === 'pending' || j.status === 'processing');
-          const completedJob = data.jobs.find((j: ScanJob) => j.status === 'completed');
-
-          if (completedJob) {
-            // Completed job found - show results
-            handleCompletedJob(completedJob);
-          } else if (pendingJob) {
-            // Processing job found - start polling
-            setCurrentJobId(pendingJob.id);
-            setProcessing(true);
-            setProcessingSteps([
-              { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-              { id: 'analyze', label: '文字を解析中...', status: 'active' },
-              { id: 'generate', label: '問題を作成中...', status: 'pending' },
-            ]);
-            startPolling(pendingJob.id);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check pending jobs:', error);
-      }
-    };
 
     checkPendingJobs();
 
@@ -1047,7 +1054,25 @@ export default function HomePage() {
         clearInterval(pollingRef.current);
       }
     };
-  }, [authLoading, isAuthenticated, handleCompletedJob, startPolling]);
+  }, [authLoading, isAuthenticated, checkPendingJobs]);
+
+  // Handle PWA returning from background - check for pending/completed jobs
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // App returned to foreground - check for any pending jobs
+        // This handles the case where a fetch was interrupted when app went to background
+        checkPendingJobs();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, checkPendingJobs]);
 
   // Scan info is populated from server responses
 
@@ -1502,12 +1527,34 @@ export default function HomePage() {
     } catch (error) {
       console.error('Scan error:', error);
 
+      // Check if this is a network interruption error (PWA went to background)
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('Load failed') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('network') ||
+        error.message.includes('NetworkError') ||
+        error.message.includes('aborted')
+      );
+
+      if (isNetworkError) {
+        // PWA might have gone to background - check for pending jobs
+        console.log('Network error detected, checking for pending jobs...');
+        const foundJob = await checkPendingJobs();
+        if (foundJob) {
+          // Job was found and is being handled - don't show error
+          console.log('Found existing job after network interruption');
+          return;
+        }
+      }
+
       let errorMessage = '予期しないエラー';
       if (error instanceof Error) {
         if (error.message.includes('did not match the expected pattern')) {
           errorMessage = '画像データの処理に問題が発生しました。カメラ設定を「互換性優先」にするか、スクリーンショットをお試しください。';
         } else if (error.message.includes('HEIC') || error.message.includes('HEIF')) {
           errorMessage = error.message;
+        } else if (isNetworkError) {
+          errorMessage = '通信が中断されました。もう一度お試しください。';
         } else {
           errorMessage = error.message;
         }
