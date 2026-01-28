@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2, Trash2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Eye, EyeOff, Volume2, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -429,6 +429,18 @@ export default function FlashcardPage() {
           className="rounded-full w-14 h-14 p-0"
         >
           <ChevronLeft className="w-6 h-6" />
+        </Button>
+
+        {/* Flip button - PC only (hidden on mobile) */}
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={handleFlip}
+          disabled={isAnimating}
+          className="hidden md:flex rounded-full w-14 h-14 p-0"
+          title="カードを回転"
+        >
+          <RefreshCw className="w-5 h-5" />
         </Button>
 
         <Button

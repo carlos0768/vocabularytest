@@ -36,7 +36,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT } from '@/lib/utils';
 import { processImageFile } from '@/lib/image-utils';
-import type { AIWordExtraction, Project, Word } from '@/types';
+import type { AIWordExtraction, Project, Word, ScanJob } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 // EIKEN level options for the dropdown
@@ -898,12 +898,156 @@ export default function HomePage() {
   const [manualWordJapanese, setManualWordJapanese] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
 
+  // Background scan job polling
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
   // Get repository
   const subscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
+
+  // Helper: Stop polling
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    setCurrentJobId(null);
+  }, []);
+
+  // Helper: Handle completed job
+  const handleCompletedJob = useCallback(async (job: ScanJob) => {
+    if (!job.result) return;
+
+    // Save result to sessionStorage
+    sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(job.result));
+    if (job.project_id) {
+      sessionStorage.setItem('scanvocab_existing_project_id', job.project_id);
+    }
+    if (job.project_title) {
+      sessionStorage.setItem('scanvocab_project_name', job.project_title);
+    }
+
+    // Delete the job
+    try {
+      await fetch(`/api/scan-jobs/${job.id}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('Failed to delete completed job:', error);
+    }
+
+    // Navigate to confirm page
+    router.push('/scan/confirm');
+  }, [router]);
+
+  // Helper: Start polling for job status
+  const startPolling = useCallback((jobId: string) => {
+    // Start processing
+    fetch(`/api/scan-jobs/${jobId}/process`, { method: 'POST' })
+      .catch(err => console.error('Failed to start processing:', err));
+
+    // Poll every 2 seconds
+    pollingRef.current = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/scan-jobs/${jobId}`);
+        const data = await response.json();
+
+        if (!data.success) {
+          stopPolling();
+          setProcessing(false);
+          showToast({ message: data.error || 'エラーが発生しました', type: 'error' });
+          return;
+        }
+
+        const job = data.job as ScanJob;
+
+        if (job.status === 'completed') {
+          stopPolling();
+          setProcessingSteps((prev) =>
+            prev.map((s) =>
+              s.id === 'analyze'
+                ? { ...s, status: 'complete' }
+                : s.id === 'generate'
+                ? { ...s, status: 'complete' }
+                : s
+            )
+          );
+
+          // Wait a bit before navigating
+          setTimeout(() => {
+            handleCompletedJob(job);
+          }, 500);
+        } else if (job.status === 'failed') {
+          stopPolling();
+          setProcessing(false);
+          setProcessingSteps((prev) =>
+            prev.map((s) =>
+              s.status === 'active' || s.status === 'pending'
+                ? { ...s, status: 'error', label: job.error_message || '処理に失敗しました' }
+                : s
+            )
+          );
+        } else if (job.status === 'processing') {
+          // Still processing - update UI
+          setProcessingSteps((prev) =>
+            prev.map((s) =>
+              s.id === 'upload'
+                ? { ...s, status: 'complete' }
+                : s.id === 'analyze'
+                ? { ...s, status: 'active' }
+                : s
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000);
+  }, [stopPolling, handleCompletedJob, showToast]);
+
+  // Check for pending jobs on app startup
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+
+    const checkPendingJobs = async () => {
+      try {
+        const response = await fetch('/api/scan-jobs');
+        const data = await response.json();
+
+        if (data.success && data.jobs && data.jobs.length > 0) {
+          const pendingJob = data.jobs.find((j: ScanJob) => j.status === 'pending' || j.status === 'processing');
+          const completedJob = data.jobs.find((j: ScanJob) => j.status === 'completed');
+
+          if (completedJob) {
+            // Completed job found - show results
+            handleCompletedJob(completedJob);
+          } else if (pendingJob) {
+            // Processing job found - start polling
+            setCurrentJobId(pendingJob.id);
+            setProcessing(true);
+            setProcessingSteps([
+              { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+              { id: 'analyze', label: '文字を解析中...', status: 'active' },
+              { id: 'generate', label: '問題を作成中...', status: 'pending' },
+            ]);
+            startPolling(pendingJob.id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check pending jobs:', error);
+      }
+    };
+
+    checkPendingJobs();
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [authLoading, isAuthenticated, handleCompletedJob, startPolling]);
 
   // Scan info is populated from server responses
 
@@ -1458,6 +1602,13 @@ export default function HomePage() {
   const handleCloseModal = () => {
     setProcessing(false);
     setProcessingSteps([]);
+    stopPolling();
+
+    // Cancel pending job if exists
+    if (currentJobId) {
+      fetch(`/api/scan-jobs/${currentJobId}`, { method: 'DELETE' })
+        .catch(err => console.error('Failed to delete job:', err));
+    }
   };
 
   // Loading state

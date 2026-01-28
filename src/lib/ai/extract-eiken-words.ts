@@ -6,6 +6,7 @@ import {
   EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT,
   EIKEN_WORD_ANALYSIS_USER_PROMPT,
   EIKEN_LEVEL_DESCRIPTIONS,
+  getEikenLevelsAbove,
 } from './prompts';
 import type { EikenLevel } from '@/app/api/extract/route';
 
@@ -145,7 +146,11 @@ export async function analyzeWordsForEiken(
   const openai = new OpenAI({ apiKey: openaiApiKey });
 
   // Build prompts with level filter
-  const systemPrompt = EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT.replace('{LEVEL_DESC}', levelDesc);
+  const levelsAbove = getEikenLevelsAbove(eikenLevel);
+  const levelRange = levelsAbove.map(level => EIKEN_LEVEL_DESCRIPTIONS[level]).join('、');
+  const systemPrompt = EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT
+    .replace('{LEVEL_DESC}', levelDesc)
+    .replace('{LEVEL_RANGE}', levelRange);
   const userPrompt = EIKEN_WORD_ANALYSIS_USER_PROMPT + text;
 
   console.log('GPT Word analysis for EIKEN:', { textLength: text.length, eikenLevel });
