@@ -200,11 +200,27 @@ export function recordCorrectAnswer(becameMastered: boolean = false): void {
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
 }
 
-export function recordWrongAnswer(_wordId: string, _english: string, _japanese: string): void {
+// Wrong answers storage
+const WRONG_ANSWERS_KEY = 'scanvocab_wrong_answers';
+
+export interface WrongAnswer {
+  wordId: string;
+  projectId: string;
+  english: string;
+  japanese: string;
+  distractors: string[];
+  wrongCount: number;
+  lastWrongAt: number;
+}
+
+export function recordWrongAnswer(
+  wordId: string,
+  english: string,
+  japanese: string,
+  projectId: string = '',
+  distractors: string[] = []
+): void {
   if (typeof window === 'undefined') return;
-  void _wordId;
-  void _english;
-  void _japanese;
 
   const today = new Date().toISOString().split('T')[0];
   const stored = localStorage.getItem(DAILY_STATS_KEY);
@@ -228,6 +244,58 @@ export function recordWrongAnswer(_wordId: string, _english: string, _japanese: 
   }
 
   stats.todayCount += 1;
-
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+
+  // Save wrong answer to list
+  const wrongAnswers = getWrongAnswers();
+  const existingIndex = wrongAnswers.findIndex(w => w.wordId === wordId);
+
+  if (existingIndex >= 0) {
+    // Update existing entry
+    wrongAnswers[existingIndex].wrongCount += 1;
+    wrongAnswers[existingIndex].lastWrongAt = Date.now();
+    // Update distractors if provided
+    if (distractors.length > 0) {
+      wrongAnswers[existingIndex].distractors = distractors;
+    }
+  } else {
+    // Add new entry
+    wrongAnswers.push({
+      wordId,
+      projectId,
+      english,
+      japanese,
+      distractors,
+      wrongCount: 1,
+      lastWrongAt: Date.now(),
+    });
+  }
+
+  localStorage.setItem(WRONG_ANSWERS_KEY, JSON.stringify(wrongAnswers));
+}
+
+export function getWrongAnswers(): WrongAnswer[] {
+  if (typeof window === 'undefined') return [];
+
+  const stored = localStorage.getItem(WRONG_ANSWERS_KEY);
+  if (!stored) return [];
+
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+export function removeWrongAnswer(wordId: string): void {
+  if (typeof window === 'undefined') return;
+
+  const wrongAnswers = getWrongAnswers();
+  const filtered = wrongAnswers.filter(w => w.wordId !== wordId);
+  localStorage.setItem(WRONG_ANSWERS_KEY, JSON.stringify(filtered));
+}
+
+export function clearAllWrongAnswers(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(WRONG_ANSWERS_KEY);
 }

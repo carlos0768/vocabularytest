@@ -60,7 +60,7 @@ export interface KomojuPaymentSession {
 // ============ Scan Job Types (Background Processing) ============
 
 export type ScanJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export type ScanMode = 'all' | 'circled' | 'eiken' | 'idiom' | 'highlighted';
+export type ScanMode = 'all' | 'circled' | 'eiken' | 'idiom' | 'highlighted' | 'wrong';
 
 export interface ScanJob {
   id: string;
