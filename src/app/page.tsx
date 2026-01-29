@@ -67,6 +67,11 @@ let globalTotalWordsCache = 0;
 let globalHasLoaded = false;
 let globalLoadedUserId: string | null = null;
 
+/** Invalidate the home page cache so next visit fetches fresh data */
+export function invalidateHomeCache() {
+  globalHasLoaded = false;
+}
+
 // Scan mode types
 type ScanMode = ExtractMode;
 
