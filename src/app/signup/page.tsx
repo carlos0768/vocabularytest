@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Eye, EyeOff, Loader2, Mail, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OtpInput } from '@/components/ui/OtpInput';
+import { useAuth } from '@/hooks/use-auth';
 
 type Step = 'form' | 'otp';
 
@@ -13,6 +14,7 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
   const router = useRouter();
+  const { signIn } = useAuth();
 
   const [step, setStep] = useState<Step>('form');
   const [email, setEmail] = useState('');
@@ -60,6 +62,17 @@ function SignupForm() {
       const data = await response.json();
 
       if (!response.ok || data.error) {
+        // 既存ユーザーの場合はそのままログイン
+        if (data.existing_user) {
+          const result = await signIn(email, password);
+          if (result.error) {
+            setError('このメールアドレスは既に登録されています。パスワードが正しくない場合はログインページからお試しください。');
+            setLoading(false);
+            return;
+          }
+          router.push(redirect);
+          return;
+        }
         setError(data.error || '認証コードの送信に失敗しました');
         setLoading(false);
         return;

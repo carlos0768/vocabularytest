@@ -34,6 +34,19 @@ export async function POST(request: Request) {
     const supabase = getAdminClient();
     const normalizedEmail = email.toLowerCase().trim();
 
+    // 既存ユーザーチェック
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingUser = existingUsers?.users.find(
+      (u) => u.email?.toLowerCase() === normalizedEmail
+    );
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'このメールアドレスは既に登録されています', existing_user: true },
+        { status: 409 }
+      );
+    }
+
     // 既存の未検証OTPを無効化（同じメールアドレス）
     await supabase
       .from('otp_requests')

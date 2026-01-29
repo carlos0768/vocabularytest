@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, ExternalLink, User, Check, Cloud, Smartphone } from 'lucide-react';
+import { LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, User, Check, Cloud, Smartphone } from 'lucide-react';
 import { Button, BottomNav } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/theme-provider';
@@ -335,33 +335,33 @@ export default function SettingsPage() {
             サポート
           </h2>
           <div className="card overflow-hidden">
-            <a
-              href="mailto:support@scanvocab.app"
+            <Link
+              href="/contact"
               className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
             >
               <span className="font-medium text-[var(--color-foreground)]">お問い合わせ</span>
-              <ExternalLink className="w-5 h-5 text-[var(--color-muted)]" />
-            </a>
+              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
+            </Link>
 
             <div className="h-px bg-[var(--color-border)] mx-4" />
 
-            <a
+            <Link
               href="/terms"
               className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
             >
               <span className="font-medium text-[var(--color-foreground)]">利用規約</span>
               <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
-            </a>
+            </Link>
 
             <div className="h-px bg-[var(--color-border)] mx-4" />
 
-            <a
+            <Link
               href="/privacy"
               className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
             >
               <span className="font-medium text-[var(--color-foreground)]">プライバシーポリシー</span>
               <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
-            </a>
+            </Link>
           </div>
         </section>
 
