@@ -76,6 +76,37 @@ export class LocalWordRepository implements WordRepository {
     return db.words.where('projectId').equals(projectId).toArray();
   }
 
+  /**
+   * 全単語を1回のIndexedDBクエリで取得し、projectId別にグループ化して返す。
+   */
+  async getAllWordsByProject(projectIds: string[]): Promise<Record<string, Word[]>> {
+    const db = getDb();
+    const projectIdSet = new Set(projectIds);
+    const allWords = await db.words
+      .where('projectId')
+      .anyOf(projectIds)
+      .toArray();
+
+    const grouped: Record<string, Word[]> = {};
+    for (const pid of projectIdSet) {
+      grouped[pid] = [];
+    }
+    for (const word of allWords) {
+      if (grouped[word.projectId]) {
+        grouped[word.projectId].push(word);
+      }
+    }
+    return grouped;
+  }
+
+  /**
+   * 全単語数を1回のIndexedDBカウントで取得（オブジェクト生成なし）。
+   */
+  async getTotalWordCount(): Promise<number> {
+    const db = getDb();
+    return db.words.count();
+  }
+
   async getWord(id: string): Promise<Word | undefined> {
     const db = getDb();
     return db.words.get(id);

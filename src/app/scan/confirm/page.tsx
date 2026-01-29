@@ -10,7 +10,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
-import { invalidateHomeCache } from '@/app/page';
+import { invalidateHomeCache } from '@/lib/home-cache';
 import type { AIWordExtraction } from '@/types';
 
 interface EditableWord extends AIWordExtraction {

@@ -25,10 +25,24 @@ import { type ProgressStep, useToast, DeleteConfirmModal, Button, BottomNav } fr
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
-import { remoteRepository } from '@/lib/db/remote-repository';
+import { LocalWordRepository } from '@/lib/db/local-repository';
+import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
+import {
+  getCachedProjects,
+  getCachedProjectWords,
+  getCachedAllFavorites,
+  getCachedFavoriteCounts,
+  getCachedTotalWords,
+  getHasLoaded,
+  getLoadedUserId,
+  setHomeCache,
+  updateProjectWordsCache,
+  invalidateHomeCache,
+  restoreFromSessionStorage,
+} from '@/lib/home-cache';
 import type { Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
@@ -58,22 +72,26 @@ const ProjectSelectionSheet = dynamic(
   { ssr: false }
 );
 
-// Global cache for projects/words - persists across page navigations within the same session
-let globalProjectsCache: Project[] = [];
-let globalProjectWordsCache: Record<string, Word[]> = {};
-let globalAllFavoritesCache: Word[] = [];
-let globalFavoriteCountsCache: Record<string, number> = {};
-let globalTotalWordsCache = 0;
-let globalHasLoaded = false;
-let globalLoadedUserId: string | null = null;
-
-/** Invalidate the home page cache so next visit fetches fresh data */
-export function invalidateHomeCache() {
-  globalHasLoaded = false;
-}
-
 // Scan mode types
 type ScanMode = ExtractMode;
+
+/**
+ * Synchronously attempt to restore home cache from sessionStorage or in-memory.
+ * Called once during module init (before any React render) so the very first
+ * render can display data instead of a spinner.
+ */
+function ensureCacheRestored(): boolean {
+  if (getHasLoaded()) return true;
+  if (typeof window !== 'undefined') {
+    const guestId = getGuestUserId();
+    const snapshot = restoreFromSessionStorage(guestId);
+    if (snapshot && snapshot.projects.length > 0) {
+      setHomeCache(snapshot);
+      return true;
+    }
+  }
+  return false;
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -83,19 +101,25 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Projects & navigation - Initialize from cache if available
-  const [projects, setProjects] = useState<Project[]>(globalProjectsCache);
+  // ensureCacheRestored() runs synchronously so the first render uses cached data
+  const [projects, setProjects] = useState<Project[]>(() => {
+    ensureCacheRestored();
+    return getCachedProjects();
+  });
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
-  const [words, setWords] = useState<Word[]>(
-    globalProjectsCache[0] ? globalProjectWordsCache[globalProjectsCache[0].id] || [] : []
-  );
-  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>(globalAllFavoritesCache);
-  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>(globalFavoriteCountsCache);
+  const [words, setWords] = useState<Word[]>(() => {
+    const cachedProjects = getCachedProjects();
+    const cachedWords = getCachedProjectWords();
+    return cachedProjects[0] ? cachedWords[cachedProjects[0].id] || [] : [];
+  });
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>(() => getCachedAllFavorites());
+  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>(() => getCachedFavoriteCounts());
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>(() => getWrongAnswers());
   const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
   const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
-  const [totalWords, setTotalWords] = useState(globalTotalWordsCache);
-  // Start with loading=false if cache is already populated
-  const [loading, setLoading] = useState(!globalHasLoaded);
+  const [totalWords, setTotalWords] = useState(() => getCachedTotalWords());
+  // Start with loading=false if cache is already populated (in-memory or sessionStorage)
+  const [loading, setLoading] = useState(() => !getHasLoaded());
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
@@ -152,21 +176,19 @@ export default function HomePage() {
 
   // Note: Body scroll locking removed to allow page scrolling
 
-  // Note: Global cache variables (globalProjectWordsCache, globalHasLoaded, globalLoadedUserId)
-  // are used directly in loadProjects/loadWords to persist across page navigations
-
-  // Load projects
+  // Load projects - 2-phase: fast first paint, then full data in background
   const loadProjects = useCallback(async (forceReload = false) => {
     const userId = isPro && user ? user.id : getGuestUserId();
 
     // Skip if already loaded for this user (unless force reload)
-    if (!forceReload && globalHasLoaded && globalLoadedUserId === userId) {
-      // Restore from cache immediately
-      setProjects(globalProjectsCache);
-      setWords(globalProjectsCache[0] ? globalProjectWordsCache[globalProjectsCache[0].id] || [] : []);
-      setAllFavoriteWords(globalAllFavoritesCache);
-      setProjectFavoriteCounts(globalFavoriteCountsCache);
-      setTotalWords(globalTotalWordsCache);
+    if (!forceReload && getHasLoaded() && getLoadedUserId() === userId) {
+      const cachedProjects = getCachedProjects();
+      const cachedWords = getCachedProjectWords();
+      setProjects(cachedProjects);
+      setWords(cachedProjects[0] ? cachedWords[cachedProjects[0].id] || [] : []);
+      setAllFavoriteWords(getCachedAllFavorites());
+      setProjectFavoriteCounts(getCachedFavoriteCounts());
+      setTotalWords(getCachedTotalWords());
       setWrongAnswers(getWrongAnswers());
       setLoading(false);
       return;
@@ -182,60 +204,72 @@ export default function HomePage() {
         setAllFavoriteWords([]);
         setProjectFavoriteCounts({});
         setWords([]);
-        // Update cache
-        globalProjectsCache = [];
-        globalProjectWordsCache = {};
-        globalAllFavoritesCache = [];
-        globalFavoriteCountsCache = {};
-        globalTotalWordsCache = 0;
-        globalHasLoaded = true;
-        globalLoadedUserId = userId;
+        setHomeCache({ projects: [], projectWords: {}, allFavorites: [], favoriteCounts: {}, totalWords: 0, userId });
         setLoading(false);
         return;
       }
 
-      // Calculate total words and collect all favorite words - load in parallel
-      const wordPromises = data.map(project => repository.getWords(project.id));
-      const allProjectWords = await Promise.all(wordPromises);
-
-      let total = 0;
-      const allFavorites: Word[] = [];
-      const favoriteCounts: Record<string, number> = {};
-      const wordsCache: Record<string, Word[]> = {};
-
-      data.forEach((project, index) => {
-        const projectWords = allProjectWords[index];
-        wordsCache[project.id] = projectWords;
-        total += projectWords.length;
-
-        // Count and collect favorites for this project
-        const projectFavorites = projectWords.filter(w => w.isFavorite);
-        favoriteCounts[project.id] = projectFavorites.length;
-        allFavorites.push(...projectFavorites);
-      });
-
-      // Update global cache
-      globalProjectsCache = data;
-      globalProjectWordsCache = wordsCache;
-      globalAllFavoritesCache = allFavorites;
-      globalFavoriteCountsCache = favoriteCounts;
-      globalTotalWordsCache = total;
-      globalHasLoaded = true;
-      globalLoadedUserId = userId;
-
-      setTotalWords(total);
-      setAllFavoriteWords(allFavorites);
-      setProjectFavoriteCounts(favoriteCounts);
-
-      // Set current project words from cache
+      // ---- Phase 1: Fast first paint ----
+      // Only fetch: current project words + total word count
       const firstProject = data[0];
-      if (firstProject && wordsCache[firstProject.id]) {
-        setWords(wordsCache[firstProject.id]);
-      }
 
-      // Load wrong answers
-      const wrongAnswersList = getWrongAnswers();
-      setWrongAnswers(wrongAnswersList);
+      let firstProjectWords: Word[] = [];
+      let total: number;
+
+      // Phase 1: Only first project words (1 query) → show UI immediately
+      firstProjectWords = await repository.getWords(firstProject.id);
+      total = firstProjectWords.length; // Approximate; Phase 2 gets exact count
+
+      // Show UI immediately
+      setWords(firstProjectWords);
+      setTotalWords(total);
+      setWrongAnswers(getWrongAnswers());
+      const partialWordsCache: Record<string, Word[]> = { [firstProject.id]: firstProjectWords };
+      setHomeCache({ projects: data, projectWords: partialWordsCache, allFavorites: [], favoriteCounts: {}, totalWords: total, userId });
+      setLoading(false);
+
+      // ---- Phase 2: Background load ALL words in 1 query ----
+      const capturedRepository = repository;
+      setTimeout(async () => {
+        try {
+          const projectIds = data.map(p => p.id);
+          let fullWordsCache: Record<string, Word[]>;
+
+          if (capturedRepository instanceof RemoteWordRepository) {
+            // Pro: 1 Supabase query with IN clause
+            fullWordsCache = await capturedRepository.getAllWordsByProjectIds(projectIds);
+          } else if (capturedRepository instanceof LocalWordRepository) {
+            // Free: 1 IndexedDB query with anyOf
+            fullWordsCache = await capturedRepository.getAllWordsByProject(projectIds);
+          } else {
+            // Fallback: parallel individual queries
+            const wordPromises = data.map(project => capturedRepository.getWords(project.id));
+            const allProjectWords = await Promise.all(wordPromises);
+            fullWordsCache = {};
+            data.forEach((project, index) => {
+              fullWordsCache[project.id] = allProjectWords[index];
+            });
+          }
+
+          const allFavorites: Word[] = [];
+          const favoriteCounts: Record<string, number> = {};
+          let recalcTotal = 0;
+          data.forEach((project) => {
+            const pw = fullWordsCache[project.id] || [];
+            recalcTotal += pw.length;
+            const pf = pw.filter(w => w.isFavorite);
+            favoriteCounts[project.id] = pf.length;
+            allFavorites.push(...pf);
+          });
+
+          setHomeCache({ projects: data, projectWords: fullWordsCache, allFavorites, favoriteCounts, totalWords: recalcTotal, userId });
+          setAllFavoriteWords(allFavorites);
+          setProjectFavoriteCounts(favoriteCounts);
+          setTotalWords(recalcTotal);
+        } catch (err) {
+          console.error('Phase 2 background load failed:', err);
+        }
+      }, 0);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -250,8 +284,8 @@ export default function HomePage() {
       return;
     }
 
-    // Check global cache first
-    const cachedWords = globalProjectWordsCache[currentProject.id];
+    // Check shared cache first
+    const cachedWords = getCachedProjectWords()[currentProject.id];
     if (cachedWords) {
       setWords(cachedWords);
       return;
@@ -262,7 +296,7 @@ export default function HomePage() {
       setWordsLoading(true);
       const wordsData = await repository.getWords(currentProject.id);
       setWords(wordsData);
-      globalProjectWordsCache[currentProject.id] = wordsData;
+      updateProjectWordsCache(currentProject.id, wordsData);
     } catch (error) {
       console.error('Failed to load words:', error);
     } finally {
@@ -270,14 +304,32 @@ export default function HomePage() {
     }
   }, [currentProject, repository]);
 
-  // Load projects after auth + prefetch stats in background
+  // Strategy 2: Start loading immediately for Free users (IndexedDB doesn't need auth).
+  // Once auth resolves, reload if the user turns out to be Pro (needs Supabase).
+  const hasEagerLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!hasEagerLoadedRef.current && !getHasLoaded()) {
+      // First mount, no cache: start loading with guest/local repository right away
+      hasEagerLoadedRef.current = true;
+      loadProjects();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When auth finishes, reload if user is Pro (repository changes to remote)
+  // or prefetch stats
   useEffect(() => {
     if (!authLoading) {
-      loadProjects();
+      if (isPro) {
+        // Pro user: need to reload from Supabase (different repository)
+        loadProjects(true);
+      } else if (!hasEagerLoadedRef.current) {
+        // Auth finished but eager load didn't fire yet
+        loadProjects();
+      }
       // Prefetch stats data so the stats page opens instantly
       prefetchStats(subscriptionStatus, user?.id ?? null, isPro);
     }
-  }, [authLoading, loadProjects, subscriptionStatus, user?.id, isPro]);
+  }, [authLoading, isPro, loadProjects, subscriptionStatus, user?.id]);
 
   // Load words when project changes
   useEffect(() => {
@@ -304,7 +356,7 @@ export default function HomePage() {
 
   // Get all words from all projects for "All Projects" mode
   const allProjectsWords = useMemo(() => {
-    return Object.values(globalProjectWordsCache).flat();
+    return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
 
   const filteredWords = showWrongAnswers
@@ -514,7 +566,7 @@ export default function HomePage() {
       setShowManualWordModal(false);
       // Invalidate cache so loadWords fetches fresh data
       if (currentProject) {
-        delete globalProjectWordsCache[currentProject.id];
+        invalidateHomeCache();
       }
       loadWords();
       refreshWordCount();
