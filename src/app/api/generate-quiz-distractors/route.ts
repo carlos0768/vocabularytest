@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { GoogleGenAI } from '@google/genai';
+import { AI_CONFIG } from '@/lib/ai/config';
+import { getProviderFromConfig } from '@/lib/ai/providers';
 
 // API Route: POST /api/generate-quiz-distractors
-// Batch generates distractors for multiple words using Gemini 2.5 Flash Lite
-// Falls back to gemini-2.5-flash on 503/overload errors
+// Batch generates distractors for multiple words using AI provider (Cloud Run or direct)
 
 const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成者です。与えられた複数の英単語とその日本語訳に対して、それぞれクイズ用の誤答選択肢（distractors）を3つずつ生成してください。
 
@@ -39,67 +39,6 @@ interface WordInput {
   japanese: string;
 }
 
-// Model configurations: primary → fallback
-const MODELS = [
-  {
-    name: 'gemini-2.0-flash',
-    config: {
-      temperature: 0.7,
-      maxOutputTokens: 4096,
-      responseMimeType: 'application/json',
-    },
-  },
-  {
-    name: 'gemini-2.5-flash',
-    config: {
-      temperature: 0.7,
-      maxOutputTokens: 4096,
-      responseMimeType: 'application/json',
-    },
-  },
-];
-
-async function generateWithRetry(
-  ai: GoogleGenAI,
-  promptText: string,
-): Promise<string | null> {
-  for (const model of MODELS) {
-    try {
-      console.log(`Trying model: ${model.name}`);
-      const response = await ai.models.generateContent({
-        model: model.name,
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: promptText }],
-          },
-        ],
-        config: model.config,
-      });
-
-      const content = response.text?.trim();
-      if (content) {
-        console.log(`Success with model: ${model.name}`);
-        return content;
-      }
-    } catch (error) {
-      const err = error as { status?: number; message?: string };
-      console.warn(`Model ${model.name} failed (status: ${err.status}): ${err.message}`);
-
-      // Only fallback on 503/overload errors
-      if (err.status === 503 || err.message?.includes('overloaded') || err.message?.includes('UNAVAILABLE')) {
-        console.log(`Falling back to next model...`);
-        continue;
-      }
-
-      // Other errors: throw immediately
-      throw error;
-    }
-  }
-
-  return null;
-}
-
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
@@ -128,15 +67,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check API key
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!geminiApiKey) {
-      return NextResponse.json(
-        { success: false, error: 'Gemini APIキーが設定されていません' },
-        { status: 500 }
-      );
-    }
-
     // Build word list for the prompt
     const wordListText = words
       .map((w, i) => `${i + 1}. ID: ${w.id} / 英語: ${w.english} / 日本語（正解）: ${w.japanese}`)
@@ -144,9 +74,26 @@ export async function POST(request: NextRequest) {
 
     const promptText = `${BATCH_DISTRACTOR_PROMPT}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢を3つずつ生成してください:\n\n${wordListText}`;
 
-    // Generate with retry/fallback
-    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-    const content = await generateWithRetry(ai, promptText);
+    // Generate using provider factory (Cloud Run or direct)
+    const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
+    const config = AI_CONFIG.defaults.gemini;
+    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+
+    const result = await provider.generateText(promptText, {
+      ...config,
+      temperature: 0.7,
+      maxOutputTokens: 4096,
+      responseFormat: 'json',
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 503 }
+      );
+    }
+
+    const content = result.content?.trim();
 
     if (!content) {
       return NextResponse.json(

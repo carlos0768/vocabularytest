@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
@@ -8,6 +7,8 @@ import {
   EIKEN_LEVEL_DESCRIPTIONS,
   getEikenLevelsAbove,
 } from './prompts';
+import { AI_CONFIG } from './config';
+import { getProviderFromConfig } from './providers';
 import type { EikenLevel } from '@/app/api/extract/route';
 
 // Result type for OCR extraction
@@ -38,8 +39,6 @@ export async function extractTextForEiken(
     return { success: false, error: '画像データが無効です' };
   }
 
-  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-
   // Remove data URL prefix if present and validate
   let base64Data: string;
   let mimeType = 'image/jpeg';
@@ -66,34 +65,27 @@ export async function extractTextForEiken(
     return { success: false, error: '画像データが空です' };
   }
 
-  console.log('Gemini OCR for EIKEN:', { mimeType, base64Length: base64Data.length });
+  console.log('AI OCR for EIKEN:', { mimeType, base64Length: base64Data.length });
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: EIKEN_OCR_PROMPT,
-            },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
+    const config = AI_CONFIG.extraction.eiken;
+    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+
+    const result = await provider.generate({
+      prompt: EIKEN_OCR_PROMPT,
+      image: { base64: base64Data, mimeType },
       config: {
-        temperature: 0.3, // Lower temperature for accurate OCR
+        ...config,
+        temperature: 0.3,
         maxOutputTokens: 4096,
       },
     });
 
-    const text = response.text?.trim();
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    const text = result.content?.trim();
 
     if (!text) {
       return { success: false, error: '画像からテキストを読み取れませんでした' };
@@ -101,11 +93,11 @@ export async function extractTextForEiken(
 
     return { success: true, text };
   } catch (error) {
-    console.error('Gemini OCR error:', error);
+    console.error('AI OCR error:', error);
 
     if (error instanceof Error) {
       const errorMessage = error.message;
-      console.error('Gemini error message:', errorMessage);
+      console.error('AI error message:', errorMessage);
 
       if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
         return { success: false, error: 'Gemini APIキーが無効です' };

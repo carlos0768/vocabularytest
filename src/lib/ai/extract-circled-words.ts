@@ -1,10 +1,11 @@
-import { GoogleGenAI } from '@google/genai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
   CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT,
   CIRCLED_WORD_USER_PROMPT,
   getEikenFilterInstruction,
 } from './prompts';
+import { AI_CONFIG } from './config';
+import { getProviderFromConfig } from './providers';
 
 export type CircledExtractionResult =
   | { success: true; data: ValidatedAIResponse }
@@ -14,8 +15,7 @@ export interface CircledExtractionOptions {
   eikenLevel?: string | null;
 }
 
-// Extracts only circled/marked words from an image using Google Gemini API
-// Uses gemini-2.0-flash model for image analysis
+// Extracts only circled/marked words from an image using AI provider (Cloud Run or direct)
 export async function extractCircledWordsFromImage(
   imageBase64: string,
   apiKey: string,
@@ -28,8 +28,6 @@ export async function extractCircledWordsFromImage(
     console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
     return { success: false, error: '画像データが無効です' };
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   // Remove data URL prefix if present and validate
   let base64Data: string;
@@ -58,34 +56,24 @@ export async function extractCircledWordsFromImage(
     return { success: false, error: '画像データが空です' };
   }
 
-  console.log('Gemini API call:', { mimeType, base64Length: base64Data.length });
+  console.log('AI API call (circled mode):', { mimeType, base64Length: base64Data.length });
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}${getEikenFilterInstruction(eikenLevel)}\n\n${CIRCLED_WORD_USER_PROMPT}`,
-            },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
-      config: {
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-      },
+    const config = AI_CONFIG.extraction.circled;
+    const provider = getProviderFromConfig(config, { gemini: apiKey });
+
+    const result = await provider.generate({
+      systemPrompt: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}${getEikenFilterInstruction(eikenLevel)}`,
+      prompt: CIRCLED_WORD_USER_PROMPT,
+      image: { base64: base64Data, mimeType },
+      config,
     });
 
-    const content = response.text;
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    const content = result.content;
 
     if (!content) {
       return { success: false, error: '画像を読み取れませんでした' };

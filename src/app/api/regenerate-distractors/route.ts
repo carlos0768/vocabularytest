@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { GoogleGenAI } from '@google/genai';
+import { AI_CONFIG } from '@/lib/ai/config';
+import { getProviderFromConfig } from '@/lib/ai/providers';
 
 // API Route: POST /api/regenerate-distractors
 // Regenerates distractors (wrong answer choices) when a word's japanese translation is updated
@@ -61,37 +62,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check API key
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!geminiApiKey) {
+    // Generate distractors using provider factory (Cloud Run or direct)
+    const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
+    const config = AI_CONFIG.defaults.gemini;
+    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+
+    const result = await provider.generateText(
+      `${DISTRACTOR_GENERATION_PROMPT}\n\n英単語: ${english}\n日本語訳（正解）: ${japanese}\n\nこの単語に対する誤答選択肢を3つ生成してください。`,
+      {
+        ...config,
+        temperature: 0.7,
+        maxOutputTokens: 256,
+      },
+    );
+
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: 'Gemini APIキーが設定されていません' },
+        { success: false, error: result.error },
         { status: 500 }
       );
     }
 
-    // Generate distractors using Gemini 2.5 Flash
-    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `${DISTRACTOR_GENERATION_PROMPT}\n\n英単語: ${english}\n日本語訳（正解）: ${japanese}\n\nこの単語に対する誤答選択肢を3つ生成してください。`,
-            },
-          ],
-        },
-      ],
-      config: {
-        temperature: 0.7,
-        maxOutputTokens: 256,
-      },
-    });
-
-    const content = response.text?.trim();
+    const content = result.content?.trim();
 
     if (!content) {
       return NextResponse.json(

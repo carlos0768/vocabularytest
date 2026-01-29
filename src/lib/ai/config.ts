@@ -6,7 +6,7 @@
  */
 
 export type AIProvider = 'gemini' | 'openai';
-export type GeminiModel = 'gemini-2.0-flash' | 'gemini-2.0-flash' | 'gemini-2.0-flash' | 'gemini-1.5-pro' | 'gemini-1.5-flash';
+export type GeminiModel = 'gemini-2.5-flash-lite' | 'gemini-2.5-flash-lite' | 'gemini-2.5-flash-lite' | 'gemini-1.5-pro' | 'gemini-1.5-flash';
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4-turbo';
 
 export interface AIModelConfig {
@@ -49,28 +49,28 @@ export const AI_CONFIG: AIConfig = {
     // 単語抽出（all mode）
     words: {
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
       maxOutputTokens: 65536,
     },
     // 熟語抽出（idiom mode）
     idioms: {
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
       maxOutputTokens: 65536,
     },
     // 英検レベル別抽出（eiken mode）
     eiken: {
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
       maxOutputTokens: 65536,
     },
     // 丸印単語抽出（circled mode）
     circled: {
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
       maxOutputTokens: 65536,
     },
@@ -78,7 +78,7 @@ export const AI_CONFIG: AIConfig = {
     grammar: {
       ocr: {
         provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash-lite',
         temperature: 0.3,
         maxOutputTokens: 8192,
       },
@@ -94,7 +94,7 @@ export const AI_CONFIG: AIConfig = {
   defaults: {
     gemini: {
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
       maxOutputTokens: 65536,
     },
@@ -129,7 +129,7 @@ export function getAPIKey(provider: AIProvider): string | undefined {
  * 全モードを一括でプロバイダー変更（テスト用）
  */
 export function setGlobalProvider(provider: AIProvider, model?: string): void {
-  const defaultModel = provider === 'gemini' ? 'gemini-2.0-flash' : 'gpt-4o';
+  const defaultModel = provider === 'gemini' ? 'gemini-2.5-flash-lite' : 'gpt-4o';
   const targetModel = model || defaultModel;
 
   AI_CONFIG.extraction.words.provider = provider;

@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
@@ -7,6 +6,8 @@ import {
   WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT,
   WRONG_ANSWER_ANALYSIS_USER_PROMPT,
 } from './prompts';
+import { AI_CONFIG } from './config';
+import { getProviderFromConfig } from './providers';
 
 // Type for OCR result - structured test data
 export interface TestQuestion {
@@ -64,8 +65,6 @@ export async function extractTestFromImage(
     return { success: false, error: '画像データが無効です' };
   }
 
-  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-
   // Remove data URL prefix if present and validate
   let base64Data: string;
   let mimeType = 'image/jpeg';
@@ -92,34 +91,28 @@ export async function extractTestFromImage(
     return { success: false, error: '画像データが空です' };
   }
 
-  console.log('Gemini OCR for Wrong Answer extraction:', { mimeType, base64Length: base64Data.length });
+  console.log('AI OCR for Wrong Answer extraction:', { mimeType, base64Length: base64Data.length });
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `${WRONG_ANSWER_OCR_SYSTEM_PROMPT}\n\n${WRONG_ANSWER_OCR_USER_PROMPT}`,
-            },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
+    const config = AI_CONFIG.extraction.words; // Use default gemini config
+    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+
+    const result = await provider.generate({
+      systemPrompt: WRONG_ANSWER_OCR_SYSTEM_PROMPT,
+      prompt: WRONG_ANSWER_OCR_USER_PROMPT,
+      image: { base64: base64Data, mimeType },
       config: {
-        temperature: 0.3, // Lower temperature for accurate OCR
-        maxOutputTokens: 8192, // Larger output for detailed test data
+        ...config,
+        temperature: 0.3,
+        maxOutputTokens: 8192,
       },
     });
 
-    const content = response.text?.trim();
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    const content = result.content?.trim();
 
     if (!content) {
       return { success: false, error: '画像からテストを読み取れませんでした' };

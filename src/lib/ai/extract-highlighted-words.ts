@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
   parseHighlightedResponse,
@@ -12,13 +11,14 @@ import {
   HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,
   HIGHLIGHTED_WORD_USER_PROMPT,
 } from './prompts';
+import { AI_CONFIG } from './config';
+import { getProviderFromConfig } from './providers';
 
 export type HighlightedExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string };
 
-// Extracts only highlighted/marker words from an image using Google Gemini API
-// Uses gemini-2.5-flash-preview model for image analysis (optimized for visual feature detection)
+// Extracts only highlighted/marker words from an image using AI provider (Cloud Run or direct)
 // Features: color detection, confidence scoring, bounding box coordinates
 export async function extractHighlightedWordsFromImage(
   imageBase64: string,
@@ -29,8 +29,6 @@ export async function extractHighlightedWordsFromImage(
     console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
     return { success: false, error: '画像データが無効です' };
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   // Remove data URL prefix if present and validate
   let base64Data: string;
@@ -59,38 +57,32 @@ export async function extractHighlightedWordsFromImage(
     return { success: false, error: '画像データが空です' };
   }
 
-  console.log('Gemini API call (highlighted mode):', {
+  console.log('AI API call (highlighted mode):', {
     mimeType,
     base64Length: base64Data.length,
     confidenceThreshold: CONFIDENCE_THRESHOLD,
   });
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `${HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT}\n\n${HIGHLIGHTED_WORD_USER_PROMPT}`,
-            },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
+    const config = AI_CONFIG.extraction.circled; // Same config as circled mode
+    const provider = getProviderFromConfig(config, { gemini: apiKey });
+
+    const result = await provider.generate({
+      systemPrompt: HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,
+      prompt: HIGHLIGHTED_WORD_USER_PROMPT,
+      image: { base64: base64Data, mimeType },
       config: {
-        temperature: 0.5, // Lower temperature for more consistent detection
-        maxOutputTokens: 8192, // Increased for detailed bounding box data
+        ...config,
+        temperature: 0.5,
+        maxOutputTokens: 8192,
       },
     });
 
-    const content = response.text;
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    const content = result.content;
 
     if (!content) {
       return { success: false, error: '画像を読み取れませんでした' };
