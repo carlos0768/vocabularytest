@@ -688,8 +688,10 @@ export default function HomePage() {
 
       // Save result to sessionStorage and navigate to confirm page
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
-      setProcessing(false);
+      // Navigate first, then close processing modal
+      // (closing modal before navigation causes a flash of the home screen)
       router.push('/scan/confirm');
+      setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
 
