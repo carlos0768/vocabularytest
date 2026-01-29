@@ -316,8 +316,10 @@ export default function QuizPage() {
         </div>
 
         {/* Flashcard */}
-        <main className="flex-1 px-6 pb-6 overflow-y-auto">
-          <InlineFlashcard words={allWords} />
+        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto">
+          <div className="w-full">
+            <InlineFlashcard words={allWords} />
+          </div>
         </main>
       </div>
     );

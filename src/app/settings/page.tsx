@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, ExternalLink, User, Check, Cloud, Smartphone } from 'lucide-react';
+import { LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, ExternalLink, User, Check, Cloud, Smartphone } from 'lucide-react';
 import { Button, BottomNav } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/theme-provider';
@@ -22,25 +22,9 @@ export default function SettingsPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Settings state
-  const [showStats, setShowStats] = useState(true);
-
-  // Load settings from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedShowStats = localStorage.getItem('scanvocab_show_stats');
-      if (savedShowStats !== null) setShowStats(savedShowStats === 'true');
-    }
-  }, []);
-
   // Save settings
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme);
-  };
-
-  const updateShowStats = (show: boolean) => {
-    setShowStats(show);
-    localStorage.setItem('scanvocab_show_stats', String(show));
   };
 
   const handleSignOut = async () => {
@@ -84,12 +68,6 @@ export default function SettingsPage() {
       <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-[var(--color-foreground)]" />
-            </Link>
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">設定</h1>
           </div>
         </div>
@@ -167,24 +145,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="h-px bg-[var(--color-border)] mx-4" />
-
-            {/* Show Stats */}
-            <div className="flex items-center justify-between px-4 py-4">
-              <span className="font-medium text-[var(--color-foreground)]">統計バーを表示</span>
-              <button
-                onClick={() => updateShowStats(!showStats)}
-                className={`relative w-12 h-7 rounded-full transition-colors ${
-                  showStats ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border)]'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                    showStats ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
           </div>
         </section>
 
