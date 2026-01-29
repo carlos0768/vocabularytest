@@ -771,7 +771,7 @@ export default function HomePage() {
           <div className="max-w-lg mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-[var(--color-primary)] tracking-tight">WordSnap</h1>
+                <h1 className="text-2xl font-extrabold text-[var(--color-primary)] tracking-tight">MERKEN</h1>
                 {isPro && (
                   <span className="chip chip-pro">
                     <Sparkles className="w-3 h-3" />
@@ -865,7 +865,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between">
             {/* Left: Logo */}
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold text-[var(--color-primary)] tracking-tight">WordSnap</h1>
+              <h1 className="text-xl font-extrabold text-[var(--color-primary)] tracking-tight">MERKEN</h1>
               {isPro && (
                 <span className="chip chip-pro">
                   <Sparkles className="w-3 h-3" />

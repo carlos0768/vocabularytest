@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { sendOtpEmail, generateOtpCode } from '@/lib/brevo/client';
+import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -109,7 +109,7 @@ async function handleSendOtp({ email }: { email: string }) {
     return NextResponse.json({ error: '認証コードの生成に失敗しました' }, { status: 500 });
   }
 
-  // Send email via Brevo
+  // Send email via Resend
   const emailResult = await sendOtpEmail({
     to: normalizedEmail,
     otpCode,
