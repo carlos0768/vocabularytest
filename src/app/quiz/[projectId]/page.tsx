@@ -304,20 +304,20 @@ export default function QuizPage() {
           </button>
         </header>
 
-        {/* Loading indicator */}
-        <div className="px-6 pt-2 pb-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-5 h-5 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            <p className="text-[var(--color-foreground)] font-semibold">クイズを生成中...</p>
+        {/* Flashcard - centered */}
+        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-6 min-h-0">
+          {/* Loading indicator */}
+          <div className="mb-4 text-center">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <div className="w-5 h-5 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <p className="text-[var(--color-foreground)] font-semibold">クイズを生成中...</p>
+            </div>
+            <p className="text-sm text-[var(--color-muted)]">
+              フラッシュカードで復習しながらお待ちください
+            </p>
           </div>
-          <p className="text-sm text-[var(--color-muted)]">
-            フラッシュカードで復習しながらお待ちください
-          </p>
-        </div>
 
-        {/* Flashcard */}
-        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto">
-          <div className="w-full">
+          <div className="w-full max-w-sm">
             <InlineFlashcard words={allWords} />
           </div>
         </main>
