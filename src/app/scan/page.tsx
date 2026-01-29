@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -9,170 +9,26 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
-import { processImageFile } from '@/lib/image-utils';
-import type { AIWordExtraction, ScanJob, ScanMode } from '@/types';
+import { processImageToBase64 } from '@/lib/image-utils';
+
 
 function ScanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
-  const { isPro, isAuthenticated, loading: authLoading } = useAuth();
+  const { isPro, isAuthenticated } = useAuth();
   const { isAtLimit } = useWordCount();
   const { showToast } = useToast();
 
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [scanInfo, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
-  // アプリ起動時に未完了のジョブがあるかチェック
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-
-    const checkPendingJobs = async () => {
-      try {
-        const response = await fetch('/api/scan-jobs');
-        const data = await response.json();
-
-        if (data.success && data.jobs && data.jobs.length > 0) {
-          // 未完了または完了したジョブがある
-          const pendingJob = data.jobs.find((j: ScanJob) => j.status === 'pending' || j.status === 'processing');
-          const completedJob = data.jobs.find((j: ScanJob) => j.status === 'completed');
-
-          if (completedJob) {
-            // 完了したジョブがある場合、結果を表示
-            handleCompletedJob(completedJob);
-          } else if (pendingJob) {
-            // 処理中のジョブがある場合、ポーリングを開始
-            setCurrentJobId(pendingJob.id);
-            setProcessing(true);
-            setProcessingSteps([
-              { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-              { id: 'analyze', label: '文字を解析中...', status: 'active' },
-              { id: 'generate', label: '問題を作成中...', status: 'pending' },
-            ]);
-            startPolling(pendingJob.id);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check pending jobs:', error);
-      }
-    };
-
-    checkPendingJobs();
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, [authLoading, isAuthenticated]);
-
-  // 完了したジョブを処理
-  const handleCompletedJob = async (job: ScanJob) => {
-    if (!job.result) return;
-
-    // 結果をsessionStorageに保存
-    sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(job.result));
-    if (job.project_id) {
-      sessionStorage.setItem('scanvocab_existing_project_id', job.project_id);
-    }
-    if (job.project_title) {
-      sessionStorage.setItem('scanvocab_project_name', job.project_title);
-    }
-
-    // ジョブを削除
-    try {
-      await fetch(`/api/scan-jobs/${job.id}`, { method: 'DELETE' });
-    } catch (error) {
-      console.error('Failed to delete completed job:', error);
-    }
-
-    // 確認ページに遷移
-    router.push('/scan/confirm');
-  };
-
-  // ポーリングを開始
-  const startPolling = (jobId: string) => {
-    // 最初に処理を開始
-    fetch(`/api/scan-jobs/${jobId}/process`, { method: 'POST' })
-      .catch(err => console.error('Failed to start processing:', err));
-
-    // ポーリングを開始（2秒間隔）
-    pollingRef.current = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/scan-jobs/${jobId}`);
-        const data = await response.json();
-
-        if (!data.success) {
-          stopPolling();
-          setProcessing(false);
-          showToast({ message: data.error || 'エラーが発生しました', type: 'error' });
-          return;
-        }
-
-        const job = data.job as ScanJob;
-
-        if (job.status === 'completed') {
-          stopPolling();
-          setProcessingSteps((prev) =>
-            prev.map((s) =>
-              s.id === 'analyze'
-                ? { ...s, status: 'complete' }
-                : s.id === 'generate'
-                ? { ...s, status: 'complete' }
-                : s
-            )
-          );
-
-          // 少し待ってから遷移
-          setTimeout(() => {
-            handleCompletedJob(job);
-          }, 500);
-        } else if (job.status === 'failed') {
-          stopPolling();
-          setProcessing(false);
-          setProcessingSteps((prev) =>
-            prev.map((s) =>
-              s.status === 'active' || s.status === 'pending'
-                ? { ...s, status: 'error', label: job.error_message || '処理に失敗しました' }
-                : s
-            )
-          );
-        } else if (job.status === 'processing') {
-          // 処理中 - UIを更新
-          setProcessingSteps((prev) =>
-            prev.map((s) =>
-              s.id === 'upload'
-                ? { ...s, status: 'complete' }
-                : s.id === 'analyze'
-                ? { ...s, status: 'active' }
-                : s
-            )
-          );
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-    }, 2000);
-  };
-
-  // ポーリングを停止
-  const stopPolling = () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-    setCurrentJobId(null);
-  };
-
   const handleImageSelect = useCallback(async (file: File) => {
-    // Check if user is authenticated (required for API)
     if (!isAuthenticated) {
       showToast({
         message: 'ログインが必要です',
@@ -186,7 +42,6 @@ function ScanPageContent() {
       return;
     }
 
-    // Check word limit for free users (client-side check for UX)
     if (!isPro && isAtLimit) {
       setShowWordLimitModal(true);
       return;
@@ -196,59 +51,55 @@ function ScanPageContent() {
     setProcessingSteps([
       { id: 'upload', label: '画像をアップロード中...', status: 'active' },
       { id: 'analyze', label: '文字を解析中...', status: 'pending' },
-      { id: 'generate', label: '問題を作成中...', status: 'pending' },
     ]);
 
     try {
-      // Process image (convert HEIC to JPEG if needed)
-      const processedFile = await processImageFile(file);
+      const base64 = await processImageToBase64(file);
 
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(processedFile);
-      });
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+        { id: 'analyze', label: '文字を解析中...', status: 'active' },
+      ]);
 
-      // スキャンジョブを作成
-      const createResponse = await fetch('/api/scan-jobs', {
+      // Call extract API directly
+      const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: base64,
-          scanMode: 'all' as ScanMode,
-          projectId: projectId || undefined,
+          mode: 'all',
         }),
       });
 
-      const createResult = await createResponse.json();
+      const result = await response.json();
 
-      if (!createResponse.ok || !createResult.success) {
-        throw new Error(createResult.error || 'ジョブの作成に失敗しました');
+      if (!response.ok || !result.success) {
+        if (result.limitReached) {
+          setProcessing(false);
+          setProcessingSteps([]);
+          setScanInfo(result.scanInfo);
+          setShowScanLimitModal(true);
+          return;
+        }
+        throw new Error(result.error || '解析に失敗しました');
       }
 
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'upload'
-            ? { ...s, status: 'complete' }
-            : s.id === 'analyze'
-            ? { ...s, status: 'active' }
-            : s
-        )
-      );
+      if (result.scanInfo) {
+        setScanInfo(result.scanInfo);
+      }
 
-      // ジョブIDを保存してポーリングを開始
-      const jobId = createResult.jobId;
-      setCurrentJobId(jobId);
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
+      ]);
 
-      // 既存プロジェクトIDを保存
+      // Save result to sessionStorage and navigate
+      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
       if (projectId) {
         sessionStorage.setItem('scanvocab_existing_project_id', projectId);
       }
-
-      // ポーリングを開始
-      startPolling(jobId);
+      setProcessing(false);
+      router.push('/scan/confirm');
     } catch (error) {
       console.error('Scan error:', error);
       setProcessing(false);
@@ -279,16 +130,8 @@ function ScanPageContent() {
   const handleCloseModal = () => {
     setProcessing(false);
     setProcessingSteps([]);
-    stopPolling();
-
-    // 処理中のジョブがあればキャンセル
-    if (currentJobId) {
-      fetch(`/api/scan-jobs/${currentJobId}`, { method: 'DELETE' })
-        .catch(err => console.error('Failed to delete job:', err));
-    }
   };
 
-  // Allow scan if authenticated (server will enforce limits)
   const canScan = isAuthenticated;
 
   return (
@@ -366,7 +209,7 @@ function ScanPageContent() {
           </label>
         </div>
 
-        {/* Scan count info (shown after first scan or if scanInfo is available) */}
+        {/* Scan count info */}
         {!isPro && scanInfo && scanInfo.limit && (
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500">
@@ -382,16 +225,6 @@ function ScanPageContent() {
           </div>
         )}
 
-        {/* Background processing notice */}
-        {processing && (
-          <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-            <p className="text-sm text-blue-700 text-center">
-              💡 処理中にアプリを閉じても大丈夫です。
-              <br />
-              次回開いた時に結果が表示されます。
-            </p>
-          </div>
-        )}
       </main>
 
       {/* Processing modal */}
@@ -412,7 +245,7 @@ function ScanPageContent() {
             )}
             {!processingSteps.some((s) => s.status === 'error') && (
               <p className="mt-4 text-xs text-gray-500 text-center">
-                アプリを閉じても処理は継続されます
+                しばらくお待ちください...
               </p>
             )}
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Search, BookOpen, Flag } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Search, Flag } from 'lucide-react';
 import { BottomNav } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
@@ -13,44 +13,38 @@ interface WordWithProject extends Word {
 }
 
 export default function SearchPage() {
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isPro } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [projects, setProjects] = useState<Project[]>([]);
   const [allWords, setAllWords] = useState<WordWithProject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
 
-  // Load all projects and words
+  // Load all projects and words on mount
   useEffect(() => {
-    const loadData = async () => {
-      if (authLoading) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
 
+    (async () => {
       try {
         const repository = getRepository(subscription?.status ?? 'free');
         const userId = isPro && user ? user.id : getGuestUserId();
         const loadedProjects = await repository.getProjects(userId);
-        setProjects(loadedProjects);
 
-        // Load all words from all projects
-        const wordsWithProjects: WordWithProject[] = [];
-        for (const project of loadedProjects) {
-          const words = await repository.getWords(project.id);
-          words.forEach(word => {
-            wordsWithProjects.push({
-              ...word,
-              projectTitle: project.title,
-            });
-          });
-        }
-        setAllWords(wordsWithProjects);
+        const wordsArrays = await Promise.all(
+          loadedProjects.map(async (project) => {
+            const words = await repository.getWords(project.id);
+            return words.map(word => ({ ...word, projectTitle: project.title }));
+          })
+        );
+
+        setAllWords(wordsArrays.flat());
       } catch (error) {
         console.error('Failed to load data:', error);
       } finally {
-        setLoading(false);
+        loadingRef.current = false;
       }
-    };
-
-    loadData();
-  }, [subscription?.status, authLoading, isPro, user]);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter words by search query
   const filteredWords = useMemo(() => {
@@ -87,11 +81,7 @@ export default function SearchPage() {
         </div>
 
         {/* Results */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : !searchQuery.trim() ? (
+        {!searchQuery.trim() ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center">
               <Search className="w-8 h-8 text-[var(--color-primary)]" />

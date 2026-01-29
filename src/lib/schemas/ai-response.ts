@@ -14,12 +14,8 @@ export const AIWordSchema = z.object({
   ...word,
   english: word.english || '---',
   japanese: word.japanese || '---',
-  // Ensure exactly 3 distractors, fill with placeholders if needed
-  distractors: [
-    word.distractors[0] || '選択肢1',
-    word.distractors[1] || '選択肢2',
-    word.distractors[2] || '選択肢3',
-  ],
+  // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
+  distractors: word.distractors,
   exampleSentence: word.exampleSentence || undefined,
   exampleSentenceJa: word.exampleSentenceJa || undefined,
 }));

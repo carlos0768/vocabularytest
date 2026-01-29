@@ -26,7 +26,7 @@ export function getGuestUserId(): string {
 
   let guestId = localStorage.getItem(GUEST_ID_KEY);
   if (!guestId) {
-    guestId = `guest_${crypto.randomUUID()}`;
+    guestId = `guest_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('')}`;
     localStorage.setItem(GUEST_ID_KEY, guestId);
   }
   return guestId;

@@ -5,6 +5,14 @@
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
 
 /**
+ * Check if file is HEIC/HEIF format
+ */
+function isHeicFile(file: File): boolean {
+  return /\.(heic|heif)$/i.test(file.name) ||
+         /^image\/(heic|heif)$/.test(file.type);
+}
+
+/**
  * Read the first few bytes of a file to determine its actual format
  * Returns hex string of the file header
  */
@@ -23,21 +31,12 @@ const MAX_DIMENSION = 2048;
  * Uses heic2any library for client-side conversion
  */
 export async function convertHeicToJpeg(file: File): Promise<File> {
-  console.log('convertHeicToJpeg called:', { name: file.name, type: file.type, size: file.size });
-
-  // Check if file is HEIC/HEIF
-  const isHeic =
-    file.type === 'image/heic' ||
-    file.type === 'image/heif' ||
-    file.name.toLowerCase().endsWith('.heic') ||
-    file.name.toLowerCase().endsWith('.heif');
-
-  if (!isHeic) {
-    console.log('File is not HEIC, returning as-is');
+  // Quick check using helper function
+  if (!isHeicFile(file)) {
     return file;
   }
 
-  console.log('File is HEIC, converting to JPEG...');
+  console.log('HEIC file detected, converting...');
 
   try {
     // Dynamically import heic2any (client-side only)
@@ -79,23 +78,26 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
  * Uses canvas to resize and compress
  */
 export async function compressImage(file: File): Promise<File> {
-  console.log('compressImage called:', { name: file.name, type: file.type, size: file.size });
-
-  // Skip if already small enough
+  // Skip if already small enough - early return for performance
   if (file.size <= MAX_IMAGE_SIZE) {
-    console.log('Image is small enough, skipping compression');
     return file;
   }
+
+  console.log('Compressing large image:', { size: file.size });
 
   return new Promise((resolve, reject) => {
     const img = new Image();
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
 
     img.onload = () => {
       try {
         let { width, height } = img;
-        console.log('Original dimensions:', { width, height });
 
         // Calculate new dimensions while maintaining aspect ratio
         if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
@@ -107,12 +109,12 @@ export async function compressImage(file: File): Promise<File> {
             height = MAX_DIMENSION;
           }
         }
-        console.log('New dimensions:', { width, height });
 
         canvas.width = width;
         canvas.height = height;
 
         if (!ctx) {
+          cleanup();
           reject(new Error('Failed to get canvas context'));
           return;
         }
@@ -125,11 +127,10 @@ export async function compressImage(file: File): Promise<File> {
           canvas.toBlob(
             (blob) => {
               if (!blob) {
+                cleanup();
                 reject(new Error('Failed to compress image'));
                 return;
               }
-
-              console.log('Compressed size:', blob.size, 'quality:', quality);
 
               // If still too large and quality can be reduced, try again
               if (blob.size > MAX_IMAGE_SIZE && quality > 0.3) {
@@ -138,10 +139,11 @@ export async function compressImage(file: File): Promise<File> {
                 return;
               }
 
+              cleanup();
               const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
                 type: 'image/jpeg',
               });
-              console.log('Compression complete:', { size: compressedFile.size, quality });
+              console.log('Compressed:', { from: file.size, to: compressedFile.size });
               resolve(compressedFile);
             },
             'image/jpeg',
@@ -151,16 +153,17 @@ export async function compressImage(file: File): Promise<File> {
 
         tryCompress();
       } catch (error) {
+        cleanup();
         reject(error);
       }
     };
 
     img.onerror = () => {
+      cleanup();
       reject(new Error('Failed to load image for compression'));
     };
 
-    // Create object URL for the image
-    img.src = URL.createObjectURL(file);
+    img.src = objectUrl;
   });
 }
 
@@ -171,14 +174,34 @@ export async function compressImage(file: File): Promise<File> {
  * - Returns processed file ready for base64 encoding
  */
 export async function processImageFile(file: File): Promise<File> {
-  console.log('processImageFile called:', { name: file.name, type: file.type, size: file.size });
-
   // First convert HEIC if needed
   let processedFile = await convertHeicToJpeg(file);
 
   // Then compress if too large
   processedFile = await compressImage(processedFile);
 
-  console.log('Final processed file:', { name: processedFile.name, type: processedFile.type, size: processedFile.size });
   return processedFile;
+}
+
+/**
+ * Process image file and return base64 directly
+ * - Eliminates double FileReader read
+ * - Converts HEIC to JPEG
+ * - Compresses large images
+ * - Returns base64 string ready for API
+ */
+export async function processImageToBase64(file: File): Promise<string> {
+  // First convert HEIC if needed
+  let processedFile = await convertHeicToJpeg(file);
+
+  // Then compress if too large
+  processedFile = await compressImage(processedFile);
+
+  // Convert to base64 directly
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.readAsDataURL(processedFile);
+  });
 }
