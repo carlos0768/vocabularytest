@@ -35,8 +35,9 @@ import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
+import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
-import type { Project, Word, ScanJob } from '@/types';
+import type { Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 // Global cache for projects/words - persists across page navigations within the same session
@@ -688,37 +689,28 @@ function ProjectSelectionSheet({
             </div>
           )}
 
-          {/* Projects Section */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
-                <h3 className="font-semibold text-[var(--color-foreground)]">単語帳一覧</h3>
+          {/* All Words Section */}
+          {projects.length > 1 && totalWords > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Layers className="w-5 h-5 text-[var(--color-primary)]" />
+                <h3 className="font-semibold text-[var(--color-foreground)]">全ての単語</h3>
               </div>
-            </div>
-
-            {/* All Projects Combined Option */}
-            {projects.length > 1 && totalWords > 0 && (
               <button
                 onClick={() => {
                   onSelectAllProjects();
                   onClose();
                 }}
-                className={`w-full text-left p-4 mb-3 rounded-2xl border-2 transition-all ${
+                className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
                   showAllProjects
                     ? 'border-[var(--color-primary)] bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-peach-light)]'
                     : 'border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-peach-light)]/50 hover:border-[var(--color-primary)]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-peach)] rounded-full flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[var(--color-foreground)]">全ての単語</p>
-                      <p className="text-sm text-[var(--color-muted)] mt-0.5">{projects.length}冊 · {totalWords}語</p>
-                    </div>
+                  <div>
+                    <p className="font-semibold text-[var(--color-foreground)]">全プロジェクトの単語</p>
+                    <p className="text-sm text-[var(--color-muted)] mt-0.5">{projects.length}冊 · {totalWords}語</p>
                   </div>
                   {showAllProjects && (
                     <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
@@ -727,7 +719,17 @@ function ProjectSelectionSheet({
                   )}
                 </div>
               </button>
-            )}
+            </div>
+          )}
+
+          {/* Projects Section */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
+                <h3 className="font-semibold text-[var(--color-foreground)]">単語帳一覧</h3>
+              </div>
+            </div>
 
             {/* New Project Button */}
             <button
@@ -749,7 +751,7 @@ function ProjectSelectionSheet({
             <div className="space-y-2">
               {sortedProjects.map((project) => {
                 const originalIndex = getOriginalIndex(project);
-                const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly && !showWrongAnswers && !showAllProjects;
+                const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly && !showWrongAnswers;
                 const favoriteCount = projectFavoriteCounts[project.id] || 0;
                 return (
                   <div
@@ -991,192 +993,12 @@ export default function HomePage() {
   const [manualWordJapanese, setManualWordJapanese] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
 
-  // Background scan job polling
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-
   // Get repository
   const subscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
-
-  // Helper: Stop polling
-  const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-    setCurrentJobId(null);
-  }, []);
-
-  // Helper: Handle completed job
-  const handleCompletedJob = useCallback(async (job: ScanJob) => {
-    if (!job.result) return;
-
-    // Stop any ongoing polling first
-    stopPolling();
-    setCurrentJobId(null);
-    setProcessing(false);
-
-    // Save result to sessionStorage
-    sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(job.result));
-    if (job.project_id) {
-      sessionStorage.setItem('scanvocab_existing_project_id', job.project_id);
-    }
-    if (job.project_title) {
-      sessionStorage.setItem('scanvocab_project_name', job.project_title);
-    }
-
-    // Delete the job
-    try {
-      await fetch(`/api/scan-jobs/${job.id}`, { method: 'DELETE' });
-    } catch (error) {
-      console.error('Failed to delete completed job:', error);
-    }
-
-    // Navigate to confirm page
-    router.push('/scan/confirm');
-  }, [router, stopPolling]);
-
-  // Helper: Start polling for job status
-  const startPolling = useCallback((jobId: string) => {
-    // Start processing
-    fetch(`/api/scan-jobs/${jobId}/process`, { method: 'POST' })
-      .catch(err => console.error('Failed to start processing:', err));
-
-    // Poll every 2 seconds
-    pollingRef.current = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/scan-jobs/${jobId}`);
-        const data = await response.json();
-
-        if (!data.success) {
-          stopPolling();
-          setProcessing(false);
-          // 404 (job not found) means job was already processed/deleted - silently stop
-          // This can happen when returning from confirm page after successful save
-          if (response.status === 404) {
-            console.log('Job not found (already processed), stopping poll');
-            return;
-          }
-          showToast({ message: data.error || 'エラーが発生しました', type: 'error' });
-          return;
-        }
-
-        const job = data.job as ScanJob;
-
-        if (job.status === 'completed') {
-          stopPolling();
-          setProcessingSteps((prev) =>
-            prev.map((s) =>
-              s.id === 'analyze'
-                ? { ...s, status: 'complete' }
-                : s.id === 'generate'
-                ? { ...s, status: 'complete' }
-                : s
-            )
-          );
-
-          // Wait a bit before navigating
-          setTimeout(() => {
-            handleCompletedJob(job);
-          }, 500);
-        } else if (job.status === 'failed') {
-          stopPolling();
-          setProcessing(false);
-          setProcessingSteps((prev) =>
-            prev.map((s) =>
-              s.status === 'active' || s.status === 'pending'
-                ? { ...s, status: 'error', label: job.error_message || '処理に失敗しました' }
-                : s
-            )
-          );
-        } else if (job.status === 'processing') {
-          // Still processing - update UI
-          setProcessingSteps((prev) =>
-            prev.map((s) =>
-              s.id === 'upload'
-                ? { ...s, status: 'complete' }
-                : s.id === 'analyze'
-                ? { ...s, status: 'active' }
-                : s
-            )
-          );
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-    }, 2000);
-  }, [stopPolling, handleCompletedJob, showToast]);
-
-  // Check for pending jobs - extracted as callback for reuse
-  const checkPendingJobs = useCallback(async (): Promise<boolean> => {
-    if (!isAuthenticated) return false;
-
-    try {
-      const response = await fetch('/api/scan-jobs');
-      const data = await response.json();
-
-      if (data.success && data.jobs && data.jobs.length > 0) {
-        const pendingJob = data.jobs.find((j: ScanJob) => j.status === 'pending' || j.status === 'processing');
-        const completedJob = data.jobs.find((j: ScanJob) => j.status === 'completed');
-
-        if (completedJob) {
-          // Completed job found - show results
-          handleCompletedJob(completedJob);
-          return true;
-        } else if (pendingJob) {
-          // Processing job found - start polling
-          setCurrentJobId(pendingJob.id);
-          setProcessing(true);
-          setProcessingSteps([
-            { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-            { id: 'analyze', label: '文字を解析中...', status: 'active' },
-            { id: 'generate', label: '問題を作成中...', status: 'pending' },
-          ]);
-          startPolling(pendingJob.id);
-          return true;
-        }
-      }
-      return false;
-    } catch (error) {
-      console.error('Failed to check pending jobs:', error);
-      return false;
-    }
-  }, [isAuthenticated, handleCompletedJob, startPolling]);
-
-  // Check for pending jobs on app startup
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-
-    checkPendingJobs();
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, [authLoading, isAuthenticated, checkPendingJobs]);
-
-  // Handle PWA returning from background - check for pending/completed jobs
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // App returned to foreground - check for any pending jobs
-        // This handles the case where a fetch was interrupted when app went to background
-        checkPendingJobs();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isAuthenticated, checkPendingJobs]);
 
   // Scan info is populated from server responses
 
@@ -1300,12 +1122,14 @@ export default function HomePage() {
     }
   }, [currentProject, repository]);
 
-  // Load projects after auth
+  // Load projects after auth + prefetch stats in background
   useEffect(() => {
     if (!authLoading) {
       loadProjects();
+      // Prefetch stats data so the stats page opens instantly
+      prefetchStats(subscriptionStatus, user?.id ?? null, isPro);
     }
-  }, [authLoading, loadProjects]);
+  }, [authLoading, loadProjects, subscriptionStatus, user?.id, isPro]);
 
   // Load words when project changes
   useEffect(() => {
@@ -1647,13 +1471,12 @@ export default function HomePage() {
     }
   };
 
-  // Common image processing function - Job-based for background processing
+  // Direct image processing - calls /api/extract directly
   const processImage = async (file: File) => {
     setProcessing(true);
     setProcessingSteps([
       { id: 'upload', label: '画像をアップロード中...', status: 'active' },
       { id: 'analyze', label: '文字を解析中...', status: 'pending' },
-      { id: 'generate', label: '問題を作成中...', status: 'pending' },
     ]);
 
     try {
@@ -1681,70 +1504,51 @@ export default function HomePage() {
         reader.readAsDataURL(processedFile);
       });
 
-      // Get project info from sessionStorage
-      const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
-      const projectTitle = sessionStorage.getItem('scanvocab_project_name');
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+        { id: 'analyze', label: '文字を解析中...', status: 'active' },
+      ]);
 
-      // Create scan job
-      const createResponse = await fetch('/api/scan-jobs', {
+      // Call extract API directly
+      const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: base64,
-          scanMode: selectedScanMode,
+          mode: selectedScanMode,
           eikenLevel: selectedEikenLevel,
-          projectId: existingProjectId || undefined,
-          projectTitle: projectTitle || undefined,
         }),
       });
 
-      const createResult = await createResponse.json();
+      const result = await response.json();
 
-      if (!createResponse.ok || !createResult.success) {
-        const errorMsg = createResult.details
-          ? `${createResult.error}: ${createResult.details}`
-          : (createResult.error || 'ジョブの作成に失敗しました');
-        throw new Error(errorMsg);
-      }
-
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'upload'
-            ? { ...s, status: 'complete' }
-            : s.id === 'analyze'
-            ? { ...s, status: 'active' }
-            : s
-        )
-      );
-
-      // Save job ID and start polling
-      const jobId = createResult.jobId;
-      setCurrentJobId(jobId);
-
-      // Start polling for job status
-      startPolling(jobId);
-    } catch (error) {
-      console.error('Scan error:', error);
-
-      // Check if this is a network interruption error (PWA went to background)
-      const isNetworkError = error instanceof Error && (
-        error.message.includes('Load failed') ||
-        error.message.includes('Failed to fetch') ||
-        error.message.includes('network') ||
-        error.message.includes('NetworkError') ||
-        error.message.includes('aborted')
-      );
-
-      if (isNetworkError) {
-        // PWA might have gone to background - check for pending jobs
-        console.log('Network error detected, checking for pending jobs...');
-        const foundJob = await checkPendingJobs();
-        if (foundJob) {
-          // Job was found and is being handled - don't show error
-          console.log('Found existing job after network interruption');
+      if (!response.ok || !result.success) {
+        if (result.limitReached) {
+          setProcessing(false);
+          setProcessingSteps([]);
+          setScanInfo(result.scanInfo);
+          setShowScanLimitModal(true);
           return;
         }
+        throw new Error(result.error || '解析に失敗しました');
       }
+
+      // Update scan info
+      if (result.scanInfo) {
+        setScanInfo(result.scanInfo);
+      }
+
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
+      ]);
+
+      // Save result to sessionStorage and navigate to confirm page
+      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
+      setProcessing(false);
+      router.push('/scan/confirm');
+    } catch (error) {
+      console.error('Scan error:', error);
 
       let errorMessage = '予期しないエラー';
       if (error instanceof Error) {
@@ -1752,8 +1556,6 @@ export default function HomePage() {
           errorMessage = '画像データの処理に問題が発生しました。カメラ設定を「互換性優先」にするか、スクリーンショットをお試しください。';
         } else if (error.message.includes('HEIC') || error.message.includes('HEIF')) {
           errorMessage = error.message;
-        } else if (isNetworkError) {
-          errorMessage = '通信が中断されました。もう一度お試しください。';
         } else {
           errorMessage = error.message;
         }
@@ -1784,13 +1586,6 @@ export default function HomePage() {
   const handleCloseModal = () => {
     setProcessing(false);
     setProcessingSteps([]);
-    stopPolling();
-
-    // Cancel pending job if exists
-    if (currentJobId) {
-      fetch(`/api/scan-jobs/${currentJobId}`, { method: 'DELETE' })
-        .catch(err => console.error('Failed to delete job:', err));
-    }
   };
 
   // Loading state

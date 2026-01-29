@@ -1,72 +1,66 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { BarChart3, TrendingUp, Target, Calendar, BookOpen, CheckCircle2, Flame } from 'lucide-react';
+import { BarChart3, TrendingUp, Target, Calendar, BookOpen, CheckCircle2 } from 'lucide-react';
 import { BottomNav } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
-import { getRepository } from '@/lib/db';
-import { getDailyStats, getWrongAnswers, getGuestUserId, getActivityHistory, getStreakDays } from '@/lib/utils';
+import { getDailyStats, getWrongAnswers, getActivityHistory, getStreakDays } from '@/lib/utils';
+import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
 import type { DailyActivity } from '@/lib/utils';
-import type { Project, Word } from '@/types';
-
-interface Stats {
-  totalProjects: number;
-  totalWords: number;
-  masteredWords: number;
-  reviewWords: number;
-  newWords: number;
-  favoriteWords: number;
-  wrongAnswersCount: number;
-  quizStats: {
-    todayCount: number;
-    correctCount: number;
-    streakDays: number;
-    lastQuizDate: string | null;
-  };
-}
 
 // Activity Heatmap Component (GitHub-style: rows = days of week, columns = weeks)
 function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[] }) {
   // Organize data into a grid: rows = days of week (0=Sun, 6=Sat), columns = weeks
-  const { grid, weekLabels } = useMemo(() => {
-    // Initialize 7 rows (one for each day of week)
-    const rows: (DailyActivity | null)[][] = Array.from({ length: 7 }, () => []);
-    const labels: string[] = [];
-
-    // Find the first Sunday to start the grid alignment
-    let currentWeek = 0;
-    let lastDayOfWeek = -1;
-
-    activityHistory.forEach((day, index) => {
-      const date = new Date(day.date);
-      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-
-      // Start a new week when we encounter a Sunday after having other days
-      if (dayOfWeek === 0 && index > 0) {
-        currentWeek++;
-        // Add week label (first day of the week)
-        labels[currentWeek] = `${date.getMonth() + 1}/${date.getDate()}`;
-      }
-
-      // Initialize first week label
-      if (index === 0) {
-        labels[0] = `${date.getMonth() + 1}/${date.getDate()}`;
-      }
-
-      // Ensure all rows have enough columns
-      while (rows[dayOfWeek].length <= currentWeek) {
-        for (let i = 0; i < 7; i++) {
-          if (rows[i].length <= currentWeek) {
-            rows[i].push(null);
-          }
-        }
-      }
-
-      rows[dayOfWeek][currentWeek] = day;
-      lastDayOfWeek = dayOfWeek;
+  const { grid } = useMemo(() => {
+    // Create a map of date -> activity for quick lookup
+    const activityMap = new Map<string, DailyActivity>();
+    activityHistory.forEach(day => {
+      activityMap.set(day.date, day);
     });
 
-    return { grid: rows, weekLabels: labels };
+    // Find the date range
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 27); // 4 weeks ago
+
+    // Find the Sunday of the week containing startDate
+    const startSunday = new Date(startDate);
+    startSunday.setDate(startSunday.getDate() - startSunday.getDay());
+
+    // Calculate number of weeks needed
+    const daysDiff = Math.ceil((today.getTime() - startSunday.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksNeeded = Math.ceil((daysDiff + 1) / 7);
+
+    // Initialize grid: 7 rows (days of week) x N columns (weeks)
+    const rows: (DailyActivity | null)[][] = Array.from({ length: 7 }, () =>
+      Array(weeksNeeded).fill(null)
+    );
+
+    // Fill the grid
+    for (let week = 0; week < weeksNeeded; week++) {
+      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+        const cellDate = new Date(startSunday);
+        cellDate.setDate(startSunday.getDate() + week * 7 + dayOfWeek);
+
+        // Skip future dates
+        if (cellDate > today) {
+          rows[dayOfWeek][week] = null;
+          continue;
+        }
+
+        const dateStr = cellDate.toISOString().split('T')[0];
+        const activity = activityMap.get(dateStr);
+
+        if (activity) {
+          rows[dayOfWeek][week] = activity;
+        } else {
+          // Create empty activity for this date
+          rows[dayOfWeek][week] = { date: dateStr, quizCount: 0, correctCount: 0 };
+        }
+      }
+    }
+
+    return { grid: rows, numWeeks: weeksNeeded };
   }, [activityHistory]);
 
   // Get intensity level (0-4) based on quiz count
@@ -78,15 +72,15 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
     return 4;
   };
 
-  // Color classes based on intensity
+  // Color classes based on intensity (level 0 has visible border like GitHub)
   const getColorClass = (intensity: number): string => {
     switch (intensity) {
-      case 0: return 'bg-[var(--color-surface)]';
+      case 0: return 'bg-[var(--color-background)] border border-[var(--color-border)]';
       case 1: return 'bg-[var(--color-peach-light)]';
       case 2: return 'bg-[var(--color-peach)]';
       case 3: return 'bg-[var(--color-primary)]/70';
       case 4: return 'bg-[var(--color-primary)]';
-      default: return 'bg-[var(--color-surface)]';
+      default: return 'bg-[var(--color-background)] border border-[var(--color-border)]';
     }
   };
 
@@ -98,7 +92,7 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
-  const numWeeks = grid[0]?.length || 0;
+  const todayStr = new Date().toISOString().split('T')[0];
 
   return (
     <div className="card p-5">
@@ -124,6 +118,7 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
             {grid.map((row, dayIndex) => (
               <div key={dayIndex} className="flex gap-1">
                 {row.map((day, weekIndex) => {
+                  // Future dates (null) - transparent
                   if (!day) {
                     return (
                       <div
@@ -132,8 +127,9 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
                       />
                     );
                   }
+                  // Past/present dates - show with color
                   const intensity = getIntensity(day.quizCount);
-                  const isToday = day.date === new Date().toISOString().split('T')[0];
+                  const isToday = day.date === todayStr;
                   return (
                     <div
                       key={weekIndex}
@@ -153,7 +149,7 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
       {/* Legend */}
       <div className="flex items-center justify-end gap-2 mt-3 text-xs text-[var(--color-muted)]">
         <span>少</span>
-        <div className="flex gap-1">
+        <div className="flex gap-[2px]">
           {[0, 1, 2, 3, 4].map((level) => (
             <div
               key={level}
@@ -169,67 +165,40 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
 
 export default function StatsPage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [activityHistory, setActivityHistory] = useState<DailyActivity[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Initialize with cached data or localStorage data immediately
+  const [activityHistory] = useState<DailyActivity[]>(() => getActivityHistory(4));
+  const [localStats] = useState(() => {
+    const dailyStats = getDailyStats();
+    const wrongAnswers = getWrongAnswers();
+    const streakDays = getStreakDays();
+    return { dailyStats, wrongAnswersCount: wrongAnswers.length, streakDays };
+  });
+
+  // Try to use prefetched cache immediately (no loading spinner needed)
+  const [stats, setStats] = useState<CachedStats | null>(() => getCachedStats());
+  const [loading, setLoading] = useState(!stats);
 
   useEffect(() => {
-    const loadStats = async () => {
-      if (authLoading) return;
+    if (authLoading) return;
 
-      try {
-        const repository = getRepository(subscription?.status ?? 'free');
-        const userId = isPro && user ? user.id : getGuestUserId();
-        const projects = await repository.getProjects(userId);
+    // If we already have cached stats, show them immediately
+    // but still fetch fresh data in the background
+    const cached = getCachedStats();
+    if (cached) {
+      setStats(cached);
+      setLoading(false);
+    }
 
-        let totalWords = 0;
-        let masteredWords = 0;
-        let reviewWords = 0;
-        let newWords = 0;
-        let favoriteWords = 0;
-
-        for (const project of projects) {
-          const words = await repository.getWords(project.id);
-          totalWords += words.length;
-
-          for (const word of words) {
-            if (word.status === 'mastered') masteredWords++;
-            else if (word.status === 'review') reviewWords++;
-            else newWords++;
-
-            if (word.isFavorite) favoriteWords++;
-          }
-        }
-
-        const dailyStats = getDailyStats();
-        const wrongAnswers = getWrongAnswers();
-        const streakDays = getStreakDays();
-        const history = getActivityHistory(4); // 4 weeks
-
-        setActivityHistory(history);
-        setStats({
-          totalProjects: projects.length,
-          totalWords,
-          masteredWords,
-          reviewWords,
-          newWords,
-          favoriteWords,
-          wrongAnswersCount: wrongAnswers.length,
-          quizStats: {
-            todayCount: dailyStats.todayCount,
-            correctCount: dailyStats.correctCount,
-            streakDays,
-            lastQuizDate: null,
-          },
-        });
-      } catch (error) {
-        console.error('Failed to load stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStats();
+    // Fetch fresh data (will use cache if available, otherwise fetch)
+    const subscriptionStatus = subscription?.status ?? 'free';
+    getStats(subscriptionStatus, user?.id ?? null, isPro).then((freshStats) => {
+      setStats(freshStats);
+      setLoading(false);
+    }).catch((error) => {
+      console.error('Failed to load stats:', error);
+      setLoading(false);
+    });
   }, [subscription?.status, authLoading, isPro, user]);
 
   const masteryPercentage = stats && stats.totalWords > 0

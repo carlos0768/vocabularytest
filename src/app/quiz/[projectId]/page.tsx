@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
+import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
@@ -36,6 +37,8 @@ export default function QuizPage() {
   });
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [generatingDistractors, setGeneratingDistractors] = useState(false);
+  const [distractorError, setDistractorError] = useState<string | null>(null);
   const [inputCount, setInputCount] = useState('');
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -57,6 +60,111 @@ export default function QuizPage() {
     });
   }, []);
 
+  // Generate distractors for words that don't have them, then start quiz
+  const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
+    const selected = shuffleArray(words).slice(0, count);
+
+    // Find words that need distractors
+    const wordsNeedingDistractors = selected.filter(
+      (w) => !w.distractors || w.distractors.length === 0 ||
+        (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+    );
+
+    let updatedSelected = selected;
+    setDistractorError(null);
+
+    if (wordsNeedingDistractors.length > 0) {
+      setGeneratingDistractors(true);
+
+      try {
+        const response = await fetch('/api/generate-quiz-distractors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            words: wordsNeedingDistractors.map((w) => ({
+              id: w.id,
+              english: w.english,
+              japanese: w.japanese,
+            })),
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.results) {
+          // Create a map of wordId -> distractors
+          const distractorMap = new Map<string, string[]>();
+          for (const result of data.results) {
+            distractorMap.set(result.wordId, result.distractors);
+          }
+
+          // Update words with generated distractors
+          updatedSelected = selected.map((w) => {
+            const newDistractors = distractorMap.get(w.id);
+            if (newDistractors) {
+              return { ...w, distractors: newDistractors };
+            }
+            return w;
+          });
+
+          // Check if all words now have distractors
+          const stillMissing = updatedSelected.filter(
+            (w) => !w.distractors || w.distractors.length === 0
+          );
+          if (stillMissing.length > 0) {
+            setGeneratingDistractors(false);
+            setDistractorError('一部の単語で選択肢の生成に失敗しました。再試行してください。');
+            return;
+          }
+
+          // Save distractors to DB and update local state
+          const updatePromises: Promise<void>[] = [];
+          for (const result of data.results) {
+            updatePromises.push(
+              repository.updateWord(result.wordId, { distractors: result.distractors })
+            );
+          }
+          await Promise.all(updatePromises);
+
+          // Update allWords state with new distractors
+          setAllWords((prev) =>
+            prev.map((w) => {
+              const newDistractors = distractorMap.get(w.id);
+              return newDistractors ? { ...w, distractors: newDistractors } : w;
+            })
+          );
+        } else {
+          // API returned error
+          setGeneratingDistractors(false);
+          setDistractorError(data.error || 'クイズの生成に失敗しました。再試行してください。');
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to generate distractors:', error);
+        setGeneratingDistractors(false);
+        setDistractorError('クイズの生成に失敗しました。再試行してください。');
+        return;
+      } finally {
+        setGeneratingDistractors(false);
+      }
+    }
+
+    // Generate quiz questions from updated words
+    const quizQuestions = updatedSelected.map((word) => {
+      const allOptions = [word.japanese, ...word.distractors];
+      const shuffled = shuffleArray(allOptions);
+      const correctIndex = shuffled.indexOf(word.japanese);
+
+      return {
+        word,
+        options: shuffled,
+        correctIndex,
+      };
+    });
+
+    setQuestions(quizQuestions);
+  }, [repository]);
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -70,8 +178,18 @@ export default function QuizPage() {
         setAllWords(words);
 
         if (questionCount) {
-          const generated = generateQuestions(words, questionCount);
-          setQuestions(generated);
+          // Check if any words might need distractors
+          const needsGeneration = words.some(
+            (w) => !w.distractors || w.distractors.length === 0 ||
+              (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+          );
+
+          if (needsGeneration) {
+            await startQuizWithDistractors(words, questionCount);
+          } else {
+            const generated = generateQuestions(words, questionCount);
+            setQuestions(generated);
+          }
         }
       } catch (error) {
         console.error('Failed to load words:', error);
@@ -82,7 +200,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading, questionCount]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -119,9 +237,22 @@ export default function QuizPage() {
     }
   };
 
-  const handleRestart = () => {
-    const regenerated = generateQuestions(allWords, questionCount || DEFAULT_QUESTION_COUNT);
-    setQuestions(regenerated);
+  const handleRestart = async () => {
+    const count = questionCount || DEFAULT_QUESTION_COUNT;
+
+    // Check if any words still need distractors
+    const needsGeneration = allWords.some(
+      (w) => !w.distractors || w.distractors.length === 0 ||
+        (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+    );
+
+    if (needsGeneration) {
+      await startQuizWithDistractors(allWords, count);
+    } else {
+      const regenerated = generateQuestions(allWords, count);
+      setQuestions(regenerated);
+    }
+
     setCurrentIndex(0);
     setSelectedIndex(null);
     setIsRevealed(false);
@@ -129,15 +260,25 @@ export default function QuizPage() {
     setIsComplete(false);
   };
 
-  const handleSelectCount = (count: number) => {
+  const handleSelectCount = async (count: number) => {
     setQuestionCount(count);
     if (allWords.length > 0) {
-      const generated = generateQuestions(allWords, count);
-      setQuestions(generated);
+      // Check if any words need distractors
+      const needsGeneration = allWords.some(
+        (w) => !w.distractors || w.distractors.length === 0 ||
+          (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+      );
+
+      if (needsGeneration) {
+        await startQuizWithDistractors(allWords, count);
+      } else {
+        const generated = generateQuestions(allWords, count);
+        setQuestions(generated);
+      }
     }
   };
 
-  // Loading screen
+  // Loading screen (initial load)
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
@@ -145,6 +286,83 @@ export default function QuizPage() {
           <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--color-muted)]">クイズを準備中...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Generating distractors - show flashcard while waiting
+  if (generatingDistractors) {
+    return (
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        {/* Header */}
+        <header className="flex-shrink-0 p-4">
+          <button
+            onClick={() => router.push(`/project/${projectId}`)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </header>
+
+        {/* Loading indicator */}
+        <div className="px-6 pt-2 pb-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-5 h-5 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <p className="text-[var(--color-foreground)] font-semibold">クイズを生成中...</p>
+          </div>
+          <p className="text-sm text-[var(--color-muted)]">
+            フラッシュカードで復習しながらお待ちください
+          </p>
+        </div>
+
+        {/* Flashcard */}
+        <main className="flex-1 px-6 pb-6 overflow-y-auto">
+          <InlineFlashcard words={allWords} />
+        </main>
+      </div>
+    );
+  }
+
+  // Distractor generation error screen
+  if (distractorError) {
+    return (
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        <header className="flex-shrink-0 p-4">
+          <button
+            onClick={() => router.push(`/project/${projectId}`)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </header>
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center max-w-sm">
+            <p className="text-red-600 mb-6">{distractorError}</p>
+            <div className="space-y-3">
+              <Button
+                onClick={() => {
+                  setDistractorError(null);
+                  if (questionCount) {
+                    startQuizWithDistractors(allWords, questionCount);
+                  }
+                }}
+                className="w-full"
+                size="lg"
+              >
+                <RotateCcw className="w-5 h-5 mr-2" />
+                再試行
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => router.push(`/project/${projectId}`)}
+                className="w-full"
+                size="lg"
+              >
+                単語一覧に戻る
+              </Button>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }

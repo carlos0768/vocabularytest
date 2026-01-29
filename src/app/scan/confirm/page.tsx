@@ -496,16 +496,6 @@ function WordCard({
             {word.english}
           </p>
           <p className="text-sm text-gray-500 mt-0.5">{word.japanese}</p>
-          <div className="flex flex-wrap gap-1 mt-2">
-            {word.distractors.map((d, i) => (
-              <span
-                key={i}
-                className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-md"
-              >
-                {d}
-              </span>
-            ))}
-          </div>
         </div>
 
         <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">

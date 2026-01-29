@@ -198,7 +198,7 @@ export default function SentenceQuizPage() {
 
   // ローディング
   if (loading || generating) {
-    return <LoadingScreen />;
+    return <LoadingScreen words={allWords} />;
   }
 
   // エラー

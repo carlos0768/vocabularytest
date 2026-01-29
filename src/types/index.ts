@@ -2,8 +2,6 @@
 // Re-exports shared types and adds web-specific types
 
 // ============ Shared Types (from /shared/types) ============
-// Import for local use
-import type { AIWordExtraction as AIWordExtractionType } from '../../shared/types';
 
 export type {
   WordStatus,
@@ -57,37 +55,3 @@ export interface KomojuPaymentSession {
   paymentUrl: string;
 }
 
-// ============ Scan Job Types (Background Processing) ============
-
-export type ScanJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export type ScanMode = 'all' | 'circled' | 'eiken' | 'idiom' | 'highlighted' | 'wrong';
-
-export interface ScanJob {
-  id: string;
-  user_id: string;
-  status: ScanJobStatus;
-  scan_mode: ScanMode;
-  eiken_level: string | null;
-  project_id: string | null;
-  project_title: string | null;
-  image_path: string;
-  result: AIWordExtractionType[] | null;
-  error_message: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateScanJobRequest {
-  image: string; // base64
-  scanMode: ScanMode;
-  eikenLevel?: string;
-  projectId?: string; // 既存プロジェクトに追加する場合
-  projectTitle?: string; // 新規プロジェクトの場合
-}
-
-export interface ScanJobResponse {
-  success: boolean;
-  jobId?: string;
-  job?: ScanJob;
-  error?: string;
-}
