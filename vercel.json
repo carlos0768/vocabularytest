@@ -5,6 +5,15 @@
     },
     "src/app/api/extract/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/sentence-quiz/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/regenerate-distractors/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/generate-quiz-distractors/route.ts": {
+      "maxDuration": 30
     }
   }
 }

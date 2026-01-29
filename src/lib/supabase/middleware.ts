@@ -1,7 +1,22 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Paths that require authentication check
+const protectedPaths = ['/project', '/quiz', '/scan', '/settings', '/subscription', '/share', '/flashcard', '/sentence-quiz', '/favorites', '/grammar'];
+const authPaths = ['/login', '/signup'];
+
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Fast path: skip Supabase auth check entirely for paths that don't need it
+  const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path));
+  const isAuthPath = authPaths.some((path) => pathname.startsWith(path));
+
+  if (!isProtectedPath && !isAuthPath) {
+    // Home page and other non-auth paths: no need for server-side auth check
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -29,29 +44,17 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired
+  // Refresh session if expired - only called for protected/auth paths
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ['/project', '/quiz', '/scan', '/settings', '/subscription', '/share'];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
   if (isProtectedPath && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.searchParams.set('redirect', request.nextUrl.pathname);
+    url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
-
-  // Redirect logged-in users away from auth pages
-  const authPaths = ['/login', '/signup'];
-  const isAuthPath = authPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
 
   if (isAuthPath && user) {
     const url = request.nextUrl.clone();

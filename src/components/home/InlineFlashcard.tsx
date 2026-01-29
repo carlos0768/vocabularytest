@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Volume2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Volume2, RotateCcw } from 'lucide-react';
 import { shuffleArray } from '@/lib/utils';
 import type { Word } from '@/types';
 
@@ -85,24 +85,26 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
       </div>
 
       {/* Flashcard */}
-      <div className="bg-[var(--color-surface)] rounded-2xl p-6 min-h-[160px] flex items-center justify-center shadow-soft mb-4 relative">
-        {/* Left arrow button */}
-        <button
-          onClick={goToPrevious}
-          disabled={currentIndex === 0}
-          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-[var(--color-background)] hover:bg-[var(--color-peach-light)] rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
-          aria-label="前へ"
-        >
-          <ChevronLeft className="w-5 h-5 text-[var(--color-foreground)]" />
-        </button>
+      <div
+        className="bg-[var(--color-surface)] rounded-2xl min-h-[160px] shadow-soft mb-4 relative cursor-pointer select-none"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const width = rect.width;
+          const third = width / 3;
 
-        {/* Card content - tap to flip */}
-        <div
-          onClick={() => setIsFlipped(prev => !prev)}
-          className="flex-1 px-10 cursor-pointer"
-        >
+          if (x < third) {
+            goToPrevious();
+          } else if (x > third * 2) {
+            goToNext();
+          } else {
+            setIsFlipped(prev => !prev);
+          }
+        }}
+      >
+        <div className="p-6 flex items-center justify-center min-h-[160px]">
           {!isFlipped ? (
-            // Front: English - matches back layout position
+            // Front: English
             <div className="text-center">
               <div className="flex items-center justify-center mb-2 h-[20px]">
                 <button
@@ -119,7 +121,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
               <p className="text-sm text-[var(--color-muted)] mt-3">タップして意味を表示</p>
             </div>
           ) : (
-            // Back: Japanese - same layout as front
+            // Back: Japanese
             <div className="text-center">
               <p className="text-sm text-[var(--color-muted)] mb-2 h-[20px] flex items-center justify-center">{currentWord.english}</p>
               <h2 className="text-2xl font-bold text-[var(--color-foreground)]">
@@ -129,15 +131,6 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
             </div>
           )}
         </div>
-
-        {/* Right arrow button */}
-        <button
-          onClick={goToNext}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[var(--color-background)] hover:bg-[var(--color-peach-light)] rounded-full transition-colors shadow-sm"
-          aria-label="次へ"
-        >
-          <ChevronRight className="w-5 h-5 text-[var(--color-foreground)]" />
-        </button>
       </div>
     </div>
   );
