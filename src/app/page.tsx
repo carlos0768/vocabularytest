@@ -518,6 +518,15 @@ export default function HomePage() {
       }
       loadWords();
       refreshWordCount();
+
+      // Generate embeddings for the new word in the background (Pro only)
+      if (isPro && user) {
+        fetch('/api/embeddings/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        }).catch(() => {});
+      }
     } catch (error) {
       console.error('Failed to save manual word:', error);
       showToast({ message: '単語の保存に失敗しました', type: 'error' });
