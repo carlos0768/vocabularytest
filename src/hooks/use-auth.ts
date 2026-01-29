@@ -236,11 +236,12 @@ export function useAuth() {
         if (event === 'SIGNED_OUT') {
           notifyListeners({ user: null, subscription: null, loading: false, error: null });
           hasInitialized = false;
-        } else if (event === 'TOKEN_REFRESHED') {
-          // Only reload on token refresh, not on SIGNED_IN (which is handled by signIn function)
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Reload user state on sign-in (e.g., after email confirmation callback)
+          // and on token refresh
           loadUser();
         }
-        // Ignore INITIAL_SESSION and SIGNED_IN - handled elsewhere
+        // Ignore INITIAL_SESSION - handled by hasInitialized check above
       }
     );
 
