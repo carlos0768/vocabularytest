@@ -223,8 +223,8 @@ export default function ConfirmPage() {
         });
       }
 
-      // Navigate to project page
-      router.push(`/project/${targetProjectId}`);
+      // Navigate directly to home (project detail is integrated into home page)
+      router.push('/');
     } catch (error) {
       console.error('Save error:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
