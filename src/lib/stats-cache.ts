@@ -7,6 +7,7 @@
  */
 
 import { getRepository } from '@/lib/db';
+import { createBrowserClient } from '@/lib/supabase';
 import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId } from '@/lib/utils';
 import type { SubscriptionStatus } from '@/types';
 
@@ -118,46 +119,89 @@ export function invalidateStatsCache(): void {
   cachedUserId = null;
 }
 
+/**
+ * Proユーザー: Supabase RPC 1クエリで集計（高速）
+ */
+async function fetchStatsViaRpc(userId: string): Promise<{
+  totalProjects: number;
+  totalWords: number;
+  masteredWords: number;
+  reviewWords: number;
+  newWords: number;
+  favoriteWords: number;
+}> {
+  const supabase = createBrowserClient();
+  const { data, error } = await supabase.rpc('get_user_stats', { p_user_id: userId });
+
+  if (error) throw error;
+
+  return {
+    totalProjects: data.total_projects ?? 0,
+    totalWords: data.total_words ?? 0,
+    masteredWords: data.mastered_words ?? 0,
+    reviewWords: data.review_words ?? 0,
+    newWords: data.new_words ?? 0,
+    favoriteWords: data.favorite_words ?? 0,
+  };
+}
+
+/**
+ * Freeユーザー: IndexedBのN+1取得で集計（ローカルDB）
+ */
+async function fetchStatsViaRepository(
+  subscriptionStatus: SubscriptionStatus,
+  userId: string,
+): Promise<{
+  totalProjects: number;
+  totalWords: number;
+  masteredWords: number;
+  reviewWords: number;
+  newWords: number;
+  favoriteWords: number;
+}> {
+  const repository = getRepository(subscriptionStatus);
+  const projects = await repository.getProjects(userId);
+
+  const allWordsArrays = await Promise.all(
+    projects.map((project) => repository.getWords(project.id))
+  );
+
+  let totalWords = 0;
+  let masteredWords = 0;
+  let reviewWords = 0;
+  let newWords = 0;
+  let favoriteWords = 0;
+
+  for (const words of allWordsArrays) {
+    totalWords += words.length;
+    for (const word of words) {
+      if (word.status === 'mastered') masteredWords++;
+      else if (word.status === 'review') reviewWords++;
+      else newWords++;
+      if (word.isFavorite) favoriteWords++;
+    }
+  }
+
+  return { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords };
+}
+
 async function fetchStatsData(
   subscriptionStatus: SubscriptionStatus,
   userId: string,
 ): Promise<CachedStats | null> {
   try {
-    const repository = getRepository(subscriptionStatus);
-    const projects = await repository.getProjects(userId);
-
-    // 全プロジェクトの単語を並行取得
-    const allWordsArrays = await Promise.all(
-      projects.map((project) => repository.getWords(project.id))
-    );
-
-    let totalWords = 0;
-    let masteredWords = 0;
-    let reviewWords = 0;
-    let newWords = 0;
-    let favoriteWords = 0;
-
-    for (const words of allWordsArrays) {
-      totalWords += words.length;
-      for (const word of words) {
-        if (word.status === 'mastered') masteredWords++;
-        else if (word.status === 'review') reviewWords++;
-        else newWords++;
-        if (word.isFavorite) favoriteWords++;
-      }
-    }
+    // Pro: RPC 1クエリ / Free: IndexedDB N+1
+    const isPro = subscriptionStatus === 'active';
+    const wordStats = isPro
+      ? await fetchStatsViaRpc(userId)
+      : await fetchStatsViaRepository(subscriptionStatus, userId);
 
     const dailyStats = getDailyStats();
     const wrongAnswers = getWrongAnswers();
     const streakDays = getStreakDays();
 
     const stats: CachedStats = {
-      totalProjects: projects.length,
-      totalWords,
-      masteredWords,
-      reviewWords,
-      newWords,
-      favoriteWords,
+      ...wordStats,
       wrongAnswersCount: wrongAnswers.length,
       quizStats: {
         todayCount: dailyStats.todayCount,
