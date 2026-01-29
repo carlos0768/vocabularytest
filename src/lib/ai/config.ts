@@ -51,28 +51,28 @@ export const AI_CONFIG: AIConfig = {
       provider: 'gemini',
       model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
-      maxOutputTokens: 65536,
+      maxOutputTokens: 65535,
     },
     // 熟語抽出（idiom mode）
     idioms: {
       provider: 'gemini',
       model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
-      maxOutputTokens: 65536,
+      maxOutputTokens: 65535,
     },
     // 英検レベル別抽出（eiken mode）
     eiken: {
       provider: 'gemini',
       model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
-      maxOutputTokens: 65536,
+      maxOutputTokens: 65535,
     },
     // 丸印単語抽出（circled mode）
     circled: {
       provider: 'gemini',
       model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
-      maxOutputTokens: 65536,
+      maxOutputTokens: 65535,
     },
     // 文法抽出（2段階処理）
     grammar: {
@@ -96,7 +96,7 @@ export const AI_CONFIG: AIConfig = {
       provider: 'gemini',
       model: 'gemini-2.5-flash-lite',
       temperature: 0.7,
-      maxOutputTokens: 65536,
+      maxOutputTokens: 65535,
     },
     openai: {
       provider: 'openai',
