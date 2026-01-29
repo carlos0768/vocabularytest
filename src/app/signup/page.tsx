@@ -70,7 +70,8 @@ function SignupForm() {
             setLoading(false);
             return;
           }
-          router.push(redirect);
+          // ハードナビゲーションでcookieを確実にサーバーへ反映
+          window.location.href = redirect;
           return;
         }
         setError(data.error || '認証コードの送信に失敗しました');
@@ -110,7 +111,8 @@ function SignupForm() {
       }
 
       // Registration + login successful - redirect
-      router.push(redirect);
+      // ハードナビゲーションでcookieを確実にサーバーへ反映
+      window.location.href = redirect;
     } catch {
       setError('通信エラーが発生しました');
       setLoading(false);
