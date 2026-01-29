@@ -512,6 +512,10 @@ export default function HomePage() {
       setManualWordEnglish('');
       setManualWordJapanese('');
       setShowManualWordModal(false);
+      // Invalidate cache so loadWords fetches fresh data
+      if (currentProject) {
+        delete globalProjectWordsCache[currentProject.id];
+      }
       loadWords();
       refreshWordCount();
     } catch (error) {
