@@ -31,6 +31,30 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'MERKEN',
   },
+  openGraph: {
+    title: 'MERKEN - 手入力ゼロで単語帳を作成',
+    description:
+      '手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ',
+    siteName: 'MERKEN',
+    url: 'https://merken.jp',
+    images: [
+      {
+        url: 'https://merken.jp/icon-512.png',
+        width: 512,
+        height: 512,
+        alt: 'MERKEN',
+      },
+    ],
+    locale: 'ja_JP',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'MERKEN - 手入力ゼロで単語帳を作成',
+    description:
+      '手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ',
+    images: ['https://merken.jp/icon-512.png'],
+  },
 };
 
 export const viewport: Viewport = {
