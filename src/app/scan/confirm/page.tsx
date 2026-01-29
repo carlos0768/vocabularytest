@@ -10,6 +10,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
+import { invalidateHomeCache } from '@/app/page';
 import type { AIWordExtraction } from '@/types';
 
 interface EditableWord extends AIWordExtraction {
@@ -222,6 +223,9 @@ export default function ConfirmPage() {
           type: 'success',
         });
       }
+
+      // Invalidate home page cache so it fetches fresh data
+      invalidateHomeCache();
 
       // Navigate directly to home (project detail is integrated into home page)
       router.push('/');
