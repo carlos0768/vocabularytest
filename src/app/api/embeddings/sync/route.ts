@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
       wordsToProcess = words || [];
     }
 
+    // Filter out words with empty english text
+    wordsToProcess = wordsToProcess.filter((w) => w.english && w.english.trim().length > 0);
+
     if (wordsToProcess.length === 0) {
       return NextResponse.json({
         success: true,
@@ -115,7 +118,7 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. GENERATE EMBEDDINGS IN BATCH
     // ============================================
-    const texts = wordsToProcess.map((w) => w.english);
+    const texts = wordsToProcess.map((w) => w.english.trim());
     const embeddings = await batchGenerateEmbeddings(texts);
 
     // ============================================

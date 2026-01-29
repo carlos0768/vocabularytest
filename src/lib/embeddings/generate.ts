@@ -23,7 +23,10 @@ export async function generateWordEmbedding(text: string): Promise<number[]> {
  * @returns Array of 1536-dimensional embedding vectors
  */
 export async function batchGenerateEmbeddings(texts: string[]): Promise<number[][]> {
-  if (texts.length === 0) {
+  // Filter out empty/whitespace-only strings (OpenAI rejects them)
+  const validTexts = texts.map(t => t.trim()).filter(t => t.length > 0);
+
+  if (validTexts.length === 0) {
     return [];
   }
 
@@ -31,7 +34,7 @@ export async function batchGenerateEmbeddings(texts: string[]): Promise<number[]
 
   const response = await openai.embeddings.create({
     model: 'text-embedding-3-small',
-    input: texts,
+    input: validTexts,
   });
 
   // Sort by index to ensure correct order
