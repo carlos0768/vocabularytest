@@ -18,7 +18,7 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: 'WordSnap - 手入力ゼロで単語帳を作成',
+  title: 'MERKEN - 手入力ゼロで単語帳を作成',
   description:
     '手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ',
   manifest: '/manifest.json',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'WordSnap',
+    title: 'MERKEN',
   },
 };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendOtpEmail, generateOtpCode } from '@/lib/brevo/client';
+import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Brevoでメール送信
+    // Resendでメール送信
     const emailResult = await sendOtpEmail({
       to: normalizedEmail,
       otpCode,

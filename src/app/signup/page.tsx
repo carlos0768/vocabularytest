@@ -146,7 +146,7 @@ function SignupForm() {
     return (
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">WordSnap</h1>
+          <h1 className="text-3xl font-bold text-gray-900">MERKEN</h1>
           <p className="text-gray-500 mt-2">メール認証</p>
         </div>
 
@@ -220,7 +220,7 @@ function SignupForm() {
     <div className="w-full max-w-sm">
       {/* Logo */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">WordSnap</h1>
+        <h1 className="text-3xl font-bold text-gray-900">MERKEN</h1>
         <p className="text-gray-500 mt-2">新規アカウント作成</p>
       </div>
 
@@ -334,7 +334,7 @@ function SignupFormFallback() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">WordSnap</h1>
+        <h1 className="text-3xl font-bold text-gray-900">MERKEN</h1>
         <p className="text-gray-500 mt-2">新規アカウント作成</p>
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">

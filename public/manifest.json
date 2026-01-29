@@ -1,11 +1,11 @@
 {
-  "name": "WordSnap",
-  "short_name": "WordSnap",
+  "name": "MERKEN",
+  "short_name": "MERKEN",
   "description": "手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#2563eb",
+  "background_color": "#FFF9F5",
+  "theme_color": "#ff6b6b",
   "icons": [
     {
       "src": "/icon-192.png",
