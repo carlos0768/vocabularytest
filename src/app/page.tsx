@@ -200,6 +200,11 @@ export default function HomePage() {
       setProjects(data);
 
       if (data.length === 0) {
+        // If auth is still loading, don't show empty state yet — the user might be Pro
+        // and the real data will come from Supabase after auth completes.
+        if (authLoading) {
+          return;
+        }
         setTotalWords(0);
         setAllFavoriteWords([]);
         setProjectFavoriteCounts({});
@@ -275,7 +280,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [isPro, user, repository]);
+  }, [isPro, user, repository, authLoading]);
 
   // Load words for current project - use cache if available
   const loadWords = useCallback(async () => {
