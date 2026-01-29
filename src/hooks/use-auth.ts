@@ -12,7 +12,49 @@ interface AuthState {
   error: string | null;
 }
 
-// Global state to share across all useAuth() instances
+// ---- Strategy 3: localStorage subscription cache ----
+const SUB_CACHE_KEY = 'merken_sub_cache';
+
+interface SubCache {
+  subscription: Subscription | null;
+  userId: string;
+  timestamp: number;
+}
+
+function getCachedSubscription(userId: string): Subscription | null {
+  try {
+    const raw = localStorage.getItem(SUB_CACHE_KEY);
+    if (!raw) return null;
+    const cache: SubCache = JSON.parse(raw);
+    // Must match user and be < 10 minutes old
+    if (cache.userId !== userId) return null;
+    if (Date.now() - cache.timestamp > 10 * 60 * 1000) return null;
+    return cache.subscription;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedSubscription(userId: string, subscription: Subscription | null) {
+  try {
+    const cache: SubCache = { subscription, userId, timestamp: Date.now() };
+    localStorage.setItem(SUB_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore
+  }
+}
+
+function clearCachedSubscription() {
+  try {
+    localStorage.removeItem(SUB_CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ---- Global state ----
+
+// Try to initialize with non-loading state if we can resolve session synchronously
 let globalAuthState: AuthState = {
   user: null,
   subscription: null,
@@ -78,10 +120,67 @@ export function useAuth() {
     const user = session?.user ?? null;
 
     if (!user) {
+      clearCachedSubscription();
       return { user: null, subscription: null };
     }
 
-    // Fetch subscription
+    // Strategy 3: Check localStorage cache first for instant UI
+    const cachedSub = getCachedSubscription(user.id);
+    if (cachedSub !== null || getCachedSubscription(user.id) === null) {
+      // We have a cached answer (could be null = free user).
+      // Emit cached state immediately, then verify in background.
+      const hasCacheEntry = localStorage.getItem(SUB_CACHE_KEY) !== null;
+      if (hasCacheEntry) {
+        // Emit fast path
+        const fastResult = { user, subscription: cachedSub };
+
+        // Schedule background verification (non-blocking)
+        setTimeout(async () => {
+          try {
+            const { data: subData, error: subError } = await supabase
+              .from('subscriptions')
+              .select('*')
+              .eq('user_id', user.id)
+              .single();
+
+            if (subError && subError.code !== 'PGRST116') return;
+
+            const freshSub: Subscription | null = subData ? {
+              id: subData.id,
+              userId: subData.user_id,
+              status: subData.status as SubscriptionStatus,
+              plan: subData.plan as SubscriptionPlan,
+              komojuSubscriptionId: subData.komoju_subscription_id,
+              komojuCustomerId: subData.komoju_customer_id,
+              currentPeriodStart: subData.current_period_start,
+              currentPeriodEnd: subData.current_period_end,
+              createdAt: subData.created_at,
+              updatedAt: subData.updated_at,
+            } : null;
+
+            setCachedSubscription(user.id, freshSub);
+
+            // Only notify if subscription actually changed
+            const cachedStatus = cachedSub?.status;
+            const freshStatus = freshSub?.status;
+            if (cachedStatus !== freshStatus) {
+              notifyListeners({
+                user,
+                subscription: freshSub,
+                loading: false,
+                error: null,
+              });
+            }
+          } catch {
+            // Background verification failed - cached state is still valid
+          }
+        }, 0);
+
+        return fastResult;
+      }
+    }
+
+    // No cache: fetch subscription synchronously
     const { data: subscriptionData, error: subError } = await supabase
       .from('subscriptions')
       .select('*')
@@ -89,7 +188,6 @@ export function useAuth() {
       .single();
 
     if (subError && subError.code !== 'PGRST116') {
-      // PGRST116 = no rows returned, which is okay
       console.error('Failed to fetch subscription:', subError);
     }
 
@@ -105,6 +203,9 @@ export function useAuth() {
       createdAt: subscriptionData.created_at,
       updatedAt: subscriptionData.updated_at,
     } : null;
+
+    // Cache for next time
+    setCachedSubscription(user.id, subscription);
 
     return { user, subscription };
   }, [getSupabase]);
@@ -209,6 +310,7 @@ export function useAuth() {
     const supabase = getSupabase();
     if (!supabase) return;
     await supabase.auth.signOut();
+    clearCachedSubscription();
     notifyListeners({ user: null, subscription: null, loading: false, error: null });
     hasInitialized = false; // Reset for next login
   }, [getSupabase]);
@@ -234,6 +336,7 @@ export function useAuth() {
       (event) => {
         // Handle specific events
         if (event === 'SIGNED_OUT') {
+          clearCachedSubscription();
           notifyListeners({ user: null, subscription: null, loading: false, error: null });
           hasInitialized = false;
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {

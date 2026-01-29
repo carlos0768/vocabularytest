@@ -2,13 +2,13 @@
  * Stats Cache Module
  *
  * 統計ページのデータをプリフェッチ・キャッシュするモジュール。
- * ホーム画面マウント時にバックグラウンドでデータを取得し、
- * 統計ページを開いたときに即座に表示できるようにする。
+ * Strategy 1: Freeユーザーは home-cache から集計し、DBクエリを排除。
+ * Proユーザーは Supabase RPC（1クエリ）を使用。
  */
 
-import { getRepository } from '@/lib/db';
 import { createBrowserClient } from '@/lib/supabase';
 import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId } from '@/lib/utils';
+import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import type { SubscriptionStatus } from '@/types';
 
 export interface CachedStats {
@@ -64,7 +64,8 @@ export function getCachedUserId(): string | null {
 
 /**
  * バックグラウンドで統計データをプリフェッチする。
- * 既にフェッチ中なら重複実行しない。
+ * Freeユーザー: home-cache から即座に集計（DBクエリなし）
+ * Proユーザー: Supabase RPC 1クエリ
  */
 export function prefetchStats(
   subscriptionStatus: SubscriptionStatus,
@@ -79,7 +80,7 @@ export function prefetchStats(
   // 既にフェッチ中ならスキップ
   if (fetchPromise) return;
 
-  fetchPromise = fetchStatsData(subscriptionStatus, resolvedUserId)
+  fetchPromise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro)
     .finally(() => {
       fetchPromise = null;
     });
@@ -107,7 +108,7 @@ export async function getStats(
   }
 
   // フェッチ実行
-  const stats = await fetchStatsData(subscriptionStatus, resolvedUserId);
+  const stats = await fetchStatsData(subscriptionStatus, resolvedUserId, isPro);
   return stats || getCachedStats()!;
 }
 
@@ -146,25 +147,20 @@ async function fetchStatsViaRpc(userId: string): Promise<{
 }
 
 /**
- * Freeユーザー: IndexedBのN+1取得で集計（ローカルDB）
+ * Freeユーザー: home-cache から集計（DBクエリゼロ）
  */
-async function fetchStatsViaRepository(
-  subscriptionStatus: SubscriptionStatus,
-  userId: string,
-): Promise<{
+function buildStatsFromHomeCache(): {
   totalProjects: number;
   totalWords: number;
   masteredWords: number;
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
-}> {
-  const repository = getRepository(subscriptionStatus);
-  const projects = await repository.getProjects(userId);
+} | null {
+  if (!getHasLoaded()) return null;
 
-  const allWordsArrays = await Promise.all(
-    projects.map((project) => repository.getWords(project.id))
-  );
+  const projects = getCachedProjects();
+  const projectWords = getCachedProjectWords();
 
   let totalWords = 0;
   let masteredWords = 0;
@@ -172,7 +168,8 @@ async function fetchStatsViaRepository(
   let newWords = 0;
   let favoriteWords = 0;
 
-  for (const words of allWordsArrays) {
+  for (const project of projects) {
+    const words = projectWords[project.id] || [];
     totalWords += words.length;
     for (const word of words) {
       if (word.status === 'mastered') masteredWords++;
@@ -188,13 +185,56 @@ async function fetchStatsViaRepository(
 async function fetchStatsData(
   subscriptionStatus: SubscriptionStatus,
   userId: string,
+  isPro?: boolean,
 ): Promise<CachedStats | null> {
   try {
-    // Pro: RPC 1クエリ / Free: IndexedDB N+1
-    const isPro = subscriptionStatus === 'active';
-    const wordStats = isPro
-      ? await fetchStatsViaRpc(userId)
-      : await fetchStatsViaRepository(subscriptionStatus, userId);
+    const isProUser = isPro ?? subscriptionStatus === 'active';
+
+    // Free: home-cache から即座に集計 / Pro: RPC 1クエリ
+    let wordStats: {
+      totalProjects: number;
+      totalWords: number;
+      masteredWords: number;
+      reviewWords: number;
+      newWords: number;
+      favoriteWords: number;
+    };
+
+    if (isProUser) {
+      wordStats = await fetchStatsViaRpc(userId);
+    } else {
+      // Try home-cache first (no DB query)
+      const cached = buildStatsFromHomeCache();
+      if (cached) {
+        wordStats = cached;
+      } else {
+        // Fallback: home-cache not ready yet, use repository
+        const { getRepository } = await import('@/lib/db');
+        const repository = getRepository(subscriptionStatus);
+        const projects = await repository.getProjects(userId);
+        const allWordsArrays = await Promise.all(
+          projects.map((project) => repository.getWords(project.id))
+        );
+
+        let totalWords = 0;
+        let masteredWords = 0;
+        let reviewWords = 0;
+        let newWords = 0;
+        let favoriteWords = 0;
+
+        for (const words of allWordsArrays) {
+          totalWords += words.length;
+          for (const word of words) {
+            if (word.status === 'mastered') masteredWords++;
+            else if (word.status === 'review') reviewWords++;
+            else newWords++;
+            if (word.isFavorite) favoriteWords++;
+          }
+        }
+
+        wordStats = { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords };
+      }
+    }
 
     const dailyStats = getDailyStats();
     const wrongAnswers = getWrongAnswers();

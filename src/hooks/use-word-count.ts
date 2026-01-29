@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getRepository } from '@/lib/db';
-import { getGuestUserId, FREE_WORD_LIMIT } from '@/lib/utils';
+import { useState, useEffect, useCallback } from 'react';
+import { FREE_WORD_LIMIT } from '@/lib/utils';
+import { getCachedTotalWords, getHasLoaded, subscribeCacheUpdate } from '@/lib/home-cache';
 import { useAuth } from './use-auth';
-import type { SubscriptionStatus } from '@/types';
 
 interface WordCountState {
   count: number;
@@ -17,61 +16,57 @@ interface WordCountState {
   loading: boolean;
 }
 
+function deriveState(totalWords: number, isPro: boolean, isLoading: boolean): WordCountState {
+  const limit = isPro ? Infinity : FREE_WORD_LIMIT;
+  const remaining = isPro ? Infinity : Math.max(0, FREE_WORD_LIMIT - totalWords);
+  const percentage = isPro ? 0 : Math.min(100, Math.round((totalWords / FREE_WORD_LIMIT) * 100));
+
+  return {
+    count: totalWords,
+    limit,
+    remaining,
+    percentage,
+    isNearLimit: !isPro && percentage >= 80,
+    isAlmostFull: !isPro && percentage >= 95,
+    isAtLimit: !isPro && totalWords >= FREE_WORD_LIMIT,
+    loading: isLoading,
+  };
+}
+
 // Hook for tracking word count and limit status
+// Strategy 1: Reads from home-cache instead of making independent DB queries
 export function useWordCount() {
-  const { isPro, user, subscription, loading: authLoading } = useAuth();
-  const [state, setState] = useState<WordCountState>({
-    count: 0,
-    limit: FREE_WORD_LIMIT,
-    remaining: FREE_WORD_LIMIT,
-    percentage: 0,
-    isNearLimit: false,
-    isAlmostFull: false,
-    isAtLimit: false,
-    loading: true,
+  const { isPro, loading: authLoading } = useAuth();
+  const cacheReady = getHasLoaded();
+
+  const [state, setState] = useState<WordCountState>(() => {
+    if (cacheReady) {
+      return deriveState(getCachedTotalWords(), isPro, false);
+    }
+    return deriveState(0, false, true);
   });
 
-  // Get repository based on subscription status
-  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  // Subscribe to cache updates from loadProjects
+  useEffect(() => {
+    const unsubscribe = subscribeCacheUpdate(() => {
+      setState(deriveState(getCachedTotalWords(), isPro, false));
+    });
 
-  const loadWordCount = useCallback(async () => {
-    if (authLoading) return;
-
-    try {
-      setState(prev => ({ ...prev, loading: true }));
-
-      // Get all projects for the user
-      const userId = isPro && user ? user.id : getGuestUserId();
-      const projects = await repository.getProjects(userId);
-
-      // Count all words across all projects
-      let totalWords = 0;
-      for (const project of projects) {
-        const words = await repository.getWords(project.id);
-        totalWords += words.length;
-      }
-
-      // For Pro users, no limit
-      const limit = isPro ? Infinity : FREE_WORD_LIMIT;
-      const remaining = isPro ? Infinity : Math.max(0, FREE_WORD_LIMIT - totalWords);
-      const percentage = isPro ? 0 : Math.min(100, Math.round((totalWords / FREE_WORD_LIMIT) * 100));
-
-      setState({
-        count: totalWords,
-        limit,
-        remaining: isPro ? Infinity : remaining,
-        percentage,
-        isNearLimit: !isPro && percentage >= 80,
-        isAlmostFull: !isPro && percentage >= 95,
-        isAtLimit: !isPro && totalWords >= FREE_WORD_LIMIT,
-        loading: false,
-      });
-    } catch (error) {
-      console.error('Failed to load word count:', error);
-      setState(prev => ({ ...prev, loading: false }));
+    // Also sync when auth finishes and cache is already ready
+    if (!authLoading && getHasLoaded()) {
+      setState(deriveState(getCachedTotalWords(), isPro, false));
     }
-  }, [authLoading, isPro, user, repository]);
+
+    return unsubscribe;
+  }, [isPro, authLoading]);
+
+  // Refresh function - triggers a re-read from cache
+  // The actual data refresh should be done by invalidating + reloading home cache
+  const refresh = useCallback(() => {
+    if (getHasLoaded()) {
+      setState(deriveState(getCachedTotalWords(), isPro, false));
+    }
+  }, [isPro]);
 
   // Check if adding new words would exceed limit
   const canAddWords = useCallback((newWordCount: number): {
@@ -96,14 +91,9 @@ export function useWordCount() {
     };
   }, [isPro, state.count, state.isAtLimit]);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadWordCount();
-  }, [loadWordCount]);
-
   return {
     ...state,
-    refresh: loadWordCount,
+    refresh,
     canAddWords,
   };
 }

@@ -158,6 +158,37 @@ export class RemoteWordRepository implements WordRepository {
     if (error) throw new Error(`Failed to delete words: ${error.message}`);
   }
 
+  // ============ Bulk Queries ============
+
+  /**
+   * ユーザーの全単語を1回のSupabaseクエリで取得し、projectId別にグループ化。
+   * 62個の並列クエリ(~800ms)を1クエリ(~100ms)に削減。
+   * words テーブルにはuser_idカラムがないため、project_idのIN句で取得。
+   */
+  async getAllWordsByProjectIds(projectIds: string[]): Promise<Record<string, Word[]>> {
+    if (projectIds.length === 0) return {};
+
+    const { data, error } = await this.supabase
+      .from('words')
+      .select('*')
+      .in('project_id', projectIds)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to get all words: ${error.message}`);
+
+    const grouped: Record<string, Word[]> = {};
+    for (const pid of projectIds) {
+      grouped[pid] = [];
+    }
+    for (const row of (data as WordRow[])) {
+      const word = mapWordFromRow(row);
+      if (grouped[word.projectId]) {
+        grouped[word.projectId].push(word);
+      }
+    }
+    return grouped;
+  }
+
   // ============ Share Methods ============
 
   /**
