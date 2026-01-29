@@ -3,7 +3,7 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { GoogleGenAI } from '@google/genai';
 
 // API Route: POST /api/generate-quiz-distractors
-// Batch generates distractors for multiple words using Gemini 3 Pro with highest reasoning
+// Batch generates distractors for multiple words using Gemini 2.5 Flash Lite
 // Falls back to gemini-2.5-flash on 503/overload errors
 
 const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成者です。与えられた複数の英単語とその日本語訳に対して、それぞれクイズ用の誤答選択肢（distractors）を3つずつ生成してください。
@@ -42,15 +42,12 @@ interface WordInput {
 // Model configurations: primary → fallback
 const MODELS = [
   {
-    name: 'gemini-3-pro-preview',
+    name: 'gemini-2.0-flash',
     config: {
       temperature: 0.7,
       maxOutputTokens: 4096,
       responseMimeType: 'application/json',
-      thinkingConfig: {
-        thinkingBudget: 24576,
-      },
-    } as Record<string, unknown>,
+    },
   },
   {
     name: 'gemini-2.5-flash',
