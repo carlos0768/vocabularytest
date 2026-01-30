@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Trash2, Edit2, X, Save, AlertTriangle, Sparkles, Plus } from 'lucide-react';
@@ -19,17 +19,59 @@ interface EditableWord extends AIWordExtraction {
   isSelected: boolean;
 }
 
+// Check sessionStorage synchronously before any React rendering
+// This prevents any flash by determining data availability immediately
+function getInitialData(): { words: AIWordExtraction[] | null; projectName: string | null; existingProjectId: string | null } {
+  if (typeof window === 'undefined') {
+    return { words: null, projectName: null, existingProjectId: null };
+  }
+  try {
+    const stored = sessionStorage.getItem('scanvocab_extracted_words');
+    const projectName = sessionStorage.getItem('scanvocab_project_name');
+    const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
+
+    if (stored) {
+      const words = JSON.parse(stored) as AIWordExtraction[];
+      return { words, projectName, existingProjectId };
+    }
+  } catch {
+    // Parse error - will redirect
+  }
+  return { words: null, projectName: null, existingProjectId: null };
+}
+
 export default function ConfirmPage() {
   const router = useRouter();
   const { count: currentWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
   const { isPro, subscription, user } = useAuth();
   const { showToast } = useToast();
 
-  const [words, setWords] = useState<EditableWord[]>([]);
-  const [projectTitle, setProjectTitle] = useState('');
-  const [existingProjectId, setExistingProjectId] = useState<string | null>(null);
+  // Initialize state synchronously with sessionStorage data
+  const [initialData] = useState(getInitialData);
+  const [dataReady, setDataReady] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+
+  const [words, setWords] = useState<EditableWord[]>(() => {
+    if (initialData.words) {
+      return initialData.words.map((w, i) => ({
+        ...w,
+        tempId: `word-${i}`,
+        isEditing: false,
+        isSelected: true,
+      }));
+    }
+    return [];
+  });
+
+  const [projectTitle, setProjectTitle] = useState(() => {
+    if (initialData.existingProjectId) return '';
+    if (initialData.projectName) return initialData.projectName;
+    const now = new Date();
+    return `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
+
+  const [existingProjectId, setExistingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   // Check if adding these words would exceed limit
   const { wouldExceed, excessCount, availableSlots } = canAddWords(words.filter(w => w.isSelected).length);
@@ -39,55 +81,26 @@ export default function ConfirmPage() {
   // Check if adding to existing project
   const isAddingToExisting = !!existingProjectId;
 
-  // Load extracted words and project name from session storage
-  useEffect(() => {
-    setMounted(true);
-    const stored = sessionStorage.getItem('scanvocab_extracted_words');
-    const storedProjectName = sessionStorage.getItem('scanvocab_project_name');
-    const storedExistingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
-
-    if (storedExistingProjectId) {
-      setExistingProjectId(storedExistingProjectId);
-    }
-
-    if (stored) {
-      try {
-        const parsed: AIWordExtraction[] = JSON.parse(stored);
-        setWords(
-          parsed.map((w, i) => ({
-            ...w,
-            tempId: `word-${i}`,
-            isEditing: false,
-            isSelected: true, // All selected by default
-          }))
-        );
-        // Use stored project name or default title based on date (only for new projects)
-        if (!storedExistingProjectId) {
-          if (storedProjectName) {
-            setProjectTitle(storedProjectName);
-          } else {
-            const now = new Date();
-            setProjectTitle(
-              `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
-            );
-          }
-        }
-      } catch {
-        showToast({
-          message: 'データの読み込みに失敗しました。もう一度スキャンしてください。',
-          type: 'error',
-        });
-        router.push('/');
-      }
+  // Use useLayoutEffect to check data before paint
+  useLayoutEffect(() => {
+    if (initialData.words && initialData.words.length > 0) {
+      setDataReady(true);
     } else {
-      // Show a more helpful message instead of silently redirecting
+      // No data - need to redirect
+      setShouldRedirect(true);
+    }
+  }, [initialData.words]);
+
+  // Handle redirect in a separate effect to show toast
+  useEffect(() => {
+    if (shouldRedirect) {
       showToast({
         message: 'スキャンデータが見つかりません。もう一度スキャンしてください。',
         type: 'error',
       });
-      router.push('/');
+      router.replace('/');
     }
-  }, [router, showToast]);
+  }, [shouldRedirect, showToast, router]);
 
   const handleToggleWord = (tempId: string) => {
     setWords((prev) =>
@@ -238,8 +251,21 @@ export default function ConfirmPage() {
     }
   };
 
-  if (!mounted) {
-    return null;
+  // Show loading state until data is ready
+  // This creates a seamless transition from the scan page's processing modal
+  if (!dataReady) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
+          <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+            読み込み中
+          </h2>
+          <div className="flex justify-center">
+            <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

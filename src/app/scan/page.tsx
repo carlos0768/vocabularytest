@@ -88,18 +88,26 @@ function ScanPageContent() {
         setScanInfo(result.scanInfo);
       }
 
-      setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
-      ]);
-
-      // Save result to sessionStorage and navigate
+      // Save result to sessionStorage BEFORE showing completion
+      // This ensures data is available when confirm page loads
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
       if (projectId) {
         sessionStorage.setItem('scanvocab_existing_project_id', projectId);
       }
-      setProcessing(false);
-      router.push('/scan/confirm');
+
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
+        { id: 'navigate', label: '結果を表示中...', status: 'active' },
+      ]);
+
+      // Navigate with a small delay to ensure sessionStorage is flushed
+      // and the UI shows the navigation step
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Use replace instead of push to avoid back button issues
+      // Keep processing modal visible - it will be unmounted on navigation
+      router.replace('/scan/confirm');
     } catch (error) {
       console.error('Scan error:', error);
       setProcessing(false);
