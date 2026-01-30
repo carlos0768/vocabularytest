@@ -42,7 +42,7 @@ export const WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の�
 
 export const USER_PROMPT_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
-// Pro版用: 例文付き抽出プロンプト
+// Pro版用: 単語抽出プロンプト（例文はクイズ開始時に生成）
 export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から英単語を抽出し、以下のJSON形式で出力してください。
 
 ═══════════════════════════════════════════════════════════════
@@ -67,19 +67,12 @@ export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語�
    - 画像内に日本語訳が書かれている場合: その日本語訳をそのまま使用してください。
    - 画像内に日本語訳がない場合（英単語のみの場合）: その英単語の最も一般的で適切な日本語訳をあなたが生成してください。
 
-2. 例文の生成:
-   - 各単語に対して、その単語を使った自然な英語の例文を1つ生成してください。
-   - 例文は10〜20語程度の実用的で分かりやすい文にしてください。
-   - 例文の日本語訳も生成してください。
-
 出力フォーマット:
 {
   "words": [
     {
       "english": "word",
-      "japanese": "意味",
-      "exampleSentence": "This is an example sentence using the word.",
-      "exampleSentenceJa": "これはその単語を使った例文です。"
+      "japanese": "意味"
     }
   ]
 }
@@ -89,7 +82,7 @@ export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語�
 - 画像から英単語が読み取れない場合は、空の配列 {"words": []} を返してください。
 - 英単語のみの画像でも、必ず日本語訳を生成して出力してください。`;
 
-export const USER_PROMPT_WITH_EXAMPLES_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。各単語に対して、その単語を使った実用的な例文（英語と日本語訳）も生成してください。`;
+export const USER_PROMPT_WITH_EXAMPLES_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
 // 丸をつけた単語のみ抽出するプロンプト (Gemini用)
 export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から、**手書きで丸（○）やマーク、チェック、線で囲まれた英単語のみ**を抽出してください。
@@ -114,12 +107,7 @@ export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習�
    - 画像内に日本語訳が書かれている場合: その日本語訳をそのまま使用してください。
    - 画像内に日本語訳がない場合: その英単語の最も一般的で適切な日本語訳をあなたが生成してください。
 
-3. 例文の生成:
-   - 各単語に対して、その単語を使った自然な英語の例文を1つ生成してください。
-   - 例文は10〜20語程度の実用的で分かりやすい文にしてください。
-   - 例文の日本語訳も生成してください。
-
-4. 禁止事項:
+3. 禁止事項:
    - マークのない単語を抽出しない
 
 出力フォーマット:
@@ -127,9 +115,7 @@ export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習�
   "words": [
     {
       "english": "word",
-      "japanese": "意味",
-      "exampleSentence": "This is an example sentence using the word.",
-      "exampleSentenceJa": "これはその単語を使った例文です。"
+      "japanese": "意味"
     }
   ]
 }
@@ -138,7 +124,7 @@ export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習�
 - 必ず上記のJSON形式のみを出力してください。
 - 丸やマークがついた単語が見つからない場合は、空の配列 {"words": []} を返してください。`;
 
-export const CIRCLED_WORD_USER_PROMPT = `この画像から、丸（○）やチェックマーク、下線、ハイライトなど何らかのマークがついた英単語のみを抽出してください。マークのない単語は無視してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。各単語に対して、その単語を使った実用的な例文（英語と日本語訳）も生成してください。`;
+export const CIRCLED_WORD_USER_PROMPT = `この画像から、丸（○）やチェックマーク、下線、ハイライトなど何らかのマークがついた英単語のみを抽出してください。マークのない単語は無視してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
 // EIKEN level descriptions for AI prompts
 export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
@@ -579,12 +565,7 @@ export const IDIOM_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の
    - 画像内に日本語訳が書かれている場合: その日本語訳をそのまま使用してください。
    - 画像内に日本語訳がない場合: その熟語の最も一般的で適切な日本語訳をあなたが生成してください。
 
-2. 例文の生成:
-   - 各熟語に対して、その熟語を使った自然な英語の例文を1つ生成してください。
-   - 例文は10〜20語程度の実用的で分かりやすい文にしてください。
-   - 例文の日本語訳も生成してください。
-
-3. 禁止事項:
+2. 禁止事項:
    - 単語単体を熟語として抽出しない
 
 出力フォーマット:
@@ -592,9 +573,7 @@ export const IDIOM_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の
   "words": [
     {
       "english": "look forward to",
-      "japanese": "〜を楽しみに待つ",
-      "exampleSentence": "I'm looking forward to seeing you next week.",
-      "exampleSentenceJa": "来週あなたに会えるのを楽しみにしています。"
+      "japanese": "〜を楽しみに待つ"
     }
   ]
 }
@@ -603,7 +582,7 @@ export const IDIOM_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の
 - 必ず上記のJSON形式のみを出力してください。
 - 画像から熟語・イディオムが読み取れない場合は、空の配列 {"words": []} を返してください。`;
 
-export const IDIOM_USER_PROMPT = `この画像から熟語・イディオム・句動詞・定型表現を抽出してください。単語単体ではなく、2語以上の組み合わせで意味を成す表現のみを抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。各熟語に対して、その熟語を使った実用的な例文（英語と日本語訳）も生成してください。`;
+export const IDIOM_USER_PROMPT = `この画像から熟語・イディオム・句動詞・定型表現を抽出してください。単語単体ではなく、2語以上の組み合わせで意味を成す表現のみを抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
 // ============ Highlighted/Marker Word Extraction Prompts ============
 // Enhanced based on technical research for Gemini 2.5 Flash capabilities
@@ -668,8 +647,6 @@ export const HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像解�
 {
   "english": "photosynthesis",
   "japanese": "光合成",
-  "exampleSentence": "Plants use photosynthesis to convert sunlight into energy.",
-  "exampleSentenceJa": "植物は光合成を使って日光をエネルギーに変換する。",
   "markerColor": "yellow",
   "confidence": 0.95,
   "boundingBox": {"y_min": 120, "x_min": 50, "y_max": 160, "x_max": 280}
@@ -679,8 +656,6 @@ export const HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像解�
 {
   "english": "vocabulary",
   "japanese": "語彙、単語",
-  "exampleSentence": "Building your vocabulary is essential for language learning.",
-  "exampleSentenceJa": "語彙を増やすことは語学学習に不可欠だ。",
   "markerColor": "pink",
   "confidence": 0.78,
   "boundingBox": {"y_min": 200, "x_min": 100, "y_max": 240, "x_max": 320}
@@ -690,8 +665,6 @@ export const HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像解�
 {
   "english": "accomplish",
   "japanese": "〜を成し遂げる、達成する",
-  "exampleSentence": "She worked hard to accomplish her goals.",
-  "exampleSentenceJa": "彼女は目標を達成するために懸命に働いた。",
   "markerColor": "green",
   "confidence": 0.82,
   "boundingBox": {"y_min": 350, "x_min": 180, "y_max": 390, "x_max": 400}
@@ -710,11 +683,6 @@ export const HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像解�
 1. 画像内に日本語訳が書かれている場合: その日本語訳をそのまま使用
 2. 画像内に日本語訳がない場合: 最も一般的で適切な日本語訳を生成
 
-【例文の生成】
-- 各単語に対して、その単語を使った自然な英語の例文を1つ生成
-- 例文は10〜20語程度の実用的で分かりやすい文
-- 例文の日本語訳も生成
-
 【禁止事項】
 - マーカーのない単語を抽出しない（確信度0.5未満は除外）
 - 影やノイズをマーカーと誤認しない
@@ -728,8 +696,6 @@ export const HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像解�
     {
       "english": "単語",
       "japanese": "意味",
-      "exampleSentence": "Example sentence using the word.",
-      "exampleSentenceJa": "その単語を使った例文。",
       "markerColor": "yellow|pink|green|orange|blue|purple|unknown",
       "confidence": 0.0〜1.0,
       "boundingBox": {"y_min": 0, "x_min": 0, "y_max": 1000, "x_max": 1000}
@@ -753,7 +719,7 @@ export const HIGHLIGHTED_WORD_USER_PROMPT = `この画像を注意深く解析�
 4. 各検出に確信度スコアを付与（0.5未満は除外）
 5. マーカーの色を識別
 
-マーカーのない単語は絶対に含めないでください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。各単語に対して、その単語を使った実用的な例文（英語と日本語訳）も生成してください。`;
+マーカーのない単語は絶対に含めないでください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
 // ============ Wrong Answer Extraction Prompts ============
 // For extracting only incorrectly answered words from vocabulary tests
@@ -867,11 +833,6 @@ export const WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教�
 3. 正解が画像に含まれている場合: その正解をそのまま使用
 4. 正解が画像にない場合: AIが適切な正解を生成
 
-【例文の生成】
-- 各単語に対して、その単語を使った自然な英語の例文を1つ生成
-- 例文は10〜20語程度の実用的で分かりやすい文
-- 例文の日本語訳も生成
-
 【禁止事項】
 - 正解した問題を出力しない
 
@@ -884,8 +845,6 @@ export const WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教�
     {
       "english": "英単語",
       "japanese": "日本語訳",
-      "exampleSentence": "Example sentence using the word.",
-      "exampleSentenceJa": "その単語を使った例文の日本語訳。",
       "studentMistake": "生徒が間違えて書いた答え（参考用）",
       "questionNumber": 3
     }

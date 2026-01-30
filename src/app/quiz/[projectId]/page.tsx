@@ -42,7 +42,49 @@ export default function QuizPage() {
   const [inputCount, setInputCount] = useState('');
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const isPro = subscriptionStatus === 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Generate example sentences for words that don't have them (Pro only, runs in background)
+  const generateExamplesInBackground = useCallback(async (words: Word[]) => {
+    if (!isPro) return;
+
+    // Filter words that need example sentences
+    const wordsNeedingExamples = words.filter(
+      w => !w.exampleSentence || w.exampleSentence.trim().length === 0
+    );
+
+    if (wordsNeedingExamples.length === 0) return;
+
+    try {
+      const response = await fetch('/api/generate-examples', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          words: wordsNeedingExamples.map(w => ({
+            id: w.id,
+            english: w.english,
+            japanese: w.japanese,
+          })),
+        }),
+      });
+
+      if (!response.ok) return;
+
+      // Refresh words to get the generated examples
+      const updatedWords = await repository.getWords(projectId);
+      setAllWords(updatedWords);
+
+      // Update questions with new example sentences
+      setQuestions(prev => prev.map(q => {
+        const updatedWord = updatedWords.find(w => w.id === q.word.id);
+        return updatedWord ? { ...q, word: updatedWord } : q;
+      }));
+    } catch (error) {
+      console.error('Failed to generate examples:', error);
+      // Silently fail - example sentences are not critical
+    }
+  }, [isPro, projectId, repository]);
 
   const generateQuestions = useCallback((words: Word[], count: number): QuizQuestion[] => {
     const selected = shuffleArray(words).slice(0, count);
@@ -163,7 +205,10 @@ export default function QuizPage() {
     });
 
     setQuestions(quizQuestions);
-  }, [repository]);
+
+    // Generate example sentences in background (Pro only)
+    generateExamplesInBackground(updatedSelected);
+  }, [repository, generateExamplesInBackground]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -189,6 +234,9 @@ export default function QuizPage() {
           } else {
             const generated = generateQuestions(words, questionCount);
             setQuestions(generated);
+            // Generate example sentences in background (Pro only)
+            const selectedWords = generated.map(q => q.word);
+            generateExamplesInBackground(selectedWords);
           }
         }
       } catch (error) {
@@ -200,7 +248,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -274,6 +322,9 @@ export default function QuizPage() {
       } else {
         const generated = generateQuestions(allWords, count);
         setQuestions(generated);
+        // Generate example sentences in background (Pro only)
+        const selectedWords = generated.map(q => q.word);
+        generateExamplesInBackground(selectedWords);
       }
     }
   };
