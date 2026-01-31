@@ -163,7 +163,23 @@ function ScanPageContent() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleMultipleImages(Array.from(files));
+      // Filter to only allow images and PDFs
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+      const validFiles = Array.from(files).filter(file => 
+        allowedTypes.includes(file.type) || file.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|pdf)$/i)
+      );
+      
+      if (validFiles.length === 0) {
+        showToast({
+          message: '画像またはPDFファイルを選択してください',
+          type: 'error',
+          duration: 3000,
+        });
+        e.target.value = '';
+        return;
+      }
+      
+      handleMultipleImages(validFiles);
     }
     // Reset input value to allow selecting the same file again
     e.target.value = '';
@@ -223,7 +239,6 @@ function ScanPageContent() {
             </div>
             <input
               type="file"
-              accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.pdf"
               multiple
               onChange={handleFileChange}
               disabled={processing || !canScan}
