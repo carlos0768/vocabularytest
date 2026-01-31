@@ -10,21 +10,24 @@ export interface ParsedImage {
 }
 
 /**
- * データURLから画像情報を抽出
+ * データURLから画像/PDF情報を抽出
  *
- * @param dataUrl data:image/... 形式のURL
- * @returns パースされた画像情報
+ * @param dataUrl data:image/... または data:application/pdf 形式のURL
+ * @returns パースされた画像/PDF情報
  * @throws 不正な形式の場合はエラー
  *
  * @example
  * const image = parseDataUrl('data:image/jpeg;base64,/9j/4AAQ...');
  * // { base64: '/9j/4AAQ...', mimeType: 'image/jpeg' }
+ * const pdf = parseDataUrl('data:application/pdf;base64,JVBERi...');
+ * // { base64: 'JVBERi...', mimeType: 'application/pdf' }
  */
 export function parseDataUrl(dataUrl: string): ParsedImage {
-  const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+  // Match image formats or PDF
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+|application\/pdf);base64,(.+)$/);
 
   if (!match) {
-    throw new Error('Invalid data URL format. Expected: data:image/...;base64,...');
+    throw new Error('Invalid data URL format. Expected: data:image/...;base64,... or data:application/pdf;base64,...');
   }
 
   return {
@@ -34,13 +37,13 @@ export function parseDataUrl(dataUrl: string): ParsedImage {
 }
 
 /**
- * データURLが有効な画像形式かどうかを検証
+ * データURLが有効な画像/PDF形式かどうかを検証
  *
  * @param dataUrl 検証するデータURL
  * @returns 有効な場合はtrue
  */
 export function isValidImageDataUrl(dataUrl: string): boolean {
-  return /^data:image\/(jpeg|png|gif|webp);base64,.+$/.test(dataUrl);
+  return /^data:(image\/(jpeg|png|gif|webp)|application\/pdf);base64,.+$/.test(dataUrl);
 }
 
 /**
@@ -76,9 +79,9 @@ export function estimateImageSize(base64: string): number {
 }
 
 /**
- * サポートされている画像形式の一覧
+ * サポートされている形式の一覧
  */
-export const SUPPORTED_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+export const SUPPORTED_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'] as const;
 
 /**
  * サポートされていない形式のエラーメッセージを生成
@@ -87,7 +90,7 @@ export function getUnsupportedFormatError(mimeType: string): string {
   if (mimeType.includes('heic') || mimeType.includes('heif')) {
     return 'HEIC/HEIF形式は対応していません。カメラアプリの設定で「互換性優先」を選択するか、スクリーンショットをお試しください。';
   }
-  return `${mimeType}形式は対応していません。JPEG/PNG形式の画像を使用してください。`;
+  return `${mimeType}形式は対応していません。JPEG/PNG形式の画像またはPDFを使用してください。`;
 }
 
 /**

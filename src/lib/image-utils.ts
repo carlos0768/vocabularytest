@@ -1,8 +1,18 @@
 // Image utility functions
-// Handles HEIC conversion, compression, and other image processing
+// Handles HEIC conversion, compression, PDF pass-through, and other image processing
 
 // Maximum image size in bytes (2MB to stay well under Vercel's 4.5MB limit after base64 encoding)
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+
+// Maximum PDF size (Gemini supports up to 100MB, but we limit to 20MB for performance)
+const MAX_PDF_SIZE = 20 * 1024 * 1024;
+
+/**
+ * Check if file is PDF format
+ */
+function isPdfFile(file: File): boolean {
+  return /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+}
 
 /**
  * Check if file is HEIC/HEIF format
@@ -188,9 +198,23 @@ export async function processImageFile(file: File): Promise<File> {
  * - Eliminates double FileReader read
  * - Converts HEIC to JPEG
  * - Compresses large images
+ * - Passes through PDF files without modification
  * - Returns base64 string ready for API
  */
 export async function processImageToBase64(file: File): Promise<string> {
+  // PDF files: pass through without modification (Gemini API supports PDF natively)
+  if (isPdfFile(file)) {
+    if (file.size > MAX_PDF_SIZE) {
+      throw new Error(`PDFファイルが大きすぎます（最大${MAX_PDF_SIZE / 1024 / 1024}MB）`);
+    }
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('PDFファイルの読み込みに失敗しました'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   // First convert HEIC if needed
   let processedFile = await convertHeicToJpeg(file);
 
