@@ -223,7 +223,7 @@ function ScanPageContent() {
             </div>
             <input
               type="file"
-              accept="image/*,.pdf,application/pdf"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.pdf"
               multiple
               onChange={handleFileChange}
               disabled={processing || !canScan}
