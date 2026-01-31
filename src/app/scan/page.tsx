@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Camera } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
@@ -28,7 +28,7 @@ function ScanPageContent() {
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
-  const handleImageSelect = useCallback(async (file: File) => {
+  const handleMultipleImages = useCallback(async (files: File[]) => {
     if (!isAuthenticated) {
       showToast({
         message: 'ログインが必要です',
@@ -47,66 +47,98 @@ function ScanPageContent() {
       return;
     }
 
+    const totalFiles = files.length;
     setProcessing(true);
-    setProcessingSteps([
-      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-      { id: 'analyze', label: '文字を解析中...', status: 'pending' },
-    ]);
+
+    // Initialize steps for multiple files
+    const initialSteps: ProgressStep[] = files.map((_, index) => ({
+      id: `file-${index}`,
+      label: `画像 ${index + 1}/${totalFiles} を処理中...`,
+      status: index === 0 ? 'active' : 'pending',
+    }));
+    setProcessingSteps(initialSteps);
 
     try {
-      const base64 = await processImageToBase64(file);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allWords: any[] = [];
+      let lastScanInfo = null;
 
-      setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'active' },
-      ]);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
 
-      // Call extract API directly
-      const response = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: base64,
-          mode: 'all',
-        }),
-      });
+        // Update current step to active
+        setProcessingSteps(prev => prev.map((s, idx) => ({
+          ...s,
+          status: idx < i ? 'complete' : idx === i ? 'active' : 'pending',
+          label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
+        })));
 
-      const result = await response.json();
+        const base64 = await processImageToBase64(file);
 
-      if (!response.ok || !result.success) {
-        if (result.limitReached) {
-          setProcessing(false);
-          setProcessingSteps([]);
-          setScanInfo(result.scanInfo);
-          setShowScanLimitModal(true);
-          return;
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: base64,
+            mode: 'all',
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          if (result.limitReached) {
+            setProcessing(false);
+            setProcessingSteps([]);
+            setScanInfo(result.scanInfo);
+            setShowScanLimitModal(true);
+            return;
+          }
+          // Continue with other files even if one fails
+          console.error(`Failed to process file ${i + 1}:`, result.error);
+          setProcessingSteps(prev => prev.map((s, idx) => ({
+            ...s,
+            status: idx === i ? 'error' : s.status,
+            label: idx === i ? `画像 ${i + 1}: エラー` : s.label,
+          })));
+          continue;
         }
-        throw new Error(result.error || '解析に失敗しました');
+
+        if (result.scanInfo) {
+          lastScanInfo = result.scanInfo;
+        }
+
+        // Merge words from this file
+        allWords.push(...result.words);
+
+        // Mark current step as complete
+        setProcessingSteps(prev => prev.map((s, idx) => ({
+          ...s,
+          status: idx === i ? 'complete' : s.status,
+          label: idx === i ? `画像 ${i + 1}/${totalFiles} 完了` : s.label,
+        })));
       }
 
-      if (result.scanInfo) {
-        setScanInfo(result.scanInfo);
+      if (lastScanInfo) {
+        setScanInfo(lastScanInfo);
       }
 
-      // Save result to sessionStorage BEFORE showing completion
-      // This ensures data is available when confirm page loads
-      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
+      if (allWords.length === 0) {
+        throw new Error('画像から単語を読み取れませんでした');
+      }
+
+      // Save merged results to sessionStorage
+      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
       if (projectId) {
         sessionStorage.setItem('scanvocab_existing_project_id', projectId);
       }
 
-      setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
+      setProcessingSteps(prev => [
+        ...prev.map(s => ({ ...s, status: 'complete' as const })),
         { id: 'navigate', label: '結果を表示中...', status: 'active' },
       ]);
 
-      // Navigate with a small delay to ensure sessionStorage is flushed
-      // and the UI shows the navigation step
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Use replace instead of push to avoid back button issues
-      // Keep processing modal visible - it will be unmounted on navigation
       router.replace('/scan/confirm');
     } catch (error) {
       console.error('Scan error:', error);
@@ -129,10 +161,12 @@ function ScanPageContent() {
   }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleImageSelect(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleMultipleImages(Array.from(files));
     }
+    // Reset input value to allow selecting the same file again
+    e.target.value = '';
   };
 
   const handleCloseModal = () => {
@@ -177,39 +211,20 @@ function ScanPageContent() {
           </p>
         </div>
 
-        {/* Upload options */}
+        {/* Upload option - single button that shows iOS native picker */}
         <div className="space-y-3">
-          {/* Camera capture */}
           <label className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl cursor-pointer hover:bg-blue-100 transition-colors">
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
               <Camera className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1 text-left">
-              <p className="font-medium text-gray-900">カメラで撮影</p>
-              <p className="text-sm text-gray-500">その場で撮影して追加</p>
+              <p className="font-medium text-gray-900">写真を撮影・選択</p>
+              <p className="text-sm text-gray-500">カメラまたはフォルダから</p>
             </div>
             <input
               type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              disabled={processing || !canScan}
-              className="hidden"
-            />
-          </label>
-
-          {/* Photo library */}
-          <label className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-            <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center shrink-0">
-              <ImageIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-medium text-gray-900">写真を選択</p>
-              <p className="text-sm text-gray-500">カメラロールから選ぶ</p>
-            </div>
-            <input
-              type="file"
-              accept="image/*"
+              accept="image/*,.pdf,application/pdf"
+              multiple
               onChange={handleFileChange}
               disabled={processing || !canScan}
               className="hidden"

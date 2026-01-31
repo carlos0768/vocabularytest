@@ -81,11 +81,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate base64 data URL format
-    if (!image.startsWith('data:image/')) {
-      console.error('Invalid image format - does not start with data:image/', { first100: image.slice(0, 100) });
+    // Validate base64 data URL format (accepts images and PDFs)
+    const isValidImage = image.startsWith('data:image/');
+    const isValidPdf = image.startsWith('data:application/pdf');
+
+    if (!isValidImage && !isValidPdf) {
+      console.error('Invalid file format - not image or PDF', { first100: image.slice(0, 100) });
       return NextResponse.json(
-        { success: false, error: '画像の形式が不正です。JPEG/PNG形式の画像を使用してください。' },
+        { success: false, error: 'ファイル形式が不正です。JPEG/PNG形式の画像またはPDFを使用してください。' },
         { status: 400 }
       );
     }
