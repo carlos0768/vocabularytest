@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
@@ -227,18 +227,39 @@ function ScanPageContent() {
           </p>
         </div>
 
-        {/* Upload option - single button that shows iOS native picker */}
+        {/* Upload options - two separate buttons for iOS compatibility */}
         <div className="space-y-3">
+          {/* Camera capture */}
           <label className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl cursor-pointer hover:bg-blue-100 transition-colors">
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
               <Camera className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1 text-left">
-              <p className="font-medium text-gray-900">写真を撮影・選択</p>
-              <p className="text-sm text-gray-500">カメラまたはフォルダから</p>
+              <p className="font-medium text-gray-900">カメラで撮影</p>
+              <p className="text-sm text-gray-500">その場で撮影して追加</p>
             </div>
             <input
               type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              disabled={processing || !canScan}
+              className="hidden"
+            />
+          </label>
+
+          {/* Photo library */}
+          <label className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+            <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center shrink-0">
+              <ImageIcon className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-medium text-gray-900">写真・PDFを選択</p>
+              <p className="text-sm text-gray-500">フォルダから選ぶ（複数可）</p>
+            </div>
+            <input
+              type="file"
+              accept="image/*,.pdf,application/pdf"
               multiple
               onChange={handleFileChange}
               disabled={processing || !canScan}
