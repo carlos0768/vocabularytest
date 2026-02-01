@@ -144,6 +144,7 @@ export default function HomePage() {
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [isAddingToExisting, setIsAddingToExisting] = useState(false); // true = add to current project, false = new project
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [selectedScanMode, setSelectedScanMode] = useState<ScanMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
 
@@ -658,7 +659,7 @@ export default function HomePage() {
     fileInputRef.current?.click();
   };
 
-  const handleImageSelect = async (file: File) => {
+  const handleImageSelect = async (files: File[]) => {
     if (!isAuthenticated) {
       showToast({
         message: 'ログインが必要です',
@@ -677,13 +678,14 @@ export default function HomePage() {
       return;
     }
 
-    setPendingFile(file);
+    setPendingFile(files[0]); // Keep first file for project name modal compatibility
+    setPendingFiles(files);
 
     // If adding to existing project, skip project name modal
     if (isAddingToExisting && currentProject) {
       sessionStorage.setItem('scanvocab_existing_project_id', currentProject.id);
       sessionStorage.removeItem('scanvocab_project_name');
-      processImage(file);
+      processMultipleImages(files);
     } else {
       setShowProjectNameModal(true);
     }
@@ -791,16 +793,152 @@ export default function HomePage() {
     }
   };
 
+  // Process multiple images with progress tracking
+  const processMultipleImages = async (files: File[]) => {
+    const totalFiles = files.length;
+    setProcessing(true);
+
+    // Initialize steps for multiple files
+    const initialSteps: ProgressStep[] = files.map((_, index) => ({
+      id: `file-${index}`,
+      label: `画像 ${index + 1}/${totalFiles} を処理中...`,
+      status: index === 0 ? 'active' : 'pending',
+    }));
+    setProcessingSteps(initialSteps);
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allWords: any[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        // Update current step to active
+        setProcessingSteps(prev => prev.map((s, idx) => ({
+          ...s,
+          status: idx < i ? 'complete' : idx === i ? 'active' : 'pending',
+          label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
+        })));
+
+        // Process image (convert HEIC to JPEG if needed)
+        let processedFile: File;
+        try {
+          processedFile = await processImageFile(file);
+        } catch (imageError) {
+          console.error('Image processing error:', imageError);
+          setProcessingSteps(prev => prev.map((s, idx) => ({
+            ...s,
+            status: idx === i ? 'error' : s.status,
+            label: idx === i ? `画像 ${i + 1}: 処理エラー` : s.label,
+          })));
+          continue;
+        }
+
+        // Convert file to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            if (!result || !result.includes(',')) {
+              reject(new Error('画像データの読み取りに失敗しました'));
+              return;
+            }
+            resolve(result);
+          };
+          reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
+          reader.readAsDataURL(processedFile);
+        });
+
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: base64,
+            mode: selectedScanMode,
+            eikenLevel: selectedEikenLevel,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          if (result.limitReached) {
+            setProcessing(false);
+            setProcessingSteps([]);
+            setScanInfo(result.scanInfo);
+            setShowScanLimitModal(true);
+            return;
+          }
+          console.error(`Failed to process file ${i + 1}:`, result.error);
+          setProcessingSteps(prev => prev.map((s, idx) => ({
+            ...s,
+            status: idx === i ? 'error' : s.status,
+            label: idx === i ? `画像 ${i + 1}: エラー` : s.label,
+          })));
+          continue;
+        }
+
+        if (result.scanInfo) {
+          setScanInfo(result.scanInfo);
+        }
+
+        // Merge words from this file
+        allWords.push(...result.words);
+
+        // Mark current step as complete
+        setProcessingSteps(prev => prev.map((s, idx) => ({
+          ...s,
+          status: idx === i ? 'complete' : s.status,
+          label: idx === i ? `画像 ${i + 1}/${totalFiles} 完了` : s.label,
+        })));
+      }
+
+      if (allWords.length === 0) {
+        throw new Error('画像から単語を読み取れませんでした');
+      }
+
+      // Save merged results to sessionStorage
+      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
+
+      setProcessingSteps(prev => [
+        ...prev.map(s => ({ ...s, status: 'complete' as const })),
+        { id: 'navigate', label: '結果を表示中...', status: 'active' },
+      ]);
+
+      router.push('/scan/confirm');
+      setProcessing(false);
+    } catch (error) {
+      console.error('Scan error:', error);
+      setProcessingSteps((prev) =>
+        prev.map((s) =>
+          s.status === 'active' || s.status === 'pending'
+            ? {
+                ...s,
+                status: 'error',
+                label: error instanceof Error ? error.message : '予期しないエラーが発生しました',
+              }
+            : s
+        )
+      );
+    }
+  };
+
   const handleProjectNameConfirm = async (projectName: string) => {
     setShowProjectNameModal(false);
-    const file = pendingFile;
+    const files = pendingFiles.length > 0 ? pendingFiles : (pendingFile ? [pendingFile] : []);
     setPendingFile(null);
+    setPendingFiles([]);
 
-    if (!file) return;
+    if (files.length === 0) return;
 
     sessionStorage.setItem('scanvocab_project_name', projectName);
     sessionStorage.removeItem('scanvocab_project_id');
-    processImage(file);
+    
+    if (files.length === 1) {
+      processImage(files[0]);
+    } else {
+      processMultipleImages(files);
+    }
   };
 
   const handleCloseModal = () => {
@@ -831,8 +969,7 @@ export default function HomePage() {
             setShowScanModeModal(false);
             const files = e.target.files;
             if (files && files.length > 0) {
-              handleImageSelect(files[0]);
-              // TODO: Handle multiple files if needed
+              handleImageSelect(Array.from(files));
             }
             e.target.value = '';
           }}
@@ -925,8 +1062,7 @@ export default function HomePage() {
           setShowScanModeModal(false);
           const files = e.target.files;
           if (files && files.length > 0) {
-            handleImageSelect(files[0]);
-            // TODO: Handle multiple files if needed
+            handleImageSelect(Array.from(files));
           }
           e.target.value = '';
         }}
