@@ -6,6 +6,10 @@ import { BottomNav } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getDailyStats, getWrongAnswers, getActivityHistory, getStreakDays } from '@/lib/utils';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
+import { LearningChart } from '@/components/stats/LearningChart';
+import { WeakWordsRanking } from '@/components/stats/WeakWordsRanking';
+import { ProjectBreakdown } from '@/components/stats/ProjectBreakdown';
+import { StudyTimeHeatmap } from '@/components/stats/StudyTimeHeatmap';
 import type { DailyActivity } from '@/lib/utils';
 
 // Activity Heatmap Component (GitHub-style: rows = days of week, columns = weeks)
@@ -315,6 +319,18 @@ export default function StatsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Learning Trend Chart (30 days) */}
+            <LearningChart />
+
+            {/* Weak Words Ranking */}
+            <WeakWordsRanking />
+
+            {/* Project Breakdown */}
+            <ProjectBreakdown />
+
+            {/* Study Time Heatmap */}
+            <StudyTimeHeatmap />
           </div>
         )}
       </main>
