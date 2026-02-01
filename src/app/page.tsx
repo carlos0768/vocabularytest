@@ -18,6 +18,7 @@ import {
   Play,
   Layers,
   Flag,
+  CalendarCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -25,6 +26,7 @@ import { type ProgressStep, useToast, DeleteConfirmModal, Button, BottomNav } fr
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
+import { getTodayReviewWords, type ReviewWord } from '@/lib/review';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
@@ -364,6 +366,13 @@ export default function HomePage() {
   const allProjectsWords = useMemo(() => {
     return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
+
+  // Today's review words (from all projects)
+  const reviewWords: ReviewWord[] = useMemo(() => {
+    const projectWords = getCachedProjectWords();
+    if (Object.keys(projectWords).length === 0) return [];
+    return getTodayReviewWords(projectWords, projects);
+  }, [projects, words]);
 
   const filteredWords = showWrongAnswers
     ? wrongAnswerWords
@@ -1132,6 +1141,33 @@ export default function HomePage() {
         <div className="mb-6">
           <InlineFlashcard words={filteredWords} />
         </div>
+
+        {/* Today's Review Section */}
+        {reviewWords.length > 0 && !showWrongAnswers && (
+          <div className="mb-6">
+            <Link href="/review" className="block">
+              <div className="relative p-5 rounded-[2rem] bg-[var(--color-success-light)] dark:bg-emerald-900/30 shadow-soft overflow-hidden group hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer">
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-[var(--color-success)]/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+                <div className="relative z-10 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-[var(--color-success)]/20 flex items-center justify-center flex-shrink-0">
+                    <CalendarCheck className="w-6 h-6 text-[var(--color-success)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-lg text-[var(--color-foreground)]">今日の復習</h3>
+                    <p className="text-sm text-[var(--color-muted)]">
+                      {reviewWords.length}単語が復習時期です
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[var(--color-success)] text-white text-sm font-semibold">
+                      復習を始める
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Study Mode Cards - 2 column grid (hidden in wrong answers mode) */}
         {!showWrongAnswers && (
