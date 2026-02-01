@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, BarChart3, Settings } from 'lucide-react';
+import { Home, FolderOpen, BarChart3, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -20,10 +20,10 @@ const navItems: NavItem[] = [
     matchPaths: ['/', '/project'],
   },
   {
-    href: '/search',
-    icon: Search,
-    label: '検索',
-    matchPaths: ['/search'],
+    href: '/projects',
+    icon: FolderOpen,
+    label: 'プロジェクト',
+    matchPaths: ['/projects'],
   },
   {
     href: '/stats',
