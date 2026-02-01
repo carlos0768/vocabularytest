@@ -825,12 +825,14 @@ export default function HomePage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.heic,.heif"
+          accept="image/*,.heic,.heif,.pdf,application/pdf"
+          multiple
           onChange={(e) => {
             setShowScanModeModal(false);
-            const file = e.target.files?.[0];
-            if (file) {
-              handleImageSelect(file);
+            const files = e.target.files;
+            if (files && files.length > 0) {
+              handleImageSelect(files[0]);
+              // TODO: Handle multiple files if needed
             }
             e.target.value = '';
           }}
@@ -917,12 +919,14 @@ export default function HomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,.heic,.heif"
+        accept="image/*,.heic,.heif,.pdf,application/pdf"
+        multiple
         onChange={(e) => {
           setShowScanModeModal(false);
-          const file = e.target.files?.[0];
-          if (file) {
-            handleImageSelect(file);
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            handleImageSelect(files[0]);
+            // TODO: Handle multiple files if needed
           }
           e.target.value = '';
         }}
