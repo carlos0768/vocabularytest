@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
+import { X, ChevronRight, Trophy, RotateCcw, Flag, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
@@ -268,6 +268,10 @@ export default function QuizPage() {
 
     if (isCorrect) {
       recordCorrectAnswer(false);
+      // Auto-advance after correct answer (Duolingo style)
+      setTimeout(() => {
+        moveToNext();
+      }, 1000);
     } else {
       recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
     }
@@ -636,6 +640,23 @@ export default function QuizPage() {
           ))}
         </div>
 
+        {/* Correct answer feedback overlay */}
+        {isRevealed && selectedIndex === currentQuestion?.correctIndex && (
+          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-40">
+            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center animate-bounce-in">
+              <Check className="w-14 h-14 text-white" strokeWidth={3} />
+            </div>
+          </div>
+        )}
+
+        {/* Wrong answer feedback - show correct answer */}
+        {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-2xl max-w-lg mx-auto w-full">
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">正解</p>
+            <p className="text-lg font-bold text-red-700 dark:text-red-300">{currentQuestion?.word.japanese}</p>
+          </div>
+        )}
+
         {/* Example sentence (shown after answering, Pro feature) */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
           <div className="mb-4 p-4 bg-[var(--color-peach-light)] rounded-2xl max-w-lg mx-auto w-full">
@@ -648,11 +669,11 @@ export default function QuizPage() {
         )}
       </main>
 
-      {/* Fixed bottom next button (shown after answering) */}
-      {isRevealed && (
+      {/* Fixed bottom next button (shown only after wrong answer) */}
+      {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
         <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-background)] p-6 safe-area-bottom z-50">
           <Button onClick={moveToNext} className="w-full max-w-lg mx-auto flex" size="lg">
-            次へ
+            続ける
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>
         </div>
