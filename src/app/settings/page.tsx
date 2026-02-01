@@ -3,8 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, User, Check, Cloud, Smartphone } from 'lucide-react';
+import { 
+  LogOut, Loader2, AlertTriangle, Sparkles, Mail, User, Check, Cloud, Smartphone,
+  Sun, Moon, Monitor, MessageCircle, FileText, Shield, CreditCard, HelpCircle
+} from 'lucide-react';
 import { Button, BottomNav } from '@/components/ui';
+import { SettingsGroup, SettingsItem, SettingsToggle } from '@/components/settings';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -21,11 +25,6 @@ export default function SettingsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Save settings
-  const updateTheme = (newTheme: Theme) => {
-    setTheme(newTheme);
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,6 +55,12 @@ export default function SettingsPage() {
     }
   };
 
+  const themeIcons: Record<Theme, React.ReactNode> = {
+    light: <Sun className="w-4 h-4" />,
+    dark: <Moon className="w-4 h-4" />,
+    system: <Monitor className="w-4 h-4" />,
+  };
+
   const themeLabels: Record<Theme, string> = {
     light: 'ライト',
     dark: 'ダーク',
@@ -67,158 +72,108 @@ export default function SettingsPage() {
       {/* Header */}
       <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-[var(--color-foreground)]">設定</h1>
-          </div>
+          <h1 className="text-2xl font-bold text-[var(--color-foreground)]">設定</h1>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-4 space-y-6">
-        {/* Account - show login prompt or user info */}
-        {authLoading ? (
-          <div className="card p-4 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : isAuthenticated ? (
-          <div className="card p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center">
-                <Mail className="w-6 h-6 text-[var(--color-primary)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-[var(--color-foreground)] truncate">{user?.email}</p>
-                <div className="flex items-center gap-1">
-                  {isPro ? (
-                    <span className="chip chip-pro">
-                      <Sparkles className="w-3 h-3" />
-                      Pro
-                    </span>
-                  ) : (
-                    <span className="text-sm text-[var(--color-muted)]">Free</span>
-                  )}
-                </div>
-              </div>
+        {/* Account Section */}
+        <SettingsGroup title="アカウント">
+          {authLoading ? (
+            <div className="px-4 py-6 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
             </div>
-          </div>
-        ) : (
-          <div className="card p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-[var(--color-surface)] rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-[var(--color-muted)]" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-[var(--color-foreground)]">ゲスト</p>
-                <p className="text-sm text-[var(--color-muted)]">ログインでクラウド同期</p>
-              </div>
+          ) : isAuthenticated ? (
+            <>
+              <SettingsItem
+                icon={<Mail className="w-4 h-4 text-[var(--color-primary)]" />}
+                label={user?.email || 'メール未設定'}
+                description={isPro ? 'Pro メンバー' : 'Free プラン'}
+              >
+                {isPro && (
+                  <span className="chip chip-pro">
+                    <Sparkles className="w-3 h-3" />
+                    Pro
+                  </span>
+                )}
+              </SettingsItem>
+              <SettingsItem
+                icon={<LogOut className="w-4 h-4 text-[var(--color-muted)]" />}
+                label="ログアウト"
+                onClick={handleSignOut}
+              />
+            </>
+          ) : (
+            <SettingsItem
+              icon={<User className="w-4 h-4 text-[var(--color-muted)]" />}
+              label="ゲストモード"
+              description="ログインでクラウド同期"
+            >
               <Link href="/login">
-                <Button size="sm">
-                  ログイン
-                </Button>
+                <Button size="sm">ログイン</Button>
               </Link>
-            </div>
-          </div>
-        )}
+            </SettingsItem>
+          )}
+        </SettingsGroup>
 
         {/* Display Settings */}
-        <section>
-          <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
-            表示
-          </h2>
-          <div className="card overflow-hidden">
-            {/* Theme */}
-            <div className="flex items-center justify-between px-4 py-4">
+        <SettingsGroup title="表示設定">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
               <span className="font-medium text-[var(--color-foreground)]">テーマ</span>
-              <div className="flex items-center gap-1 bg-[var(--color-background)] rounded-full p-1 border border-[var(--color-border)]">
-                {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => updateTheme(t)}
-                    className={`px-3 py-1.5 text-sm rounded-full transition-all ${
-                      theme === t
-                        ? 'bg-[var(--color-primary)] text-white font-medium'
-                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                    }`}
-                  >
-                    {themeLabels[t]}
-                  </button>
-                ))}
-              </div>
             </div>
-
+            <div className="flex items-center gap-2 bg-[var(--color-background)] rounded-xl p-1 border border-[var(--color-border)]">
+              {(['light', 'dark', 'system'] as Theme[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg transition-all ${
+                    theme === t
+                      ? 'bg-[var(--color-primary)] text-white font-medium'
+                      : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                  }`}
+                >
+                  {themeIcons[t]}
+                  {themeLabels[t]}
+                </button>
+              ))}
+            </div>
           </div>
-        </section>
+        </SettingsGroup>
 
-        {/* Plan Section */}
-        <section>
-          <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
-            プラン
-          </h2>
-          <div className="card p-4">
-            {isPro ? (
-              // Pro User Plan View
-              <div className="space-y-4">
-                {/* Plan Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="chip chip-pro">
-                      <Sparkles className="w-3 h-3" />
-                      Pro
-                    </span>
-                  </div>
-                  <span className="text-sm font-semibold text-[var(--color-foreground)]">
-                    ¥{KOMOJU_CONFIG.plans.pro.price.toLocaleString()}/月
-                  </span>
-                </div>
-
-                {/* Usage Stats for Pro */}
-                <div className="space-y-3">
-                  {/* Scan */}
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-[var(--color-muted)]">スキャン</span>
-                    <span className="font-medium text-[var(--color-success)] flex items-center gap-1">
-                      無制限 <Check className="w-4 h-4" />
-                    </span>
-                  </div>
-
-                  <div className="h-px bg-[var(--color-border)]" />
-
-                  {/* Word Count */}
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-[var(--color-muted)]">単語数</span>
-                    <span className="font-medium text-[var(--color-foreground)]">
-                      {wordCountLoading ? '...' : `${wordCount}語`}
-                      <span className="text-[var(--color-muted)] ml-1">（無制限）</span>
-                    </span>
-                  </div>
-
-                  <div className="h-px bg-[var(--color-border)]" />
-
-                  {/* Cloud Sync */}
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-[var(--color-muted)]">保存</span>
-                    <span className="font-medium text-[var(--color-primary)] flex items-center gap-1">
-                      <Cloud className="w-4 h-4" />
-                      クラウド同期中
-                    </span>
-                  </div>
-                </div>
-
-                {/* Next Billing */}
-                {subscription?.currentPeriodEnd && (
-                  <p className="text-sm text-[var(--color-muted)]">
-                    次回更新: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
-                  </p>
-                )}
-
-                {/* Cancel Section */}
-                {!showCancelConfirm ? (
-                  <button
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="text-sm text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors"
-                  >
-                    解約する
-                  </button>
-                ) : (
+        {/* Subscription Section */}
+        <SettingsGroup title="プラン">
+          {isPro ? (
+            <>
+              <SettingsItem
+                icon={<CreditCard className="w-4 h-4 text-[var(--color-primary)]" />}
+                label="Pro プラン"
+                value={`¥${KOMOJU_CONFIG.plans.pro.price.toLocaleString()}/月`}
+              />
+              <SettingsItem
+                icon={<Check className="w-4 h-4 text-[var(--color-success)]" />}
+                label="スキャン"
+                value="無制限"
+              />
+              <SettingsItem
+                icon={<Cloud className="w-4 h-4 text-[var(--color-primary)]" />}
+                label="保存"
+                value="クラウド同期"
+              />
+              {subscription?.currentPeriodEnd && (
+                <SettingsItem
+                  label="次回更新日"
+                  value={new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
+                />
+              )}
+              {!showCancelConfirm ? (
+                <SettingsItem
+                  label="解約する"
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="text-[var(--color-muted)] hover:text-[var(--color-error)]"
+                />
+              ) : (
+                <div className="px-4 py-4">
                   <div className="bg-[var(--color-error)]/10 rounded-2xl p-4 space-y-3">
                     <div className="flex items-start gap-2 text-[var(--color-error)]">
                       <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -255,47 +210,29 @@ export default function SettingsPage() {
                       </Button>
                     </div>
                   </div>
-                )}
-              </div>
-            ) : (
-              // Free User Plan View
-              <div className="space-y-4">
-                {/* Plan Header */}
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-[var(--color-foreground)]">Free</span>
                 </div>
-
-                {/* Usage Stats for Free */}
-                <div className="space-y-3">
-                  {/* Scan */}
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-[var(--color-muted)]">スキャン</span>
-                    <span className="font-medium text-[var(--color-foreground)]">{FREE_DAILY_SCAN_LIMIT}回/日</span>
-                  </div>
-
-                  <div className="h-px bg-[var(--color-border)]" />
-
-                  {/* Word Count */}
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-[var(--color-muted)]">単語数</span>
-                    <span className="font-medium text-[var(--color-foreground)]">
-                      {wordCountLoading ? '...' : wordCount}/{FREE_WORD_LIMIT}
-                    </span>
-                  </div>
-
-                  <div className="h-px bg-[var(--color-border)]" />
-
-                  {/* Storage */}
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-[var(--color-muted)]">保存</span>
-                    <span className="text-[var(--color-muted)] flex items-center gap-1">
-                      <Smartphone className="w-4 h-4" />
-                      このデバイスのみ
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pro Upgrade Card */}
+              )}
+            </>
+          ) : (
+            <>
+              <SettingsItem
+                icon={<User className="w-4 h-4 text-[var(--color-muted)]" />}
+                label="Free プラン"
+              />
+              <SettingsItem
+                label="スキャン"
+                value={`${FREE_DAILY_SCAN_LIMIT}回/日`}
+              />
+              <SettingsItem
+                label="単語数"
+                value={wordCountLoading ? '...' : `${wordCount}/${FREE_WORD_LIMIT}`}
+              />
+              <SettingsItem
+                icon={<Smartphone className="w-4 h-4 text-[var(--color-muted)]" />}
+                label="保存"
+                value="このデバイスのみ"
+              />
+              <div className="px-4 py-4">
                 <div className="bg-gradient-to-r from-[var(--color-peach-light)] to-[var(--color-primary)]/10 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="chip chip-pro">
@@ -325,64 +262,44 @@ export default function SettingsPage() {
                   </Link>
                 </div>
               </div>
-            )}
-          </div>
-        </section>
+            </>
+          )}
+        </SettingsGroup>
 
-        {/* Support */}
-        <section>
-          <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
-            サポート
-          </h2>
-          <div className="card overflow-hidden">
-            <Link
-              href="/contact"
-              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
-            >
-              <span className="font-medium text-[var(--color-foreground)]">お問い合わせ</span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
-            </Link>
-
-            <div className="h-px bg-[var(--color-border)] mx-4" />
-
-            <Link
-              href="/terms"
-              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
-            >
-              <span className="font-medium text-[var(--color-foreground)]">利用規約</span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
-            </Link>
-
-            <div className="h-px bg-[var(--color-border)] mx-4" />
-
-            <Link
-              href="/privacy"
-              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
-            >
-              <span className="font-medium text-[var(--color-foreground)]">プライバシーポリシー</span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
-            </Link>
-          </div>
-        </section>
-
-        {/* Sign out - only show if authenticated */}
-        {isAuthenticated && (
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center justify-center gap-2 py-3 text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors font-medium"
-          >
-            <LogOut className="w-5 h-5" />
-            ログアウト
-          </button>
-        )}
+        {/* Support Section */}
+        <SettingsGroup title="サポート">
+          <SettingsItem
+            icon={<MessageCircle className="w-4 h-4 text-[var(--color-primary)]" />}
+            label="お問い合わせ"
+            href="/contact"
+            showChevron
+          />
+          <SettingsItem
+            icon={<HelpCircle className="w-4 h-4 text-[var(--color-primary)]" />}
+            label="よくある質問"
+            href="/faq"
+            showChevron
+          />
+          <SettingsItem
+            icon={<FileText className="w-4 h-4 text-[var(--color-muted)]" />}
+            label="利用規約"
+            href="/terms"
+            showChevron
+          />
+          <SettingsItem
+            icon={<Shield className="w-4 h-4 text-[var(--color-muted)]" />}
+            label="プライバシーポリシー"
+            href="/privacy"
+            showChevron
+          />
+        </SettingsGroup>
 
         {/* Version */}
         <p className="text-center text-sm text-[var(--color-muted)]">
-          v1.0.0
+          MERKEN v1.0.0
         </p>
       </main>
 
-      {/* Bottom Navigation */}
       <BottomNav />
     </div>
   );
