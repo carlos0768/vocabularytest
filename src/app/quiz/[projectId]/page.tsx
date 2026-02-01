@@ -8,6 +8,7 @@ import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
+import { recordStudy } from '@/lib/streak';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
@@ -277,6 +278,7 @@ export default function QuizPage() {
 
   const moveToNext = () => {
     if (currentIndex + 1 >= questions.length) {
+      recordStudy();
       setIsComplete(true);
     } else {
       setCurrentIndex((prev) => prev + 1);

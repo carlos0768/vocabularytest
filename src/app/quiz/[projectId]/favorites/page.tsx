@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
+import { recordStudy } from '@/lib/streak';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
@@ -128,6 +129,7 @@ export default function FavoritesQuizPage() {
   // Move to next question
   const moveToNext = () => {
     if (currentIndex + 1 >= questions.length) {
+      recordStudy();
       setIsComplete(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
