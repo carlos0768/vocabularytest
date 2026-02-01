@@ -1,109 +1,96 @@
 /**
- * Mock utilities for ScanVocab testing
- * Generated with assistance from Llama 3.1 8B (local)
+ * Mock scan functionality for testing purposes
+ * 動作確認用のモックスキャン機能
  */
 
-export interface MockVocabulary {
-  id: string;
-  english: string;
-  japanese: string;
+export interface MockWord {
+  word: string;
+  meaning: string;
+  example: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  createdAt: Date;
 }
 
-export interface MockStudySession {
-  id: string;
-  userId: string;
-  startedAt: Date;
-  endedAt: Date;
-  vocabularyIds: string[];
-  correctCount: number;
-  incorrectCount: number;
-}
-
-export interface MockUser {
-  id: string;
-  email: string;
-  username: string;
-  createdAt: Date;
-  studyStreak: number;
-}
-
-const SAMPLE_WORDS = [
-  { english: 'apple', japanese: 'りんご' },
-  { english: 'book', japanese: '本' },
-  { english: 'computer', japanese: 'コンピュータ' },
-  { english: 'dog', japanese: '犬' },
-  { english: 'elephant', japanese: '象' },
-  { english: 'flower', japanese: '花' },
-  { english: 'guitar', japanese: 'ギター' },
-  { english: 'house', japanese: '家' },
-  { english: 'island', japanese: '島' },
-  { english: 'journey', japanese: '旅' },
-  { english: 'knowledge', japanese: '知識' },
-  { english: 'library', japanese: '図書館' },
-  { english: 'mountain', japanese: '山' },
-  { english: 'notebook', japanese: 'ノート' },
-  { english: 'ocean', japanese: '海' },
-];
-
-function randomId(): string {
-  return Math.random().toString(36).substring(2, 15);
-}
-
-function randomElement<T>(array: T[]): T {
-  return array[Math.floor(Math.random() * array.length)];
+export interface MockScanResult {
+  success: boolean;
+  words: MockWord[];
+  scannedAt: string;
+  imageUrl?: string;
 }
 
 /**
- * Generate mock vocabulary entries
+ * Generate mock scan results for testing
+ * @param count Number of words to generate
+ * @returns Mock scan result
  */
-export function generateMockVocabulary(count: number): MockVocabulary[] {
-  const difficulties: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard'];
-  
-  return Array.from({ length: count }, () => {
-    const word = randomElement(SAMPLE_WORDS);
-    return {
-      id: randomId(),
-      english: word.english,
-      japanese: word.japanese,
-      difficulty: randomElement(difficulties),
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-    };
-  });
-}
+export function mockScan(count: number = 5): MockScanResult {
+  const mockWords: MockWord[] = [
+    {
+      word: 'ephemeral',
+      meaning: '短命な、はかない',
+      example: 'The ephemeral beauty of cherry blossoms',
+      difficulty: 'hard',
+    },
+    {
+      word: 'ubiquitous',
+      meaning: '至る所にある',
+      example: 'Smartphones have become ubiquitous in modern life',
+      difficulty: 'medium',
+    },
+    {
+      word: 'serendipity',
+      meaning: '偶然の幸運',
+      example: 'Finding this book was pure serendipity',
+      difficulty: 'hard',
+    },
+    {
+      word: 'pragmatic',
+      meaning: '実用的な',
+      example: 'We need a pragmatic approach to solve this problem',
+      difficulty: 'medium',
+    },
+    {
+      word: 'resilient',
+      meaning: '回復力のある',
+      example: 'Children are often more resilient than adults',
+      difficulty: 'easy',
+    },
+    {
+      word: 'meticulous',
+      meaning: '細心の注意を払う',
+      example: 'She is meticulous about her work',
+      difficulty: 'medium',
+    },
+    {
+      word: 'eloquent',
+      meaning: '雄弁な',
+      example: 'The speaker gave an eloquent presentation',
+      difficulty: 'medium',
+    },
+    {
+      word: 'ambiguous',
+      meaning: '曖昧な',
+      example: 'The instructions were ambiguous',
+      difficulty: 'easy',
+    },
+  ];
 
-/**
- * Generate a mock study session
- */
-export function generateMockStudySession(): MockStudySession {
-  const vocabularyCount = Math.floor(Math.random() * 10) + 5;
-  const correctCount = Math.floor(Math.random() * vocabularyCount);
-  const startedAt = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000);
-  
+  const selectedWords = mockWords.slice(0, Math.min(count, mockWords.length));
+
   return {
-    id: randomId(),
-    userId: randomId(),
-    startedAt,
-    endedAt: new Date(startedAt.getTime() + Math.random() * 30 * 60 * 1000),
-    vocabularyIds: Array.from({ length: vocabularyCount }, () => randomId()),
-    correctCount,
-    incorrectCount: vocabularyCount - correctCount,
+    success: true,
+    words: selectedWords,
+    scannedAt: new Date().toISOString(),
+    imageUrl: 'https://example.com/mock-image.jpg',
   };
 }
 
 /**
- * Generate a mock user
+ * Simulate a failed scan for error handling tests
  */
-export function generateMockUser(): MockUser {
-  const usernames = ['tanaka', 'suzuki', 'yamamoto', 'watanabe', 'ito', 'nakamura'];
-  const username = randomElement(usernames) + Math.floor(Math.random() * 1000);
-  
+export function mockScanError(): MockScanResult {
   return {
-    id: randomId(),
-    email: `${username}@example.com`,
-    username,
-    createdAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
-    studyStreak: Math.floor(Math.random() * 30),
+    success: false,
+    words: [],
+    scannedAt: new Date().toISOString(),
   };
 }
