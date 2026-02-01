@@ -645,16 +645,16 @@ export default function HomePage() {
   };
 
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
-    setShowScanModeModal(false);
-
     // Pro-only features: circled, highlighted, eiken filter, idiom modes
     if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
+      setShowScanModeModal(false);
       router.push('/subscription');
       return;
     }
 
     setSelectedScanMode(mode as ExtractMode);
     setSelectedEikenLevel(eikenLevel);
+    // Keep modal open while file picker is shown - it will be closed after file selection
     fileInputRef.current?.click();
   };
 
@@ -827,11 +827,12 @@ export default function HomePage() {
           type="file"
           accept="image/*,.heic,.heif"
           onChange={(e) => {
+            setShowScanModeModal(false);
             const file = e.target.files?.[0];
             if (file) {
               handleImageSelect(file);
-              e.target.value = '';
             }
+            e.target.value = '';
           }}
           className="hidden"
         />
@@ -918,11 +919,12 @@ export default function HomePage() {
         type="file"
         accept="image/*,.heic,.heif"
         onChange={(e) => {
+          setShowScanModeModal(false);
           const file = e.target.files?.[0];
           if (file) {
             handleImageSelect(file);
-            e.target.value = '';
           }
+          e.target.value = '';
         }}
         className="hidden"
       />
