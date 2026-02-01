@@ -1,42 +1,48 @@
-# Task: プロジェクト一覧ページの独立化
+# Task: プロジェクト詳細ページのタブ化
 
 ## 目標
-現在ホーム画面に埋め込まれているプロジェクト一覧を、独立したページとして切り出す。
+プロジェクト詳細ページ (`/project/[id]`) を、情報をタブで整理した形式にリデザインする。
 
 ## 現状
-- `src/app/page.tsx` にプロジェクト選択ドロップダウンがある
-- BottomNav の検索タブは使われていない
+- `src/app/project/[id]/page.tsx` は現在存在しない
+- ホーム画面がプロジェクト詳細の役割も担っている
 
 ## 実装内容
 
-### 1. 新規ページ作成: `/projects`
-ファイル: `src/app/projects/page.tsx`
+### 1. プロジェクト詳細ページ作成: `/project/[id]`
+ファイル: `src/app/project/[id]/page.tsx`
 
-**レイアウト:**
-- ヘッダー: 「プロジェクト」タイトル + 新規作成ボタン
-- 検索バー (フィルタリング用)
-- プロジェクトカードのグリッド/リスト
+**タブ構成:**
+1. **学習** (デフォルト)
+   - クイズ開始ボタン
+   - フラッシュカード開始ボタン
+   - 例文クイズ開始ボタン (Pro)
+   - 進捗サマリー
+   
+2. **単語**
+   - 単語一覧 (現在のWordListと同等)
+   - 検索・フィルター機能
+   - お気に入り・苦手フィルター
+   
+3. **統計** (Pro)
+   - 学習グラフ
+   - 正答率推移
+   - 苦手単語ランキング
 
-**各プロジェクトカードに表示:**
-- プロジェクト名
-- 単語数
-- 最終学習日
-- 進捗バー (習得率)
+### 2. タブコンポーネント作成
+ファイル: `src/components/ui/tabs.tsx`
 
-### 2. BottomNav 更新
-ファイル: `src/components/ui/bottom-nav.tsx`
+シンプルなタブUI:
+- 3つのタブボタン
+- アクティブ状態のスタイリング
+- アニメーション付き切り替え
 
-- 検索アイコン → フォルダアイコンに変更
-- ラベル: 「検索」→「プロジェクト」
-- リンク先: `/projects`
+### 3. ホーム画面からの遷移
+- プロジェクトカードクリック → `/project/[id]`
 
-### 3. ホーム画面の簡略化
-- プロジェクトドロップダウンを削除 or シンプル化
-- 「最近のプロジェクト」のみ表示 (DashboardHeader で対応済み)
-
-## 参考ファイル
-- `docs/UIUX_REDESIGN.md` の「ナビゲーション」セクション
-- `src/components/home/DashboardHeader.tsx` (最近のプロジェクト表示)
+## デザイン参考
+- `docs/UIUX_REDESIGN.md` の「プロジェクト詳細の再設計」
+- 既存の `StudyModeCard` コンポーネント活用
 
 ## テスト
 - TypeScript エラーなし: `npx tsc --noEmit`
@@ -45,6 +51,6 @@
 ## 完了後
 ```bash
 git add -A
-git commit -m "feat: add dedicated projects page, update bottom nav"
-git push -u origin feature/project-list-page
+git commit -m "feat: add tabbed project detail page"
+git push -u origin feature/project-detail-tabs
 ```
