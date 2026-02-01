@@ -200,7 +200,7 @@ export default function HomePage() {
       setProjects(data);
 
       if (data.length === 0) {
-        // If auth is still loading, don't show empty state yet — the user might be Pro
+        // If auth is still loading, don't show empty state yet  Ethe user might be Pro
         // and the real data will come from Supabase after auth completes.
         if (authLoading) {
           return;
@@ -221,7 +221,7 @@ export default function HomePage() {
       let firstProjectWords: Word[] = [];
       let total: number;
 
-      // Phase 1: Only first project words (1 query) → show UI immediately
+      // Phase 1: Only first project words (1 query) ↁEshow UI immediately
       firstProjectWords = await repository.getWords(firstProject.id);
       total = firstProjectWords.length; // Approximate; Phase 2 gets exact count
 
@@ -485,7 +485,7 @@ export default function HomePage() {
       );
     } catch (error) {
       console.error('Failed to toggle project favorite:', error);
-      showToast({ message: 'ブックマークの変更に失敗しました', type: 'error' });
+      showToast({ message: 'ブックマ�Eクの変更に失敗しました', type: 'error' });
     }
   };
 
@@ -548,7 +548,7 @@ export default function HomePage() {
     }
 
     if (!manualWordEnglish.trim() || !manualWordJapanese.trim()) {
-      showToast({ message: '英単語と日本語訳を入力してください', type: 'error' });
+      showToast({ message: '英単語と日本語訳を�E力してください', type: 'error' });
       return;
     }
 
@@ -586,7 +586,7 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Failed to save manual word:', error);
-      showToast({ message: '単語の保存に失敗しました', type: 'error' });
+      showToast({ message: '単語�E保存に失敗しました', type: 'error' });
     } finally {
       setManualWordSaving(false);
     }
@@ -630,7 +630,7 @@ export default function HomePage() {
       setTimeout(() => setShareCopied(false), 2000);
     } catch (error) {
       console.error('Failed to share:', error);
-      showToast({ message: '共有リンクの生成に失敗しました', type: 'error' });
+      showToast({ message: '共有リンクの生�Eに失敗しました', type: 'error' });
     } finally {
       setSharing(false);
     }
@@ -661,7 +661,7 @@ export default function HomePage() {
   const handleImageSelect = async (file: File) => {
     if (!isAuthenticated) {
       showToast({
-        message: 'ログインが必要です',
+        message: 'ログインが忁E��でぁE,
         type: 'error',
         action: {
           label: 'ログイン',
@@ -693,8 +693,8 @@ export default function HomePage() {
   const processImage = async (file: File) => {
     setProcessing(true);
     setProcessingSteps([
-      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-      { id: 'analyze', label: '文字を解析中...', status: 'pending' },
+      { id: 'upload', label: '画像をアチE�Eロード中...', status: 'active' },
+      { id: 'analyze', label: '斁E��を解析中...', status: 'pending' },
     ]);
 
     try {
@@ -704,7 +704,7 @@ export default function HomePage() {
         processedFile = await processImageFile(file);
       } catch (imageError) {
         console.error('Image processing error:', imageError);
-        throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
+        throw new Error('画像�E処琁E��失敗しました。別の画像をお試しください、E);
       }
 
       // Convert file to base64
@@ -723,8 +723,8 @@ export default function HomePage() {
       });
 
       setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'active' },
+        { id: 'upload', label: '画像をアチE�Eロード中...', status: 'complete' },
+        { id: 'analyze', label: '斁E��を解析中...', status: 'active' },
       ]);
 
       // Call extract API directly
@@ -757,8 +757,8 @@ export default function HomePage() {
       }
 
       setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
+        { id: 'upload', label: '画像をアチE�Eロード中...', status: 'complete' },
+        { id: 'analyze', label: '斁E��を解析中...', status: 'complete' },
       ]);
 
       // Save result to sessionStorage and navigate to confirm page
@@ -770,10 +770,10 @@ export default function HomePage() {
     } catch (error) {
       console.error('Scan error:', error);
 
-      let errorMessage = '予期しないエラー';
+      let errorMessage = '予期しなぁE��ラー';
       if (error instanceof Error) {
         if (error.message.includes('did not match the expected pattern')) {
-          errorMessage = '画像データの処理に問題が発生しました。カメラ設定を「互換性優先」にするか、スクリーンショットをお試しください。';
+          errorMessage = '画像データの処琁E��問題が発生しました。カメラ設定を「互換性優先」にするか、スクリーンショチE��をお試しください、E;
         } else if (error.message.includes('HEIC') || error.message.includes('HEIF')) {
           errorMessage = error.message;
         } else {
@@ -826,7 +826,7 @@ export default function HomePage() {
           ref={fileInputRef}
           type="file"
           accept="image/*,.heic,.heif"
-          capture="environment"
+          
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
@@ -859,14 +859,14 @@ export default function HomePage() {
           </div>
           <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
           <p className="text-[var(--color-muted)] text-center mb-8">
-            右下のボタンから<br />ノートやプリントを撮影しましょう
+            右下�Eボタンから<br />ノ�Eトやプリントを撮影しましょぁE
           </p>
           {!isAuthenticated && (
             <p className="text-sm text-[var(--color-muted)]">
               <Link href="/signup" className="text-[var(--color-primary)] font-semibold hover:underline">
                 アカウント登録
               </Link>
-              でクラウド保存
+              でクラウド保孁E
             </p>
           )}
         </main>
@@ -918,7 +918,7 @@ export default function HomePage() {
         ref={fileInputRef}
         type="file"
         accept="image/*,.heic,.heif"
-        capture="environment"
+        
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
@@ -950,7 +950,7 @@ export default function HomePage() {
               <button
                 onClick={() => setIsProjectDropdownOpen(true)}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all"
-                title={showWrongAnswers ? '間違え一覧' : showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
+                title={showWrongAnswers ? '間違え一覧' : showFavoritesOnly ? '苦手な単誁E : (currentProject?.title || '単語帳')}
               >
                 <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
               </button>
@@ -999,15 +999,15 @@ export default function HomePage() {
             <div className="grid grid-cols-2 gap-4">
               <StudyModeCard
                 title="クイズ"
-                description="4択単語テスト"
+                description="4択単語テスチE
                 icon={Play}
                 href={`/quiz/${currentProject?.id}`}
                 variant="red"
                 disabled={filteredWords.length === 0}
               />
               <StudyModeCard
-                title="カード"
-                description="フラッシュカード"
+                title="カーチE
+                description="フラチE��ュカーチE
                 icon={Layers}
                 href={isPro ? `/flashcard/${currentProject?.id}` : '/subscription'}
                 variant="blue"
@@ -1019,7 +1019,7 @@ export default function HomePage() {
             {/* Sentence Quiz Card - Full width (Pro only) */}
             <StudyModeCard
               title="例文クイズ"
-              description="例文で単語を覚える"
+              description="例文で単語を覚えめE
               icon={BookText}
               href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
               variant="purple"
@@ -1064,7 +1064,7 @@ export default function HomePage() {
             onClick={() => setShowManualWordModal(true)}
             disabled={!currentProject}
             className="w-10 h-10 flex items-center justify-center bg-[var(--color-peach-light)] text-[var(--color-foreground)] rounded-full hover:bg-[var(--color-peach)]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title="手で入力"
+            title="手で入劁E
           >
             <Edit2 className="w-4 h-4" />
           </button>
@@ -1127,7 +1127,7 @@ export default function HomePage() {
         onClose={() => { setDeleteWordModalOpen(false); setDeleteWordTargetId(null); }}
         onConfirm={handleConfirmDeleteWord}
         title="単語を削除"
-        message="この単語を削除します。この操作は取り消せません。"
+        message="こ�E単語を削除します。この操作�E取り消せません、E
         isLoading={deleteWordLoading}
       />
 
@@ -1136,7 +1136,7 @@ export default function HomePage() {
         onClose={() => setDeleteProjectModalOpen(false)}
         onConfirm={handleConfirmDeleteProject}
         title="単語帳を削除"
-        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        message="こ�E単語帳とすべての単語が削除されます。この操作�E取り消せません、E
         isLoading={deleteProjectLoading}
       />
 
