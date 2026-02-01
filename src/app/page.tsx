@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, Button, BottomNav } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
-import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
+import { InlineFlashcard, StudyModeCard, WordList, DashboardHeader, FloatingScanButton } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
@@ -364,6 +364,27 @@ export default function HomePage() {
   const allProjectsWords = useMemo(() => {
     return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
+
+  // Dashboard data - streak and words to review
+  const streakData = useMemo(() => {
+    const today = new Date().toDateString();
+    const reviewedToday = allProjectsWords.filter(w => {
+      if (!w.lastReviewedAt) return false;
+      return new Date(w.lastReviewedAt).toDateString() === today;
+    });
+    return {
+      currentStreak: reviewedToday.length > 0 ? 1 : 0,
+      todayQuizCount: reviewedToday.length,
+    };
+  }, [allProjectsWords]);
+
+  const wordsToReviewCount = useMemo(() => {
+    const now = new Date();
+    return allProjectsWords.filter(w => {
+      if (!w.nextReviewAt) return w.status === 'new';
+      return new Date(w.nextReviewAt) <= now;
+    }).length;
+  }, [allProjectsWords]);
 
   const filteredWords = showWrongAnswers
     ? wrongAnswerWords
@@ -1127,6 +1148,23 @@ export default function HomePage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-6 py-4 w-full">
+
+        {/* Dashboard Header - Streak & Today's Review */}
+        <div className="mb-6">
+          <DashboardHeader
+            isPro={isPro}
+            streakDays={streakData.currentStreak || 1}
+            todayProgress={Math.min(100, Math.round((streakData.todayQuizCount / 10) * 100))}
+            wordsToReview={wordsToReviewCount}
+            recentProjects={projects.slice(0, 3)}
+            onStartReview={() => {
+              if (currentProject) {
+                router.push(`/quiz/${currentProject.id}`);
+              }
+            }}
+            onViewAllProjects={() => setIsProjectDropdownOpen(true)}
+          />
+        </div>
 
         {/* Inline Flashcard */}
         <div className="mb-6">
