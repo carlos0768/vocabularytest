@@ -23,11 +23,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, Button, BottomNav } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
-import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
+import { InlineFlashcard, StudyModeCard, WordList, StreakCard } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
+import { useStreak } from '@/hooks/useStreak';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
 import {
@@ -98,6 +99,7 @@ export default function HomePage() {
   const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
+  const { streakData, studiedToday } = useStreak();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Projects & navigation - Initialize from cache if available
@@ -1127,6 +1129,11 @@ export default function HomePage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-6 py-4 w-full">
+
+        {/* Streak Card */}
+        <div className="mb-4">
+          <StreakCard streakData={streakData} studiedToday={studiedToday} />
+        </div>
 
         {/* Inline Flashcard */}
         <div className="mb-6">
