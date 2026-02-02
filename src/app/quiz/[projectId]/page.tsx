@@ -588,36 +588,39 @@ export default function QuizPage() {
             {currentQuestion?.word.english}
           </h1>
 
-          {/* Tough word chip */}
-          {currentQuestion?.word.isFavorite && (
-            <div className="chip chip-tough mb-4">
-              <Flag className="w-4 h-4 fill-current" />
-              <span>苦手な単語</span>
-            </div>
-          )}
-
-          {/* Favorite toggle button (when not marked) */}
-          {!currentQuestion?.word.isFavorite && (
-            <button
-              onClick={async () => {
-                if (!currentQuestion) return;
-                const word = currentQuestion.word;
-                const newFavorite = !word.isFavorite;
-                await repository.updateWord(word.id, { isFavorite: newFavorite });
-                setQuestions((prev) =>
-                  prev.map((q, i) =>
-                    i === currentIndex
-                      ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
-                      : q
-                  )
-                );
-              }}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-              aria-label="苦手にマーク"
-            >
-              <Flag className="w-5 h-5 text-[var(--color-muted)]" />
-            </button>
-          )}
+          {/* Favorite toggle button - always visible */}
+          <button
+            onClick={async () => {
+              if (!currentQuestion) return;
+              const word = currentQuestion.word;
+              const newFavorite = !word.isFavorite;
+              await repository.updateWord(word.id, { isFavorite: newFavorite });
+              setQuestions((prev) =>
+                prev.map((q, i) =>
+                  i === currentIndex
+                    ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
+                    : q
+                )
+              );
+              // Also update allWords state
+              setAllWords((prev) =>
+                prev.map((w) =>
+                  w.id === word.id ? { ...w, isFavorite: newFavorite } : w
+                )
+              );
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
+              currentQuestion?.word.isFavorite
+                ? 'bg-[var(--color-peach-light)] text-[var(--color-peach)]'
+                : 'hover:bg-black/5 dark:hover:bg-white/10 text-[var(--color-muted)]'
+            }`}
+            aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
+          >
+            <Flag className={`w-5 h-5 ${currentQuestion?.word.isFavorite ? 'fill-current' : ''}`} />
+            {currentQuestion?.word.isFavorite && (
+              <span className="text-sm font-medium">苦手</span>
+            )}
+          </button>
         </div>
 
         {/* Options */}
