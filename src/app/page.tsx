@@ -125,6 +125,9 @@ export default function HomePage() {
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
+  // Today's review
+  const [reviewCount, setReviewCount] = useState(0);
+
   // Word editing
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -344,6 +347,14 @@ export default function HomePage() {
     loadWords();
   }, [loadWords]);
 
+  // Calculate today's review count
+  useEffect(() => {
+    if (!loading) {
+      const reviewWords = getTodayReviewWords();
+      setReviewCount(reviewWords.length);
+    }
+  }, [loading, projects, words]);
+
   // Convert wrong answers to Word type for display
   const wrongAnswerWords: Word[] = useMemo(() => {
     return wrongAnswers.map(wa => ({
@@ -369,9 +380,7 @@ export default function HomePage() {
 
   // Today's review words (from all projects)
   const reviewWords: ReviewWord[] = useMemo(() => {
-    const projectWords = getCachedProjectWords();
-    if (Object.keys(projectWords).length === 0) return [];
-    return getTodayReviewWords(projectWords, projects);
+    return getTodayReviewWords();
   }, [projects, words]);
 
   const filteredWords = showWrongAnswers
@@ -1136,6 +1145,36 @@ export default function HomePage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-6 py-4 w-full">
+
+        {/* Today's Review Card */}
+        {reviewCount > 0 && (
+          <div className="mb-4">
+            <Link href="/review">
+              <div className="relative p-5 rounded-[2rem] bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                {/* Decorative blur effect */}
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -left-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
+
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                      <CalendarCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-lg">今日の復習</h3>
+                      <p className="text-white/80">
+                        {reviewCount}単語が復習時期です
+                      </p>
+                    </div>
+                  </div>
+                  <div className="px-4 py-2 bg-white/20 rounded-full text-white font-semibold">
+                    復習を始める →
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Inline Flashcard */}
         <div className="mb-6">

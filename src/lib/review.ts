@@ -1,84 +1,175 @@
 /**
- * Today's Review - 今日の復習
- *
- * Collects words due for review from all projects,
- * sorted by priority (overdue days desc, then easeFactor asc).
+ * Today's Review Module
+ * 
+ * SM-2アルゴリズムに基づき、今日復習すべき単語を管理するモジュール。
  */
 
-import type { Word, Project } from '@/types';
+import { getRepository } from '@/lib/db';
+import { getCachedProjects, getCachedProjectWords } from '@/lib/home-cache';
+import type { Word } from '@/types';
 
 export interface ReviewWord {
   word: Word;
   projectId: string;
   projectName: string;
-  daysOverdue: number;
+  daysOverdue: number;  // 何日遅れているか（0 = 今日が予定日）
 }
 
 /**
- * Check if a word is due for review today.
- * Words with no nextReviewAt (never reviewed) are always due.
+ * 単語が復習予定日を過ぎているかチェック
  */
 export function isReviewDue(word: Word): boolean {
-  if (!word.nextReviewAt) {
-    return true;
-  }
-  const now = new Date();
+  if (!word.nextReviewAt) return false;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
   const nextReview = new Date(word.nextReviewAt);
-  return nextReview <= now;
+  nextReview.setHours(0, 0, 0, 0);
+  
+  return nextReview <= today;
 }
 
 /**
- * Calculate how many days overdue a word is.
- * Returns 0 for words that have never been reviewed.
+ * 単語が何日遅れているか計算
  */
-function getDaysOverdue(word: Word): number {
-  if (!word.nextReviewAt) {
-    return 0;
-  }
-  const now = new Date();
+export function getDaysOverdue(word: Word): number {
+  if (!word.nextReviewAt) return 0;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
   const nextReview = new Date(word.nextReviewAt);
-  const diffMs = now.getTime() - nextReview.getTime();
-  if (diffMs <= 0) return 0;
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  nextReview.setHours(0, 0, 0, 0);
+  
+  const diffTime = today.getTime() - nextReview.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  return Math.max(0, diffDays);
 }
 
 /**
- * Collect today's review words from all projects.
- *
- * @param projectWords - Map of projectId -> Word[]
- * @param projects - All projects (for title lookup)
- * @returns ReviewWord[] sorted by priority:
- *   1. daysOverdue descending (most overdue first)
- *   2. easeFactor ascending (harder words first)
+ * 今日の復習単語を全プロジェクトから収集
  */
-export function getTodayReviewWords(
-  projectWords: Record<string, Word[]>,
-  projects: Project[]
-): ReviewWord[] {
-  const projectMap = new Map(projects.map(p => [p.id, p.title]));
+export function getTodayReviewWords(): ReviewWord[] {
+  const projects = getCachedProjects();
+  const projectWords = getCachedProjectWords();
+  
   const reviewWords: ReviewWord[] = [];
-
-  for (const [projectId, words] of Object.entries(projectWords)) {
-    const projectName = projectMap.get(projectId) || '';
+  
+  for (const project of projects) {
+    const words = projectWords[project.id] || [];
+    
     for (const word of words) {
       if (isReviewDue(word)) {
         reviewWords.push({
           word,
-          projectId,
-          projectName,
+          projectId: project.id,
+          projectName: project.title,
           daysOverdue: getDaysOverdue(word),
         });
       }
     }
   }
-
-  // Sort: most overdue first, then lowest easeFactor first (hardest)
-  reviewWords.sort((a, b) => {
+  
+  // ソート: 遅れている日数が多い順 → 次にeaseFactorが低い順（難しい単語優先）
+  return reviewWords.sort((a, b) => {
+    // 1. 遅れ日数で降順
     if (b.daysOverdue !== a.daysOverdue) {
       return b.daysOverdue - a.daysOverdue;
     }
-    return (a.word.easeFactor ?? 2.5) - (b.word.easeFactor ?? 2.5);
+    // 2. easeFactorで昇順（低い方が難しい）
+    const aEase = a.word.easeFactor ?? 2.5;
+    const bEase = b.word.easeFactor ?? 2.5;
+    return aEase - bEase;
   });
+}
 
-  return reviewWords;
+/**
+ * 今日の復習単語数を取得
+ */
+export function getTodayReviewCount(): number {
+  return getTodayReviewWords().length;
+}
+
+/**
+ * 復習完了後のSM-2パラメータ更新
+ * 
+ * @param word 更新する単語
+ * @param quality 回答品質 (0-5)
+ *   5 = 完璧、4 = 正解だが少し迷った、3 = 正解だけど難しかった、
+ *   2 = 不正解だけで正解を思い出した、1 = 不正解、0 = 全くわからなかった
+ */
+export function updateSM2Parameters(word: Word, quality: number): Partial<Word> {
+  // 現在の値（デフォルト値を設定）
+  let easeFactor = word.easeFactor ?? 2.5;
+  let intervalDays = word.intervalDays ?? 0;
+  let repetition = word.repetition ?? 0;
+  
+  // easeFactor更新（最低1.3）
+  easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  
+  if (quality < 3) {
+    // 間違えた場合: リピテーションリセット、間隔を1日に
+    repetition = 0;
+    intervalDays = 1;
+  } else {
+    // 正解した場合
+    repetition += 1;
+    
+    if (repetition === 1) {
+      intervalDays = 1;
+    } else if (repetition === 2) {
+      intervalDays = 6;
+    } else {
+      intervalDays = Math.round(intervalDays * easeFactor);
+    }
+  }
+  
+  const now = new Date();
+  const nextReviewAt = new Date(now);
+  nextReviewAt.setDate(now.getDate() + intervalDays);
+  
+  return {
+    easeFactor,
+    intervalDays,
+    repetition,
+    lastReviewedAt: now.toISOString(),
+    nextReviewAt: nextReviewAt.toISOString(),
+    status: quality >= 3 ? 'mastered' : 'review',
+  };
+}
+
+/**
+ * リモートリポジトリ用: 復習単語を直接取得（キャッシュがない場合）
+ */
+export async function fetchTodayReviewWords(userId: string): Promise<ReviewWord[]> {
+  const repository = getRepository('active');
+  const projects = await repository.getProjects(userId);
+  
+  const reviewWords: ReviewWord[] = [];
+  
+  for (const project of projects) {
+    const words = await repository.getWords(project.id);
+    
+    for (const word of words) {
+      if (isReviewDue(word)) {
+        reviewWords.push({
+          word,
+          projectId: project.id,
+          projectName: project.title,
+          daysOverdue: getDaysOverdue(word),
+        });
+      }
+    }
+  }
+  
+  return reviewWords.sort((a, b) => {
+    if (b.daysOverdue !== a.daysOverdue) {
+      return b.daysOverdue - a.daysOverdue;
+    }
+    const aEase = a.word.easeFactor ?? 2.5;
+    const bEase = b.word.easeFactor ?? 2.5;
+    return aEase - bEase;
+  });
 }
