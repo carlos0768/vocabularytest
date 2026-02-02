@@ -136,56 +136,60 @@ export default function FlashcardPage() {
   const currentWord = words[currentIndex];
 
   const handleNext = (withAnimation = false) => {
-    if (currentIndex < words.length - 1 && !isAnimating) {
-      if (withAnimation) {
-        setIsAnimating(true);
-        setSlideDirection('left');
-        setSlidePhase('exit');
-        setTimeout(() => {
-          setCurrentIndex(prev => prev + 1);
-          setIsFlipped(false);
-          setSlidePhase('enter');
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setSlidePhase(null);
-              setTimeout(() => {
-                setSlideDirection(null);
-                setIsAnimating(false);
-              }, 200);
-            });
-          });
-        }, 200);
-      } else {
-        setCurrentIndex(prev => prev + 1);
+    if (isAnimating) return;
+    
+    const nextIndex = currentIndex < words.length - 1 ? currentIndex + 1 : 0;
+    
+    if (withAnimation) {
+      setIsAnimating(true);
+      setSlideDirection('left');
+      setSlidePhase('exit');
+      setTimeout(() => {
+        setCurrentIndex(nextIndex);
         setIsFlipped(false);
-      }
+        setSlidePhase('enter');
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setSlidePhase(null);
+            setTimeout(() => {
+              setSlideDirection(null);
+              setIsAnimating(false);
+            }, 200);
+          });
+        });
+      }, 200);
+    } else {
+      setCurrentIndex(nextIndex);
+      setIsFlipped(false);
     }
   };
 
   const handlePrev = (withAnimation = false) => {
-    if (currentIndex > 0 && !isAnimating) {
-      if (withAnimation) {
-        setIsAnimating(true);
-        setSlideDirection('right');
-        setSlidePhase('exit');
-        setTimeout(() => {
-          setCurrentIndex(prev => prev - 1);
-          setIsFlipped(false);
-          setSlidePhase('enter');
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setSlidePhase(null);
-              setTimeout(() => {
-                setSlideDirection(null);
-                setIsAnimating(false);
-              }, 200);
-            });
-          });
-        }, 200);
-      } else {
-        setCurrentIndex(prev => prev - 1);
+    if (isAnimating) return;
+    
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : words.length - 1;
+    
+    if (withAnimation) {
+      setIsAnimating(true);
+      setSlideDirection('right');
+      setSlidePhase('exit');
+      setTimeout(() => {
+        setCurrentIndex(prevIndex);
         setIsFlipped(false);
-      }
+        setSlidePhase('enter');
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setSlidePhase(null);
+            setTimeout(() => {
+              setSlideDirection(null);
+              setIsAnimating(false);
+            }, 200);
+          });
+        });
+      }, 200);
+    } else {
+      setCurrentIndex(prevIndex);
+      setIsFlipped(false);
     }
   };
 
@@ -219,9 +223,9 @@ export default function FlashcardPage() {
 
     const threshold = 80;
 
-    if (swipeX < -threshold && currentIndex < words.length - 1) {
+    if (swipeX < -threshold) {
       handleNext(true);
-    } else if (swipeX > threshold && currentIndex > 0) {
+    } else if (swipeX > threshold) {
       handlePrev(true);
     }
 
@@ -481,7 +485,7 @@ export default function FlashcardPage() {
             variant="secondary"
             size="icon"
             onClick={() => handlePrev(true)}
-            disabled={currentIndex === 0 || isAnimating}
+            disabled={isAnimating}
             className="w-14 h-14"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -490,7 +494,7 @@ export default function FlashcardPage() {
           {/* Next button - larger and primary */}
           <Button
             onClick={() => handleNext(true)}
-            disabled={currentIndex === words.length - 1 || isAnimating}
+            disabled={isAnimating}
             className="w-16 h-16"
             size="icon"
           >
