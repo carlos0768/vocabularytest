@@ -85,7 +85,7 @@ export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語�
 export const USER_PROMPT_WITH_EXAMPLES_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
 // 丸をつけた単語のみ抽出するプロンプト (Gemini用)
-export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から、**手書きで丸（○）やマーク、チェック、線で囲まれた英単語のみ**を抽出してください。
+export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から、**手書きで丸（○）やマーク、チェック、線で囲まれた英単語または日本語訳**を抽出してください。
 
 【最重要ルール】単語抽出量について:
 - **マークがついた単語は多ければ多いほど良い**
@@ -124,7 +124,14 @@ export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習�
 - 必ず上記のJSON形式のみを出力してください。
 - 丸やマークがついた単語が見つからない場合は、空の配列 {"words": []} を返してください。`;
 
-export const CIRCLED_WORD_USER_PROMPT = `この画像から、丸（○）やチェックマーク、下線、ハイライトなど何らかのマークがついた英単語のみを抽出してください。マークのない単語は無視してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
+export const CIRCLED_WORD_USER_PROMPT = `この画像から、丸（○）やチェックマーク、下線、ハイライトなど何らかのマークがついた英単語または日本語訳を抽出してください。マークのない単語は無視してください。
+
+【重要】マークの位置:
+- 英単語にマークがついている場合: その英単語と日本語訳を抽出
+- 日本語訳にマークがついている場合: 対応する英単語と日本語訳を抽出
+- 両方にマークがある場合: その単語ペアを抽出
+
+日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
 // EIKEN level descriptions for AI prompts
 export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
