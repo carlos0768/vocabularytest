@@ -331,15 +331,15 @@ export default function ProjectDetailPage() {
                 variant="red"
                 disabled={words.length === 0}
               />
-              <StudyModeCard
-                title="フラッシュカード"
-                description="スワイプで復習"
-                icon={BarChart3}
-                href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
-                variant="blue"
-                disabled={words.length === 0}
-                badge={!isPro ? 'Pro' : undefined}
-              />
+            <StudyModeCard
+              title="カード"
+              description="スワイプで復習"
+              icon={BarChart3}
+              href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
+              variant="blue"
+              disabled={words.length === 0}
+              badge={!isPro ? 'Pro' : undefined}
+            />
             </div>
             <StudyModeCard
               title="例文クイズ"
