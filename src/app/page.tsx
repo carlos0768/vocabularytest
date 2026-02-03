@@ -381,33 +381,14 @@ export default function HomePage() {
     return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
 
-  const reviewPlan = useMemo(() => {
-    const wordMap = getCachedProjectWords();
-    const candidates = projects.map((project) => {
-      const projectWords = wordMap[project.id] || [];
-      const dueWords = getWordsDueForReview(projectWords);
-      return { project, dueWords };
-    });
-
-    const currentCandidate = currentProject
-      ? candidates.find((c) => c.project.id === currentProject.id)
-      : null;
-
-    if (currentCandidate && currentCandidate.dueWords.length > 0) {
-      return currentCandidate;
-    }
-
-    const bestCandidate = candidates
-      .filter((c) => c.dueWords.length > 0)
-      .sort((a, b) => b.dueWords.length - a.dueWords.length)[0];
-
-    return bestCandidate || { project: currentProject, dueWords: [] as Word[] };
-  }, [projects, currentProject, words]);
-
-  const reviewProject = reviewPlan.project;
-  const reviewDueCount = reviewPlan.dueWords.length;
-  const reviewQuizHref = reviewProject
-    ? `/quiz/${reviewProject.id}?review=1&count=${reviewDueCount}&from=${encodeURIComponent('/')}`
+  const reviewDueWords = useMemo(
+    () => getWordsDueForReview(allProjectsWords),
+    [allProjectsWords]
+  );
+  const reviewDueCount = reviewDueWords.length;
+  const reviewSeedProjectId = currentProject?.id ?? projects[0]?.id ?? null;
+  const reviewQuizHref = reviewSeedProjectId
+    ? `/quiz/${reviewSeedProjectId}?review=1&count=${reviewDueCount}&from=${encodeURIComponent('/')}`
     : '/projects';
 
   const filteredWords = showWrongAnswers
@@ -1151,7 +1132,7 @@ export default function HomePage() {
               {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
             </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              {reviewProject ? `${reviewProject.title} の忘却曲線に基づく復習` : 'プロジェクトがありません'}
+              {reviewDueCount > 0 ? '全単語の忘却曲線に基づく復習' : 'プロジェクトがありません'}
             </p>
           </div>
           {reviewDueCount > 0 ? (
