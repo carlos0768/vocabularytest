@@ -363,14 +363,14 @@ function ScanPageContent() {
                 onChange={(e) => setSelectedEiken(e.target.value as EikenLevel)}
                 className="mt-3 w-full px-3 py-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]"
               >
-                <option value=\"\">レベルを選択</option>
-                <option value=\"5\">5級</option>
-                <option value=\"4\">4級</option>
-                <option value=\"3\">3級</option>
-                <option value=\"pre2\">準2級</option>
-                <option value=\"2\">2級</option>
-                <option value=\"pre1\">準1級</option>
-                <option value=\"1\">1級</option>
+                <option value="">レベルを選択</option>
+                <option value="5">5級</option>
+                <option value="4">4級</option>
+                <option value="3">3級</option>
+                <option value="pre2">準2級</option>
+                <option value="2">2級</option>
+                <option value="pre1">準1級</option>
+                <option value="1">1級</option>
               </select>
             </div>
           )}
