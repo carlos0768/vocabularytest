@@ -13,6 +13,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 問題が変わったら状態をリセット
   const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
@@ -21,6 +22,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
     setSelectedOption(null);
     setIsRevealed(false);
     setIsCorrect(false);
+    setIsSubmitting(false);
   }
 
   // 空欄は1つだけ
@@ -40,6 +42,8 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   };
 
   const handleNext = () => {
+    if (isSubmitting) return; // 連打防止
+    setIsSubmitting(true);
     onAnswer(isCorrect);
   };
 

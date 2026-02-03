@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import {
   LoadingScreen,
@@ -22,6 +22,17 @@ type QuizQuestion = SentenceQuizQuestion | MultiFillInBlankQuestionType;
 const QUIZ_SIZE = 15; // 1回15問
 const MIN_WORDS_REQUIRED = 10; // 最低10単語必要
 
+// 進捗保存用の型
+interface SentenceQuizProgress {
+  questions: QuizQuestion[];
+  currentIndex: number;
+  results: { correct: number; total: number };
+  savedAt: number;
+}
+
+// 進捗保存キー
+const getProgressKey = (projectId: string) => `sentence_quiz_progress_${projectId}`;
+
 export default function SentenceQuizPage() {
   const router = useRouter();
   const params = useParams();
@@ -29,10 +40,6 @@ export default function SentenceQuizPage() {
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
   const returnPath = searchParams.get('from');
-
-  const backToProject = () => {
-    router.push(returnPath || `/project/${projectId}`);
-  };
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -45,6 +52,31 @@ export default function SentenceQuizPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasRestoredProgress = useRef(false);
+
+  // 進捗を保存
+  const saveProgress = useCallback(() => {
+    if (questions.length > 0 && !isComplete && currentIndex > 0) {
+      const progress: SentenceQuizProgress = {
+        questions,
+        currentIndex,
+        results,
+        savedAt: Date.now(),
+      };
+      sessionStorage.setItem(getProgressKey(projectId), JSON.stringify(progress));
+    }
+  }, [questions, currentIndex, results, isComplete, projectId]);
+
+  // 進捗をクリア
+  const clearProgress = useCallback(() => {
+    sessionStorage.removeItem(getProgressKey(projectId));
+  }, [projectId]);
+
+  // ホームに戻る（進捗を保存）
+  const backToProject = () => {
+    saveProgress();
+    router.push(returnPath || `/project/${projectId}`);
+  };
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
@@ -123,6 +155,32 @@ export default function SentenceQuizPage() {
           return;
         }
         setAllWords(words);
+
+        // 保存された進捗があるか確認（1時間以内のみ有効）
+        if (!hasRestoredProgress.current) {
+          hasRestoredProgress.current = true;
+          const savedProgressStr = sessionStorage.getItem(getProgressKey(projectId));
+          if (savedProgressStr) {
+            try {
+              const savedProgress: SentenceQuizProgress = JSON.parse(savedProgressStr);
+              const oneHourAgo = Date.now() - 60 * 60 * 1000;
+              if (savedProgress.savedAt > oneHourAgo && savedProgress.questions.length > 0) {
+                // 進捗を復元
+                setQuestions(savedProgress.questions);
+                setCurrentIndex(savedProgress.currentIndex);
+                setResults(savedProgress.results);
+                setLoading(false);
+                setGenerating(false);
+                return;
+              }
+            } catch (e) {
+              console.error('Failed to restore progress:', e);
+            }
+            // 無効な進捗はクリア
+            sessionStorage.removeItem(getProgressKey(projectId));
+          }
+        }
+
         await generateQuestions(words);
       } catch (error) {
         console.error('Failed to load words:', error);
@@ -191,6 +249,7 @@ export default function SentenceQuizPage() {
     // 次へ進む
     if (currentIndex + 1 >= questions.length) {
       setIsComplete(true);
+      clearProgress(); // クイズ完了時に進捗をクリア
     } else {
       setCurrentIndex((prev) => prev + 1);
     }
@@ -198,6 +257,7 @@ export default function SentenceQuizPage() {
 
   // 再スタート
   const handleRestart = async () => {
+    clearProgress(); // 再スタート時に進捗をクリア
     setLoading(true);
     await generateQuestions(allWords);
   };
