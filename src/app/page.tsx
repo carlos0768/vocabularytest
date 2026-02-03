@@ -177,13 +177,6 @@ export default function HomePage() {
   const currentProject = projects[currentProjectIndex] || null;
   const dailyStats = useMemo(() => getDailyStats(), []);
   const streakDays = useMemo(() => getStreakDays(), []);
-  const reviewCount = useMemo(
-    () => allProjectsWords.filter((w) => w.status === 'review').length,
-    [allProjectsWords]
-  );
-  const dailyGoal = 10;
-  const remainingGoal = Math.max(0, dailyGoal - dailyStats.todayCount);
-  const goalProgress = Math.min(100, Math.round((dailyStats.todayCount / dailyGoal) * 100));
 
   // Scan info is populated from server responses
 
@@ -389,6 +382,14 @@ export default function HomePage() {
   const allProjectsWords = useMemo(() => {
     return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
+
+  const reviewCount = useMemo(
+    () => allProjectsWords.filter((w) => w.status === 'review').length,
+    [allProjectsWords]
+  );
+  const dailyGoal = 10;
+  const remainingGoal = Math.max(0, dailyGoal - dailyStats.todayCount);
+  const goalProgress = Math.min(100, Math.round((dailyStats.todayCount / dailyGoal) * 100));
 
   const filteredWords = showWrongAnswers
     ? wrongAnswerWords
