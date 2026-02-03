@@ -350,13 +350,6 @@ export default function ProjectDetailPage() {
               disabled={words.length === 0}
               badge={!isPro ? 'Pro' : undefined}
             />
-            <Link href="/favorites" className="card p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手な単語</p>
-                <p className="text-xs text-[var(--color-muted)]">フラグ済みの単語を確認</p>
-              </div>
-              <span className="text-sm text-[var(--color-primary)] font-semibold">一覧へ</span>
-            </Link>
           </section>
         )}
 
