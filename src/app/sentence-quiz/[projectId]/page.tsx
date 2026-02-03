@@ -12,6 +12,7 @@ import {
 } from '@/components/sentence-quiz';
 import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
+import { calculateNextReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SentenceQuizQuestion, MultiFillInBlankQuestion as MultiFillInBlankQuestionType, SubscriptionStatus } from '@/types';
 
@@ -156,7 +157,7 @@ export default function SentenceQuizPage() {
     }
     recordActivity();
 
-    // ステータス更新
+    // ステータス更新 & スペースド・リピティション更新
     try {
       const word = allWords.find((w) => w.id === currentQuestion.wordId);
       if (word) {
@@ -169,15 +170,19 @@ export default function SentenceQuizPage() {
           else if (word.status === 'review') newStatus = 'new';
         }
 
-        if (newStatus !== word.status) {
-          await repository.updateWord(word.id, { status: newStatus });
-          // ローカル状態も更新
-          setAllWords((prev) =>
-            prev.map((w) =>
-              w.id === word.id ? { ...w, status: newStatus } : w
-            )
-          );
-        }
+        // Calculate spaced repetition update using SM-2 algorithm
+        const srUpdate = calculateNextReview(isCorrect, word);
+
+        // Combine status and spaced repetition updates
+        const updates = { status: newStatus, ...srUpdate };
+        await repository.updateWord(word.id, updates);
+
+        // ローカル状態も更新
+        setAllWords((prev) =>
+          prev.map((w) =>
+            w.id === word.id ? { ...w, ...updates } : w
+          )
+        );
       }
     } catch (error) {
       console.error('Failed to update word status:', error);
