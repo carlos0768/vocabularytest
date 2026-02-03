@@ -33,7 +33,7 @@ export function ProjectNameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up">
         <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           単語帳の名前
@@ -45,7 +45,7 @@ export function ProjectNameModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例: 英語テスト対策"
-            className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+            className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             maxLength={50}
           />
           <div className="flex gap-3 mt-4">
@@ -104,7 +104,7 @@ export function EditProjectNameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up">
         <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           単語帳の名前を変更
@@ -116,7 +116,7 @@ export function EditProjectNameModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="単語帳の名前"
-            className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+            className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             maxLength={50}
           />
           <div className="flex gap-3 mt-4">
@@ -179,7 +179,7 @@ export function ManualWordInputModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up">
         <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           単語を手で入力
@@ -196,7 +196,7 @@ export function ManualWordInputModal({
                 value={english}
                 onChange={(e) => setEnglish(e.target.value)}
                 placeholder="例: beautiful"
-                className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
                 disabled={isLoading}
                 maxLength={50}
               />
@@ -210,7 +210,7 @@ export function ManualWordInputModal({
                 value={japanese}
                 onChange={(e) => setJapanese(e.target.value)}
                 placeholder="例: 美しい"
-                className="w-full px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
                 disabled={isLoading}
                 maxLength={100}
               />

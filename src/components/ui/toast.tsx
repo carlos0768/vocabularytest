@@ -49,17 +49,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Toast container */}
-      <div className="fixed bottom-20 left-0 right-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none">
+      <div className="fixed bottom-24 left-0 right-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
             className={cn(
-              'pointer-events-auto bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg',
+              'pointer-events-auto bg-[#1A1A2E] text-white px-4 py-3 rounded-[var(--radius-lg)] shadow-card',
               'flex items-center gap-3 max-w-sm w-full',
               'animate-in slide-in-from-bottom-4 fade-in duration-200',
-              toast.type === 'warning' && 'bg-amber-600',
-              toast.type === 'success' && 'bg-emerald-600',
-              toast.type === 'error' && 'bg-red-600'
+              toast.type === 'warning' && 'bg-[#FFB347] text-[#1A1A2E]',
+              toast.type === 'success' && 'bg-[#4ECDC4] text-[#0B2C2A]',
+              toast.type === 'error' && 'bg-[#FF6B6B]'
             )}
           >
             <span className="text-sm flex-1">{toast.message}</span>

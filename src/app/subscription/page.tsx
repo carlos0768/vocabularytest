@@ -48,25 +48,25 @@ export default function SubscriptionPage() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-[var(--color-muted)]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--color-background)]">
       {/* Header */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border)]">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-1.5 -ml-1.5 hover:bg-[var(--color-peach-light)] rounded-md transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-[var(--color-muted)]" />
             </Link>
-            <h1 className="text-lg font-semibold text-gray-900">プラン選択</h1>
+            <h1 className="text-lg font-semibold text-[var(--color-foreground)]">プラン選択</h1>
           </div>
         </div>
       </header>
@@ -74,8 +74,8 @@ export default function SubscriptionPage() {
       <main className="max-w-lg mx-auto px-4 py-6">
         {/* Current plan */}
         {isPro && (
-          <div className="bg-emerald-50 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 text-emerald-700">
+          <div className="bg-[var(--color-success-light)] rounded-[var(--radius-lg)] p-4 mb-6 border border-[var(--color-border)]">
+            <div className="flex items-center gap-2 text-[var(--color-success)]">
               <Check className="w-5 h-5" />
               <span className="font-medium text-sm">現在Proプランをご利用中です</span>
             </div>
@@ -83,51 +83,51 @@ export default function SubscriptionPage() {
         )}
 
         {/* Free Plan */}
-        <div className={`bg-gray-50 rounded-xl p-5 mb-3 ${!isPro ? 'ring-2 ring-blue-500' : ''}`}>
+        <div className={`card p-5 mb-3 ${!isPro ? 'ring-2 ring-[var(--color-primary)]' : ''}`}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">無料プラン</h2>
-            <span className="text-xl font-bold text-gray-900">¥0</span>
+            <h2 className="text-lg font-semibold text-[var(--color-foreground)]">無料プラン</h2>
+            <span className="text-xl font-bold text-[var(--color-foreground)]">¥0</span>
           </div>
-          <ul className="space-y-2 text-sm text-gray-600 mb-3">
+          <ul className="space-y-2 text-sm text-[var(--color-muted)] mb-3">
             <li className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-gray-400" />
+              <Check className="w-4 h-4 text-[var(--color-muted)]" />
               1日{KOMOJU_CONFIG.freePlan.dailyScanLimit}回までスキャン
             </li>
             <li className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-gray-400" />
+              <Check className="w-4 h-4 text-[var(--color-muted)]" />
               ローカル保存のみ
             </li>
             <li className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-gray-400" />
+              <Check className="w-4 h-4 text-[var(--color-muted)]" />
               単一デバイス
             </li>
           </ul>
           {!isPro && (
-            <div className="text-center text-xs text-gray-400">現在のプラン</div>
+            <div className="text-center text-xs text-[var(--color-muted)]">現在のプラン</div>
           )}
         </div>
 
         {/* Pro Plan */}
-        <div className={`bg-gray-50 rounded-xl p-5 ${isPro ? 'ring-2 ring-blue-500' : ''}`}>
+        <div className={`card p-5 ${isPro ? 'ring-2 ring-[var(--color-primary)]' : ''}`}>
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-5 h-5 text-amber-500" />
-            <h2 className="text-lg font-semibold text-gray-900">{plan.name}</h2>
+            <Sparkles className="w-5 h-5 text-[var(--color-primary)]" />
+            <h2 className="text-lg font-semibold text-[var(--color-foreground)]">{plan.name}</h2>
           </div>
           <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">¥{plan.price.toLocaleString()}</span>
-            <span className="text-gray-500 text-sm">/月</span>
+            <span className="text-2xl font-bold text-[var(--color-foreground)]">¥{plan.price.toLocaleString()}</span>
+            <span className="text-[var(--color-muted)] text-sm">/月</span>
           </div>
           <ul className="space-y-2 mb-5">
             {plan.features.map((feature, index) => (
               <li key={index} className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-emerald-500" />
-                <span className="text-gray-700">{feature}</span>
+                <Check className="w-4 h-4 text-[var(--color-success)]" />
+                <span className="text-[var(--color-foreground)]">{feature}</span>
               </li>
             ))}
           </ul>
 
           {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg mb-4 text-sm">
+            <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-2 rounded-[var(--radius-md)] mb-4 text-sm">
               {error}
             </div>
           )}
@@ -166,7 +166,7 @@ export default function SubscriptionPage() {
         </div>
 
         {/* Payment methods note */}
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs text-[var(--color-muted)] mt-6">
           クレジットカードでお支払いいただけます
         </p>
       </main>

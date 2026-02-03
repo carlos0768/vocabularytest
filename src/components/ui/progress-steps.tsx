@@ -24,25 +24,25 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
           key={step.id}
           className={cn(
             'flex items-center gap-3 p-3 rounded-xl transition-all duration-300',
-            step.status === 'active' && 'bg-blue-50',
-            step.status === 'complete' && 'bg-green-50',
-            step.status === 'error' && 'bg-red-50',
+            step.status === 'active' && 'bg-[var(--color-peach-light)]',
+            step.status === 'complete' && 'bg-[var(--color-success-light)]',
+            step.status === 'error' && 'bg-[var(--color-error-light)]',
             step.status === 'pending' && 'opacity-50'
           )}
         >
           {/* Status icon */}
           <div className="flex-shrink-0">
             {step.status === 'active' && (
-              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              <Loader2 className="w-5 h-5 text-[var(--color-primary)] animate-spin" />
             )}
             {step.status === 'complete' && (
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
             )}
             {step.status === 'pending' && (
               <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
             )}
             {step.status === 'error' && (
-              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full bg-[var(--color-error)] flex items-center justify-center">
                 <span className="text-white text-xs font-bold">!</span>
               </div>
             )}
@@ -52,10 +52,10 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
           <span
             className={cn(
               'text-sm font-medium',
-              step.status === 'active' && 'text-blue-700',
-              step.status === 'complete' && 'text-green-700',
-              step.status === 'error' && 'text-red-700',
-              step.status === 'pending' && 'text-gray-500'
+              step.status === 'active' && 'text-[var(--color-primary-dark)]',
+              step.status === 'complete' && 'text-[var(--color-success)]',
+              step.status === 'error' && 'text-[var(--color-error)]',
+              step.status === 'pending' && 'text-[var(--color-muted)]'
             )}
           >
             {step.label}

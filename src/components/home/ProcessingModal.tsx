@@ -12,7 +12,7 @@ export function ProcessingModal({
   const hasError = steps.some((s) => s.status === 'error');
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up">
         <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
           {hasError ? 'エラーが発生しました' : '解析中'}

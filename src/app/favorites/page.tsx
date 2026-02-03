@@ -69,26 +69,26 @@ export default function FavoritesPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 bg-[var(--color-background)]">
       {/* Header */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 border-b border-[var(--color-border)] z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 -ml-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="flex items-center gap-2">
-              <Flag className="w-5 h-5 fill-orange-500 text-orange-500" />
-              <h1 className="text-lg font-semibold">苦手な単語</h1>
+              <Flag className="w-5 h-5 fill-[var(--color-warning)] text-[var(--color-warning)]" />
+              <h1 className="text-lg font-semibold text-[var(--color-foreground)]">苦手な単語</h1>
             </div>
           </div>
         </div>
@@ -98,13 +98,13 @@ export default function FavoritesPage() {
       <main className="max-w-lg mx-auto px-4 py-6">
         {favorites.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Flag className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Flag className="w-8 h-8 text-[var(--color-muted)]" />
             </div>
-            <h2 className="text-lg font-medium text-gray-900 mb-2">
+            <h2 className="text-lg font-medium text-[var(--color-foreground)] mb-2">
               苦手な単語はありません
             </h2>
-            <p className="text-gray-500 mb-6">
+            <p className="text-[var(--color-muted)] mb-6">
               クイズ中にフラグをタップして
               <br />
               苦手な単語をマークしましょう
@@ -119,13 +119,13 @@ export default function FavoritesPage() {
         ) : (
           <>
             {/* Stats */}
-            <div className="bg-orange-50 rounded-xl p-4 mb-6">
+            <div className="bg-[var(--color-warning-light)] rounded-[var(--radius-lg)] p-4 mb-6 border border-[var(--color-border)]">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-orange-600 text-sm font-medium">苦手な単語</p>
-                  <p className="text-2xl font-bold text-orange-700">{favorites.length}語</p>
+                  <p className="text-[var(--color-warning)] text-sm font-medium">苦手な単語</p>
+                  <p className="text-2xl font-bold text-[var(--color-foreground)]">{favorites.length}語</p>
                 </div>
-                <Flag className="w-10 h-10 fill-orange-200 text-orange-200" />
+                <Flag className="w-10 h-10 fill-[var(--color-warning-light)] text-[var(--color-warning)]" />
               </div>
             </div>
 
@@ -134,28 +134,28 @@ export default function FavoritesPage() {
               {favorites.map((word) => (
                 <div
                   key={word.id}
-                  className="bg-white rounded-xl border border-gray-200 p-4 group hover:shadow-sm transition-shadow"
+                  className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4 group hover:shadow-card transition-shadow"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-gray-900">{word.english}</p>
-                        <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
+                        <p className="font-medium text-[var(--color-foreground)]">{word.english}</p>
+                        <Flag className="w-4 h-4 fill-[var(--color-warning)] text-[var(--color-warning)]" />
                       </div>
-                      <p className="text-gray-600">{word.japanese}</p>
+                      <p className="text-[var(--color-muted)]">{word.japanese}</p>
                       <Link
                         href={`/project/${word.projectId}`}
-                        className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+                        className="text-xs text-[var(--color-primary)] hover:underline mt-1 inline-block"
                       >
                         {word.projectTitle}
                       </Link>
                     </div>
                     <button
                       onClick={() => handleToggleFavorite(word.id)}
-                      className="p-2 hover:bg-orange-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-2 hover:bg-[var(--color-warning-light)] rounded-full transition-colors opacity-0 group-hover:opacity-100"
                       aria-label="苦手を解除"
                     >
-                      <Flag className="w-5 h-5 fill-orange-500 text-orange-500" />
+                      <Flag className="w-5 h-5 fill-[var(--color-warning)] text-[var(--color-warning)]" />
                     </button>
                   </div>
                 </div>

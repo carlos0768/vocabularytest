@@ -8,26 +8,17 @@ import {
   BookOpen,
   Sparkles,
   Plus,
-  Edit2,
-  Trash2,
-  Share2,
-  Link as LinkIcon,
-  Loader2,
-  BookText,
-  Check,
-  Play,
-  Layers,
   Flag,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { type ProgressStep, useToast, DeleteConfirmModal, Button, BottomNav } from '@/components/ui';
+import { type ProgressStep, useToast, DeleteConfirmModal, BottomNav } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
-import { InlineFlashcard, StudyModeCard, WordList } from '@/components/home';
+import { ProjectCard } from '@/components/project';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
-import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
+import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
 import {
@@ -172,6 +163,8 @@ export default function HomePage() {
 
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
+  const dailyStats = useMemo(() => getDailyStats(), []);
+  const streakDays = useMemo(() => getStreakDays(), []);
 
   // Scan info is populated from server responses
 
@@ -976,7 +969,7 @@ export default function HomePage() {
           className="hidden"
         />
 
-        <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
+        <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
           <div className="max-w-lg mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1048,11 +1041,11 @@ export default function HomePage() {
 
   // Main view with project
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col pb-48">
+    <div className="min-h-screen bg-[var(--color-background)] flex flex-col pb-28">
       {/* Word limit banner */}
       {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
-      {/* Hidden file input for new project */}
+      {/* Hidden file input for new project (legacy scan flow) */}
       <input
         ref={fileInputRef}
         type="file"
@@ -1070,154 +1063,115 @@ export default function HomePage() {
       />
 
       {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
-        <div className="max-w-lg mx-auto">
-          <div className="flex items-center justify-between">
-            {/* Left: Logo */}
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold text-[var(--color-primary)] tracking-tight">MERKEN</h1>
-              {isPro && (
-                <span className="chip chip-pro">
-                  <Sparkles className="w-3 h-3" />
-                  Pro
-                </span>
-              )}
-            </div>
-
-            {/* Right: Actions */}
-            <div className="flex items-center gap-1">
-              {/* Project Selector - Circular Button */}
-              <button
-                onClick={() => setIsProjectDropdownOpen(true)}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all"
-                title={showWrongAnswers ? '間違え一覧' : showFavoritesOnly ? '苦手な単語' : (currentProject?.title || '単語帳')}
-              >
-                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
-              </button>
-
-              {isPro && !showWrongAnswers && !showFavoritesOnly && (
-                <button
-                  onClick={handleShare}
-                  disabled={sharing}
-                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                >
-                  {sharing ? (
-                    <Loader2 className="w-5 h-5 text-[var(--color-muted)] animate-spin" />
-                  ) : shareCopied ? (
-                    <Check className="w-5 h-5 text-[var(--color-success)]" />
-                  ) : currentProject?.shareId ? (
-                    <LinkIcon className="w-5 h-5 text-[var(--color-primary)]" />
-                  ) : (
-                    <Share2 className="w-5 h-5 text-[var(--color-muted)]" />
-                  )}
-                </button>
-              )}
-              {!showWrongAnswers && !showFavoritesOnly && (
-                <button
-                  onClick={handleDeleteProject}
-                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[var(--color-error)]/10 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5 text-[var(--color-muted)] hover:text-[var(--color-error)]" />
-                </button>
-              )}
-            </div>
+      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)]">
+        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
+            <p className="text-xs text-[var(--color-muted)]">手入力ゼロで単語帳を作成</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isPro && (
+              <span className="chip chip-pro">
+                <Sparkles className="w-3 h-3" />
+                Pro
+              </span>
+            )}
+            <Link
+              href="/projects"
+              className="inline-flex items-center px-3 py-2 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-sm font-semibold text-[var(--color-foreground)]"
+            >
+              プロジェクト
+            </Link>
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-lg mx-auto px-6 py-4 w-full">
+      <main className="flex-1 max-w-lg mx-auto px-4 py-6 w-full space-y-6">
+        <section className="grid grid-cols-2 gap-3">
+          <div className="card p-4">
+            <p className="text-xs text-[var(--color-muted)]">連続学習</p>
+            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{streakDays}日</p>
+            <p className="text-xs text-[var(--color-muted)] mt-2">学習が続いています</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-[var(--color-muted)]">今日の学習</p>
+            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{dailyStats.todayCount}問</p>
+            <p className="text-xs text-[var(--color-muted)] mt-2">
+              正答率 {dailyStats.todayCount > 0 ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100) : 0}%
+            </p>
+          </div>
+        </section>
 
-        {/* Inline Flashcard */}
-        <div className="mb-6">
-          <InlineFlashcard words={filteredWords} />
-        </div>
+        <section className="card p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs text-[var(--color-muted)]">今日の復習</p>
+            <p className="text-lg font-bold text-[var(--color-foreground)] mt-1">
+              {allProjectsWords.filter((w) => w.status === 'review').length}語が復習タイミング
+            </p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">まずはクイズから始めましょう</p>
+          </div>
+          <Link
+            href={currentProject ? `/quiz/${currentProject.id}` : '/projects'}
+            className="px-4 py-2 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white text-sm font-semibold"
+          >
+            復習を始める
+          </Link>
+        </section>
 
-        {/* Study Mode Cards - 2 column grid (hidden in wrong answers mode) */}
-        {!showWrongAnswers && (
-          <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
-              <StudyModeCard
-                title="クイズ"
-                description="4択単語テスト"
-                icon={Play}
-                href={`/quiz/${currentProject?.id}`}
-                variant="red"
-                disabled={filteredWords.length === 0}
-              />
-              <StudyModeCard
-                title="カード"
-                description="フラッシュカード"
-                icon={Layers}
-                href={isPro ? `/flashcard/${currentProject?.id}` : '/subscription'}
-                variant="blue"
-                disabled={filteredWords.length === 0}
-                badge={!isPro ? 'Pro' : undefined}
-              />
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近のプロジェクト</h2>
+            <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
+          </div>
+          <div className="space-y-3">
+            {projects.length === 0 ? (
+              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
+                まだプロジェクトがありません。スキャンから始めましょう。
+              </div>
+            ) : (
+              [...projects]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 3)
+                .map((project) => {
+                  const projectWords = getCachedProjectWords()[project.id] || [];
+                  const mastered = projectWords.filter((w) => w.status === 'mastered').length;
+                  const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
+                  return (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      wordCount={projectWords.length}
+                      masteredCount={mastered}
+                      progress={progress}
+                    />
+                  );
+                })
+            )}
+          </div>
+        </section>
+
+        <section className="grid grid-cols-2 gap-3">
+          <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
+            <div className="w-10 h-10 rounded-full bg-[var(--color-peach-light)] flex items-center justify-center text-[var(--color-primary)]">
+              <Plus className="w-5 h-5" />
             </div>
-
-            {/* Sentence Quiz Card - Full width (Pro only) */}
-            <StudyModeCard
-              title="例文クイズ"
-              description="例文で単語を覚える"
-              icon={BookText}
-              href={isPro ? `/sentence-quiz/${currentProject?.id}` : '/subscription'}
-              variant="purple"
-              disabled={filteredWords.length === 0}
-              badge={!isPro ? 'Pro' : undefined}
-            />
-          </div>
-        )}
-
-        {/* Collapsible Word List */}
-        {wordsLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : (
-          <WordList
-            words={filteredWords}
-            editingWordId={editingWordId}
-            onEditStart={(wordId) => setEditingWordId(wordId)}
-            onEditCancel={() => setEditingWordId(null)}
-            onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-            onDelete={(wordId) => {
-              if (showWrongAnswers) {
-                // Remove from wrong answers list
-                removeWrongAnswer(wordId);
-                setWrongAnswers(getWrongAnswers());
-                showToast({ message: '間違え一覧から削除しました', type: 'success' });
-              } else {
-                handleDeleteWord(wordId);
-              }
-            }}
-            onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-            onExpandChange={setIsWordListExpanded}
-          />
-        )}
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">新しくスキャン</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">ノートやプリントを取り込む</p>
+            </div>
+          </Link>
+          <Link href="/favorites" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
+            <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
+              <Flag className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
+            </div>
+          </Link>
+        </section>
       </main>
-
-      {/* Floating Action Button (Add to project) - hidden in wrong answers/favorites mode */}
-      {!showWrongAnswers && !showFavoritesOnly && (
-        <div className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-[var(--color-surface)] px-4 py-2 rounded-full shadow-card border border-[var(--color-border)]">
-          <button
-            onClick={() => setShowManualWordModal(true)}
-            disabled={!currentProject}
-            className="w-10 h-10 flex items-center justify-center bg-[var(--color-peach-light)] text-[var(--color-foreground)] rounded-full hover:bg-[var(--color-peach)]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title="手で入力"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleScanButtonClick(true)}
-            disabled={processing || (!isPro && !canScan)}
-            className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-peach)] text-white rounded-full shadow-glow hover:shadow-glow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title="スキャン追加"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        </div>
-      )}
 
       {/* Bottom Navigation */}
       <BottomNav />

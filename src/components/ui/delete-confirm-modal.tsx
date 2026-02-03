@@ -30,15 +30,15 @@ export function DeleteConfirmModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false} closeOnBackdrop={!isLoading}>
       <div className="p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
-          <AlertTriangle className="w-6 h-6 text-red-600" />
+        <div className="flex items-center justify-center w-12 h-12 bg-[var(--color-error-light)] rounded-full mx-auto mb-4">
+          <AlertTriangle className="w-6 h-6 text-[var(--color-error)]" />
         </div>
 
-        <h3 className="text-lg font-semibold text-center text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-center text-[var(--color-foreground)] mb-2">
           {title}
         </h3>
 
-        <p className="text-sm text-gray-500 text-center mb-6">
+        <p className="text-sm text-[var(--color-muted)] text-center mb-6">
           {message}
         </p>
 

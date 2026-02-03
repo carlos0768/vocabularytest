@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Noto_Sans_JP } from 'next/font/google';
+import { Manrope, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import './globals.css';
 
-const inter = Inter({
-  variable: '--font-inter',
+const manrope = Manrope({
+  variable: '--font-manrope',
   subsets: ['latin'],
   display: 'swap',
 });
@@ -73,7 +73,7 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${notoSansJP.variable} antialiased`}
+        className={`${manrope.variable} ${notoSansJP.variable} antialiased`}
       >
         <ThemeProvider>
           <ToastProvider>{children}</ToastProvider>

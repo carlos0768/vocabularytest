@@ -11,70 +11,87 @@ import type { Project } from '@/types';
 interface ProjectCardProps {
   project: Project;
   wordCount: number;
-  onDelete: (id: string) => void;
+  masteredCount?: number;
+  progress?: number;
+  onDelete?: (id: string) => void;
 }
 
-export function ProjectCard({ project, wordCount, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 0, onDelete }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
-    <Card className="relative group">
+    <Card className="relative group overflow-hidden">
       <Link href={`/project/${project.id}`} className="block">
-        <CardHeader>
-          <div className="flex items-start justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
             <CardTitle className="line-clamp-2 pr-8">{project.title}</CardTitle>
+            {project.isFavorite && (
+              <span className="chip chip-pro text-xs">お気に入り</span>
+            )}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
+        <CardContent className="pt-0">
+          <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
             <div className="flex items-center gap-1">
               <BookOpen className="w-4 h-4" />
               <span>{wordCount}語</span>
             </div>
             <span>{formatDate(project.createdAt)}</span>
           </div>
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-[var(--color-muted)] mb-2">
+              <span>習得率</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-[var(--color-muted)]">{masteredCount}語 習得済み</p>
+          </div>
         </CardContent>
       </Link>
 
       {/* Menu button */}
-      <div className="absolute top-3 right-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setShowMenu(!showMenu);
-          }}
-        >
-          <MoreVertical className="w-4 h-4" />
-        </Button>
+      {onDelete && (
+        <div className="absolute top-3 right-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+          >
+            <MoreVertical className="w-4 h-4" />
+          </Button>
 
-        {/* Dropdown menu */}
-        {showMenu && (
-          <>
-            <div
-              className="fixed inset-0 z-10"
-              onClick={() => setShowMenu(false)}
-            />
-            <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[120px]">
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  onDelete(project.id);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                削除
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+          {/* Dropdown menu */}
+          {showMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowMenu(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 z-20 bg-[var(--color-surface)] rounded-lg shadow-card border border-[var(--color-border)] py-1 min-w-[120px]">
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-[var(--color-error)] hover:bg-[var(--color-error-light)] flex items-center gap-2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onDelete(project.id);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  削除
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

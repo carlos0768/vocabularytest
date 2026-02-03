@@ -174,10 +174,10 @@ export default function FavoritesQuizPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">苦手クイズを準備中...</p>
+          <div className="w-12 h-12 border-4 border-[var(--color-warning)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--color-muted)]">苦手クイズを準備中...</p>
         </div>
       </div>
     );
@@ -196,18 +196,18 @@ export default function FavoritesQuizPage() {
     };
 
     return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
         <header className="flex-shrink-0 p-4 flex items-center justify-between">
           <button
             onClick={() => router.push(`/project/${projectId}`)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
-          <div className="flex items-center gap-2 bg-orange-100 px-3 py-1 rounded-full">
-            <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
-            <span className="text-sm font-medium text-orange-700">苦手クイズ</span>
+          <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full">
+            <Flag className="w-4 h-4 fill-[var(--color-warning)] text-[var(--color-warning)]" />
+            <span className="text-sm font-medium text-[var(--color-warning)]">苦手クイズ</span>
           </div>
           <div className="w-10" /> {/* Spacer for alignment */}
         </header>
@@ -215,10 +215,10 @@ export default function FavoritesQuizPage() {
         {/* Selection */}
         <main className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+            <h1 className="text-2xl font-bold text-[var(--color-foreground)] text-center mb-2">
               問題数を入力
             </h1>
-            <p className="text-gray-500 text-center mb-8">
+            <p className="text-[var(--color-muted)] text-center mb-8">
               1〜{maxQuestions}問まで
             </p>
 
@@ -238,16 +238,16 @@ export default function FavoritesQuizPage() {
                     }
                   }}
                   placeholder={String(DEFAULT_QUESTION_COUNT)}
-                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-[var(--color-border)] rounded-xl focus:border-[var(--color-warning)] focus:outline-none transition-colors"
                   autoFocus
                 />
-                <span className="text-xl text-gray-500">問</span>
+                <span className="text-xl text-[var(--color-muted)]">問</span>
               </div>
 
               <Button
                 onClick={handleSubmit}
                 disabled={!isValidInput}
-                className="w-full bg-orange-500 hover:bg-orange-600"
+                className="w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90"
                 size="lg"
               >
                 スタート
@@ -264,12 +264,12 @@ export default function FavoritesQuizPage() {
     const percentage = Math.round((results.correct / results.total) * 100);
 
     return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
         {/* Header */}
         <header className="p-4">
           <button
             onClick={() => router.push(`/project/${projectId}`)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -277,26 +277,26 @@ export default function FavoritesQuizPage() {
 
         {/* Results */}
         <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="bg-white rounded-3xl shadow-lg p-8 w-full max-w-sm text-center">
-            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Trophy className="w-10 h-10 text-orange-600" />
+          <div className="bg-[var(--color-surface)] rounded-[var(--radius-2xl)] shadow-card p-8 w-full max-w-sm text-center border border-[var(--color-border)]">
+            <div className="w-20 h-20 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trophy className="w-10 h-10 text-[var(--color-warning)]" />
             </div>
 
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
               苦手クイズ完了！
             </h1>
 
             <div className="mb-6">
-              <p className="text-5xl font-bold text-orange-500 mb-1">
+              <p className="text-5xl font-bold text-[var(--color-warning)] mb-1">
                 {percentage}%
               </p>
-              <p className="text-gray-500">
+              <p className="text-[var(--color-muted)]">
                 {results.total}問中 {results.correct}問正解
               </p>
             </div>
 
             {/* Performance message */}
-            <p className="text-gray-600 mb-8">
+            <p className="text-[var(--color-muted)] mb-8">
               {percentage === 100
                 ? '苦手を克服！素晴らしい！'
                 : percentage >= 80
@@ -307,7 +307,7 @@ export default function FavoritesQuizPage() {
             </p>
 
             <div className="space-y-3">
-              <Button onClick={handleRestart} className="w-full bg-orange-500 hover:bg-orange-600" size="lg">
+              <Button onClick={handleRestart} className="w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" size="lg">
                 <RotateCcw className="w-5 h-5 mr-2" />
                 もう一度
               </Button>
@@ -327,30 +327,30 @@ export default function FavoritesQuizPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
       {/* Header */}
       <header className="flex-shrink-0 p-4 flex items-center justify-between">
         <button
           onClick={() => router.push(`/project/${projectId}`)}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
         >
           <X className="w-6 h-6" />
         </button>
 
         {/* Title badge */}
-        <div className="flex items-center gap-2 bg-orange-100 px-3 py-1 rounded-full">
-          <Flag className="w-4 h-4 fill-orange-500 text-orange-500" />
-          <span className="text-sm font-medium text-orange-700">苦手クイズ</span>
+        <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full">
+          <Flag className="w-4 h-4 fill-[var(--color-warning)] text-[var(--color-warning)]" />
+          <span className="text-sm font-medium text-[var(--color-warning)]">苦手クイズ</span>
         </div>
 
         {/* Progress indicator */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-[var(--color-muted)]">
             {currentIndex + 1} / {questions.length}
           </span>
-          <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="w-24 h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-orange-500 transition-all duration-300"
+              className="h-full bg-[var(--color-warning)] transition-all duration-300"
               style={{
                 width: `${((currentIndex + 1) / questions.length) * 100}%`,
               }}
@@ -363,20 +363,20 @@ export default function FavoritesQuizPage() {
       <main className="flex-1 flex flex-col p-6 min-h-0 overflow-hidden">
         {/* English word */}
         <div className="flex-shrink-0 flex flex-col items-center justify-center py-4">
-          <h1 className="text-4xl font-bold text-gray-900 text-center mb-4">
+          <h1 className="text-4xl font-bold text-[var(--color-foreground)] text-center mb-4">
             {currentQuestion?.word.english}
           </h1>
           {/* Favorite button */}
           <button
             onClick={handleToggleFavorite}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full hover:bg-[var(--color-peach-light)] transition-colors"
             aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
             <Flag
               className={`w-6 h-6 transition-colors ${
                 currentQuestion?.word.isFavorite
-                  ? 'fill-orange-500 text-orange-500'
-                  : 'text-gray-400'
+                  ? 'fill-[var(--color-warning)] text-[var(--color-warning)]'
+                  : 'text-[var(--color-muted)]'
               }`}
             />
           </button>
@@ -400,18 +400,18 @@ export default function FavoritesQuizPage() {
 
         {/* Example sentence (shown after answering, Pro feature) */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="flex-shrink-0 mb-4 p-4 bg-orange-50 rounded-xl">
-            <p className="text-sm font-medium text-orange-800 mb-1">例文</p>
-            <p className="text-orange-900 italic">{currentQuestion.word.exampleSentence}</p>
+          <div className="flex-shrink-0 mb-4 p-4 bg-[var(--color-warning-light)] rounded-[var(--radius-lg)]">
+            <p className="text-sm font-medium text-[var(--color-foreground)] mb-1">例文</p>
+            <p className="text-[var(--color-foreground)] italic">{currentQuestion.word.exampleSentence}</p>
             {currentQuestion.word.exampleSentenceJa && (
-              <p className="text-sm text-orange-700 mt-1">{currentQuestion.word.exampleSentenceJa}</p>
+              <p className="text-sm text-[var(--color-warning)] mt-1">{currentQuestion.word.exampleSentenceJa}</p>
             )}
           </div>
         )}
 
         {/* Next button (only shown when wrong answer selected) */}
         {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
-          <Button onClick={moveToNext} className="flex-shrink-0 w-full bg-orange-500 hover:bg-orange-600" size="lg">
+          <Button onClick={moveToNext} className="flex-shrink-0 w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" size="lg">
             次へ
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>

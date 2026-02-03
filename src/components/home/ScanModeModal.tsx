@@ -51,7 +51,7 @@ export function ScanModeModal({
 
   if (showEikenPicker) {
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div className="card p-6 w-full max-w-sm animate-fade-in-up">
           <h2 className="text-lg font-bold mb-2 text-center text-[var(--color-foreground)]">
             英検レベルを選択
@@ -65,7 +65,7 @@ export function ScanModeModal({
               <button
                 key={level.value}
                 onClick={() => setSelectedEiken(level.value)}
-                className={`w-full flex items-center justify-between px-4 py-3 border-2 rounded-2xl transition-all text-left ${
+                className={`w-full flex items-center justify-between px-4 py-3 border rounded-[var(--radius-lg)] transition-all text-left ${
                   selectedEiken === level.value
                     ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
                     : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
@@ -105,7 +105,7 @@ export function ScanModeModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold mb-2 text-center text-[var(--color-foreground)]">
           抽出モードを選択
@@ -117,7 +117,7 @@ export function ScanModeModal({
         <div className="space-y-3">
           <button
             onClick={() => onSelectMode('all', null)}
-            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
           >
             <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/20 transition-colors">
               <Camera className="w-6 h-6 text-[var(--color-primary)]" />
@@ -130,10 +130,10 @@ export function ScanModeModal({
 
           <button
             onClick={() => onSelectMode('circled', null)}
-            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-left relative group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning-light)] transition-all text-left relative group"
           >
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
-              <CircleDot className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            <div className="w-12 h-12 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-warning)]/25 transition-colors">
+              <CircleDot className="w-6 h-6 text-[var(--color-warning)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -151,10 +151,10 @@ export function ScanModeModal({
 
           <button
             onClick={() => onSelectMode('highlighted', null)}
-            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all text-left relative group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-peach)] hover:bg-[var(--color-peach-light)] transition-all text-left relative group"
           >
-            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-900/50 transition-colors">
-              <Highlighter className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+            <div className="w-12 h-12 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-peach)]/25 transition-colors">
+              <Highlighter className="w-6 h-6 text-[var(--color-peach)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -172,7 +172,7 @@ export function ScanModeModal({
 
           <button
             onClick={() => setShowEikenPicker(true)}
-            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-[var(--color-peach)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-peach)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
           >
             <div className="w-12 h-12 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-peach)]/30 transition-colors">
               <BookOpen className="w-6 h-6 text-[var(--color-peach)]" />
@@ -193,7 +193,7 @@ export function ScanModeModal({
 
           <button
             onClick={() => onSelectMode('idiom', null)}
-            className="w-full flex items-center gap-4 p-4 border-2 border-[var(--color-border)] rounded-2xl hover:border-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-all text-left group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-all text-left group"
           >
             <div className="w-12 h-12 bg-[var(--color-success-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-success)]/30 transition-colors">
               <Languages className="w-6 h-6 text-[var(--color-success)]" />

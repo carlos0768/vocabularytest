@@ -390,7 +390,7 @@ export default function QuizPage() {
         </header>
         <main className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
-            <p className="text-red-600 mb-6">{distractorError}</p>
+            <p className="text-[var(--color-error)] mb-6">{distractorError}</p>
             <div className="space-y-3">
               <Button
                 onClick={() => {
