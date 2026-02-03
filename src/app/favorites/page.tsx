@@ -1,20 +1,18 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Flag, Play, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Flag, Loader2, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
-import type { Word, Project, SubscriptionStatus } from '@/types';
+import type { Word, SubscriptionStatus } from '@/types';
 
 interface FavoriteWord extends Word {
   projectTitle: string;
 }
 
 export default function FavoritesPage() {
-  const router = useRouter();
   const { user, subscription, loading: authLoading } = useAuth();
 
   const [favorites, setFavorites] = useState<FavoriteWord[]>([]);
@@ -34,18 +32,42 @@ export default function FavoritesPage() {
         }
 
         const projects = await repository.getProjects(user.id);
-        const allFavorites: FavoriteWord[] = [];
+        const projectIds = projects.map((project) => project.id);
+        const projectTitleMap = new Map(projects.map((project) => [project.id, project.title]));
 
-        for (const project of projects) {
-          const words = await repository.getWords(project.id);
-          const favoriteWords = words
+        if (projectIds.length === 0) {
+          setFavorites([]);
+          return;
+        }
+
+        const repoWithBulk = repository as typeof repository & {
+          getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
+          getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
+        };
+
+        let wordsByProject: Record<string, Word[]>;
+
+        if (repoWithBulk.getAllWordsByProjectIds) {
+          wordsByProject = await repoWithBulk.getAllWordsByProjectIds(projectIds);
+        } else if (repoWithBulk.getAllWordsByProject) {
+          wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
+        } else {
+          const wordsArrays = await Promise.all(projectIds.map((id) => repository.getWords(id)));
+          wordsByProject = Object.fromEntries(
+            projectIds.map((id, index) => [id, wordsArrays[index] ?? []])
+          );
+        }
+
+        const allFavorites = projectIds.flatMap((projectId) => {
+          const words = wordsByProject[projectId] ?? [];
+          const projectTitle = projectTitleMap.get(projectId) ?? '';
+          return words
             .filter((w) => w.isFavorite)
             .map((w) => ({
               ...w,
-              projectTitle: project.title,
+              projectTitle,
             }));
-          allFavorites.push(...favoriteWords);
-        }
+        });
 
         setFavorites(allFavorites);
       } catch (error) {
