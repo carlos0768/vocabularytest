@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Plus, Star, Loader2 } from 'lucide-react';
+import { Search, Plus, Star, Loader2 } from 'lucide-react';
 import { BottomNav } from '@/components/ui';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
@@ -71,13 +71,6 @@ export default function ProjectsPage() {
     <div className="min-h-screen pb-28">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
-            aria-label="戻る"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">プロジェクト</h1>
             <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
