@@ -20,6 +20,8 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
   const [isCorrect, setIsCorrect] = useState(false);
   // 各空欄の正解/不正解状態
   const [blankResults, setBlankResults] = useState<Record<number, boolean>>({});
+  // 連打防止
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 問題が変わったら状態をリセット
   const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
@@ -31,6 +33,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
       setIsRevealed(false);
       setIsCorrect(false);
       setBlankResults({});
+      setIsSubmitting(false);
     }
   }, [question.wordId, currentQuestionId]);
 
@@ -102,6 +105,8 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
   };
 
   const handleNext = () => {
+    if (isSubmitting) return; // 連打防止
+    setIsSubmitting(true);
     onAnswer(isCorrect);
   };
 
