@@ -20,7 +20,7 @@ export default function QuizPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  const { subscription, loading: authLoading, user, isPro } = useAuth();
+  const { subscription, loading: authLoading, user } = useAuth();
 
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
