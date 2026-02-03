@@ -183,6 +183,32 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const copyToClipboard = async (text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // fall through to legacy copy
+      }
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return success;
+    } catch {
+      return false;
+    }
+  };
+
   const handleShare = async () => {
     if (!project || !user || !isPro) return;
 
@@ -194,9 +220,15 @@ export default function ProjectDetailPage() {
         setProject((prev) => (prev ? { ...prev, shareId } : prev));
       }
       const shareUrl = `${window.location.origin}/share/${shareId}`;
-      await navigator.clipboard.writeText(shareUrl);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
+      const copied = await copyToClipboard(shareUrl);
+      if (copied) {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+        showToast({ message: '共有リンクをコピーしました', type: 'success' });
+      } else {
+        window.prompt('共有リンクをコピーしてください', shareUrl);
+        showToast({ message: '共有リンクを作成しました', type: 'success' });
+      }
     } catch (error) {
       console.error('Failed to share:', error);
       showToast({ message: '共有リンクの生成に失敗しました', type: 'error' });
