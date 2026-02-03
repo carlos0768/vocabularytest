@@ -26,6 +26,7 @@ function ScanPageContent() {
   const [scanInfo, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
   const [selectedMode, setSelectedMode] = useState<ExtractMode>('all');
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
+  const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
@@ -281,18 +282,44 @@ function ScanPageContent() {
       {/* Header */}
       <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="w-10 h-10 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center"
-            >
-              <ArrowLeft className="w-5 h-5 text-[var(--color-muted)]" />
-            </button>
-            <div>
-              <h1 className="text-lg font-semibold text-[var(--color-foreground)]">
-                {projectId ? '単語を追加' : '新しいスキャン'}
-              </h1>
-              <p className="text-xs text-[var(--color-muted)]">モードを選んで撮影/アップロード</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.back()}
+                className="w-10 h-10 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center"
+              >
+                <ArrowLeft className="w-5 h-5 text-[var(--color-muted)]" />
+              </button>
+              <div>
+                <h1 className="text-lg font-semibold text-[var(--color-foreground)]">
+                  {projectId ? '単語を追加' : '新しいスキャン'}
+                </h1>
+                <p className="text-xs text-[var(--color-muted)]">モードを選んで撮影/アップロード</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+              <button
+                onClick={() => setInputMode('camera')}
+                className={`px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  inputMode === 'camera'
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5 inline-block mr-1 -mt-0.5" />
+                撮影
+              </button>
+              <button
+                onClick={() => setInputMode('upload')}
+                className={`px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  inputMode === 'upload'
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5 inline-block mr-1 -mt-0.5" />
+                選択
+              </button>
             </div>
           </div>
         </div>
@@ -300,16 +327,6 @@ function ScanPageContent() {
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <div className="card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center">
-            <Camera className="w-6 h-6 text-[var(--color-primary)]" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--color-foreground)]">ノートやプリントを撮影</h2>
-            <p className="text-sm text-[var(--color-muted)]">英単語を自動で抽出してクイズを作成します</p>
-          </div>
-        </div>
-
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-muted)]">抽出モード</h3>
@@ -377,41 +394,43 @@ function ScanPageContent() {
         </section>
 
         <section className="space-y-3">
-          <label className="flex items-center gap-4 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] cursor-pointer hover:shadow-card transition-colors">
-            <div className="w-12 h-12 bg-[var(--color-primary)] rounded-full flex items-center justify-center shrink-0">
-              <Camera className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-medium text-[var(--color-foreground)]">カメラで撮影</p>
-              <p className="text-sm text-[var(--color-muted)]">その場で撮影して追加</p>
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              disabled={processing || !canScan}
-              className="hidden"
-            />
-          </label>
-
-          <label className="flex items-center gap-4 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] cursor-pointer hover:shadow-card transition-colors">
-            <div className="w-12 h-12 bg-[var(--color-muted)] rounded-full flex items-center justify-center shrink-0">
-              <ImageIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-medium text-[var(--color-foreground)]">写真・PDFを選択</p>
-              <p className="text-sm text-[var(--color-muted)]">フォルダから選ぶ（複数可）</p>
-            </div>
-            <input
-              type="file"
-              accept="image/*,.pdf,application/pdf"
-              multiple
-              onChange={handleFileChange}
-              disabled={processing || !canScan}
-              className="hidden"
-            />
-          </label>
+          {inputMode === 'camera' ? (
+            <label className="flex items-center gap-4 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] cursor-pointer hover:shadow-card transition-colors">
+              <div className="w-12 h-12 bg-[var(--color-primary)] rounded-full flex items-center justify-center shrink-0">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-[var(--color-foreground)]">カメラで撮影</p>
+                <p className="text-sm text-[var(--color-muted)]">その場で撮影して追加</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileChange}
+                disabled={processing || !canScan}
+                className="hidden"
+              />
+            </label>
+          ) : (
+            <label className="flex items-center gap-4 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] cursor-pointer hover:shadow-card transition-colors">
+              <div className="w-12 h-12 bg-[var(--color-muted)] rounded-full flex items-center justify-center shrink-0">
+                <ImageIcon className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-[var(--color-foreground)]">写真・PDFを選択</p>
+                <p className="text-sm text-[var(--color-muted)]">フォルダから選ぶ（複数可）</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                multiple
+                onChange={handleFileChange}
+                disabled={processing || !canScan}
+                className="hidden"
+              />
+            </label>
+          )}
         </section>
 
         {!isPro && scanInfo && scanInfo.limit && (
