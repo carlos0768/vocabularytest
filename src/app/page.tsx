@@ -1125,21 +1125,6 @@ export default function HomePage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-4 py-6 w-full space-y-6">
-        <section className="grid grid-cols-2 gap-3">
-          <div className="card p-4">
-            <p className="text-xs text-[var(--color-muted)]">連続学習</p>
-            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{streakDays}日</p>
-            <p className="text-xs text-[var(--color-muted)] mt-2">学習が続いています</p>
-          </div>
-          <div className="card p-4">
-            <p className="text-xs text-[var(--color-muted)]">今日の学習</p>
-            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{dailyStats.todayCount}問</p>
-            <p className="text-xs text-[var(--color-muted)] mt-2">
-              正答率 {dailyStats.todayCount > 0 ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100) : 0}%
-            </p>
-          </div>
-        </section>
-
         <section className="card p-4 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs text-[var(--color-muted)]">今日の復習</p>
@@ -1154,6 +1139,21 @@ export default function HomePage() {
           >
             復習を始める
           </Link>
+        </section>
+
+        <section className="grid grid-cols-2 gap-3">
+          <div className="card p-4">
+            <p className="text-xs text-[var(--color-muted)]">連続学習</p>
+            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{streakDays}日</p>
+            <p className="text-xs text-[var(--color-muted)] mt-2">学習が続いています</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-[var(--color-muted)]">今日の学習</p>
+            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{dailyStats.todayCount}問</p>
+            <p className="text-xs text-[var(--color-muted)] mt-2">
+              正答率 {dailyStats.todayCount > 0 ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100) : 0}%
+            </p>
+          </div>
         </section>
 
         <section className="space-y-3">
