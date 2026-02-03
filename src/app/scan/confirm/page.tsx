@@ -255,13 +255,13 @@ export default function ConfirmPage() {
   // This creates a seamless transition from the scan page's processing modal
   if (!dataReady) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">
-          <h2 className="text-base font-medium mb-4 text-center text-gray-900">
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
+        <div className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] p-6 w-full max-w-sm shadow-card">
+          <h2 className="text-base font-medium mb-4 text-center text-[var(--color-foreground)]">
             読み込み中
           </h2>
           <div className="flex justify-center">
-            <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[var(--color-border)] border-t-[var(--color-primary)] rounded-full animate-spin" />
           </div>
         </div>
       </div>
@@ -269,18 +269,18 @@ export default function ConfirmPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-32">
+    <div className="min-h-screen bg-[var(--color-background)] pb-32">
       {/* Header */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur-sm z-40">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-1.5 -ml-1.5 hover:bg-[var(--color-peach-light)] rounded-md transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-[var(--color-muted)]" />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-lg font-semibold text-[var(--color-foreground)]">
               {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
             </h1>
           </div>
@@ -289,35 +289,35 @@ export default function ConfirmPage() {
 
       {/* Limit warning banner */}
       {showLimitWarning && (
-        <div className="bg-amber-50 border-b border-amber-100">
+        <div className="bg-[var(--color-warning-light)] border-b border-[var(--color-border)]">
           <div className="max-w-lg mx-auto px-4 py-3">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-[var(--color-warning)] shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-amber-800">
+                <p className="text-sm font-medium text-[var(--color-foreground)]">
                   単語数が上限に近づいています
                 </p>
-                <p className="text-xs text-amber-700 mt-1">
+                <p className="text-xs text-[var(--color-muted)] mt-1">
                   現在: {currentWordCount}語 / 上限: {FREE_WORD_LIMIT}語
                   <br />
                   今回: +{selectedCount}語 → 合計{currentWordCount + selectedCount}語
                   {excessCount > 0 && (
-                    <span className="text-red-600 font-medium">
+                    <span className="text-[var(--color-error)] font-medium">
                       （{excessCount}語超過）
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-amber-700 mt-2">
+                <p className="text-xs text-[var(--color-muted)] mt-2">
                   保存できる単語を<span className="font-medium">{availableSlots}語</span>まで選んでください。
                 </p>
               </div>
             </div>
 
             {/* Pro upgrade mini card */}
-            <div className="mt-3 bg-white rounded-lg p-3 flex items-center justify-between">
+            <div className="mt-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] p-3 flex items-center justify-between border border-[var(--color-border)]">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span className="text-sm text-gray-700">Proなら単語数無制限</span>
+                <Sparkles className="w-4 h-4 text-[var(--color-primary)]" />
+                <span className="text-sm text-[var(--color-foreground)]">Proなら単語数無制限</span>
               </div>
               <Link href="/subscription">
                 <Button size="sm" variant="secondary">
@@ -334,14 +334,14 @@ export default function ConfirmPage() {
         {/* Project title input - only for new projects */}
         {!isAddingToExisting && (
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">
               プロジェクト名
             </label>
             <input
               type="text"
               value={projectTitle}
               onChange={(e) => setProjectTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50 focus:bg-white"
+              className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-background)] focus:bg-[var(--color-surface)]"
               placeholder="例: ノート P21-23"
             />
           </div>
@@ -349,17 +349,17 @@ export default function ConfirmPage() {
 
         {/* Word count and add button */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-medium text-gray-500">
+          <h2 className="text-sm font-medium text-[var(--color-muted)]">
             抽出された単語
           </h2>
           <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${showLimitWarning && excessCount > 0 ? 'text-red-600' : 'text-blue-600'}`}>
+            <span className={`text-sm font-medium ${showLimitWarning && excessCount > 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-primary)]'}`}>
               {selectedCount}語選択中
               {!isPro && ` / 残り${availableSlots}語`}
             </span>
             <button
               onClick={handleAddManualWord}
-              className="p-1.5 hover:bg-blue-100 rounded-full transition-colors text-blue-600"
+              className="p-1.5 hover:bg-[var(--color-peach-light)] rounded-full transition-colors text-[var(--color-primary)]"
               title="手で入力"
             >
               <Plus className="w-5 h-5" />
@@ -386,14 +386,14 @@ export default function ConfirmPage() {
         </div>
 
         {words.length === 0 && (
-          <div className="text-center py-8 text-gray-400 text-sm">
+          <div className="text-center py-8 text-[var(--color-muted)] text-sm">
             単語がありません。戻って再度スキャンしてください。
           </div>
         )}
       </main>
 
       {/* Bottom action bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm p-4 safe-area-bottom border-t border-gray-100">
+      <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-background)]/95 p-4 safe-area-bottom border-t border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleSaveProject}
@@ -416,7 +416,7 @@ export default function ConfirmPage() {
             )}
           </Button>
           {!isPro && excessCount > 0 && (
-            <p className="text-xs text-red-500 text-center mt-2">
+            <p className="text-xs text-[var(--color-error)] text-center mt-2">
               {excessCount}語減らしてください
             </p>
           )}
@@ -449,29 +449,29 @@ function WordCard({
 
   if (word.isEditing) {
     return (
-      <div className="bg-blue-50 rounded-xl p-4">
+      <div className="bg-[var(--color-peach-light)] rounded-[var(--radius-lg)] p-4">
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
               英単語
             </label>
             <input
               type="text"
               value={english}
               onChange={(e) => setEnglish(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-base bg-white"
+              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none text-base bg-[var(--color-surface)]"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
               日本語訳
             </label>
             <input
               type="text"
               value={japanese}
               onChange={(e) => setJapanese(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm bg-white"
+              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none text-sm bg-[var(--color-surface)]"
             />
           </div>
           <div className="flex gap-2">
@@ -500,10 +500,10 @@ function WordCard({
 
   return (
     <div
-      className={`rounded-xl p-4 group transition-colors ${
+      className={`rounded-[var(--radius-lg)] p-4 group transition-colors ${
         word.isSelected
-          ? 'bg-gray-50 hover:bg-gray-100'
-          : 'bg-gray-100 opacity-50'
+          ? 'bg-[var(--color-surface)] hover:bg-[var(--color-peach-light)]'
+          : 'bg-[var(--color-border-light)] opacity-50'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -513,8 +513,8 @@ function WordCard({
             onClick={onToggle}
             className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
               word.isSelected
-                ? 'bg-blue-600 border-blue-600'
-                : 'border-gray-300 hover:border-gray-400'
+                ? 'bg-[var(--color-primary)] border-[var(--color-primary)]'
+                : 'border-[var(--color-border)] hover:border-[var(--color-border)]'
             }`}
           >
             {word.isSelected && <Check className="w-3 h-3 text-white" />}
@@ -522,26 +522,26 @@ function WordCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900">
+          <p className="font-medium text-[var(--color-foreground)]">
             {word.english}
           </p>
-          <p className="text-sm text-gray-500 mt-0.5">{word.japanese}</p>
+          <p className="text-sm text-[var(--color-muted)] mt-0.5">{word.japanese}</p>
         </div>
 
         <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={onEdit}
-            className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
+            className="p-1.5 hover:bg-[var(--color-peach-light)] rounded-md transition-colors"
             title="編集"
           >
-            <Edit2 className="w-4 h-4 text-gray-500" />
+            <Edit2 className="w-4 h-4 text-[var(--color-muted)]" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
+            className="p-1.5 hover:bg-[var(--color-error-light)] rounded-md transition-colors"
             title="削除"
           >
-            <Trash2 className="w-4 h-4 text-red-500" />
+            <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
           </button>
         </div>
       </div>

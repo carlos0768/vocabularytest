@@ -47,7 +47,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   const renderSentence = () => {
     const parts = question.sentence.split('___');
     return (
-      <div className="text-lg font-medium text-gray-900 leading-relaxed text-center">
+      <div className="text-lg font-medium text-[var(--color-foreground)] leading-relaxed text-center">
         {parts.map((part, index) => (
           <span key={index}>
             {part}
@@ -56,17 +56,17 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
                 className={`inline-block min-w-[80px] mx-1 px-3 py-1 rounded-2xl text-center font-semibold ${
                   isRevealed
                     ? isCorrect
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
+                      ? 'bg-[var(--color-success-light)] text-[var(--color-success)] border border-[var(--color-success)]'
+                      : 'bg-[var(--color-error-light)] text-[var(--color-error)] border border-[var(--color-error)]'
                     : selectedOption
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-400'
+                    ? 'bg-[var(--color-primary)] text-white border border-[var(--color-primary-dark)]'
+                    : 'bg-[var(--color-surface)] text-[var(--color-muted)] border border-[var(--color-border)]'
                 }`}
               >
                 {isRevealed && !isCorrect ? (
                   <span className="flex flex-col items-center text-xs">
                     <span className="line-through">{selectedOption}</span>
-                    <span className="text-green-600 font-bold">{blank.correctAnswer}</span>
+                    <span className="text-[var(--color-success)] font-bold">{blank.correctAnswer}</span>
                   </span>
                 ) : (
                   selectedOption || '?'
@@ -82,8 +82,8 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* 日本語訳 - 上部固定 */}
-      <div className="flex-shrink-0 mb-4 p-3 bg-purple-50 rounded-2xl">
-        <p className="text-purple-700 font-medium text-sm leading-relaxed">{question.japaneseMeaning}</p>
+      <div className="flex-shrink-0 mb-4 p-3 bg-[var(--color-warning-light)] rounded-2xl">
+        <p className="text-[var(--color-primary-dark)] font-medium text-sm leading-relaxed">{question.japaneseMeaning}</p>
       </div>
 
       {/* 例文（空欄付き） */}
@@ -106,13 +106,13 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
               className={`py-2.5 px-4 rounded-2xl font-medium text-sm transition-all border-2 ${
                 isRevealed
                   ? isCorrectOption
-                    ? 'bg-green-100 text-green-700 border-green-400'
+                    ? 'bg-[var(--color-success-light)] text-[var(--color-success)] border-[var(--color-success)]'
                     : isWrongSelected
-                    ? 'bg-red-100 text-red-700 border-red-400'
-                    : 'bg-white text-gray-400 border-gray-200'
+                    ? 'bg-[var(--color-error-light)] text-[var(--color-error)] border-[var(--color-error)]'
+                    : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
                   : isSelected
-                  ? 'bg-purple-600 text-white border-purple-600'
-                  : 'bg-white text-gray-700 border-gray-300'
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary-dark)]'
+                  : 'bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)]'
               }`}
             >
               {option}
@@ -127,7 +127,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
           <Button
             onClick={handleSubmit}
             disabled={!selectedOption}
-            className="w-full bg-purple-600 hover:bg-purple-700 h-12 text-base rounded-2xl"
+            className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] h-12 text-base rounded-2xl"
           >
             回答する
           </Button>
@@ -135,12 +135,12 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
           <div className="flex items-center gap-2">
             <div
               className={`flex-1 py-3 rounded-2xl text-center ${
-                isCorrect ? 'bg-green-100' : 'bg-red-100'
+                isCorrect ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-error-light)]'
               }`}
             >
               <p
                 className={`font-bold ${
-                  isCorrect ? 'text-green-700' : 'text-red-700'
+                  isCorrect ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
                 }`}
               >
                 {isCorrect ? '正解！' : '不正解'}
@@ -148,7 +148,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
             </div>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 h-12 text-base rounded-2xl"
+              className="flex-1 bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] h-12 text-base rounded-2xl"
             >
               次へ
             </Button>

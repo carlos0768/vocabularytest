@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { LucideIcon, Sparkles } from 'lucide-react';
 
-type ColorVariant = 'red' | 'blue' | 'green' | 'purple' | 'orange';
+type ColorVariant = 'red' | 'blue' | 'green' | 'orange';
 
 interface StudyModeCardProps {
   title: string;
@@ -28,12 +28,12 @@ const variantStyles: Record<ColorVariant, {
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',
-    descColor: 'text-white/80',
-    glow: 'shadow-[0_8px_20px_rgba(255,107,107,0.3)]',
+    descColor: 'text-white/85',
+    glow: 'shadow-glow',
   },
   blue: {
-    bg: 'bg-[var(--color-peach-light)] dark:bg-[var(--color-surface)]',
-    iconBg: 'bg-[var(--color-peach)]/20',
+    bg: 'bg-[var(--color-surface)]',
+    iconBg: 'bg-[var(--color-peach-light)]',
     iconColor: 'text-[var(--color-primary)]',
     textColor: 'text-[var(--color-foreground)]',
     descColor: 'text-[var(--color-muted)]',
@@ -47,18 +47,10 @@ const variantStyles: Record<ColorVariant, {
     descColor: 'text-[var(--color-muted)]',
     glow: 'shadow-soft',
   },
-  purple: {
-    bg: 'bg-purple-100 dark:bg-purple-900/30',
-    iconBg: 'bg-purple-200 dark:bg-purple-800/50',
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    textColor: 'text-[var(--color-foreground)]',
-    descColor: 'text-[var(--color-muted)]',
-    glow: 'shadow-soft',
-  },
   orange: {
-    bg: 'bg-[var(--color-peach-light)]',
-    iconBg: 'bg-[var(--color-peach)]/30',
-    iconColor: 'text-[var(--color-peach)]',
+    bg: 'bg-[var(--color-warning-light)]',
+    iconBg: 'bg-[var(--color-warning)]/25',
+    iconColor: 'text-[var(--color-warning)]',
     textColor: 'text-[var(--color-foreground)]',
     descColor: 'text-[var(--color-muted)]',
     glow: 'shadow-soft',
@@ -78,13 +70,10 @@ export function StudyModeCard({
 
   const content = (
     <div
-      className={`relative p-5 rounded-[2rem] ${styles.bg} ${styles.glow} overflow-hidden group ${
+      className={`relative p-5 rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
         disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer'
       }`}
     >
-      {/* Decorative blur effect */}
-      <div className={`absolute -right-4 -top-4 w-24 h-24 ${variant === 'red' ? 'bg-white/20' : 'bg-[var(--color-primary)]/10'} rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500`} />
-
       {badge && (
         <span className="absolute top-3 right-3 chip chip-pro">
           <Sparkles className="w-3 h-3" />

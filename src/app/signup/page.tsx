@@ -161,24 +161,24 @@ function SignupForm() {
     return (
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">MERKEN</h1>
-          <p className="text-gray-500 mt-2">メール認証</p>
+          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
+          <p className="text-[var(--color-muted)] mt-2">メール認証</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="w-7 h-7 text-blue-600" />
+            <div className="w-14 h-14 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-7 h-7 text-[var(--color-primary)]" />
             </div>
-            <p className="text-gray-600 text-sm">
-              <span className="font-medium text-gray-900">{email}</span>
+            <p className="text-[var(--color-muted)] text-sm">
+              <span className="font-medium text-[var(--color-foreground)]">{email}</span>
               <br />
               に6桁の認証コードを送信しました
             </p>
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl mb-4 text-sm">
+            <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-3 rounded-[var(--radius-lg)] mb-4 text-sm">
               {error}
             </div>
           )}
@@ -192,13 +192,13 @@ function SignupForm() {
           </div>
 
           {loading && (
-            <div className="flex items-center justify-center gap-2 text-gray-500 text-sm mb-4">
+            <div className="flex items-center justify-center gap-2 text-[var(--color-muted)] text-sm mb-4">
               <Loader2 className="w-4 h-4 animate-spin" />
               アカウントを作成中...
             </div>
           )}
 
-          <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg mb-4 text-center">
+          <p className="text-sm text-[var(--color-warning)] bg-[var(--color-warning-light)] p-3 rounded-[var(--radius-md)] mb-4 text-center">
             メールが届かない場合、迷惑メールフォルダを確認してください
           </p>
 
@@ -206,7 +206,7 @@ function SignupForm() {
             <button
               onClick={handleResendOtp}
               disabled={resendCooldown > 0 || loading}
-              className="text-sm text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
+              className="text-sm text-[var(--color-primary)] hover:underline disabled:text-[var(--color-muted)] disabled:no-underline"
             >
               {resendCooldown > 0
                 ? `再送信まで ${resendCooldown}秒`
@@ -220,7 +220,7 @@ function SignupForm() {
               setOtpCode('');
               setError(null);
             }}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mt-4"
+            className="flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] mt-4"
           >
             <ArrowLeft className="w-4 h-4" />
             メールアドレスを変更
@@ -235,14 +235,14 @@ function SignupForm() {
     <div className="w-full max-w-sm">
       {/* Logo */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">MERKEN</h1>
-        <p className="text-gray-500 mt-2">新規アカウント作成</p>
+        <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
+        <p className="text-[var(--color-muted)] mt-2">新規アカウント作成</p>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <form onSubmit={handleSubmit} className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
         {error && (
-          <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl mb-4 text-sm">
+          <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-3 rounded-[var(--radius-lg)] mb-4 text-sm">
             {error}
           </div>
         )}
@@ -250,7 +250,7 @@ function SignupForm() {
         <div className="space-y-4">
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
               メールアドレス
             </label>
             <input
@@ -260,14 +260,14 @@ function SignupForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-surface)]"
               placeholder="email@example.com"
             />
           </div>
 
           {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
               パスワード
             </label>
             <div className="relative">
@@ -278,13 +278,13 @@ function SignupForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all pr-12"
+                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
                 placeholder="8文字以上"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -293,7 +293,7 @@ function SignupForm() {
 
           {/* Confirm Password */}
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
               パスワード（確認）
             </label>
             <input
@@ -303,7 +303,7 @@ function SignupForm() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-surface)]"
               placeholder="パスワードを再入力"
             />
           </div>
@@ -328,16 +328,16 @@ function SignupForm() {
       </form>
 
       {/* Login link */}
-      <p className="text-center text-gray-600 mt-6">
+      <p className="text-center text-[var(--color-muted)] mt-6">
         すでにアカウントをお持ちの方は{' '}
-        <Link href={`/login?redirect=${encodeURIComponent(redirect)}`} className="text-blue-600 hover:underline font-medium">
+        <Link href={`/login?redirect=${encodeURIComponent(redirect)}`} className="text-[var(--color-primary)] hover:underline font-medium">
           ログイン
         </Link>
       </p>
 
       {/* Back to home */}
       <p className="text-center mt-4">
-        <Link href="/" className="text-gray-500 hover:text-gray-700 text-sm">
+        <Link href="/" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] text-sm">
           ← ホームに戻る
         </Link>
       </p>
@@ -349,12 +349,12 @@ function SignupFormFallback() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">MERKEN</h1>
-        <p className="text-gray-500 mt-2">新規アカウント作成</p>
+        <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
+        <p className="text-[var(--color-muted)] mt-2">新規アカウント作成</p>
       </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
         </div>
       </div>
     </div>
@@ -363,7 +363,7 @@ function SignupFormFallback() {
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
       <Suspense fallback={<SignupFormFallback />}>
         <SignupForm />
       </Suspense>

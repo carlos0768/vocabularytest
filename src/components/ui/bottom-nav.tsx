@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, BarChart3, Settings } from 'lucide-react';
+import { Home, FolderOpen, BarChart3, Settings, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -17,13 +17,13 @@ const navItems: NavItem[] = [
     href: '/',
     icon: Home,
     label: 'ホーム',
-    matchPaths: ['/', '/project'],
+    matchPaths: ['/'],
   },
   {
-    href: '/search',
-    icon: Search,
-    label: '検索',
-    matchPaths: ['/search'],
+    href: '/projects',
+    icon: FolderOpen,
+    label: 'プロジェクト',
+    matchPaths: ['/projects', '/project'],
   },
   {
     href: '/stats',
@@ -53,8 +53,8 @@ export function BottomNav() {
 
   return (
     <nav className="bottom-nav">
-      <div className="flex justify-between items-center max-w-md mx-auto">
-        {navItems.map((item) => {
+      <div className="bottom-nav-inner">
+        {navItems.slice(0, 2).map((item) => {
           const Icon = item.icon;
           const active = isActive(item);
 
@@ -62,23 +62,44 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                'bottom-nav-item flex-1 py-2',
-                active && 'active'
-              )}
+              className={cn('bottom-nav-item', active && 'active')}
             >
-              <div className="relative">
-                <Icon
-                  className={cn(
-                    'w-6 h-6 transition-colors',
-                    active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
-                  )}
-                  strokeWidth={active ? 2.5 : 2}
-                />
-                {active && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--color-primary)] rounded-full" />
+              <Icon
+                className={cn(
+                  'w-5 h-5 transition-colors',
+                  active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
                 )}
-              </div>
+                strokeWidth={active ? 2.5 : 2}
+              />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+
+        <Link href="/scan" className="flex items-center justify-center" aria-label="スキャン">
+          <span className="bottom-nav-cta">
+            <Camera className="w-5 h-5" />
+          </span>
+        </Link>
+
+        {navItems.slice(2).map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn('bottom-nav-item', active && 'active')}
+            >
+              <Icon
+                className={cn(
+                  'w-5 h-5 transition-colors',
+                  active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
+                )}
+                strokeWidth={active ? 2.5 : 2}
+              />
+              <span>{item.label}</span>
             </Link>
           );
         })}

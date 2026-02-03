@@ -34,9 +34,9 @@ export function ScanButton({ onImageSelect, disabled }: ScanButtonProps) {
       <button
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg
+        className="fixed bottom-24 right-6 w-14 h-14 bg-[var(--color-primary)] text-white rounded-full shadow-glow
           flex items-center justify-center
-          hover:bg-blue-700 hover:scale-105
+          hover:bg-[var(--color-primary-dark)] hover:scale-105
           active:scale-95
           transition-all duration-200
           disabled:opacity-50 disabled:cursor-not-allowed
@@ -45,7 +45,7 @@ export function ScanButton({ onImageSelect, disabled }: ScanButtonProps) {
       >
         <div className="relative">
           <Camera className="w-6 h-6" />
-          <Plus className="w-3 h-3 absolute -top-1 -right-1 bg-blue-600 rounded-full" />
+          <Plus className="w-3 h-3 absolute -top-1 -right-1 bg-[var(--color-primary-dark)] rounded-full" />
         </div>
       </button>
     </>

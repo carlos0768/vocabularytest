@@ -46,12 +46,12 @@ export function Modal({
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/40" />
 
       {/* Modal content */}
       <div
         className={cn(
-          'relative bg-white rounded-2xl shadow-xl w-full max-w-sm',
+          'relative bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-card w-full max-w-sm border border-[var(--color-border)]',
           'animate-in fade-in zoom-in-95 duration-200',
           className
         )}
@@ -60,7 +60,7 @@ export function Modal({
         {showCloseButton && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute top-4 right-4 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
             aria-label="閉じる"
           >
             <X className="w-5 h-5" />

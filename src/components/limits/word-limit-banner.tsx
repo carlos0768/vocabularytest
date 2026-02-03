@@ -23,22 +23,22 @@ export function WordLimitBanner({ currentCount, onDismiss }: WordLimitBannerProp
   };
 
   return (
-    <div className="bg-amber-50 border-b border-amber-100">
+    <div className="bg-[var(--color-warning-light)] border-b border-[var(--color-border)]">
       <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
-        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-        <p className="text-sm text-amber-800 flex-1">
+        <AlertTriangle className="w-4 h-4 text-[var(--color-warning)] shrink-0" />
+        <p className="text-sm text-[var(--color-foreground)] flex-1">
           単語数が残り<span className="font-medium">{remaining}語</span>です
         </p>
         <Link
           href="/subscription"
-          className="flex items-center gap-1 text-sm font-medium text-amber-700 hover:text-amber-900 shrink-0"
+          className="flex items-center gap-1 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] shrink-0"
         >
           Proで無制限に
           <ChevronRight className="w-4 h-4" />
         </Link>
         <button
           onClick={handleDismiss}
-          className="p-1 text-amber-500 hover:text-amber-700 transition-colors"
+          className="p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
           aria-label="閉じる"
         >
           <X className="w-4 h-4" />

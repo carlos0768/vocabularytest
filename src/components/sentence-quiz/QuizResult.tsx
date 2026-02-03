@@ -14,29 +14,29 @@ export function QuizResult({ correct, total, onRestart, onGoHome }: QuizResultPr
   const percentage = Math.round((correct / total) * 100);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
       {/* Results */}
       <main className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="bg-white rounded-3xl shadow-lg p-8 w-full max-w-sm text-center">
-          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Trophy className="w-10 h-10 text-purple-600" />
+        <div className="card p-8 w-full max-w-sm text-center">
+          <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
+            <Trophy className="w-10 h-10 text-[var(--color-success)]" />
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
             例文クイズ完了！
           </h1>
 
           <div className="mb-6">
-            <p className="text-5xl font-bold text-purple-600 mb-1">
+            <p className="text-5xl font-bold text-[var(--color-primary)] mb-1">
               {percentage}%
             </p>
-            <p className="text-gray-500">
+            <p className="text-[var(--color-muted)]">
               {total}問中 {correct}問正解
             </p>
           </div>
 
           {/* Performance message */}
-          <p className="text-gray-600 mb-8">
+          <p className="text-[var(--color-muted)] mb-8">
             {percentage === 100
               ? 'パーフェクト！素晴らしい！'
               : percentage >= 80
@@ -49,7 +49,7 @@ export function QuizResult({ correct, total, onRestart, onGoHome }: QuizResultPr
           <div className="space-y-3">
             <Button
               onClick={onRestart}
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
               size="lg"
             >
               <RotateCcw className="w-5 h-5 mr-2" />

@@ -205,21 +205,21 @@ export default function SentenceQuizPage() {
   if (error) {
     const canRetry = allWords.length >= MIN_WORDS_REQUIRED;
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] p-6">
         <div className="text-center max-w-sm">
-          <p className="text-red-600 mb-6">{error}</p>
+          <p className="text-[var(--color-error)] mb-6">{error}</p>
           <div className="space-y-3">
             {canRetry && (
               <button
                 onClick={() => generateQuestions(allWords)}
-                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                className="w-full px-4 py-2 bg-[var(--color-primary)] text-white rounded-xl hover:bg-[var(--color-primary-dark)]"
               >
                 再試行
               </button>
             )}
             <button
               onClick={handleGoHome}
-              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              className="w-full px-4 py-2 bg-[var(--color-border-light)] text-[var(--color-foreground)] rounded-xl hover:bg-[var(--color-border)]"
             >
               ホームに戻る
             </button>
@@ -244,8 +244,8 @@ export default function SentenceQuizPage() {
   // 問題がない場合
   if (questions.length === 0) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500">問題がありません</p>
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)]">
+        <p className="text-[var(--color-muted)]">問題がありません</p>
       </div>
     );
   }
@@ -253,7 +253,7 @@ export default function SentenceQuizPage() {
   const currentQuestion = questions[currentIndex];
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden fixed inset-0 touch-none">
+    <div className="h-[100dvh] flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 touch-none">
       <QuizProgress
         currentIndex={currentIndex}
         total={questions.length}

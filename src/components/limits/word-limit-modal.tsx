@@ -29,18 +29,18 @@ export function WordLimitModal({
     <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false}>
       <div className="p-6 text-center">
         {/* Icon */}
-        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5">
-          <BookOpen className="w-8 h-8 text-emerald-500" />
+        <div className="w-16 h-16 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-5">
+          <BookOpen className="w-8 h-8 text-[var(--color-success)]" />
         </div>
 
         {/* Title */}
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+        <h2 className="text-lg font-semibold text-[var(--color-foreground)] mb-2">
           単語がいっぱいです
         </h2>
 
         {/* Description */}
-        <p className="text-sm text-gray-600 mb-5">
-          <span className="font-medium text-emerald-600">{currentCount}語</span>の単語を保存中です。
+        <p className="text-sm text-[var(--color-muted)] mb-5">
+          <span className="font-medium text-[var(--color-success)]">{currentCount}語</span>の単語を保存中です。
           <br />
           これ以上保存するには、
           <br />
@@ -50,12 +50,12 @@ export function WordLimitModal({
         </p>
 
         {/* Pro upgrade card */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 mb-5">
+        <div className="bg-[var(--color-peach-light)] rounded-[var(--radius-lg)] p-4 mb-5 border border-[var(--color-border)]">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-medium text-gray-900">Proで無制限に学習する</span>
+            <Sparkles className="w-4 h-4 text-[var(--color-primary)]" />
+            <span className="text-sm font-medium text-[var(--color-foreground)]">Proで無制限に学習する</span>
           </div>
-          <p className="text-xs text-gray-500 mb-3">月額 ¥500</p>
+          <p className="text-xs text-[var(--color-muted)] mb-3">月額 ¥500</p>
           <Link href="/subscription" onClick={onClose}>
             <Button className="w-full">
               Proにアップグレード
@@ -67,13 +67,13 @@ export function WordLimitModal({
         <div className="flex gap-3">
           <button
             onClick={handleOrganizeWords}
-            className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors"
+            className="flex-1 py-2.5 px-4 bg-[var(--color-border-light)] hover:bg-[var(--color-peach-light)] rounded-[var(--radius-md)] text-sm text-[var(--color-foreground)] transition-colors"
           >
             単語を整理する
           </button>
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex-1 py-2.5 px-4 text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
           >
             閉じる
           </button>

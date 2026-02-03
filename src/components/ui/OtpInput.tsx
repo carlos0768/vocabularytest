@@ -74,12 +74,12 @@ export function OtpInput({ length = 6, value, onChange, disabled = false }: OtpI
           disabled={disabled}
           className={`
             w-12 h-14 text-center text-2xl font-bold
-            border-2 rounded-lg
-            focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200
-            disabled:bg-gray-100 disabled:cursor-not-allowed
+            border rounded-[var(--radius-md)]
+            focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)]
+            disabled:bg-[var(--color-border-light)] disabled:cursor-not-allowed
             transition-all
-            ${focusedIndex === index ? 'border-blue-500' : 'border-gray-300'}
-            ${value[index] ? 'bg-blue-50' : 'bg-white'}
+            ${focusedIndex === index ? 'border-[var(--color-primary)]' : 'border-[var(--color-border)]'}
+            ${value[index] ? 'bg-[var(--color-peach-light)]' : 'bg-[var(--color-surface)]'}
           `}
           aria-label={`認証コード ${index + 1}桁目`}
         />

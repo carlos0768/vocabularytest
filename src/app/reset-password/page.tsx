@@ -143,15 +143,15 @@ export default function ResetPasswordPage() {
   // Success state
   if (step === 'success') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
+        <div className="bg-[var(--color-surface)] rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-[var(--color-success)]" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
+          <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">
             パスワードを更新しました
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-[var(--color-muted)] mb-6">
             新しいパスワードでログインしてください。
           </p>
           <Link href="/login">
@@ -165,12 +165,12 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">ScanVocab</h1>
-          <p className="text-gray-500 mt-2">
+          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
+          <p className="text-[var(--color-muted)] mt-2">
             {step === 'email' && 'パスワードをリセット'}
             {step === 'otp' && '認証コードを入力'}
             {step === 'password' && '新しいパスワードを設定'}
@@ -178,9 +178,9 @@ export default function ResetPasswordPage() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-[var(--color-surface)] rounded-2xl shadow-sm border border-[var(--color-border)] p-6">
           {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl mb-4 text-sm">
+            <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-3 rounded-xl mb-4 text-sm">
               {error}
             </div>
           )}
@@ -188,11 +188,11 @@ export default function ResetPasswordPage() {
           {step === 'email' && (
             <form onSubmit={handleSendOtp}>
               <div className="mb-4">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                   メールアドレス
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-muted)]" />
                   <input
                     id="email"
                     type="email"
@@ -200,11 +200,11 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all"
                     placeholder="email@example.com"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-[var(--color-muted)] mt-2">
                   登録済みのメールアドレスに認証コードを送信します
                   <br />
                   届かない場合は迷惑メールフォルダをご確認ください
@@ -235,14 +235,14 @@ export default function ResetPasswordPage() {
                 <button
                   type="button"
                   onClick={() => { setStep('email'); setOtpCode(''); setError(null); }}
-                  className="flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
+                  className="flex items-center text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] mb-4"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1" />
                   メールアドレスを変更
                 </button>
 
-                <p className="text-sm text-gray-600 mb-4 text-center">
-                  <span className="font-medium text-gray-900">{email}</span>
+                <p className="text-sm text-[var(--color-muted)] mb-4 text-center">
+                  <span className="font-medium text-[var(--color-foreground)]">{email}</span>
                   <br />
                   に送信した6桁のコードを入力してください
                 </p>
@@ -274,7 +274,7 @@ export default function ResetPasswordPage() {
                 type="button"
                 onClick={handleResendOtp}
                 disabled={loading}
-                className="w-full mt-4 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                className="w-full mt-4 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] disabled:opacity-50"
               >
                 コードを再送信
               </button>
@@ -285,7 +285,7 @@ export default function ResetPasswordPage() {
             <form onSubmit={handleSetPassword}>
               <div className="space-y-4 mb-6">
                 <div>
-                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="newPassword" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                     新しいパスワード
                   </label>
                   <div className="relative">
@@ -296,13 +296,13 @@ export default function ResetPasswordPage() {
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
                       autoComplete="new-password"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all pr-12"
+                      className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all pr-12"
                       placeholder="8文字以上"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -310,7 +310,7 @@ export default function ResetPasswordPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                     パスワード（確認）
                   </label>
                   <input
@@ -320,7 +320,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     autoComplete="new-password"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all"
                     placeholder="パスワードを再入力"
                   />
                 </div>
@@ -347,7 +347,7 @@ export default function ResetPasswordPage() {
 
         {/* Back to login */}
         <p className="text-center mt-6">
-          <Link href="/login" className="text-gray-500 hover:text-gray-700 text-sm">
+          <Link href="/login" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] text-sm">
             ← ログインに戻る
           </Link>
         </p>

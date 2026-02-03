@@ -126,7 +126,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
   const renderSentence = () => {
     const parts = question.sentence.split('___');
     return (
-      <div className="text-lg font-medium text-gray-900 leading-relaxed text-center flex flex-wrap justify-center items-center gap-1">
+      <div className="text-lg font-medium text-[var(--color-foreground)] leading-relaxed text-center flex flex-wrap justify-center items-center gap-1">
         {parts.map((part, index) => (
           <span key={index} className="flex items-center">
             <span>{part}</span>
@@ -150,8 +150,8 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* 日本語訳 - 上部固定 */}
-      <div className="flex-shrink-0 mb-4 p-3 bg-purple-50 rounded-2xl">
-        <p className="text-purple-700 font-medium text-sm leading-relaxed">{question.japaneseMeaning}</p>
+      <div className="flex-shrink-0 mb-4 p-3 bg-[var(--color-warning-light)] rounded-2xl">
+        <p className="text-[var(--color-primary-dark)] font-medium text-sm leading-relaxed">{question.japaneseMeaning}</p>
       </div>
 
       {/* 例文（空欄付き） */}
@@ -162,7 +162,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
       {/* VectorDBマッチした単語のヒント表示 */}
       {question.relatedWordIds.length > 0 && !isRevealed && (
         <div className="flex-shrink-0 mb-4 px-2">
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-[var(--color-muted)] text-center">
             他のプロジェクトで学習した単語も含まれています
           </p>
         </div>
@@ -171,7 +171,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
       {/* 選択中の空欄表示 */}
       {!isRevealed && (
         <div className="flex-shrink-0 mb-2 px-2">
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-[var(--color-muted)] text-center">
             空欄 {currentBlankIndex + 1} を選択中（タップして別の空欄を選択）
           </p>
         </div>
@@ -230,13 +230,13 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
                     className={`py-2.5 px-4 rounded-2xl font-medium text-sm transition-all border-2 ${
                       isRevealed
                         ? isCorrectAnswer
-                          ? 'bg-green-100 text-green-700 border-green-400'
+                          ? 'bg-[var(--color-success-light)] text-[var(--color-success)] border-[var(--color-success)]'
                           : isWronglyUsed
-                          ? 'bg-red-100 text-red-700 border-red-400'
-                          : 'bg-white text-gray-400 border-gray-200'
+                          ? 'bg-[var(--color-error-light)] text-[var(--color-error)] border-[var(--color-error)]'
+                          : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
                         : isUsed
-                        ? 'bg-gray-200 text-gray-400 border-gray-200 opacity-50'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                        ? 'bg-[var(--color-border-light)] text-[var(--color-muted)] border-[var(--color-border)] opacity-50'
+                        : 'bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)] hover:border-[var(--color-primary)]'
                     }`}
                   >
                     {option}
@@ -254,7 +254,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
           <Button
             onClick={handleSubmit}
             disabled={!allBlanksFilled}
-            className="w-full bg-purple-600 hover:bg-purple-700 h-12 text-base rounded-2xl"
+            className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] h-12 text-base rounded-2xl"
           >
             回答する
           </Button>
@@ -262,12 +262,12 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
           <div className="flex items-center gap-2">
             <div
               className={`flex-1 py-3 rounded-2xl text-center ${
-                isCorrect ? 'bg-green-100' : 'bg-red-100'
+                isCorrect ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-error-light)]'
               }`}
             >
               <p
                 className={`font-bold ${
-                  isCorrect ? 'text-green-700' : 'text-red-700'
+                  isCorrect ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
                 }`}
               >
                 {isCorrect ? '正解！' : `${Object.values(blankResults).filter(Boolean).length}/${blanks.length}正解`}
@@ -275,7 +275,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
             </div>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 h-12 text-base rounded-2xl"
+              className="flex-1 bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] h-12 text-base rounded-2xl"
             >
               次へ
             </Button>
@@ -312,13 +312,13 @@ function BlankDisplay({
   const getSourceBadgeColor = () => {
     switch (blank.source) {
       case 'target':
-        return 'bg-purple-200 text-purple-800';
+        return 'bg-[var(--color-warning-light)] text-[var(--color-primary-dark)]';
       case 'vector-matched':
-        return 'bg-blue-200 text-blue-800';
+        return 'bg-[var(--color-success-light)] text-[var(--color-success)]';
       case 'grammar':
-        return 'bg-gray-200 text-gray-800';
+        return 'bg-[var(--color-border-light)] text-[var(--color-foreground)]';
       default:
-        return 'bg-gray-200 text-gray-600';
+        return 'bg-[var(--color-border-light)] text-[var(--color-muted)]';
     }
   };
 
@@ -328,19 +328,19 @@ function BlankDisplay({
       className={`inline-flex flex-col items-center min-w-[80px] mx-1 px-3 py-1 rounded-2xl text-center font-semibold transition-all ${
         isRevealed
           ? isCorrect
-            ? 'bg-green-100 text-green-700 border-2 border-green-400'
-            : 'bg-red-100 text-red-700 border-2 border-red-400'
+            ? 'bg-[var(--color-success-light)] text-[var(--color-success)] border-2 border-[var(--color-success)]'
+            : 'bg-[var(--color-error-light)] text-[var(--color-error)] border-2 border-[var(--color-error)]'
           : isActive
-          ? 'bg-purple-100 text-purple-700 border-2 border-purple-400'
+          ? 'bg-[var(--color-warning-light)] text-[var(--color-primary-dark)] border-2 border-[var(--color-warning)]'
           : selectedOption
-          ? 'bg-purple-600 text-white border-2 border-purple-600'
-          : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
+          ? 'bg-[var(--color-primary)] text-white border-2 border-[var(--color-primary-dark)]'
+          : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-2 border-[var(--color-border)]'
       }`}
     >
       {isRevealed && !isCorrect ? (
         <span className="flex flex-col items-center text-xs">
           <span className="line-through">{selectedOption}</span>
-          <span className="text-green-600 font-bold">{blank.correctAnswer}</span>
+          <span className="text-[var(--color-success)] font-bold">{blank.correctAnswer}</span>
         </span>
       ) : (
         <span className="text-sm">{selectedOption || '?'}</span>

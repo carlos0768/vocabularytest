@@ -142,7 +142,7 @@ export default function SearchPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] pb-24">
       {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">
           <h1 className="text-xl font-bold text-[var(--color-foreground)]">検索</h1>
         </div>
@@ -276,7 +276,7 @@ export default function SearchPage() {
               </div>
             ) : semanticError ? (
               <div className="text-center py-12">
-                <p className="text-red-500 text-sm">{semanticError}</p>
+                <p className="text-[var(--color-error)] text-sm">{semanticError}</p>
               </div>
             ) : semanticResults.length === 0 ? (
               <div className="text-center py-12">

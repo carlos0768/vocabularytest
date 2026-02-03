@@ -203,7 +203,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       {dragState.isDragging && dragState.word && (
         <div
           ref={dragGhostRef}
-          className="fixed pointer-events-none z-50 px-4 py-2 rounded-lg font-medium bg-purple-600 text-white shadow-2xl opacity-90 transform -translate-x-1/2 -translate-y-1/2"
+          className="fixed pointer-events-none z-50 px-4 py-2 rounded-lg font-medium bg-[var(--color-primary)] text-white shadow-2xl opacity-90 transform -translate-x-1/2 -translate-y-1/2"
           style={{
             left: dragState.currentX,
             top: dragState.currentY,
@@ -216,8 +216,8 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       {/* コンテンツエリア */}
       <div className="flex-1 flex flex-col overflow-auto min-h-0">
         {/* 日本語訳（ヒント） */}
-        <div className="mb-1 p-2 bg-purple-50 rounded-xl">
-          <p className="text-purple-800 font-medium text-xs">{question.japaneseMeaning}</p>
+        <div className="mb-1 p-2 bg-[var(--color-peach-light)] rounded-xl">
+          <p className="text-[var(--color-primary-dark)] font-medium text-xs">{question.japaneseMeaning}</p>
         </div>
 
         {/* 選択した単語（回答エリア）- ドロップゾーン */}
@@ -227,15 +227,15 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
             className={`min-h-[44px] p-2 rounded-xl border-2 border-dashed transition-all ${
               isRevealed
                 ? isCorrect
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-red-500 bg-red-50'
+                  ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
+                  : 'border-[var(--color-error)] bg-[var(--color-error-light)]'
                 : dragState.isDragging && dragState.sourceType === 'remaining'
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-300 bg-gray-50'
+                ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
+                : 'border-[var(--color-border)] bg-[var(--color-background)]'
             }`}
           >
             {selectedWords.length === 0 ? (
-              <p className="text-gray-400 text-center text-xs py-1">
+              <p className="text-[var(--color-muted)] text-center text-xs py-1">
                 {dragState.isDragging ? 'ここにドロップ' : '単語をタップ'}
               </p>
             ) : (
@@ -257,10 +257,10 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                         isBeingDragged
                           ? 'opacity-30'
                           : isWordCorrect
-                          ? 'bg-green-500 text-white'
+                          ? 'bg-[var(--color-success)] text-white'
                           : isWordIncorrect
-                          ? 'bg-red-500 text-white'
-                          : 'bg-purple-600 text-white'
+                          ? 'bg-[var(--color-error)] text-white'
+                          : 'bg-[var(--color-primary)] text-white'
                       } ${isRevealed ? '' : 'active:scale-95'}`}
                     >
                       {word}
@@ -273,8 +273,8 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
 
           {/* 正解を表示（不正解時） */}
           {isRevealed && !isCorrect && (
-            <div className="mt-1 p-2 bg-green-50 rounded-xl">
-              <p className="text-green-800 text-xs">{question.correctOrder.join(' ')}</p>
+            <div className="mt-1 p-2 bg-[var(--color-success-light)] rounded-xl">
+              <p className="text-[var(--color-success)] text-xs">{question.correctOrder.join(' ')}</p>
             </div>
           )}
         </div>
@@ -282,11 +282,11 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
         {/* 残りの単語 - 単語プール */}
         <div className="flex-1 min-h-0">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] text-gray-500">単語を選択</p>
+            <p className="text-[10px] text-[var(--color-muted)]">単語を選択</p>
             {!isRevealed && selectedWords.length > 0 && (
               <button
                 onClick={handleReset}
-                className="text-[10px] text-purple-600 flex items-center gap-0.5 active:text-purple-700"
+                className="text-[10px] text-[var(--color-primary)] flex items-center gap-0.5 active:text-[var(--color-primary-dark)]"
               >
                 <RotateCcw className="w-2.5 h-2.5" />
                 リセット
@@ -297,8 +297,8 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
             ref={wordPoolRef}
             className={`flex flex-wrap gap-1.5 min-h-[40px] p-2 rounded-xl transition-all ${
               dragState.isDragging && dragState.sourceType === 'selected'
-                ? 'bg-gray-100 border-2 border-dashed border-gray-300'
-                : 'bg-gray-50'
+                ? 'bg-[var(--color-background)] border-2 border-dashed border-[var(--color-border)]'
+                : 'bg-[var(--color-background)]'
             }`}
           >
             {remainingWords.map((word, index) => {
@@ -316,8 +316,8 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                     isBeingDragged
                       ? 'opacity-30'
                       : isRevealed
-                      ? 'bg-gray-200 text-gray-400'
-                      : 'bg-white border border-gray-300 text-gray-700 active:border-purple-500 active:bg-purple-50'
+                      ? 'bg-[var(--color-border-light)] text-[var(--color-muted)]'
+                      : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] active:border-[var(--color-primary)] active:bg-[var(--color-peach-light)]'
                   } ${isRevealed ? '' : 'active:scale-95'}`}
                 >
                   {word}
@@ -329,12 +329,12 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       </div>
 
       {/* 固定ボタンエリア - 常に下部に表示 */}
-      <div className="flex-shrink-0 pt-2 pb-safe mt-auto bg-gray-50">
+      <div className="flex-shrink-0 pt-2 pb-safe mt-auto bg-[var(--color-background)]">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
             disabled={selectedWords.length !== question.correctOrder.length}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:text-gray-500 h-12 text-base font-bold rounded-xl"
+            className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] disabled:bg-[var(--color-border)] disabled:text-[var(--color-muted)] h-12 text-base font-bold rounded-xl"
           >
             回答する
           </Button>
@@ -342,12 +342,12 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
           <div className="flex items-center gap-2">
             <div
               className={`flex-1 py-3 rounded-xl text-center ${
-                isCorrect ? 'bg-green-100' : 'bg-red-100'
+                isCorrect ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-error-light)]'
               }`}
             >
               <p
                 className={`font-bold text-base ${
-                  isCorrect ? 'text-green-700' : 'text-red-700'
+                  isCorrect ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
                 }`}
               >
                 {isCorrect ? '正解！' : '不正解'}
@@ -355,7 +355,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
             </div>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 h-12 text-base font-bold rounded-xl"
+              className="flex-1 bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] h-12 text-base font-bold rounded-xl"
             >
               次へ
             </Button>

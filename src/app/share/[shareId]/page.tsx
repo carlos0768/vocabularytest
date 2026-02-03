@@ -73,7 +73,7 @@ export default function SharedProjectPage() {
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
       </div>
     );
   }
@@ -82,16 +82,16 @@ export default function SharedProjectPage() {
   if (!authLoading && !isPro) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-6">
+        <div className="w-20 h-20 bg-[var(--color-primary)] rounded-full flex items-center justify-center mb-6">
           <Crown className="w-10 h-10 text-white" />
         </div>
-        <h1 className="text-xl font-bold text-gray-900 mb-2">Pro機能です</h1>
-        <p className="text-gray-600 text-center mb-6">
+        <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">Pro機能です</h1>
+        <p className="text-[var(--color-muted)] text-center mb-6">
           共有された単語帳を見るには<br />Proプランへのアップグレードが必要です
         </p>
         <div className="flex flex-col gap-3">
           <Link href="/subscription">
-            <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+            <Button className="bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] hover:from-[#FF5E5E] hover:to-[#FFA93A]">
               <Crown className="w-4 h-4 mr-2" />
               Proにアップグレード
             </Button>
@@ -110,8 +110,8 @@ export default function SharedProjectPage() {
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <BookOpen className="w-16 h-16 text-gray-300 mb-4" />
-        <p className="text-gray-600 text-center mb-6">{error}</p>
+        <BookOpen className="w-16 h-16 text-[var(--color-muted)] mb-4" />
+        <p className="text-[var(--color-muted)] text-center mb-6">{error}</p>
         <Link href="/">
           <Button variant="secondary">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -127,20 +127,20 @@ export default function SharedProjectPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 bg-[var(--color-background)]">
       {/* Header */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-40">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 border-b border-[var(--color-border)] z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 -ml-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold truncate">{project.title}</h1>
-              <p className="text-xs text-gray-500">共有された単語帳 ({words.length}語)</p>
+              <h1 className="text-lg font-semibold text-[var(--color-foreground)] truncate">{project.title}</h1>
+              <p className="text-xs text-[var(--color-muted)]">共有された単語帳 ({words.length}語)</p>
             </div>
           </div>
         </div>
@@ -151,7 +151,7 @@ export default function SharedProjectPage() {
         {/* Import button */}
         <div className="flex justify-center mb-6">
           {imported ? (
-            <div className="flex items-center gap-2 text-emerald-600 font-medium">
+            <div className="flex items-center gap-2 text-[var(--color-success)] font-medium">
               <CheckCircle className="w-5 h-5" />
               追加しました！
             </div>
@@ -173,22 +173,22 @@ export default function SharedProjectPage() {
 
         {/* Word list (read-only) */}
         <div className="mb-4">
-          <h2 className="font-medium text-gray-900">単語一覧 ({words.length}語)</h2>
+          <h2 className="font-medium text-[var(--color-foreground)]">単語一覧 ({words.length}語)</h2>
         </div>
 
         <div className="space-y-2">
           {words.map((word) => (
             <div
               key={word.id}
-              className="bg-white rounded-xl border border-gray-200 p-4"
+              className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4"
             >
-              <p className="font-medium text-gray-900">{word.english}</p>
-              <p className="text-gray-600 mt-0.5">{word.japanese}</p>
+              <p className="font-medium text-[var(--color-foreground)]">{word.english}</p>
+              <p className="text-[var(--color-muted)] mt-0.5">{word.japanese}</p>
               {word.exampleSentence && (
-                <div className="mt-2 pt-2 border-t border-gray-100">
-                  <p className="text-sm text-gray-700 italic">{word.exampleSentence}</p>
+                <div className="mt-2 pt-2 border-t border-[var(--color-border-light)]">
+                  <p className="text-sm text-[var(--color-foreground)] italic">{word.exampleSentence}</p>
                   {word.exampleSentenceJa && (
-                    <p className="text-xs text-gray-500 mt-0.5">{word.exampleSentenceJa}</p>
+                    <p className="text-xs text-[var(--color-muted)] mt-0.5">{word.exampleSentenceJa}</p>
                   )}
                 </div>
               )}
@@ -197,7 +197,7 @@ export default function SharedProjectPage() {
         </div>
 
         {words.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-[var(--color-muted)]">
             単語がありません
           </div>
         )}

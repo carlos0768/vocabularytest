@@ -212,7 +212,7 @@ export default function StatsPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] pb-24">
       {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 backdrop-blur-sm z-40 px-6 py-4">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">
           <h1 className="text-xl font-bold text-[var(--color-foreground)]">統計</h1>
         </div>
