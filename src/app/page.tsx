@@ -18,7 +18,8 @@ import { ProjectCard } from '@/components/project';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
-import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
+import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
+import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
 import {
@@ -175,9 +176,6 @@ export default function HomePage() {
 
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
-  const dailyStats = useMemo(() => getDailyStats(), []);
-  const streakDays = useMemo(() => getStreakDays(), []);
-
   // Scan info is populated from server responses
 
   // Note: Body scroll locking removed to allow page scrolling
@@ -383,13 +381,34 @@ export default function HomePage() {
     return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
 
-  const reviewCount = useMemo(
-    () => allProjectsWords.filter((w) => w.status === 'review').length,
-    [allProjectsWords]
-  );
-  const dailyGoal = 10;
-  const remainingGoal = Math.max(0, dailyGoal - dailyStats.todayCount);
-  const goalProgress = Math.min(100, Math.round((dailyStats.todayCount / dailyGoal) * 100));
+  const reviewPlan = useMemo(() => {
+    const wordMap = getCachedProjectWords();
+    const candidates = projects.map((project) => {
+      const projectWords = wordMap[project.id] || [];
+      const dueWords = getWordsDueForReview(projectWords);
+      return { project, dueWords };
+    });
+
+    const currentCandidate = currentProject
+      ? candidates.find((c) => c.project.id === currentProject.id)
+      : null;
+
+    if (currentCandidate && currentCandidate.dueWords.length > 0) {
+      return currentCandidate;
+    }
+
+    const bestCandidate = candidates
+      .filter((c) => c.dueWords.length > 0)
+      .sort((a, b) => b.dueWords.length - a.dueWords.length)[0];
+
+    return bestCandidate || { project: currentProject, dueWords: [] as Word[] };
+  }, [projects, currentProject, words]);
+
+  const reviewProject = reviewPlan.project;
+  const reviewDueCount = reviewPlan.dueWords.length;
+  const reviewQuizHref = reviewProject
+    ? `/quiz/${reviewProject.id}?review=1&count=${reviewDueCount}&from=${encodeURIComponent('/')}`
+    : '/projects';
 
   const filteredWords = showWrongAnswers
     ? wrongAnswerWords
@@ -1125,29 +1144,31 @@ export default function HomePage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-lg mx-auto px-4 py-6 w-full space-y-6">
-        <section className="card p-4 flex items-center justify-between gap-4">
+        <section className="card p-4 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs text-[var(--color-muted)]">今日の復習</p>
+            <p className="text-xs text-[var(--color-muted)]">復習セクション</p>
             <p className="text-lg font-bold text-[var(--color-foreground)] mt-1">
-              {allProjectsWords.filter((w) => w.status === 'review').length}語が復習タイミング
+              {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
             </p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">まずはクイズから始めましょう</p>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-2 gap-3">
-          <div className="card p-4">
-            <p className="text-xs text-[var(--color-muted)]">連続学習</p>
-            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{streakDays}日</p>
-            <p className="text-xs text-[var(--color-muted)] mt-2">学習が続いています</p>
-          </div>
-          <div className="card p-4">
-            <p className="text-xs text-[var(--color-muted)]">今日の学習</p>
-            <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{dailyStats.todayCount}問</p>
-            <p className="text-xs text-[var(--color-muted)] mt-2">
-              正答率 {dailyStats.todayCount > 0 ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100) : 0}%
+            <p className="text-xs text-[var(--color-muted)] mt-1">
+              {reviewProject ? `${reviewProject.title} の忘却曲線に基づく復習` : 'プロジェクトがありません'}
             </p>
           </div>
+          {reviewDueCount > 0 ? (
+            <Link
+              href={reviewQuizHref}
+              className="px-4 py-2 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white text-sm font-semibold"
+            >
+              復習クイズへ
+            </Link>
+          ) : (
+            <Link
+              href="/projects"
+              className="px-4 py-2 rounded-full border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold"
+            >
+              プロジェクトを見る
+            </Link>
+          )}
         </section>
 
         <section className="grid grid-cols-2 gap-3">
