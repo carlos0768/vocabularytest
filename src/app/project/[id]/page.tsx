@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Loader2, Check, BarChart3, BookOpen, Sparkles } from 'lucide-react';
+import { Share2, Loader2, Check, BarChart3, BookOpen, Sparkles } from 'lucide-react';
 import { BottomNav, DeleteConfirmModal } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
@@ -238,13 +238,6 @@ export default function ProjectDetailPage() {
     <div className="min-h-screen pb-28">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
-            aria-label="戻る"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
             <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
