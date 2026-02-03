@@ -122,12 +122,7 @@ export default function FavoritesQuizPage() {
       total: prev.total + 1,
     }));
 
-    // Auto-advance after correct answer
-    if (isCorrect) {
-      setTimeout(() => {
-        moveToNext();
-      }, 500);
-    }
+    // Advance is controlled by the Next button to avoid skipping too fast
   };
 
   // Move to next question
@@ -414,8 +409,8 @@ export default function FavoritesQuizPage() {
           </div>
         )}
 
-        {/* Next button (only shown when wrong answer selected) */}
-        {isRevealed && selectedIndex !== currentQuestion?.correctIndex && (
+        {/* Next button (shown after answering) */}
+        {isRevealed && (
           <Button onClick={moveToNext} className="flex-shrink-0 w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" size="lg">
             次へ
             <ChevronRight className="w-5 h-5 ml-1" />
