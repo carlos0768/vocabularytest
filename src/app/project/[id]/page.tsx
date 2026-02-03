@@ -239,16 +239,24 @@ export default function ProjectDetailPage() {
   return (
     <div className="min-h-screen pb-28">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
+              {isPro && (
+                <span className="chip chip-pro px-2 py-1 text-xs">
+                  <Sparkles className="w-3 h-3" />
+                  Pro
+                </span>
+              )}
+            </div>
             <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
           </div>
           <div className="flex items-center gap-2">
             {isPro && (
               <button
                 onClick={handleShare}
-                className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
+                className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
               >
                 {sharing ? (
                   <Loader2 className="w-4 h-4 animate-spin text-[var(--color-muted)]" />
@@ -258,12 +266,6 @@ export default function ProjectDetailPage() {
                   <Share2 className="w-4 h-4" />
                 )}
               </button>
-            )}
-            {isPro && (
-              <span className="chip chip-pro">
-                <Sparkles className="w-3 h-3" />
-                Pro
-              </span>
             )}
           </div>
         </div>
