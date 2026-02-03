@@ -1133,12 +1133,6 @@ export default function HomePage() {
             </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">まずはクイズから始めましょう</p>
           </div>
-          <Link
-            href={currentProject ? `/quiz/${currentProject.id}` : '/projects'}
-            className="px-4 py-2 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white text-sm font-semibold"
-          >
-            復習を始める
-          </Link>
         </section>
 
         <section className="grid grid-cols-2 gap-3">
