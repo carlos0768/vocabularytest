@@ -8,7 +8,7 @@ import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
-import { calculateNextReview } from '@/lib/spaced-repetition';
+import { calculateNextReview, getWordsDueForReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
@@ -24,6 +24,7 @@ export default function QuizPage() {
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
   const returnPath = searchParams.get('from');
+  const reviewMode = searchParams.get('review') === '1';
   const [questionCount, setQuestionCount] = useState<number | null>(
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
@@ -221,24 +222,31 @@ export default function QuizPage() {
 
     const loadWords = async () => {
       try {
-        const words = await repository.getWords(projectId);
-        if (words.length === 0) {
+        const loadedWords = await repository.getWords(projectId);
+        if (loadedWords.length === 0) {
           backToProject();
           return;
         }
-        setAllWords(words);
+
+        const sourceWords = reviewMode ? getWordsDueForReview(loadedWords) : loadedWords;
+        if (reviewMode && sourceWords.length === 0) {
+          backToProject();
+          return;
+        }
+
+        setAllWords(sourceWords);
 
         if (questionCount) {
           // Check if any words might need distractors
-          const needsGeneration = words.some(
+          const needsGeneration = sourceWords.some(
             (w) => !w.distractors || w.distractors.length === 0 ||
               (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
           );
 
           if (needsGeneration) {
-            await startQuizWithDistractors(words, questionCount);
+            await startQuizWithDistractors(sourceWords, questionCount);
           } else {
-            const generated = generateQuestions(words, questionCount);
+            const generated = generateQuestions(sourceWords, questionCount);
             setQuestions(generated);
             // Generate example sentences in background (Pro only)
             const selectedWords = generated.map(q => q.word);
@@ -254,7 +262,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, backToProject]);
 
   const currentQuestion = questions[currentIndex];
 
