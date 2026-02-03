@@ -1156,6 +1156,27 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="grid grid-cols-2 gap-3">
+          <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
+            <div className="w-10 h-10 rounded-full bg-[var(--color-peach-light)] flex items-center justify-center text-[var(--color-primary)]">
+              <Plus className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">新しくスキャン</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">ノートやプリントを取り込む</p>
+            </div>
+          </Link>
+          <Link href="/favorites" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
+            <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
+              <Flag className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
+            </div>
+          </Link>
+        </section>
+
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近のプロジェクト</h2>
@@ -1186,27 +1207,6 @@ export default function HomePage() {
                 })
             )}
           </div>
-        </section>
-
-        <section className="grid grid-cols-2 gap-3">
-          <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-peach-light)] flex items-center justify-center text-[var(--color-primary)]">
-              <Plus className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">新しくスキャン</p>
-              <p className="text-xs text-[var(--color-muted)] mt-1">ノートやプリントを取り込む</p>
-            </div>
-          </Link>
-          <Link href="/favorites" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
-              <Flag className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
-              <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
-            </div>
-          </Link>
         </section>
       </main>
 
