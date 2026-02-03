@@ -496,8 +496,9 @@ export default function FlashcardPage() {
             <ChevronLeft className="w-6 h-6" />
           </Button>
 
-          {/* Next button - larger and primary */}
+          {/* Next button */}
           <Button
+            variant="secondary"
             onClick={() => handleNext(true)}
             disabled={isAnimating}
             className="w-16 h-16"
