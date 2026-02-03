@@ -138,9 +138,9 @@ export function WordList({
   }, [words, searchQuery]);
 
   return (
-    <div className="card overflow-hidden">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="w-full flex items-center justify-between p-4 border-b border-[var(--color-border-light)]">
+      <div className="w-full flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[var(--color-primary)]/10 rounded-xl">
             <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
@@ -150,74 +150,70 @@ export function WordList({
             <p className="text-sm text-[var(--color-muted)]">{words.length}語</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {onAddClick && (
+        {onAddClick && (
+          <button
+            onClick={() => {
+              onAddClick();
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary)]/90 transition-colors"
+            aria-label="単語を追加"
+          >
+            <Plus className="w-4 h-4" />
+            追加
+          </button>
+        )}
+      </div>
+
+      {/* Search input */}
+      {words.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="単語を検索..."
+            className="w-full pl-9 pr-8 py-2 bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-xl text-sm focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+          />
+          {searchQuery && (
             <button
-              onClick={(e) => {
-                onAddClick();
-              }}
-              className="p-2 bg-[var(--color-primary)] text-white rounded-xl hover:bg-[var(--color-primary)]/90 transition-colors"
-              aria-label="単語を追加"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--color-peach-light)] rounded-full"
             >
-              <Plus className="w-4 h-4" />
+              <X className="w-4 h-4 text-[var(--color-muted)]" />
             </button>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Search bar and Word list */}
-      <div className="px-4 pb-4 bg-[var(--color-background)]">
-        {/* Search input */}
-        {words.length > 0 && (
-          <div className="relative mb-3 mt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="単語を検索..."
-              className="w-full pl-9 pr-8 py-2 bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-xl text-sm focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+      {/* Word list */}
+      <div className="space-y-2">
+        {words.length === 0 ? (
+          <p className="text-center text-[var(--color-muted)] py-4">単語がありません</p>
+        ) : filteredWords.length === 0 ? (
+          <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
+        ) : (
+          filteredWords.map((word) => (
+            <WordItem
+              key={word.id}
+              word={word}
+              isEditing={editingWordId === word.id}
+              onEdit={() => onEditStart(word.id)}
+              onCancel={onEditCancel}
+              onSave={(english, japanese) => onSave(word.id, english, japanese)}
+              onDelete={() => onDelete(word.id)}
+              onToggleFavorite={() => onToggleFavorite(word.id)}
             />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--color-peach-light)] rounded-full"
-              >
-                <X className="w-4 h-4 text-[var(--color-muted)]" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Word list */}
-        <div className="space-y-2 max-h-[350px] overflow-y-auto">
-          {words.length === 0 ? (
-            <p className="text-center text-[var(--color-muted)] py-4">単語がありません</p>
-          ) : filteredWords.length === 0 ? (
-            <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
-          ) : (
-            filteredWords.map((word) => (
-              <WordItem
-                key={word.id}
-                word={word}
-                isEditing={editingWordId === word.id}
-                onEdit={() => onEditStart(word.id)}
-                onCancel={onEditCancel}
-                onSave={(english, japanese) => onSave(word.id, english, japanese)}
-                onDelete={() => onDelete(word.id)}
-                onToggleFavorite={() => onToggleFavorite(word.id)}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Search result count */}
-        {searchQuery && filteredWords.length > 0 && (
-          <p className="text-xs text-[var(--color-muted)] text-center mt-2">
-            {filteredWords.length}件の検索結果
-          </p>
+          ))
         )}
       </div>
+
+      {/* Search result count */}
+      {searchQuery && filteredWords.length > 0 && (
+        <p className="text-xs text-[var(--color-muted)] text-center">
+          {filteredWords.length}件の検索結果
+        </p>
+      )}
     </div>
   );
 }
