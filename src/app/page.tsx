@@ -97,7 +97,19 @@ export default function HomePage() {
     ensureCacheRestored();
     return getCachedProjects();
   });
-  const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+  
+  // Initialize currentProjectIndex from sessionStorage if available
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
+      if (savedProjectId) {
+        const cachedProjects = getCachedProjects();
+        const index = cachedProjects.findIndex(p => p.id === savedProjectId);
+        if (index >= 0) return index;
+      }
+    }
+    return 0;
+  });
   const [words, setWords] = useState<Word[]>(() => {
     const cachedProjects = getCachedProjects();
     const cachedWords = getCachedProjectWords();
@@ -335,6 +347,19 @@ export default function HomePage() {
     loadWords();
   }, [loadWords]);
 
+  // Restore selected project from sessionStorage when projects are loaded
+  useEffect(() => {
+    if (projects.length > 0 && typeof window !== 'undefined') {
+      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
+      if (savedProjectId) {
+        const index = projects.findIndex(p => p.id === savedProjectId);
+        if (index >= 0 && index !== currentProjectIndex) {
+          setCurrentProjectIndex(index);
+        }
+      }
+    }
+  }, [projects]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Convert wrong answers to Word type for display
   const wrongAnswerWords: Word[] = useMemo(() => {
     return wrongAnswers.map(wa => ({
@@ -369,6 +394,10 @@ export default function HomePage() {
   // Navigation
   const selectProject = (index: number) => {
     setCurrentProjectIndex(index);
+    // Save selected project ID to sessionStorage for persistence
+    if (projects[index]) {
+      sessionStorage.setItem('scanvocab_selected_project_id', projects[index].id);
+    }
     setShowFavoritesOnly(false);
     setShowWrongAnswers(false);
     setShowAllProjects(false);
