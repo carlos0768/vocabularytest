@@ -41,6 +41,12 @@ const navItems: NavItem[] = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const projectIdFromPath = pathname?.startsWith('/project/')
+    ? pathname.split('/')[2]
+    : null;
+  const scanHref = projectIdFromPath
+    ? `/scan?projectId=${encodeURIComponent(projectIdFromPath)}`
+    : '/scan';
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -76,7 +82,7 @@ export function BottomNav() {
           );
         })}
 
-        <Link href="/scan" className="flex items-center justify-center" aria-label="スキャン">
+        <Link href={scanHref} className="flex items-center justify-center" aria-label="スキャン">
           <span className="bottom-nav-cta">
             <Camera className="w-5 h-5" />
           </span>
