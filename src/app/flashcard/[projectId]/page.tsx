@@ -26,7 +26,12 @@ export default function FlashcardPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const favoritesOnly = searchParams.get('favorites') === 'true';
+  const returnPath = searchParams.get('from');
   const { subscription, isPro, loading: authLoading } = useAuth();
+
+  const backToProject = () => {
+    router.push(returnPath || `/project/${projectId}`);
+  };
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -72,7 +77,7 @@ export default function FlashcardPage() {
           : allWords;
 
         if (wordsData.length === 0) {
-          router.push(`/project/${projectId}`);
+          backToProject();
           return;
         }
 
@@ -105,7 +110,7 @@ export default function FlashcardPage() {
         setWords(shuffleArray(wordsData));
       } catch (error) {
         console.error('Failed to load words:', error);
-        router.push('/');
+        backToProject();
       } finally {
         setLoading(false);
       }
@@ -264,7 +269,7 @@ export default function FlashcardPage() {
           handleFlip();
           break;
         case 'Escape':
-          router.push(`/project/${projectId}`);
+          backToProject();
           break;
       }
     };
@@ -295,7 +300,7 @@ export default function FlashcardPage() {
     const newWords = words.filter((_, i) => i !== currentIndex);
 
     if (newWords.length === 0) {
-      router.push(`/project/${projectId}`);
+      backToProject();
       return;
     }
 
@@ -349,7 +354,7 @@ export default function FlashcardPage() {
       {/* Header */}
       <header className="p-4 flex items-center justify-between">
         <button
-          onClick={() => router.push(`/project/${projectId}`)}
+          onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
           <X className="w-6 h-6" />
