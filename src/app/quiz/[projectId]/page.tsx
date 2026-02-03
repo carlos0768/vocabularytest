@@ -30,9 +30,9 @@ export default function QuizPage() {
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
 
-  const backToProject = () => {
+  const backToProject = useCallback(() => {
     router.push(returnPath || `/project/${projectId}`);
-  };
+  }, [router, returnPath, projectId]);
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
