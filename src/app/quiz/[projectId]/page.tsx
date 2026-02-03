@@ -22,9 +22,14 @@ export default function QuizPage() {
 
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
+  const returnPath = searchParams.get('from');
   const [questionCount, setQuestionCount] = useState<number | null>(
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
+
+  const backToProject = () => {
+    router.push(returnPath || `/project/${projectId}`);
+  };
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -217,7 +222,7 @@ export default function QuizPage() {
       try {
         const words = await repository.getWords(projectId);
         if (words.length === 0) {
-          router.push(`/project/${projectId}`);
+          backToProject();
           return;
         }
         setAllWords(words);
@@ -241,7 +246,7 @@ export default function QuizPage() {
         }
       } catch (error) {
         console.error('Failed to load words:', error);
-        router.push('/');
+        backToProject();
       } finally {
         setLoading(false);
       }
@@ -348,7 +353,7 @@ export default function QuizPage() {
         {/* Header */}
         <header className="flex-shrink-0 p-4">
           <button
-            onClick={() => router.push(`/project/${projectId}`)}
+            onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
             <X className="w-6 h-6" />
@@ -382,7 +387,7 @@ export default function QuizPage() {
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         <header className="flex-shrink-0 p-4">
           <button
-            onClick={() => router.push(`/project/${projectId}`)}
+            onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
             <X className="w-6 h-6" />
@@ -407,7 +412,7 @@ export default function QuizPage() {
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => router.push(`/project/${projectId}`)}
+                onClick={backToProject}
                 className="w-full"
                 size="lg"
               >
@@ -437,7 +442,7 @@ export default function QuizPage() {
         {/* Header */}
         <header className="flex-shrink-0 p-4">
           <button
-            onClick={() => router.push(`/project/${projectId}`)}
+            onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
             <X className="w-6 h-6" />
@@ -500,7 +505,7 @@ export default function QuizPage() {
         {/* Header */}
         <header className="p-4">
           <button
-            onClick={() => router.push(`/project/${projectId}`)}
+            onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
             <X className="w-6 h-6" />
@@ -544,7 +549,7 @@ export default function QuizPage() {
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => router.push(`/project/${projectId}`)}
+                onClick={backToProject}
                 className="w-full"
                 size="lg"
               >
@@ -563,7 +568,7 @@ export default function QuizPage() {
       {/* Header */}
       <header className="flex-shrink-0 p-4 flex items-center gap-4">
         <button
-          onClick={() => router.push(`/project/${projectId}`)}
+          onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
           <X className="w-6 h-6" />

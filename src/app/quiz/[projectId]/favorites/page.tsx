@@ -22,9 +22,14 @@ export default function FavoritesQuizPage() {
 
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
+  const returnPath = searchParams.get('from');
   const [questionCount, setQuestionCount] = useState<number | null>(
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
+
+  const backToProject = () => {
+    router.push(returnPath || `/project/${projectId}`);
+  };
 
   const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // Store all favorite words for restart
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -78,7 +83,7 @@ export default function FavoritesQuizPage() {
         const favoriteWords = words.filter((w) => w.isFavorite);
 
         if (favoriteWords.length === 0) {
-          router.push(`/project/${projectId}`);
+          backToProject();
           return;
         }
 
@@ -91,7 +96,7 @@ export default function FavoritesQuizPage() {
         }
       } catch (error) {
         console.error('Failed to load words:', error);
-        router.push('/');
+        backToProject();
       } finally {
         setLoading(false);
       }
@@ -200,7 +205,7 @@ export default function FavoritesQuizPage() {
         {/* Header */}
         <header className="flex-shrink-0 p-4 flex items-center justify-between">
           <button
-            onClick={() => router.push(`/project/${projectId}`)}
+            onClick={backToProject}
             className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
           >
             <X className="w-6 h-6" />
@@ -268,7 +273,7 @@ export default function FavoritesQuizPage() {
         {/* Header */}
         <header className="p-4">
           <button
-            onClick={() => router.push(`/project/${projectId}`)}
+            onClick={backToProject}
             className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
           >
             <X className="w-6 h-6" />
@@ -313,7 +318,7 @@ export default function FavoritesQuizPage() {
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => router.push(`/project/${projectId}`)}
+                onClick={backToProject}
                 className="w-full"
                 size="lg"
               >
@@ -331,7 +336,7 @@ export default function FavoritesQuizPage() {
       {/* Header */}
       <header className="flex-shrink-0 p-4 flex items-center justify-between">
         <button
-          onClick={() => router.push(`/project/${projectId}`)}
+          onClick={backToProject}
           className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
         >
           <X className="w-6 h-6" />

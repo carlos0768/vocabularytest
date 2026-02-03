@@ -234,6 +234,8 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const returnToProject = encodeURIComponent(`/project/${project.id}`);
+
   return (
     <div className="min-h-screen pb-28">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
@@ -291,7 +293,7 @@ export default function ProjectDetailPage() {
                 title="クイズ"
                 description="4択で意味を確認"
                 icon={BookOpen}
-                href={`/quiz/${project.id}`}
+                href={`/quiz/${project.id}?from=${returnToProject}`}
                 variant="red"
                 disabled={words.length === 0}
               />
@@ -299,7 +301,7 @@ export default function ProjectDetailPage() {
                 title="フラッシュカード"
                 description="スワイプで復習"
                 icon={BarChart3}
-                href={isPro ? `/flashcard/${project.id}` : '/subscription'}
+                href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
                 variant="blue"
                 disabled={words.length === 0}
                 badge={!isPro ? 'Pro' : undefined}
@@ -309,7 +311,7 @@ export default function ProjectDetailPage() {
               title="例文クイズ"
               description="例文で記憶を定着"
               icon={Sparkles}
-              href={isPro ? `/sentence-quiz/${project.id}` : '/subscription'}
+              href={isPro ? `/sentence-quiz/${project.id}?from=${returnToProject}` : '/subscription'}
               variant="orange"
               disabled={words.length === 0}
               badge={!isPro ? 'Pro' : undefined}

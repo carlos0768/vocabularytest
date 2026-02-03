@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import {
   LoadingScreen,
   QuizProgress,
@@ -24,8 +24,14 @@ const MIN_WORDS_REQUIRED = 10; // 最低10単語必要
 export default function SentenceQuizPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
+  const returnPath = searchParams.get('from');
+
+  const backToProject = () => {
+    router.push(returnPath || `/project/${projectId}`);
+  };
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -193,7 +199,7 @@ export default function SentenceQuizPage() {
 
   // ホームへ
   const handleGoHome = () => {
-    router.push('/');
+    backToProject();
   };
 
   // ローディング
