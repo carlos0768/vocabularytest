@@ -76,6 +76,9 @@ const MULTI_BLANK_SYSTEM_PROMPT = `あなたは英語教師です。与えられ
 - 熟語やフレーズ（例: "look forward to", "take care of"）を1つの空欄にしないでください
 - 熟語が与えられた場合は、その中の1単語だけを空欄にし、残りは文中に表示してください
 - 例: "look forward to" → "I ___ forward to meeting you." (空欄は "look" のみ)
+【重要：空欄には文中で正しい活用形を入れる】
+- 例: be → is/are/was、have → has/had、do → does/did など文脈に合わせた形
+- sentenceに入れる語と、blanksのwordは必ず一致させる
 
 【ルール】
 1. 与えられた単語/熟語を必ず含む、自然で実用的な例文を作成
@@ -371,13 +374,16 @@ async function generateMultiFillInBlank(
     // ============================================
     // Phase 4: VectorDB置換があった場合、日本語訳を再生成
     // ============================================
+    // blanksを文中の順序に揃える（position順）
+    const sortedBlanks = [...blanks].sort((a, b) => a.index - b.index);
+
     let finalJapaneseMeaning = phase1Validated.japaneseMeaning;
 
     if (relatedWordIds.length > 0) {
       // 完成した英文を作成
       const completedSentence = phase1Validated.sentence
         .split('___')
-        .map((part, idx) => idx < blanks.length ? part + blanks[idx].correctAnswer : part)
+        .map((part, idx) => idx < sortedBlanks.length ? part + sortedBlanks[idx].correctAnswer : part)
         .join('');
 
       try {
@@ -408,7 +414,7 @@ async function generateMultiFillInBlank(
       wordId,
       targetWord: english,
       sentence: phase1Validated.sentence,
-      blanks,
+      blanks: sortedBlanks,
       japaneseMeaning: finalJapaneseMeaning,
       relatedWordIds,
     };
@@ -438,6 +444,7 @@ async function generateFillInBlank(
 2. 例文は中学〜高校レベルの難易度
 3. 空欄は1つだけ（対象単語の部分）
 4. 選択肢は4つ（1つが正解、3つが誤答）
+5. 空欄に入れる語は文脈に合った正しい活用形にする（be→is/are/was 等）
 
 【選択肢のルール - 重要】
 誤答は単純な活用形変化（三人称形、過去形等）を使わないでください！
