@@ -8,6 +8,7 @@ import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
+import { calculateNextReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
@@ -278,6 +279,28 @@ export default function QuizPage() {
     }
 
     recordActivity();
+
+    // Update spaced repetition fields using SM-2 algorithm
+    try {
+      const srUpdate = calculateNextReview(isCorrect, word);
+      await repository.updateWord(word.id, srUpdate);
+
+      // Update local state
+      setQuestions((prev) =>
+        prev.map((q, i) =>
+          i === currentIndex
+            ? { ...q, word: { ...q.word, ...srUpdate } }
+            : q
+        )
+      );
+      setAllWords((prev) =>
+        prev.map((w) =>
+          w.id === word.id ? { ...w, ...srUpdate } : w
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update spaced repetition:', error);
+    }
   };
 
   const moveToNext = () => {
