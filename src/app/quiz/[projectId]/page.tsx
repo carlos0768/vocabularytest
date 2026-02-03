@@ -10,6 +10,7 @@ import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { calculateNextReview, getWordsDueForReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
+import { getGuestUserId } from '@/lib/utils';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
@@ -19,7 +20,7 @@ export default function QuizPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  const { subscription, loading: authLoading } = useAuth();
+  const { subscription, loading: authLoading, user, isPro } = useAuth();
 
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
@@ -222,14 +223,40 @@ export default function QuizPage() {
 
     const loadWords = async () => {
       try {
-        const loadedWords = await repository.getWords(projectId);
-        if (loadedWords.length === 0) {
-          backToProject();
-          return;
+        let sourceWords: Word[] = [];
+
+        if (reviewMode) {
+          const userId = isPro && user ? user.id : getGuestUserId();
+          const projects = await repository.getProjects(userId);
+          const projectIds = projects.map((project) => project.id);
+          if (projectIds.length === 0) {
+            backToProject();
+            return;
+          }
+
+          const repoWithBulk = repository as typeof repository & {
+            getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
+            getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
+          };
+
+          let wordsByProject: Record<string, Word[]>;
+          if (repoWithBulk.getAllWordsByProjectIds) {
+            wordsByProject = await repoWithBulk.getAllWordsByProjectIds(projectIds);
+          } else if (repoWithBulk.getAllWordsByProject) {
+            wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
+          } else {
+            const wordsArrays = await Promise.all(projectIds.map((id) => repository.getWords(id)));
+            wordsByProject = Object.fromEntries(projectIds.map((id, index) => [id, wordsArrays[index] ?? []]));
+          }
+
+          const mergedWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
+          sourceWords = getWordsDueForReview(mergedWords);
+        } else {
+          const loadedWords = await repository.getWords(projectId);
+          sourceWords = loadedWords;
         }
 
-        const sourceWords = reviewMode ? getWordsDueForReview(loadedWords) : loadedWords;
-        if (reviewMode && sourceWords.length === 0) {
+        if (sourceWords.length === 0) {
           backToProject();
           return;
         }
@@ -262,7 +289,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, backToProject]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, backToProject, user, isPro]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -283,7 +310,8 @@ export default function QuizPage() {
     if (isCorrect) {
       recordCorrectAnswer(false);
     } else {
-      recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
+      const recordProjectId = reviewMode ? word.projectId : projectId;
+      recordWrongAnswer(word.id, word.english, word.japanese, recordProjectId, word.distractors);
     }
 
     recordActivity();
