@@ -52,6 +52,28 @@ function clearCachedSubscription() {
   }
 }
 
+// ---- Daily activity logging ----
+const ACTIVITY_LOG_KEY = 'merken_activity_logged';
+
+function logDailyActivity(userId: string) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const cached = localStorage.getItem(ACTIVITY_LOG_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.userId === userId && parsed.date === today) return;
+    }
+    // Mark as logged immediately to prevent duplicate calls
+    localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify({ userId, date: today }));
+    fetch('/api/activity', { method: 'POST' }).catch(() => {
+      // If API call fails, clear cache so it retries next time
+      localStorage.removeItem(ACTIVITY_LOG_KEY);
+    });
+  } catch {
+    // ignore
+  }
+}
+
 // ---- Global state ----
 
 // Try to initialize with non-loading state if we can resolve session synchronously
@@ -236,6 +258,11 @@ export function useAuth() {
         error: null,
       };
       notifyListeners(newState);
+
+      // Log daily activity for authenticated users
+      if (result.user) {
+        logDailyActivity(result.user.id);
+      }
     } catch (error) {
       const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
       const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
