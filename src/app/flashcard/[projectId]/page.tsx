@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -37,6 +37,7 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [japaneseFirst, setJapaneseFirst] = useState(false); // 日→英モード
 
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -400,42 +401,58 @@ export default function FlashcardPage() {
           }}
         >
           <div className={`flashcard-inner ${isFlipped ? 'flipped' : ''}`}>
-            {/* Front (English) */}
+            {/* Front */}
             <div className="flashcard-face flashcard-front shadow-card">
-              {/* Part of speech badge */}
+              {/* Mode badge */}
               <div className="absolute top-6 left-6">
                 <span className="px-3 py-1 bg-[var(--color-peach-light)] text-[var(--color-muted)] text-xs font-semibold rounded-full uppercase tracking-wide">
-                  NOUN
+                  {japaneseFirst ? '日→英' : '英→日'}
                 </span>
               </div>
 
-              {/* Voice button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  speakWord();
-                }}
-                className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[var(--color-primary)]"
-                aria-label="発音を聞く"
-              >
-                <Volume2 className="w-6 h-6" />
-              </button>
+              {/* Voice button (only for English side) */}
+              {!japaneseFirst && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    speakWord();
+                  }}
+                  className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[var(--color-primary)]"
+                  aria-label="発音を聞く"
+                >
+                  <Volume2 className="w-6 h-6" />
+                </button>
+              )}
 
               {/* Word */}
               <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center tracking-tight">
-                {currentWord?.english}
+                {japaneseFirst ? currentWord?.japanese : currentWord?.english}
               </h1>
 
               {/* Hint */}
               <p className="absolute bottom-6 text-sm text-[var(--color-muted)]">
-                タップして意味を表示
+                タップして{japaneseFirst ? '英語' : '意味'}を表示
               </p>
             </div>
 
-            {/* Back (Japanese) */}
+            {/* Back */}
             <div className="flashcard-face flashcard-back">
+              {/* Voice button (for Japanese first mode, show on back) */}
+              {japaneseFirst && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    speakWord();
+                  }}
+                  className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-white"
+                  aria-label="発音を聞く"
+                >
+                  <Volume2 className="w-6 h-6" />
+                </button>
+              )}
+
               <h2 className="text-3xl font-bold text-white text-center">
-                {currentWord?.japanese}
+                {japaneseFirst ? currentWord?.english : currentWord?.japanese}
               </h2>
 
               <p className="absolute bottom-6 text-sm text-white/60">
@@ -459,6 +476,21 @@ export default function FlashcardPage() {
             aria-label="シャッフル"
           >
             <RotateCcw className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => {
+              setJapaneseFirst(!japaneseFirst);
+              setIsFlipped(false); // Reset flip state when changing mode
+            }}
+            className={`w-12 h-12 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
+              japaneseFirst
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
+            }`}
+            aria-label={japaneseFirst ? '英→日モードに切替' : '日→英モードに切替'}
+          >
+            <Languages className="w-5 h-5" />
           </button>
 
           <button
