@@ -48,6 +48,7 @@ export default function QuizPage() {
   const [generatingDistractors, setGeneratingDistractors] = useState(false);
   const [distractorError, setDistractorError] = useState<string | null>(null);
   const [inputCount, setInputCount] = useState('');
+  const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
@@ -340,12 +341,16 @@ export default function QuizPage() {
   };
 
   const moveToNext = () => {
+    if (isTransitioning) return; // 連打防止
+    setIsTransitioning(true);
+    
     if (currentIndex + 1 >= questions.length) {
       setIsComplete(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedIndex(null);
       setIsRevealed(false);
+      setIsTransitioning(false); // 次の問題に移ったらリセット
     }
   };
 
@@ -718,7 +723,12 @@ export default function QuizPage() {
       {/* Fixed bottom next button (shown after answering) */}
       {isRevealed && (
         <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-background)] p-6 safe-area-bottom z-50">
-          <Button onClick={moveToNext} className="w-full max-w-lg mx-auto flex" size="lg">
+          <Button 
+            onClick={moveToNext} 
+            disabled={isTransitioning}
+            className="w-full max-w-lg mx-auto flex" 
+            size="lg"
+          >
             次へ
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>
