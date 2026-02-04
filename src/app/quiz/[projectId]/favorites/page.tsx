@@ -43,6 +43,7 @@ export default function FavoritesQuizPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [inputCount, setInputCount] = useState(''); // User input for question count
+  const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -127,12 +128,16 @@ export default function FavoritesQuizPage() {
 
   // Move to next question
   const moveToNext = () => {
+    if (isTransitioning) return; // 連打防止
+    setIsTransitioning(true);
+    
     if (currentIndex + 1 >= questions.length) {
       setIsComplete(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedIndex(null);
       setIsRevealed(false);
+      setIsTransitioning(false); // 次の問題に移ったらリセット
     }
   };
 
@@ -411,7 +416,12 @@ export default function FavoritesQuizPage() {
 
         {/* Next button (shown after answering) */}
         {isRevealed && (
-          <Button onClick={moveToNext} className="flex-shrink-0 w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" size="lg">
+          <Button 
+            onClick={moveToNext} 
+            disabled={isTransitioning}
+            className="flex-shrink-0 w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" 
+            size="lg"
+          >
             次へ
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>
