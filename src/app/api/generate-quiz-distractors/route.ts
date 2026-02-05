@@ -76,8 +76,9 @@ export async function POST(request: NextRequest) {
 
     // Generate using provider factory (Cloud Run or direct)
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
-    const config = AI_CONFIG.defaults.gemini;
-    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+    const openaiApiKey = process.env.OPENAI_API_KEY || '';
+    const config = AI_CONFIG.defaults.openai; // Use OpenAI for reliability
+    const provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
 
     const result = await provider.generateText(promptText, {
       ...config,

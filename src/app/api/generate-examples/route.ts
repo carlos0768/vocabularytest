@@ -157,9 +157,16 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
 
-    // Use Gemini for lightweight, fast generation
-    const config = AI_CONFIG.defaults.gemini;
-    const provider = getProvider(config.provider, process.env.GOOGLE_AI_API_KEY || 'cloud-run');
+    // Use OpenAI for reliable JSON output
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return NextResponse.json(
+        { success: false, error: 'OpenAI APIキーが設定されていません' },
+        { status: 500 }
+      );
+    }
+    const config = AI_CONFIG.defaults.openai;
+    const provider = getProvider(config.provider, openaiApiKey);
 
     let aiResponse;
     try {
