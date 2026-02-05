@@ -37,28 +37,28 @@ export interface AIConfig {
 export const AI_CONFIG: AIConfig = {
   extraction: {
     words: {
-      provider: 'gemini',
-      model: 'gemini-1.5-flash-002',
+      provider: 'openai',
+      model: 'gpt-4o',
       temperature: 0.7,
-      maxOutputTokens: 65535,
+      maxOutputTokens: 16384,
     },
     idioms: {
-      provider: 'gemini',
-      model: 'gemini-1.5-flash-002',
+      provider: 'openai',
+      model: 'gpt-4o',
       temperature: 0.7,
-      maxOutputTokens: 65535,
+      maxOutputTokens: 16384,
     },
     eiken: {
-      provider: 'gemini',
-      model: 'gemini-1.5-flash-002',
+      provider: 'openai',
+      model: 'gpt-4o',
       temperature: 0.7,
-      maxOutputTokens: 65535,
+      maxOutputTokens: 16384,
     },
     circled: {
-      provider: 'gemini',
-      model: 'gemini-1.5-flash-002',
+      provider: 'openai',
+      model: 'gpt-4o',
       temperature: 0.7,
-      maxOutputTokens: 65535,
+      maxOutputTokens: 16384,
     },
     grammar: {
       ocr: {
@@ -90,6 +90,8 @@ export const AI_CONFIG: AIConfig = {
     },
   },
 };
+
+// NOTE: Temporarily using OpenAI due to Gemini/Cloud Run issues (2026-02-06)
 
 export function getAPIKeys() {
   return {
