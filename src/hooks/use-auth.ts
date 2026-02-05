@@ -12,6 +12,64 @@ interface AuthState {
   error: string | null;
 }
 
+// ---- Fast session detection ----
+// Synchronously check if Supabase session exists in localStorage
+// This allows instant UI without waiting for async getSession()
+function hasSupabaseSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    // Supabase stores session in localStorage with key pattern: sb-{project_ref}-auth-token
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return false;
+    
+    // Extract project ref from URL (e.g., https://ryoyvpayoacgeqgoehgk.supabase.co -> ryoyvpayoacgeqgoehgk)
+    const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
+    if (!match) return false;
+    
+    const projectRef = match[1];
+    const sessionKey = `sb-${projectRef}-auth-token`;
+    const sessionData = localStorage.getItem(sessionKey);
+    
+    if (!sessionData) return false;
+    
+    // Parse and check if token exists and isn't expired
+    const parsed = JSON.parse(sessionData);
+    if (!parsed?.access_token) return false;
+    
+    // Check expiry (expires_at is Unix timestamp in seconds)
+    if (parsed.expires_at && Date.now() / 1000 > parsed.expires_at) {
+      return false; // Token expired
+    }
+    
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Get cached user from Supabase localStorage (for instant UI)
+function getCachedSupabaseUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return null;
+    
+    const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
+    if (!match) return null;
+    
+    const projectRef = match[1];
+    const sessionKey = `sb-${projectRef}-auth-token`;
+    const sessionData = localStorage.getItem(sessionKey);
+    
+    if (!sessionData) return null;
+    
+    const parsed = JSON.parse(sessionData);
+    return parsed?.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Strategy 3: localStorage subscription cache ----
 const SUB_CACHE_KEY = 'merken_sub_cache';
 
@@ -26,9 +84,9 @@ function getCachedSubscription(userId: string): Subscription | null {
     const raw = localStorage.getItem(SUB_CACHE_KEY);
     if (!raw) return null;
     const cache: SubCache = JSON.parse(raw);
-    // Must match user and be < 10 minutes old
+    // Must match user and be < 1 hour old (extended from 10 min for faster startup)
     if (cache.userId !== userId) return null;
-    if (Date.now() - cache.timestamp > 10 * 60 * 1000) return null;
+    if (Date.now() - cache.timestamp > 60 * 60 * 1000) return null;
     return cache.subscription;
   } catch {
     return null;
@@ -76,13 +134,44 @@ function logDailyActivity(userId: string) {
 
 // ---- Global state ----
 
-// Try to initialize with non-loading state if we can resolve session synchronously
+// Start with loading: true for SSR compatibility
+// We'll immediately update to cached state on client mount
 let globalAuthState: AuthState = {
   user: null,
   subscription: null,
   loading: true,
   error: null,
 };
+
+// Track if we've done the instant-load optimization
+let hasOptimisticLoad = false;
+
+// Called immediately on first client-side mount to provide instant UI
+function tryOptimisticLoad(): boolean {
+  if (hasOptimisticLoad) return false;
+  if (typeof window === 'undefined') return false;
+  
+  hasOptimisticLoad = true;
+  
+  // Check if we have a valid session in localStorage
+  if (hasSupabaseSession()) {
+    const cachedUser = getCachedSupabaseUser();
+    const cachedSub = cachedUser ? getCachedSubscription(cachedUser.id) : null;
+    
+    // If we have cached user data, instantly update state
+    if (cachedUser) {
+      globalAuthState = {
+        user: cachedUser,
+        subscription: cachedSub,
+        loading: false, // Instant UI!
+        error: null,
+      };
+      return true;
+    }
+  }
+  
+  return false;
+}
 const globalListeners: Set<(state: AuthState) => void> = new Set();
 let isGlobalLoading = false;
 let hasInitialized = false;
@@ -93,6 +182,10 @@ function notifyListeners(newState: AuthState) {
 }
 
 export function useAuth() {
+  // Try optimistic load on first render (instant UI for returning users)
+  // This runs synchronously before useState, updating globalAuthState
+  tryOptimisticLoad();
+  
   const [state, setState] = useState<AuthState>(globalAuthState);
 
   // Refs to track component lifecycle
@@ -106,13 +199,15 @@ export function useAuth() {
       }
     };
     globalListeners.add(listener);
-    // Sync with current global state
-    setState(globalAuthState);
+    // Sync with current global state (handles optimistic load updates)
+    if (state !== globalAuthState) {
+      setState(globalAuthState);
+    }
 
     return () => {
       globalListeners.delete(listener);
     };
-  }, []);
+  }, [state]);
 
   // Get supabase client (singleton)
   const getSupabase = useCallback(() => {
