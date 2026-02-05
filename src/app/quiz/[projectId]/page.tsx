@@ -311,7 +311,7 @@ export default function QuizPage() {
           if (needsGeneration) {
             await startQuizWithDistractors(sourceWords, questionCount);
           } else {
-            const generated = generateQuestions(sourceWords, questionCount);
+            const generated = generateQuestions(sourceWords, questionCount, quizDirection);
             setQuestions(generated);
             // Generate example sentences in background (Pro only)
             const selectedWords = generated.map(q => q.word);
@@ -403,7 +403,7 @@ export default function QuizPage() {
     if (needsGeneration) {
       await startQuizWithDistractors(allWords, count);
     } else {
-      const regenerated = generateQuestions(allWords, count);
+      const regenerated = generateQuestions(allWords, count, quizDirection);
       setQuestions(regenerated);
     }
 
@@ -426,7 +426,7 @@ export default function QuizPage() {
       if (needsGeneration) {
         await startQuizWithDistractors(allWords, count);
       } else {
-        const generated = generateQuestions(allWords, count);
+        const generated = generateQuestions(allWords, count, quizDirection);
         setQuestions(generated);
         // Generate example sentences in background (Pro only)
         const selectedWords = generated.map(q => q.word);
