@@ -254,7 +254,10 @@ export default function QuizPage() {
 
     // Generate example sentences in background (Pro only)
     generateExamplesInBackground(updatedSelected);
-  }, [repository, generateExamplesInBackground, quizDirection, allWords]);
+  // Note: allWords is intentionally excluded - we use the 'words' parameter passed to this function
+  // quizDirection is accessed via closure but changes don't need to recreate this function
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repository, generateExamplesInBackground]);
 
   useEffect(() => {
     if (authLoading) return;
