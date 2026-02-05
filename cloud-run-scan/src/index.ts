@@ -150,6 +150,7 @@ app.post('/generate', async (req, res) => {
         messages,
         temperature,
         max_tokens: maxOutputTokens,
+        ...(responseFormat === 'json' && { response_format: { type: 'json_object' } }),
       });
 
       const content = response.choices[0]?.message?.content;
