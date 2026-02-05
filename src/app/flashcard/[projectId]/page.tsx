@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -517,7 +517,7 @@ export default function FlashcardPage() {
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-center gap-6">
+        <div className="flex items-center justify-center gap-4">
           <Button
             variant="secondary"
             size="icon"
@@ -528,15 +528,27 @@ export default function FlashcardPage() {
             <ChevronLeft className="w-6 h-6" />
           </Button>
 
+          {/* Flip button */}
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => setIsFlipped(!isFlipped)}
+            disabled={isAnimating}
+            className="w-12 h-12"
+            aria-label="カードをめくる"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </Button>
+
           {/* Next button */}
           <Button
             variant="secondary"
             onClick={() => handleNext(true)}
             disabled={isAnimating}
-            className="w-16 h-16"
+            className="w-14 h-14"
             size="icon"
           >
-            <ChevronRight className="w-7 h-7" />
+            <ChevronRight className="w-6 h-6" />
           </Button>
         </div>
       </div>
