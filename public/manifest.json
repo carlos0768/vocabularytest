@@ -1,21 +1,27 @@
 {
-  "name": "MERKEN",
+  "name": "MERKEN - 手入力ゼロの英単語帳",
   "short_name": "MERKEN",
-  "description": "手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ",
+  "description": "写真を撮るだけで単語帳を作成。AI搭載の英語学習アプリ。",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFF9F5",
-  "theme_color": "#ff6b6b",
+  "background_color": "#ffffff",
+  "theme_color": "#FF6B35",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "ja",
+  "dir": "ltr"
 }
