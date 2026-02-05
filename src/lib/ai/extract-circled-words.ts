@@ -67,7 +67,10 @@ export async function extractCircledWordsFromImage(
       systemPrompt: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}${getEikenFilterInstruction(eikenLevel)}`,
       prompt: CIRCLED_WORD_USER_PROMPT,
       image: { base64: base64Data, mimeType },
-      config,
+      config: {
+        ...config,
+        responseFormat: 'json',
+      },
     });
 
     if (!result.success) {
