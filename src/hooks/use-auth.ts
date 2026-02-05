@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Subscription, SubscriptionStatus, SubscriptionPlan } from '@/types';
+import { hybridRepository } from '@/lib/db';
 
 interface AuthState {
   user: User | null;
@@ -357,6 +358,25 @@ export function useAuth() {
       // Log daily activity for authenticated users
       if (result.user) {
         logDailyActivity(result.user.id);
+        
+        // Trigger initial sync for Pro users (background, non-blocking)
+        if (result.subscription?.status === 'active') {
+          const syncedUserId = hybridRepository.getSyncedUserId();
+          const lastSync = hybridRepository.getLastSync();
+          const needsSync = !lastSync || syncedUserId !== result.user.id;
+          
+          if (needsSync) {
+            console.log('[Auth] Pro user detected, triggering initial sync');
+            hybridRepository.fullSync(result.user.id).catch((error) => {
+              console.error('[Auth] Initial sync failed:', error);
+            });
+          } else {
+            // Already synced, just process any pending queue items
+            hybridRepository.processSyncQueue().catch((error) => {
+              console.error('[Auth] Sync queue processing failed:', error);
+            });
+          }
+        }
       }
     } catch (error) {
       const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
@@ -433,6 +453,7 @@ export function useAuth() {
     if (!supabase) return;
     await supabase.auth.signOut();
     clearCachedSubscription();
+    hybridRepository.clearSyncData(); // Clear offline sync data
     notifyListeners({ user: null, subscription: null, loading: false, error: null });
     hasInitialized = false; // Reset for next login
   }, [getSupabase]);
