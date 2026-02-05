@@ -49,6 +49,7 @@ export default function QuizPage() {
   const [distractorError, setDistractorError] = useState<string | null>(null);
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
+  const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
@@ -95,19 +96,37 @@ export default function QuizPage() {
     }
   }, [isPro, projectId, repository]);
 
-  const generateQuestions = useCallback((words: Word[], count: number): QuizQuestion[] => {
+  const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
     const selected = shuffleArray(words).slice(0, count);
 
     return selected.map((word) => {
-      const allOptions = [word.japanese, ...word.distractors];
-      const shuffled = shuffleArray(allOptions);
-      const correctIndex = shuffled.indexOf(word.japanese);
+      if (direction === 'ja-to-en') {
+        // Japanese → English: use other English words as distractors
+        const otherWords = words.filter(w => w.id !== word.id);
+        const englishDistractors = shuffleArray(otherWords)
+          .slice(0, 3)
+          .map(w => w.english);
+        const allOptions = [word.english, ...englishDistractors];
+        const shuffled = shuffleArray(allOptions);
+        const correctIndex = shuffled.indexOf(word.english);
 
-      return {
-        word,
-        options: shuffled,
-        correctIndex,
-      };
+        return {
+          word,
+          options: shuffled,
+          correctIndex,
+        };
+      } else {
+        // English → Japanese: use pre-generated Japanese distractors
+        const allOptions = [word.japanese, ...word.distractors];
+        const shuffled = shuffleArray(allOptions);
+        const correctIndex = shuffled.indexOf(word.japanese);
+
+        return {
+          word,
+          options: shuffled,
+          correctIndex,
+        };
+      }
     });
   }, []);
 
@@ -202,22 +221,40 @@ export default function QuizPage() {
 
     // Generate quiz questions from updated words
     const quizQuestions = updatedSelected.map((word) => {
-      const allOptions = [word.japanese, ...word.distractors];
-      const shuffled = shuffleArray(allOptions);
-      const correctIndex = shuffled.indexOf(word.japanese);
+      if (quizDirection === 'ja-to-en') {
+        // Japanese → English: use other English words as distractors
+        const otherWords = allWords.filter(w => w.id !== word.id);
+        const englishDistractors = shuffleArray(otherWords)
+          .slice(0, 3)
+          .map(w => w.english);
+        const allOptions = [word.english, ...englishDistractors];
+        const shuffled = shuffleArray(allOptions);
+        const correctIndex = shuffled.indexOf(word.english);
 
-      return {
-        word,
-        options: shuffled,
-        correctIndex,
-      };
+        return {
+          word,
+          options: shuffled,
+          correctIndex,
+        };
+      } else {
+        // English → Japanese: use pre-generated Japanese distractors
+        const allOptions = [word.japanese, ...word.distractors];
+        const shuffled = shuffleArray(allOptions);
+        const correctIndex = shuffled.indexOf(word.japanese);
+
+        return {
+          word,
+          options: shuffled,
+          correctIndex,
+        };
+      }
     });
 
     setQuestions(quizQuestions);
 
     // Generate example sentences in background (Pro only)
     generateExamplesInBackground(updatedSelected);
-  }, [repository, generateExamplesInBackground]);
+  }, [repository, generateExamplesInBackground, quizDirection, allWords]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -545,6 +582,32 @@ export default function QuizPage() {
                 <span className="text-xl text-[var(--color-muted)]">問</span>
               </div>
 
+              {/* Direction toggle */}
+              <div className="flex items-center justify-center">
+                <div className="inline-flex rounded-full border border-[var(--color-border)] p-1 bg-[var(--color-surface)]">
+                  <button
+                    onClick={() => setQuizDirection('en-to-ja')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      quizDirection === 'en-to-ja'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                    }`}
+                  >
+                    英→日
+                  </button>
+                  <button
+                    onClick={() => setQuizDirection('ja-to-en')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      quizDirection === 'ja-to-en'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                    }`}
+                  >
+                    日→英
+                  </button>
+                </div>
+              </div>
+
               <Button
                 onClick={handleSubmit}
                 disabled={!isValidInput}
@@ -651,10 +714,17 @@ export default function QuizPage() {
 
       {/* Question */}
       <main className="flex-1 flex flex-col p-6 overflow-y-auto pb-24">
-        {/* English word */}
+        {/* Mode badge */}
+        <div className="flex justify-center mb-2">
+          <span className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)]">
+            {quizDirection === 'en-to-ja' ? '英→日' : '日→英'}
+          </span>
+        </div>
+
+        {/* Question word */}
         <div className="flex flex-col items-center justify-center py-8 animate-fade-in-up">
           <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center mb-4 tracking-tight">
-            {currentQuestion?.word.english}
+            {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
           </h1>
 
           {/* Favorite toggle button - always visible */}
