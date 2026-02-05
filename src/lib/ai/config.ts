@@ -1,8 +1,8 @@
 /**
  * AI Configuration
  *
- * 全てのAI設定を一允E��琁E��るファイル、E
- * モチE��を変更する場合�Eここを変更するだけでOK、E
+ * 全てのAI設定を一元管理するファイル。
+ * モデルを変更する場合はここを変更するだけでOK。
  */
 
 export type AIProvider = 'gemini' | 'openai';
@@ -18,7 +18,7 @@ export interface AIModelConfig {
 }
 
 export interface AIConfig {
-  // 抽出タスク別の設宁E
+  // 抽出タスク別の設定
   extraction: {
     words: AIModelConfig;
     idioms: AIModelConfig;
@@ -29,7 +29,7 @@ export interface AIConfig {
       analysis: AIModelConfig;
     };
   };
-  // チE��ォルト設宁E
+  // デフォルト設定
   defaults: {
     gemini: AIModelConfig;
     openai: AIModelConfig;
@@ -37,44 +37,44 @@ export interface AIConfig {
 }
 
 /**
- * チE��ォルト�EAI設宁E
+ * デフォルトのAI設定
  *
- * モチE��を変更したぁE��合�E、該当するタスクの設定を変更するだけ、E
- * 侁E 単語抽出をGPT-4oに変更したぁE��吁E
+ * モデルを変更したい場合は、該当するタスクの設定を変更するだけ。
+ * 例: 単語抽出をGPT-4oに変更したい場合
  *     AI_CONFIG.extraction.words.provider = 'openai'
  *     AI_CONFIG.extraction.words.model = 'gpt-4o'
  */
 export const AI_CONFIG: AIConfig = {
   extraction: {
-    // 単語抽出�E�Ell mode�E�E
+    // 単語抽出（all mode）
     words: {
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       temperature: 0.7,
       maxOutputTokens: 65535,
     },
-    // 熟語抽出�E�Ediom mode�E�E
+    // 熟語抽出（idiom mode）
     idioms: {
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       temperature: 0.7,
       maxOutputTokens: 65535,
     },
-    // 英検レベル別抽出�E�Eiken mode�E�E
+    // 英検レベル別抽出（eiken mode）
     eiken: {
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       temperature: 0.7,
       maxOutputTokens: 65535,
     },
-    // 丸印単語抽出�E�Eircled mode�E�E
+    // 丸印単語抽出（circled mode）
     circled: {
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       temperature: 0.7,
       maxOutputTokens: 65535,
     },
-    // 斁E��抽出�E�E段階�E琁E��E
+    // 文法抽出（2段階処理）
     grammar: {
       ocr: {
         provider: 'gemini',
@@ -90,7 +90,7 @@ export const AI_CONFIG: AIConfig = {
       },
     },
   },
-  // チE��ォルト設定（新しいタスク追加時に使用�E�E
+  // デフォルト設定（新しいタスク追加時に使用）
   defaults: {
     gemini: {
       provider: 'gemini',
@@ -108,7 +108,7 @@ export const AI_CONFIG: AIConfig = {
 };
 
 /**
- * 環墁E��数からAPIキーを取征E
+ * 環境変数からAPIキーを取得
  */
 export function getAPIKeys() {
   return {
@@ -118,7 +118,7 @@ export function getAPIKeys() {
 }
 
 /**
- * 持E��されたプロバイダーのAPIキーを取征E
+ * 指定されたプロバイダーのAPIキーを取得
  */
 export function getAPIKey(provider: AIProvider): string | undefined {
   const keys = getAPIKeys();
@@ -126,7 +126,7 @@ export function getAPIKey(provider: AIProvider): string | undefined {
 }
 
 /**
- * 全モードを一括でプロバイダー変更�E�テスト用�E�E
+ * 全モードを一括でプロバイダー変更（テスト用）
  */
 export function setGlobalProvider(provider: AIProvider, model?: string): void {
   const defaultModel = provider === 'gemini' ? 'gemini-2.0-flash' : 'gpt-4o';
