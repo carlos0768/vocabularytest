@@ -1,12 +1,24 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { Project, Word } from '@/types';
 
+// Sync Queue item for offline changes
+export interface SyncQueueItem {
+  id?: number; // Auto-increment
+  operation: 'create' | 'update' | 'delete';
+  table: 'projects' | 'words';
+  entityId: string; // ID of the entity being synced
+  data: unknown; // The data to sync
+  createdAt: string; // ISO string
+  retryCount: number;
+}
+
 // Dexie database definition for local IndexedDB storage
-// This serves as the Free tier storage backend
+// This serves as the Free tier storage backend and offline cache for Pro
 
 export class WordSnapDB extends Dexie {
   projects!: EntityTable<Project, 'id'>;
   words!: EntityTable<Word, 'id'>;
+  syncQueue!: EntityTable<SyncQueueItem, 'id'>;
 
   constructor() {
     super('WordSnapDB');
@@ -33,6 +45,13 @@ export class WordSnapDB extends Dexie {
     this.version(4).stores({
       projects: 'id, userId, createdAt, isFavorite',
       words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite',
+    });
+
+    // Version 5: Add sync queue for offline support
+    this.version(5).stores({
+      projects: 'id, userId, createdAt, isFavorite',
+      words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite',
+      syncQueue: '++id, table, entityId, createdAt',
     });
   }
 }

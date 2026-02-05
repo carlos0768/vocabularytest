@@ -4,19 +4,22 @@
 export { db, getDb } from './dexie';
 export { LocalWordRepository, localRepository } from './local-repository';
 export { RemoteWordRepository, remoteRepository } from './remote-repository';
+export { HybridWordRepository, hybridRepository } from './hybrid-repository';
+export { SyncQueue, syncQueue } from './sync-queue';
 
 import type { WordRepository, SubscriptionStatus } from '@/types';
 import { localRepository } from './local-repository';
-import { remoteRepository } from './remote-repository';
+import { hybridRepository } from './hybrid-repository';
 
 // Factory function to get the appropriate repository based on subscription
-// Free users: LocalRepository (IndexedDB)
-// Pro users: RemoteRepository (Supabase)
+// Free users: LocalRepository (IndexedDB only)
+// Pro users: HybridRepository (IndexedDB + Supabase sync)
 export function getRepository(
   subscriptionStatus: SubscriptionStatus = 'free'
 ): WordRepository {
   if (subscriptionStatus === 'active') {
-    return remoteRepository;
+    // Pro users: Use hybrid repository for offline support
+    return hybridRepository;
   }
   return localRepository;
 }
