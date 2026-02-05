@@ -3,6 +3,7 @@ import { Manrope, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
+import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import './globals.css';
 
 const manrope = Manrope({
@@ -77,7 +78,9 @@ export default function RootLayout({
         className={`${manrope.variable} ${notoSansJP.variable} antialiased`}
       >
         <ThemeProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <OfflineSyncProvider>{children}</OfflineSyncProvider>
+          </ToastProvider>
           <ServiceWorkerRegistration />
         </ThemeProvider>
       </body>
