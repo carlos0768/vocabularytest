@@ -48,6 +48,7 @@ export class OpenAIProvider implements AIProvider {
         messages,
         temperature: config.temperature,
         max_tokens: config.maxOutputTokens,
+        ...(config.responseFormat === 'json' && { response_format: { type: 'json_object' as const } }),
       });
 
       const content = response.choices[0]?.message?.content;
