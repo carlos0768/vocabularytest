@@ -6,13 +6,14 @@ import { Button } from '@/components/ui';
 import type { Word } from '@/types';
 
 interface WordItemProps {
-  word: Word;
+  word: Word & { projectTitle?: string };
   isEditing: boolean;
   onEdit: () => void;
   onCancel: () => void;
   onSave: (english: string, japanese: string) => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
+  showProjectName?: boolean;
 }
 
 function WordItem({
@@ -23,6 +24,7 @@ function WordItem({
   onSave,
   onDelete,
   onToggleFavorite,
+  showProjectName = false,
 }: WordItemProps) {
   const [editEnglish, setEditEnglish] = useState(word.english);
   const [editJapanese, setEditJapanese] = useState(word.japanese);
@@ -71,6 +73,9 @@ function WordItem({
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-[var(--color-foreground)] truncate">{word.english}</p>
         <p className="text-sm text-[var(--color-muted)] truncate">{word.japanese}</p>
+        {showProjectName && word.projectTitle && (
+          <p className="text-xs text-[var(--color-primary)] mt-1 truncate">{word.projectTitle}</p>
+        )}
       </div>
       <div className="flex items-center gap-1 ml-2">
         <button
@@ -104,7 +109,7 @@ function WordItem({
 }
 
 interface WordListProps {
-  words: Word[];
+  words: (Word & { projectTitle?: string })[];
   editingWordId: string | null;
   onEditStart: (wordId: string) => void;
   onEditCancel: () => void;
@@ -112,6 +117,7 @@ interface WordListProps {
   onDelete: (wordId: string) => void;
   onToggleFavorite: (wordId: string) => void;
   onAddClick?: () => void;
+  showProjectName?: boolean;
 }
 
 export function WordList({
@@ -123,6 +129,7 @@ export function WordList({
   onDelete,
   onToggleFavorite,
   onAddClick,
+  showProjectName = false,
 }: WordListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -203,6 +210,7 @@ export function WordList({
               onSave={(english, japanese) => onSave(word.id, english, japanese)}
               onDelete={() => onDelete(word.id)}
               onToggleFavorite={() => onToggleFavorite(word.id)}
+              showProjectName={showProjectName}
             />
           ))
         )}
