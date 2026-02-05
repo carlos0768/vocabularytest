@@ -18,10 +18,18 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async generate(request: AIRequest): Promise<AIResponse> {
-    const { prompt, image, config } = request;
+    const { prompt, systemPrompt, image, config } = request;
 
     try {
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+      // Add system prompt if provided
+      if (systemPrompt) {
+        messages.push({
+          role: 'system',
+          content: systemPrompt,
+        });
+      }
 
       if (image) {
         messages.push({
