@@ -10,6 +10,7 @@ import { getRepository } from '@/lib/db';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { calculateNextReview, getWordsDueForReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 import { getGuestUserId } from '@/lib/utils';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
@@ -21,6 +22,7 @@ export default function QuizPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
+  const isOnline = useOnlineStatus();
 
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
@@ -427,6 +429,11 @@ export default function QuizPage() {
       );
 
       if (needsGeneration) {
+        // Offline check: can't generate distractors without internet
+        if (!isOnline) {
+          setDistractorError('オフラインではクイズを生成できません。インターネット接続を確認してください。');
+          return;
+        }
         await startQuizWithDistractors(allWords, count);
       } else {
         const generated = generateQuestions(allWords, count, quizDirection);
