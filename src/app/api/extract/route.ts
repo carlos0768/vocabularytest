@@ -201,26 +201,32 @@ export async function POST(request: NextRequest) {
 
       result = await extractEikenWordsFromImage(image, geminiApiKey, openaiApiKey, eikenLevel);
     } else if (mode === 'circled') {
-      // Circled mode: Use Gemini API for circled word extraction
-      if (!geminiApiKey) {
+      // Circled mode: Use configured provider for circled word extraction
+      const circledProvider = AI_CONFIG.extraction.circled.provider;
+      const circledApiKey = circledProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+
+      if (!circledApiKey) {
         return NextResponse.json(
-          { success: false, error: 'Gemini APIキーが設定されていません' },
+          { success: false, error: `${circledProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
           { status: 500 }
         );
       }
 
       // Note: eikenLevel is NOT used for circled mode anymore
-      result = await extractCircledWordsFromImage(image, geminiApiKey, {});
+      result = await extractCircledWordsFromImage(image, circledApiKey, {}, openaiApiKey);
     } else if (mode === 'highlighted') {
-      // Highlighted mode: Use Gemini 2.5 Flash API for highlighted/marker word extraction
-      if (!geminiApiKey) {
+      // Highlighted mode: Use configured provider for highlighted/marker word extraction
+      const highlightedProvider = AI_CONFIG.extraction.circled.provider; // Same config as circled
+      const highlightedApiKey = highlightedProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+
+      if (!highlightedApiKey) {
         return NextResponse.json(
-          { success: false, error: 'Gemini APIキーが設定されていません' },
+          { success: false, error: `${highlightedProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
           { status: 500 }
         );
       }
 
-      result = await extractHighlightedWordsFromImage(image, geminiApiKey);
+      result = await extractHighlightedWordsFromImage(image, highlightedApiKey, openaiApiKey);
     } else {
       // Default 'all' mode: Use configured provider for all word extraction
       const wordsProvider = AI_CONFIG.extraction.words.provider;
