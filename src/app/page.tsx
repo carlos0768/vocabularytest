@@ -15,6 +15,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, BottomNav } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project';
+import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
@@ -1108,10 +1109,13 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-2">
             {isPro && (
-              <span className="chip chip-pro">
-                <Sparkles className="w-3 h-3" />
-                Pro
-              </span>
+              <>
+                <SyncStatusIndicator />
+                <span className="chip chip-pro">
+                  <Sparkles className="w-3 h-3" />
+                  Pro
+                </span>
+              </>
             )}
             <Link
               href="/projects"
