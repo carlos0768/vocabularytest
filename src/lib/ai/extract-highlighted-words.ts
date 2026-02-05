@@ -76,6 +76,7 @@ export async function extractHighlightedWordsFromImage(
         ...config,
         temperature: 0.5,
         maxOutputTokens: 8192,
+        responseFormat: 'json',
       },
     });
 
