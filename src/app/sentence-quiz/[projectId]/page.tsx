@@ -31,7 +31,8 @@ interface SentenceQuizProgress {
 }
 
 // 進捗保存キー
-const getProgressKey = (projectId: string) => `sentence_quiz_progress_${projectId}`;
+const getProgressKey = (projectId: string, favoritesOnly: boolean) => 
+  `sentence_quiz_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
 
 export default function SentenceQuizPage() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function SentenceQuizPage() {
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
   const returnPath = searchParams.get('from');
+  const favoritesOnly = searchParams.get('favorites') === 'true';
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -63,14 +65,14 @@ export default function SentenceQuizPage() {
         results,
         savedAt: Date.now(),
       };
-      sessionStorage.setItem(getProgressKey(projectId), JSON.stringify(progress));
+      sessionStorage.setItem(getProgressKey(projectId, favoritesOnly), JSON.stringify(progress));
     }
-  }, [questions, currentIndex, results, isComplete, projectId]);
+  }, [questions, currentIndex, results, isComplete, projectId, favoritesOnly]);
 
   // 進捗をクリア
   const clearProgress = useCallback(() => {
-    sessionStorage.removeItem(getProgressKey(projectId));
-  }, [projectId]);
+    sessionStorage.removeItem(getProgressKey(projectId, favoritesOnly));
+  }, [projectId, favoritesOnly]);
 
   // ホームに戻る（進捗を保存）
   const backToProject = () => {
@@ -148,9 +150,16 @@ export default function SentenceQuizPage() {
 
     const loadWords = async () => {
       try {
-        const words = await repository.getWords(projectId);
+        let words = await repository.getWords(projectId);
+        
+        // Filter favorites if requested
+        if (favoritesOnly) {
+          words = words.filter(w => w.isFavorite);
+        }
+        
         if (words.length < MIN_WORDS_REQUIRED) {
-          setError(`例文クイズには最低${MIN_WORDS_REQUIRED}単語が必要です（現在: ${words.length}単語）`);
+          const label = favoritesOnly ? '苦手単語' : '単語';
+          setError(`例文クイズには最低${MIN_WORDS_REQUIRED}${label}が必要です（現在: ${words.length}${label}）`);
           setLoading(false);
           return;
         }
@@ -159,7 +168,7 @@ export default function SentenceQuizPage() {
         // 保存された進捗があるか確認（1時間以内のみ有効）
         if (!hasRestoredProgress.current) {
           hasRestoredProgress.current = true;
-          const savedProgressStr = sessionStorage.getItem(getProgressKey(projectId));
+          const savedProgressStr = sessionStorage.getItem(getProgressKey(projectId, favoritesOnly));
           if (savedProgressStr) {
             try {
               const savedProgress: SentenceQuizProgress = JSON.parse(savedProgressStr);
@@ -177,7 +186,7 @@ export default function SentenceQuizPage() {
               console.error('Failed to restore progress:', e);
             }
             // 無効な進捗はクリア
-            sessionStorage.removeItem(getProgressKey(projectId));
+            sessionStorage.removeItem(getProgressKey(projectId, favoritesOnly));
           }
         }
 
@@ -189,7 +198,7 @@ export default function SentenceQuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading, subscription?.status]);
+  }, [projectId, repository, router, generateQuestions, authLoading, subscription?.status, favoritesOnly]);
 
   // 回答処理
   const handleAnswer = async (isCorrect: boolean) => {
