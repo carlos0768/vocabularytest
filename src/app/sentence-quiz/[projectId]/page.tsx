@@ -55,6 +55,7 @@ export default function SentenceQuizPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasRestoredProgress = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 進捗を保存
   const saveProgress = useCallback(() => {
@@ -83,10 +84,21 @@ export default function SentenceQuizPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
+  // 生成をキャンセルしてホームに戻る
+  const handleCancelGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    router.push(returnPath || `/project/${projectId}`);
+  }, [router, returnPath, projectId]);
+
   // 問題を生成するAPI呼び出し
   const generateQuestions = useCallback(async (words: Word[]) => {
     setGenerating(true);
     setError(null);
+
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
 
     try {
       // 15単語を選択（単語数が15未満なら重複して15問分作る）
@@ -117,6 +129,7 @@ export default function SentenceQuizPage() {
             status: w.status,
           })),
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       const data = await response.json();
@@ -130,11 +143,17 @@ export default function SentenceQuizPage() {
       setResults({ correct: 0, total: 0 });
       setIsComplete(false);
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Generation cancelled by user');
+        return;
+      }
       console.error('Failed to generate questions:', err);
       setError(err instanceof Error ? err.message : '問題の生成に失敗しました');
     } finally {
       setGenerating(false);
       setLoading(false);
+      abortControllerRef.current = null;
     }
   }, []);
 
@@ -278,7 +297,7 @@ export default function SentenceQuizPage() {
 
   // ローディング
   if (loading || generating) {
-    return <LoadingScreen words={allWords} />;
+    return <LoadingScreen words={allWords} onCancel={handleCancelGeneration} />;
   }
 
   // エラー
