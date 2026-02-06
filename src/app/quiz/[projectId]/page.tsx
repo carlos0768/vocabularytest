@@ -839,7 +839,7 @@ export default function QuizPage() {
         </div>
 
         {/* Example sentence (shown after answering, Pro feature) */}
-        {isRevealed && isPro && (
+        {isRevealed && isPro && (generatingExample || currentQuestion?.word.exampleSentence) && (
           <div className="mb-4 p-4 bg-[var(--color-peach-light)] rounded-2xl max-w-lg mx-auto w-full">
             <p className="text-sm font-semibold text-[var(--color-primary)] mb-1">例文</p>
             {generatingExample ? (
@@ -847,15 +847,13 @@ export default function QuizPage() {
                 <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm">例文を生成中...</span>
               </div>
-            ) : currentQuestion?.word.exampleSentence ? (
+            ) : (
               <>
                 <p className="text-[var(--color-foreground)] italic">{currentQuestion.word.exampleSentence}</p>
                 {currentQuestion.word.exampleSentenceJa && (
                   <p className="text-sm text-[var(--color-muted)] mt-1">{currentQuestion.word.exampleSentenceJa}</p>
                 )}
               </>
-            ) : (
-              <p className="text-sm text-[var(--color-muted)]">例文を取得できませんでした</p>
             )}
           </div>
         )}
