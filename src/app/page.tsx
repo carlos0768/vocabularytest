@@ -1111,10 +1111,10 @@ export default function HomePage() {
             )}
             <Link
               href="/projects"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
               aria-label="プロジェクト一覧"
             >
-              <FolderOpen className="w-5 h-5" />
+              <FolderOpen className="w-6 h-6" />
             </Link>
           </div>
         </div>
