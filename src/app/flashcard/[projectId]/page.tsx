@@ -9,9 +9,11 @@ import { shuffleArray, getGuestUserId } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
-// Progress storage key generator
+// Progress storage key generator (localStorage for long-term, sessionStorage for immediate restore)
 const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
   `flashcard_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
+const getSessionKey = (projectId: string, favoritesOnly: boolean) =>
+  `flashcard_session_${projectId}${favoritesOnly ? '_favorites' : ''}`;
 
 // Progress data structure
 interface FlashcardProgress {
@@ -56,14 +58,19 @@ export default function FlashcardPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
-  // Save progress to localStorage
+  // Track if words have been loaded to prevent re-fetching
+  const hasLoadedRef = useRef(false);
+
+  // Save progress to both localStorage (long-term) and sessionStorage (immediate)
   const saveProgress = useCallback((wordList: Word[], index: number) => {
     const progress: FlashcardProgress = {
       wordIds: wordList.map(w => w.id),
       currentIndex: index,
       savedAt: Date.now(),
     };
-    localStorage.setItem(getProgressKey(projectId, favoritesOnly), JSON.stringify(progress));
+    const progressStr = JSON.stringify(progress);
+    localStorage.setItem(getProgressKey(projectId, favoritesOnly), progressStr);
+    sessionStorage.setItem(getSessionKey(projectId, favoritesOnly), progressStr);
   }, [projectId, favoritesOnly]);
 
   // Navigate back to project (saves progress first)
@@ -84,7 +91,55 @@ export default function FlashcardPage() {
     }
 
     const loadWords = async () => {
+      // Prevent re-fetching if already loaded (handles repository changes)
+      if (hasLoadedRef.current && words.length > 0) {
+        setLoading(false);
+        return;
+      }
+
       try {
+        // First, try to restore from sessionStorage (most recent state)
+        const sessionKey = getSessionKey(projectId, favoritesOnly);
+        const sessionProgressStr = sessionStorage.getItem(sessionKey);
+        
+        if (sessionProgressStr) {
+          try {
+            const progress: FlashcardProgress = JSON.parse(sessionProgressStr);
+            // Session storage = recent, just check if it's less than 30 minutes old
+            const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+            
+            if (progress.savedAt > thirtyMinutesAgo && progress.wordIds.length > 0) {
+              // Fetch fresh word data to match with saved IDs
+              let wordsData: Word[];
+              if (projectId === 'all' && favoritesOnly) {
+                const userId = isPro && user ? user.id : getGuestUserId();
+                const projects = await repository.getProjects(userId);
+                const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
+                wordsData = allProjectWords.flat().filter(w => w.isFavorite);
+              } else {
+                const allWords = await repository.getWords(projectId);
+                wordsData = favoritesOnly ? allWords.filter((w) => w.isFavorite) : allWords;
+              }
+
+              const wordMap = new Map(wordsData.map(w => [w.id, w]));
+              const orderedWords = progress.wordIds
+                .map(id => wordMap.get(id))
+                .filter((w): w is Word => w !== undefined);
+
+              // Restore if at least 50% of words match
+              if (orderedWords.length >= progress.wordIds.length * 0.5) {
+                setWords(orderedWords);
+                setCurrentIndex(Math.min(progress.currentIndex, orderedWords.length - 1));
+                hasLoadedRef.current = true;
+                setLoading(false);
+                return;
+              }
+            }
+          } catch {
+            sessionStorage.removeItem(sessionKey);
+          }
+        }
+
         let wordsData: Word[];
 
         if (projectId === 'all' && favoritesOnly) {
@@ -119,9 +174,11 @@ export default function FlashcardPage() {
                 .map(id => wordMap.get(id))
                 .filter((w): w is Word => w !== undefined);
 
-              if (orderedWords.length >= wordsData.length * 0.8) {
+              // Lowered threshold from 80% to 50% for better recovery
+              if (orderedWords.length >= wordsData.length * 0.5) {
                 setWords(orderedWords);
-                setCurrentIndex(progress.currentIndex);
+                setCurrentIndex(Math.min(progress.currentIndex, orderedWords.length - 1));
+                hasLoadedRef.current = true;
                 setLoading(false);
                 return;
               }
@@ -132,6 +189,7 @@ export default function FlashcardPage() {
         }
 
         setWords(shuffleArray(wordsData));
+        hasLoadedRef.current = true;
       } catch (error) {
         console.error('Failed to load words:', error);
         backToProject();
