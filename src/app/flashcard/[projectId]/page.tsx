@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, RefreshCw, Search, Pencil } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -589,18 +589,6 @@ export default function FlashcardPage() {
             className="w-14 h-14"
           >
             <ChevronLeft className="w-6 h-6" />
-          </Button>
-
-          {/* Flip button */}
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => setIsFlipped(!isFlipped)}
-            disabled={isAnimating}
-            className="w-12 h-12"
-            aria-label="カードをめくる"
-          >
-            <RefreshCw className="w-5 h-5" />
           </Button>
 
           {/* Next button */}
