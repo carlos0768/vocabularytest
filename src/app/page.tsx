@@ -1158,7 +1158,7 @@ export default function HomePage() {
                 href="/projects"
                 className="px-4 py-2 rounded-full border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
               >
-                プロジェクトを見る
+                プロジェクト
               </Link>
             )}
           </section>
