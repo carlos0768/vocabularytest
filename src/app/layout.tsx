@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Manrope, Noto_Sans_JP } from 'next/font/google';
+import { Lexend, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
+import { StatsSync } from '@/components/StatsSync';
 import './globals.css';
 
-const manrope = Manrope({
-  variable: '--font-manrope',
+const lexend = Lexend({
+  variable: '--font-lexend',
   subsets: ['latin'],
   display: 'swap',
 });
@@ -74,13 +75,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+      </head>
       <body
-        className={`${manrope.variable} ${notoSansJP.variable} antialiased`}
+        className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
       >
         <ThemeProvider>
           <ToastProvider>
             <OfflineSyncProvider>{children}</OfflineSyncProvider>
           </ToastProvider>
+          <StatsSync />
           <ServiceWorkerRegistration />
         </ThemeProvider>
       </body>

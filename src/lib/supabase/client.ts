@@ -26,6 +26,11 @@ export function createClient(): SupabaseClient {
     throw new Error('Supabase environment variables not configured');
   }
 
-  supabaseInstance = createBrowserClient(url, key);
+  supabaseInstance = createBrowserClient(url, key, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+  });
   return supabaseInstance;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 
 export default function AuthCodeErrorPage() {
@@ -9,7 +9,7 @@ export default function AuthCodeErrorPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
       <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-card p-8 w-full max-w-sm text-center border border-[var(--color-border)]">
         <div className="w-16 h-16 bg-[var(--color-error-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="w-8 h-8 text-[var(--color-error)]" />
+          <Icon name="error" size={32} className="text-[var(--color-error)]" />
         </div>
         <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">
           認証エラー

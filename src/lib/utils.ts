@@ -80,6 +80,20 @@ export function formatDate(isoString: string): string {
   });
 }
 
+// ---- Stats sync callback mechanism ----
+// Pro users register a callback to sync stats to Supabase on each mutation.
+
+type StatsSyncCallback = (
+  event: 'daily_stats' | 'streak' | 'wrong_answer' | 'remove_wrong_answer' | 'clear_wrong_answers',
+  payload: Record<string, unknown>,
+) => void;
+
+let statsSyncCallback: StatsSyncCallback | null = null;
+
+export function registerStatsSyncCallback(cb: StatsSyncCallback | null): void {
+  statsSyncCallback = cb;
+}
+
 // Streak tracking
 const STREAK_KEY = 'scanvocab_streak';
 const LAST_ACTIVITY_KEY = 'scanvocab_last_activity';
@@ -127,6 +141,10 @@ export function recordActivity(): void {
   }
 
   localStorage.setItem(LAST_ACTIVITY_KEY, today);
+
+  // Sync streak to remote
+  const updatedStreak = parseInt(localStorage.getItem(STREAK_KEY) || '0', 10);
+  statsSyncCallback?.('streak', { streakCount: updatedStreak, lastActivityDate: today });
 }
 
 // Daily stats tracking
@@ -198,6 +216,14 @@ export function recordCorrectAnswer(becameMastered: boolean = false): void {
   }
 
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+
+  // Sync daily stats to remote
+  statsSyncCallback?.('daily_stats', {
+    date: today,
+    quizCount: stats.todayCount,
+    correctCount: stats.correctCount,
+    masteredCount: stats.masteredCount,
+  });
 
   // Also record to activity history for heatmap
   recordDailyActivity(true);
@@ -278,6 +304,19 @@ export function recordWrongAnswer(
   }
 
   localStorage.setItem(WRONG_ANSWERS_KEY, JSON.stringify(wrongAnswers));
+
+  // Sync daily stats + wrong answer to remote
+  statsSyncCallback?.('daily_stats', {
+    date: today,
+    quizCount: stats.todayCount,
+    correctCount: stats.correctCount,
+    masteredCount: stats.masteredCount,
+  });
+
+  const savedWrongAnswer = wrongAnswers.find(w => w.wordId === wordId);
+  if (savedWrongAnswer) {
+    statsSyncCallback?.('wrong_answer', { wrongAnswer: savedWrongAnswer });
+  }
 }
 
 export function getWrongAnswers(): WrongAnswer[] {
@@ -299,11 +338,15 @@ export function removeWrongAnswer(wordId: string): void {
   const wrongAnswers = getWrongAnswers();
   const filtered = wrongAnswers.filter(w => w.wordId !== wordId);
   localStorage.setItem(WRONG_ANSWERS_KEY, JSON.stringify(filtered));
+
+  statsSyncCallback?.('remove_wrong_answer', { wordId });
 }
 
 export function clearAllWrongAnswers(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(WRONG_ANSWERS_KEY);
+
+  statsSyncCallback?.('clear_wrong_answers', {});
 }
 
 // Weekly activity heatmap tracking

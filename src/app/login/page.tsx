@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -63,7 +63,7 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-surface)]"
+              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
               placeholder="email@example.com"
             />
           </div>
@@ -81,7 +81,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
+                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
                 placeholder="••••••••"
               />
               <button
@@ -89,7 +89,7 @@ function LoginForm() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? <Icon name="visibility_off" size={20} /> : <Icon name="visibility" size={20} />}
               </button>
             </div>
           </div>
@@ -111,7 +111,7 @@ function LoginForm() {
         >
           {loading ? (
             <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
               ログイン中...
             </>
           ) : (
@@ -147,7 +147,7 @@ function LoginFormFallback() {
       </div>
       <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+          <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin" />
         </div>
       </div>
     </div>

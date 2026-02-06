@@ -20,16 +20,16 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none',
           // Variants
           variant === 'primary' && [
-            'bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white',
-            'rounded-full shadow-glow',
-            'hover:shadow-glow-lg hover:-translate-y-0.5',
+            'bg-primary text-white',
+            'rounded-full shadow-lg shadow-primary/20',
+            'hover:bg-primary-dark hover:-translate-y-0.5',
             'active:translate-y-0 active:scale-[0.98]',
-            'focus-visible:ring-[#FF6B6B]',
+            'focus-visible:ring-primary',
           ],
           variant === 'secondary' && [
             'bg-[var(--color-surface)] text-[var(--color-foreground)]',
             'rounded-full border border-[var(--color-border)]',
-            'hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)]',
+            'hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]',
             'active:scale-[0.98]',
             'focus-visible:ring-[var(--color-primary)]',
           ],
@@ -42,7 +42,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           variant === 'danger' && [
             'bg-[var(--color-error)] text-white',
             'rounded-full shadow-soft',
-            'hover:bg-[#FF6B6B] hover:-translate-y-0.5',
+            'hover:bg-red-600 hover:-translate-y-0.5',
             'active:translate-y-0 active:scale-[0.98]',
             'focus-visible:ring-[var(--color-error)]',
           ],

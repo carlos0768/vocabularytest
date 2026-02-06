@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, CloudOff, RefreshCw, Check } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { hybridRepository, syncQueue } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
@@ -83,13 +83,13 @@ export function SyncStatusIndicator() {
   const getIcon = () => {
     switch (status) {
       case 'offline':
-        return <CloudOff className="w-4 h-4" />;
+        return <Icon name="cloud_off" size={16} />;
       case 'syncing':
-        return <RefreshCw className="w-4 h-4 animate-spin" />;
+        return <Icon name="refresh" size={16} className="animate-spin" />;
       case 'pending':
-        return <Cloud className="w-4 h-4" />;
+        return <Icon name="cloud" size={16} />;
       case 'synced':
-        return <Check className="w-4 h-4" />;
+        return <Icon name="check" size={16} />;
     }
   };
 

@@ -37,9 +37,10 @@ function hasSupabaseSession(): boolean {
     const parsed = JSON.parse(sessionData);
     if (!parsed?.access_token) return false;
     
-    // Check expiry (expires_at is Unix timestamp in seconds)
-    if (parsed.expires_at && Date.now() / 1000 > parsed.expires_at) {
-      return false; // Token expired
+    // Check expiry with 5-minute buffer (expires_at is Unix timestamp in seconds)
+    // The buffer prevents false negatives during token refresh
+    if (parsed.expires_at && Date.now() / 1000 > parsed.expires_at + 300) {
+      return false; // Token expired (with 5-min grace)
     }
     
     return true;
@@ -474,6 +475,16 @@ export function useAuth() {
       loadUser();
     }
 
+    // Refresh session when tab becomes visible again (prevents stale sessions)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().catch(() => {
+          // Session refresh failed - will be handled by auth state change
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Listen for auth changes - only set up once per component instance
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event) => {
@@ -494,6 +505,7 @@ export function useAuth() {
     return () => {
       isMountedRef.current = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [getSupabase, loadUser]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, X } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
 
 interface QuizOptionProps {
@@ -71,10 +71,10 @@ export function QuizOption({
 
       {/* Result icon */}
       {isCorrectAnswer && (
-        <Check className="w-6 h-6 text-white mr-1" strokeWidth={2.5} />
+        <Icon name="check" size={24} className="text-white mr-1" />
       )}
       {isWrongAnswer && (
-        <X className="w-6 h-6 text-white mr-1" strokeWidth={2.5} />
+        <Icon name="close" size={24} className="text-white mr-1" />
       )}
     </button>
   );

@@ -1,16 +1,6 @@
 'use client';
 
-import {
-  Check,
-  Flag,
-  Layers,
-  Plus,
-  Edit2,
-  X,
-  BookOpen,
-  Star,
-  AlertCircle,
-} from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import type { Project, Word } from '@/types';
 import type { WrongAnswer } from '@/lib/utils';
 
@@ -79,7 +69,7 @@ export function ProjectSelectionSheet({
               onClick={onClose}
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
-              <X className="w-6 h-6 text-[var(--color-primary)]" />
+              <Icon name="close" size={24} className="text-[var(--color-primary)]" />
             </button>
             <h2 className="text-lg font-bold text-[var(--color-foreground)]">学習コース選択</h2>
             <div className="w-10" />
@@ -90,7 +80,7 @@ export function ProjectSelectionSheet({
           {wrongAnswers.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-5 h-5 text-[var(--color-error)]" />
+                <Icon name="error" size={20} className="text-[var(--color-error)]" />
                 <h3 className="font-semibold text-[var(--color-foreground)]">間違え一覧</h3>
               </div>
               <button
@@ -111,7 +101,7 @@ export function ProjectSelectionSheet({
                   </div>
                   {showWrongAnswers && (
                     <div className="w-6 h-6 bg-[var(--color-error)] rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                      <Icon name="check" size={16} className="text-white" />
                     </div>
                   )}
                 </div>
@@ -122,7 +112,7 @@ export function ProjectSelectionSheet({
           {favoriteWords.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <Flag className="w-5 h-5 text-[var(--color-peach)] fill-[var(--color-peach)]" />
+                <Icon name="flag" size={20} filled className="text-[var(--color-primary)]" />
                 <h3 className="font-semibold text-[var(--color-foreground)]">苦手な単語（すべて）</h3>
               </div>
               <button
@@ -132,8 +122,8 @@ export function ProjectSelectionSheet({
                 }}
                 className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
                   showFavoritesOnly
-                    ? 'border-[var(--color-peach)] bg-[var(--color-peach-light)]'
-                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-peach)]/50'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -142,8 +132,8 @@ export function ProjectSelectionSheet({
                     <p className="text-sm text-[var(--color-muted)] mt-0.5">{favoriteWords.length}語の苦手な単語</p>
                   </div>
                   {showFavoritesOnly && (
-                    <div className="w-6 h-6 bg-[var(--color-peach)] rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                    <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
+                      <Icon name="check" size={16} className="text-white" />
                     </div>
                   )}
                 </div>
@@ -154,7 +144,7 @@ export function ProjectSelectionSheet({
           {projects.length > 1 && totalWords > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <Layers className="w-5 h-5 text-[var(--color-primary)]" />
+                <Icon name="layers" size={20} className="text-[var(--color-primary)]" />
                 <h3 className="font-semibold text-[var(--color-foreground)]">全ての単語</h3>
               </div>
               <button
@@ -164,8 +154,8 @@ export function ProjectSelectionSheet({
                 }}
                 className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
                   showAllProjects
-                    ? 'border-[var(--color-primary)] bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-peach-light)]'
-                    : 'border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-peach-light)]/50 hover:border-[var(--color-primary)]/50'
+                    ? 'border-[var(--color-primary)] bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary-light)]'
+                    : 'border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-primary-light)]/50 hover:border-[var(--color-primary)]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -175,7 +165,7 @@ export function ProjectSelectionSheet({
                   </div>
                   {showAllProjects && (
                     <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                      <Icon name="check" size={16} className="text-white" />
                     </div>
                   )}
                 </div>
@@ -186,7 +176,7 @@ export function ProjectSelectionSheet({
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
+                <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
                 <h3 className="font-semibold text-[var(--color-foreground)]">単語帳一覧</h3>
               </div>
             </div>
@@ -196,10 +186,10 @@ export function ProjectSelectionSheet({
                 onClose();
                 onCreateNewProject();
               }}
-              className="w-full flex items-center gap-3 p-4 mb-3 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/50 bg-[var(--color-peach-light)] hover:bg-[var(--color-primary)]/10 hover:border-[var(--color-primary)] transition-all"
+              className="w-full flex items-center gap-3 p-4 mb-3 rounded-2xl border-2 border-dashed border-[var(--color-primary)]/50 bg-[var(--color-primary-light)] hover:bg-[var(--color-primary)]/10 hover:border-[var(--color-primary)] transition-all"
             >
               <div className="w-10 h-10 bg-[var(--color-primary)]/20 rounded-full flex items-center justify-center">
-                <Plus className="w-5 h-5 text-[var(--color-primary)]" />
+                <Icon name="add" size={20} className="text-[var(--color-primary)]" />
               </div>
               <div className="text-left">
                 <p className="font-semibold text-[var(--color-primary)]">新しい単語帳を作成</p>
@@ -217,7 +207,7 @@ export function ProjectSelectionSheet({
                     key={project.id}
                     className={`w-full p-4 rounded-2xl border-2 transition-all ${
                       isSelected
-                        ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
                         : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]/50'
                     }`}
                   >
@@ -232,7 +222,7 @@ export function ProjectSelectionSheet({
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-[var(--color-foreground)]">{project.title}</p>
                           {project.isFavorite && (
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                            <Icon name="star" size={16} filled className="text-yellow-400" />
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -240,8 +230,8 @@ export function ProjectSelectionSheet({
                             {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
                           </p>
                           {favoriteCount > 0 && (
-                            <span className="flex items-center gap-1 text-sm text-[var(--color-peach)]">
-                              <Flag className="w-3 h-3 fill-[var(--color-peach)]" />
+                            <span className="flex items-center gap-1 text-sm text-[var(--color-primary)]">
+                              <Icon name="flag" size={12} filled className="text-[var(--color-primary)]" />
                               {favoriteCount}
                             </span>
                           )}
@@ -256,12 +246,11 @@ export function ProjectSelectionSheet({
                           className="p-2 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-full transition-colors"
                           title={project.isFavorite ? 'ブックマーク解除' : 'ブックマーク'}
                         >
-                          <Star
-                            className={`w-5 h-5 ${
-                              project.isFavorite
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-[var(--color-muted)] hover:text-yellow-400'
-                            }`}
+                          <Icon
+                            name="star"
+                            size={20}
+                            filled={project.isFavorite}
+                            className={project.isFavorite ? 'text-yellow-400' : 'text-[var(--color-muted)] hover:text-yellow-400'}
                           />
                         </button>
                         <button
@@ -269,14 +258,14 @@ export function ProjectSelectionSheet({
                             e.stopPropagation();
                             onEditProject(project.id, project.title);
                           }}
-                          className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+                          className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
                           title="名前を編集"
                         >
-                          <Edit2 className="w-4 h-4 text-[var(--color-muted)] hover:text-[var(--color-primary)]" />
+                          <Icon name="edit" size={16} className="text-[var(--color-muted)] hover:text-[var(--color-primary)]" />
                         </button>
                         {isSelected && (
                           <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
+                            <Icon name="check" size={16} className="text-white" />
                           </div>
                         )}
                       </div>

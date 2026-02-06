@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 
 interface QuizProgressProps {
   currentIndex: number;
@@ -15,7 +15,7 @@ export function QuizProgress({ currentIndex, total, onClose }: QuizProgressProps
         onClick={onClose}
         className="p-1 hover:bg-[var(--color-background)] rounded-full transition-colors"
       >
-        <X className="w-5 h-5" />
+        <Icon name="close" size={20} />
       </button>
 
       <div className="flex items-center gap-2">

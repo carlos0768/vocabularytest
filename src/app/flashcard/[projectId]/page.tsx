@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, Search, Pencil, RefreshCw } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -405,7 +405,7 @@ export default function FlashcardPage() {
           onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
-          <X className="w-6 h-6" />
+          <Icon name="close" size={24} />
         </button>
 
         {/* Progress indicator */}
@@ -419,7 +419,7 @@ export default function FlashcardPage() {
           onClick={() => {}}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
-          <MoreHorizontal className="w-6 h-6" />
+          <Icon name="more_horiz" size={24} />
         </button>
       </header>
 
@@ -427,7 +427,7 @@ export default function FlashcardPage() {
       {favoritesOnly && (
         <div className="flex justify-center -mt-2 mb-2">
           <div className="chip chip-tough">
-            <Flag className="w-4 h-4 fill-current" />
+            <Icon name="flag" size={16} filled />
             <span>苦手な単語</span>
           </div>
         </div>
@@ -452,7 +452,7 @@ export default function FlashcardPage() {
             <div className="flashcard-face flashcard-front shadow-card">
               {/* Mode badge */}
               <div className="absolute top-6 left-6">
-                <span className="px-3 py-1 bg-[var(--color-peach-light)] text-[var(--color-muted)] text-xs font-semibold rounded-full uppercase tracking-wide">
+                <span className="px-3 py-1 bg-[var(--color-primary-light)] text-[var(--color-muted)] text-xs font-semibold rounded-full uppercase tracking-wide">
                   {japaneseFirst ? '日→英' : '英→日'}
                 </span>
               </div>
@@ -467,7 +467,7 @@ export default function FlashcardPage() {
                   className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[var(--color-primary)]"
                   aria-label="発音を聞く"
                 >
-                  <Volume2 className="w-6 h-6" />
+                  <Icon name="volume_up" size={24} />
                 </button>
               )}
 
@@ -494,7 +494,7 @@ export default function FlashcardPage() {
                   className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-white"
                   aria-label="発音を聞く"
                 >
-                  <Volume2 className="w-6 h-6" />
+                  <Icon name="volume_up" size={24} />
                 </button>
               )}
 
@@ -529,7 +529,7 @@ export default function FlashcardPage() {
             }`}
             aria-label={japaneseFirst ? '英→日モードに切替' : '日→英モードに切替'}
           >
-            <Languages className="w-5 h-5" />
+            <Icon name="translate" size={20} />
           </button>
 
           <button
@@ -537,10 +537,13 @@ export default function FlashcardPage() {
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
             aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
-            <Flag
-              className={`w-5 h-5 transition-colors ${
+            <Icon
+              name="flag"
+              size={20}
+              filled={currentWord?.isFavorite}
+              className={`transition-colors ${
                 currentWord?.isFavorite
-                  ? 'fill-[var(--color-peach)] text-[var(--color-peach)]'
+                  ? 'text-[var(--color-primary)]'
                   : 'text-[var(--color-muted)]'
               }`}
             />
@@ -551,7 +554,7 @@ export default function FlashcardPage() {
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
             aria-label="辞書で調べる"
           >
-            <Search className="w-5 h-5" />
+            <Icon name="search" size={20} />
           </button>
 
           <button
@@ -559,7 +562,7 @@ export default function FlashcardPage() {
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
             aria-label="単語を編集"
           >
-            <Pencil className="w-5 h-5" />
+            <Icon name="edit" size={20} />
           </button>
 
           <button
@@ -567,7 +570,7 @@ export default function FlashcardPage() {
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
             aria-label="この単語を削除"
           >
-            <Trash2 className="w-5 h-5" />
+            <Icon name="delete" size={20} />
           </button>
         </div>
 
@@ -580,7 +583,7 @@ export default function FlashcardPage() {
             disabled={isAnimating}
             className="w-14 h-14"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <Icon name="chevron_left" size={24} />
           </Button>
 
           {/* Flip button */}
@@ -592,7 +595,7 @@ export default function FlashcardPage() {
             className="w-12 h-12"
             aria-label="カードをめくる"
           >
-            <RefreshCw className="w-5 h-5" />
+            <Icon name="refresh" size={20} />
           </Button>
 
           {/* Next button */}
@@ -603,7 +606,7 @@ export default function FlashcardPage() {
             className="w-14 h-14"
             size="icon"
           >
-            <ChevronRight className="w-6 h-6" />
+            <Icon name="chevron_right" size={24} />
           </Button>
         </div>
       </div>

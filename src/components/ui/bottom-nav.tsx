@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, FolderOpen, BarChart3, Settings, Camera } from 'lucide-react';
+import { Icon } from './Icon';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
   href: string;
-  icon: React.ElementType;
+  icon: string;
   label: string;
   matchPaths?: string[];
 }
@@ -15,25 +15,25 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     href: '/',
-    icon: Home,
+    icon: 'home',
     label: 'ホーム',
     matchPaths: ['/'],
   },
   {
     href: '/projects',
-    icon: FolderOpen,
+    icon: 'folder',
     label: 'プロジェクト',
     matchPaths: ['/projects', '/project'],
   },
   {
     href: '/stats',
-    icon: BarChart3,
+    icon: 'bar_chart',
     label: '統計',
     matchPaths: ['/stats'],
   },
   {
     href: '/settings',
-    icon: Settings,
+    icon: 'settings',
     label: '設定',
     matchPaths: ['/settings', '/subscription'],
   },
@@ -58,10 +58,9 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav lg:hidden">
       <div className="bottom-nav-inner">
         {navItems.slice(0, 2).map((item) => {
-          const Icon = item.icon;
           const active = isActive(item);
 
           return (
@@ -71,11 +70,13 @@ export function BottomNav() {
               className={cn('bottom-nav-item', active && 'active')}
             >
               <Icon
+                name={item.icon}
+                filled={active}
+                size={20}
                 className={cn(
-                  'w-5 h-5 transition-colors',
+                  'transition-colors',
                   active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
                 )}
-                strokeWidth={active ? 2.5 : 2}
               />
               <span>{item.label}</span>
             </Link>
@@ -84,12 +85,11 @@ export function BottomNav() {
 
         <Link href={scanHref} className="flex items-center justify-center" aria-label="スキャン">
           <span className="bottom-nav-cta">
-            <Camera className="w-5 h-5" />
+            <Icon name="center_focus_weak" size={22} />
           </span>
         </Link>
 
         {navItems.slice(2).map((item) => {
-          const Icon = item.icon;
           const active = isActive(item);
 
           return (
@@ -99,11 +99,13 @@ export function BottomNav() {
               className={cn('bottom-nav-item', active && 'active')}
             >
               <Icon
+                name={item.icon}
+                filled={active}
+                size={20}
                 className={cn(
-                  'w-5 h-5 transition-colors',
+                  'transition-colors',
                   active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
                 )}
-                strokeWidth={active ? 2.5 : 2}
               />
               <span>{item.label}</span>
             </Link>

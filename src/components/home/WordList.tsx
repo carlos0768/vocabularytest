@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { BookOpen, Flag, Edit2, Trash2, X, Save, Plus, Search } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui';
 import type { Word } from '@/types';
 
@@ -55,11 +55,11 @@ function WordItem({
           />
           <div className="flex gap-2">
             <Button onClick={handleSave} className="flex-1" size="sm">
-              <Save className="w-4 h-4 mr-1" />
+              <Icon name="save" size={16} className="mr-1" />
               保存
             </Button>
             <Button variant="secondary" onClick={onCancel} className="flex-1" size="sm">
-              <X className="w-4 h-4 mr-1" />
+              <Icon name="close" size={16} className="mr-1" />
               キャンセル
             </Button>
           </div>
@@ -80,28 +80,29 @@ function WordItem({
       <div className="flex items-center gap-1 ml-2">
         <button
           onClick={onToggleFavorite}
-          className="p-2 hover:bg-[var(--color-peach-light)] rounded-xl transition-colors"
+          className="p-2 hover:bg-[var(--color-primary-light)] rounded-xl transition-colors"
           aria-label={word.isFavorite ? '苦手を解除' : '苦手にマーク'}
         >
-          <Flag
-            className={`w-4 h-4 ${
-              word.isFavorite ? 'fill-[var(--color-peach)] text-[var(--color-peach)]' : 'text-[var(--color-muted)]'
-            }`}
+          <Icon
+            name="flag"
+            size={16}
+            filled={word.isFavorite}
+            className={word.isFavorite ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'}
           />
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-[var(--color-peach-light)] rounded-xl transition-colors"
+          className="p-2 hover:bg-[var(--color-primary-light)] rounded-xl transition-colors"
           aria-label="編集"
         >
-          <Edit2 className="w-4 h-4 text-[var(--color-muted)]" />
+          <Icon name="edit" size={16} className="text-[var(--color-muted)]" />
         </button>
         <button
           onClick={onDelete}
           className="p-2 hover:bg-[var(--color-error)]/10 rounded-xl transition-colors"
           aria-label="削除"
         >
-          <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
+          <Icon name="delete" size={16} className="text-[var(--color-error)]" />
         </button>
       </div>
     </div>
@@ -150,7 +151,7 @@ export function WordList({
       <div className="w-full flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[var(--color-primary)]/10 rounded-xl">
-            <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
+            <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
           </div>
           <div className="text-left">
             <h3 className="font-bold text-[var(--color-foreground)]">単語一覧</h3>
@@ -165,7 +166,7 @@ export function WordList({
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary)]/90 transition-colors"
             aria-label="単語を追加"
           >
-            <Plus className="w-4 h-4" />
+            <Icon name="add" size={16} />
             追加
           </button>
         )}
@@ -174,7 +175,7 @@ export function WordList({
       {/* Search input */}
       {words.length > 0 && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+          <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
             type="text"
             value={searchQuery}
@@ -185,9 +186,9 @@ export function WordList({
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--color-peach-light)] rounded-full"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--color-primary-light)] rounded-full"
             >
-              <X className="w-4 h-4 text-[var(--color-muted)]" />
+              <Icon name="close" size={16} className="text-[var(--color-muted)]" />
             </button>
           )}
         </div>

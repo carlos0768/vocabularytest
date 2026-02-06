@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/Icon';
 import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
@@ -517,7 +517,7 @@ export default function QuizPage() {
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
         </header>
 
@@ -551,7 +551,7 @@ export default function QuizPage() {
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
         </header>
         <main className="flex-1 flex items-center justify-center p-6">
@@ -568,7 +568,7 @@ export default function QuizPage() {
                 className="w-full"
                 size="lg"
               >
-                <RotateCcw className="w-5 h-5 mr-2" />
+                <Icon name="refresh" size={20} className="mr-2" />
                 再試行
               </Button>
               <Button
@@ -606,7 +606,7 @@ export default function QuizPage() {
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
         </header>
 
@@ -695,7 +695,7 @@ export default function QuizPage() {
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
         </header>
 
@@ -703,7 +703,7 @@ export default function QuizPage() {
         <main className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
             <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Trophy className="w-10 h-10 text-[var(--color-success)]" />
+              <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
             </div>
 
             <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
@@ -731,7 +731,7 @@ export default function QuizPage() {
 
             <div className="space-y-3">
               <Button onClick={handleRestart} className="w-full" size="lg">
-                <RotateCcw className="w-5 h-5 mr-2" />
+                <Icon name="refresh" size={20} className="mr-2" />
                 もう一度
               </Button>
               <Button
@@ -758,7 +758,7 @@ export default function QuizPage() {
           onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
         >
-          <X className="w-6 h-6" />
+          <Icon name="close" size={24} />
         </button>
 
         {/* Progress bar */}
@@ -810,12 +810,12 @@ export default function QuizPage() {
             }}
             className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
               currentQuestion?.word.isFavorite
-                ? 'bg-[var(--color-peach-light)] text-[var(--color-peach)]'
+                ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
                 : 'hover:bg-black/5 dark:hover:bg-white/10 text-[var(--color-muted)]'
             }`}
             aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
-            <Flag className={`w-5 h-5 ${currentQuestion?.word.isFavorite ? 'fill-current' : ''}`} />
+            <Icon name="flag" size={20} filled={currentQuestion?.word.isFavorite ?? false} />
             {currentQuestion?.word.isFavorite && (
               <span className="text-sm font-medium">苦手</span>
             )}
@@ -840,7 +840,7 @@ export default function QuizPage() {
 
         {/* Example sentence (shown after answering, Pro feature) */}
         {isRevealed && isPro && (generatingExample || currentQuestion?.word.exampleSentence) && (
-          <div className="mb-4 p-4 bg-[var(--color-peach-light)] rounded-2xl max-w-lg mx-auto w-full">
+          <div className="mb-4 p-4 bg-[var(--color-primary-light)] rounded-2xl max-w-lg mx-auto w-full">
             <p className="text-sm font-semibold text-[var(--color-primary)] mb-1">例文</p>
             {generatingExample ? (
               <div className="flex items-center gap-2 text-[var(--color-muted)]">
@@ -869,7 +869,7 @@ export default function QuizPage() {
             size="lg"
           >
             次へ
-            <ChevronRight className="w-5 h-5 ml-1" />
+            <Icon name="chevron_right" size={20} className="ml-1" />
           </Button>
         </div>
       )}

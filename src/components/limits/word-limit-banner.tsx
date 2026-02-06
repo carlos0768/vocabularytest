@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { useState } from 'react';
 import { FREE_WORD_LIMIT } from '@/lib/utils';
 
@@ -25,7 +25,7 @@ export function WordLimitBanner({ currentCount, onDismiss }: WordLimitBannerProp
   return (
     <div className="bg-[var(--color-warning-light)] border-b border-[var(--color-border)]">
       <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
-        <AlertTriangle className="w-4 h-4 text-[var(--color-warning)] shrink-0" />
+        <Icon name="warning" size={16} className="text-[var(--color-warning)] shrink-0" />
         <p className="text-sm text-[var(--color-foreground)] flex-1">
           単語数が残り<span className="font-medium">{remaining}語</span>です
         </p>
@@ -34,14 +34,14 @@ export function WordLimitBanner({ currentCount, onDismiss }: WordLimitBannerProp
           className="flex items-center gap-1 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] shrink-0"
         >
           Proで無制限に
-          <ChevronRight className="w-4 h-4" />
+          <Icon name="chevron_right" size={16} />
         </Link>
         <button
           onClick={handleDismiss}
           className="p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
           aria-label="閉じる"
         >
-          <X className="w-4 h-4" />
+          <Icon name="close" size={16} />
         </button>
       </div>
     </div>

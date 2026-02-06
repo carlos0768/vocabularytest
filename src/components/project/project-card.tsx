@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Trash2, MoreVertical } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
         <CardContent className="pt-0">
           <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
             <div className="flex items-center gap-1">
-              <BookOpen className="w-4 h-4" />
+              <Icon name="menu_book" size={16} />
               <span>{wordCount}語</span>
             </div>
             <span>{formatDate(project.createdAt)}</span>
@@ -64,7 +64,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
               setShowMenu(!showMenu);
             }}
           >
-            <MoreVertical className="w-4 h-4" />
+            <Icon name="more_vert" size={16} />
           </Button>
 
           {/* Dropdown menu */}
@@ -84,7 +84,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
                     onDelete(project.id);
                   }}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Icon name="delete" size={16} />
                   削除
                 </button>
               </div>

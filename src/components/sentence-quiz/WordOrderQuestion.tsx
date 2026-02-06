@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import type { WordOrderQuestion as WordOrderQuestionType } from '@/types';
 
@@ -220,7 +220,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       {/* コンテンツエリア */}
       <div className="flex-1 flex flex-col overflow-auto min-h-0">
         {/* 日本語訳（ヒント） */}
-        <div className="mb-1 p-2 bg-[var(--color-peach-light)] rounded-xl">
+        <div className="mb-1 p-2 bg-[var(--color-primary-light)] rounded-xl">
           <p className="text-[var(--color-primary-dark)] font-medium text-xs">{question.japaneseMeaning}</p>
         </div>
 
@@ -234,7 +234,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                   ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
                   : 'border-[var(--color-error)] bg-[var(--color-error-light)]'
                 : dragState.isDragging && dragState.sourceType === 'remaining'
-                ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
                 : 'border-[var(--color-border)] bg-[var(--color-background)]'
             }`}
           >
@@ -292,7 +292,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                 onClick={handleReset}
                 className="text-[10px] text-[var(--color-primary)] flex items-center gap-0.5 active:text-[var(--color-primary-dark)]"
               >
-                <RotateCcw className="w-2.5 h-2.5" />
+                <Icon name="refresh" size={10} />
                 リセット
               </button>
             )}
@@ -321,7 +321,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
                       ? 'opacity-30'
                       : isRevealed
                       ? 'bg-[var(--color-border-light)] text-[var(--color-muted)]'
-                      : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] active:border-[var(--color-primary)] active:bg-[var(--color-peach-light)]'
+                      : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] active:border-[var(--color-primary)] active:bg-[var(--color-primary-light)]'
                   } ${isRevealed ? '' : 'active:scale-95'}`}
                 >
                   {word}

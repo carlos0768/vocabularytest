@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Check, Trash2, Edit2, X, Save, AlertTriangle, Sparkles, Plus } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -276,9 +276,9 @@ export default function ConfirmPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 hover:bg-[var(--color-peach-light)] rounded-md transition-colors"
+              className="p-1.5 -ml-1.5 hover:bg-[var(--color-primary-light)] rounded-md transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-[var(--color-muted)]" />
+              <Icon name="arrow_back" size={20} className="text-[var(--color-muted)]" />
             </button>
             <h1 className="text-lg font-semibold text-[var(--color-foreground)]">
               {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
@@ -292,7 +292,7 @@ export default function ConfirmPage() {
         <div className="bg-[var(--color-warning-light)] border-b border-[var(--color-border)]">
           <div className="max-w-lg mx-auto px-4 py-3">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-[var(--color-warning)] shrink-0 mt-0.5" />
+              <Icon name="warning" size={20} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-[var(--color-foreground)]">
                   単語数が上限に近づいています
@@ -316,7 +316,7 @@ export default function ConfirmPage() {
             {/* Pro upgrade mini card */}
             <div className="mt-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] p-3 flex items-center justify-between border border-[var(--color-border)]">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[var(--color-primary)]" />
+                <Icon name="auto_awesome" size={16} className="text-[var(--color-primary)]" />
                 <span className="text-sm text-[var(--color-foreground)]">Proなら単語数無制限</span>
               </div>
               <Link href="/subscription">
@@ -341,7 +341,7 @@ export default function ConfirmPage() {
               type="text"
               value={projectTitle}
               onChange={(e) => setProjectTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-background)] focus:bg-[var(--color-surface)]"
+              className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-background)] focus:bg-[var(--color-surface)]"
               placeholder="例: ノート P21-23"
             />
           </div>
@@ -359,10 +359,10 @@ export default function ConfirmPage() {
             </span>
             <button
               onClick={handleAddManualWord}
-              className="p-1.5 hover:bg-[var(--color-peach-light)] rounded-full transition-colors text-[var(--color-primary)]"
+              className="p-1.5 hover:bg-[var(--color-primary-light)] rounded-full transition-colors text-[var(--color-primary)]"
               title="手で入力"
             >
-              <Plus className="w-5 h-5" />
+              <Icon name="add" size={20} />
             </button>
           </div>
         </div>
@@ -405,12 +405,12 @@ export default function ConfirmPage() {
               '保存中...'
             ) : isAddingToExisting ? (
               <>
-                <Plus className="w-5 h-5 mr-2" />
+                <Icon name="add" size={20} className="mr-2" />
                 {selectedCount}語を追加
               </>
             ) : (
               <>
-                <Check className="w-5 h-5 mr-2" />
+                <Icon name="check" size={20} className="mr-2" />
                 {selectedCount}語を保存して学習を始める
               </>
             )}
@@ -449,7 +449,7 @@ function WordCard({
 
   if (word.isEditing) {
     return (
-      <div className="bg-[var(--color-peach-light)] rounded-[var(--radius-lg)] p-4">
+      <div className="bg-[var(--color-primary-light)] rounded-[var(--radius-lg)] p-4">
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
@@ -459,7 +459,7 @@ function WordCard({
               type="text"
               value={english}
               onChange={(e) => setEnglish(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none text-base bg-[var(--color-surface)]"
+              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none text-base bg-[var(--color-surface)]"
               autoFocus
             />
           </div>
@@ -471,7 +471,7 @@ function WordCard({
               type="text"
               value={japanese}
               onChange={(e) => setJapanese(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none text-sm bg-[var(--color-surface)]"
+              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none text-sm bg-[var(--color-surface)]"
             />
           </div>
           <div className="flex gap-2">
@@ -481,7 +481,7 @@ function WordCard({
               onClick={onCancel}
               className="flex-1"
             >
-              <X className="w-4 h-4 mr-1" />
+              <Icon name="close" size={16} className="mr-1" />
               キャンセル
             </Button>
             <Button
@@ -489,7 +489,7 @@ function WordCard({
               onClick={() => onSave(english, japanese)}
               className="flex-1"
             >
-              <Save className="w-4 h-4 mr-1" />
+              <Icon name="save" size={16} className="mr-1" />
               保存
             </Button>
           </div>
@@ -502,7 +502,7 @@ function WordCard({
     <div
       className={`rounded-[var(--radius-lg)] p-4 group transition-colors ${
         word.isSelected
-          ? 'bg-[var(--color-surface)] hover:bg-[var(--color-peach-light)]'
+          ? 'bg-[var(--color-surface)] hover:bg-[var(--color-primary-light)]'
           : 'bg-[var(--color-border-light)] opacity-50'
       }`}
     >
@@ -517,7 +517,7 @@ function WordCard({
                 : 'border-[var(--color-border)] hover:border-[var(--color-border)]'
             }`}
           >
-            {word.isSelected && <Check className="w-3 h-3 text-white" />}
+            {word.isSelected && <Icon name="check" size={12} className="text-white" />}
           </button>
         )}
 
@@ -531,17 +531,17 @@ function WordCard({
         <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={onEdit}
-            className="p-1.5 hover:bg-[var(--color-peach-light)] rounded-md transition-colors"
+            className="p-1.5 hover:bg-[var(--color-primary-light)] rounded-md transition-colors"
             title="編集"
           >
-            <Edit2 className="w-4 h-4 text-[var(--color-muted)]" />
+            <Icon name="edit" size={16} className="text-[var(--color-muted)]" />
           </button>
           <button
             onClick={onDelete}
             className="p-1.5 hover:bg-[var(--color-error-light)] rounded-md transition-colors"
             title="削除"
           >
-            <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
+            <Icon name="delete" size={16} className="text-[var(--color-error)]" />
           </button>
         </div>
       </div>

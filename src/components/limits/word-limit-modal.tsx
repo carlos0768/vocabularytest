@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Sparkles } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 
@@ -30,7 +30,7 @@ export function WordLimitModal({
       <div className="p-6 text-center">
         {/* Icon */}
         <div className="w-16 h-16 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-5">
-          <BookOpen className="w-8 h-8 text-[var(--color-success)]" />
+          <Icon name="menu_book" size={32} className="text-[var(--color-success)]" />
         </div>
 
         {/* Title */}
@@ -50,9 +50,9 @@ export function WordLimitModal({
         </p>
 
         {/* Pro upgrade card */}
-        <div className="bg-[var(--color-peach-light)] rounded-[var(--radius-lg)] p-4 mb-5 border border-[var(--color-border)]">
+        <div className="bg-[var(--color-primary-light)] rounded-[var(--radius-lg)] p-4 mb-5 border border-[var(--color-border)]">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-[var(--color-primary)]" />
+            <Icon name="auto_awesome" size={16} className="text-[var(--color-primary)]" />
             <span className="text-sm font-medium text-[var(--color-foreground)]">Proで無制限に学習する</span>
           </div>
           <p className="text-xs text-[var(--color-muted)] mb-3">月額 ¥500</p>
@@ -67,7 +67,7 @@ export function WordLimitModal({
         <div className="flex gap-3">
           <button
             onClick={handleOrganizeWords}
-            className="flex-1 py-2.5 px-4 bg-[var(--color-border-light)] hover:bg-[var(--color-peach-light)] rounded-[var(--radius-md)] text-sm text-[var(--color-foreground)] transition-colors"
+            className="flex-1 py-2.5 px-4 bg-[var(--color-border-light)] hover:bg-[var(--color-primary-light)] rounded-[var(--radius-md)] text-sm text-[var(--color-foreground)] transition-colors"
           >
             単語を整理する
           </button>

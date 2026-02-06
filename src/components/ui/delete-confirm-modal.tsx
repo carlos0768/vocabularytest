@@ -1,8 +1,8 @@
 'use client';
 
-import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Modal } from './modal';
 import { Button } from './button';
+import { Icon } from './Icon';
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export function DeleteConfirmModal({
     <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false} closeOnBackdrop={!isLoading}>
       <div className="p-6">
         <div className="flex items-center justify-center w-12 h-12 bg-[var(--color-error-light)] rounded-full mx-auto mb-4">
-          <AlertTriangle className="w-6 h-6 text-[var(--color-error)]" />
+          <Icon name="warning" size={24} className="text-[var(--color-error)]" />
         </div>
 
         <h3 className="text-lg font-semibold text-center text-[var(--color-foreground)] mb-2">
@@ -59,7 +59,7 @@ export function DeleteConfirmModal({
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Icon name="progress_activity" size={16} className="mr-2 animate-spin" />
                 削除中...
               </>
             ) : (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Download, Loader2, BookOpen, CheckCircle, Crown } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { useAuth } from '@/hooks/use-auth';
@@ -73,7 +73,7 @@ export default function SharedProjectPage() {
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+        <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin" />
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default function SharedProjectPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-20 h-20 bg-[var(--color-primary)] rounded-full flex items-center justify-center mb-6">
-          <Crown className="w-10 h-10 text-white" />
+          <Icon name="workspace_premium" size={40} className="text-white" />
         </div>
         <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">Pro機能です</h1>
         <p className="text-[var(--color-muted)] text-center mb-6">
@@ -91,14 +91,14 @@ export default function SharedProjectPage() {
         </p>
         <div className="flex flex-col gap-3">
           <Link href="/subscription">
-            <Button className="bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] hover:from-[#FF5E5E] hover:to-[#FFA93A]">
-              <Crown className="w-4 h-4 mr-2" />
+            <Button className="bg-primary hover:bg-primary/90">
+              <Icon name="workspace_premium" size={16} className="mr-2" />
               Proにアップグレード
             </Button>
           </Link>
           <Link href="/">
             <Button variant="secondary">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <Icon name="arrow_back" size={16} className="mr-2" />
               ホームに戻る
             </Button>
           </Link>
@@ -110,11 +110,11 @@ export default function SharedProjectPage() {
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <BookOpen className="w-16 h-16 text-[var(--color-muted)] mb-4" />
+        <Icon name="menu_book" size={64} className="text-[var(--color-muted)] mb-4" />
         <p className="text-[var(--color-muted)] text-center mb-6">{error}</p>
         <Link href="/">
           <Button variant="secondary">
-            <ArrowLeft className="w-4 h-4 mr-2" />
+            <Icon name="arrow_back" size={16} className="mr-2" />
             ホームに戻る
           </Button>
         </Link>
@@ -134,9 +134,9 @@ export default function SharedProjectPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 -ml-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+              className="p-2 -ml-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <Icon name="arrow_back" size={20} />
             </Link>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-semibold text-[var(--color-foreground)] truncate">{project.title}</h1>
@@ -152,7 +152,7 @@ export default function SharedProjectPage() {
         <div className="flex justify-center mb-6">
           {imported ? (
             <div className="flex items-center gap-2 text-[var(--color-success)] font-medium">
-              <CheckCircle className="w-5 h-5" />
+              <Icon name="check_circle" size={20} />
               追加しました！
             </div>
           ) : (
@@ -162,9 +162,9 @@ export default function SharedProjectPage() {
               disabled={importing}
             >
               {importing ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
               ) : (
-                <Download className="w-5 h-5 mr-2" />
+                <Icon name="download" size={20} className="mr-2" />
               )}
               自分の単語帳に追加
             </Button>

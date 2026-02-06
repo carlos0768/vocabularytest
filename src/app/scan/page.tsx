@@ -3,10 +3,9 @@
 import { Suspense } from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Camera, Image as ImageIcon, CircleDot, Highlighter, BookOpen, Languages, AlertTriangle, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { ProgressSteps, type ProgressStep, useToast } from '@/components/ui';
+import { ProgressSteps, type ProgressStep, useToast, Icon, AppShell } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -39,42 +38,42 @@ function ScanPageContent() {
       id: 'all' as ExtractMode,
       title: 'すべての単語',
       description: '写真内の英単語をすべて抽出',
-      icon: Camera,
+      icon: 'center_focus_weak',
       pro: false,
     },
     {
       id: 'circled' as ExtractMode,
       title: '丸で囲んだ単語',
       description: 'マークした単語だけを抽出',
-      icon: CircleDot,
+      icon: 'radio_button_checked',
       pro: true,
     },
     {
       id: 'highlighted' as ExtractMode,
       title: 'ハイライト単語',
       description: '蛍光ペンで塗った単語を抽出',
-      icon: Highlighter,
+      icon: 'highlight',
       pro: true,
     },
     {
       id: 'eiken' as ExtractMode,
       title: '英検レベル',
       description: '指定した級の単語だけを抽出',
-      icon: BookOpen,
+      icon: 'menu_book',
       pro: true,
     },
     {
       id: 'idiom' as ExtractMode,
       title: '熟語・イディオム',
       description: '句動詞や熟語だけを抽出',
-      icon: Languages,
+      icon: 'translate',
       pro: true,
     },
     {
       id: 'wrong' as ExtractMode,
       title: '間違えた単語',
       description: 'テストの間違いを抽出',
-      icon: AlertTriangle,
+      icon: 'warning',
       pro: true,
     },
   ];
@@ -279,62 +278,18 @@ function ScanPageContent() {
 
   const canScan = isAuthenticated;
 
-  return (
-    <div className="min-h-screen bg-[var(--color-background)] pb-20">
-      {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                className="w-10 h-10 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center"
-              >
-                <ArrowLeft className="w-5 h-5 text-[var(--color-muted)]" />
-              </button>
-              <div>
-                <h1 className="text-lg font-semibold text-[var(--color-foreground)]">
-                  {projectId ? '単語を追加' : '新しいスキャン'}
-                </h1>
-                <p className="text-xs text-[var(--color-muted)]">モードを選んで撮影/アップロード</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
-              <button
-                onClick={() => {
-                  setInputMode('camera');
-                  cameraInputRef.current?.click();
-                }}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                  inputMode === 'camera'
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                }`}
-                aria-label="撮影"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  setInputMode('upload');
-                  uploadInputRef.current?.click();
-                }}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                  inputMode === 'upload'
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                }`}
-                aria-label="選択"
-              >
-                <ImageIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const modeColors: Record<string, { bg: string; icon: string; border: string }> = {
+    all: { bg: 'bg-[var(--color-primary)]/10', icon: 'text-[var(--color-primary)]', border: 'border-[var(--color-primary)]' },
+    circled: { bg: 'bg-[var(--color-warning)]/10', icon: 'text-[var(--color-warning)]', border: 'border-[var(--color-warning)]' },
+    highlighted: { bg: 'bg-purple-500/10', icon: 'text-purple-500', border: 'border-purple-500' },
+    eiken: { bg: 'bg-[var(--color-success)]/10', icon: 'text-[var(--color-success)]', border: 'border-[var(--color-success)]' },
+    idiom: { bg: 'bg-cyan-500/10', icon: 'text-cyan-500', border: 'border-cyan-500' },
+    wrong: { bg: 'bg-[var(--color-error)]/10', icon: 'text-[var(--color-error)]', border: 'border-[var(--color-error)]' },
+  };
 
-      {/* Main content */}
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+  return (
+    <AppShell>
+      <div className="pb-28 lg:pb-8">
         <input
           ref={cameraInputRef}
           type="file"
@@ -353,123 +308,169 @@ function ScanPageContent() {
           disabled={processing || !canScan}
           className="hidden"
         />
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[var(--color-muted)]">抽出モード</h3>
-            {!isPro && (
-              <span className="chip chip-pro">
-                <Sparkles className="w-3 h-3" />
-                Pro
-              </span>
-            )}
-          </div>
-          <div className="space-y-3">
-            {scanModes.map((mode) => {
-              const Icon = mode.icon;
-              const isSelected = selectedMode === mode.id;
-              const isLocked = mode.pro && !isPro;
-              return (
-                <button
-                  key={mode.id}
-                  onClick={() => handleSelectMode(mode)}
-                  className={`w-full flex items-center gap-4 p-4 border rounded-[var(--radius-lg)] text-left transition-all ${
-                    isSelected
-                      ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
-                      : 'border-[var(--color-border)] bg-[var(--color-surface)]'
-                  } ${isLocked ? 'opacity-60' : 'hover:shadow-card'}`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-border-light)] flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-[var(--color-foreground)]" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-[var(--color-foreground)]">{mode.title}</p>
-                      {mode.pro && !isPro && (
-                        <span className="chip chip-pro">
-                          <Sparkles className="w-3 h-3" />
-                          Pro
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-[var(--color-muted)]">{mode.description}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
 
-          {selectedMode === 'eiken' && (
-            <div className="card p-4">
-              <label className="text-sm font-semibold text-[var(--color-foreground)]">英検レベル</label>
-              <select
-                value={selectedEiken ?? ''}
-                onChange={(e) => setSelectedEiken(e.target.value as EikenLevel)}
-                className="mt-3 w-full px-3 py-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]"
-              >
-                <option value="">レベルを選択</option>
-                <option value="5">5級</option>
-                <option value="4">4級</option>
-                <option value="3">3級</option>
-                <option value="pre2">準2級</option>
-                <option value="2">2級</option>
-                <option value="pre1">準1級</option>
-                <option value="1">1級</option>
-              </select>
+        <main className="max-w-2xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+          {/* Hero Upload Area */}
+          <section
+            className="relative rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center cursor-pointer hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all group"
+            onClick={() => uploadInputRef.current?.click()}
+          >
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center group-hover:bg-[var(--color-primary)]/20 transition-colors">
+              <Icon name="photo_camera" size={32} className="text-[var(--color-primary)]" />
             </div>
-          )}
-        </section>
-
-        {!isPro && scanInfo && scanInfo.limit && (
-          <p className="text-xs text-center text-[var(--color-muted)]">
-            今日のスキャン: {scanInfo.currentCount}/{scanInfo.limit}
-          </p>
-        )}
-        {!isPro && !scanInfo && (
-          <p className="text-xs text-center text-[var(--color-muted)]">
-            無料プラン: 1日{FREE_DAILY_SCAN_LIMIT}回までスキャン可能
-          </p>
-        )}
-      </main>
-
-      {/* Processing modal */}
-      {processing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="card p-6 w-full max-w-sm">
-            <h2 className="text-base font-medium mb-4 text-center text-[var(--color-foreground)]">
-              {processingSteps.some((s) => s.status === 'error') ? 'エラーが発生しました' : '解析中'}
-            </h2>
-            <ProgressSteps steps={processingSteps} />
-            {processingSteps.some((s) => s.status === 'error') && (
+            <h1 className="text-lg font-bold text-[var(--color-foreground)] mb-1">
+              {projectId ? '単語を追加' : '写真から単語を抽出'}
+            </h1>
+            <p className="text-sm text-[var(--color-muted)] mb-4">
+              タップして写真を選択、またはカメラで撮影
+            </p>
+            <div className="flex items-center justify-center gap-3">
               <button
-                onClick={handleCloseModal}
-                className="mt-4 w-full py-2 bg-[var(--color-border-light)] rounded-[var(--radius-md)] text-[var(--color-foreground)] text-sm hover:bg-[var(--color-peach-light)] transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cameraInputRef.current?.click();
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary-dark)] transition-colors"
               >
-                閉じる
+                <Icon name="photo_camera" size={18} />
+                撮影する
               </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  uploadInputRef.current?.click();
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] rounded-full text-sm font-semibold hover:bg-[var(--color-border-light)] transition-colors"
+              >
+                <Icon name="image" size={18} />
+                画像を選択
+              </button>
+            </div>
+          </section>
+
+          {/* Mode Selection */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[var(--color-foreground)]">抽出モード</h3>
+              {!isPro && (
+                <span className="chip chip-pro">
+                  <Icon name="auto_awesome" size={14} />
+                  Pro
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+              {scanModes.map((mode) => {
+                const isSelected = selectedMode === mode.id;
+                const isLocked = mode.pro && !isPro;
+                const colors = modeColors[mode.id] || modeColors.all;
+                return (
+                  <button
+                    key={mode.id}
+                    onClick={() => handleSelectMode(mode)}
+                    className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 text-center transition-all ${
+                      isSelected
+                        ? `${colors.border} ${colors.bg}`
+                        : 'border-[var(--color-border)] bg-[var(--color-surface)]'
+                    } ${isLocked ? 'opacity-50' : 'hover:shadow-md active:scale-[0.98]'}`}
+                  >
+                    {isLocked && (
+                      <div className="absolute top-2 right-2">
+                        <Icon name="lock" size={14} className="text-[var(--color-muted)]" />
+                      </div>
+                    )}
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isSelected ? colors.bg : 'bg-[var(--color-border-light)]'}`}>
+                      <Icon name={mode.icon} size={24} className={isSelected ? colors.icon : 'text-[var(--color-muted)]'} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-semibold ${isSelected ? 'text-[var(--color-foreground)]' : 'text-[var(--color-foreground)]'}`}>{mode.title}</p>
+                      <p className="text-[11px] text-[var(--color-muted)] leading-tight mt-0.5">{mode.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedMode === 'eiken' && (
+              <div className="card p-4 animate-fade-in-up">
+                <label className="text-sm font-semibold text-[var(--color-foreground)]">英検レベル</label>
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {[
+                    { value: '5', label: '5級' },
+                    { value: '4', label: '4級' },
+                    { value: '3', label: '3級' },
+                    { value: 'pre2', label: '準2級' },
+                    { value: '2', label: '2級' },
+                    { value: 'pre1', label: '準1級' },
+                    { value: '1', label: '1級' },
+                  ].map((level) => (
+                    <button
+                      key={level.value}
+                      onClick={() => setSelectedEiken(level.value as EikenLevel)}
+                      className={`py-2 rounded-xl text-sm font-semibold transition-all ${
+                        selectedEiken === level.value
+                          ? 'bg-[var(--color-success)] text-white'
+                          : 'bg-[var(--color-border-light)] text-[var(--color-foreground)] hover:bg-[var(--color-success)]/10'
+                      }`}
+                    >
+                      {level.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
-            {!processingSteps.some((s) => s.status === 'error') && (
-              <p className="mt-4 text-xs text-[var(--color-muted)] text-center">
-                しばらくお待ちください...
-              </p>
-            )}
+          </section>
+
+          {/* Scan info */}
+          {!isPro && (
+            <p className="text-xs text-center text-[var(--color-muted)]">
+              {scanInfo && scanInfo.limit
+                ? `今日のスキャン: ${scanInfo.currentCount}/${scanInfo.limit}`
+                : `無料プラン: 1日${FREE_DAILY_SCAN_LIMIT}回までスキャン可能`}
+            </p>
+          )}
+        </main>
+
+        {/* Processing modal */}
+        {processing && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="card p-6 w-full max-w-sm">
+              <h2 className="text-base font-medium mb-4 text-center text-[var(--color-foreground)]">
+                {processingSteps.some((s) => s.status === 'error') ? 'エラーが発生しました' : '解析中'}
+              </h2>
+              <ProgressSteps steps={processingSteps} />
+              {processingSteps.some((s) => s.status === 'error') && (
+                <button
+                  onClick={handleCloseModal}
+                  className="mt-4 w-full py-2 bg-[var(--color-border-light)] rounded-[var(--radius-md)] text-[var(--color-foreground)] text-sm hover:bg-[var(--color-primary-light)] transition-colors"
+                >
+                  閉じる
+                </button>
+              )}
+              {!processingSteps.some((s) => s.status === 'error') && (
+                <p className="mt-4 text-xs text-[var(--color-muted)] text-center">
+                  しばらくお待ちください...
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Scan limit modal */}
-      <ScanLimitModal
-        isOpen={showScanLimitModal}
-        onClose={() => setShowScanLimitModal(false)}
-        todayWordsLearned={0}
-      />
+        {/* Scan limit modal */}
+        <ScanLimitModal
+          isOpen={showScanLimitModal}
+          onClose={() => setShowScanLimitModal(false)}
+          todayWordsLearned={0}
+        />
 
-      {/* Word limit modal */}
-      <WordLimitModal
-        isOpen={showWordLimitModal}
-        onClose={() => setShowWordLimitModal(false)}
-        currentCount={0}
-      />
-    </div>
+        {/* Word limit modal */}
+        <WordLimitModal
+          isOpen={showWordLimitModal}
+          onClose={() => setShowWordLimitModal(false)}
+          currentCount={0}
+        />
+      </div>
+    </AppShell>
   );
 }
 

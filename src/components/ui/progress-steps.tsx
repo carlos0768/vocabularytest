@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { Icon } from './Icon';
 import { cn } from '@/lib/utils';
 
 export interface ProgressStep {
@@ -24,7 +24,7 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
           key={step.id}
           className={cn(
             'flex items-center gap-3 p-3 rounded-xl transition-all duration-300',
-            step.status === 'active' && 'bg-[var(--color-peach-light)]',
+            step.status === 'active' && 'bg-[var(--color-primary-light)]',
             step.status === 'complete' && 'bg-[var(--color-success-light)]',
             step.status === 'error' && 'bg-[var(--color-error-light)]',
             step.status === 'pending' && 'opacity-50'
@@ -33,10 +33,10 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
           {/* Status icon */}
           <div className="flex-shrink-0">
             {step.status === 'active' && (
-              <Loader2 className="w-5 h-5 text-[var(--color-primary)] animate-spin" />
+              <Icon name="progress_activity" size={20} className="text-[var(--color-primary)] animate-spin" />
             )}
             {step.status === 'complete' && (
-              <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
+              <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
             )}
             {step.status === 'pending' && (
               <div className="w-5 h-5 rounded-full border-2 border-gray-300" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, X } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import type { Word } from '@/types';
 
@@ -22,13 +22,13 @@ export function LoadingScreen({ words, onCancel }: LoadingScreenProps) {
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
               aria-label="キャンセル"
             >
-              <X className="w-6 h-6" />
+              <Icon name="close" size={24} />
             </button>
           ) : (
             <div className="w-10" />
           )}
           <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 text-[var(--color-primary)] animate-spin" />
+            <Icon name="progress_activity" size={16} className="text-[var(--color-primary)] animate-spin" />
             <span className="text-sm font-medium text-[var(--color-foreground)]">生成中...</span>
           </div>
           <div className="w-10" />
@@ -59,12 +59,12 @@ export function LoadingScreen({ words, onCancel }: LoadingScreenProps) {
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
             aria-label="キャンセル"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
         </header>
       )}
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-[var(--color-primary)] animate-spin" />
+        <Icon name="progress_activity" size={48} className="text-[var(--color-primary)] animate-spin" />
       </div>
     </div>
   );
