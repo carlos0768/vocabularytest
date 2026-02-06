@@ -1128,9 +1128,6 @@ export default function HomePage() {
             <p className="text-lg font-bold text-[var(--color-foreground)] mt-1">
               {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
             </p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
-              {reviewDueCount > 0 ? '全単語の忘却曲線に基づく復習' : 'プロジェクトがありません'}
-            </p>
           </div>
           {reviewDueCount > 0 ? (
             <Link
