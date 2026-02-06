@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { XCircle } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 
 export default function SubscriptionCancelPage() {
@@ -9,7 +9,7 @@ export default function SubscriptionCancelPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-6">
       <div className="w-full max-w-sm text-center">
         <div className="w-16 h-16 bg-[var(--color-border-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-          <XCircle className="w-8 h-8 text-[var(--color-muted)]" />
+          <Icon name="cancel" size={32} className="text-[var(--color-muted)]" />
         </div>
 
         <h1 className="text-xl font-semibold text-[var(--color-foreground)] mb-2">

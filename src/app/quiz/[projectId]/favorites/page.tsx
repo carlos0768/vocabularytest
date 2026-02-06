@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronRight, Trophy, RotateCcw, Flag } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
@@ -224,12 +224,12 @@ export default function FavoritesQuizPage() {
         <header className="flex-shrink-0 p-4 flex items-center justify-between">
           <button
             onClick={backToProject}
-            className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+            className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
           <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full">
-            <Flag className="w-4 h-4 fill-[var(--color-warning)] text-[var(--color-warning)]" />
+            <Icon name="flag" size={16} filled className="text-[var(--color-warning)]" />
             <span className="text-sm font-medium text-[var(--color-warning)]">苦手クイズ</span>
           </div>
           <div className="w-10" /> {/* Spacer for alignment */}
@@ -318,9 +318,9 @@ export default function FavoritesQuizPage() {
         <header className="p-4">
           <button
             onClick={backToProject}
-            className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+            className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
           >
-            <X className="w-6 h-6" />
+            <Icon name="close" size={24} />
           </button>
         </header>
 
@@ -328,7 +328,7 @@ export default function FavoritesQuizPage() {
         <main className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="bg-[var(--color-surface)] rounded-[var(--radius-2xl)] shadow-card p-8 w-full max-w-sm text-center border border-[var(--color-border)]">
             <div className="w-20 h-20 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Trophy className="w-10 h-10 text-[var(--color-warning)]" />
+              <Icon name="emoji_events" size={40} className="text-[var(--color-warning)]" />
             </div>
 
             <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
@@ -357,7 +357,7 @@ export default function FavoritesQuizPage() {
 
             <div className="space-y-3">
               <Button onClick={handleRestart} className="w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" size="lg">
-                <RotateCcw className="w-5 h-5 mr-2" />
+                <Icon name="refresh" size={20} className="mr-2" />
                 もう一度
               </Button>
               <Button
@@ -381,14 +381,14 @@ export default function FavoritesQuizPage() {
       <header className="flex-shrink-0 p-4 flex items-center justify-between">
         <button
           onClick={backToProject}
-          className="p-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+          className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
         >
-          <X className="w-6 h-6" />
+          <Icon name="close" size={24} />
         </button>
 
         {/* Title badge */}
         <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full">
-          <Flag className="w-4 h-4 fill-[var(--color-warning)] text-[var(--color-warning)]" />
+          <Icon name="flag" size={16} filled className="text-[var(--color-warning)]" />
           <span className="text-sm font-medium text-[var(--color-warning)]">苦手クイズ</span>
         </div>
 
@@ -425,13 +425,16 @@ export default function FavoritesQuizPage() {
           {/* Favorite button */}
           <button
             onClick={handleToggleFavorite}
-            className="p-2 rounded-full hover:bg-[var(--color-peach-light)] transition-colors"
+            className="p-2 rounded-full hover:bg-[var(--color-primary-light)] transition-colors"
             aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
-            <Flag
-              className={`w-6 h-6 transition-colors ${
+            <Icon
+              name="flag"
+              size={24}
+              filled={currentQuestion?.word.isFavorite}
+              className={`transition-colors ${
                 currentQuestion?.word.isFavorite
-                  ? 'fill-[var(--color-warning)] text-[var(--color-warning)]'
+                  ? 'text-[var(--color-warning)]'
                   : 'text-[var(--color-muted)]'
               }`}
             />
@@ -474,7 +477,7 @@ export default function FavoritesQuizPage() {
             size="lg"
           >
             次へ
-            <ChevronRight className="w-5 h-5 ml-1" />
+            <Icon name="chevron_right" size={20} className="ml-1" />
           </Button>
         )}
       </main>

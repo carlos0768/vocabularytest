@@ -5,3 +5,6 @@ export { Modal } from './modal';
 export { DeleteConfirmModal } from './delete-confirm-modal';
 export { ToastProvider, useToast } from './toast';
 export { BottomNav } from './bottom-nav';
+export { Icon } from './Icon';
+export { Sidebar } from './Sidebar';
+export { AppShell } from './AppShell';

@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { LucideIcon, Sparkles } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 
-type ColorVariant = 'red' | 'blue' | 'green' | 'orange';
+type ColorVariant = 'primary' | 'blue' | 'green' | 'orange' | 'red';
 
 interface StudyModeCardProps {
   title: string;
   description: string;
-  icon: LucideIcon;
+  icon: string;
   href: string;
   variant: ColorVariant;
   disabled?: boolean;
@@ -23,6 +23,14 @@ const variantStyles: Record<ColorVariant, {
   descColor: string;
   glow: string;
 }> = {
+  primary: {
+    bg: 'bg-[var(--color-primary)]',
+    iconBg: 'bg-white/20',
+    iconColor: 'text-white',
+    textColor: 'text-white',
+    descColor: 'text-white/85',
+    glow: 'shadow-glow',
+  },
   red: {
     bg: 'bg-[var(--color-primary)]',
     iconBg: 'bg-white/20',
@@ -33,7 +41,7 @@ const variantStyles: Record<ColorVariant, {
   },
   blue: {
     bg: 'bg-[var(--color-surface)]',
-    iconBg: 'bg-[var(--color-peach-light)]',
+    iconBg: 'bg-[var(--color-primary-light)]',
     iconColor: 'text-[var(--color-primary)]',
     textColor: 'text-[var(--color-foreground)]',
     descColor: 'text-[var(--color-muted)]',
@@ -60,7 +68,7 @@ const variantStyles: Record<ColorVariant, {
 export function StudyModeCard({
   title,
   description,
-  icon: Icon,
+  icon,
   href,
   variant,
   disabled = false,
@@ -76,14 +84,14 @@ export function StudyModeCard({
     >
       {badge && (
         <span className="absolute top-3 right-3 chip chip-pro">
-          <Sparkles className="w-3 h-3" />
+          <Icon name="auto_awesome" size={14} />
           {badge}
         </span>
       )}
 
       <div className="relative z-10 flex flex-col gap-3">
         <div className={`w-10 h-10 rounded-full ${styles.iconBg} flex items-center justify-center`}>
-          <Icon className={`w-5 h-5 ${styles.iconColor}`} />
+          <Icon name={icon} size={22} className={styles.iconColor} />
         </div>
         <div className="min-w-0">
           <h3 className={`font-bold text-lg leading-tight ${styles.textColor}`}>{title}</h3>

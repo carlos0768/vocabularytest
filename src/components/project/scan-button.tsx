@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Camera } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { useRef } from 'react';
 
 interface ScanButtonProps {
@@ -44,8 +44,8 @@ export function ScanButton({ onImageSelect, disabled }: ScanButtonProps) {
         aria-label="画像をスキャン"
       >
         <div className="relative">
-          <Camera className="w-6 h-6" />
-          <Plus className="w-3 h-3 absolute -top-1 -right-1 bg-[var(--color-primary-dark)] rounded-full" />
+          <Icon name="photo_camera" size={24} />
+          <Icon name="add" size={12} className="absolute -top-1 -right-1 bg-[var(--color-primary-dark)] rounded-full" />
         </div>
       </button>
     </>

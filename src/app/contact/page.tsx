@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 
 export default function ContactPage() {
   return (
@@ -9,7 +9,7 @@ export default function ContactPage() {
       <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <Link href="/settings" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            <ArrowLeft className="w-5 h-5 text-[var(--color-foreground)]" />
+            <Icon name="arrow_back" size={20} className="text-[var(--color-foreground)]" />
           </Link>
           <h1 className="text-xl font-bold text-[var(--color-foreground)]">お問い合わせ</h1>
         </div>
@@ -23,10 +23,10 @@ export default function ContactPage() {
 
           <a
             href="mailto:support@scanvocab.app"
-            className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--color-peach-light)] hover:bg-[var(--color-peach)]/20 transition-colors"
+            className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--color-primary-light)] hover:bg-[var(--color-primary)]/20 transition-colors"
           >
             <div className="w-10 h-10 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center">
-              <Mail className="w-5 h-5 text-[var(--color-primary)]" />
+              <Icon name="mail" size={20} className="text-[var(--color-primary)]" />
             </div>
             <span className="font-semibold text-[var(--color-foreground)]">support@scanvocab.app</span>
           </a>

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Flag, Loader2, BookOpen, BarChart3, Sparkles } from 'lucide-react';
-import { BottomNav } from '@/components/ui';
+import { Icon, AppShell } from '@/components/ui';
 import { StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
@@ -119,7 +118,7 @@ export default function FavoritesPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-[var(--color-muted)]">
-        <Loader2 className="w-5 h-5 animate-spin" />
+        <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-primary)]" />
         <span className="ml-2">読み込み中...</span>
       </div>
     );
@@ -132,20 +131,21 @@ export default function FavoritesPage() {
   const firstProjectId = favorites.length > 0 ? favorites[0].projectId : null;
 
   return (
-    <div className="min-h-screen pb-28">
+    <AppShell>
+    <div className="min-h-screen pb-28 lg:pb-6">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 -ml-2 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+              className="p-2 -ml-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <Icon name="arrow_back" size={20} />
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <Flag className="w-5 h-5 fill-[var(--color-warning)] text-[var(--color-warning)]" />
+                <Icon name="flag" size={20} filled className="text-[var(--color-warning)]" />
                 <h1 className="text-lg font-bold text-[var(--color-foreground)]">苦手な単語</h1>
               </div>
               <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
@@ -158,7 +158,7 @@ export default function FavoritesPage() {
         {favorites.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Flag className="w-8 h-8 text-[var(--color-muted)]" />
+              <Icon name="flag" size={32} className="text-[var(--color-muted)]" />
             </div>
             <h2 className="text-lg font-medium text-[var(--color-foreground)] mb-2">
               苦手な単語はありません
@@ -195,15 +195,15 @@ export default function FavoritesPage() {
                   <StudyModeCard
                     title="苦手クイズ"
                     description="苦手な単語を復習"
-                    icon={BookOpen}
+                    icon="menu_book"
                     href={isPro ? `/quiz/${firstProjectId}/favorites?from=${returnPath}` : '/subscription'}
-                    variant="red"
+                    variant="primary"
                     badge={!isPro ? 'Pro' : undefined}
                   />
                   <StudyModeCard
                     title="苦手カード"
                     description="スワイプで確認"
-                    icon={BarChart3}
+                    icon="style"
                     href={isPro ? `/flashcard/${firstProjectId}?favorites=true&from=${returnPath}` : '/subscription'}
                     variant="blue"
                     badge={!isPro ? 'Pro' : undefined}
@@ -212,7 +212,7 @@ export default function FavoritesPage() {
                 <StudyModeCard
                   title="苦手例文クイズ"
                   description="例文で記憶を定着"
-                  icon={Sparkles}
+                  icon="auto_awesome"
                   href={isPro ? `/sentence-quiz/${firstProjectId}?favorites=true&from=${returnPath}` : '/subscription'}
                   variant="orange"
                   badge={!isPro ? 'Pro' : undefined}
@@ -260,8 +260,7 @@ export default function FavoritesPage() {
           </>
         )}
       </main>
-
-      <BottomNav />
     </div>
+    </AppShell>
   );
 }

@@ -1,52 +1,50 @@
 @import "tailwindcss";
 
-/* ===== MERKEN Design System ===== */
+/* ===== MERKEN Design System (Stitch Blue) ===== */
 
 :root {
   /* Primary Colors */
-  --color-primary: #FF6B6B;
-  --color-primary-dark: #E55050;
-  --color-peach: #FFB347;
-  --color-peach-light: #FFF3E5;
+  --color-primary: #137fec;
+  --color-primary-dark: #0d6ecc;
+  --color-primary-light: #e8f2fd;
 
   /* Semantic Colors */
-  --color-success: #4ECDC4;
-  --color-success-light: #E5F9F7;
-  --color-error: #FF6B6B;
-  --color-error-light: #FFE5E5;
-  --color-warning: #FFB347;
-  --color-warning-light: #FFF3E5;
+  --color-success: #22c55e;
+  --color-success-light: #dcfce7;
+  --color-error: #ef4444;
+  --color-error-light: #fee2e2;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fef3c7;
 
   /* Neutral Colors */
-  --color-background: #F5F5FA;
+  --color-background: #f6f7f8;
   --color-surface: #FFFFFF;
-  --color-foreground: #1A1A2E;
-  --color-muted: #8A8AA3;
+  --color-foreground: #111418;
+  --color-muted: #6b7280;
 
   /* Border & Shadow */
-  --color-border: #E6E6EF;
-  --color-border-light: #F0F0F6;
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
 }
 
 .dark {
-  --color-background: #1A1A1E;
-  --color-surface: #232328;
-  --color-foreground: #F5F5F7;
-  --color-muted: #9B9BB2;
-  --color-border: #2F2F38;
-  --color-border-light: #3A3A44;
-  --color-peach-light: #2D2D35;
-  --color-success-light: #1F2E2D;
-  --color-error-light: #2E1F24;
-  --color-warning-light: #2E2A1F;
+  --color-background: #111418;
+  --color-surface: #1e242b;
+  --color-foreground: #f1f3f5;
+  --color-muted: #9dabb9;
+  --color-border: #283039;
+  --color-border-light: #1e242b;
+  --color-primary-light: #1a2e45;
+  --color-success-light: #14291e;
+  --color-error-light: #2e1a1a;
+  --color-warning-light: #2e2a1a;
 }
 
 @theme inline {
   /* Colors */
   --color-primary: var(--color-primary);
   --color-primary-dark: var(--color-primary-dark);
-  --color-peach: var(--color-peach);
-  --color-peach-light: var(--color-peach-light);
+  --color-primary-light: var(--color-primary-light);
   --color-success: var(--color-success);
   --color-success-light: var(--color-success-light);
   --color-error: var(--color-error);
@@ -61,7 +59,7 @@
   --color-border-light: var(--color-border-light);
 
   /* Fonts */
-  --font-display: 'Manrope', 'Noto Sans JP', sans-serif;
+  --font-display: 'Lexend', 'Noto Sans JP', sans-serif;
   --font-body: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
   --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
@@ -79,17 +77,11 @@
 
 body {
   background-color: var(--color-background);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23E6E6EF' fill-opacity='0.25'/%3E%3C/svg%3E");
-  background-size: 32px 32px;
   color: var(--color-foreground);
   font-family: var(--font-body);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-.dark body {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='2' cy='2' r='1' fill='%233A3A44' fill-opacity='0.3'/%3E%3C/svg%3E");
 }
 
 /* Display font for headings */
@@ -112,51 +104,51 @@ body {
 }
 
 .dark .bg-gray-50 {
-  background-color: #1F1F24;
+  background-color: #1a2028;
 }
 
 .dark .bg-gray-100 {
-  background-color: #25252B;
+  background-color: #1e242b;
 }
 
 .dark .bg-gray-200 {
-  background-color: #2F2F36;
+  background-color: #283039;
 }
 
 .dark .text-gray-900 {
-  color: #F5F5F7;
+  color: #f1f3f5;
 }
 
 .dark .text-gray-700 {
-  color: #CFCFE1;
+  color: #c8d1db;
 }
 
 .dark .text-gray-600 {
-  color: #B1B1C8;
+  color: #b0bcc8;
 }
 
 .dark .text-gray-500 {
-  color: #9B9BB2;
+  color: #9dabb9;
 }
 
 .dark .text-gray-400 {
-  color: #7D7D95;
+  color: #7d8b99;
 }
 
 .dark .border-gray-200 {
-  border-color: #2F2F38;
+  border-color: #283039;
 }
 
 .dark .border-gray-300 {
-  border-color: #3A3A44;
+  border-color: #3b4754;
 }
 
 .dark .hover\:bg-gray-100:hover {
-  background-color: #26262C;
+  background-color: #1e242b;
 }
 
 .dark .hover\:bg-gray-200:hover {
-  background-color: #2F2F36;
+  background-color: #283039;
 }
 
 /* ===== Custom Shadows ===== */
@@ -170,38 +162,39 @@ body {
 }
 
 .shadow-glow {
-  box-shadow: 0 10px 22px rgba(255, 107, 107, 0.25);
+  box-shadow: 0 10px 22px rgba(19, 127, 236, 0.25);
 }
 
 .shadow-glow-lg {
-  box-shadow: 0 16px 30px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 16px 30px rgba(19, 127, 236, 0.3);
 }
 
 /* ===== Gradient Utilities ===== */
 
 .bg-gradient-primary {
-  background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%);
+  background: #137fec;
 }
 
 .bg-gradient-primary-horizontal {
-  background: linear-gradient(to right, #FF6B6B 0%, #FF8A6A 100%);
+  background: #137fec;
 }
 
 /* ===== Button Styles ===== */
 
 .btn-primary {
-  background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%);
+  background: #137fec;
   color: white;
   font-weight: 600;
   border-radius: var(--radius-full);
   padding: 1rem 1.5rem;
-  box-shadow: 0 8px 18px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 8px 18px rgba(19, 127, 236, 0.3);
   transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
+  background: #0d6ecc;
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(255, 107, 107, 0.35);
+  box-shadow: 0 12px 24px rgba(19, 127, 236, 0.35);
 }
 
 .btn-primary:active {
@@ -220,7 +213,7 @@ body {
 
 .btn-secondary:hover {
   border-color: var(--color-primary);
-  background: var(--color-peach-light);
+  background: var(--color-primary-light);
 }
 
 /* ===== Card Styles ===== */
@@ -271,8 +264,8 @@ body {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: var(--radius-full);
-  background: var(--color-warning-light);
-  color: var(--color-muted);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
   font-weight: 700;
   font-size: 0.875rem;
   margin-left: 0.25rem;
@@ -282,7 +275,7 @@ body {
 .quiz-option-correct {
   background: var(--color-success);
   border-color: transparent;
-  box-shadow: 0 6px 14px rgba(78, 205, 196, 0.25);
+  box-shadow: 0 6px 14px rgba(34, 197, 94, 0.25);
 }
 
 .quiz-option-correct .quiz-option-label {
@@ -293,7 +286,7 @@ body {
 .quiz-option-wrong {
   background: var(--color-error);
   border-color: transparent;
-  box-shadow: 0 6px 14px rgba(255, 107, 107, 0.25);
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.25);
 }
 
 .quiz-option-wrong .quiz-option-label {
@@ -306,13 +299,13 @@ body {
 .progress-bar {
   height: 0.75rem;
   border-radius: var(--radius-full);
-  background: var(--color-peach-light);
+  background: var(--color-primary-light);
   overflow: hidden;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(to right, #FF6B6B 0%, #FF8A6A 100%);
+  background: #137fec;
   border-radius: var(--radius-full);
   transition: width 0.5s ease-out;
 }
@@ -332,11 +325,11 @@ body {
 .chip-tough {
   background: var(--color-warning-light);
   color: #B45309;
-  border: 1px solid rgba(255, 179, 71, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .chip-pro {
-  background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%);
+  background: #137fec;
   color: white;
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
@@ -482,9 +475,9 @@ body {
   width: 3.25rem;
   height: 3.25rem;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%);
+  background: #137fec;
   color: white;
-  box-shadow: 0 10px 22px rgba(255, 107, 107, 0.28);
+  box-shadow: 0 10px 22px rgba(19, 127, 236, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -493,8 +486,9 @@ body {
 }
 
 .bottom-nav-cta:hover {
+  background: #0d6ecc;
   transform: translateY(-1.2rem);
-  box-shadow: 0 14px 26px rgba(255, 107, 107, 0.32);
+  box-shadow: 0 14px 26px rgba(19, 127, 236, 0.32);
 }
 
 .bottom-nav-cta:active {

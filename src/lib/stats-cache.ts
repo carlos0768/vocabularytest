@@ -240,13 +240,43 @@ async function fetchStatsData(
     const wrongAnswers = getWrongAnswers();
     const streakDays = getStreakDays();
 
+    // For Pro users, also fetch remote wrong answer count and streak
+    // to ensure we show the most complete data
+    let wrongAnswersCount = wrongAnswers.length;
+    let finalStreakDays = streakDays;
+
+    if (isProUser) {
+      try {
+        const supabase = createBrowserClient();
+        const [wrongCountResult, streakResult] = await Promise.all([
+          supabase.from('user_wrong_answers').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+          supabase.from('user_streak').select('streak_count, last_activity_date').eq('user_id', userId).single(),
+        ]);
+
+        if (wrongCountResult.count !== null && wrongCountResult.count !== undefined) {
+          wrongAnswersCount = Math.max(wrongAnswersCount, wrongCountResult.count);
+        }
+
+        if (streakResult.data) {
+          const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          const lastDate = streakResult.data.last_activity_date;
+          if (lastDate === today || lastDate === yesterday) {
+            finalStreakDays = Math.max(finalStreakDays, streakResult.data.streak_count);
+          }
+        }
+      } catch {
+        // Fallback to local values
+      }
+    }
+
     const stats: CachedStats = {
       ...wordStats,
-      wrongAnswersCount: wrongAnswers.length,
+      wrongAnswersCount,
       quizStats: {
         todayCount: dailyStats.todayCount,
         correctCount: dailyStats.correctCount,
-        streakDays,
+        streakDays: finalStreakDays,
         lastQuizDate: null,
       },
     };

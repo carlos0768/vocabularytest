@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Mail, ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { OtpInput } from '@/components/ui/OtpInput';
 
@@ -146,7 +146,7 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
         <div className="bg-[var(--color-surface)] rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
           <div className="w-16 h-16 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-[var(--color-success)]" />
+            <Icon name="check_circle" size={32} className="text-[var(--color-success)]" />
           </div>
           <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">
             パスワードを更新しました
@@ -192,7 +192,7 @@ export default function ResetPasswordPage() {
                   メールアドレス
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-muted)]" />
+                  <Icon name="mail" size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
                   <input
                     id="email"
                     type="email"
@@ -200,7 +200,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all"
                     placeholder="email@example.com"
                   />
                 </div>
@@ -219,7 +219,7 @@ export default function ResetPasswordPage() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
                     送信中...
                   </>
                 ) : (
@@ -237,7 +237,7 @@ export default function ResetPasswordPage() {
                   onClick={() => { setStep('email'); setOtpCode(''); setError(null); }}
                   className="flex items-center text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] mb-4"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  <Icon name="arrow_back" size={16} className="mr-1" />
                   メールアドレスを変更
                 </button>
 
@@ -262,7 +262,7 @@ export default function ResetPasswordPage() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
                     確認中...
                   </>
                 ) : (
@@ -296,7 +296,7 @@ export default function ResetPasswordPage() {
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
                       autoComplete="new-password"
-                      className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all pr-12"
+                      className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all pr-12"
                       placeholder="8文字以上"
                     />
                     <button
@@ -304,7 +304,7 @@ export default function ResetPasswordPage() {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? <Icon name="visibility_off" size={20} /> : <Icon name="visibility" size={20} />}
                     </button>
                   </div>
                 </div>
@@ -320,7 +320,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     autoComplete="new-password"
-                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all"
                     placeholder="パスワードを再入力"
                   />
                 </div>
@@ -334,7 +334,7 @@ export default function ResetPasswordPage() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
                     更新中...
                   </>
                 ) : (

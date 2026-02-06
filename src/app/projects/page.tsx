@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Star, Loader2 } from 'lucide-react';
-import { BottomNav } from '@/components/ui';
+import { Icon, AppShell } from '@/components/ui';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
@@ -68,7 +67,8 @@ export default function ProjectsPage() {
   );
 
   return (
-    <div className="min-h-screen pb-28">
+    <AppShell>
+    <div className="min-h-screen pb-28 lg:pb-6">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <div className="flex-1">
@@ -77,9 +77,9 @@ export default function ProjectsPage() {
           </div>
           <Link
             href="/scan"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-peach-light)] text-[var(--color-primary)] text-sm font-semibold"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-sm font-semibold"
           >
-            <Plus className="w-4 h-4" />
+            <Icon name="add" size={16} />
             新規スキャン
           </Link>
         </div>
@@ -87,7 +87,7 @@ export default function ProjectsPage() {
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+          <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
             type="text"
             value={query}
@@ -103,26 +103,26 @@ export default function ProjectsPage() {
             href="/search"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold hover:border-[var(--color-primary)] transition-colors"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Icon name="search" size={14} />
             単語検索へ
           </Link>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Icon name="progress_activity" size={20} className="animate-spin" />
             <span className="ml-2">読み込み中...</span>
           </div>
         ) : projects.length === 0 ? (
           <div className="card p-6 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-peach-light)] flex items-center justify-center">
-              <Star className="w-6 h-6 text-[var(--color-primary)]" />
+            <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center">
+              <Icon name="star" size={24} className="text-[var(--color-primary)]" />
             </div>
             <h2 className="mt-4 text-lg font-bold">まだプロジェクトがありません</h2>
             <p className="text-sm text-[var(--color-muted)] mt-2">スキャンから最初の単語帳を作成しましょう</p>
             <Link
               href="/scan"
-              className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white font-semibold"
+              className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-full bg-primary text-white font-semibold"
             >
               スキャンを始める
             </Link>
@@ -169,8 +169,7 @@ export default function ProjectsPage() {
           </>
         )}
       </main>
-
-      <BottomNav />
     </div>
+    </AppShell>
   );
 }

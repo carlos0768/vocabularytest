@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, Flag, Sparkles, Lock, Loader2 } from 'lucide-react';
-import { BottomNav } from '@/components/ui';
+import { Icon, AppShell } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
@@ -140,7 +139,8 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] pb-24">
+    <AppShell>
+    <div className="min-h-screen bg-[var(--color-background)] pb-24 lg:pb-6">
       {/* Header */}
       <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">
@@ -159,7 +159,7 @@ export default function SearchPage() {
                 : 'bg-[var(--color-surface)] text-[var(--color-muted)] border border-[var(--color-border)]'
             }`}
           >
-            <Search className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+            <Icon name="search" size={16} className="inline-block mr-1.5 -mt-0.5" />
             テキスト検索
           </button>
           <button
@@ -173,9 +173,9 @@ export default function SearchPage() {
             }`}
           >
             {isPro ? (
-              <Sparkles className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+              <Icon name="auto_awesome" size={16} className="inline-block mr-1.5 -mt-0.5" />
             ) : (
-              <Lock className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+              <Icon name="lock" size={16} className="inline-block mr-1.5 -mt-0.5" />
             )}
             意味検索
             {!isPro && (
@@ -188,7 +188,7 @@ export default function SearchPage() {
 
         {/* Search input */}
         <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-muted)]" />
+          <Icon name="search" size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
             type="text"
             value={searchQuery}
@@ -205,8 +205,8 @@ export default function SearchPage() {
           <>
             {!searchQuery.trim() ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center">
-                  <Search className="w-8 h-8 text-[var(--color-primary)]" />
+                <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
+                  <Icon name="search" size={32} className="text-[var(--color-primary)]" />
                 </div>
                 <p className="text-[var(--color-muted)]">
                   全プロジェクトの単語を横断検索できます
@@ -239,9 +239,9 @@ export default function SearchPage() {
                       </div>
                       <div className="flex items-center gap-2 ml-3">
                         {word.isFavorite && (
-                          <Flag className="w-4 h-4 fill-[var(--color-peach)] text-[var(--color-peach)]" />
+                          <Icon name="flag" size={16} filled className="text-[var(--color-primary)]" />
                         )}
-                        <span className="text-xs text-[var(--color-muted)] bg-[var(--color-peach-light)] px-2 py-1 rounded-full">
+                        <span className="text-xs text-[var(--color-muted)] bg-[var(--color-primary-light)] px-2 py-1 rounded-full">
                           {word.projectTitle}
                         </span>
                       </div>
@@ -256,8 +256,8 @@ export default function SearchPage() {
           <>
             {!searchQuery.trim() ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-[var(--color-primary)]" />
+                <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
+                  <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />
                 </div>
                 <p className="text-[var(--color-muted)]">
                   日本語で意味を入力すると
@@ -271,7 +271,7 @@ export default function SearchPage() {
               </div>
             ) : semanticLoading ? (
               <div className="text-center py-12">
-                <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin mx-auto mb-3" />
+                <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin mx-auto mb-3" />
                 <p className="text-sm text-[var(--color-muted)]">意味を検索中...</p>
               </div>
             ) : semanticError ? (
@@ -304,7 +304,7 @@ export default function SearchPage() {
                         <span className="text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-1 rounded-full">
                           {result.similarity}%
                         </span>
-                        <span className="text-xs text-[var(--color-muted)] bg-[var(--color-peach-light)] px-2 py-1 rounded-full">
+                        <span className="text-xs text-[var(--color-muted)] bg-[var(--color-primary-light)] px-2 py-1 rounded-full">
                           {result.projectTitle}
                         </span>
                       </div>
@@ -316,8 +316,7 @@ export default function SearchPage() {
           </>
         )}
       </main>
-
-      <BottomNav />
     </div>
+    </AppShell>
   );
 }

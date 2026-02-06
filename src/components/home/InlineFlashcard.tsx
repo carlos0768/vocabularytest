@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Volume2, RotateCcw } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { shuffleArray } from '@/lib/utils';
 import type { Word } from '@/types';
 
@@ -69,7 +69,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
   }
 
   return (
-    <div className="card p-4 bg-[var(--color-peach-light)]">
+    <div className="card p-4 bg-[var(--color-primary-light)]">
       {/* Progress indicator */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-[var(--color-muted)]">
@@ -80,7 +80,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
           className="p-1.5 hover:bg-[var(--color-primary)]/10 rounded-full transition-colors"
           aria-label="シャッフル"
         >
-          <RotateCcw className="w-4 h-4 text-[var(--color-muted)]" />
+          <Icon name="refresh" size={16} className="text-[var(--color-muted)]" />
         </button>
       </div>
 
@@ -109,10 +109,10 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
               <div className="flex items-center justify-center mb-2 h-[20px]">
                 <button
                   onClick={speakWord}
-                  className="p-1 hover:bg-[var(--color-peach-light)] rounded-full transition-colors"
+                  className="p-1 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
                   aria-label="発音を聞く"
                 >
-                  <Volume2 className="w-5 h-5 text-[var(--color-muted)]" />
+                  <Icon name="volume_up" size={20} className="text-[var(--color-muted)]" />
                 </button>
               </div>
               <h2 className="text-3xl font-bold text-[var(--color-foreground)] tracking-tight">

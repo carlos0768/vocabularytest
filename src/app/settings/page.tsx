@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Loader2, AlertTriangle, ChevronRight, Sparkles, Mail, User, Check, Cloud, Smartphone } from 'lucide-react';
-import { Button, BottomNav } from '@/components/ui';
+import { Icon, Button, AppShell } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -63,7 +62,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] pb-24">
+    <AppShell>
+    <div className="min-h-screen bg-[var(--color-background)] pb-24 lg:pb-6">
       {/* Header */}
       <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">
@@ -83,14 +83,14 @@ export default function SettingsPage() {
           <div className="card p-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center">
-                <Mail className="w-6 h-6 text-[var(--color-primary)]" />
+                <Icon name="mail" size={24} className="text-[var(--color-primary)]" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-[var(--color-foreground)] truncate">{user?.email}</p>
                 <div className="flex items-center gap-1">
                   {isPro ? (
                     <span className="chip chip-pro">
-                      <Sparkles className="w-3 h-3" />
+                      <Icon name="auto_awesome" size={12} />
                       Pro
                     </span>
                   ) : (
@@ -104,7 +104,7 @@ export default function SettingsPage() {
           <div className="card p-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-[var(--color-surface)] rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-[var(--color-muted)]" />
+                <Icon name="person" size={24} className="text-[var(--color-muted)]" />
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-[var(--color-foreground)]">ゲスト</p>
@@ -161,7 +161,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="chip chip-pro">
-                      <Sparkles className="w-3 h-3" />
+                      <Icon name="auto_awesome" size={12} />
                       Pro
                     </span>
                   </div>
@@ -176,7 +176,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between py-2">
                     <span className="text-[var(--color-muted)]">スキャン</span>
                     <span className="font-medium text-[var(--color-success)] flex items-center gap-1">
-                      無制限 <Check className="w-4 h-4" />
+                      無制限 <Icon name="check" size={16} />
                     </span>
                   </div>
 
@@ -197,7 +197,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between py-2">
                     <span className="text-[var(--color-muted)]">保存</span>
                     <span className="font-medium text-[var(--color-primary)] flex items-center gap-1">
-                      <Cloud className="w-4 h-4" />
+                      <Icon name="cloud" size={16} />
                       クラウド同期中
                     </span>
                   </div>
@@ -221,7 +221,7 @@ export default function SettingsPage() {
                 ) : (
                   <div className="bg-[var(--color-error)]/10 rounded-2xl p-4 space-y-3">
                     <div className="flex items-start gap-2 text-[var(--color-error)]">
-                      <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                      <Icon name="warning" size={20} className="flex-shrink-0 mt-0.5" />
                       <p className="text-sm">
                         解約すると、スキャン無制限やクラウド同期が使えなくなります。
                       </p>
@@ -246,7 +246,7 @@ export default function SettingsPage() {
                       >
                         {cancelling ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            <Icon name="progress_activity" size={16} className="mr-1 animate-spin" />
                             処理中
                           </>
                         ) : (
@@ -289,32 +289,32 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between py-2">
                     <span className="text-[var(--color-muted)]">保存</span>
                     <span className="text-[var(--color-muted)] flex items-center gap-1">
-                      <Smartphone className="w-4 h-4" />
+                      <Icon name="smartphone" size={16} />
                       このデバイスのみ
                     </span>
                   </div>
                 </div>
 
                 {/* Pro Upgrade Card */}
-                <div className="bg-gradient-to-r from-[var(--color-peach-light)] to-[var(--color-primary)]/10 rounded-2xl p-4 space-y-3">
+                <div className="bg-gradient-to-r from-[var(--color-primary-light)] to-[var(--color-primary)]/10 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="chip chip-pro">
-                      <Sparkles className="w-3 h-3" />
+                      <Icon name="auto_awesome" size={12} />
                       Pro
                     </span>
                     <span className="font-bold text-[var(--color-foreground)]">にアップグレード</span>
                   </div>
                   <ul className="text-sm text-[var(--color-foreground)] space-y-2">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[var(--color-success)]" />
+                      <Icon name="check" size={16} className="text-[var(--color-success)]" />
                       スキャン無制限
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[var(--color-success)]" />
+                      <Icon name="check" size={16} className="text-[var(--color-success)]" />
                       単語数無制限
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[var(--color-success)]" />
+                      <Icon name="check" size={16} className="text-[var(--color-success)]" />
                       クラウド同期
                     </li>
                   </ul>
@@ -337,30 +337,30 @@ export default function SettingsPage() {
           <div className="card overflow-hidden">
             <Link
               href="/contact"
-              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
+              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-primary-light)] transition-colors"
             >
               <span className="font-medium text-[var(--color-foreground)]">お問い合わせ</span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
+              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
             </Link>
 
             <div className="h-px bg-[var(--color-border)] mx-4" />
 
             <Link
               href="/terms"
-              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
+              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-primary-light)] transition-colors"
             >
               <span className="font-medium text-[var(--color-foreground)]">利用規約</span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
+              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
             </Link>
 
             <div className="h-px bg-[var(--color-border)] mx-4" />
 
             <Link
               href="/privacy"
-              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-peach-light)] transition-colors"
+              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-primary-light)] transition-colors"
             >
               <span className="font-medium text-[var(--color-foreground)]">プライバシーポリシー</span>
-              <ChevronRight className="w-5 h-5 text-[var(--color-muted)]" />
+              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
             </Link>
           </div>
         </section>
@@ -371,7 +371,7 @@ export default function SettingsPage() {
             onClick={handleSignOut}
             className="w-full flex items-center justify-center gap-2 py-3 text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors font-medium"
           >
-            <LogOut className="w-5 h-5" />
+            <Icon name="logout" size={20} />
             ログアウト
           </button>
         )}
@@ -381,9 +381,7 @@ export default function SettingsPage() {
           v1.0.0
         </p>
       </main>
-
-      {/* Bottom Navigation */}
-      <BottomNav />
     </div>
+    </AppShell>
   );
 }

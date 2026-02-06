@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { BarChart3, TrendingUp, Target, Calendar, BookOpen, CheckCircle2 } from 'lucide-react';
-import { BottomNav } from '@/components/ui';
+import { AppShell, Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getDailyStats, getWrongAnswers, getActivityHistory, getStreakDays } from '@/lib/utils';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
+import { createBrowserClient } from '@/lib/supabase';
 import type { DailyActivity } from '@/lib/utils';
 
 // Activity Heatmap Component (GitHub-style: rows = days of week, columns = weeks)
@@ -76,9 +76,9 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
   const getColorClass = (intensity: number): string => {
     switch (intensity) {
       case 0: return 'bg-[var(--color-background)] border border-[var(--color-border)]';
-      case 1: return 'bg-[var(--color-peach-light)]';
-      case 2: return 'bg-[var(--color-peach)]';
-      case 3: return 'bg-[var(--color-primary)]/70';
+      case 1: return 'bg-[var(--color-primary-light)]';
+      case 2: return 'bg-primary/40';
+      case 3: return 'bg-primary/70';
       case 4: return 'bg-[var(--color-primary)]';
       default: return 'bg-[var(--color-background)] border border-[var(--color-border)]';
     }
@@ -97,7 +97,7 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
   return (
     <div className="card p-5">
       <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
-        <Calendar className="w-5 h-5 text-[var(--color-primary)]" />
+        <Icon name="calendar_month" size={20} className="text-[var(--color-primary)]" />
         学習カレンダー
       </h2>
 
@@ -167,7 +167,7 @@ export default function StatsPage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
 
   // Initialize with cached data or localStorage data immediately
-  const [activityHistory] = useState<DailyActivity[]>(() => getActivityHistory(4));
+  const [activityHistory, setActivityHistory] = useState<DailyActivity[]>(() => getActivityHistory(4));
   const [localStats] = useState(() => {
     const dailyStats = getDailyStats();
     const wrongAnswers = getWrongAnswers();
@@ -199,6 +199,53 @@ export default function StatsPage() {
       console.error('Failed to load stats:', error);
       setLoading(false);
     });
+
+    // For Pro users, fetch activity history from Supabase and merge
+    if (isPro && user) {
+      (async () => {
+        try {
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - 27);
+          const supabase = createBrowserClient();
+          const { data, error } = await supabase.rpc('get_daily_stats_range', {
+            p_user_id: user.id,
+            p_start_date: startDate.toISOString().split('T')[0],
+            p_end_date: new Date().toISOString().split('T')[0],
+          });
+          if (error || !data) return;
+
+          const localHistory = getActivityHistory(4);
+          const mergedMap = new Map(localHistory.map(h => [h.date, h]));
+
+          for (const r of data as { active_date: string; quiz_count: number; correct_count: number }[]) {
+            const existing = mergedMap.get(r.active_date);
+            if (existing) {
+              existing.quizCount = Math.max(existing.quizCount, r.quiz_count);
+              existing.correctCount = Math.max(existing.correctCount, r.correct_count);
+            } else {
+              mergedMap.set(r.active_date, {
+                date: r.active_date,
+                quizCount: r.quiz_count,
+                correctCount: r.correct_count,
+              });
+            }
+          }
+
+          // Rebuild sorted array for the past 4 weeks
+          const result: DailyActivity[] = [];
+          const today = new Date();
+          for (let i = 27; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            result.push(mergedMap.get(dateStr) || { date: dateStr, quizCount: 0, correctCount: 0 });
+          }
+          setActivityHistory(result);
+        } catch {
+          // Fallback to local data (already set)
+        }
+      })();
+    }
   }, [subscription?.status, authLoading, isPro, user]);
 
   const masteryPercentage = stats && stats.totalWords > 0
@@ -210,15 +257,16 @@ export default function StatsPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] pb-24">
-      {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
-        <div className="max-w-lg mx-auto">
-          <h1 className="text-xl font-bold text-[var(--color-foreground)]">統計</h1>
-        </div>
-      </header>
+    <AppShell>
+      <div className="pb-24 lg:pb-8">
+        {/* Header */}
+        <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
+          <div className="max-w-lg lg:max-w-5xl mx-auto">
+            <h1 className="text-xl font-bold text-[var(--color-foreground)]">統計</h1>
+          </div>
+        </header>
 
-      <main className="px-6 max-w-lg mx-auto">
+        <main className="px-6 max-w-lg lg:max-w-5xl mx-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
@@ -235,11 +283,11 @@ export default function StatsPage() {
             {/* Today's Progress */}
             <div className="card p-5">
               <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[var(--color-primary)]" />
+                <Icon name="today" size={20} className="text-[var(--color-primary)]" />
                 今日の学習
               </h2>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[var(--color-peach-light)] rounded-2xl p-4">
+                <div className="bg-[var(--color-primary-light)] rounded-2xl p-4">
                   <p className="text-sm text-[var(--color-muted)]">クイズ回答数</p>
                   <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.quizStats.todayCount}</p>
                 </div>
@@ -253,7 +301,7 @@ export default function StatsPage() {
             {/* Word Statistics */}
             <div className="card p-5">
               <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[var(--color-primary)]" />
+                <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
                 単語統計
               </h2>
 
@@ -263,9 +311,9 @@ export default function StatsPage() {
                   <span className="text-[var(--color-muted)]">習得率</span>
                   <span className="font-semibold text-[var(--color-foreground)]">{masteryPercentage}%</span>
                 </div>
-                <div className="h-3 bg-[var(--color-peach-light)] rounded-full overflow-hidden">
+                <div className="h-3 bg-[var(--color-primary-light)] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-peach)] rounded-full transition-all duration-500"
+                    className="h-full bg-primary rounded-full transition-all duration-500"
                     style={{ width: `${masteryPercentage}%` }}
                   />
                 </div>
@@ -273,17 +321,17 @@ export default function StatsPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center p-3 bg-[var(--color-success-light)] rounded-xl">
-                  <CheckCircle2 className="w-5 h-5 text-[var(--color-success)] mx-auto mb-1" />
+                  <Icon name="check_circle" size={20} className="text-[var(--color-success)] mx-auto mb-1" />
                   <p className="text-lg font-bold text-[var(--color-foreground)]">{stats.masteredWords}</p>
                   <p className="text-xs text-[var(--color-muted)]">習得済み</p>
                 </div>
-                <div className="text-center p-3 bg-[var(--color-peach-light)] rounded-xl">
-                  <Target className="w-5 h-5 text-[var(--color-peach)] mx-auto mb-1" />
+                <div className="text-center p-3 bg-[var(--color-primary-light)] rounded-xl">
+                  <Icon name="target" size={20} className="text-[var(--color-primary)] mx-auto mb-1" />
                   <p className="text-lg font-bold text-[var(--color-foreground)]">{stats.reviewWords}</p>
                   <p className="text-xs text-[var(--color-muted)]">復習中</p>
                 </div>
                 <div className="text-center p-3 bg-[var(--color-surface)] rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-[var(--color-muted)] mx-auto mb-1" />
+                  <Icon name="trending_up" size={20} className="text-[var(--color-muted)] mx-auto mb-1" />
                   <p className="text-lg font-bold text-[var(--color-foreground)]">{stats.newWords}</p>
                   <p className="text-xs text-[var(--color-muted)]">未学習</p>
                 </div>
@@ -293,7 +341,7 @@ export default function StatsPage() {
             {/* Overview */}
             <div className="card p-5">
               <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-[var(--color-primary)]" />
+                <Icon name="bar_chart" size={20} className="text-[var(--color-primary)]" />
                 概要
               </h2>
               <div className="space-y-3">
@@ -317,9 +365,8 @@ export default function StatsPage() {
             </div>
           </div>
         )}
-      </main>
-
-      <BottomNav />
-    </div>
+        </main>
+      </div>
+    </AppShell>
   );
 }

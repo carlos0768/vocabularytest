@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Sparkles } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -33,7 +33,7 @@ function SuccessContent() {
   return (
     <div className="w-full max-w-sm text-center">
       <div className="w-16 h-16 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle className="w-8 h-8 text-[var(--color-success)]" />
+        <Icon name="check_circle" size={32} className="text-[var(--color-success)]" />
       </div>
 
       <h1 className="text-xl font-semibold text-[var(--color-foreground)] mb-2">
@@ -41,7 +41,7 @@ function SuccessContent() {
       </h1>
 
       <div className="flex items-center justify-center gap-2 text-[var(--color-primary)] mb-4">
-        <Sparkles className="w-4 h-4" />
+        <Icon name="auto_awesome" size={16} />
         <span className="text-sm font-medium">すべての機能が解放されました</span>
       </div>
 

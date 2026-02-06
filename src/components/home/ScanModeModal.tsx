@@ -1,15 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Check,
-  Sparkles,
-  Camera,
-  CircleDot,
-  BookOpen,
-  Languages,
-  Highlighter,
-} from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
@@ -67,13 +59,13 @@ export function ScanModeModal({
                 onClick={() => setSelectedEiken(level.value)}
                 className={`w-full flex items-center justify-between px-4 py-3 border rounded-[var(--radius-lg)] transition-all text-left ${
                   selectedEiken === level.value
-                    ? 'border-[var(--color-primary)] bg-[var(--color-peach-light)]'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
                     : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
                 }`}
               >
                 <span className="font-semibold text-[var(--color-foreground)]">{level.label}</span>
                 {selectedEiken === level.value && (
-                  <Check className="w-5 h-5 text-[var(--color-primary)]" />
+                  <Icon name="check" size={20} className="text-[var(--color-primary)]" />
                 )}
               </button>
             ))}
@@ -117,10 +109,10 @@ export function ScanModeModal({
         <div className="space-y-3">
           <button
             onClick={() => onSelectMode('all', null)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group"
           >
             <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/20 transition-colors">
-              <Camera className="w-6 h-6 text-[var(--color-primary)]" />
+              <Icon name="photo_camera" size={24} className="text-[var(--color-primary)]" />
             </div>
             <div>
               <p className="font-semibold text-[var(--color-foreground)]">すべての単語を抽出</p>
@@ -133,14 +125,14 @@ export function ScanModeModal({
             className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning-light)] transition-all text-left relative group"
           >
             <div className="w-12 h-12 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-warning)]/25 transition-colors">
-              <CircleDot className="w-6 h-6 text-[var(--color-warning)]" />
+              <Icon name="radio_button_checked" size={24} className="text-[var(--color-warning)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-[var(--color-foreground)]">丸をつけた単語だけ</p>
                 {!isPro && (
                   <span className="chip chip-pro">
-                    <Sparkles className="w-3 h-3" />
+                    <Icon name="auto_awesome" size={12} />
                     Pro
                   </span>
                 )}
@@ -151,17 +143,17 @@ export function ScanModeModal({
 
           <button
             onClick={() => onSelectMode('highlighted', null)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-peach)] hover:bg-[var(--color-peach-light)] transition-all text-left relative group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left relative group"
           >
-            <div className="w-12 h-12 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-peach)]/25 transition-colors">
-              <Highlighter className="w-6 h-6 text-[var(--color-peach)]" />
+            <div className="w-12 h-12 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/25 transition-colors">
+              <Icon name="highlight" size={24} className="text-[var(--color-primary)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-[var(--color-foreground)]">マーカーを引いた単語だけ</p>
                 {!isPro && (
                   <span className="chip chip-pro">
-                    <Sparkles className="w-3 h-3" />
+                    <Icon name="auto_awesome" size={12} />
                     Pro
                   </span>
                 )}
@@ -172,17 +164,17 @@ export function ScanModeModal({
 
           <button
             onClick={() => setShowEikenPicker(true)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-peach)] hover:bg-[var(--color-peach-light)] transition-all text-left group"
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group"
           >
-            <div className="w-12 h-12 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-peach)]/30 transition-colors">
-              <BookOpen className="w-6 h-6 text-[var(--color-peach)]" />
+            <div className="w-12 h-12 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/30 transition-colors">
+              <Icon name="menu_book" size={24} className="text-[var(--color-primary)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-[var(--color-foreground)]">英検レベルでフィルター</p>
                 {!isPro && (
                   <span className="chip chip-pro">
-                    <Sparkles className="w-3 h-3" />
+                    <Icon name="auto_awesome" size={12} />
                     Pro
                   </span>
                 )}
@@ -196,14 +188,14 @@ export function ScanModeModal({
             className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-all text-left group"
           >
             <div className="w-12 h-12 bg-[var(--color-success-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-success)]/30 transition-colors">
-              <Languages className="w-6 h-6 text-[var(--color-success)]" />
+              <Icon name="translate" size={24} className="text-[var(--color-success)]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-[var(--color-foreground)]">熟語・イディオム</p>
                 {!isPro && (
                   <span className="chip chip-pro">
-                    <Sparkles className="w-3 h-3" />
+                    <Icon name="auto_awesome" size={12} />
                     Pro
                   </span>
                 )}

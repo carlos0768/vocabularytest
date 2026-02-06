@@ -4,16 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import {
-  BookOpen,
-  Sparkles,
-  Plus,
-  Flag,
-  FolderOpen,
-} from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { type ProgressStep, useToast, DeleteConfirmModal, BottomNav } from '@/components/ui';
+import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
@@ -981,17 +974,103 @@ export default function HomePage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
-        <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-      </div>
+      <AppShell>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
     );
   }
 
   // Empty state - no projects
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-[var(--color-background)] pb-48">
-        {/* Hidden file input for empty state */}
+      <AppShell>
+        <div className="pb-48">
+          {/* Hidden file input for empty state */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.heic,.heif,.pdf,application/pdf"
+            multiple
+            onChange={(e) => {
+              setShowScanModeModal(false);
+              const files = e.target.files;
+              if (files && files.length > 0) {
+                handleImageSelect(Array.from(files));
+              }
+              e.target.value = '';
+            }}
+            className="hidden"
+          />
+
+          <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4 lg:hidden">
+            <div className="max-w-lg mx-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-extrabold text-[var(--color-primary)] tracking-tight font-display">MERKEN</h1>
+                  {isPro && (
+                    <span className="chip chip-pro">
+                      <Icon name="auto_awesome" size={14} />
+                      Pro
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex flex-col items-center justify-center px-6 py-20">
+            <div className="w-20 h-20 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mb-6">
+              <Icon name="menu_book" size={40} className="text-[var(--color-primary)]" />
+            </div>
+            <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
+            <p className="text-[var(--color-muted)] text-center mb-8">
+              下のカメラボタンから<br />ノートやプリントを撮影しましょう
+            </p>
+            {!isAuthenticated && (
+              <p className="text-sm text-[var(--color-muted)]">
+                <Link href="/signup" className="text-[var(--color-primary)] font-semibold hover:underline">
+                  アカウント登録
+                </Link>
+                でクラウド保存
+              </p>
+            )}
+          </main>
+
+          {processing && (
+            <ProcessingModal
+              steps={processingSteps}
+              onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
+            />
+          )}
+
+          <ScanModeModal
+            isOpen={showScanModeModal}
+            onClose={() => setShowScanModeModal(false)}
+            onSelectMode={handleScanModeSelect}
+            isPro={isPro}
+          />
+          <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
+          <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
+          <ProjectNameModal
+            isOpen={showProjectNameModal}
+            onClose={() => { setShowProjectNameModal(false); setPendingFile(null); }}
+            onConfirm={handleProjectNameConfirm}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Main view with project
+  return (
+    <AppShell>
+      <div className="flex flex-col pb-28 lg:pb-8">
+        {/* Word limit banner */}
+        {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
+
+        {/* Hidden file input for new project (legacy scan flow) */}
         <input
           ref={fileInputRef}
           type="file"
@@ -1008,200 +1087,137 @@ export default function HomePage() {
           className="hidden"
         />
 
-        <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
-          <div className="max-w-lg mx-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-[var(--color-primary)] tracking-tight">MERKEN</h1>
-                {isPro && (
+        {/* Header - mobile only */}
+        <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)] lg:hidden">
+          <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
+              <p className="text-xs text-[var(--color-muted)]">手入力ゼロで単語帳を作成</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {isPro && (
+                <>
+                  <SyncStatusIndicator />
                   <span className="chip chip-pro">
-                    <Sparkles className="w-3 h-3" />
+                    <Icon name="auto_awesome" size={14} />
                     Pro
                   </span>
-                )}
-              </div>
+                </>
+              )}
+              <Link
+                href="/projects"
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
+                aria-label="プロジェクト一覧"
+              >
+                <Icon name="folder" size={24} />
+              </Link>
             </div>
           </div>
         </header>
 
-        <main className="flex flex-col items-center justify-center px-6 py-20">
-          <div className="w-20 h-20 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center mb-6">
-            <BookOpen className="w-10 h-10 text-[var(--color-primary)]" />
+        {/* Desktop header */}
+        <header className="hidden lg:block px-8 py-6">
+          <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-[var(--color-foreground)] font-display">ダッシュボード</h1>
+              <p className="text-sm text-[var(--color-muted)] mt-1">手入力ゼロで単語帳を作成</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {isPro && (
+                <>
+                  <SyncStatusIndicator />
+                  <span className="chip chip-pro">
+                    <Icon name="auto_awesome" size={14} />
+                    Pro
+                  </span>
+                </>
+              )}
+            </div>
           </div>
-          <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
-          <p className="text-[var(--color-muted)] text-center mb-8">
-            下のカメラボタンから<br />ノートやプリントを撮影しましょう
-          </p>
-          {!isAuthenticated && (
-            <p className="text-sm text-[var(--color-muted)]">
-              <Link href="/signup" className="text-[var(--color-primary)] font-semibold hover:underline">
-                アカウント登録
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 w-full space-y-6">
+          {/* Review section */}
+          <section className="card p-4 lg:p-6 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs text-[var(--color-muted)]">復習セクション</p>
+              <p className="text-lg font-bold text-[var(--color-foreground)] mt-1">
+                {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
+              </p>
+            </div>
+            {reviewDueCount > 0 ? (
+              <Link
+                href={reviewQuizHref}
+                className="px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-colors"
+              >
+                復習クイズへ
               </Link>
-              でクラウド保存
-            </p>
-          )}
-        </main>
-
-        {/* Bottom Navigation */}
-        <BottomNav />
-
-        {processing && (
-          <ProcessingModal
-            steps={processingSteps}
-            onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
-          />
-        )}
-
-        <ScanModeModal
-          isOpen={showScanModeModal}
-          onClose={() => setShowScanModeModal(false)}
-          onSelectMode={handleScanModeSelect}
-          isPro={isPro}
-        />
-        <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
-        <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
-        <ProjectNameModal
-          isOpen={showProjectNameModal}
-          onClose={() => { setShowProjectNameModal(false); setPendingFile(null); }}
-          onConfirm={handleProjectNameConfirm}
-        />
-      </div>
-    );
-  }
-
-  // Main view with project
-  return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col pb-28">
-      {/* Word limit banner */}
-      {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
-
-      {/* Hidden file input for new project (legacy scan flow) */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.heic,.heif,.pdf,application/pdf"
-        multiple
-        onChange={(e) => {
-          setShowScanModeModal(false);
-          const files = e.target.files;
-          if (files && files.length > 0) {
-            handleImageSelect(Array.from(files));
-          }
-          e.target.value = '';
-        }}
-        className="hidden"
-      />
-
-      {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
-            <p className="text-xs text-[var(--color-muted)]">手入力ゼロで単語帳を作成</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {isPro && (
-              <>
-                <SyncStatusIndicator />
-                <span className="chip chip-pro">
-                  <Sparkles className="w-3 h-3" />
-                  Pro
-                </span>
-              </>
-            )}
-            <Link
-              href="/projects"
-              className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
-              aria-label="プロジェクト一覧"
-            >
-              <FolderOpen className="w-6 h-6" />
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="flex-1 max-w-lg mx-auto px-4 py-6 w-full space-y-6">
-        <section className="card p-4 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs text-[var(--color-muted)]">復習セクション</p>
-            <p className="text-lg font-bold text-[var(--color-foreground)] mt-1">
-              {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
-            </p>
-          </div>
-          {reviewDueCount > 0 ? (
-            <Link
-              href={reviewQuizHref}
-              className="px-4 py-2 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white text-sm font-semibold"
-            >
-              復習クイズへ
-            </Link>
-          ) : (
-            <Link
-              href="/projects"
-              className="px-4 py-2 rounded-full border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold"
-            >
-              プロジェクトを見る
-            </Link>
-          )}
-        </section>
-
-        <section className="grid grid-cols-2 gap-3">
-          <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-peach-light)] flex items-center justify-center text-[var(--color-primary)]">
-              <Plus className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">新しくスキャン</p>
-              <p className="text-xs text-[var(--color-muted)] mt-1">ノートやプリントを取り込む</p>
-            </div>
-          </Link>
-          <Link href="/favorites" className="card p-4 flex flex-col gap-3 hover:shadow-card transition-shadow">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
-              <Flag className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
-              <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
-            </div>
-          </Link>
-        </section>
-
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近のプロジェクト</h2>
-            <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
-          </div>
-          <div className="space-y-3">
-            {projects.length === 0 ? (
-              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                まだプロジェクトがありません。スキャンから始めましょう。
-              </div>
             ) : (
-              [...projects]
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 3)
-                .map((project) => {
-                  const projectWords = getCachedProjectWords()[project.id] || [];
-                  const mastered = projectWords.filter((w) => w.status === 'mastered').length;
-                  const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
-                  return (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      wordCount={projectWords.length}
-                      masteredCount={mastered}
-                      progress={progress}
-                    />
-                  );
-                })
+              <Link
+                href="/projects"
+                className="px-4 py-2 rounded-full border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
+              >
+                プロジェクトを見る
+              </Link>
             )}
-          </div>
-        </section>
-      </main>
+          </section>
 
-      {/* Bottom Navigation */}
-      <BottomNav />
+          {/* Quick actions */}
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center text-[var(--color-primary)]">
+                <Icon name="add" size={22} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">新しくスキャン</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">ノートやプリントを取り込む</p>
+              </div>
+            </Link>
+            <Link href="/favorites" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
+                <Icon name="flag" size={22} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
+              </div>
+            </Link>
+          </section>
+
+          {/* Recent projects */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近のプロジェクト</h2>
+              <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {projects.length === 0 ? (
+                <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
+                  まだプロジェクトがありません。スキャンから始めましょう。
+                </div>
+              ) : (
+                [...projects]
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 4)
+                  .map((project) => {
+                    const projectWords = getCachedProjectWords()[project.id] || [];
+                    const mastered = projectWords.filter((w) => w.status === 'mastered').length;
+                    const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
+                    return (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        wordCount={projectWords.length}
+                        masteredCount={mastered}
+                        progress={progress}
+                      />
+                    );
+                  })
+              )}
+            </div>
+          </section>
+        </main>
 
       {/* Modals */}
       {processing && (
@@ -1294,6 +1310,7 @@ export default function HomePage() {
         projectFavoriteCounts={projectFavoriteCounts}
         totalWords={totalWords}
       />
-    </div>
+      </div>
+    </AppShell>
   );
 }

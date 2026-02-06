@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { Icon } from './Icon';
 import { cn } from '@/lib/utils';
 
 interface ModalProps {
@@ -63,7 +63,7 @@ export function Modal({
             className="absolute top-4 right-4 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
             aria-label="閉じる"
           >
-            <X className="w-5 h-5" />
+            <Icon name="close" size={20} />
           </button>
         )}
         {children}

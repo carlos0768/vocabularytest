@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { Icon } from './Icon';
 import { cn } from '@/lib/utils';
 
 interface Toast {
@@ -57,9 +57,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               'pointer-events-auto bg-[#1A1A2E] text-white px-4 py-3 rounded-[var(--radius-lg)] shadow-card',
               'flex items-center gap-3 max-w-sm w-full',
               'animate-in slide-in-from-bottom-4 fade-in duration-200',
-              toast.type === 'warning' && 'bg-[#FFB347] text-[#1A1A2E]',
-              toast.type === 'success' && 'bg-[#4ECDC4] text-[#0B2C2A]',
-              toast.type === 'error' && 'bg-[#FF6B6B]'
+              toast.type === 'warning' && 'bg-[#f59e0b] text-[#1A1A2E]',
+              toast.type === 'success' && 'bg-[#22c55e] text-white',
+              toast.type === 'error' && 'bg-[#ef4444]'
             )}
           >
             <span className="text-sm flex-1">{toast.message}</span>
@@ -73,7 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 className="flex items-center gap-1 text-sm font-medium text-white/90 hover:text-white shrink-0"
               >
                 {toast.action.label}
-                <ChevronRight className="w-4 h-4" />
+                <Icon name="chevron_right" size={16} />
               </button>
             )}
           </div>

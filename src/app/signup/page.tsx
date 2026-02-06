@@ -3,7 +3,7 @@
 import { useState, Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Loader2, Mail, ArrowLeft } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { OtpInput } from '@/components/ui/OtpInput';
 import { useAuth } from '@/hooks/use-auth';
@@ -167,8 +167,8 @@ function SignupForm() {
 
         <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-[var(--color-peach-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="w-7 h-7 text-[var(--color-primary)]" />
+            <div className="w-14 h-14 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Icon name="mail" size={28} className="text-[var(--color-primary)]" />
             </div>
             <p className="text-[var(--color-muted)] text-sm">
               <span className="font-medium text-[var(--color-foreground)]">{email}</span>
@@ -193,7 +193,7 @@ function SignupForm() {
 
           {loading && (
             <div className="flex items-center justify-center gap-2 text-[var(--color-muted)] text-sm mb-4">
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Icon name="progress_activity" size={16} className="animate-spin" />
               アカウントを作成中...
             </div>
           )}
@@ -222,7 +222,7 @@ function SignupForm() {
             }}
             className="flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] mt-4"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <Icon name="arrow_back" size={16} />
             メールアドレスを変更
           </button>
         </div>
@@ -260,7 +260,7 @@ function SignupForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-surface)]"
+              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
               placeholder="email@example.com"
             />
           </div>
@@ -278,7 +278,7 @@ function SignupForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
+                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
                 placeholder="8文字以上"
               />
               <button
@@ -286,7 +286,7 @@ function SignupForm() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? <Icon name="visibility_off" size={20} /> : <Icon name="visibility" size={20} />}
               </button>
             </div>
           </div>
@@ -303,7 +303,7 @@ function SignupForm() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-peach-light)] outline-none transition-all bg-[var(--color-surface)]"
+              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
               placeholder="パスワードを再入力"
             />
           </div>
@@ -318,7 +318,7 @@ function SignupForm() {
         >
           {loading ? (
             <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
               送信中...
             </>
           ) : (
@@ -354,7 +354,7 @@ function SignupFormFallback() {
       </div>
       <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+          <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin" />
         </div>
       </div>
     </div>

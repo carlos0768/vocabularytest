@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Share2, Loader2, Check, BarChart3, BookOpen, Sparkles, Pencil } from 'lucide-react';
-import { BottomNav, DeleteConfirmModal } from '@/components/ui';
+import { DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { StudyModeCard, WordList } from '@/components/home';
@@ -280,7 +279,7 @@ export default function ProjectDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-[var(--color-muted)]">
-        <Loader2 className="w-5 h-5 animate-spin" />
+        <Icon name="progress_activity" size={20} className="animate-spin" />
         <span className="ml-2">読み込み中...</span>
       </div>
     );
@@ -291,7 +290,7 @@ export default function ProjectDetailPage() {
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
         <h1 className="text-xl font-bold text-[var(--color-foreground)]">プロジェクトが見つかりません</h1>
         <p className="text-sm text-[var(--color-muted)] mt-2">一覧から選び直してください。</p>
-        <Link href="/projects" className="mt-4 px-4 py-2 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FFB347] text-white font-semibold">
+        <Link href="/projects" className="mt-4 px-4 py-2 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/20">
           プロジェクトへ戻る
         </Link>
       </div>
@@ -301,135 +300,134 @@ export default function ProjectDetailPage() {
   const returnToProject = encodeURIComponent(`/project/${project.id}`);
 
   return (
-    <div className="min-h-screen pb-28">
-      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
+    <AppShell>
+      <div className="pb-28 lg:pb-8">
+        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+          <div className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
+                <button
+                  onClick={handleOpenEditNameModal}
+                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
+                  aria-label="プロジェクト名を編集"
+                >
+                  <Icon name="edit" size={16} />
+                </button>
+                {isPro && (
+                  <span className="chip chip-pro px-2 py-1 text-xs">
+                    <Icon name="auto_awesome" size={12} />
+                    Pro
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
+            </div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
-              <button
-                onClick={handleOpenEditNameModal}
-                className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
-                aria-label="プロジェクト名を編集"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
               {isPro && (
-                <span className="chip chip-pro px-2 py-1 text-xs">
-                  <Sparkles className="w-3 h-3" />
-                  Pro
-                </span>
+                <button
+                  onClick={handleShare}
+                  className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
+                >
+                  {sharing ? (
+                    <Icon name="progress_activity" size={16} className="animate-spin text-[var(--color-muted)]" />
+                  ) : shareCopied ? (
+                    <Icon name="check" size={18} className="text-[var(--color-success)]" />
+                  ) : (
+                    <Icon name="share" size={18} />
+                  )}
+                </button>
               )}
             </div>
-            <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
           </div>
-          <div className="flex items-center gap-2">
-            {isPro && (
+        </header>
+
+        <main className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+          <div className="flex gap-2">
+            {tabs.map((tab) => (
               <button
-                onClick={handleShare}
-                className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                    : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
+                }`}
               >
-                {sharing ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-[var(--color-muted)]" />
-                ) : shareCopied ? (
-                  <Check className="w-4 h-4 text-[var(--color-success)]" />
-                ) : (
-                  <Share2 className="w-4 h-4" />
-                )}
+                {tab.label}
               </button>
-            )}
+            ))}
           </div>
-        </div>
-      </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <div className="flex gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                  : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          {activeTab === 'study' && (
+            <section className="space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <StudyModeCard
+                  title="クイズ"
+                  description="4択で意味を確認"
+                  icon="quiz"
+                  href={`/quiz/${project.id}?from=${returnToProject}`}
+                  variant="primary"
+                  disabled={words.length === 0}
+                />
+                <StudyModeCard
+                  title="カード"
+                  description="スワイプで復習"
+                  icon="style"
+                  href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
+                  variant="blue"
+                  disabled={words.length === 0}
+                  badge={!isPro ? 'Pro' : undefined}
+                />
+                <StudyModeCard
+                  title="例文クイズ"
+                  description="例文で記憶を定着"
+                  icon="auto_awesome"
+                  href={isPro ? `/sentence-quiz/${project.id}?from=${returnToProject}` : '/subscription'}
+                  variant="orange"
+                  disabled={words.length === 0}
+                  badge={!isPro ? 'Pro' : undefined}
+                />
+              </div>
+            </section>
+          )}
 
-        {activeTab === 'study' && (
-          <section className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <StudyModeCard
-                title="クイズ"
-                description="4択で意味を確認"
-                icon={BookOpen}
-                href={`/quiz/${project.id}?from=${returnToProject}`}
-                variant="red"
-                disabled={words.length === 0}
+          {activeTab === 'words' && (
+            <section>
+              <WordList
+                words={words}
+                editingWordId={editingWordId}
+                onEditStart={(wordId) => setEditingWordId(wordId)}
+                onEditCancel={() => setEditingWordId(null)}
+                onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
+                onDelete={(wordId) => handleDeleteWord(wordId)}
+                onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
+                onAddClick={() => setShowManualWordModal(true)}
               />
-            <StudyModeCard
-              title="カード"
-              description="スワイプで復習"
-              icon={BarChart3}
-              href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
-              variant="blue"
-              disabled={words.length === 0}
-              badge={!isPro ? 'Pro' : undefined}
-            />
-            </div>
-            <StudyModeCard
-              title="例文クイズ"
-              description="例文で記憶を定着"
-              icon={Sparkles}
-              href={isPro ? `/sentence-quiz/${project.id}?from=${returnToProject}` : '/subscription'}
-              variant="orange"
-              disabled={words.length === 0}
-              badge={!isPro ? 'Pro' : undefined}
-            />
-          </section>
-        )}
+            </section>
+          )}
 
-        {activeTab === 'words' && (
-          <section>
-            <WordList
-              words={words}
-              editingWordId={editingWordId}
-              onEditStart={(wordId) => setEditingWordId(wordId)}
-              onEditCancel={() => setEditingWordId(null)}
-              onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-              onDelete={(wordId) => handleDeleteWord(wordId)}
-              onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-              onAddClick={() => setShowManualWordModal(true)}
-            />
-          </section>
-        )}
-
-        {activeTab === 'stats' && (
-          <section className="grid grid-cols-2 gap-3">
-            <div className="card p-4">
-              <p className="text-xs text-[var(--color-muted)]">総単語</p>
-              <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.total}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs text-[var(--color-muted)]">習得済み</p>
-              <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.mastered}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs text-[var(--color-muted)]">復習中</p>
-              <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.review}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs text-[var(--color-muted)]">未学習</p>
-              <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.newWords}</p>
-            </div>
-          </section>
-        )}
-      </main>
-
-      <BottomNav />
+          {activeTab === 'stats' && (
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">総単語</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.total}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">習得済み</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.mastered}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">復習中</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.review}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">未学習</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.newWords}</p>
+              </div>
+            </section>
+          )}
+        </main>
 
       <ManualWordInputModal
         isOpen={showManualWordModal}
@@ -469,7 +467,7 @@ export default function ProjectDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
             <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">プロジェクト名を編集</h2>
-            
+
             <div>
               <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
                 プロジェクト名
@@ -483,7 +481,7 @@ export default function ProjectDetailPage() {
                 autoFocus
               />
             </div>
-            
+
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowEditNameModal(false)}
@@ -503,6 +501,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppShell>
   );
 }

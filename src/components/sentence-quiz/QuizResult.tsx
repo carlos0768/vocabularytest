@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, RotateCcw, Home } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 
 interface QuizResultProps {
@@ -19,7 +19,7 @@ export function QuizResult({ correct, total, onRestart, onGoHome }: QuizResultPr
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="card p-8 w-full max-w-sm text-center">
           <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-            <Trophy className="w-10 h-10 text-[var(--color-success)]" />
+            <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
           </div>
 
           <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
@@ -52,7 +52,7 @@ export function QuizResult({ correct, total, onRestart, onGoHome }: QuizResultPr
               className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
               size="lg"
             >
-              <RotateCcw className="w-5 h-5 mr-2" />
+              <Icon name="refresh" size={20} className="mr-2" />
               もう一度
             </Button>
             <Button
@@ -61,7 +61,7 @@ export function QuizResult({ correct, total, onRestart, onGoHome }: QuizResultPr
               className="w-full"
               size="lg"
             >
-              <Home className="w-5 h-5 mr-2" />
+              <Icon name="home" size={20} className="mr-2" />
               ホームに戻る
             </Button>
           </div>
