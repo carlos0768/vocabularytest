@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
-import { shuffleArray } from '@/lib/utils';
+import { shuffleArray, getGuestUserId } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -27,7 +27,7 @@ export default function FlashcardPage() {
   const projectId = params.projectId as string;
   const favoritesOnly = searchParams.get('favorites') === 'true';
   const returnPath = searchParams.get('from');
-  const { subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -85,10 +85,20 @@ export default function FlashcardPage() {
 
     const loadWords = async () => {
       try {
-        const allWords = await repository.getWords(projectId);
-        const wordsData = favoritesOnly
-          ? allWords.filter((w) => w.isFavorite)
-          : allWords;
+        let wordsData: Word[];
+
+        if (projectId === 'all' && favoritesOnly) {
+          // 全プロジェクト横断でお気に入り単語を取得
+          const userId = isPro && user ? user.id : getGuestUserId();
+          const projects = await repository.getProjects(userId);
+          const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
+          wordsData = allProjectWords.flat().filter(w => w.isFavorite);
+        } else {
+          const allWords = await repository.getWords(projectId);
+          wordsData = favoritesOnly
+            ? allWords.filter((w) => w.isFavorite)
+            : allWords;
+        }
 
         if (wordsData.length === 0) {
           backToProject();
