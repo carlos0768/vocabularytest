@@ -622,6 +622,24 @@ export default function FlashcardPage() {
         className="px-6 pt-2 pb-8"
         style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
       >
+        {/* Favorite toggle */}
+        <div className="flex justify-center mb-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleFavorite();
+            }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+              currentWord?.isFavorite
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]'
+            }`}
+          >
+            <Icon name="flag" size={16} filled={currentWord?.isFavorite} />
+            {currentWord?.isFavorite ? '苦手マーク済み' : '苦手にマーク'}
+          </button>
+        </div>
+
         {/* Navigation */}
         <div className="flex items-center justify-center gap-4">
           <Button
@@ -640,10 +658,10 @@ export default function FlashcardPage() {
             size="icon"
             onClick={() => setIsFlipped(!isFlipped)}
             disabled={isAnimating}
-            className="w-12 h-12"
+            className="w-14 h-14"
             aria-label="カードをめくる"
           >
-            <Icon name="refresh" size={20} />
+            <Icon name="refresh" size={24} />
           </Button>
 
           {/* Next button */}
