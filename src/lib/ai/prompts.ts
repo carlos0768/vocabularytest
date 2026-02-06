@@ -42,8 +42,8 @@ export const WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の�
 
 export const USER_PROMPT_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
 
-// Pro版用: 単語抽出プロンプト（例文はクイズ開始時に生成）
-export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から英単語を抽出し、以下のJSON形式で出力してください。
+// Pro版用: 単語抽出プロンプト（例文も同時に生成）
+export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から英単語を抽出し、**各単語に例文を付けて**以下のJSON形式で出力してください。
 
 ═══════════════════════════════════════════════════════════════
 ██  最重要命令：全ての単語を抽出せよ  ██
@@ -67,12 +67,19 @@ export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語�
    - 画像内に日本語訳が書かれている場合: その日本語訳をそのまま使用してください。
    - 画像内に日本語訳がない場合（英単語のみの場合）: その英単語の最も一般的で適切な日本語訳をあなたが生成してください。
 
+2. 例文の生成（必須）:
+   - 各単語について、その単語を使った自然な英語の例文を1つ生成してください。
+   - 例文は中学〜高校レベルの理解しやすい文にしてください。
+   - 例文の日本語訳も必ず付けてください。
+
 出力フォーマット:
 {
   "words": [
     {
-      "english": "word",
-      "japanese": "意味"
+      "english": "accomplish",
+      "japanese": "〜を成し遂げる",
+      "exampleSentence": "She accomplished her goal of running a marathon.",
+      "exampleSentenceJa": "彼女はマラソンを走るという目標を達成した。"
     }
   ]
 }
@@ -80,9 +87,14 @@ export const WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT = `あなたは英語�
 注意:
 - 必ず上記のJSON形式のみを出力してください。
 - 画像から英単語が読み取れない場合は、空の配列 {"words": []} を返してください。
-- 英単語のみの画像でも、必ず日本語訳を生成して出力してください。`;
+- 英単語のみの画像でも、必ず日本語訳と例文を生成して出力してください。
+- **exampleSentence と exampleSentenceJa は必須です。省略しないでください。**`;
 
-export const USER_PROMPT_WITH_EXAMPLES_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。`;
+export const USER_PROMPT_WITH_EXAMPLES_TEMPLATE = `この画像から英単語を抽出してください。日本語訳が画像に含まれていればそれを使い、なければ適切な日本語訳を生成してください。
+
+【重要】各単語に対して必ず以下を含めてください：
+- exampleSentence: その単語を使った英語の例文
+- exampleSentenceJa: 例文の日本語訳`;
 
 // 丸をつけた単語のみ抽出するプロンプト (Gemini用)
 export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは英語学習教材の作成者です。ユーザーがアップロードした画像（ノートやプリント）から、**手書きで丸（○）やマーク、チェック、線で囲まれた英単語または日本語訳**を抽出してください。
