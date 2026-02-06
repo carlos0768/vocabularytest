@@ -1146,19 +1146,12 @@ export default function HomePage() {
                 {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
               </p>
             </div>
-            {reviewDueCount > 0 ? (
+            {reviewDueCount > 0 && (
               <Link
                 href={reviewQuizHref}
                 className="px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-colors"
               >
                 復習クイズへ
-              </Link>
-            ) : (
-              <Link
-                href="/projects"
-                className="px-4 py-2 rounded-full border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
-              >
-                プロジェクト
               </Link>
             )}
           </section>
