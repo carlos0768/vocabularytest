@@ -40,6 +40,9 @@ export default function FlashcardPage() {
   const [editEnglish, setEditEnglish] = useState('');
   const [editJapanese, setEditJapanese] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Menu state
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -436,12 +439,95 @@ export default function FlashcardPage() {
           <span className="text-[var(--color-muted)]">{words.length}</span>
         </div>
 
-        <button
-          onClick={() => {}}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-        >
-          <Icon name="more_horiz" size={24} />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <Icon name="more_horiz" size={24} />
+          </button>
+          
+          {/* Dropdown Menu */}
+          {isMenuOpen && (
+            <>
+              {/* Backdrop */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setIsMenuOpen(false)} 
+              />
+              
+              {/* Menu */}
+              <div className="absolute right-0 top-12 z-50 w-48 bg-[var(--color-background)] rounded-xl shadow-lg border border-[var(--color-border)] py-2">
+                <button
+                  onClick={() => {
+                    setJapaneseFirst(!japaneseFirst);
+                    setIsFlipped(false);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[var(--color-surface)] transition-colors text-left"
+                >
+                  <Icon name="translate" size={20} className={japaneseFirst ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'} />
+                  <span className="text-sm text-[var(--color-foreground)]">
+                    {japaneseFirst ? '英→日に切替' : '日→英に切替'}
+                  </span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    handleToggleFavorite();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[var(--color-surface)] transition-colors text-left"
+                >
+                  <Icon 
+                    name="flag" 
+                    size={20} 
+                    filled={currentWord?.isFavorite}
+                    className={currentWord?.isFavorite ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'} 
+                  />
+                  <span className="text-sm text-[var(--color-foreground)]">
+                    {currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
+                  </span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    handleOpenDictionary();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[var(--color-surface)] transition-colors text-left"
+                >
+                  <Icon name="search" size={20} className="text-[var(--color-muted)]" />
+                  <span className="text-sm text-[var(--color-foreground)]">辞書で調べる</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    handleOpenEditModal();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[var(--color-surface)] transition-colors text-left"
+                >
+                  <Icon name="edit" size={20} className="text-[var(--color-muted)]" />
+                  <span className="text-sm text-[var(--color-foreground)]">単語を編集</span>
+                </button>
+                
+                <div className="border-t border-[var(--color-border)] my-1" />
+                
+                <button
+                  onClick={() => {
+                    handleDeleteWord();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[var(--color-error-light)] transition-colors text-left"
+                >
+                  <Icon name="delete" size={20} className="text-[var(--color-error)]" />
+                  <span className="text-sm text-[var(--color-error)]">単語を削除</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </header>
 
       {/* Favorites badge */}
@@ -536,65 +622,6 @@ export default function FlashcardPage() {
         className="px-6 pt-2 pb-8"
         style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
       >
-        {/* Action buttons */}
-        <div className="flex justify-center gap-3 mb-4">
-          <button
-            onClick={() => {
-              setJapaneseFirst(!japaneseFirst);
-              setIsFlipped(false); // Reset flip state when changing mode
-            }}
-            className={`w-11 h-11 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
-              japaneseFirst
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
-            }`}
-            aria-label={japaneseFirst ? '英→日モードに切替' : '日→英モードに切替'}
-          >
-            <Icon name="translate" size={20} />
-          </button>
-
-          <button
-            onClick={handleToggleFavorite}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
-            aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
-          >
-            <Icon
-              name="flag"
-              size={20}
-              filled={currentWord?.isFavorite}
-              className={`transition-colors ${
-                currentWord?.isFavorite
-                  ? 'text-[var(--color-primary)]'
-                  : 'text-[var(--color-muted)]'
-              }`}
-            />
-          </button>
-
-          <button
-            onClick={handleOpenDictionary}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="辞書で調べる"
-          >
-            <Icon name="search" size={20} />
-          </button>
-
-          <button
-            onClick={handleOpenEditModal}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="単語を編集"
-          >
-            <Icon name="edit" size={20} />
-          </button>
-
-          <button
-            onClick={handleDeleteWord}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
-            aria-label="この単語を削除"
-          >
-            <Icon name="delete" size={20} />
-          </button>
-        </div>
-
         {/* Navigation */}
         <div className="flex items-center justify-center gap-4">
           <Button
