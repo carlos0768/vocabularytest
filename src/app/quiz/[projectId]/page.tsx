@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
@@ -15,6 +15,23 @@ import { getGuestUserId } from '@/lib/utils';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
+
+// Session storage key for quiz state persistence
+const getQuizStorageKey = (projectId: string, reviewMode: boolean) => 
+  `quiz_state_${reviewMode ? 'review' : projectId}`;
+
+interface QuizPersistState {
+  questions: QuizQuestion[];
+  currentIndex: number;
+  selectedIndex: number | null;
+  isRevealed: boolean;
+  results: { correct: number; total: number };
+  questionCount: number;
+  quizDirection: 'en-to-ja' | 'ja-to-en';
+  timestamp: number;
+}
+
+const QUIZ_STATE_TTL = 30 * 60 * 1000; // 30 minutes
 
 export default function QuizPage() {
   const router = useRouter();
@@ -57,6 +74,67 @@ export default function QuizPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Track if state was restored from session storage
+  const restoredFromStorage = useRef(false);
+  const storageKey = getQuizStorageKey(projectId, reviewMode);
+
+  // Save quiz state to sessionStorage
+  const saveQuizState = useCallback(() => {
+    if (questions.length === 0 || !questionCount) return;
+    
+    const state: QuizPersistState = {
+      questions,
+      currentIndex,
+      selectedIndex,
+      isRevealed,
+      results,
+      questionCount,
+      quizDirection,
+      timestamp: Date.now(),
+    };
+    
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(state));
+    } catch (e) {
+      console.error('Failed to save quiz state:', e);
+    }
+  }, [questions, currentIndex, selectedIndex, isRevealed, results, questionCount, quizDirection, storageKey]);
+
+  // Clear quiz state from sessionStorage
+  const clearQuizState = useCallback(() => {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch (e) {
+      console.error('Failed to clear quiz state:', e);
+    }
+  }, [storageKey]);
+
+  // Save state when it changes (debounced via effect)
+  useEffect(() => {
+    if (questions.length > 0 && questionCount && !isComplete) {
+      saveQuizState();
+    }
+  }, [questions, currentIndex, selectedIndex, isRevealed, results, questionCount, quizDirection, isComplete, saveQuizState]);
+
+  // Save state when page becomes hidden (user switches apps)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && questions.length > 0 && !isComplete) {
+        saveQuizState();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [saveQuizState, questions.length, isComplete]);
+
+  // Clear state when quiz is completed
+  useEffect(() => {
+    if (isComplete) {
+      clearQuizState();
+    }
+  }, [isComplete, clearQuizState]);
 
   // Generate example sentence for a single word on-demand (Pro only)
   const generateExampleOnDemand = useCallback(async (word: Word) => {
@@ -309,6 +387,53 @@ export default function QuizPage() {
   useEffect(() => {
     if (authLoading) return;
 
+    // Try to restore state from sessionStorage first
+    const tryRestoreState = (): boolean => {
+      if (restoredFromStorage.current) return false;
+      
+      try {
+        const saved = sessionStorage.getItem(storageKey);
+        if (!saved) return false;
+
+        const state: QuizPersistState = JSON.parse(saved);
+        
+        // Check if state is expired (30 minutes)
+        if (Date.now() - state.timestamp > QUIZ_STATE_TTL) {
+          sessionStorage.removeItem(storageKey);
+          return false;
+        }
+
+        // Validate state
+        if (!state.questions || state.questions.length === 0) return false;
+
+        // Restore state
+        setQuestions(state.questions);
+        setCurrentIndex(state.currentIndex);
+        setSelectedIndex(state.selectedIndex);
+        setIsRevealed(state.isRevealed);
+        setResults(state.results);
+        setQuestionCount(state.questionCount);
+        setQuizDirection(state.quizDirection);
+        
+        // Extract allWords from questions
+        const words = state.questions.map(q => q.word);
+        setAllWords(words);
+        
+        restoredFromStorage.current = true;
+        setLoading(false);
+        return true;
+      } catch (e) {
+        console.error('Failed to restore quiz state:', e);
+        sessionStorage.removeItem(storageKey);
+        return false;
+      }
+    };
+
+    // If state was restored, skip loading
+    if (tryRestoreState()) {
+      return;
+    }
+
     const loadWords = async () => {
       try {
         let sourceWords: Word[] = [];
@@ -377,7 +502,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, backToProject, user, isPro]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, backToProject, user, isPro, storageKey]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -447,6 +572,9 @@ export default function QuizPage() {
   };
 
   const handleRestart = async () => {
+    // Clear old state before restarting
+    clearQuizState();
+    
     const count = questionCount || DEFAULT_QUESTION_COUNT;
 
     // Check if any words still need distractors

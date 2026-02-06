@@ -1,8 +1,8 @@
 // ScanVocab Service Worker
 // Cache-first for static assets, Network-first for API
 
-const CACHE_NAME = 'scanvocab-v1';
-const STATIC_CACHE_NAME = 'scanvocab-static-v1';
+const CACHE_NAME = 'scanvocab-v2';
+const STATIC_CACHE_NAME = 'scanvocab-static-v2';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -51,7 +51,13 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip external requests
+  // Cache Google Fonts (Material Symbols) for offline use
+  if (url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com') {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // Skip other external requests
   if (url.origin !== location.origin) return;
 
   // Skip API routes (handle offline separately)
