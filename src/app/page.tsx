@@ -9,6 +9,7 @@ import {
   Sparkles,
   Plus,
   Flag,
+  FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -1110,9 +1111,10 @@ export default function HomePage() {
             )}
             <Link
               href="/projects"
-              className="inline-flex items-center px-3 py-2 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-sm font-semibold text-[var(--color-foreground)]"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
+              aria-label="プロジェクト一覧"
             >
-              プロジェクト
+              <FolderOpen className="w-5 h-5" />
             </Link>
           </div>
         </div>
