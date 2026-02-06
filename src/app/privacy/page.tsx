@@ -101,8 +101,8 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-bold">10. お問い合わせ</h2>
             <p>
               プライバシーに関するお問い合わせは、
-              <a href="mailto:support@scanvocab.app" className="text-[var(--color-primary)] font-medium">
-                support@scanvocab.app
+              <a href="mailto:support@merken.jp" className="text-[var(--color-primary)] font-medium">
+                support@merken.jp
               </a>
               までご連絡ください。
             </p>
