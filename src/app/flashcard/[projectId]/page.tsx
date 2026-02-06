@@ -329,10 +329,10 @@ export default function FlashcardPage() {
     }
   };
 
-  // Google search
-  const handleGoogleSearch = () => {
+  // Open dictionary (Weblio)
+  const handleOpenDictionary = () => {
     if (currentWord?.english) {
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(currentWord.english + ' meaning')}`, '_blank');
+      window.open(`https://ejje.weblio.jp/content/${encodeURIComponent(currentWord.english)}`, '_blank');
     }
   };
 
@@ -555,9 +555,9 @@ export default function FlashcardPage() {
           </button>
 
           <button
-            onClick={handleGoogleSearch}
+            onClick={handleOpenDictionary}
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="Googleで検索"
+            aria-label="辞書で調べる"
           >
             <Search className="w-5 h-5" />
           </button>
