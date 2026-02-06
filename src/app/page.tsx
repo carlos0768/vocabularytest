@@ -971,8 +971,8 @@ export default function HomePage() {
     setProcessingSteps([]);
   };
 
-  // Loading state
-  if (loading) {
+  // Loading state (include authLoading to prevent flash of logged-out UI)
+  if (loading || (authLoading && projects.length === 0)) {
     return (
       <AppShell>
         <div className="min-h-screen flex items-center justify-center">
@@ -982,7 +982,7 @@ export default function HomePage() {
     );
   }
 
-  // Empty state - no projects
+  // Empty state - no projects (only show after auth is resolved)
   if (projects.length === 0) {
     return (
       <AppShell>
