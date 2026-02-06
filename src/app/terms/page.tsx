@@ -98,8 +98,8 @@ export default function TermsPage() {
             <h2 className="text-lg font-bold">第10条（お問い合わせ）</h2>
             <p>
               本規約に関するお問い合わせは、
-              <a href="mailto:support@scanvocab.app" className="text-[var(--color-primary)] font-medium">
-                support@scanvocab.app
+              <a href="mailto:support@merken.jp" className="text-[var(--color-primary)] font-medium">
+                support@merken.jp
               </a>
               までご連絡ください。
             </p>

@@ -22,13 +22,13 @@ export default function ContactPage() {
           </p>
 
           <a
-            href="mailto:support@scanvocab.app"
+            href="mailto:support@merken.jp"
             className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--color-primary-light)] hover:bg-[var(--color-primary)]/20 transition-colors"
           >
             <div className="w-10 h-10 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center">
               <Icon name="mail" size={20} className="text-[var(--color-primary)]" />
             </div>
-            <span className="font-semibold text-[var(--color-foreground)]">support@scanvocab.app</span>
+            <span className="font-semibold text-[var(--color-foreground)]">support@merken.jp</span>
           </a>
 
           <p className="text-sm text-[var(--color-muted)]">
