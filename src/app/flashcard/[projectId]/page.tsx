@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, RefreshCw } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, RefreshCw, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -38,6 +38,12 @@ export default function FlashcardPage() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [japaneseFirst, setJapaneseFirst] = useState(false); // 日→英モード
+  
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editEnglish, setEditEnglish] = useState('');
+  const [editJapanese, setEditJapanese] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -323,6 +329,47 @@ export default function FlashcardPage() {
     }
   };
 
+  // Google search
+  const handleGoogleSearch = () => {
+    if (currentWord?.english) {
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(currentWord.english + ' meaning')}`, '_blank');
+    }
+  };
+
+  // Open edit modal
+  const handleOpenEditModal = () => {
+    if (currentWord) {
+      setEditEnglish(currentWord.english);
+      setEditJapanese(currentWord.japanese);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  // Save edited word
+  const handleSaveEdit = async () => {
+    if (!currentWord || !editEnglish.trim() || !editJapanese.trim()) return;
+    
+    setIsSaving(true);
+    try {
+      await repository.updateWord(currentWord.id, {
+        english: editEnglish.trim(),
+        japanese: editJapanese.trim(),
+      });
+      setWords(prev =>
+        prev.map((w, i) =>
+          i === currentIndex
+            ? { ...w, english: editEnglish.trim(), japanese: editJapanese.trim() }
+            : w
+        )
+      );
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error('Failed to update word:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Calculate card transform
   const getCardTransform = () => {
     if (slidePhase === 'exit') {
@@ -469,10 +516,10 @@ export default function FlashcardPage() {
         style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Action buttons */}
-        <div className="flex justify-center gap-4 mb-4">
+        <div className="flex justify-center gap-3 mb-4">
           <button
             onClick={handleShuffle}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
             aria-label="シャッフル"
           >
             <RotateCcw className="w-5 h-5" />
@@ -483,7 +530,7 @@ export default function FlashcardPage() {
               setJapaneseFirst(!japaneseFirst);
               setIsFlipped(false); // Reset flip state when changing mode
             }}
-            className={`w-12 h-12 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
+            className={`w-11 h-11 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
               japaneseFirst
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
@@ -495,7 +542,7 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleToggleFavorite}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
             aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
             <Flag
@@ -508,8 +555,24 @@ export default function FlashcardPage() {
           </button>
 
           <button
+            onClick={handleGoogleSearch}
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            aria-label="Googleで検索"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={handleOpenEditModal}
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            aria-label="単語を編集"
+          >
+            <Pencil className="w-5 h-5" />
+          </button>
+
+          <button
             onClick={handleDeleteWord}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
             aria-label="この単語を削除"
           >
             <Trash2 className="w-5 h-5" />
@@ -552,6 +615,60 @@ export default function FlashcardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語を編集</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+                  英語
+                </label>
+                <input
+                  type="text"
+                  value={editEnglish}
+                  onChange={(e) => setEditEnglish(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="英単語"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+                  日本語
+                </label>
+                <input
+                  type="text"
+                  value={editJapanese}
+                  onChange={(e) => setEditJapanese(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="日本語訳"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
+                disabled={isSaving}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving || !editEnglish.trim() || !editJapanese.trim()}
+                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isSaving ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Share2, Loader2, Check, BarChart3, BookOpen, Sparkles } from 'lucide-react';
+import { Share2, Loader2, Check, BarChart3, BookOpen, Sparkles, Pencil } from 'lucide-react';
 import { BottomNav, DeleteConfirmModal } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
@@ -55,6 +55,11 @@ export default function ProjectDetailPage() {
   const [manualWordSaving, setManualWordSaving] = useState(false);
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+
+  // Project name edit state
+  const [showEditNameModal, setShowEditNameModal] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [editNameSaving, setEditNameSaving] = useState(false);
 
   const loadProject = useCallback(async () => {
     if (authLoading) return;
@@ -237,6 +242,33 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // Open edit name modal
+  const handleOpenEditNameModal = () => {
+    if (project) {
+      setEditingName(project.title);
+      setShowEditNameModal(true);
+    }
+  };
+
+  // Save edited project name
+  const handleSaveProjectName = async () => {
+    if (!project || !editingName.trim()) return;
+
+    setEditNameSaving(true);
+    try {
+      await repository.updateProject(project.id, { title: editingName.trim() });
+      setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
+      showToast({ message: 'プロジェクト名を変更しました', type: 'success' });
+      setShowEditNameModal(false);
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to update project name:', error);
+      showToast({ message: '名前の変更に失敗しました', type: 'error' });
+    } finally {
+      setEditNameSaving(false);
+    }
+  };
+
   const stats = useMemo(() => {
     const total = words.length;
     const mastered = words.filter((w) => w.status === 'mastered').length;
@@ -275,6 +307,13 @@ export default function ProjectDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
+              <button
+                onClick={handleOpenEditNameModal}
+                className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
+                aria-label="プロジェクト名を編集"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
               {isPro && (
                 <span className="chip chip-pro px-2 py-1 text-xs">
                   <Sparkles className="w-3 h-3" />
@@ -424,6 +463,46 @@ export default function ProjectDetailPage() {
         onClose={() => setShowWordLimitModal(false)}
         currentCount={totalWordCount}
       />
+
+      {/* Edit Project Name Modal */}
+      {showEditNameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">プロジェクト名を編集</h2>
+            
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+                プロジェクト名
+              </label>
+              <input
+                type="text"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                placeholder="プロジェクト名"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditNameModal(false)}
+                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
+                disabled={editNameSaving}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveProjectName}
+                disabled={editNameSaving || !editingName.trim()}
+                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {editNameSaving ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
