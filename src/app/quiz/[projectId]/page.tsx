@@ -52,10 +52,55 @@ export default function QuizPage() {
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
   const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
+  const [generatingExample, setGeneratingExample] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Generate example sentence for a single word on-demand (Pro only)
+  const generateExampleOnDemand = useCallback(async (word: Word) => {
+    if (!isPro) return;
+    if (word.exampleSentence && word.exampleSentence.trim().length > 0) return;
+
+    setGeneratingExample(true);
+    try {
+      const response = await fetch('/api/generate-examples', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          words: [{
+            id: word.id,
+            english: word.english,
+            japanese: word.japanese,
+          }],
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to generate example:', response.status);
+        return;
+      }
+
+      // Refresh the specific word to get the generated example
+      const updatedWords = await repository.getWords(projectId);
+      const updatedWord = updatedWords.find(w => w.id === word.id);
+      
+      if (updatedWord) {
+        // Update questions with new example sentence
+        setQuestions(prev => prev.map(q => 
+          q.word.id === word.id ? { ...q, word: updatedWord } : q
+        ));
+        setAllWords(prev => prev.map(w => 
+          w.id === word.id ? updatedWord : w
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to generate example:', error);
+    } finally {
+      setGeneratingExample(false);
+    }
+  }, [isPro, projectId, repository]);
 
   // Generate example sentences for words that don't have them (Pro only, runs in background)
   const generateExamplesInBackground = useCallback(async (words: Word[]) => {
@@ -344,6 +389,11 @@ export default function QuizPage() {
 
     const isCorrect = index === currentQuestion.correctIndex;
     const word = currentQuestion.word;
+
+    // Generate example on-demand if not present (Pro only)
+    if (isPro && (!word.exampleSentence || word.exampleSentence.trim().length === 0)) {
+      generateExampleOnDemand(word);
+    }
 
     setResults((prev) => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
@@ -789,12 +839,23 @@ export default function QuizPage() {
         </div>
 
         {/* Example sentence (shown after answering, Pro feature) */}
-        {isRevealed && currentQuestion?.word.exampleSentence && (
+        {isRevealed && isPro && (
           <div className="mb-4 p-4 bg-[var(--color-peach-light)] rounded-2xl max-w-lg mx-auto w-full">
             <p className="text-sm font-semibold text-[var(--color-primary)] mb-1">例文</p>
-            <p className="text-[var(--color-foreground)] italic">{currentQuestion.word.exampleSentence}</p>
-            {currentQuestion.word.exampleSentenceJa && (
-              <p className="text-sm text-[var(--color-muted)] mt-1">{currentQuestion.word.exampleSentenceJa}</p>
+            {generatingExample ? (
+              <div className="flex items-center gap-2 text-[var(--color-muted)]">
+                <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">例文を生成中...</span>
+              </div>
+            ) : currentQuestion?.word.exampleSentence ? (
+              <>
+                <p className="text-[var(--color-foreground)] italic">{currentQuestion.word.exampleSentence}</p>
+                {currentQuestion.word.exampleSentenceJa && (
+                  <p className="text-sm text-[var(--color-muted)] mt-1">{currentQuestion.word.exampleSentenceJa}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-[var(--color-muted)]">例文を取得できませんでした</p>
             )}
           </div>
         )}
