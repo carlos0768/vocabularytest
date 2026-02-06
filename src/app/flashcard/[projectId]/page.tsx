@@ -29,10 +29,6 @@ export default function FlashcardPage() {
   const returnPath = searchParams.get('from');
   const { subscription, isPro, loading: authLoading } = useAuth();
 
-  const backToProject = () => {
-    router.push(returnPath || `/project/${projectId}`);
-  };
-
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -66,6 +62,14 @@ export default function FlashcardPage() {
     };
     localStorage.setItem(getProgressKey(projectId, favoritesOnly), JSON.stringify(progress));
   }, [projectId, favoritesOnly]);
+
+  // Navigate back to project (saves progress first)
+  const backToProject = useCallback(() => {
+    if (words.length > 0) {
+      saveProgress(words, currentIndex);
+    }
+    router.push(returnPath || `/project/${projectId}`);
+  }, [words, currentIndex, saveProgress, router, returnPath, projectId]);
 
   // Load words
   useEffect(() => {
@@ -133,16 +137,33 @@ export default function FlashcardPage() {
     }
   }, [currentIndex, words, saveProgress]);
 
-  // Save progress when leaving the page
+  // Save progress when leaving the page (multiple events for reliability)
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleSave = () => {
       if (words.length > 0) {
         saveProgress(words, currentIndex);
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    // beforeunload: works on desktop
+    window.addEventListener('beforeunload', handleSave);
+    
+    // visibilitychange: works on mobile when switching tabs/apps
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleSave();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // pagehide: works on mobile Safari when navigating away
+    window.addEventListener('pagehide', handleSave);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleSave);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleSave);
+    };
   }, [words, currentIndex, saveProgress]);
 
   const currentWord = words[currentIndex];
