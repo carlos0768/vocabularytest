@@ -1029,7 +1029,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
           <p className="text-[var(--color-muted)] text-center mb-8">
-            右下のボタンから<br />ノートやプリントを撮影しましょう
+            下のカメラボタンから<br />ノートやプリントを撮影しましょう
           </p>
           {!isAuthenticated && (
             <p className="text-sm text-[var(--color-muted)]">
@@ -1040,15 +1040,6 @@ export default function HomePage() {
             </p>
           )}
         </main>
-
-        {/* Floating action button */}
-        <button
-          onClick={() => handleScanButtonClick()}
-          disabled={processing || (!isPro && !canScan)}
-          className="fixed bottom-[88px] left-1/2 -translate-x-1/2 w-14 h-14 flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-peach)] text-white rounded-full shadow-glow hover:shadow-glow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed z-30"
-        >
-          <Plus className="w-7 h-7" />
-        </button>
 
         {/* Bottom Navigation */}
         <BottomNav />
