@@ -94,6 +94,8 @@ function ShareTargetContent() {
     }
   }, [projectsLoading, projects, selectedProjectId]);
 
+  const isLoading = authLoading || projectsLoading;
+
   // No shared text
   if (!sharedText) {
     return (
@@ -124,6 +126,8 @@ function ShareTargetContent() {
       return;
     }
 
+    if (isLoading) return;
+
     setSaving(true);
     try {
       const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -134,19 +138,15 @@ function ShareTargetContent() {
       let targetProjectId: string;
 
       if (showNewProject && newProjectName.trim()) {
-        const project = await repository.createProject({
-          userId,
-          title: newProjectName.trim(),
-        });
+        const project = await createProject(newProjectName.trim());
+        if (!project) throw new Error('プロジェクト作成に失敗');
         targetProjectId = project.id;
       } else if (selectedProjectId) {
         targetProjectId = selectedProjectId;
       } else {
         // No projects exist — auto-create "共有単語"
-        const project = await repository.createProject({
-          userId,
-          title: '共有単語',
-        });
+        const project = await createProject('共有単語');
+        if (!project) throw new Error('プロジェクト作成に失敗');
         targetProjectId = project.id;
       }
 
@@ -193,8 +193,6 @@ function ShareTargetContent() {
       setSaving(false);
     }
   };
-
-  const isLoading = authLoading || projectsLoading;
 
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
@@ -318,7 +316,7 @@ function ShareTargetContent() {
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleSave}
-            disabled={saving || !english.trim() || !japanese.trim() || translating}
+            disabled={saving || !english.trim() || !japanese.trim() || translating || isLoading}
             className="w-full"
             size="lg"
           >
