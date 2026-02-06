@@ -11,7 +11,7 @@ import {
   QuizResult,
 } from '@/components/sentence-quiz';
 import { getRepository } from '@/lib/db';
-import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
+import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SentenceQuizQuestion, MultiFillInBlankQuestion as MultiFillInBlankQuestionType, SubscriptionStatus } from '@/types';
@@ -169,11 +169,19 @@ export default function SentenceQuizPage() {
 
     const loadWords = async () => {
       try {
-        let words = await repository.getWords(projectId);
-        
-        // Filter favorites if requested
-        if (favoritesOnly) {
-          words = words.filter(w => w.isFavorite);
+        let words: Word[];
+
+        if (projectId === 'all' && favoritesOnly) {
+          // 全プロジェクト横断でお気に入り単語を取得
+          const userId = subscription?.status === 'active' && user ? user.id : getGuestUserId();
+          const projects = await repository.getProjects(userId);
+          const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
+          words = allWords.flat().filter(w => w.isFavorite);
+        } else {
+          words = await repository.getWords(projectId);
+          if (favoritesOnly) {
+            words = words.filter(w => w.isFavorite);
+          }
         }
         
         if (words.length < MIN_WORDS_REQUIRED) {

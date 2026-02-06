@@ -126,9 +126,9 @@ export default function FavoritesPage() {
 
   const returnPath = encodeURIComponent('/favorites');
 
-  // Get first project ID for quiz/flashcard (they need a project context)
-  // For favorites, we'll use a special "all" mode
-  const firstProjectId = favorites.length > 0 ? favorites[0].projectId : null;
+  // Get unique project IDs from favorites for quiz/flashcard links
+  const favoriteProjectIds = [...new Set(favorites.map(f => f.projectId))];
+  const firstProjectId = favoriteProjectIds.length > 0 ? favoriteProjectIds[0] : null;
 
   return (
     <AppShell>
@@ -196,7 +196,7 @@ export default function FavoritesPage() {
                     title="苦手クイズ"
                     description="苦手な単語を復習"
                     icon="menu_book"
-                    href={isPro ? `/quiz/${firstProjectId}/favorites?from=${returnPath}` : '/subscription'}
+                    href={isPro ? `/quiz/all/favorites?from=${returnPath}` : '/subscription'}
                     variant="primary"
                     badge={!isPro ? 'Pro' : undefined}
                   />
@@ -204,7 +204,7 @@ export default function FavoritesPage() {
                     title="苦手カード"
                     description="スワイプで確認"
                     icon="style"
-                    href={isPro ? `/flashcard/${firstProjectId}?favorites=true&from=${returnPath}` : '/subscription'}
+                    href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'}
                     variant="blue"
                     badge={!isPro ? 'Pro' : undefined}
                   />
@@ -213,7 +213,7 @@ export default function FavoritesPage() {
                   title="苦手例文クイズ"
                   description="例文で記憶を定着"
                   icon="auto_awesome"
-                  href={isPro ? `/sentence-quiz/${firstProjectId}?favorites=true&from=${returnPath}` : '/subscription'}
+                  href={isPro ? `/sentence-quiz/all?favorites=true&from=${returnPath}` : '/subscription'}
                   variant="orange"
                   badge={!isPro ? 'Pro' : undefined}
                 />

@@ -6,7 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
-import { shuffleArray } from '@/lib/utils';
+import { shuffleArray, getGuestUserId } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
@@ -18,7 +18,7 @@ export default function FavoritesQuizPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  const { subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
 
   // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
@@ -98,8 +98,18 @@ export default function FavoritesQuizPage() {
 
     const loadWords = async () => {
       try {
-        const words = await repository.getWords(projectId);
-        const favoriteWords = words.filter((w) => w.isFavorite);
+        let favoriteWords: Word[];
+
+        if (projectId === 'all') {
+          // 全プロジェクト横断でお気に入り単語を取得
+          const userId = isPro && user ? user.id : getGuestUserId();
+          const projects = await repository.getProjects(userId);
+          const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
+          favoriteWords = allWords.flat().filter(w => w.isFavorite);
+        } else {
+          const words = await repository.getWords(projectId);
+          favoriteWords = words.filter((w) => w.isFavorite);
+        }
 
         if (favoriteWords.length === 0) {
           backToProject();
