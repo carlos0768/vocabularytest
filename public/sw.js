@@ -66,6 +66,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Share target: always network-first to avoid stale cached response
+  if (url.pathname.startsWith('/share-target')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
   // Static assets: Cache-first
   // Icon files: Cache-first
   if (url.pathname.match(/\.(png|jpg|svg|ico)$/)) {
