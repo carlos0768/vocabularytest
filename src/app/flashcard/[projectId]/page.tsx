@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, Search, Pencil } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Flag, Volume2, Trash2, MoreHorizontal, Bookmark, Languages, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { shuffleArray } from '@/lib/utils';
@@ -517,14 +517,6 @@ export default function FlashcardPage() {
       >
         {/* Action buttons */}
         <div className="flex justify-center gap-3 mb-4">
-          <button
-            onClick={handleShuffle}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="シャッフル"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
-
           <button
             onClick={() => {
               setJapaneseFirst(!japaneseFirst);
