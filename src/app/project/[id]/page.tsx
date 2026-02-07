@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
+import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
@@ -33,11 +34,13 @@ export default function ProjectDetailPage() {
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const defaultRepository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
+  // Track which repository the project was loaded from
+  const [activeRepository, setActiveRepository] = useState<typeof defaultRepository>(defaultRepository);
   const [activeTab, setActiveTab] = useState<TabId>('study');
 
   const [sharing, setSharing] = useState(false);
@@ -65,22 +68,56 @@ export default function ProjectDetailPage() {
     setLoading(true);
     try {
       const userId = isPro && user ? user.id : getGuestUserId();
-      const loadedProject = await repository.getProject(projectId);
+      let loadedProject = await defaultRepository.getProject(projectId);
+      let activeRepo = defaultRepository;
+
+      // If not found in primary repo, try the other one
+      // This handles cases like background scans creating projects in remote
+      // while the local repo is being checked first
       if (!loadedProject) {
-        const projects = await repository.getProjects(userId);
-        const found = projects.find((p) => p.id === projectId) || null;
-        setProject(found);
-      } else {
-        setProject(loadedProject);
+        const projects = await defaultRepository.getProjects(userId);
+        loadedProject = projects.find((p) => p.id === projectId);
       }
-      const loadedWords = await repository.getWords(projectId);
-      setWords(loadedWords);
+
+      // If still not found and user is logged in, try remote directly
+      if (!loadedProject && user) {
+        try {
+          loadedProject = await remoteRepository.getProject(projectId);
+          if (loadedProject) {
+            activeRepo = remoteRepository;
+          }
+        } catch (e) {
+          console.error('Remote lookup failed:', e);
+        }
+      }
+
+      // If still not found and we have a guest, try local
+      if (!loadedProject && !user) {
+        try {
+          loadedProject = await localRepository.getProject(projectId);
+          if (loadedProject) {
+            activeRepo = localRepository;
+          }
+        } catch (e) {
+          console.error('Local lookup failed:', e);
+        }
+      }
+
+      setProject(loadedProject ?? null);
+      setActiveRepository(activeRepo);
+      
+      if (loadedProject) {
+        const loadedWords = await activeRepo.getWords(projectId);
+        setWords(loadedWords);
+      } else {
+        setWords([]);
+      }
     } catch (error) {
       console.error('Failed to load project:', error);
     } finally {
       setLoading(false);
     }
-  }, [authLoading, isPro, user, repository, projectId]);
+  }, [authLoading, isPro, user, defaultRepository, projectId]);
 
   useEffect(() => {
     loadProject();
@@ -96,7 +133,7 @@ export default function ProjectDetailPage() {
 
     setDeleteWordLoading(true);
     try {
-      await repository.deleteWord(deleteWordTargetId);
+      await activeRepository.deleteWord(deleteWordTargetId);
       setWords((prev) => prev.filter((w) => w.id !== deleteWordTargetId));
       showToast({ message: '単語を削除しました', type: 'success' });
       invalidateHomeCache();
@@ -115,7 +152,7 @@ export default function ProjectDetailPage() {
     const originalWord = words.find((w) => w.id === wordId);
     const japaneseChanged = originalWord && originalWord.japanese !== japanese;
 
-    await repository.updateWord(wordId, { english, japanese });
+    await activeRepository.updateWord(wordId, { english, japanese });
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w)));
     setEditingWordId(null);
 
@@ -130,7 +167,7 @@ export default function ProjectDetailPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.distractors) {
-            await repository.updateWord(wordId, { distractors: data.distractors });
+            await activeRepository.updateWord(wordId, { distractors: data.distractors });
             setWords((prev) =>
               prev.map((w) => (w.id === wordId ? { ...w, distractors: data.distractors } : w))
             );
@@ -146,7 +183,7 @@ export default function ProjectDetailPage() {
     const word = words.find((w) => w.id === wordId);
     if (!word) return;
     const newFavorite = !word.isFavorite;
-    await repository.updateWord(wordId, { isFavorite: newFavorite });
+    await activeRepository.updateWord(wordId, { isFavorite: newFavorite });
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w)));
   };
 
@@ -163,7 +200,7 @@ export default function ProjectDetailPage() {
 
     setManualWordSaving(true);
     try {
-      const created = await repository.createWords([
+      const created = await activeRepository.createWords([
         {
           projectId: project.id,
           english: manualWordEnglish.trim(),
@@ -255,7 +292,7 @@ export default function ProjectDetailPage() {
 
     setEditNameSaving(true);
     try {
-      await repository.updateProject(project.id, { title: editingName.trim() });
+      await activeRepository.updateProject(project.id, { title: editingName.trim() });
       setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
       showToast({ message: 'プロジェクト名を変更しました', type: 'success' });
       setShowEditNameModal(false);
