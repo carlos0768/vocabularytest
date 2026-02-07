@@ -447,38 +447,60 @@ function DictationContent() {
 
           {/* Main content */}
           <main className="flex-1 flex flex-col items-center justify-center px-6">
-            {/* Speaking indicator */}
-            <div className={`w-32 h-32 rounded-full flex items-center justify-center mb-8 transition-all ${
-              isSpeaking
-                ? 'bg-[var(--color-primary)] scale-110'
-                : 'bg-[var(--color-surface)]'
-            }`}>
-              <Icon
-                name={isSpeaking ? 'volume_up' : 'volume_off'}
-                size={48}
-                className={isSpeaking ? 'text-white' : 'text-[var(--color-muted)]'}
-              />
+            {/* Question number */}
+            <div className="text-6xl font-bold text-[var(--color-primary)] mb-6 animate-fade-in">
+              {currentIndex + 1}
+            </div>
+            
+            {/* Speaking indicator with pulse animation */}
+            <div className="relative mb-8">
+              {/* Pulse rings */}
+              {isSpeaking && (
+                <>
+                  <div className="absolute inset-0 w-32 h-32 rounded-full bg-[var(--color-primary)] opacity-20 animate-ping" />
+                  <div className="absolute inset-0 w-32 h-32 rounded-full bg-[var(--color-primary)] opacity-10 animate-pulse" style={{ animationDelay: '0.2s' }} />
+                </>
+              )}
+              <div className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 ${
+                isSpeaking
+                  ? 'bg-[var(--color-primary)] scale-110 shadow-lg shadow-[var(--color-primary)]/30'
+                  : isPlaying 
+                    ? 'bg-[var(--color-surface)] border-4 border-[var(--color-primary)]/30'
+                    : 'bg-[var(--color-surface)]'
+              }`}>
+                <Icon
+                  name={isSpeaking ? 'volume_up' : isPlaying ? 'hourglass_empty' : 'volume_off'}
+                  size={48}
+                  className={`transition-all duration-300 ${isSpeaking ? 'text-white scale-110' : 'text-[var(--color-muted)]'}`}
+                />
+              </div>
             </div>
 
-            {/* Status */}
-            <p className="text-lg text-[var(--color-muted)] mb-2">
+            {/* Status with better typography */}
+            <p className={`text-xl font-medium mb-2 transition-colors ${
+              isSpeaking ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
+            }`}>
               {isSpeaking ? '読み上げ中...' : isPlaying ? '次の問題まで...' : '一時停止中'}
             </p>
 
             {/* Direction indicator */}
-            <p className="text-sm text-[var(--color-muted)]">
-              {direction === 'ja-to-en' ? '日本語 → 英語で回答' : '英語 → 日本語で回答'}
-            </p>
+            <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+              direction === 'ja-to-en' 
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+            }`}>
+              {direction === 'ja-to-en' ? '🇯🇵 日本語 → 🇺🇸 英語' : '🇺🇸 英語 → 🇯🇵 日本語'}
+            </div>
           </main>
 
           {/* Controls */}
-          <footer className="sticky bottom-0 bg-[var(--color-background)] border-t border-[var(--color-border-light)] p-4">
-            <div className="max-w-lg mx-auto flex items-center justify-center gap-4">
+          <footer className="sticky bottom-0 bg-[var(--color-background)]/95 backdrop-blur-sm border-t border-[var(--color-border-light)] p-6">
+            <div className="max-w-lg mx-auto flex items-center justify-center gap-6">
               {/* Previous */}
               <button
                 onClick={goToPrevious}
                 disabled={currentIndex === 0}
-                className="w-14 h-14 rounded-full bg-[var(--color-surface)] flex items-center justify-center disabled:opacity-30"
+                className="w-14 h-14 rounded-full bg-[var(--color-surface)] flex items-center justify-center disabled:opacity-30 hover:bg-[var(--color-border)] active:scale-95 transition-all shadow-sm"
               >
                 <Icon name="skip_previous" size={28} />
               </button>
@@ -487,23 +509,23 @@ function DictationContent() {
               {isPlaying ? (
                 <button
                   onClick={pausePlayback}
-                  className="w-16 h-16 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center"
+                  className="w-20 h-20 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/30 hover:opacity-90 active:scale-95 transition-all"
                 >
-                  <Icon name="pause" size={32} />
+                  <Icon name="pause" size={40} />
                 </button>
               ) : (
                 <button
                   onClick={resumePlayback}
-                  className="w-16 h-16 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center"
+                  className="w-20 h-20 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/30 hover:opacity-90 active:scale-95 transition-all"
                 >
-                  <Icon name="play_arrow" size={32} />
+                  <Icon name="play_arrow" size={40} />
                 </button>
               )}
 
               {/* Replay */}
               <button
                 onClick={replayQuestion}
-                className="w-14 h-14 rounded-full bg-[var(--color-surface)] flex items-center justify-center"
+                className="w-14 h-14 rounded-full bg-[var(--color-surface)] flex items-center justify-center hover:bg-[var(--color-border)] active:scale-95 transition-all shadow-sm"
               >
                 <Icon name="replay" size={28} />
               </button>
