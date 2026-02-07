@@ -1257,23 +1257,23 @@ export default function HomePage() {
           </section>
 
           {/* Quick actions */}
-          <section className="grid grid-cols-3 lg:grid-cols-4 gap-3">
+          <section className="grid grid-cols-4 gap-3">
             <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center text-[var(--color-primary)]">
                 <Icon name="add" size={22} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">新しくスキャン</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">ノートやプリントを取り込む</p>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">スキャン</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">ノートを取り込む</p>
               </div>
             </Link>
-            <Link href="/favorites" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
+            <Link href="/projects" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
-                <Icon name="flag" size={22} />
+                <Icon name="folder" size={22} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">単語帳</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">すべての単語帳</p>
               </div>
             </Link>
             <Link href={isPro ? '/collections' : '/subscription'} className={`card p-4 flex flex-col gap-3 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all ${!isPro ? 'opacity-60' : ''}`}>
@@ -1282,7 +1282,16 @@ export default function HomePage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-[var(--color-foreground)]">プロジェクト</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">単語帳をまとめて管理</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">まとめて管理</p>
+              </div>
+            </Link>
+            <Link href="/search" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-purple-light,#f3e8ff)] flex items-center justify-center text-[var(--color-purple,#a855f7)]">
+                <Icon name="search" size={22} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">検索</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">意味で単語検索</p>
               </div>
             </Link>
           </section>
