@@ -8,6 +8,13 @@ import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
 
+interface CustomMenuItem {
+  label: string;
+  icon: string;
+  onClick: (id: string) => void;
+  danger?: boolean;
+}
+
 interface ProjectCardProps {
   project: Project;
   wordCount: number;
@@ -15,9 +22,10 @@ interface ProjectCardProps {
   progress?: number;
   onDelete?: (id: string) => void;
   onToggleFavorite?: (id: string) => void;
+  extraMenuItems?: CustomMenuItem[];
 }
 
-export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 0, onDelete, onToggleFavorite }: ProjectCardProps) {
+export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 0, onDelete, onToggleFavorite, extraMenuItems }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -56,12 +64,12 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
       </Link>
 
       {/* Menu button */}
-      {(onDelete || onToggleFavorite) && (
+      {(onDelete || onToggleFavorite || (extraMenuItems && extraMenuItems.length > 0)) && (
         <div className="absolute top-3 right-3">
           <Button
             variant="ghost"
             size="sm"
-            className="w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="w-8 h-8 p-0"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -93,6 +101,25 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
                     {project.isFavorite ? 'ピン留め解除' : 'ピン留め'}
                   </button>
                 )}
+                {extraMenuItems && extraMenuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                      item.danger
+                        ? 'text-[var(--color-error)] hover:bg-[var(--color-error-light)]'
+                        : 'text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      item.onClick(project.id);
+                    }}
+                  >
+                    <Icon name={item.icon} size={16} />
+                    {item.label}
+                  </button>
+                ))}
                 {onDelete && (
                   <button
                     className="w-full px-4 py-2 text-left text-sm text-[var(--color-error)] hover:bg-[var(--color-error-light)] flex items-center gap-2"

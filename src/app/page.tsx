@@ -1257,7 +1257,7 @@ export default function HomePage() {
           </section>
 
           {/* Quick actions */}
-          <section className="grid grid-cols-4 gap-3">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center text-[var(--color-primary)]">
                 <Icon name="add" size={22} />
@@ -1276,7 +1276,7 @@ export default function HomePage() {
                 <p className="text-xs text-[var(--color-muted)] mt-1">すべての単語帳</p>
               </div>
             </Link>
-            <Link href={isPro ? '/collections' : '/subscription'} className={`card p-4 flex flex-col gap-3 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all ${!isPro ? 'opacity-60' : ''}`}>
+            <Link href={isPro ? '/collections' : '/subscription'} className={`hidden lg:flex card p-4 flex-col gap-3 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all ${!isPro ? 'opacity-60' : ''}`}>
               <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center text-[var(--color-success)]">
                 <Icon name="workspaces" size={22} />
               </div>
@@ -1285,7 +1285,7 @@ export default function HomePage() {
                 <p className="text-xs text-[var(--color-muted)] mt-1">まとめて管理</p>
               </div>
             </Link>
-            <Link href="/search" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
+            <Link href="/search" className="hidden lg:flex card p-4 flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-[var(--color-purple-light,#f3e8ff)] flex items-center justify-center text-[var(--color-purple,#a855f7)]">
                 <Icon name="search" size={22} />
               </div>
