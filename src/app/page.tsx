@@ -200,7 +200,18 @@ export default function HomePage() {
 
     try {
       setLoading(true);
-      const data = await repository.getProjects(userId);
+      let data = await repository.getProjects(userId);
+      
+      // Fallback to remote if local is empty and user is logged in
+      // This handles background scan projects stored in remote
+      if (data.length === 0 && user) {
+        try {
+          data = await remoteRepository.getProjects(user.id);
+        } catch (e) {
+          console.error('Remote fallback failed:', e);
+        }
+      }
+      
       setProjects(data);
 
       if (data.length === 0) {
