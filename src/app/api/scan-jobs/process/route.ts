@@ -147,12 +147,13 @@ export async function POST(request: NextRequest) {
         .from('projects')
         .insert({
           user_id: job.user_id,
-          name: job.project_title,
+          title: job.project_title,
         })
         .select()
         .single();
 
       if (projectError || !project) {
+        console.error('Project creation error:', projectError);
         throw new Error('Failed to create project');
       }
 
