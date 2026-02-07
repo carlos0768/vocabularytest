@@ -37,6 +37,9 @@ export type {
   BlankPrediction,
   AIMultiBlankResponse,
   EnhancedSentenceQuizQuestion,
+  // Collection types
+  Collection,
+  CollectionProject,
 } from '../../shared/types';
 
 // ============ Web-Specific Types ============
