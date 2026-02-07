@@ -1,21 +1,31 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
+import { StudyModeCard, WordList } from '@/components/home';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import type { Collection, Project, Word, CollectionProject } from '@/types';
+import type { Collection, Project, Word } from '@/types';
 
 interface ProjectWithStats extends Project {
   totalWords: number;
   masteredWords: number;
   progress: number;
 }
+
+const tabs = [
+  { id: 'study', label: '学習' },
+  { id: 'words', label: '単語' },
+  { id: 'notebooks', label: '単語帳' },
+  { id: 'stats', label: '統計' },
+] as const;
+
+type TabId = (typeof tabs)[number]['id'];
 
 export default function CollectionDetailPage() {
   const params = useParams();
@@ -28,7 +38,9 @@ export default function CollectionDetailPage() {
 
   const [collection, setCollection] = useState<Collection | null>(null);
   const [memberProjects, setMemberProjects] = useState<ProjectWithStats[]>([]);
+  const [allWords, setAllWords] = useState<(Word & { projectTitle?: string })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabId>('study');
 
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -39,9 +51,12 @@ export default function CollectionDetailPage() {
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
+  // Word edit (read-only for collection, no add)
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+
   // Add projects modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [allUserProjects, setAllUserProjects] = useState<Project[]>([]);
   const [addSelectedIds, setAddSelectedIds] = useState<Set<string>>(new Set());
   const [addLoading, setAddLoading] = useState(false);
 
@@ -51,7 +66,6 @@ export default function CollectionDetailPage() {
     try {
       setLoading(true);
 
-      // Fetch collection and its projects in parallel
       const [col, colProjects] = await Promise.all([
         remoteRepository.getCollection(collectionId),
         getCollectionProjects(collectionId),
@@ -68,31 +82,41 @@ export default function CollectionDetailPage() {
 
       if (colProjects.length === 0) {
         setMemberProjects([]);
+        setAllWords([]);
         return;
       }
 
-      // Fetch project details and word stats
       const projectIds = colProjects.map((cp) => cp.projectId);
       const [projects, wordsByProject] = await Promise.all([
         Promise.all(projectIds.map((id) => remoteRepository.getProject(id))),
         remoteRepository.getAllWordsByProjectIds(projectIds),
       ]);
 
-      const withStats: ProjectWithStats[] = projects
-        .filter((p): p is Project => p !== undefined)
-        .map((project) => {
-          const words = wordsByProject[project.id] || [];
-          const mastered = words.filter((w) => w.status === 'mastered').length;
-          const total = words.length;
-          return {
-            ...project,
-            totalWords: total,
-            masteredWords: mastered,
-            progress: total > 0 ? Math.round((mastered / total) * 100) : 0,
-          };
-        });
+      const validProjects = projects.filter((p): p is Project => p !== undefined);
+      const projectMap = new Map(validProjects.map((p) => [p.id, p]));
+
+      const withStats: ProjectWithStats[] = validProjects.map((project) => {
+        const words = wordsByProject[project.id] || [];
+        const mastered = words.filter((w) => w.status === 'mastered').length;
+        const total = words.length;
+        return {
+          ...project,
+          totalWords: total,
+          masteredWords: mastered,
+          progress: total > 0 ? Math.round((mastered / total) * 100) : 0,
+        };
+      });
 
       setMemberProjects(withStats);
+
+      // Merge all words with project title
+      const merged = projectIds.flatMap((id) =>
+        (wordsByProject[id] ?? []).map((w) => ({
+          ...w,
+          projectTitle: projectMap.get(id)?.title,
+        }))
+      );
+      setAllWords(merged);
     } catch (e) {
       console.error('Failed to load collection:', e);
     } finally {
@@ -108,8 +132,13 @@ export default function CollectionDetailPage() {
     }
   }, [authLoading, isPro, loadData, router]);
 
-  const totalWords = memberProjects.reduce((sum, p) => sum + p.totalWords, 0);
-  const totalMastered = memberProjects.reduce((sum, p) => sum + p.masteredWords, 0);
+  const stats = useMemo(() => {
+    const total = allWords.length;
+    const mastered = allWords.filter((w) => w.status === 'mastered').length;
+    const review = allWords.filter((w) => w.status === 'review').length;
+    const newWords = allWords.filter((w) => w.status === 'new').length;
+    return { total, mastered, review, newWords };
+  }, [allWords]);
 
   const handleDelete = async () => {
     setDeleteLoading(true);
@@ -148,15 +177,39 @@ export default function CollectionDetailPage() {
     const ok = await removeProjectFromCollection(collectionId, projectId);
     if (ok) {
       setMemberProjects((prev) => prev.filter((p) => p.id !== projectId));
+      setAllWords((prev) => prev.filter((w) => {
+        const project = memberProjects.find((p) => p.id === projectId);
+        return project ? w.projectTitle !== project.title : true;
+      }));
       showToast({ message: '単語帳を除外しました', type: 'success' });
     }
+  };
+
+  const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
+    await remoteRepository.updateWord(wordId, { english, japanese });
+    setAllWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w)));
+    setEditingWordId(null);
+  };
+
+  const handleDeleteWord = async (wordId: string) => {
+    await remoteRepository.deleteWord(wordId);
+    setAllWords((prev) => prev.filter((w) => w.id !== wordId));
+    showToast({ message: '単語を削除しました', type: 'success' });
+  };
+
+  const handleToggleFavorite = async (wordId: string) => {
+    const word = allWords.find((w) => w.id === wordId);
+    if (!word) return;
+    const newFav = !word.isFavorite;
+    await remoteRepository.updateWord(wordId, { isFavorite: newFav });
+    setAllWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFav } : w)));
   };
 
   const openAddModal = async () => {
     if (!user) return;
     try {
       const all = await remoteRepository.getProjects(user.id);
-      setAllProjects(all);
+      setAllUserProjects(all);
       setAddSelectedIds(new Set());
       setShowAddModal(true);
     } catch (e) {
@@ -191,88 +244,180 @@ export default function CollectionDetailPage() {
 
   if (!collection) return null;
 
+  const returnTo = encodeURIComponent(`/collections/${collectionId}`);
   const existingProjectIds = new Set(memberProjects.map((p) => p.id));
-  const addableProjects = allProjects.filter((p) => !existingProjectIds.has(p.id));
+  const addableProjects = allUserProjects.filter((p) => !existingProjectIds.has(p.id));
 
   return (
     <AppShell>
-      <div className="min-h-screen pb-28 lg:pb-6">
+      <div className="pb-28 lg:pb-8">
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-          <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-            <button onClick={() => router.push('/collections')} className="p-1 -ml-1">
-              <Icon name="arrow_back" size={22} className="text-[var(--color-foreground)]" />
-            </button>
+          <div className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{collection.name}</h1>
-              {collection.description && (
-                <p className="text-xs text-[var(--color-muted)] truncate">{collection.description}</p>
-              )}
+              <div className="flex items-center gap-2">
+                <button onClick={() => router.push('/collections')} className="p-1 -ml-1">
+                  <Icon name="arrow_back" size={22} className="text-[var(--color-foreground)]" />
+                </button>
+                <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{collection.name}</h1>
+                <button
+                  onClick={() => setEditing(true)}
+                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
+                >
+                  <Icon name="edit" size={16} />
+                </button>
+              </div>
+              <p className="text-xs text-[var(--color-muted)] ml-8">{stats.total}語 / 習得 {stats.mastered}語</p>
             </div>
-            <button onClick={() => setEditing(true)} className="p-2">
-              <Icon name="edit" size={20} className="text-[var(--color-muted)]" />
-            </button>
-            <button onClick={() => setShowDeleteModal(true)} className="p-2">
-              <Icon name="delete" size={20} className="text-[var(--color-error)]" />
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-error)] hover:border-[var(--color-error)] transition-colors"
+            >
+              <Icon name="delete" size={18} />
             </button>
           </div>
         </header>
 
-        <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="card p-3 text-center">
-              <p className="text-lg font-bold text-[var(--color-foreground)]">{memberProjects.length}</p>
-              <p className="text-xs text-[var(--color-muted)]">単語帳</p>
-            </div>
-            <div className="card p-3 text-center">
-              <p className="text-lg font-bold text-[var(--color-foreground)]">{totalWords}</p>
-              <p className="text-xs text-[var(--color-muted)]">単語数</p>
-            </div>
-            <div className="card p-3 text-center">
-              <p className="text-lg font-bold text-[var(--color-success)]">{totalMastered}</p>
-              <p className="text-xs text-[var(--color-muted)]">習得済み</p>
-            </div>
+        <main className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+          {/* Tabs */}
+          <div className="flex gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                    : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* Member projects */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--color-muted)]">所属する単語帳</h2>
-              <button
-                onClick={openAddModal}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[var(--color-border)] text-xs font-semibold text-[var(--color-foreground)] hover:border-[var(--color-success)] transition-colors"
-              >
-                <Icon name="add" size={14} />
-                追加
-              </button>
-            </div>
+          {/* Study tab */}
+          {activeTab === 'study' && (
+            <section className="space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <StudyModeCard
+                  title="クイズ"
+                  description="4択で意味を確認"
+                  icon="quiz"
+                  href={`/quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
+                  variant="primary"
+                  disabled={allWords.length === 0}
+                />
+                <StudyModeCard
+                  title="カード"
+                  description="スワイプで復習"
+                  icon="style"
+                  href={`/flashcard/collection?collectionId=${collectionId}&from=${returnTo}`}
+                  variant="blue"
+                  disabled={allWords.length === 0}
+                />
+                <StudyModeCard
+                  title="例文クイズ"
+                  description="例文で記憶を定着"
+                  icon="auto_awesome"
+                  href={`/sentence-quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
+                  variant="orange"
+                  disabled={allWords.length === 0}
+                />
+                <StudyModeCard
+                  title="音声クイズ"
+                  description="聞いて書く練習"
+                  icon="headphones"
+                  href={`/dictation?collectionId=${collectionId}`}
+                  variant="purple"
+                  disabled={allWords.length < 10}
+                />
+              </div>
+            </section>
+          )}
 
-            {memberProjects.length === 0 ? (
-              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                まだ単語帳が追加されていません
+          {/* Words tab */}
+          {activeTab === 'words' && (
+            <section>
+              <WordList
+                words={allWords}
+                editingWordId={editingWordId}
+                onEditStart={(wordId) => setEditingWordId(wordId)}
+                onEditCancel={() => setEditingWordId(null)}
+                onSave={handleUpdateWord}
+                onDelete={handleDeleteWord}
+                onToggleFavorite={handleToggleFavorite}
+                showProjectName
+              />
+            </section>
+          )}
+
+          {/* Notebooks tab */}
+          {activeTab === 'notebooks' && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[var(--color-muted)]">所属する単語帳</h2>
+                <button
+                  onClick={openAddModal}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[var(--color-border)] text-xs font-semibold text-[var(--color-foreground)] hover:border-[var(--color-success)] transition-colors"
+                >
+                  <Icon name="add" size={14} />
+                  追加
+                </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {memberProjects.map((project) => (
-                  <div key={project.id} className="relative">
-                    <ProjectCard
-                      project={project}
-                      wordCount={project.totalWords}
-                      masteredCount={project.masteredWords}
-                      progress={project.progress}
-                    />
-                    <button
-                      onClick={() => handleRemoveProject(project.id)}
-                      className="absolute top-3 right-3 p-1.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-error)] transition-colors z-10"
-                      title="この単語帳をプロジェクトから除外"
-                    >
-                      <Icon name="close" size={14} className="text-[var(--color-muted)]" />
-                    </button>
-                  </div>
-                ))}
+
+              {memberProjects.length === 0 ? (
+                <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
+                  まだ単語帳が追加されていません
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {memberProjects.map((project) => (
+                    <div key={project.id} className="relative">
+                      <ProjectCard
+                        project={project}
+                        wordCount={project.totalWords}
+                        masteredCount={project.masteredWords}
+                        progress={project.progress}
+                      />
+                      <button
+                        onClick={() => handleRemoveProject(project.id)}
+                        className="absolute top-3 right-3 p-1.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-error)] transition-colors z-10"
+                        title="この単語帳をプロジェクトから除外"
+                      >
+                        <Icon name="close" size={14} className="text-[var(--color-muted)]" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Stats tab */}
+          {activeTab === 'stats' && (
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">総単語</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.total}</p>
               </div>
-            )}
-          </section>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">習得済み</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.mastered}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">復習中</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.review}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">未学習</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.newWords}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-[var(--color-muted)]">単語帳数</p>
+                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{memberProjects.length}</p>
+              </div>
+            </section>
+          )}
         </main>
 
         {/* Delete modal */}

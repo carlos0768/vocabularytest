@@ -10,6 +10,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { calculateNextReview, getWordsDueForReview } from '@/lib/spaced-repetition';
+import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { getGuestUserId } from '@/lib/utils';
@@ -46,6 +47,7 @@ export default function QuizPage() {
   const countFromUrl = searchParams.get('count');
   const returnPath = searchParams.get('from');
   const reviewMode = searchParams.get('review') === '1';
+  const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
@@ -489,6 +491,9 @@ export default function QuizPage() {
 
           const mergedWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
           sourceWords = getWordsDueForReview(mergedWords);
+        } else if (collectionId) {
+          // Collection mode: load words from all projects in the collection
+          sourceWords = await loadCollectionWords(collectionId);
         } else {
           let loadedWords = await repository.getWords(projectId);
           
@@ -538,7 +543,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, backToProject, user, isPro, storageKey]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey]);
 
   const currentQuestion = questions[currentIndex];
 

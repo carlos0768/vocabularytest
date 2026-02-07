@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
+import { loadCollectionWords } from '@/lib/collection-words';
 import type { Word, SubscriptionStatus } from '@/types';
 
 type QuizDirection = 'ja-to-en' | 'en-to-ja';
@@ -47,6 +48,7 @@ function DictationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
+  const collectionId = searchParams.get('collectionId');
   const { user, subscription, isPro, loading: authLoading } = useAuth();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -84,7 +86,10 @@ function DictationContent() {
       try {
         let loadedWords: Word[] = [];
 
-        if (projectId) {
+        if (collectionId) {
+          // Collection mode: load words from all projects in the collection
+          loadedWords = await loadCollectionWords(collectionId);
+        } else if (projectId) {
           if (user) {
             try {
               loadedWords = await remoteRepository.getWords(projectId);

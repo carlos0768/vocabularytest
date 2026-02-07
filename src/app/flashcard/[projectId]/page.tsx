@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
+import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -30,6 +31,7 @@ export default function FlashcardPage() {
   const projectId = params.projectId as string;
   const favoritesOnly = searchParams.get('favorites') === 'true';
   const returnPath = searchParams.get('from');
+  const collectionId = searchParams.get('collectionId');
   const { user, subscription, isPro, loading: authLoading } = useAuth();
 
   const [words, setWords] = useState<Word[]>([]);
@@ -140,7 +142,10 @@ export default function FlashcardPage() {
 
         let wordsData: Word[];
 
-        if (projectId === 'all' && favoritesOnly) {
+        if (collectionId) {
+          // Collection mode: load words from all projects in the collection
+          wordsData = await loadCollectionWords(collectionId);
+        } else if (projectId === 'all' && favoritesOnly) {
           // 全単語帳横断でお気に入り単語を取得
           const userId = isPro && user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);

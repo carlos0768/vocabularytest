@@ -14,6 +14,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview } from '@/lib/spaced-repetition';
+import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SentenceQuizQuestion, MultiFillInBlankQuestion as MultiFillInBlankQuestionType, SubscriptionStatus } from '@/types';
 
@@ -43,6 +44,7 @@ export default function SentenceQuizPage() {
   const { subscription, loading: authLoading, user } = useAuth();
   const returnPath = searchParams.get('from');
   const favoritesOnly = searchParams.get('favorites') === 'true';
+  const collectionId = searchParams.get('collectionId');
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -172,7 +174,10 @@ export default function SentenceQuizPage() {
       try {
         let words: Word[];
 
-        if (projectId === 'all' && favoritesOnly) {
+        if (collectionId) {
+          // Collection mode: load words from all projects in the collection
+          words = await loadCollectionWords(collectionId);
+        } else if (projectId === 'all' && favoritesOnly) {
           // 全単語帳横断でお気に入り単語を取得
           const userId = subscription?.status === 'active' && user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
