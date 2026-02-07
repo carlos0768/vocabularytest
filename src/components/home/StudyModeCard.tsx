@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 
-type ColorVariant = 'primary' | 'blue' | 'green' | 'orange' | 'red';
+type ColorVariant = 'primary' | 'blue' | 'green' | 'orange' | 'red' | 'purple';
 
 interface StudyModeCardProps {
   title: string;
@@ -59,6 +59,14 @@ const variantStyles: Record<ColorVariant, {
     bg: 'bg-[var(--color-warning-light)]',
     iconBg: 'bg-[var(--color-warning)]/25',
     iconColor: 'text-[var(--color-warning)]',
+    textColor: 'text-[var(--color-foreground)]',
+    descColor: 'text-[var(--color-muted)]',
+    glow: 'shadow-soft',
+  },
+  purple: {
+    bg: 'bg-purple-50 dark:bg-purple-950/30',
+    iconBg: 'bg-purple-500/20',
+    iconColor: 'text-purple-600 dark:text-purple-400',
     textColor: 'text-[var(--color-foreground)]',
     descColor: 'text-[var(--color-muted)]',
     glow: 'shadow-soft',

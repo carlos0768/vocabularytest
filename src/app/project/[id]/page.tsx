@@ -425,6 +425,15 @@ export default function ProjectDetailPage() {
                   disabled={words.length === 0}
                   badge={!isPro ? 'Pro' : undefined}
                 />
+                <StudyModeCard
+                  title="音声クイズ"
+                  description="聞いて書く練習"
+                  icon="headphones"
+                  href={isPro ? `/dictation?projectId=${project.id}` : '/subscription'}
+                  variant="purple"
+                  disabled={words.length < 10}
+                  badge={!isPro ? 'Pro' : undefined}
+                />
               </div>
             </section>
           )}
