@@ -504,7 +504,7 @@ export default function FlashcardPage() {
   return (
     <div className="h-[100dvh] grid grid-rows-[auto_1fr_auto] bg-[var(--color-background)] fixed inset-0">
       {/* Header */}
-      <header className="p-4 flex items-center justify-between">
+      <header className="p-4 flex items-center justify-between max-w-lg mx-auto w-full">
         <button
           onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
