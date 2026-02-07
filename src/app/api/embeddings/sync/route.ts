@@ -64,13 +64,13 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 4. GET WORDS WITHOUT EMBEDDINGS
     // ============================================
-    let wordsToProcess: { id: string; english: string }[] = [];
+    let wordsToProcess: { id: string; english: string; japanese: string }[] = [];
 
     if (body.wordIds && body.wordIds.length > 0) {
       // 特定のwordIdが指定された場合
       const { data: words, error: wordsError } = await supabase
         .from('words')
-        .select('id, english')
+        .select('id, english, japanese')
         .in('id', body.wordIds)
         .is('embedding', null);
 
@@ -118,7 +118,13 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. GENERATE EMBEDDINGS IN BATCH
     // ============================================
-    const texts = wordsToProcess.map((w) => w.english.trim());
+    // Combine english + japanese for bilingual embedding
+    // This allows searching by either language
+    const texts = wordsToProcess.map((w) => {
+      const en = w.english.trim();
+      const ja = w.japanese?.trim();
+      return ja ? `${en} ${ja}` : en;
+    });
     const embeddings = await batchGenerateEmbeddings(texts);
 
     // ============================================
