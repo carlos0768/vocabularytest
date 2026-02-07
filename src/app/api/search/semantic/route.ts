@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       query_embedding: queryEmbedding,
       user_id_filter: userId,
       exclude_word_ids: [],
-      match_threshold: 0.4,
+      match_threshold: 0.3,
       match_count: 20,
     });
 
