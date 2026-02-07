@@ -277,12 +277,23 @@ export default function HomePage() {
       firstProjectWords = await activeRepo.getWords(firstProject.id);
       total = firstProjectWords.length; // Approximate; Phase 2 gets exact count
 
-      // Show UI immediately
+      // Show UI immediately — merge with existing cache to avoid zeroing out other projects
       setWords(firstProjectWords);
-      setTotalWords(total);
+      const existingProjectWords = getCachedProjectWords();
+      const mergedProjectWords: Record<string, Word[]> = { ...existingProjectWords, [firstProject.id]: firstProjectWords };
+      const mergedTotal = Object.values(mergedProjectWords).reduce((sum, ws) => sum + ws.length, 0);
+      setTotalWords(mergedTotal || total);
       setWrongAnswers(getWrongAnswers());
-      const partialWordsCache: Record<string, Word[]> = { [firstProject.id]: firstProjectWords };
-      setHomeCache({ projects: data, projectWords: partialWordsCache, allFavorites: [], favoriteCounts: {}, totalWords: total, userId });
+      const existingFavorites = getCachedAllFavorites();
+      const existingFavoriteCounts = getCachedFavoriteCounts();
+      setHomeCache({
+        projects: data,
+        projectWords: mergedProjectWords,
+        allFavorites: existingFavorites.length > 0 ? existingFavorites : [],
+        favoriteCounts: Object.keys(existingFavoriteCounts).length > 0 ? existingFavoriteCounts : {},
+        totalWords: mergedTotal || total,
+        userId,
+      });
       setLoading(false);
 
       // ---- Phase 2: Background load ALL words in 1 query ----
@@ -373,17 +384,30 @@ export default function HomePage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When auth finishes, reload if user is Pro (repository changes to remote)
-  // or prefetch stats
+  // or prefetch stats. Track previous status to avoid unnecessary reloads on tab return.
+  const prevSubscriptionStatusRef = useRef<string | null>(null);
+  const hasAuthLoadedOnceRef = useRef(false);
   useEffect(() => {
     if (!authLoading) {
-      if (isPro) {
-        // Pro user: need to reload from Supabase (different repository)
+      const statusChanged = prevSubscriptionStatusRef.current !== null &&
+        prevSubscriptionStatusRef.current !== subscriptionStatus;
+      const isFirstAuthLoad = !hasAuthLoadedOnceRef.current;
+      hasAuthLoadedOnceRef.current = true;
+      prevSubscriptionStatusRef.current = subscriptionStatus;
+
+      if (isFirstAuthLoad) {
+        // First auth resolution
+        if (isPro) {
+          loadProjects(true);
+        } else if (!hasEagerLoadedRef.current) {
+          loadProjects();
+        }
+      } else if (statusChanged) {
+        // Subscription status actually changed (e.g., upgraded/downgraded)
         loadProjects(true);
-      } else if (!hasEagerLoadedRef.current) {
-        // Auth finished but eager load didn't fire yet
-        loadProjects();
       }
-      // Prefetch stats data so the stats page opens instantly
+      // Skip reload on tab return when nothing changed
+
       prefetchStats(subscriptionStatus, user?.id ?? null, isPro);
     }
   }, [authLoading, isPro, loadProjects, subscriptionStatus, user?.id]);

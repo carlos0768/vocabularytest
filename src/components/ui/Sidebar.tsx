@@ -32,6 +32,12 @@ const navItems: NavItem[] = [
     matchPaths: ['/scan'],
   },
   {
+    href: '/search',
+    icon: 'search',
+    label: '検索',
+    matchPaths: ['/search'],
+  },
+  {
     href: '/stats',
     icon: 'bar_chart',
     label: '統計',
