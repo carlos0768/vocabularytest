@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
+import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
@@ -149,7 +150,18 @@ export default function FlashcardPage() {
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           wordsData = allProjectWords.flat().filter(w => w.isFavorite);
         } else {
-          const allWords = await repository.getWords(projectId);
+          let allWords = await repository.getWords(projectId);
+          
+          // Fallback to remote if local is empty and user is logged in
+          // This handles background scan projects stored in remote
+          if (allWords.length === 0 && user) {
+            try {
+              allWords = await remoteRepository.getWords(projectId);
+            } catch (e) {
+              console.error('Remote fallback failed:', e);
+            }
+          }
+          
           wordsData = favoritesOnly
             ? allWords.filter((w) => w.isFavorite)
             : allWords;

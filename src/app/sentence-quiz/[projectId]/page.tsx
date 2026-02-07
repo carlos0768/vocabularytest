@@ -11,6 +11,7 @@ import {
   QuizResult,
 } from '@/components/sentence-quiz';
 import { getRepository } from '@/lib/db';
+import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
@@ -179,6 +180,17 @@ export default function SentenceQuizPage() {
           words = allWords.flat().filter(w => w.isFavorite);
         } else {
           words = await repository.getWords(projectId);
+          
+          // Fallback to remote if local is empty and user is logged in
+          // This handles background scan projects stored in remote
+          if (words.length === 0 && user) {
+            try {
+              words = await remoteRepository.getWords(projectId);
+            } catch (e) {
+              console.error('Remote fallback failed:', e);
+            }
+          }
+          
           if (favoritesOnly) {
             words = words.filter(w => w.isFavorite);
           }
