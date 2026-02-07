@@ -84,6 +84,23 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleToggleProjectFavorite = async (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const newFavorite = !project.isFavorite;
+    try {
+      await repository.updateProject(projectId, { isFavorite: newFavorite });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, isFavorite: newFavorite } : p))
+      );
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to toggle project favorite:', error);
+      showToast({ message: 'ピン留めの変更に失敗しました', type: 'error' });
+    }
+  };
+
   // Phase 1: Instant local load (no auth dependency)
   const hasLocalLoadedRef = useRef(false);
   useEffect(() => {
@@ -222,7 +239,7 @@ export default function ProjectsPage() {
             {favorites.length > 0 && query.trim().length === 0 && (
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted)]">お気に入り</h2>
+                  <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
                   <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
                 </div>
                 <div className="space-y-3">
@@ -234,6 +251,7 @@ export default function ProjectsPage() {
                       masteredCount={project.masteredWords}
                       progress={project.progress}
                       onDelete={(id) => handleDeleteProject(id)}
+                      onToggleFavorite={handleToggleProjectFavorite}
                     />
                   ))}
                 </div>
@@ -254,6 +272,7 @@ export default function ProjectsPage() {
                     masteredCount={project.masteredWords}
                     progress={project.progress}
                     onDelete={(id) => handleDeleteProject(id)}
+                    onToggleFavorite={handleToggleProjectFavorite}
                   />
                 ))}
               </div>

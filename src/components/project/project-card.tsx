@@ -14,9 +14,10 @@ interface ProjectCardProps {
   masteredCount?: number;
   progress?: number;
   onDelete?: (id: string) => void;
+  onToggleFavorite?: (id: string) => void;
 }
 
-export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 0, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 0, onDelete, onToggleFavorite }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -26,7 +27,10 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="line-clamp-2 pr-8">{project.title}</CardTitle>
             {project.isFavorite && (
-              <span className="chip chip-pro text-xs">お気に入り</span>
+              <span className="chip chip-pro text-xs flex items-center gap-1">
+                <Icon name="push_pin" size={12} />
+                ピン留め
+              </span>
             )}
           </div>
         </CardHeader>
@@ -52,7 +56,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
       </Link>
 
       {/* Menu button */}
-      {onDelete && (
+      {(onDelete || onToggleFavorite) && (
         <div className="absolute top-3 right-3">
           <Button
             variant="ghost"
@@ -74,19 +78,35 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
                 className="fixed inset-0 z-10"
                 onClick={() => setShowMenu(false)}
               />
-              <div className="absolute right-0 top-full mt-1 z-20 bg-[var(--color-surface)] rounded-lg shadow-card border border-[var(--color-border)] py-1 min-w-[120px]">
-                <button
-                  className="w-full px-4 py-2 text-left text-sm text-[var(--color-error)] hover:bg-[var(--color-error-light)] flex items-center gap-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onDelete(project.id);
-                  }}
-                >
-                  <Icon name="delete" size={16} />
-                  削除
-                </button>
+              <div className="absolute right-0 top-full mt-1 z-20 bg-[var(--color-surface)] rounded-lg shadow-card border border-[var(--color-border)] py-1 min-w-[140px]">
+                {onToggleFavorite && (
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onToggleFavorite(project.id);
+                    }}
+                  >
+                    <Icon name="push_pin" size={16} filled={project.isFavorite} />
+                    {project.isFavorite ? 'ピン留め解除' : 'ピン留め'}
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-[var(--color-error)] hover:bg-[var(--color-error-light)] flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onDelete(project.id);
+                    }}
+                  >
+                    <Icon name="delete" size={16} />
+                    削除
+                  </button>
+                )}
               </div>
             </>
           )}

@@ -606,7 +606,7 @@ export default function HomePage() {
       );
     } catch (error) {
       console.error('Failed to toggle project favorite:', error);
-      showToast({ message: 'ブックマークの変更に失敗しました', type: 'error' });
+      showToast({ message: 'ピン留めの変更に失敗しました', type: 'error' });
     }
   };
 
@@ -1291,7 +1291,13 @@ export default function HomePage() {
                 </div>
               ) : (
                 [...projects]
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .sort((a, b) => {
+                    // Pinned projects first
+                    if (a.isFavorite && !b.isFavorite) return -1;
+                    if (!a.isFavorite && b.isFavorite) return 1;
+                    // Then by date
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  })
                   .slice(0, 4)
                   .map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
@@ -1305,6 +1311,7 @@ export default function HomePage() {
                         masteredCount={mastered}
                         progress={progress}
                         onDelete={(id) => handleDeleteProject(id)}
+                        onToggleFavorite={handleToggleProjectFavorite}
                       />
                     );
                   })
