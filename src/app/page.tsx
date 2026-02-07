@@ -10,6 +10,7 @@ import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from 
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
+import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
 import { ScanJobNotifications } from '@/components/scan/ScanJobNotification';
 import { getRepository } from '@/lib/db';
@@ -91,6 +92,9 @@ export default function HomePage() {
   
   // Background scan job notifications (Pro only)
   const { completedJobs, acknowledgeJob, refresh: refreshJobs } = useScanJobs();
+
+  // Collections (Pro only)
+  const { collections, loading: collectionsLoading } = useCollections();
 
   // Projects & navigation - Initialize from cache if available
   // ensureCacheRestored() runs synchronously so the first render uses cached data
@@ -1336,6 +1340,36 @@ export default function HomePage() {
               )}
             </div>
           </section>
+
+          {/* Collections (Pro only, shown when they exist) */}
+          {isPro && !collectionsLoading && collections.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">プロジェクト</h2>
+                <Link href="/collections" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {collections.slice(0, 4).map((collection) => (
+                  <Link
+                    key={collection.id}
+                    href={`/collections/${collection.id}`}
+                    className="card p-4 flex items-center gap-4 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
+                      <Icon name="workspaces" size={22} className="text-[var(--color-success)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{collection.name}</p>
+                      {collection.description && (
+                        <p className="text-xs text-[var(--color-muted)] truncate mt-0.5">{collection.description}</p>
+                      )}
+                    </div>
+                    <Icon name="chevron_right" size={18} className="text-[var(--color-muted)] shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </main>
 
       {/* Modals */}
