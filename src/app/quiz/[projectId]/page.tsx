@@ -137,9 +137,33 @@ export default function QuizPage() {
     }
   }, [isComplete, clearQuizState]);
 
-  // Generate example sentence for a single word on-demand (Pro only)
+  // Helper: apply generated examples to local state
+  const applyExamples = useCallback((examples: { wordId: string; exampleSentence: string; exampleSentenceJa: string }[]) => {
+    if (examples.length === 0) return;
+    const exampleMap = new Map(examples.map(e => [e.wordId, e]));
+
+    setQuestions(prev => prev.map(q => {
+      const ex = exampleMap.get(q.word.id);
+      return ex ? { ...q, word: { ...q.word, exampleSentence: ex.exampleSentence, exampleSentenceJa: ex.exampleSentenceJa } } : q;
+    }));
+    setAllWords(prev => prev.map(w => {
+      const ex = exampleMap.get(w.id);
+      return ex ? { ...w, exampleSentence: ex.exampleSentence, exampleSentenceJa: ex.exampleSentenceJa } : w;
+    }));
+
+    // Also save to local IndexedDB for free users
+    if (!isPro) {
+      examples.forEach(ex => {
+        repository.updateWord(ex.wordId, {
+          exampleSentence: ex.exampleSentence,
+          exampleSentenceJa: ex.exampleSentenceJa,
+        }).catch(() => {}); // silently ignore save errors
+      });
+    }
+  }, [isPro, repository]);
+
+  // Generate example sentence for a single word on-demand
   const generateExampleOnDemand = useCallback(async (word: Word) => {
-    if (!isPro) return;
     if (word.exampleSentence && word.exampleSentence.trim().length > 0) return;
 
     setGeneratingExample(true);
@@ -161,30 +185,19 @@ export default function QuizPage() {
         return;
       }
 
-      // Refresh the specific word to get the generated example
-      const updatedWords = await repository.getWords(projectId);
-      const updatedWord = updatedWords.find(w => w.id === word.id);
-      
-      if (updatedWord) {
-        // Update questions with new example sentence
-        setQuestions(prev => prev.map(q => 
-          q.word.id === word.id ? { ...q, word: updatedWord } : q
-        ));
-        setAllWords(prev => prev.map(w => 
-          w.id === word.id ? updatedWord : w
-        ));
+      const data = await response.json();
+      if (data.examples && data.examples.length > 0) {
+        applyExamples(data.examples);
       }
     } catch (error) {
       console.error('Failed to generate example:', error);
     } finally {
       setGeneratingExample(false);
     }
-  }, [isPro, projectId, repository]);
+  }, [applyExamples]);
 
-  // Generate example sentences for words that don't have them (Pro only, runs in background)
+  // Generate example sentences for words that don't have them (runs in background)
   const generateExamplesInBackground = useCallback(async (words: Word[]) => {
-    if (!isPro) return;
-
     // Filter words that need example sentences
     const wordsNeedingExamples = words.filter(
       w => !w.exampleSentence || w.exampleSentence.trim().length === 0
@@ -207,20 +220,15 @@ export default function QuizPage() {
 
       if (!response.ok) return;
 
-      // Refresh words to get the generated examples
-      const updatedWords = await repository.getWords(projectId);
-      setAllWords(updatedWords);
-
-      // Update questions with new example sentences
-      setQuestions(prev => prev.map(q => {
-        const updatedWord = updatedWords.find(w => w.id === q.word.id);
-        return updatedWord ? { ...q, word: updatedWord } : q;
-      }));
+      const data = await response.json();
+      if (data.examples && data.examples.length > 0) {
+        applyExamples(data.examples);
+      }
     } catch (error) {
       console.error('Failed to generate examples:', error);
       // Silently fail - example sentences are not critical
     }
-  }, [isPro, projectId, repository]);
+  }, [applyExamples]);
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
     const selected = shuffleArray(words).slice(0, count);
@@ -441,14 +449,30 @@ export default function QuizPage() {
 
         if (reviewMode) {
           const userId = isPro && user ? user.id : getGuestUserId();
-          const projects = await repository.getProjects(userId);
+          let projects = await repository.getProjects(userId);
+          let wordRepo = repository;
+
+          // Fallback: If hybrid/local returned empty but user is logged in,
+          // try remote directly (handles pre-sync state)
+          if (projects.length === 0 && user) {
+            try {
+              projects = await remoteRepository.getProjects(user.id);
+              if (projects.length > 0) {
+                wordRepo = remoteRepository;
+              }
+            } catch (e) {
+              console.error('Remote project fallback failed:', e);
+            }
+          }
+
           const projectIds = projects.map((project) => project.id);
           if (projectIds.length === 0) {
             backToProject();
             return;
           }
 
-          const repoWithBulk = repository as typeof repository & {
+          // Load all words across projects
+          const repoWithBulk = wordRepo as typeof repository & {
             getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
             getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
           };
@@ -459,7 +483,7 @@ export default function QuizPage() {
           } else if (repoWithBulk.getAllWordsByProject) {
             wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
           } else {
-            const wordsArrays = await Promise.all(projectIds.map((id) => repository.getWords(id)));
+            const wordsArrays = await Promise.all(projectIds.map((id) => wordRepo.getWords(id)));
             wordsByProject = Object.fromEntries(projectIds.map((id, index) => [id, wordsArrays[index] ?? []]));
           }
 
@@ -527,8 +551,8 @@ export default function QuizPage() {
     const isCorrect = index === currentQuestion.correctIndex;
     const word = currentQuestion.word;
 
-    // Generate example on-demand if not present (Pro only)
-    if (isPro && (!word.exampleSentence || word.exampleSentence.trim().length === 0)) {
+    // Generate example on-demand if not present
+    if (!word.exampleSentence || word.exampleSentence.trim().length === 0) {
       generateExampleOnDemand(word);
     }
 
@@ -977,6 +1001,29 @@ export default function QuizPage() {
             />
           ))}
         </div>
+
+        {/* Example sentence shown after answering */}
+        {isRevealed && currentQuestion && (
+          <div className="max-w-lg mx-auto w-full mb-24">
+            {currentQuestion.word.exampleSentence ? (
+              <div className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold mb-1">
+                  <Icon name="format_quote" size={14} />
+                  例文
+                </div>
+                <p className="text-sm text-[var(--color-foreground)] leading-relaxed">{currentQuestion.word.exampleSentence}</p>
+                {currentQuestion.word.exampleSentenceJa && (
+                  <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
+                )}
+              </div>
+            ) : generatingExample ? (
+              <div className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 flex items-center gap-2 text-[var(--color-muted)]">
+                <Icon name="progress_activity" size={16} className="animate-spin" />
+                <span className="text-xs">例文を生成中...</span>
+              </div>
+            ) : null}
+          </div>
+        )}
 
       </main>
 

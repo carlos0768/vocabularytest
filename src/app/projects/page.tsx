@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Icon, AppShell } from '@/components/ui';
+import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
+import { useToast } from '@/components/ui/toast';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
+import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
+import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, Word } from '@/types';
 
 interface ProjectWithStats extends Project {
@@ -45,8 +48,41 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
 
+  const { showToast } = useToast();
+  const { refresh: refreshWordCount } = useWordCount();
+
   const subscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+
+  // Delete state
+  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
+  const [deleteProjectTargetId, setDeleteProjectTargetId] = useState<string | null>(null);
+  const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
+
+  const handleDeleteProject = (projectId: string) => {
+    setDeleteProjectTargetId(projectId);
+    setDeleteProjectModalOpen(true);
+  };
+
+  const handleConfirmDeleteProject = async () => {
+    if (!deleteProjectTargetId) return;
+
+    setDeleteProjectLoading(true);
+    try {
+      await repository.deleteProject(deleteProjectTargetId);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteProjectTargetId));
+      invalidateHomeCache();
+      refreshWordCount();
+      showToast({ message: '単語帳を削除しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setDeleteProjectLoading(false);
+      setDeleteProjectModalOpen(false);
+      setDeleteProjectTargetId(null);
+    }
+  };
 
   // Phase 1: Instant local load (no auth dependency)
   const hasLocalLoadedRef = useRef(false);
@@ -197,6 +233,7 @@ export default function ProjectsPage() {
                       wordCount={project.totalWords}
                       masteredCount={project.masteredWords}
                       progress={project.progress}
+                      onDelete={(id) => handleDeleteProject(id)}
                     />
                   ))}
                 </div>
@@ -216,6 +253,7 @@ export default function ProjectsPage() {
                     wordCount={project.totalWords}
                     masteredCount={project.masteredWords}
                     progress={project.progress}
+                    onDelete={(id) => handleDeleteProject(id)}
                   />
                 ))}
               </div>
@@ -223,6 +261,14 @@ export default function ProjectsPage() {
           </>
         )}
       </main>
+      <DeleteConfirmModal
+        isOpen={deleteProjectModalOpen}
+        onClose={() => { setDeleteProjectModalOpen(false); setDeleteProjectTargetId(null); }}
+        onConfirm={handleConfirmDeleteProject}
+        title="単語帳を削除"
+        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        isLoading={deleteProjectLoading}
+      />
     </div>
     </AppShell>
   );

@@ -64,10 +64,25 @@ export function getDb(): WordSnapDB {
     throw new Error('IndexedDB is not available on server side');
   }
   if (!_db) {
-    _db = new WordSnapDB();
+    try {
+      _db = new WordSnapDB();
+    } catch (e) {
+      console.error('Failed to initialize IndexedDB:', e);
+      throw new Error('IndexedDB is not available in this browser');
+    }
   }
   return _db;
 }
 
 // For backward compatibility - use getDb() instead
-export const db = typeof window !== 'undefined' ? new WordSnapDB() : (null as unknown as WordSnapDB);
+// Wrapped in try/catch to handle environments where IndexedDB is unavailable
+function createDbSafe(): WordSnapDB | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return new WordSnapDB();
+  } catch (e) {
+    console.error('Failed to initialize IndexedDB:', e);
+    return null;
+  }
+}
+export const db = createDbSafe() as WordSnapDB;
