@@ -10,6 +10,7 @@ import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { processImageToBase64 } from '@/lib/image-utils';
+import { createBrowserClient } from '@/lib/supabase';
 
 
 function ScanPageContent() {
@@ -32,6 +33,12 @@ function ScanPageContent() {
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+  
+  // Background scan state
+  const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const scanModes = [
     {
@@ -97,6 +104,65 @@ function ScanPageContent() {
     }
   }, [selectedMode]);
 
+  // Background upload for Pro users
+  const handleBackgroundUpload = useCallback(async (files: File[], name: string) => {
+    setUploading(true);
+    
+    try {
+      const supabase = createBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('認証が必要です');
+      }
+
+      // Upload each file as a separate job
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('projectTitle', name);
+        formData.append('scanMode', selectedMode);
+        if (selectedMode === 'eiken' && selectedEiken) {
+          formData.append('eikenLevel', selectedEiken);
+        }
+
+        const response = await fetch('/api/scan-jobs', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'アップロードに失敗しました');
+        }
+      }
+
+      showToast({
+        message: `${files.length > 1 ? `${files.length}件の` : ''}スキャンを開始しました`,
+        type: 'success',
+        duration: 3000,
+      });
+
+      // Go back to home
+      router.push('/');
+    } catch (error) {
+      console.error('Background upload error:', error);
+      showToast({
+        message: error instanceof Error ? error.message : 'アップロードに失敗しました',
+        type: 'error',
+        duration: 4000,
+      });
+    } finally {
+      setUploading(false);
+      setShowProjectNameModal(false);
+      setPendingFiles([]);
+      setProjectName('');
+    }
+  }, [selectedMode, selectedEiken, router, showToast]);
+
   const handleMultipleImages = useCallback(async (files: File[]) => {
     const requiresPro = ['circled', 'highlighted', 'eiken', 'idiom', 'wrong'].includes(selectedMode);
     if (requiresPro && !isPro) {
@@ -127,6 +193,23 @@ function ScanPageContent() {
       return;
     }
 
+    // Pro users: use background processing
+    if (isPro) {
+      // If adding to existing project, use traditional flow
+      if (projectId) {
+        // Fall through to traditional flow
+      } else {
+        // New project: show project name modal and use background upload
+        const now = new Date();
+        const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+        setProjectName(defaultName);
+        setPendingFiles(files);
+        setShowProjectNameModal(true);
+        return;
+      }
+    }
+
+    // Free users or adding to existing project: use traditional flow
     if (!isPro && isAtLimit) {
       setShowWordLimitModal(true);
       return;
@@ -244,7 +327,7 @@ function ScanPageContent() {
         )
       );
     }
-  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken]);
+  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, handleBackgroundUpload]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -469,6 +552,59 @@ function ScanPageContent() {
           onClose={() => setShowWordLimitModal(false)}
           currentCount={0}
         />
+
+        {/* Project name modal for background scan */}
+        {showProjectNameModal && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+              <h2 className="text-lg font-bold mb-4 text-[var(--color-foreground)]">
+                単語帳の名前
+              </h2>
+              <input
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="例: 英検2級 単語"
+                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-primary)] focus:outline-none"
+                autoFocus
+              />
+              <p className="mt-2 text-xs text-[var(--color-muted)]">
+                バックグラウンドで処理されます。完了後に通知します。
+              </p>
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowProjectNameModal(false);
+                    setPendingFiles([]);
+                    setProjectName('');
+                  }}
+                  disabled={uploading}
+                  className="flex-1 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] font-medium hover:bg-[var(--color-border-light)] transition-colors disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={() => {
+                    if (projectName.trim() && pendingFiles.length > 0) {
+                      handleBackgroundUpload(pendingFiles, projectName.trim());
+                    }
+                  }}
+                  disabled={!projectName.trim() || uploading}
+                  className="flex-1 py-3 rounded-xl bg-[var(--color-primary)] text-white font-medium hover:bg-[var(--color-primary)]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {uploading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      送信中...
+                    </>
+                  ) : (
+                    'スキャン開始'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );
