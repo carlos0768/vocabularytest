@@ -372,21 +372,21 @@ export default function CollectionDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {memberProjects.map((project) => (
-                    <div key={project.id} className="relative">
-                      <ProjectCard
-                        project={project}
-                        wordCount={project.totalWords}
-                        masteredCount={project.masteredWords}
-                        progress={project.progress}
-                      />
-                      <button
-                        onClick={() => handleRemoveProject(project.id)}
-                        className="absolute top-3 right-3 p-1.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-error)] transition-colors z-10"
-                        title="この単語帳をプロジェクトから除外"
-                      >
-                        <Icon name="close" size={14} className="text-[var(--color-muted)]" />
-                      </button>
-                    </div>
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      wordCount={project.totalWords}
+                      masteredCount={project.masteredWords}
+                      progress={project.progress}
+                      extraMenuItems={[
+                        {
+                          label: 'プロジェクトから除外',
+                          icon: 'link_off',
+                          onClick: handleRemoveProject,
+                          danger: true,
+                        },
+                      ]}
+                    />
                   ))}
                 </div>
               )}
