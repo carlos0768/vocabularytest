@@ -26,6 +26,12 @@ const navItems: NavItem[] = [
     matchPaths: ['/projects', '/project'],
   },
   {
+    href: '/collections',
+    icon: 'workspaces',
+    label: 'プロジェクト',
+    matchPaths: ['/collections'],
+  },
+  {
     href: '/scan',
     icon: 'center_focus_weak',
     label: 'スキャン',

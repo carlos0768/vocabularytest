@@ -1,7 +1,7 @@
 // Shared database mapping functions for WordSnap (Web & Mobile)
 // Converts between Supabase snake_case and TypeScript camelCase
 
-import type { Project, Word } from '../types';
+import type { Project, Word, Collection, CollectionProject } from '../types';
 
 // ============ Default Values ============
 
@@ -198,4 +198,61 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
 
   return updateData;
+}
+
+// ============ Collection Mappers ============
+
+export interface CollectionRow {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollectionProjectRow {
+  collection_id: string;
+  project_id: string;
+  sort_order: number;
+  added_at: string;
+}
+
+export function mapCollectionFromRow(row: CollectionRow): Collection {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    description: row.description ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapCollectionToInsert(data: { userId: string; name: string; description?: string }): {
+  user_id: string;
+  name: string;
+  description?: string;
+} {
+  return {
+    user_id: data.userId,
+    name: data.name,
+    ...(data.description !== undefined && { description: data.description }),
+  };
+}
+
+export function mapCollectionUpdates(updates: Partial<Pick<Collection, 'name' | 'description'>>): Record<string, unknown> {
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.name !== undefined) updateData.name = updates.name;
+  if (updates.description !== undefined) updateData.description = updates.description;
+  return updateData;
+}
+
+export function mapCollectionProjectFromRow(row: CollectionProjectRow): CollectionProject {
+  return {
+    collectionId: row.collection_id,
+    projectId: row.project_id,
+    sortOrder: row.sort_order,
+    addedAt: row.added_at,
+  };
 }
