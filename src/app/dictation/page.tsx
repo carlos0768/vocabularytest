@@ -72,7 +72,7 @@ function DictationContent() {
 
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load words
@@ -621,14 +621,15 @@ function DictationContent() {
                     : 'bg-[var(--color-surface)]'
                 }`}
               >
-                <Icon
-                  name={isSpeaking ? 'graphic_eq' : isPlaying ? 'hourglass_top' : 'pause'}
-                  size={56}
-                  className={`transition-colors duration-300 ${
-                    isSpeaking ? 'text-white' : 'text-[var(--color-muted)]'
-                  }`}
-                  style={isSpeaking ? { animation: 'bounce-subtle 0.5s ease-in-out infinite' } : undefined}
-                />
+                <span className={isSpeaking ? 'animate-bounce-subtle' : ''}>
+                  <Icon
+                    name={isSpeaking ? 'graphic_eq' : isPlaying ? 'hourglass_top' : 'pause'}
+                    size={56}
+                    className={`transition-colors duration-300 ${
+                      isSpeaking ? 'text-white' : 'text-[var(--color-muted)]'
+                    }`}
+                  />
+                </span>
               </div>
             </div>
 
@@ -882,12 +883,13 @@ function DictationContent() {
             />
             
             <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center shadow-xl">
-              <Icon 
-                name="auto_awesome" 
-                className="text-white" 
-                size={40}
-                style={{ animation: 'bounce-subtle 1s ease-in-out infinite' }}
-              />
+              <span className="animate-bounce-subtle">
+                <Icon 
+                  name="auto_awesome" 
+                  className="text-white" 
+                  size={40}
+                />
+              </span>
             </div>
           </div>
           
