@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Service role client for server-side operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!.startsWith('http') 
-    ? process.env.NEXT_PUBLIC_SUPABASE_URL! 
-    : `https://${process.env.NEXT_PUBLIC_SUPABASE_URL}`,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+let supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    supabaseAdmin = createClient(
+      url.startsWith('http') ? url : `https://${url}`,
+      key
+    );
+  }
+  return supabaseAdmin;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -37,7 +44,7 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const imagePath = `${user.id}/${timestamp}.${image.name.split('.').pop()}`;
     
-    const { error: uploadError } = await supabaseAdmin.storage
+    const { error: uploadError } = await getSupabaseAdmin().storage
       .from('scan-images')
       .upload(imagePath, image, {
         contentType: image.type,
@@ -50,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create scan job record
-    const { data: job, error: insertError } = await supabaseAdmin
+    const { data: job, error: insertError } = await getSupabaseAdmin()
       .from('scan_jobs')
       .insert({
         user_id: user.id,
@@ -65,8 +72,7 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Insert error:', insertError);
-      // Clean up uploaded image
-      await supabaseAdmin.storage.from('scan-images').remove([imagePath]);
+      await getSupabaseAdmin().storage.from('scan-images').remove([imagePath]);
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
 
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       jobId: job.id,
-      message: 'スキャンを開始しました。完了後に通知します。',
+      message: 'Scan started',
     });
 
   } catch (error) {
@@ -102,7 +108,7 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -112,8 +118,7 @@ export async function GET(request: NextRequest) {
     const jobId = searchParams.get('jobId');
 
     if (jobId) {
-      // Get specific job
-      const { data: job, error } = await supabaseAdmin
+      const { data: job, error } = await getSupabaseAdmin()
         .from('scan_jobs')
         .select('*')
         .eq('id', jobId)
@@ -127,8 +132,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ job });
     }
 
-    // List recent jobs (completed ones that haven't been acknowledged)
-    const { data: jobs, error } = await supabaseAdmin
+    const { data: jobs, error } = await getSupabaseAdmin()
       .from('scan_jobs')
       .select('*')
       .eq('user_id', user.id)
@@ -157,7 +161,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -170,7 +174,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
       .from('scan_jobs')
       .delete()
       .eq('id', jobId)

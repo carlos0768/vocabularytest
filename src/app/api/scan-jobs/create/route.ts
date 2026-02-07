@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Service role client for server-side operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!.startsWith('http') 
-    ? process.env.NEXT_PUBLIC_SUPABASE_URL! 
-    : `https://${process.env.NEXT_PUBLIC_SUPABASE_URL}`,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+let supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    supabaseAdmin = createClient(
+      url.startsWith('http') ? url : `https://${url}`,
+      key
+    );
+  }
+  return supabaseAdmin;
+}
 
 // Lightweight endpoint: just create job record and trigger processing
 // Image is already uploaded directly to Storage by client
@@ -19,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -32,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the image exists in storage
-    const { data: fileData } = await supabaseAdmin.storage
+    const { data: fileData } = await getSupabaseAdmin().storage
       .from('scan-images')
       .list(user.id, { search: imagePath.split('/').pop() });
 
@@ -41,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create scan job record
-    const { data: job, error: insertError } = await supabaseAdmin
+    const { data: job, error: insertError } = await getSupabaseAdmin()
       .from('scan_jobs')
       .insert({
         user_id: user.id,
