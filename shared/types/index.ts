@@ -35,6 +35,24 @@ export interface Project {
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
 }
 
+// ============ Collection Types ============
+
+export interface Collection {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+}
+
+export interface CollectionProject {
+  collectionId: string;
+  projectId: string;
+  sortOrder: number;
+  addedAt: string; // ISO string
+}
+
 // ============ AI Response Types ============
 
 export interface AIWordExtraction {

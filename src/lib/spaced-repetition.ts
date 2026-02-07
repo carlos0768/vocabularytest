@@ -97,9 +97,11 @@ export function getWordsDueForReview(words: Word[]): Word[] {
   const now = new Date();
 
   return words.filter((word) => {
-    // Never reviewed - always due
+    // Never reviewed and still new - not due for review yet
     if (!word.nextReviewAt) {
-      return true;
+      // Only include if the word has been reviewed at least once
+      // (has lastReviewedAt or status is not 'new')
+      return !!word.lastReviewedAt || word.status !== 'new';
     }
 
     // Check if review date has passed
