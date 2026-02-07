@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -139,14 +139,14 @@ function ShareTargetContent() {
 
       if (showNewProject && newProjectName.trim()) {
         const project = await createProject(newProjectName.trim());
-        if (!project) throw new Error('プロジェクト作成に失敗');
+        if (!project) throw new Error('単語帳作成に失敗');
         targetProjectId = project.id;
       } else if (selectedProjectId) {
         targetProjectId = selectedProjectId;
       } else {
         // No projects exist — auto-create "共有単語"
         const project = await createProject('共有単語');
-        if (!project) throw new Error('プロジェクト作成に失敗');
+        if (!project) throw new Error('単語帳作成に失敗');
         targetProjectId = project.id;
       }
 
@@ -256,7 +256,7 @@ function ShareTargetContent() {
           {/* Project selector */}
           <div>
             <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">
-              追加先プロジェクト
+              追加先単語帳
             </label>
             {isLoading ? (
               <div className="px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] text-sm">
@@ -269,7 +269,7 @@ function ShareTargetContent() {
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   className="flex-1 px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
-                  placeholder="新しいプロジェクト名"
+                  placeholder="新しい単語帳名"
                   autoFocus
                 />
                 <button
@@ -290,7 +290,7 @@ function ShareTargetContent() {
                   className="flex-1 px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)] text-[var(--color-foreground)]"
                 >
                   {projects.length === 0 && (
-                    <option value="">プロジェクトなし（自動作成）</option>
+                    <option value="">単語帳なし（自動作成）</option>
                   )}
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>

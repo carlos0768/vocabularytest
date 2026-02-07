@@ -1,7 +1,7 @@
 /**
  * Home Page Global Cache
  *
- * ホーム画面のプロジェクト・単語データを一元管理するキャッシュ。
+ * ホーム画面の単語帳・単語データを一元管理するキャッシュ。
  * useWordCount, prefetchStats はここから読み取ることで重複フェッチを排除する。
  * sessionStorage にも永続化し、フルリロード後も即時表示を実現する。
  */

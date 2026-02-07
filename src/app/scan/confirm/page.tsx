@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -164,7 +164,7 @@ export default function ConfirmPage() {
 
     // Only require project title for new projects
     if (!isAddingToExisting && !projectTitle.trim()) {
-      alert('プロジェクト名を入力してください');
+      alert('単語帳名を入力してください');
       return;
     }
 
@@ -335,7 +335,7 @@ export default function ConfirmPage() {
         {!isAddingToExisting && (
           <div className="mb-6">
             <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">
-              プロジェクト名
+              単語帳名
             </label>
             <input
               type="text"

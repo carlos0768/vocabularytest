@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -1146,7 +1146,7 @@ export default function HomePage() {
               <Link
                 href="/projects"
                 className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
-                aria-label="プロジェクト一覧"
+                aria-label="単語帳一覧"
               >
                 <Icon name="folder" size={24} />
               </Link>
@@ -1220,13 +1220,13 @@ export default function HomePage() {
           {/* Recent projects */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近のプロジェクト</h2>
+              <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近の単語帳</h2>
               <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {projects.length === 0 ? (
                 <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                  まだプロジェクトがありません。スキャンから始めましょう。
+                  まだ単語帳がありません。スキャンから始めましょう。
                 </div>
               ) : (
                 [...projects]

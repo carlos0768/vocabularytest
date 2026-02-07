@@ -144,7 +144,7 @@ export default function FlashcardPage() {
         let wordsData: Word[];
 
         if (projectId === 'all' && favoritesOnly) {
-          // 全プロジェクト横断でお気に入り単語を取得
+          // 全単語帳横断でお気に入り単語を取得
           const userId = isPro && user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));

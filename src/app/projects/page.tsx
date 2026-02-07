@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -98,7 +98,7 @@ export default function ProjectsPage() {
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-[var(--color-foreground)]">プロジェクト</h1>
+            <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>
             <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
           </div>
           <Link
@@ -118,7 +118,7 @@ export default function ProjectsPage() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="プロジェクトを検索"
+            placeholder="単語帳を検索"
             className="w-full pl-10 pr-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)]"
           />
         </div>
@@ -144,7 +144,7 @@ export default function ProjectsPage() {
             <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center">
               <Icon name="star" size={24} className="text-[var(--color-primary)]" />
             </div>
-            <h2 className="mt-4 text-lg font-bold">まだプロジェクトがありません</h2>
+            <h2 className="mt-4 text-lg font-bold">まだ単語帳がありません</h2>
             <p className="text-sm text-[var(--color-muted)] mt-2">スキャンから最初の単語帳を作成しましょう</p>
             <Link
               href="/scan"
@@ -177,7 +177,7 @@ export default function ProjectsPage() {
 
             <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべてのプロジェクト</h2>
+                <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
               </div>
               <div className="space-y-3">

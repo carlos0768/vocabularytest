@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { AppShell, Icon } from '@/components/ui';
@@ -346,7 +346,7 @@ export default function StatsPage() {
               </h2>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-[var(--color-border)]">
-                  <span className="text-[var(--color-muted)]">プロジェクト数</span>
+                  <span className="text-[var(--color-muted)]">単語帳数</span>
                   <span className="font-semibold text-[var(--color-foreground)]">{stats.totalProjects}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-[var(--color-border)]">
