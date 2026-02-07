@@ -5,6 +5,9 @@ import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Subscription, SubscriptionStatus, SubscriptionPlan } from '@/types';
 import { hybridRepository } from '@/lib/db';
+import { invalidateStatsCache } from '@/lib/stats-cache';
+import { clearHomeCache } from '@/lib/home-cache';
+import { clearAllUserStats } from '@/lib/utils';
 
 interface AuthState {
   user: User | null;
@@ -454,9 +457,13 @@ export function useAuth() {
     if (!supabase) return;
     await supabase.auth.signOut();
     clearCachedSubscription();
-    hybridRepository.clearSyncData(); // Clear offline sync data
+    hybridRepository.clearSyncData();
+    invalidateStatsCache();
+    clearHomeCache();
+    clearAllUserStats();
     notifyListeners({ user: null, subscription: null, loading: false, error: null });
-    hasInitialized = false; // Reset for next login
+    hasInitialized = false;
+    hasOptimisticLoad = false;
   }, [getSupabase]);
 
   // Initialize auth state - only once globally
@@ -491,8 +498,12 @@ export function useAuth() {
         // Handle specific events
         if (event === 'SIGNED_OUT') {
           clearCachedSubscription();
+          invalidateStatsCache();
+          clearHomeCache();
+          clearAllUserStats();
           notifyListeners({ user: null, subscription: null, loading: false, error: null });
           hasInitialized = false;
+          hasOptimisticLoad = false;
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           // Reload user state on sign-in (e.g., after email confirmation callback)
           // and on token refresh

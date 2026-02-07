@@ -1,12 +1,13 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon, AppShell } from '@/components/ui';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, Word } from '@/types';
@@ -15,6 +16,26 @@ interface ProjectWithStats extends Project {
   totalWords: number;
   masteredWords: number;
   progress: number;
+}
+
+async function addStatsToProjects(
+  projects: Project[],
+  repo: { getWords(projectId: string): Promise<Word[]> },
+): Promise<ProjectWithStats[]> {
+  return Promise.all(
+    projects.map(async (project): Promise<ProjectWithStats> => {
+      let words: Word[] = [];
+      try {
+        words = await repo.getWords(project.id);
+      } catch {
+        // ignore
+      }
+      const mastered = words.filter((w: Word) => w.status === 'mastered').length;
+      const total = words.length;
+      const progress = total > 0 ? Math.round((mastered / total) * 100) : 0;
+      return { ...project, totalWords: total, masteredWords: mastered, progress };
+    })
+  );
 }
 
 export default function ProjectsPage() {
@@ -27,65 +48,72 @@ export default function ProjectsPage() {
   const subscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
 
+  // Phase 1: Instant local load (no auth dependency)
+  const hasLocalLoadedRef = useRef(false);
+  useEffect(() => {
+    if (hasLocalLoadedRef.current) return;
+    hasLocalLoadedRef.current = true;
+
+    (async () => {
+      try {
+        const guestId = getGuestUserId();
+        const localProjects = await localRepository.getProjects(guestId);
+        if (localProjects.length > 0) {
+          const withStats = await addStatsToProjects(localProjects, localRepository);
+          setProjects(withStats);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error('Local projects load failed:', e);
+      }
+    })();
+  }, []);
+
+  // Phase 2: Remote update after auth resolves (Pro users)
   useEffect(() => {
     if (authLoading) return;
 
-    const loadProjects = async () => {
-      setLoading(true);
+    (async () => {
       try {
         const userId = isPro && user ? user.id : getGuestUserId();
-        
-        // If user is logged in, try remote first
-        let loadedProjects: Project[] = [];
-        if (user) {
-          try {
-            loadedProjects = await remoteRepository.getProjects(user.id);
-          } catch (e) {
-            console.error('Remote fetch failed:', e);
+
+        if (!user) {
+          // Free user: local is the source of truth — if Phase 1 already loaded, done
+          if (projects.length > 0) {
+            setLoading(false);
+            return;
           }
-        }
-        
-        // Fallback to default repository
-        if (loadedProjects.length === 0) {
-          loadedProjects = await repository.getProjects(userId);
+          const localProjects = await repository.getProjects(userId);
+          const withStats = await addStatsToProjects(localProjects, repository);
+          setProjects(withStats);
+          setLoading(false);
+          return;
         }
 
-        // Use the same repository that successfully fetched projects
-        const activeRepo = (user && loadedProjects.length > 0) ? remoteRepository : repository;
-        
-        const stats = await Promise.all(
-          loadedProjects.map(async (project): Promise<ProjectWithStats> => {
-            let words: Word[] = [];
-            try {
-              words = await activeRepo.getWords(project.id);
-            } catch {
-              // Fallback to remote if local fails
-              if (user) {
-                words = await remoteRepository.getWords(project.id);
-              }
-            }
-            const mastered = words.filter((w: Word) => w.status === 'mastered').length;
-            const total = words.length;
-            const progress = total > 0 ? Math.round((mastered / total) * 100) : 0;
-            return {
-              ...project,
-              totalWords: total,
-              masteredWords: mastered,
-              progress,
-            };
-          })
-        );
+        // Pro user: fetch from remote for latest data
+        let remoteProjects: Project[] = [];
+        try {
+          remoteProjects = await remoteRepository.getProjects(user.id);
+        } catch (e) {
+          console.error('Remote fetch failed:', e);
+        }
 
-        setProjects(stats);
+        if (remoteProjects.length > 0) {
+          const withStats = await addStatsToProjects(remoteProjects, remoteRepository);
+          setProjects(withStats);
+        } else if (projects.length === 0) {
+          // Fallback to default repository
+          const fallback = await repository.getProjects(userId);
+          const withStats = await addStatsToProjects(fallback, repository);
+          setProjects(withStats);
+        }
       } catch (error) {
         console.error('Failed to load projects:', error);
       } finally {
         setLoading(false);
       }
-    };
-
-    loadProjects();
-  }, [authLoading, isPro, user, repository]);
+    })();
+  }, [authLoading, isPro, user, repository]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const favorites = projects.filter((project) => project.isFavorite);
   const filtered = projects.filter((project) =>

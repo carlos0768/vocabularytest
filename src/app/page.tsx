@@ -1041,8 +1041,9 @@ export default function HomePage() {
     setProcessingSteps([]);
   };
 
-  // Loading state (include authLoading to prevent flash of logged-out UI)
-  if (loading || (authLoading && projects.length === 0)) {
+  // Loading state — only gate on data loading, not auth
+  // Auth resolves in background; cached data displays instantly
+  if (loading) {
     return (
       <AppShell>
         <div className="min-h-screen flex items-center justify-center">
@@ -1251,7 +1252,7 @@ export default function HomePage() {
           {/* Recent projects */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--color-muted)]">最近の単語帳</h2>
+              <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">最近の単語帳</h2>
               <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

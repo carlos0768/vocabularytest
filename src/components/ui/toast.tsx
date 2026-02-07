@@ -29,7 +29,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = crypto.randomUUID();
     const newToast = { ...toast, id };
 
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => {
+      // Deduplicate: skip if a toast with the same message is already visible
+      if (prev.some((t) => t.message === toast.message)) return prev;
+      return [...prev, newToast];
+    });
 
     // Auto-dismiss after duration (default 3 seconds)
     const duration = toast.duration ?? 3000;

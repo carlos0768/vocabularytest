@@ -429,3 +429,16 @@ export function recordDailyActivity(isCorrect: boolean): void {
 
   localStorage.setItem(ACTIVITY_HISTORY_KEY, JSON.stringify(history));
 }
+
+/**
+ * ログアウト時に全ユーザー統計データをlocalStorageからクリアする。
+ * ユーザーIDに紐づかないキーがアカウント間で混在するのを防ぐ。
+ */
+export function clearAllUserStats(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(DAILY_STATS_KEY);
+  localStorage.removeItem(STREAK_KEY);
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
+  localStorage.removeItem(WRONG_ANSWERS_KEY);
+  localStorage.removeItem(ACTIVITY_HISTORY_KEY);
+}

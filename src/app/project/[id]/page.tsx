@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
@@ -63,65 +63,91 @@ export default function ProjectDetailPage() {
   const [editingName, setEditingName] = useState('');
   const [editNameSaving, setEditNameSaving] = useState(false);
 
-  const loadProject = useCallback(async () => {
-    if (authLoading) return;
-    setLoading(true);
-    try {
-      const userId = isPro && user ? user.id : getGuestUserId();
-      let loadedProject = await defaultRepository.getProject(projectId);
-      let activeRepo = defaultRepository;
+  // Load from local IndexedDB immediately (no auth needed), then update from remote
+  const hasLocalLoadedRef = useRef(false);
 
-      // If not found in primary repo, try the other one
-      // This handles cases like background scans creating projects in remote
-      // while the local repo is being checked first
-      if (!loadedProject) {
-        const projects = await defaultRepository.getProjects(userId);
-        loadedProject = projects.find((p) => p.id === projectId);
+  // Phase 1: Instant local load (runs once, no auth dependency)
+  useEffect(() => {
+    if (hasLocalLoadedRef.current) return;
+    hasLocalLoadedRef.current = true;
+
+    (async () => {
+      try {
+        let loadedProject = await localRepository.getProject(projectId);
+        if (!loadedProject) {
+          // Try listing all local projects to find it
+          const guestId = getGuestUserId();
+          const allLocal = await localRepository.getProjects(guestId);
+          loadedProject = allLocal.find((p) => p.id === projectId);
+        }
+
+        if (loadedProject) {
+          setProject(loadedProject);
+          setActiveRepository(localRepository);
+          const localWords = await localRepository.getWords(projectId);
+          setWords(localWords);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error('Local load failed:', e);
       }
+    })();
+  }, [projectId]);
 
-      // If still not found and user is logged in, try remote directly
-      if (!loadedProject && user) {
-        try {
-          loadedProject = await remoteRepository.getProject(projectId);
-          if (loadedProject) {
-            activeRepo = remoteRepository;
+  // Phase 2: Remote update after auth resolves (Pro users)
+  useEffect(() => {
+    if (authLoading) return;
+
+    (async () => {
+      try {
+        const userId = isPro && user ? user.id : getGuestUserId();
+
+        // For non-Pro users, if local already loaded, we're done
+        if (!user) {
+          // Still need to handle case where local didn't find anything
+          if (!project) {
+            const localProject = await localRepository.getProject(projectId);
+            if (localProject) {
+              setProject(localProject);
+              setActiveRepository(localRepository);
+              const localWords = await localRepository.getWords(projectId);
+              setWords(localWords);
+            }
           }
+          setLoading(false);
+          return;
+        }
+
+        // Pro user: try remote for latest data
+        let remoteProject: Project | undefined;
+        try {
+          remoteProject = await remoteRepository.getProject(projectId);
         } catch (e) {
           console.error('Remote lookup failed:', e);
         }
-      }
 
-      // If still not found and we have a guest, try local
-      if (!loadedProject && !user) {
-        try {
-          loadedProject = await localRepository.getProject(projectId);
-          if (loadedProject) {
-            activeRepo = localRepository;
+        if (remoteProject) {
+          setProject(remoteProject);
+          setActiveRepository(remoteRepository);
+          const remoteWords = await remoteRepository.getWords(projectId);
+          setWords(remoteWords);
+        } else if (!project) {
+          // Remote didn't have it either, try default repository as last resort
+          const fallback = await defaultRepository.getProject(projectId);
+          if (fallback) {
+            setProject(fallback);
+            setActiveRepository(defaultRepository);
+            const fallbackWords = await defaultRepository.getWords(projectId);
+            setWords(fallbackWords);
           }
-        } catch (e) {
-          console.error('Local lookup failed:', e);
         }
+      } catch (error) {
+        console.error('Failed to load project from remote:', error);
+      } finally {
+        setLoading(false);
       }
-
-      setProject(loadedProject ?? null);
-      setActiveRepository(activeRepo);
-      
-      if (loadedProject) {
-        const loadedWords = await activeRepo.getWords(projectId);
-        setWords(loadedWords);
-      } else {
-        setWords([]);
-      }
-    } catch (error) {
-      console.error('Failed to load project:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [authLoading, isPro, user, defaultRepository, projectId]);
-
-  useEffect(() => {
-    loadProject();
-  }, [loadProject]);
+    })();
+  }, [authLoading, isPro, user, defaultRepository, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDeleteWord = (wordId: string) => {
     setDeleteWordTargetId(wordId);
