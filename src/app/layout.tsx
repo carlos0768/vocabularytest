@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Lexend, Noto_Sans_JP } from 'next/font/google';
+import { Lexend, Noto_Sans_JP, Zen_Maru_Gothic } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
@@ -18,6 +18,13 @@ const notoSansJP = Noto_Sans_JP({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
+});
+
+const zenMaruGothic = Zen_Maru_Gothic({
+  variable: '--font-zen-maru',
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['700', '900'],
 });
 
 export const metadata: Metadata = {
@@ -82,7 +89,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
+        className={`${lexend.variable} ${notoSansJP.variable} ${zenMaruGothic.variable} antialiased`}
       >
         <ThemeProvider>
           <ToastProvider>

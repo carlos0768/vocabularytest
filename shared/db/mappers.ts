@@ -45,6 +45,24 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt'>): 
   };
 }
 
+export function mapProjectToInsertWithId(project: Project): {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  share_id?: string;
+  is_favorite?: boolean;
+} {
+  return {
+    id: project.id,
+    user_id: project.userId,
+    title: project.title,
+    created_at: project.createdAt,
+    ...(project.shareId !== undefined && { share_id: project.shareId }),
+    ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
+  };
+}
+
 export function mapProjectUpdates(updates: Partial<Project>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
@@ -122,6 +140,42 @@ export function mapWordToInsert(word: WordInput): {
     interval_days: defaultSR.intervalDays,
     repetition: defaultSR.repetition,
     is_favorite: false,
+  };
+}
+
+export function mapWordToInsertWithId(word: Word): {
+  id: string;
+  project_id: string;
+  english: string;
+  japanese: string;
+  distractors: string[];
+  example_sentence?: string;
+  example_sentence_ja?: string;
+  status: string;
+  created_at: string;
+  last_reviewed_at?: string;
+  next_review_at?: string;
+  ease_factor: number;
+  interval_days: number;
+  repetition: number;
+  is_favorite: boolean;
+} {
+  return {
+    id: word.id,
+    project_id: word.projectId,
+    english: word.english,
+    japanese: word.japanese,
+    distractors: word.distractors,
+    example_sentence: word.exampleSentence,
+    example_sentence_ja: word.exampleSentenceJa,
+    status: word.status,
+    created_at: word.createdAt,
+    last_reviewed_at: word.lastReviewedAt,
+    next_review_at: word.nextReviewAt,
+    ease_factor: word.easeFactor,
+    interval_days: word.intervalDays,
+    repetition: word.repetition,
+    is_favorite: word.isFavorite,
   };
 }
 

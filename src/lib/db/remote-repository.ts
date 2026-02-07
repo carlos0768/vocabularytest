@@ -4,9 +4,11 @@ import type { Project, Word, WordRepository } from '@/types';
 import {
   mapProjectFromRow,
   mapProjectToInsert,
+  mapProjectToInsertWithId,
   mapProjectUpdates,
   mapWordFromRow,
   mapWordToInsert,
+  mapWordToInsertWithId,
   mapWordUpdates,
   type ProjectRow,
   type WordRow,
@@ -87,6 +89,26 @@ export class RemoteWordRepository implements WordRepository {
       .eq('id', id);
 
     if (error) throw new Error(`Failed to delete project: ${error.message}`);
+  }
+
+  // ============ ID-preserving upserts (for hybrid sync) ============
+
+  async createProjectWithId(project: Project): Promise<void> {
+    const { error } = await this.supabase
+      .from('projects')
+      .upsert(mapProjectToInsertWithId(project), { onConflict: 'id', ignoreDuplicates: true });
+
+    if (error) throw new Error(`Failed to upsert project: ${error.message}`);
+  }
+
+  async createWordsWithIds(words: Word[]): Promise<void> {
+    if (words.length === 0) return;
+
+    const { error } = await this.supabase
+      .from('words')
+      .upsert(words.map(mapWordToInsertWithId), { onConflict: 'id', ignoreDuplicates: true });
+
+    if (error) throw new Error(`Failed to upsert words: ${error.message}`);
   }
 
   // ============ Words ============

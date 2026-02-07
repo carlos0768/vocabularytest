@@ -3,6 +3,7 @@
 
 import { getDb, type SyncQueueItem } from './dexie';
 import { remoteRepository } from './remote-repository';
+import type { Project, Word } from '@/types';
 
 const MAX_RETRY_COUNT = 3;
 
@@ -94,15 +95,8 @@ export class SyncQueue {
   ): Promise<void> {
     switch (operation) {
       case 'create': {
-        const project = data as Parameters<typeof remoteRepository.createProject>[0] & { id: string };
-        // For create, we need to check if it already exists remotely
-        const existing = await remoteRepository.getProject(project.id);
-        if (!existing) {
-          // Project doesn't exist, create it
-          // Note: This is tricky because createProject generates a new ID
-          // For offline-first, we'd need to handle ID mapping
-          // For now, skip if already has an ID (was created offline)
-        }
+        const project = data as Project;
+        await remoteRepository.createProjectWithId(project);
         break;
       }
       case 'update': {
@@ -124,7 +118,8 @@ export class SyncQueue {
   ): Promise<void> {
     switch (operation) {
       case 'create': {
-        // Similar to projects, handle ID mapping
+        const word = data as Word;
+        await remoteRepository.createWordsWithIds([word]);
         break;
       }
       case 'update': {

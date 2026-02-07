@@ -59,7 +59,7 @@
   --color-border-light: var(--color-border-light);
 
   /* Fonts */
-  --font-display: 'Lexend', 'Noto Sans JP', sans-serif;
+  --font-display: 'Lexend', var(--font-zen-maru), 'Noto Sans JP', sans-serif;
   --font-body: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
   --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);

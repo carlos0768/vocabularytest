@@ -64,30 +64,61 @@ export class HybridWordRepository implements WordRepository {
     const db = getDb();
 
     try {
-      // 1. Get all projects from remote
+      // 1. Get local projects for this user
+      const localProjects = await db.projects.where('userId').equals(userId).toArray();
+
+      // 2. Get all projects from remote
       const remoteProjects = await remoteRepository.getProjects(userId);
-      
-      // 2. Clear local projects for this user and add remote data
-      await db.projects.where('userId').equals(userId).delete();
-      if (remoteProjects.length > 0) {
-        await db.projects.bulkPut(remoteProjects);
+
+      // 3. Push local-only projects to remote before overwriting
+      const remoteProjectIds = new Set(remoteProjects.map(p => p.id));
+      const localOnlyProjects = localProjects.filter(p => !remoteProjectIds.has(p.id));
+
+      for (const project of localOnlyProjects) {
+        try {
+          await remoteRepository.createProjectWithId(project as Project);
+          const localWords = await db.words.where('projectId').equals(project.id).toArray();
+          if (localWords.length > 0) {
+            await remoteRepository.createWordsWithIds(localWords as Word[]);
+          }
+          console.log('[HybridRepo] Pushed local-only project to remote:', project.id);
+        } catch (err) {
+          console.error('[HybridRepo] Failed to push local-only project:', project.id, err);
+        }
       }
 
-      // 3. Get all words for each project
-      for (const project of remoteProjects) {
+      // 4. Re-fetch remote projects (now includes pushed local-only data)
+      const mergedProjects = localOnlyProjects.length > 0
+        ? await remoteRepository.getProjects(userId)
+        : remoteProjects;
+
+      // 5. Safety: skip local delete if remote is empty but local has data
+      if (mergedProjects.length === 0 && localProjects.length > 0) {
+        console.warn('[HybridRepo] Remote is empty but local has data — skipping destructive sync');
+        this.setLastSync(Date.now());
+        this.setSyncedUserId(userId);
+        return;
+      }
+
+      // 6. Replace local with merged remote data
+      await db.projects.where('userId').equals(userId).delete();
+      if (mergedProjects.length > 0) {
+        await db.projects.bulkPut(mergedProjects);
+      }
+
+      // 7. Sync words for each project
+      for (const project of mergedProjects) {
         const remoteWords = await remoteRepository.getWords(project.id);
-        
-        // Clear local words for this project and add remote data
         await db.words.where('projectId').equals(project.id).delete();
         if (remoteWords.length > 0) {
           await db.words.bulkPut(remoteWords);
         }
       }
 
-      // 4. Clear sync queue (we're now in sync)
+      // 8. Clear sync queue (we're now in sync)
       await syncQueue.clear();
 
-      // 5. Update sync metadata
+      // 9. Update sync metadata
       this.setLastSync(Date.now());
       this.setSyncedUserId(userId);
 
@@ -115,10 +146,10 @@ export class HybridWordRepository implements WordRepository {
     // 1. Create locally first (generates ID)
     const created = await localRepository.createProject(project);
 
-    // 2. If online, create remotely immediately
+    // 2. If online, create remotely immediately (with same ID)
     if (isOnline()) {
       try {
-        await remoteRepository.createProject({ ...project, id: created.id } as Omit<Project, 'createdAt'>);
+        await remoteRepository.createProjectWithId(created);
       } catch (error) {
         console.error('[HybridRepo] Remote create failed, queuing:', error);
         await syncQueue.add({
@@ -213,10 +244,10 @@ export class HybridWordRepository implements WordRepository {
     // 1. Create locally first
     const created = await localRepository.createWords(words);
 
-    // 2. Sync to remote
+    // 2. Sync to remote (with same IDs)
     if (isOnline()) {
       try {
-        await remoteRepository.createWords(words.map((w, i) => ({ ...w, id: created[i].id })) as Parameters<typeof remoteRepository.createWords>[0]);
+        await remoteRepository.createWordsWithIds(created);
       } catch (error) {
         console.error('[HybridRepo] Remote create words failed, queuing:', error);
         for (const word of created) {
