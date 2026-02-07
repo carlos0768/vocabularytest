@@ -74,6 +74,12 @@ export function updateProjectWordsCache(projectId: string, words: Word[]) {
 
 export function invalidateHomeCache() {
   hasLoaded = false;
+  // Also clear sessionStorage to ensure fresh data is fetched
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 export function clearHomeCache() {
