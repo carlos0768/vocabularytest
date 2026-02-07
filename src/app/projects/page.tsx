@@ -7,6 +7,7 @@ import { Icon, AppShell } from '@/components/ui';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, Word } from '@/types';
 
@@ -33,11 +34,36 @@ export default function ProjectsPage() {
       setLoading(true);
       try {
         const userId = isPro && user ? user.id : getGuestUserId();
-        const loadedProjects = await repository.getProjects(userId);
+        
+        // If user is logged in, try remote first
+        let loadedProjects: Project[] = [];
+        if (user) {
+          try {
+            loadedProjects = await remoteRepository.getProjects(user.id);
+          } catch (e) {
+            console.error('Remote fetch failed:', e);
+          }
+        }
+        
+        // Fallback to default repository
+        if (loadedProjects.length === 0) {
+          loadedProjects = await repository.getProjects(userId);
+        }
 
+        // Use the same repository that successfully fetched projects
+        const activeRepo = (user && loadedProjects.length > 0) ? remoteRepository : repository;
+        
         const stats = await Promise.all(
           loadedProjects.map(async (project): Promise<ProjectWithStats> => {
-            const words = await repository.getWords(project.id);
+            let words: Word[] = [];
+            try {
+              words = await activeRepo.getWords(project.id);
+            } catch {
+              // Fallback to remote if local fails
+              if (user) {
+                words = await remoteRepository.getWords(project.id);
+              }
+            }
             const mastered = words.filter((w: Word) => w.status === 'mastered').length;
             const total = words.length;
             const progress = total > 0 ? Math.round((mastered / total) * 100) : 0;
