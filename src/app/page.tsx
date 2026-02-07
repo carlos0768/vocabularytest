@@ -1257,7 +1257,7 @@ export default function HomePage() {
           </section>
 
           {/* Quick actions */}
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <section className="grid grid-cols-3 lg:grid-cols-4 gap-3">
             <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center text-[var(--color-primary)]">
                 <Icon name="add" size={22} />
@@ -1274,6 +1274,15 @@ export default function HomePage() {
               <div>
                 <p className="text-sm font-semibold text-[var(--color-foreground)]">苦手単語</p>
                 <p className="text-xs text-[var(--color-muted)] mt-1">復習が必要な単語を確認</p>
+              </div>
+            </Link>
+            <Link href={isPro ? '/collections' : '/subscription'} className={`card p-4 flex flex-col gap-3 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all ${!isPro ? 'opacity-60' : ''}`}>
+              <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center text-[var(--color-success)]">
+                <Icon name="workspaces" size={22} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">プロジェクト</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">単語帳をまとめて管理</p>
               </div>
             </Link>
           </section>

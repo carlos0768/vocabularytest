@@ -1,6 +1,7 @@
 import { createBrowserClient } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, Word, WordRepository } from '@/types';
+import type { Collection, CollectionProject } from '@/types';
 import {
   mapProjectFromRow,
   mapProjectToInsert,
@@ -10,9 +11,15 @@ import {
   mapWordToInsert,
   mapWordToInsertWithId,
   mapWordUpdates,
+  mapCollectionFromRow,
+  mapCollectionToInsert,
+  mapCollectionUpdates,
+  mapCollectionProjectFromRow,
   type ProjectRow,
   type WordRow,
   type WordInput,
+  type CollectionRow,
+  type CollectionProjectRow,
 } from '../../../shared/db';
 
 // Remote implementation of WordRepository using Supabase
@@ -304,6 +311,112 @@ export class RemoteWordRepository implements WordRepository {
     }
 
     return newProject;
+  }
+  // ============ Collections (Pro only) ============
+
+  async getCollections(userId: string): Promise<Collection[]> {
+    const { data, error } = await this.supabase
+      .from('collections')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to get collections: ${error.message}`);
+
+    return (data as CollectionRow[]).map(mapCollectionFromRow);
+  }
+
+  async getCollection(id: string): Promise<Collection | undefined> {
+    const { data, error } = await this.supabase
+      .from('collections')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw new Error(`Failed to get collection: ${error.message}`);
+    }
+
+    return mapCollectionFromRow(data as CollectionRow);
+  }
+
+  async createCollection(input: { userId: string; name: string; description?: string }): Promise<Collection> {
+    const { data, error } = await this.supabase
+      .from('collections')
+      .insert(mapCollectionToInsert(input))
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create collection: ${error.message}`);
+
+    return mapCollectionFromRow(data as CollectionRow);
+  }
+
+  async updateCollection(id: string, updates: Partial<Pick<Collection, 'name' | 'description'>>): Promise<void> {
+    const { error } = await this.supabase
+      .from('collections')
+      .update(mapCollectionUpdates(updates))
+      .eq('id', id);
+
+    if (error) throw new Error(`Failed to update collection: ${error.message}`);
+  }
+
+  async deleteCollection(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('collections')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(`Failed to delete collection: ${error.message}`);
+  }
+
+  async getCollectionProjects(collectionId: string): Promise<CollectionProject[]> {
+    const { data, error } = await this.supabase
+      .from('collection_projects')
+      .select('*')
+      .eq('collection_id', collectionId)
+      .order('sort_order', { ascending: true });
+
+    if (error) throw new Error(`Failed to get collection projects: ${error.message}`);
+
+    return (data as CollectionProjectRow[]).map(mapCollectionProjectFromRow);
+  }
+
+  async addProjectsToCollection(collectionId: string, projectIds: string[]): Promise<void> {
+    if (projectIds.length === 0) return;
+
+    // Get current max sort_order
+    const { data: existing } = await this.supabase
+      .from('collection_projects')
+      .select('sort_order')
+      .eq('collection_id', collectionId)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+
+    const startOrder = existing && existing.length > 0 ? (existing[0].sort_order as number) + 1 : 0;
+
+    const rows = projectIds.map((projectId, i) => ({
+      collection_id: collectionId,
+      project_id: projectId,
+      sort_order: startOrder + i,
+    }));
+
+    const { error } = await this.supabase
+      .from('collection_projects')
+      .upsert(rows, { onConflict: 'collection_id,project_id' });
+
+    if (error) throw new Error(`Failed to add projects to collection: ${error.message}`);
+  }
+
+  async removeProjectFromCollection(collectionId: string, projectId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('collection_projects')
+      .delete()
+      .eq('collection_id', collectionId)
+      .eq('project_id', projectId);
+
+    if (error) throw new Error(`Failed to remove project from collection: ${error.message}`);
   }
 }
 
