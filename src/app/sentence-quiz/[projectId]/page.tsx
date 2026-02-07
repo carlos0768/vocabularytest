@@ -173,7 +173,7 @@ export default function SentenceQuizPage() {
         let words: Word[];
 
         if (projectId === 'all' && favoritesOnly) {
-          // 全プロジェクト横断でお気に入り単語を取得
+          // 全単語帳横断でお気に入り単語を取得
           const userId = subscription?.status === 'active' && user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));

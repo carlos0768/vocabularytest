@@ -294,7 +294,7 @@ export default function ProjectDetailPage() {
     try {
       await activeRepository.updateProject(project.id, { title: editingName.trim() });
       setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
-      showToast({ message: 'プロジェクト名を変更しました', type: 'success' });
+      showToast({ message: '単語帳名を変更しました', type: 'success' });
       setShowEditNameModal(false);
       invalidateHomeCache();
     } catch (error) {
@@ -325,10 +325,10 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-        <h1 className="text-xl font-bold text-[var(--color-foreground)]">プロジェクトが見つかりません</h1>
+        <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳が見つかりません</h1>
         <p className="text-sm text-[var(--color-muted)] mt-2">一覧から選び直してください。</p>
         <Link href="/projects" className="mt-4 px-4 py-2 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/20">
-          プロジェクトへ戻る
+          単語帳へ戻る
         </Link>
       </div>
     );
@@ -347,7 +347,7 @@ export default function ProjectDetailPage() {
                 <button
                   onClick={handleOpenEditNameModal}
                   className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
-                  aria-label="プロジェクト名を編集"
+                  aria-label="単語帳名を編集"
                 >
                   <Icon name="edit" size={16} />
                 </button>
@@ -503,18 +503,18 @@ export default function ProjectDetailPage() {
       {showEditNameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">プロジェクト名を編集</h2>
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語帳名を編集</h2>
 
             <div>
               <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                プロジェクト名
+                単語帳名
               </label>
               <input
                 type="text"
                 value={editingName}
                 onChange={(e) => setEditingName(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                placeholder="プロジェクト名"
+                placeholder="単語帳名"
                 autoFocus
               />
             </div>

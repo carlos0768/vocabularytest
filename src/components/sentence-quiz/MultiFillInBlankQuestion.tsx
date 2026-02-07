@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -168,7 +168,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
       {question.relatedWordIds.length > 0 && !isRevealed && (
         <div className="flex-shrink-0 mb-4 px-2">
           <p className="text-xs text-[var(--color-muted)] text-center">
-            他のプロジェクトで学習した単語も含まれています
+            他の単語帳で学習した単語も含まれています
           </p>
         </div>
       )}

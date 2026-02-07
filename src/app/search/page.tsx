@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Icon, AppShell } from '@/components/ui';
@@ -209,7 +209,7 @@ export default function SearchPage() {
                   <Icon name="search" size={32} className="text-[var(--color-primary)]" />
                 </div>
                 <p className="text-[var(--color-muted)]">
-                  全プロジェクトの単語を横断検索できます
+                  全単語帳の単語を横断検索できます
                 </p>
                 <p className="text-sm text-[var(--color-muted)] mt-1">
                   {allWords.length}語が登録されています

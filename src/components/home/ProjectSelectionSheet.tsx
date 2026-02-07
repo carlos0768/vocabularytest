@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Icon } from '@/components/ui/Icon';
 import type { Project, Word } from '@/types';
@@ -128,7 +128,7 @@ export function ProjectSelectionSheet({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--color-foreground)]">全プロジェクトの苦手単語</p>
+                    <p className="font-semibold text-[var(--color-foreground)]">全単語帳の苦手単語</p>
                     <p className="text-sm text-[var(--color-muted)] mt-0.5">{favoriteWords.length}語の苦手な単語</p>
                   </div>
                   {showFavoritesOnly && (
@@ -160,7 +160,7 @@ export function ProjectSelectionSheet({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--color-foreground)]">全プロジェクトの単語</p>
+                    <p className="font-semibold text-[var(--color-foreground)]">全単語帳の単語</p>
                     <p className="text-sm text-[var(--color-muted)] mt-0.5">{projects.length}冊 · {totalWords}語</p>
                   </div>
                   {showAllProjects && (
