@@ -250,7 +250,7 @@ export default function CollectionDetailPage() {
 
   return (
     <AppShell>
-      <div className="pb-28 lg:pb-8">
+      <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
