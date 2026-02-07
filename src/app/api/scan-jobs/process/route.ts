@@ -142,18 +142,40 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No words found' }, { status: 400 });
       }
 
-      const { data: project, error: projectError } = await getSupabaseAdmin()
+      // Check if a project with the same title already exists for this user
+      // This allows multiple images to be added to the same project
+      let project: { id: string };
+      let isNewProject = false;
+      
+      const { data: existingProject } = await getSupabaseAdmin()
         .from('projects')
-        .insert({
-          user_id: job.user_id,
-          title: job.project_title,
-        })
-        .select()
+        .select('id')
+        .eq('user_id', job.user_id)
+        .eq('title', job.project_title)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
 
-      if (projectError || !project) {
-        console.error('Project creation error:', projectError);
-        throw new Error('Failed to create project');
+      if (existingProject) {
+        // Use existing project
+        project = existingProject;
+      } else {
+        // Create new project
+        const { data: newProject, error: projectError } = await getSupabaseAdmin()
+          .from('projects')
+          .insert({
+            user_id: job.user_id,
+            title: job.project_title,
+          })
+          .select()
+          .single();
+
+        if (projectError || !newProject) {
+          console.error('Project creation error:', projectError);
+          throw new Error('Failed to create project');
+        }
+        project = newProject;
+        isNewProject = true;
       }
 
       const wordsToInsert = extractedWords.map((word) => ({
@@ -170,7 +192,10 @@ export async function POST(request: NextRequest) {
         .insert(wordsToInsert);
 
       if (wordsError) {
-        await getSupabaseAdmin().from('projects').delete().eq('id', project.id);
+        // Only delete project if we just created it
+        if (isNewProject) {
+          await getSupabaseAdmin().from('projects').delete().eq('id', project.id);
+        }
         throw new Error('Failed to insert words');
       }
 
