@@ -200,16 +200,21 @@ export default function HomePage() {
 
     try {
       setLoading(true);
-      let data = await repository.getProjects(userId);
+      let data: Project[] = [];
       
-      // Fallback to remote if local is empty and user is logged in
-      // This handles background scan projects stored in remote
-      if (data.length === 0 && user) {
+      // If user is logged in, always try remote first (handles background scan projects)
+      // This ensures Pro users see their Supabase projects immediately
+      if (user) {
         try {
           data = await remoteRepository.getProjects(user.id);
         } catch (e) {
-          console.error('Remote fallback failed:', e);
+          console.error('Remote fetch failed:', e);
         }
+      }
+      
+      // Fallback to default repository if remote is empty or user not logged in
+      if (data.length === 0) {
+        data = await repository.getProjects(userId);
       }
       
       setProjects(data);
