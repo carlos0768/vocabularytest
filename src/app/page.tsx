@@ -345,6 +345,24 @@ export default function HomePage() {
     loadWords();
   }, [loadWords]);
 
+  // Reload projects when background scan completes
+  const prevCompletedJobsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const currentJobIds = completedJobs.map(j => j.id);
+    const prevJobIds = prevCompletedJobsRef.current;
+    
+    // Check if there are new completed jobs
+    const hasNewJobs = currentJobIds.some(id => !prevJobIds.includes(id));
+    
+    if (hasNewJobs && currentJobIds.length > 0) {
+      // New background scan completed - refresh project list
+      invalidateHomeCache();
+      loadProjects(true);
+    }
+    
+    prevCompletedJobsRef.current = currentJobIds;
+  }, [completedJobs, loadProjects]);
+
   // Restore selected project from sessionStorage when projects are loaded
   useEffect(() => {
     if (projects.length > 0 && typeof window !== 'undefined') {
