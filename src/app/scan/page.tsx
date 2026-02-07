@@ -104,39 +104,113 @@ function ScanPageContent() {
     }
   }, [selectedMode]);
 
-  // Background upload for Pro users
+  // Compress image for fast upload (always compress, target 500KB)
+  const compressForUpload = useCallback(async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        
+        // Target max dimension 1600px (good enough for OCR, much smaller file)
+        const MAX_DIM = 1600;
+        let { width, height } = img;
+        
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Compress to JPEG with quality 0.7
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              console.log(`Compressed: ${file.size} -> ${blob.size} (${Math.round(blob.size / file.size * 100)}%)`);
+              resolve(blob);
+            } else {
+              reject(new Error('Compression failed'));
+            }
+          },
+          'image/jpeg',
+          0.7
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+
+      img.src = objectUrl;
+    });
+  }, []);
+
+  // Background upload for Pro users - Direct to Supabase Storage
   const handleBackgroundUpload = useCallback(async (files: File[], name: string) => {
     setUploading(true);
     
     try {
       const supabase = createBrowserClient();
       const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!session?.access_token) {
+      if (!session?.access_token || !user) {
         throw new Error('認証が必要です');
       }
 
-      // Upload each file as a separate job
+      // Process each file
       for (const file of files) {
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('projectTitle', name);
-        formData.append('scanMode', selectedMode);
-        if (selectedMode === 'eiken' && selectedEiken) {
-          formData.append('eikenLevel', selectedEiken);
+        // 1. Compress image (fast, client-side)
+        const compressedBlob = await compressForUpload(file);
+        
+        // 2. Upload directly to Supabase Storage (faster than API route)
+        const timestamp = Date.now();
+        const imagePath = `${user.id}/${timestamp}.jpg`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('scan-images')
+          .upload(imagePath, compressedBlob, {
+            contentType: 'image/jpeg',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          throw new Error('画像のアップロードに失敗しました');
         }
 
-        const response = await fetch('/api/scan-jobs', {
+        // 3. Create scan job record (lightweight API call)
+        const response = await fetch('/api/scan-jobs/create', {
           method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: formData,
+          body: JSON.stringify({
+            imagePath,
+            projectTitle: name,
+            scanMode: selectedMode,
+            eikenLevel: selectedMode === 'eiken' ? selectedEiken : null,
+          }),
         });
 
         if (!response.ok) {
+          // Clean up uploaded image
+          await supabase.storage.from('scan-images').remove([imagePath]);
           const error = await response.json();
-          throw new Error(error.error || 'アップロードに失敗しました');
+          throw new Error(error.error || 'ジョブの作成に失敗しました');
         }
       }
 
@@ -161,7 +235,7 @@ function ScanPageContent() {
       setPendingFiles([]);
       setProjectName('');
     }
-  }, [selectedMode, selectedEiken, router, showToast]);
+  }, [selectedMode, selectedEiken, router, showToast, compressForUpload]);
 
   const handleMultipleImages = useCallback(async (files: File[]) => {
     const requiresPro = ['circled', 'highlighted', 'eiken', 'idiom', 'wrong'].includes(selectedMode);
