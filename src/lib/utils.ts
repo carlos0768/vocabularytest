@@ -24,12 +24,17 @@ export function getGuestUserId(): string {
     return 'server-side';
   }
 
-  let guestId = localStorage.getItem(GUEST_ID_KEY);
-  if (!guestId) {
-    guestId = `guest_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('')}`;
-    localStorage.setItem(GUEST_ID_KEY, guestId);
+  try {
+    let guestId = localStorage.getItem(GUEST_ID_KEY);
+    if (!guestId) {
+      guestId = `guest_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('')}`;
+      localStorage.setItem(GUEST_ID_KEY, guestId);
+    }
+    return guestId;
+  } catch {
+    // localStorage blocked (private browsing, storage full, etc.)
+    return 'guest_fallback';
   }
-  return guestId;
 }
 
 // Daily scan limit tracking for free users

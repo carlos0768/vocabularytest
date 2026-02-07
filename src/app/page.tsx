@@ -158,6 +158,7 @@ export default function HomePage() {
   const [deleteWordLoading, setDeleteWordLoading] = useState(false);
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
+  const [deleteProjectTargetId, setDeleteProjectTargetId] = useState<string | null>(null);
 
   // Edit project name modal
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
@@ -586,21 +587,24 @@ export default function HomePage() {
   };
 
   // Project handlers
-  const handleDeleteProject = () => {
+  const handleDeleteProject = (projectId?: string) => {
+    setDeleteProjectTargetId(projectId || currentProject?.id || null);
     setDeleteProjectModalOpen(true);
   };
 
   const handleConfirmDeleteProject = async () => {
-    if (!currentProject) return;
+    const targetId = deleteProjectTargetId || currentProject?.id;
+    if (!targetId) return;
 
     setDeleteProjectLoading(true);
     try {
-      await repository.deleteProject(currentProject.id);
-      const newProjects = projects.filter((p) => p.id !== currentProject.id);
+      await repository.deleteProject(targetId);
+      const newProjects = projects.filter((p) => p.id !== targetId);
       setProjects(newProjects);
       if (currentProjectIndex >= newProjects.length && newProjects.length > 0) {
         setCurrentProjectIndex(newProjects.length - 1);
       }
+      invalidateHomeCache();
       refreshWordCount();
       showToast({ message: '単語帳を削除しました', type: 'success' });
     } catch (error) {
@@ -609,6 +613,7 @@ export default function HomePage() {
     } finally {
       setDeleteProjectLoading(false);
       setDeleteProjectModalOpen(false);
+      setDeleteProjectTargetId(null);
     }
   };
 
@@ -1275,6 +1280,7 @@ export default function HomePage() {
                         wordCount={projectWords.length}
                         masteredCount={mastered}
                         progress={progress}
+                        onDelete={(id) => handleDeleteProject(id)}
                       />
                     );
                   })
@@ -1334,7 +1340,7 @@ export default function HomePage() {
 
       <DeleteConfirmModal
         isOpen={deleteProjectModalOpen}
-        onClose={() => setDeleteProjectModalOpen(false)}
+        onClose={() => { setDeleteProjectModalOpen(false); setDeleteProjectTargetId(null); }}
         onConfirm={handleConfirmDeleteProject}
         title="単語帳を削除"
         message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"

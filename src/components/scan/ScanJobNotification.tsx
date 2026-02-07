@@ -5,20 +5,27 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import type { ScanJob } from '@/hooks/use-scan-jobs';
 
+/** Aggregated notification for a single project (may represent multiple scan jobs) */
+interface AggregatedNotification {
+  projectId: string | null;
+  projectTitle: string;
+  totalWordCount: number;
+  jobIds: string[];
+  /** True only when every job in this project group is completed */
+  allComplete: boolean;
+}
+
 interface ScanJobNotificationProps {
-  job: ScanJob;
+  notification: AggregatedNotification;
   onDismiss: () => void;
 }
 
-export function ScanJobNotification({ job, onDismiss }: ScanJobNotificationProps) {
+export function ScanJobNotification({ notification, onDismiss }: ScanJobNotificationProps) {
   const router = useRouter();
 
-  const result = job.result ? JSON.parse(job.result) : null;
-  const wordCount = result?.wordCount || 0;
-
   const handleView = () => {
-    if (job.project_id) {
-      router.push(`/project/${job.project_id}`);
+    if (notification.projectId) {
+      router.push(`/project/${notification.projectId}`);
     }
     onDismiss();
   };
@@ -38,7 +45,7 @@ export function ScanJobNotification({ job, onDismiss }: ScanJobNotificationProps
               スキャン完了！
             </h3>
             <p className="text-sm text-[var(--color-muted)] mb-3">
-              「{job.project_title}」に{wordCount}語追加されました
+              「{notification.projectTitle}」に{notification.totalWordCount}語追加されました
             </p>
 
             {/* Actions */}
@@ -73,22 +80,61 @@ export function ScanJobNotification({ job, onDismiss }: ScanJobNotificationProps
   );
 }
 
-// Container for multiple notifications
+// Container for multiple notifications — aggregates by project
 interface ScanJobNotificationsProps {
   jobs: ScanJob[];
   onDismiss: (jobId: string) => void;
 }
 
+/**
+ * Groups completed jobs by project and shows a single notification
+ * per project with the aggregated word count.
+ * Only shows when ALL jobs for a project are completed (no pending/processing).
+ */
 export function ScanJobNotifications({ jobs, onDismiss }: ScanJobNotificationsProps) {
   if (jobs.length === 0) return null;
 
-  // Show only the most recent completed job
-  const latestJob = jobs[0];
+  // Group jobs by project_id (or project_title as fallback key)
+  const groupMap = new Map<string, AggregatedNotification>();
+  for (const job of jobs) {
+    const key = job.project_id || job.project_title || 'unknown';
+    const existing = groupMap.get(key);
+    const result = job.result ? JSON.parse(job.result) : null;
+    const wordCount = result?.wordCount || 0;
+
+    if (existing) {
+      existing.totalWordCount += wordCount;
+      existing.jobIds.push(job.id);
+      if (job.status !== 'completed') existing.allComplete = false;
+    } else {
+      groupMap.set(key, {
+        projectId: job.project_id,
+        projectTitle: job.project_title,
+        totalWordCount: wordCount,
+        jobIds: [job.id],
+        allComplete: job.status === 'completed',
+      });
+    }
+  }
+
+  // Only show notifications for groups where all jobs are complete
+  const readyNotifications = Array.from(groupMap.values()).filter(n => n.allComplete);
+  if (readyNotifications.length === 0) return null;
+
+  // Show the first ready notification
+  const notification = readyNotifications[0];
+
+  const handleDismiss = () => {
+    // Dismiss all jobs in this project group
+    for (const jobId of notification.jobIds) {
+      onDismiss(jobId);
+    }
+  };
 
   return (
     <ScanJobNotification
-      job={latestJob}
-      onDismiss={() => onDismiss(latestJob.id)}
+      notification={notification}
+      onDismiss={handleDismiss}
     />
   );
 }

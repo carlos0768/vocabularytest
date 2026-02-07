@@ -46,49 +46,28 @@ const EXAMPLE_GENERATION_SYSTEM_PROMPT = `あなたは英語教師です。与�
 /**
  * POST /api/generate-examples
  *
- * 指定された単語に対して例文を生成し、DBに保存するAPI
- * Pro限定機能
+ * 指定された単語に対して例文を生成するAPI（全ユーザー対応）
  *
- * - 既に例文がある単語はスキップ（DBから最新の状態を取得してチェック）
- * - 例文がない単語のみ生成して保存
+ * - ログインユーザー: 既に例文がある単語はスキップ（DBチェック）、生成後DBに保存
+ * - 未ログインユーザー: 全単語に例文を生成（DB保存なし、レスポンスで返却のみ）
+ * - 常にexamplesフィールドでクライアントに生成結果を返す
  */
 export async function POST(request: NextRequest) {
   try {
     // ============================================
-    // 1. AUTHENTICATION CHECK
+    // 1. AUTHENTICATION CHECK (optional - free users allowed)
     // ============================================
     const supabase = await createRouteHandlerClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const { data: { user }, error: authError } = bearerToken
+    const { data: { user } } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: '認証が必要です。ログインしてください。' },
-        { status: 401 }
-      );
-    }
+    const isLoggedIn = !!user;
 
     // ============================================
-    // 2. CHECK PRO SUBSCRIPTION
-    // ============================================
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('status')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!subscription || subscription.status !== 'active') {
-      return NextResponse.json(
-        { success: false, error: '例文生成はProプラン限定機能です。' },
-        { status: 403 }
-      );
-    }
-
-    // ============================================
-    // 3. PARSE REQUEST BODY
+    // 2. PARSE REQUEST BODY
     // ============================================
     let body;
     try {
@@ -112,44 +91,37 @@ export async function POST(request: NextRequest) {
     const wordIds = words.map(w => w.id);
 
     // ============================================
-    // 4. CHECK WHICH WORDS NEED EXAMPLES
+    // 3. CHECK WHICH WORDS NEED EXAMPLES (DB check for logged-in users only)
     // ============================================
-    // DBから最新の状態を取得して、既に例文がある単語をフィルタリング
-    const { data: existingWords, error: fetchError } = await supabase
-      .from('words')
-      .select('id, example_sentence')
-      .in('id', wordIds);
+    let wordsNeedingExamples = words;
 
-    if (fetchError) {
-      console.error('Failed to fetch words:', fetchError);
-      return NextResponse.json(
-        { success: false, error: '単語の取得に失敗しました' },
-        { status: 500 }
+    if (isLoggedIn) {
+      const { data: existingWords } = await supabase
+        .from('words')
+        .select('id, example_sentence')
+        .in('id', wordIds);
+
+      const wordsWithExamples = new Set(
+        (existingWords || [])
+          .filter(w => w.example_sentence && w.example_sentence.trim().length > 0)
+          .map(w => w.id)
       );
-    }
 
-    // 既に例文がある単語IDのセット
-    const wordsWithExamples = new Set(
-      (existingWords || [])
-        .filter(w => w.example_sentence && w.example_sentence.trim().length > 0)
-        .map(w => w.id)
-    );
+      wordsNeedingExamples = words.filter(w => !wordsWithExamples.has(w.id));
 
-    // 例文が必要な単語のみをフィルタリング
-    const wordsNeedingExamples = words.filter(w => !wordsWithExamples.has(w.id));
-
-    // 全ての単語に既に例文がある場合は早期リターン
-    if (wordsNeedingExamples.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: '全ての単語に既に例文が設定されています',
-        generated: 0,
-        skipped: words.length,
-      });
+      if (wordsNeedingExamples.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: '全ての単語に既に例文が設定されています',
+          generated: 0,
+          skipped: words.length,
+          examples: [],
+        });
+      }
     }
 
     // ============================================
-    // 5. GENERATE EXAMPLES WITH AI
+    // 4. GENERATE EXAMPLES WITH AI
     // ============================================
     const wordListText = wordsNeedingExamples.map(w =>
       `- wordId: "${w.id}", english: "${w.english}", japanese: "${w.japanese}"`
@@ -157,7 +129,6 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
 
-    // Use OpenAI for reliable JSON output
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
       return NextResponse.json(
@@ -196,7 +167,6 @@ export async function POST(request: NextRequest) {
     // AIレスポンスをパース
     let parsedResponse;
     try {
-      // Remove markdown code blocks if present
       let content = aiResponse.content;
       if (content.startsWith('```json')) {
         content = content.slice(7);
@@ -219,47 +189,49 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 6. SAVE EXAMPLES TO DATABASE
+    // 5. SAVE TO DATABASE (logged-in users only)
     // ============================================
     let successCount = 0;
     let failureCount = 0;
 
-    for (const example of parsedResponse.examples) {
-      // 生成対象の単語IDかどうか確認
-      if (!wordsNeedingExamples.find(w => w.id === example.wordId)) {
-        continue;
-      }
+    if (isLoggedIn) {
+      for (const example of parsedResponse.examples) {
+        if (!wordsNeedingExamples.find(w => w.id === example.wordId)) continue;
 
-      try {
-        const { error: updateError } = await supabase
-          .from('words')
-          .update({
-            example_sentence: example.exampleSentence,
-            example_sentence_ja: example.exampleSentenceJa,
-          })
-          .eq('id', example.wordId);
+        try {
+          const { error: updateError } = await supabase
+            .from('words')
+            .update({
+              example_sentence: example.exampleSentence,
+              example_sentence_ja: example.exampleSentenceJa,
+            })
+            .eq('id', example.wordId);
 
-        if (updateError) {
-          console.error(`Failed to update example for word ${example.wordId}:`, updateError);
+          if (updateError) {
+            console.error(`Failed to update example for word ${example.wordId}:`, updateError);
+            failureCount++;
+          } else {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to update example for word ${example.wordId}:`, error);
           failureCount++;
-        } else {
-          successCount++;
         }
-      } catch (error) {
-        console.error(`Failed to update example for word ${example.wordId}:`, error);
-        failureCount++;
       }
+    } else {
+      successCount = parsedResponse.examples.length;
     }
 
     // ============================================
-    // 7. RETURN SUCCESS RESPONSE
+    // 6. RETURN SUCCESS RESPONSE (always include examples)
     // ============================================
     return NextResponse.json({
       success: true,
       message: `${successCount}件の例文を生成しました`,
       generated: successCount,
       failed: failureCount,
-      skipped: wordsWithExamples.size,
+      skipped: words.length - wordsNeedingExamples.length,
+      examples: parsedResponse.examples,
     });
   } catch (error) {
     console.error('Generate examples API error:', error);

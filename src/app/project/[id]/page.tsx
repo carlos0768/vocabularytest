@@ -58,6 +58,10 @@ export default function ProjectDetailPage() {
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
+  // Delete project state
+  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
+  const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
+
   // Project name edit state
   const [showEditNameModal, setShowEditNameModal] = useState(false);
   const [editingName, setEditingName] = useState('');
@@ -331,6 +335,25 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleConfirmDeleteProject = async () => {
+    if (!project) return;
+
+    setDeleteProjectLoading(true);
+    try {
+      await activeRepository.deleteProject(project.id);
+      invalidateHomeCache();
+      refreshWordCount();
+      showToast({ message: '単語帳を削除しました', type: 'success' });
+      router.push('/');
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setDeleteProjectLoading(false);
+      setDeleteProjectModalOpen(false);
+    }
+  };
+
   const stats = useMemo(() => {
     const total = words.length;
     const mastered = words.filter((w) => w.status === 'mastered').length;
@@ -401,6 +424,13 @@ export default function ProjectDetailPage() {
                   )}
                 </button>
               )}
+              <button
+                onClick={() => setDeleteProjectModalOpen(true)}
+                className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-error)] hover:border-[var(--color-error)] transition-colors"
+                aria-label="単語帳を削除"
+              >
+                <Icon name="delete" size={18} />
+              </button>
             </div>
           </div>
         </header>
@@ -526,6 +556,15 @@ export default function ProjectDetailPage() {
         title="単語を削除"
         message="この単語を削除します。この操作は取り消せません。"
         isLoading={deleteWordLoading}
+      />
+
+      <DeleteConfirmModal
+        isOpen={deleteProjectModalOpen}
+        onClose={() => setDeleteProjectModalOpen(false)}
+        onConfirm={handleConfirmDeleteProject}
+        title="単語帳を削除"
+        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        isLoading={deleteProjectLoading}
       />
 
       <WordLimitModal
