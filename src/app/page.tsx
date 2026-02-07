@@ -10,6 +10,8 @@ import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from 
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
+import { useScanJobs } from '@/hooks/use-scan-jobs';
+import { ScanJobNotifications } from '@/components/scan/ScanJobNotification';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
@@ -86,6 +88,9 @@ export default function HomePage() {
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Background scan job notifications (Pro only)
+  const { completedJobs, acknowledgeJob, refresh: refreshJobs } = useScanJobs();
 
   // Projects & navigation - Initialize from cache if available
   // ensureCacheRestored() runs synchronously so the first render uses cached data
@@ -1303,6 +1308,18 @@ export default function HomePage() {
         projectFavoriteCounts={projectFavoriteCounts}
         totalWords={totalWords}
       />
+
+      {/* Background scan job completion notifications */}
+      {isPro && (
+        <ScanJobNotifications
+          jobs={completedJobs}
+          onDismiss={(jobId) => {
+            acknowledgeJob(jobId);
+            // Refresh projects to show the new one
+            loadProjects();
+          }}
+        />
+      )}
       </div>
     </AppShell>
   );
