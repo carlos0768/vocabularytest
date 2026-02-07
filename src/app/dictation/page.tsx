@@ -4,7 +4,6 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
-import { AppShell } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -18,37 +17,12 @@ type QuizPhase = 'setup' | 'playing' | 'photo' | 'grading' | 'result';
 const DEFAULT_INTERVAL = 5;
 const DEFAULT_QUESTION_COUNT = 10;
 
-// Animation styles
-const pulseKeyframes = `
-@keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 0.8; }
-  50% { transform: scale(1.2); opacity: 0.3; }
-  100% { transform: scale(0.8); opacity: 0.8; }
-}
-@keyframes bounce-subtle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes progress-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-@keyframes score-pop {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
-`;
-
 function DictationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
   const collectionId = searchParams.get('collectionId');
+  const returnPath = searchParams.get('from');
   const { user, subscription, isPro, loading: authLoading } = useAuth();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -77,6 +51,10 @@ function DictationContent() {
   const countdownRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const goBack = useCallback(() => {
+    router.push(returnPath || '/');
+  }, [router, returnPath]);
+
   // Load words
   useEffect(() => {
     if (authLoading) return;
@@ -87,7 +65,6 @@ function DictationContent() {
         let loadedWords: Word[] = [];
 
         if (collectionId) {
-          // Collection mode: load words from all projects in the collection
           loadedWords = await loadCollectionWords(collectionId);
         } else if (projectId) {
           if (user) {
@@ -321,10 +298,6 @@ function DictationContent() {
     }
   }, [photoFile, questions, direction]);
 
-  const goBack = useCallback(() => {
-    router.push('/');
-  }, [router]);
-
   const restartQuiz = useCallback(() => {
     setPhase('setup');
     setQuestions([]);
@@ -337,135 +310,104 @@ function DictationContent() {
   // Loading state
   if (loading || authLoading) {
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full bg-[var(--color-primary)] opacity-20 animate-ping" />
-            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center shadow-lg">
-              <Icon name="headphones" className="text-white animate-pulse" size={28} />
-            </div>
-          </div>
-          <p className="mt-6 text-[var(--color-muted)] font-medium">読み込み中...</p>
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--color-muted)]">読み込み中...</p>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   // Not enough words
   if (words.length < DEFAULT_QUESTION_COUNT) {
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          <div 
-            className="w-24 h-24 rounded-full bg-[var(--color-surface)] flex items-center justify-center mb-6 shadow-lg"
-            style={{ animation: 'fade-in-up 0.5s ease-out' }}
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        <header className="flex-shrink-0 p-4">
+          <button
+            onClick={goBack}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
           >
-            <Icon name="volume_off" size={40} className="text-[var(--color-muted)]" />
+            <Icon name="close" size={24} />
+          </button>
+        </header>
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center max-w-sm">
+            <div className="w-20 h-20 bg-[var(--color-surface)] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Icon name="volume_off" size={40} className="text-[var(--color-muted)]" />
+            </div>
+            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">単語が足りません</h1>
+            <p className="text-[var(--color-muted)] mb-2">
+              ディクテーションには最低{DEFAULT_QUESTION_COUNT}語必要です
+            </p>
+            <p className="text-[var(--color-primary)] font-semibold mb-8">現在: {words.length}語</p>
+            <Button onClick={goBack} className="w-full" size="lg">
+              戻る
+            </Button>
           </div>
-          <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">単語が足りません</h1>
-          <p className="text-[var(--color-muted)] mb-8">
-            ディクテーションには最低{DEFAULT_QUESTION_COUNT}語必要です
-            <br />
-            <span className="text-[var(--color-primary)] font-semibold">現在: {words.length}語</span>
-          </p>
-          <Button 
-            onClick={goBack} 
-            size="lg"
-            className="px-8 shadow-lg hover:shadow-xl transition-shadow"
-          >
-            <Icon name="arrow_back" size={20} className="mr-2" />
-            戻る
-          </Button>
-        </div>
-      </AppShell>
+        </main>
+      </div>
     );
   }
 
   // Setup phase
   if (phase === 'setup') {
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen pb-28 lg:pb-6 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          {/* Header */}
-          <header className="sticky top-0 z-40 backdrop-blur-xl bg-[var(--color-background)]/80 border-b border-[var(--color-border-light)]">
-            <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-              <button 
-                onClick={goBack} 
-                className="p-2 -ml-2 rounded-xl hover:bg-[var(--color-surface)] transition-all active:scale-95"
-              >
-                <Icon name="arrow_back" size={24} />
-              </button>
-              <div className="flex-1">
-                <h1 className="text-xl font-bold text-[var(--color-foreground)]">ディクテーション</h1>
-                <p className="text-sm text-[var(--color-muted)]">音声を聞いて書き取り</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center shadow-lg">
-                <Icon name="headphones" size={24} className="text-white" />
-              </div>
-            </div>
-          </header>
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        {/* Header */}
+        <header className="flex-shrink-0 p-4 flex items-center gap-4">
+          <button
+            onClick={goBack}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={24} />
+          </button>
+          <h1 className="text-lg font-bold text-[var(--color-foreground)]">ディクテーション</h1>
+        </header>
 
-          <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
+        <main className="flex-1 overflow-y-auto px-6 pb-8">
+          <div className="max-w-sm mx-auto space-y-6">
             {/* Direction selection */}
-            <div 
-              className="bg-[var(--color-surface)] rounded-2xl p-5 shadow-sm border border-[var(--color-border-light)]"
-              style={{ animation: 'fade-in-up 0.4s ease-out' }}
-            >
-              <h2 className="font-semibold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
+            <div>
+              <h2 className="font-semibold text-[var(--color-foreground)] mb-3 flex items-center gap-2">
                 <Icon name="swap_horiz" size={20} className="text-[var(--color-primary)]" />
                 出題形式
               </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setDirection('ja-to-en')}
-                  className={`relative p-5 rounded-xl border-2 transition-all duration-300 overflow-hidden ${
-                    direction === 'ja-to-en'
-                      ? 'border-[var(--color-primary)] bg-gradient-to-br from-[var(--color-primary-light)] to-[var(--color-surface)] shadow-md scale-[1.02]'
-                      : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-border-dark)] hover:shadow-sm'
-                  }`}
-                >
-                  {direction === 'ja-to-en' && (
-                    <div className="absolute top-2 right-2">
-                      <Icon name="check_circle" size={18} className="text-[var(--color-primary)]" />
-                    </div>
-                  )}
-                  <div className="text-3xl mb-3">🇯🇵 → 🇺🇸</div>
-                  <div className="text-sm font-medium text-[var(--color-foreground)]">日本語→英語</div>
-                </button>
-                <button
-                  onClick={() => setDirection('en-to-ja')}
-                  className={`relative p-5 rounded-xl border-2 transition-all duration-300 overflow-hidden ${
-                    direction === 'en-to-ja'
-                      ? 'border-[var(--color-primary)] bg-gradient-to-br from-[var(--color-primary-light)] to-[var(--color-surface)] shadow-md scale-[1.02]'
-                      : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-border-dark)] hover:shadow-sm'
-                  }`}
-                >
-                  {direction === 'en-to-ja' && (
-                    <div className="absolute top-2 right-2">
-                      <Icon name="check_circle" size={18} className="text-[var(--color-primary)]" />
-                    </div>
-                  )}
-                  <div className="text-3xl mb-3">🇺🇸 → 🇯🇵</div>
-                  <div className="text-sm font-medium text-[var(--color-foreground)]">英語→日本語</div>
-                </button>
+              <div className="flex items-center justify-center">
+                <div className="inline-flex rounded-full border border-[var(--color-border)] p-1 bg-[var(--color-surface)]">
+                  <button
+                    onClick={() => setDirection('ja-to-en')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      direction === 'ja-to-en'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                    }`}
+                  >
+                    日→英
+                  </button>
+                  <button
+                    onClick={() => setDirection('en-to-ja')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      direction === 'en-to-ja'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                    }`}
+                  >
+                    英→日
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Interval setting */}
-            <div 
-              className="bg-[var(--color-surface)] rounded-2xl p-5 shadow-sm border border-[var(--color-border-light)]"
-              style={{ animation: 'fade-in-up 0.5s ease-out' }}
-            >
-              <h2 className="font-semibold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
+            <div>
+              <h2 className="font-semibold text-[var(--color-foreground)] mb-3 flex items-center gap-2">
                 <Icon name="timer" size={20} className="text-[var(--color-primary)]" />
                 読み上げ間隔
               </h2>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-[var(--color-muted)] w-8">3秒</span>
-                <div className="flex-1 relative">
+                <div className="flex-1">
                   <input
                     type="range"
                     min="3"
@@ -478,45 +420,40 @@ function DictationContent() {
                       [&::-webkit-slider-thumb]:h-6
                       [&::-webkit-slider-thumb]:rounded-full
                       [&::-webkit-slider-thumb]:bg-[var(--color-primary)]
-                      [&::-webkit-slider-thumb]:shadow-lg
-                      [&::-webkit-slider-thumb]:cursor-pointer
-                      [&::-webkit-slider-thumb]:transition-transform
-                      [&::-webkit-slider-thumb]:hover:scale-110"
+                      [&::-webkit-slider-thumb]:shadow-md
+                      [&::-webkit-slider-thumb]:cursor-pointer"
                   />
                 </div>
                 <span className="text-sm text-[var(--color-muted)] w-10">15秒</span>
               </div>
-              <div className="mt-3 text-center">
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] font-bold">
-                  <Icon name="schedule" size={18} />
+              <div className="mt-2 text-center">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-sm font-bold">
+                  <Icon name="schedule" size={16} />
                   {interval}秒
                 </span>
               </div>
             </div>
 
             {/* Info */}
-            <div 
-              className="bg-gradient-to-br from-[var(--color-primary-light)] to-[var(--color-surface)] rounded-2xl p-5 border border-[var(--color-primary)]/20"
-              style={{ animation: 'fade-in-up 0.6s ease-out' }}
-            >
-              <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 shadow-md">
-                  <Icon name="lightbulb" size={20} className="text-white" />
+            <div className="card p-4">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center flex-shrink-0">
+                  <Icon name="lightbulb" size={18} className="text-[var(--color-primary)]" />
                 </div>
-                <div className="text-sm text-[var(--color-foreground)]">
-                  <p className="font-semibold mb-2">ディクテーションの流れ</p>
-                  <ol className="space-y-2">
+                <div className="text-sm text-[var(--color-muted)]">
+                  <p className="font-semibold text-[var(--color-foreground)] mb-2">ディクテーションの流れ</p>
+                  <ol className="space-y-1.5">
                     <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-bold">1</span>
-                      <span className="text-[var(--color-muted)]">音声で10問出題されます</span>
+                      <span className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-bold flex-shrink-0">1</span>
+                      音声で10問出題されます
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-bold">2</span>
-                      <span className="text-[var(--color-muted)]">紙に答えを書いてください</span>
+                      <span className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-bold flex-shrink-0">2</span>
+                      紙に答えを書いてください
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-bold">3</span>
-                      <span className="text-[var(--color-muted)]">終わったら紙を撮影して採点</span>
+                      <span className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-bold flex-shrink-0">3</span>
+                      終わったら紙を撮影して採点
                     </li>
                   </ol>
                 </div>
@@ -524,17 +461,13 @@ function DictationContent() {
             </div>
 
             {/* Start button */}
-            <button
-              onClick={startQuiz}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white font-bold text-lg flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition-all active:scale-[0.98] hover:opacity-90"
-              style={{ animation: 'fade-in-up 0.7s ease-out' }}
-            >
-              <Icon name="play_circle" size={28} />
+            <Button onClick={startQuiz} className="w-full" size="lg">
+              <Icon name="play_circle" size={22} className="mr-2" />
               スタート
-            </button>
-          </main>
-        </div>
-      </AppShell>
+            </Button>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -543,244 +476,183 @@ function DictationContent() {
     const progress = ((currentIndex + 1) / questions.length) * 100;
 
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          {/* Header */}
-          <header className="sticky top-0 z-40 backdrop-blur-xl bg-[var(--color-background)]/80 border-b border-[var(--color-border-light)]">
-            <div className="max-w-lg mx-auto px-4 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-[var(--color-primary)]">{currentIndex + 1}</span>
-                  <span className="text-[var(--color-muted)]">/ {questions.length}</span>
-                </div>
-                <button
-                  onClick={() => {
-                    pausePlayback();
-                    setPhase('photo');
-                  }}
-                  className="flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-primary)] transition-colors px-3 py-1.5 rounded-full hover:bg-[var(--color-surface)]"
-                >
-                  <Icon name="skip_next" size={16} />
-                  スキップ
-                </button>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="h-2 bg-[var(--color-surface)] rounded-full overflow-hidden shadow-inner">
-                <div
-                  className="h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ 
-                    width: `${progress}%`,
-                    background: 'linear-gradient(90deg, var(--color-primary), var(--color-primary-dark))',
-                    boxShadow: '0 0 8px var(--color-primary)'
-                  }}
-                />
-              </div>
+      <div className="h-[100dvh] flex flex-col bg-[var(--color-background)] fixed inset-0">
+        {/* Header */}
+        <header className="flex-shrink-0 p-4 flex items-center gap-4">
+          <button
+            onClick={() => {
+              pausePlayback();
+              setPhase('photo');
+            }}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={24} />
+          </button>
 
-              {/* Question dots */}
-              <div className="flex justify-center gap-1.5 mt-3">
-                {questions.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                      i === currentIndex
-                        ? 'bg-[var(--color-primary)] scale-125 shadow-md'
-                        : i <= maxReachedIndex
-                        ? 'bg-[var(--color-primary)]/50'
-                        : 'bg-[var(--color-border)]'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          </header>
+          {/* Progress bar */}
+          <div className="flex-1 progress-bar">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
 
-          {/* Main content */}
-          <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-            {/* Speaking indicator */}
-            <div className="relative mb-8">
-              {/* Pulse rings */}
-              {isSpeaking && (
-                <>
-                  <div 
-                    className="absolute inset-0 rounded-full bg-[var(--color-primary)]"
-                    style={{ animation: 'pulse-ring 1.5s ease-out infinite' }}
-                  />
-                  <div 
-                    className="absolute inset-0 rounded-full bg-[var(--color-primary)]"
-                    style={{ animation: 'pulse-ring 1.5s ease-out infinite 0.3s' }}
-                  />
-                  <div 
-                    className="absolute inset-0 rounded-full bg-[var(--color-primary)]"
-                    style={{ animation: 'pulse-ring 1.5s ease-out infinite 0.6s' }}
-                  />
-                </>
-              )}
-              
-              {/* Main circle */}
-              <div 
-                className={`relative w-36 h-36 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl ${
-                  isSpeaking
-                    ? 'bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] scale-110'
-                    : 'bg-[var(--color-surface)]'
+          {/* Progress count */}
+          <div className="flex items-center gap-1 text-sm">
+            <span className="text-[var(--color-primary)] font-bold">{currentIndex + 1}</span>
+            <span className="text-[var(--color-muted)]">/</span>
+            <span className="text-[var(--color-muted)]">{questions.length}</span>
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 flex flex-col items-center justify-center px-6">
+          {/* Speaking indicator */}
+          <div className="relative mb-8">
+            <div
+              className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 ${
+                isSpeaking
+                  ? 'bg-[var(--color-primary)] scale-110'
+                  : 'bg-[var(--color-surface)]'
+              }`}
+            >
+              <Icon
+                name={isSpeaking ? 'graphic_eq' : isPlaying ? 'hourglass_top' : 'pause'}
+                size={48}
+                className={`transition-colors duration-300 ${
+                  isSpeaking ? 'text-white' : 'text-[var(--color-muted)]'
                 }`}
+              />
+            </div>
+          </div>
+
+          {/* Status text */}
+          <div className="text-center mb-6">
+            <p className={`text-lg font-bold mb-1 ${
+              isSpeaking ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'
+            }`}>
+              {isSpeaking ? '読み上げ中...' : isPlaying ? `次の問題まで ${countdown}秒` : '一時停止中'}
+            </p>
+            <p className="text-sm text-[var(--color-muted)]">
+              {direction === 'ja-to-en' ? '日本語を聞いて → 英語で回答' : '英語を聞いて → 日本語で回答'}
+            </p>
+          </div>
+
+          {/* Countdown circle */}
+          {isPlaying && !isSpeaking && (
+            <div className="relative w-16 h-16">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="32" cy="32" r="28" fill="none" stroke="var(--color-border)" strokeWidth="4" />
+                <circle
+                  cx="32" cy="32" r="28" fill="none"
+                  stroke="var(--color-primary)" strokeWidth="4" strokeLinecap="round"
+                  strokeDasharray={176}
+                  strokeDashoffset={176 * (1 - countdown / interval)}
+                  className="transition-all duration-1000 ease-linear"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[var(--color-primary)]">
+                {countdown}
+              </span>
+            </div>
+          )}
+        </main>
+
+        {/* Controls */}
+        <div
+          className="flex-shrink-0 px-6 pb-6"
+          style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+        >
+          <div className="flex items-center justify-center gap-3 max-w-sm mx-auto">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={goToPrevious}
+              disabled={currentIndex === 0}
+              className="w-12 h-12"
+            >
+              <Icon name="skip_previous" size={24} />
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={replayQuestion}
+              className="w-12 h-12"
+            >
+              <Icon name="replay" size={22} />
+            </Button>
+
+            {isPlaying ? (
+              <Button
+                onClick={pausePlayback}
+                className="w-16 h-16 rounded-full"
+                size="icon"
               >
-                <span className={isSpeaking ? 'animate-bounce-subtle' : ''}>
-                  <Icon
-                    name={isSpeaking ? 'graphic_eq' : isPlaying ? 'hourglass_top' : 'pause'}
-                    size={56}
-                    className={`transition-colors duration-300 ${
-                      isSpeaking ? 'text-white' : 'text-[var(--color-muted)]'
-                    }`}
-                  />
-                </span>
-              </div>
-            </div>
-
-            {/* Status text */}
-            <div className="text-center mb-4">
-              <p className={`text-xl font-bold mb-2 transition-colors duration-300 ${
-                isSpeaking ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'
-              }`}>
-                {isSpeaking ? '🎧 読み上げ中...' : isPlaying ? `⏳ 次の問題まで ${countdown}秒` : '⏸️ 一時停止中'}
-              </p>
-              <p className="text-sm text-[var(--color-muted)]">
-                {direction === 'ja-to-en' ? '日本語を聞いて → 英語で回答' : '英語を聞いて → 日本語で回答'}
-              </p>
-            </div>
-
-            {/* Countdown circle (when not speaking) */}
-            {isPlaying && !isSpeaking && (
-              <div className="relative w-16 h-16">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    fill="none"
-                    stroke="var(--color-border)"
-                    strokeWidth="4"
-                  />
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    fill="none"
-                    stroke="var(--color-primary)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray={176}
-                    strokeDashoffset={176 * (1 - countdown / interval)}
-                    className="transition-all duration-1000 ease-linear"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[var(--color-primary)]">
-                  {countdown}
-                </span>
-              </div>
+                <Icon name="pause" size={32} />
+              </Button>
+            ) : (
+              <Button
+                onClick={resumePlayback}
+                className="w-16 h-16 rounded-full"
+                size="icon"
+              >
+                <Icon name="play_arrow" size={32} />
+              </Button>
             )}
-          </main>
 
-          {/* Controls */}
-          <footer className="sticky bottom-0 backdrop-blur-xl bg-[var(--color-background)]/90 border-t border-[var(--color-border-light)] p-4">
-            <div className="max-w-lg mx-auto flex items-center justify-center gap-3">
-              {/* Previous */}
-              <button
-                onClick={goToPrevious}
-                disabled={currentIndex === 0}
-                className="w-14 h-14 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:bg-[var(--color-surface-hover)] active:scale-95 shadow-md hover:shadow-lg"
-              >
-                <Icon name="skip_previous" size={28} />
-              </button>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={goToNext}
+              disabled={currentIndex >= maxReachedIndex}
+              className="w-12 h-12"
+            >
+              <Icon name="skip_next" size={24} />
+            </Button>
 
-              {/* Replay */}
-              <button
-                onClick={replayQuestion}
-                className="w-14 h-14 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center transition-all hover:bg-[var(--color-surface-hover)] active:scale-95 shadow-md hover:shadow-lg"
-              >
-                <Icon name="replay" size={26} />
-              </button>
-
-              {/* Play/Pause - Main button */}
-              {isPlaying ? (
-                <button
-                  onClick={pausePlayback}
-                  className="w-18 h-18 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white flex items-center justify-center shadow-xl hover:shadow-2xl transition-all active:scale-95 mx-2"
-                  style={{ width: '72px', height: '72px' }}
-                >
-                  <Icon name="pause" size={36} />
-                </button>
-              ) : (
-                <button
-                  onClick={resumePlayback}
-                  className="w-18 h-18 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white flex items-center justify-center shadow-xl hover:shadow-2xl transition-all active:scale-95 mx-2"
-                  style={{ width: '72px', height: '72px' }}
-                >
-                  <Icon name="play_arrow" size={36} />
-                </button>
-              )}
-
-              {/* Next */}
-              <button
-                onClick={goToNext}
-                disabled={currentIndex >= maxReachedIndex}
-                className="w-14 h-14 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:bg-[var(--color-surface-hover)] active:scale-95 shadow-md hover:shadow-lg"
-              >
-                <Icon name="skip_next" size={28} />
-              </button>
-
-              {/* Camera shortcut */}
-              <button
-                onClick={() => {
-                  pausePlayback();
-                  setPhase('photo');
-                }}
-                className="w-14 h-14 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center transition-all hover:bg-[var(--color-surface-hover)] active:scale-95 shadow-md hover:shadow-lg"
-              >
-                <Icon name="photo_camera" size={24} />
-              </button>
-            </div>
-          </footer>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => {
+                pausePlayback();
+                setPhase('photo');
+              }}
+              className="w-12 h-12"
+            >
+              <Icon name="photo_camera" size={22} />
+            </Button>
+          </div>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   // Photo upload phase
   if (phase === 'photo') {
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen pb-28 lg:pb-6 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          <header className="sticky top-0 z-40 backdrop-blur-xl bg-[var(--color-background)]/80 border-b border-[var(--color-border-light)]">
-            <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-              <button 
-                onClick={restartQuiz} 
-                className="p-2 -ml-2 rounded-xl hover:bg-[var(--color-surface)] transition-all active:scale-95"
-              >
-                <Icon name="arrow_back" size={24} />
-              </button>
-              <div className="flex-1">
-                <h1 className="text-xl font-bold text-[var(--color-foreground)]">回答を撮影</h1>
-                <p className="text-sm text-[var(--color-muted)]">紙に書いた答えを撮影してください</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center shadow-lg">
-                <Icon name="photo_camera" size={24} className="text-white" />
-              </div>
-            </div>
-          </header>
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        {/* Header */}
+        <header className="flex-shrink-0 p-4 flex items-center gap-4">
+          <button
+            onClick={restartQuiz}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={24} />
+          </button>
+          <h1 className="text-lg font-bold text-[var(--color-foreground)]">回答を撮影</h1>
+        </header>
 
-          <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
+        <main className="flex-1 overflow-y-auto px-6 pb-8">
+          <div className="max-w-sm mx-auto space-y-5">
             {/* Upload area */}
             <div
               onClick={() => fileInputRef.current?.click()}
-              className={`aspect-[4/3] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden shadow-lg ${
+              className={`aspect-[4/3] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${
                 photoFile
                   ? 'border-[var(--color-primary)] bg-[var(--color-surface)]'
-                  : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]'
               }`}
-              style={{ animation: 'fade-in-up 0.4s ease-out' }}
             >
               {photoFile ? (
                 <div className="relative w-full h-full">
@@ -797,8 +669,8 @@ function DictationContent() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center p-8">
-                  <div className="w-20 h-20 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center mb-4">
-                    <Icon name="add_a_photo" size={36} className="text-[var(--color-primary)]" />
+                  <div className="w-16 h-16 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center mb-4">
+                    <Icon name="add_a_photo" size={28} className="text-[var(--color-primary)]" />
                   </div>
                   <p className="text-[var(--color-foreground)] font-medium mb-1">タップして撮影</p>
                   <p className="text-sm text-[var(--color-muted)]">または画像を選択</p>
@@ -816,21 +688,18 @@ function DictationContent() {
             />
 
             {/* Question list */}
-            <div 
-              className="bg-[var(--color-surface)] rounded-2xl p-5 shadow-sm border border-[var(--color-border-light)]"
-              style={{ animation: 'fade-in-up 0.5s ease-out' }}
-            >
-              <h2 className="font-semibold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
-                <Icon name="format_list_numbered" size={20} className="text-[var(--color-primary)]" />
+            <div className="card p-4">
+              <h2 className="font-semibold text-[var(--color-foreground)] mb-3 flex items-center gap-2">
+                <Icon name="format_list_numbered" size={18} className="text-[var(--color-primary)]" />
                 出題された問題
               </h2>
               <ol className="space-y-2">
                 {questions.map((q, i) => (
-                  <li key={q.id} className="flex items-center gap-3 py-2 border-b border-[var(--color-border-light)] last:border-0">
-                    <span className="w-6 h-6 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-xs font-bold flex items-center justify-center">
+                  <li key={q.id} className="flex items-center gap-3 py-1.5 border-b border-[var(--color-border-light)] last:border-0">
+                    <span className="w-6 h-6 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-xs font-bold flex items-center justify-center flex-shrink-0">
                       {i + 1}
                     </span>
-                    <span className="text-[var(--color-foreground)]">
+                    <span className="text-sm text-[var(--color-foreground)]">
                       {direction === 'ja-to-en' ? q.japanese : q.english}
                     </span>
                   </li>
@@ -839,160 +708,111 @@ function DictationContent() {
             </div>
 
             {/* Grade button */}
-            <button
+            <Button
               onClick={gradeAnswers}
               disabled={!photoFile}
-              className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 shadow-lg transition-all active:scale-[0.98] ${
-                photoFile
-                  ? 'bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white hover:shadow-xl hover:opacity-90'
-                  : 'bg-[var(--color-surface)] text-[var(--color-muted)] cursor-not-allowed'
-              }`}
-              style={{ animation: 'fade-in-up 0.6s ease-out' }}
+              className="w-full"
+              size="lg"
             >
-              <Icon name="auto_awesome" size={24} />
+              <Icon name="auto_awesome" size={20} className="mr-2" />
               AIで採点する
-            </button>
-          </main>
-        </div>
-      </AppShell>
+            </Button>
+          </div>
+        </main>
+      </div>
     );
   }
 
   // Grading phase
   if (phase === 'grading') {
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          <div className="relative mb-8">
-            {/* Animated rings */}
-            <div 
-              className="absolute inset-0 rounded-full border-4 border-[var(--color-primary)]/30"
-              style={{ 
-                width: '160px', 
-                height: '160px',
-                left: '-32px',
-                top: '-32px',
-                animation: 'pulse-ring 2s ease-out infinite' 
-              }}
-            />
-            <div 
-              className="absolute inset-0 rounded-full border-4 border-[var(--color-primary)]/20"
-              style={{ 
-                width: '200px', 
-                height: '200px',
-                left: '-52px',
-                top: '-52px',
-                animation: 'pulse-ring 2s ease-out infinite 0.5s' 
-              }}
-            />
-            
-            <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center shadow-xl">
-              <span className="animate-bounce-subtle">
-                <Icon 
-                  name="auto_awesome" 
-                  className="text-white" 
-                  size={40}
-                />
-              </span>
-            </div>
-          </div>
-          
-          <p className="text-xl font-bold text-[var(--color-foreground)] mb-2">AIが採点中...</p>
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg font-bold text-[var(--color-foreground)] mb-1">AIが採点中...</p>
           <p className="text-[var(--color-muted)]">回答を分析しています</p>
-          
-          <div className="flex gap-1 mt-6">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="w-2 h-2 rounded-full bg-[var(--color-primary)]"
-                style={{
-                  animation: 'bounce-subtle 0.6s ease-in-out infinite',
-                  animationDelay: `${i * 0.2}s`
-                }}
-              />
-            ))}
-          </div>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   // Result phase
   if (phase === 'result') {
     const correctCount = results.filter((r) => r.isCorrect).length;
-    const score = Math.round((correctCount / results.length) * 100);
-    const scoreEmoji = score >= 80 ? '🎉' : score >= 60 ? '👍' : score >= 40 ? '💪' : '📚';
+    const percentage = Math.round((correctCount / results.length) * 100);
 
     return (
-      <AppShell>
-        <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
-        <div className="min-h-screen pb-28 lg:pb-6 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          <header className="sticky top-0 z-40 backdrop-blur-xl bg-[var(--color-background)]/80 border-b border-[var(--color-border-light)]">
-            <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-              <div className="flex-1">
-                <h1 className="text-xl font-bold text-[var(--color-foreground)]">結果発表</h1>
-              </div>
-            </div>
-          </header>
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
+        {/* Header */}
+        <header className="flex-shrink-0 p-4">
+          <button
+            onClick={goBack}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={24} />
+          </button>
+        </header>
 
-          <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
+        <main className="flex-1 overflow-y-auto px-6 pb-8">
+          <div className="max-w-sm mx-auto">
             {/* Score card */}
-            <div 
-              className="bg-gradient-to-br from-[var(--color-primary-light)] via-[var(--color-surface)] to-[var(--color-primary-light)] rounded-2xl p-8 text-center shadow-lg border border-[var(--color-primary)]/20"
-              style={{ animation: 'fade-in-up 0.4s ease-out' }}
-            >
-              <div 
-                className="text-6xl mb-4"
-                style={{ animation: 'score-pop 0.6s ease-out' }}
-              >
-                {scoreEmoji}
+            <div className="card p-8 text-center mb-6">
+              <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
+                <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
               </div>
-              <div 
-                className="text-6xl font-bold bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] bg-clip-text text-transparent mb-2"
-                style={{ animation: 'score-pop 0.6s ease-out 0.2s', animationFillMode: 'both' }}
-              >
-                {score}%
+
+              <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
+                ディクテーション完了!
+              </h1>
+
+              <div className="mb-4">
+                <p className="text-5xl font-bold text-[var(--color-primary)] mb-1">
+                  {percentage}%
+                </p>
+                <p className="text-[var(--color-muted)]">
+                  {results.length}問中 {correctCount}問正解
+                </p>
               </div>
-              <p className="text-[var(--color-muted)] text-lg">
-                <span className="text-[var(--color-primary)] font-bold">{correctCount}</span> / {results.length} 問正解
+
+              <p className="text-[var(--color-foreground)]">
+                {percentage === 100
+                  ? 'パーフェクト! 素晴らしい!'
+                  : percentage >= 80
+                  ? 'よくできました!'
+                  : percentage >= 60
+                  ? 'もう少し! 復習しましょう'
+                  : '繰り返し練習しましょう!'}
               </p>
             </div>
 
             {/* Results list */}
-            <div className="space-y-3">
+            <div className="space-y-2 mb-6">
               {results.map((result, i) => (
                 <div
                   key={result.question.id}
-                  className={`bg-[var(--color-surface)] rounded-xl p-4 shadow-sm border-l-4 transition-all hover:shadow-md ${
+                  className={`card p-3 border-l-4 ${
                     result.isCorrect
                       ? 'border-l-[var(--color-success)]'
                       : 'border-l-[var(--color-error)]'
                   }`}
-                  style={{ animation: `fade-in-up 0.4s ease-out ${0.1 * i}s`, animationFillMode: 'both' }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
                       result.isCorrect
                         ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
                         : 'bg-[var(--color-error-light)] text-[var(--color-error)]'
                     }`}>
-                      <Icon name={result.isCorrect ? 'check' : 'close'} size={18} />
+                      <Icon name={result.isCorrect ? 'check' : 'close'} size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-muted)] mb-1 flex items-center gap-2">
-                        <span className="font-medium">問題 {i + 1}</span>
-                        <span className="text-xs">
-                          {direction === 'ja-to-en' ? result.question.japanese : result.question.english}
-                        </span>
+                      <p className="text-xs text-[var(--color-muted)] mb-0.5">
+                        問題 {i + 1}: {direction === 'ja-to-en' ? result.question.japanese : result.question.english}
                       </p>
-                      <p className="font-medium text-[var(--color-foreground)] flex items-center gap-2">
-                        <Icon name="check_circle" size={16} className="text-[var(--color-success)]" />
+                      <p className="text-sm font-medium text-[var(--color-foreground)]">
                         {direction === 'ja-to-en' ? result.question.english : result.question.japanese}
                       </p>
                       {!result.isCorrect && (
-                        <p className="text-sm text-[var(--color-error)] mt-1 flex items-center gap-2">
-                          <Icon name="edit" size={14} />
+                        <p className="text-xs text-[var(--color-error)] mt-0.5">
                           あなたの回答: {result.userAnswer}
                         </p>
                       )}
@@ -1003,28 +823,18 @@ function DictationContent() {
             </div>
 
             {/* Actions */}
-            <div 
-              className="flex gap-3 pt-2"
-              style={{ animation: 'fade-in-up 0.6s ease-out' }}
-            >
-              <button
-                onClick={restartQuiz}
-                className="flex-1 py-4 rounded-xl bg-[var(--color-surface)] text-[var(--color-foreground)] font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] border border-[var(--color-border-light)]"
-              >
-                <Icon name="replay" size={22} />
+            <div className="space-y-3">
+              <Button onClick={restartQuiz} className="w-full" size="lg">
+                <Icon name="refresh" size={20} className="mr-2" />
                 もう一度
-              </button>
-              <button
-                onClick={goBack}
-                className="flex-1 py-4 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
-              >
-                <Icon name="home" size={22} />
-                ホームへ
-              </button>
+              </Button>
+              <Button variant="secondary" onClick={goBack} className="w-full" size="lg">
+                戻る
+              </Button>
             </div>
-          </main>
-        </div>
-      </AppShell>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -1034,16 +844,12 @@ function DictationContent() {
 export default function DictationPage() {
   return (
     <Suspense fallback={
-      <AppShell>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full bg-[var(--color-primary)] opacity-20 animate-ping" />
-            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center shadow-lg">
-              <Icon name="headphones" className="text-white animate-pulse" size={28} />
-            </div>
-          </div>
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--color-muted)]">読み込み中...</p>
         </div>
-      </AppShell>
+      </div>
     }>
       <DictationContent />
     </Suspense>

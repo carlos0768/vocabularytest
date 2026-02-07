@@ -107,11 +107,13 @@ export default function FlashcardPage() {
             const progress: FlashcardProgress = JSON.parse(sessionProgressStr);
             // Session storage = recent, just check if it's less than 30 minutes old
             const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-            
+
             if (progress.savedAt > thirtyMinutesAgo && progress.wordIds.length > 0) {
               // Fetch fresh word data to match with saved IDs
               let wordsData: Word[];
-              if (projectId === 'all' && favoritesOnly) {
+              if (collectionId) {
+                wordsData = await loadCollectionWords(collectionId);
+              } else if (projectId === 'all' && favoritesOnly) {
                 const userId = isPro && user ? user.id : getGuestUserId();
                 const projects = await repository.getProjects(userId);
                 const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
@@ -126,8 +128,9 @@ export default function FlashcardPage() {
                 .map(id => wordMap.get(id))
                 .filter((w): w is Word => w !== undefined);
 
-              // Restore if at least 50% of words match
-              if (orderedWords.length >= progress.wordIds.length * 0.5) {
+              // Restore only if saved count roughly matches current total
+              // If current words grew significantly, discard saved progress
+              if (orderedWords.length >= progress.wordIds.length * 0.5 && orderedWords.length >= wordsData.length * 0.8) {
                 setWords(orderedWords);
                 setCurrentIndex(Math.min(progress.currentIndex, orderedWords.length - 1));
                 hasLoadedRef.current = true;
@@ -188,8 +191,9 @@ export default function FlashcardPage() {
                 .map(id => wordMap.get(id))
                 .filter((w): w is Word => w !== undefined);
 
-              // Lowered threshold from 80% to 50% for better recovery
-              if (orderedWords.length >= wordsData.length * 0.5) {
+              // Restore only if saved count covers most of the current words
+              // Prevents restoring stale subset when words have been added
+              if (orderedWords.length >= wordsData.length * 0.8) {
                 setWords(orderedWords);
                 setCurrentIndex(Math.min(progress.currentIndex, orderedWords.length - 1));
                 hasLoadedRef.current = true;
