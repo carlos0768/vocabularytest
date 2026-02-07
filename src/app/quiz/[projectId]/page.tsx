@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
+import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
 import { calculateNextReview, getWordsDueForReview } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
@@ -465,7 +466,18 @@ export default function QuizPage() {
           const mergedWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
           sourceWords = getWordsDueForReview(mergedWords);
         } else {
-          const loadedWords = await repository.getWords(projectId);
+          let loadedWords = await repository.getWords(projectId);
+          
+          // Fallback to remote if local is empty and user is logged in
+          // This handles background scan projects stored in remote
+          if (loadedWords.length === 0 && user) {
+            try {
+              loadedWords = await remoteRepository.getWords(projectId);
+            } catch (e) {
+              console.error('Remote fallback failed:', e);
+            }
+          }
+          
           sourceWords = loadedWords;
         }
 
