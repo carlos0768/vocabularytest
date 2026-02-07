@@ -23,7 +23,48 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+// Extract words from a single image using the appropriate mode
+async function extractFromImage(
+  base64Image: string,
+  mode: ExtractMode,
+  eikenLevel: string | null,
+  geminiApiKey: string | undefined,
+  openaiApiKey: string | undefined
+) {
+  switch (mode) {
+    case 'circled': {
+      const circledProvider = AI_CONFIG.extraction.circled.provider;
+      const circledApiKey = circledProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+      if (!circledApiKey) throw new Error('API key not configured');
+      return await extractCircledWordsFromImage(base64Image, circledApiKey, {}, openaiApiKey);
+    }
+    case 'highlighted': {
+      const highlightedProvider = AI_CONFIG.extraction.circled.provider;
+      const highlightedApiKey = highlightedProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+      if (!highlightedApiKey) throw new Error('API key not configured');
+      return await extractHighlightedWordsFromImage(base64Image, highlightedApiKey, openaiApiKey);
+    }
+    case 'eiken': {
+      if (!geminiApiKey || !openaiApiKey) throw new Error('API keys not configured');
+      const levels = eikenLevel?.split(',') || ['3', 'pre2', '2'];
+      return await extractEikenWordsFromImage(base64Image, geminiApiKey, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1');
+    }
+    case 'idiom': {
+      const idiomsProvider = AI_CONFIG.extraction.idioms.provider;
+      const idiomsApiKey = idiomsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+      if (!idiomsApiKey) throw new Error('API key not configured');
+      return await extractIdiomsFromImage(base64Image, idiomsApiKey);
+    }
+    default: {
+      const wordsProvider = AI_CONFIG.extraction.words.provider;
+      const wordsApiKey = wordsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
+      if (!wordsApiKey) throw new Error('API key not configured');
+      return await extractWordsFromImage(base64Image, wordsApiKey, { includeExamples: true });
+    }
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,80 +102,49 @@ export async function POST(request: NextRequest) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
     try {
-      const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
-        .from('scan-images')
-        .download(job.image_path);
+      // Collect all image paths (support both single and multiple)
+      const imagePaths: string[] = job.image_paths || (job.image_path ? [job.image_path] : []);
 
-      if (downloadError || !imageData) {
-        throw new Error('Failed to download image');
+      if (imagePaths.length === 0) {
+        throw new Error('No images to process');
       }
-
-      const buffer = await imageData.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString('base64');
-      const ext = job.image_path.split('.').pop()?.toLowerCase();
-      const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      const base64Image = `data:${mimeType};base64,${base64}`;
 
       const mode = job.scan_mode as ExtractMode;
-      let result;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allExtractedWords: any[] = [];
 
-      switch (mode) {
-        case 'circled': {
-          const circledProvider = AI_CONFIG.extraction.circled.provider;
-          const circledApiKey = circledProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-          if (!circledApiKey) throw new Error('API key not configured');
-          result = await extractCircledWordsFromImage(base64Image, circledApiKey, {}, openaiApiKey);
-          break;
+      // Process each image and merge results
+      for (const imagePath of imagePaths) {
+        const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
+          .from('scan-images')
+          .download(imagePath);
+
+        if (downloadError || !imageData) {
+          console.error(`Failed to download image ${imagePath}:`, downloadError);
+          continue; // Skip failed images, process the rest
         }
-        case 'highlighted': {
-          const highlightedProvider = AI_CONFIG.extraction.circled.provider;
-          const highlightedApiKey = highlightedProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-          if (!highlightedApiKey) throw new Error('API key not configured');
-          result = await extractHighlightedWordsFromImage(base64Image, highlightedApiKey, openaiApiKey);
-          break;
-        }
-        case 'eiken': {
-          if (!geminiApiKey || !openaiApiKey) throw new Error('API keys not configured');
-          const levels = job.eiken_level?.split(',') || ['3', 'pre2', '2'];
-          result = await extractEikenWordsFromImage(base64Image, geminiApiKey, openaiApiKey, levels[0]);
-          break;
-        }
-        case 'idiom': {
-          const idiomsProvider = AI_CONFIG.extraction.idioms.provider;
-          const idiomsApiKey = idiomsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-          if (!idiomsApiKey) throw new Error('API key not configured');
-          result = await extractIdiomsFromImage(base64Image, idiomsApiKey);
-          break;
-        }
-        default: {
-          const wordsProvider = AI_CONFIG.extraction.words.provider;
-          const wordsApiKey = wordsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-          if (!wordsApiKey) throw new Error('API key not configured');
-          result = await extractWordsFromImage(base64Image, wordsApiKey, { includeExamples: true });
+
+        const buffer = await imageData.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        const ext = imagePath.split('.').pop()?.toLowerCase();
+        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+        const base64Image = `data:${mimeType};base64,${base64}`;
+
+        const result = await extractFromImage(base64Image, mode, job.eiken_level, geminiApiKey, openaiApiKey);
+
+        if (result.success && result.data?.words) {
+          allExtractedWords.push(...result.data.words);
+        } else if (!result.success) {
+          console.error(`Extraction failed for ${imagePath}:`, result.error);
         }
       }
 
-      if (!result.success) {
+      if (allExtractedWords.length === 0) {
         await getSupabaseAdmin()
           .from('scan_jobs')
           .update({
             status: 'failed',
-            error_message: result.error || 'Extraction failed',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId);
-
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-
-      const extractedWords = result.data.words;
-
-      if (extractedWords.length === 0) {
-        await getSupabaseAdmin()
-          .from('scan_jobs')
-          .update({
-            status: 'failed',
-            error_message: 'No words found',
+            error_message: 'No words found in any image',
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -142,44 +152,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No words found' }, { status: 400 });
       }
 
-      // Check if a project with the same title already exists for this user
-      // This allows multiple images to be added to the same project
-      let project: { id: string };
-      let isNewProject = false;
-      
-      const { data: existingProject } = await getSupabaseAdmin()
+      // Create project and save all words at once
+      const { data: newProject, error: projectError } = await getSupabaseAdmin()
         .from('projects')
-        .select('id')
-        .eq('user_id', job.user_id)
-        .eq('title', job.project_title)
-        .order('created_at', { ascending: false })
-        .limit(1)
+        .insert({
+          user_id: job.user_id,
+          title: job.project_title,
+        })
+        .select()
         .single();
 
-      if (existingProject) {
-        // Use existing project
-        project = existingProject;
-      } else {
-        // Create new project
-        const { data: newProject, error: projectError } = await getSupabaseAdmin()
-          .from('projects')
-          .insert({
-            user_id: job.user_id,
-            title: job.project_title,
-          })
-          .select()
-          .single();
-
-        if (projectError || !newProject) {
-          console.error('Project creation error:', projectError);
-          throw new Error('Failed to create project');
-        }
-        project = newProject;
-        isNewProject = true;
+      if (projectError || !newProject) {
+        console.error('Project creation error:', projectError);
+        throw new Error('Failed to create project');
       }
 
-      const wordsToInsert = extractedWords.map((word) => ({
-        project_id: project.id,
+      const wordsToInsert = allExtractedWords.map((word) => ({
+        project_id: newProject.id,
         english: word.english,
         japanese: word.japanese,
         distractors: word.distractors || [],
@@ -192,10 +181,7 @@ export async function POST(request: NextRequest) {
         .insert(wordsToInsert);
 
       if (wordsError) {
-        // Only delete project if we just created it
-        if (isNewProject) {
-          await getSupabaseAdmin().from('projects').delete().eq('id', project.id);
-        }
+        await getSupabaseAdmin().from('projects').delete().eq('id', newProject.id);
         throw new Error('Failed to insert words');
       }
 
@@ -203,21 +189,21 @@ export async function POST(request: NextRequest) {
         .from('scan_jobs')
         .update({
           status: 'completed',
-          project_id: project.id,
-          result: JSON.stringify({ wordCount: extractedWords.length }),
+          project_id: newProject.id,
+          result: JSON.stringify({ wordCount: allExtractedWords.length }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
 
       return NextResponse.json({
         success: true,
-        projectId: project.id,
-        wordCount: extractedWords.length,
+        projectId: newProject.id,
+        wordCount: allExtractedWords.length,
       });
 
     } catch (processingError) {
       console.error('Processing error:', processingError);
-      
+
       await getSupabaseAdmin()
         .from('scan_jobs')
         .update({

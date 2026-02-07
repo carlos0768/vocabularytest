@@ -98,7 +98,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
                     }}
                   >
                     <Icon name="push_pin" size={16} filled={project.isFavorite} />
-                    {project.isFavorite ? 'ピン留め解除' : 'ピン留め'}
+                    {project.isFavorite ? 'ピン解除' : 'ピン留め'}
                   </button>
                 )}
                 {extraMenuItems && extraMenuItems.map((item) => (

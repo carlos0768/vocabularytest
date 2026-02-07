@@ -198,39 +198,6 @@ export default function QuizPage() {
     }
   }, [applyExamples]);
 
-  // Generate example sentences for words that don't have them (runs in background)
-  const generateExamplesInBackground = useCallback(async (words: Word[]) => {
-    // Filter words that need example sentences
-    const wordsNeedingExamples = words.filter(
-      w => !w.exampleSentence || w.exampleSentence.trim().length === 0
-    );
-
-    if (wordsNeedingExamples.length === 0) return;
-
-    try {
-      const response = await fetch('/api/generate-examples', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          words: wordsNeedingExamples.map(w => ({
-            id: w.id,
-            english: w.english,
-            japanese: w.japanese,
-          })),
-        }),
-      });
-
-      if (!response.ok) return;
-
-      const data = await response.json();
-      if (data.examples && data.examples.length > 0) {
-        applyExamples(data.examples);
-      }
-    } catch (error) {
-      console.error('Failed to generate examples:', error);
-      // Silently fail - example sentences are not critical
-    }
-  }, [applyExamples]);
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
     const selected = shuffleArray(words).slice(0, count);
@@ -270,16 +237,21 @@ export default function QuizPage() {
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = shuffleArray(words).slice(0, count);
 
-    // Find words that need distractors
-    const wordsNeedingDistractors = selected.filter(
-      (w) => !w.distractors || w.distractors.length === 0 ||
-        (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+    // Find words that need distractors or example sentences
+    const needsDistractors = (w: Word) =>
+      !w.distractors || w.distractors.length === 0 ||
+      (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
+    const needsExample = (w: Word) =>
+      !w.exampleSentence || w.exampleSentence.trim().length === 0;
+
+    const wordsToGenerate = selected.filter(
+      (w) => needsDistractors(w) || needsExample(w)
     );
 
     let updatedSelected = selected;
     setDistractorError(null);
 
-    if (wordsNeedingDistractors.length > 0) {
+    if (wordsToGenerate.length > 0) {
       setGeneratingDistractors(true);
 
       try {
@@ -287,7 +259,7 @@ export default function QuizPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            words: wordsNeedingDistractors.map((w) => ({
+            words: wordsToGenerate.map((w) => ({
               id: w.id,
               english: w.english,
               japanese: w.japanese,
@@ -298,19 +270,31 @@ export default function QuizPage() {
         const data = await response.json();
 
         if (data.success && data.results) {
-          // Create a map of wordId -> distractors
+          // Create maps for distractors and examples
           const distractorMap = new Map<string, string[]>();
+          const exampleMap = new Map<string, { exampleSentence: string; exampleSentenceJa: string }>();
           for (const result of data.results) {
             distractorMap.set(result.wordId, result.distractors);
+            if (result.exampleSentence) {
+              exampleMap.set(result.wordId, {
+                exampleSentence: result.exampleSentence,
+                exampleSentenceJa: result.exampleSentenceJa || '',
+              });
+            }
           }
 
-          // Update words with generated distractors
+          // Update words with generated distractors and examples
           updatedSelected = selected.map((w) => {
             const newDistractors = distractorMap.get(w.id);
-            if (newDistractors) {
-              return { ...w, distractors: newDistractors };
-            }
-            return w;
+            const newExample = exampleMap.get(w.id);
+            return {
+              ...w,
+              ...(newDistractors ? { distractors: newDistractors } : {}),
+              ...(newExample && (!w.exampleSentence || w.exampleSentence.trim().length === 0) ? {
+                exampleSentence: newExample.exampleSentence,
+                exampleSentenceJa: newExample.exampleSentenceJa,
+              } : {}),
+            };
           });
 
           // Check if all words now have distractors
@@ -323,20 +307,33 @@ export default function QuizPage() {
             return;
           }
 
-          // Save distractors to DB and update local state
+          // Save distractors and examples to DB and update local state
           const updatePromises: Promise<void>[] = [];
           for (const result of data.results) {
+            const updates: Record<string, unknown> = { distractors: result.distractors };
+            if (result.exampleSentence) {
+              updates.exampleSentence = result.exampleSentence;
+              updates.exampleSentenceJa = result.exampleSentenceJa || '';
+            }
             updatePromises.push(
-              repository.updateWord(result.wordId, { distractors: result.distractors })
+              repository.updateWord(result.wordId, updates)
             );
           }
           await Promise.all(updatePromises);
 
-          // Update allWords state with new distractors
+          // Update allWords state with new distractors and examples
           setAllWords((prev) =>
             prev.map((w) => {
               const newDistractors = distractorMap.get(w.id);
-              return newDistractors ? { ...w, distractors: newDistractors } : w;
+              const newExample = exampleMap.get(w.id);
+              return {
+                ...w,
+                ...(newDistractors ? { distractors: newDistractors } : {}),
+                ...(newExample && (!w.exampleSentence || w.exampleSentence.trim().length === 0) ? {
+                  exampleSentence: newExample.exampleSentence,
+                  exampleSentenceJa: newExample.exampleSentenceJa,
+                } : {}),
+              };
             })
           );
         } else {
@@ -387,13 +384,10 @@ export default function QuizPage() {
     });
 
     setQuestions(quizQuestions);
-
-    // Generate example sentences in background (Pro only)
-    generateExamplesInBackground(updatedSelected);
   // Note: allWords is intentionally excluded - we use the 'words' parameter passed to this function
   // quizDirection is accessed via closure but changes don't need to recreate this function
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repository, generateExamplesInBackground]);
+  }, [repository]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -518,10 +512,11 @@ export default function QuizPage() {
         setAllWords(sourceWords);
 
         if (questionCount) {
-          // Check if any words might need distractors
+          // Check if any words need distractors or example sentences
           const needsGeneration = sourceWords.some(
             (w) => !w.distractors || w.distractors.length === 0 ||
-              (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+              (w.distractors.length === 3 && w.distractors[0] === '選択肢1') ||
+              !w.exampleSentence || w.exampleSentence.trim().length === 0
           );
 
           if (needsGeneration) {
@@ -529,9 +524,6 @@ export default function QuizPage() {
           } else {
             const generated = generateQuestions(sourceWords, questionCount, quizDirection);
             setQuestions(generated);
-            // Generate example sentences in background (Pro only)
-            const selectedWords = generated.map(q => q.word);
-            generateExamplesInBackground(selectedWords);
           }
         }
       } catch (error) {
@@ -543,7 +535,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, generateExamplesInBackground, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -641,14 +633,15 @@ export default function QuizPage() {
   const handleSelectCount = async (count: number) => {
     setQuestionCount(count);
     if (allWords.length > 0) {
-      // Check if any words need distractors
+      // Check if any words need distractors or example sentences
       const needsGeneration = allWords.some(
         (w) => !w.distractors || w.distractors.length === 0 ||
-          (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+          (w.distractors.length === 3 && w.distractors[0] === '選択肢1') ||
+          !w.exampleSentence || w.exampleSentence.trim().length === 0
       );
 
       if (needsGeneration) {
-        // Offline check: can't generate distractors without internet
+        // Offline check: can't generate without internet
         if (!isOnline) {
           setDistractorError('オフラインではクイズを生成できません。インターネット接続を確認してください。');
           return;
@@ -657,9 +650,6 @@ export default function QuizPage() {
       } else {
         const generated = generateQuestions(allWords, count, quizDirection);
         setQuestions(generated);
-        // Generate example sentences in background (Pro only)
-        const selectedWords = generated.map(q => q.word);
-        generateExamplesInBackground(selectedWords);
       }
     }
   };

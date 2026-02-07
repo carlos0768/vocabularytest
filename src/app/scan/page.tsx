@@ -158,27 +158,28 @@ function ScanPageContent() {
   }, []);
 
   // Background upload for Pro users - Direct to Supabase Storage
+  // Uploads ALL images first, then creates a single scan job with all image paths
   const handleBackgroundUpload = useCallback(async (files: File[], name: string) => {
     setUploading(true);
-    
+
     try {
       const supabase = createBrowserClient();
       const { data: { session } } = await supabase.auth.getSession();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!session?.access_token || !user) {
         throw new Error('認証が必要です');
       }
 
-      // Process each file
-      for (const file of files) {
-        // 1. Compress image (fast, client-side)
+      // 1. Upload all images first
+      const uploadedPaths: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         const compressedBlob = await compressForUpload(file);
-        
-        // 2. Upload directly to Supabase Storage (faster than API route)
-        const timestamp = Date.now();
+
+        const timestamp = Date.now() + i; // Ensure unique timestamps
         const imagePath = `${user.id}/${timestamp}.jpg`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('scan-images')
           .upload(imagePath, compressedBlob, {
@@ -188,34 +189,39 @@ function ScanPageContent() {
 
         if (uploadError) {
           console.error('Storage upload error:', uploadError);
+          // Clean up already uploaded images
+          if (uploadedPaths.length > 0) {
+            await supabase.storage.from('scan-images').remove(uploadedPaths);
+          }
           throw new Error('画像のアップロードに失敗しました');
         }
+        uploadedPaths.push(imagePath);
+      }
 
-        // 3. Create scan job record (lightweight API call)
-        const response = await fetch('/api/scan-jobs/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            imagePath,
-            projectTitle: name,
-            scanMode: selectedMode,
-            eikenLevel: selectedMode === 'eiken' ? selectedEiken : null,
-          }),
-        });
+      // 2. Create a single scan job with all image paths
+      const response = await fetch('/api/scan-jobs/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          imagePaths: uploadedPaths,
+          projectTitle: name,
+          scanMode: selectedMode,
+          eikenLevel: selectedMode === 'eiken' ? selectedEiken : null,
+        }),
+      });
 
-        if (!response.ok) {
-          // Clean up uploaded image
-          await supabase.storage.from('scan-images').remove([imagePath]);
-          const error = await response.json();
-          throw new Error(error.error || 'ジョブの作成に失敗しました');
-        }
+      if (!response.ok) {
+        // Clean up uploaded images
+        await supabase.storage.from('scan-images').remove(uploadedPaths);
+        const error = await response.json();
+        throw new Error(error.error || 'ジョブの作成に失敗しました');
       }
 
       showToast({
-        message: `${files.length > 1 ? `${files.length}件の` : ''}スキャンを開始しました`,
+        message: `${files.length > 1 ? `${files.length}枚の画像の` : ''}スキャンを開始しました`,
         type: 'success',
         duration: 3000,
       });
