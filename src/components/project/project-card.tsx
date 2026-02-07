@@ -35,7 +35,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="line-clamp-2 pr-8">{project.title}</CardTitle>
             {project.isFavorite && (
-              <span className="chip chip-pro text-xs flex items-center gap-1">
+              <span className="chip chip-pro text-xs flex items-center gap-1 mr-8">
                 <Icon name="push_pin" size={12} />
                 ピン留め
               </span>
