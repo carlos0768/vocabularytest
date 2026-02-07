@@ -181,11 +181,13 @@ export default function HomePage() {
   // Note: Body scroll locking removed to allow page scrolling
 
   // Load projects - 2-phase: fast first paint, then full data in background
+  // Uses stale-while-revalidate pattern for instant UI
   const loadProjects = useCallback(async (forceReload = false) => {
     const userId = isPro && user ? user.id : getGuestUserId();
 
-    // Skip if already loaded for this user (unless force reload)
-    if (!forceReload && getHasLoaded() && getLoadedUserId() === userId) {
+    // Always show cached data first (stale-while-revalidate)
+    const hasCache = getHasLoaded();
+    if (hasCache) {
       const cachedProjects = getCachedProjects();
       const cachedWords = getCachedProjectWords();
       setProjects(cachedProjects);
@@ -195,18 +197,29 @@ export default function HomePage() {
       setTotalWords(getCachedTotalWords());
       setWrongAnswers(getWrongAnswers());
       setLoading(false);
-      return;
+      
+      // If not force reload and cache is for same user, skip fetch
+      if (!forceReload && getLoadedUserId() === userId) {
+        return;
+      }
     }
 
     try {
-      setLoading(true);
+      // Only show loading spinner if no cache (first load)
+      if (!hasCache) {
+        setLoading(true);
+      }
       let data: Project[] = [];
+      let activeRepo = repository; // Track which repository has the data
       
       // If user is logged in, always try remote first (handles background scan projects)
       // This ensures Pro users see their Supabase projects immediately
       if (user) {
         try {
           data = await remoteRepository.getProjects(user.id);
+          if (data.length > 0) {
+            activeRepo = remoteRepository;
+          }
         } catch (e) {
           console.error('Remote fetch failed:', e);
         }
@@ -215,6 +228,7 @@ export default function HomePage() {
       // Fallback to default repository if remote is empty or user not logged in
       if (data.length === 0) {
         data = await repository.getProjects(userId);
+        activeRepo = repository;
       }
       
       setProjects(data);
@@ -242,7 +256,7 @@ export default function HomePage() {
       let total: number;
 
       // Phase 1: Only first project words (1 query) → show UI immediately
-      firstProjectWords = await repository.getWords(firstProject.id);
+      firstProjectWords = await activeRepo.getWords(firstProject.id);
       total = firstProjectWords.length; // Approximate; Phase 2 gets exact count
 
       // Show UI immediately
@@ -254,7 +268,7 @@ export default function HomePage() {
       setLoading(false);
 
       // ---- Phase 2: Background load ALL words in 1 query ----
-      const capturedRepository = repository;
+      const capturedRepository = activeRepo;
       setTimeout(async () => {
         try {
           const projectIds = data.map(p => p.id);
