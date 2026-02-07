@@ -17,7 +17,7 @@ function getSupabaseAdmin(): SupabaseClient {
 }
 
 // Lightweight endpoint: just create job record and trigger processing
-// Image is already uploaded directly to Storage by client
+// Images are already uploaded directly to Storage by client
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -27,27 +27,34 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7);
     const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { imagePath, projectTitle, scanMode, eikenLevel } = await request.json();
+    const body = await request.json();
+    const { projectTitle, scanMode, eikenLevel } = body;
 
-    if (!imagePath || !projectTitle) {
+    // Support both single imagePath and multiple imagePaths
+    const imagePaths: string[] = body.imagePaths || (body.imagePath ? [body.imagePath] : []);
+
+    if (imagePaths.length === 0 || !projectTitle) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Verify the image exists in storage
-    const { data: fileData } = await getSupabaseAdmin().storage
-      .from('scan-images')
-      .list(user.id, { search: imagePath.split('/').pop() });
+    // Verify all images exist in storage
+    for (const imagePath of imagePaths) {
+      const fileName = imagePath.split('/').pop();
+      const { data: fileData } = await getSupabaseAdmin().storage
+        .from('scan-images')
+        .list(user.id, { search: fileName });
 
-    if (!fileData || fileData.length === 0) {
-      return NextResponse.json({ error: 'Image not found' }, { status: 400 });
+      if (!fileData || fileData.length === 0) {
+        return NextResponse.json({ error: `Image not found: ${fileName}` }, { status: 400 });
+      }
     }
 
-    // Create scan job record
+    // Create a single scan job with all image paths
     const { data: job, error: insertError } = await getSupabaseAdmin()
       .from('scan_jobs')
       .insert({
@@ -55,7 +62,8 @@ export async function POST(request: NextRequest) {
         project_title: projectTitle,
         scan_mode: scanMode || 'all',
         eiken_level: eikenLevel,
-        image_path: imagePath,
+        image_path: imagePaths[0], // Primary image (backward compat)
+        image_paths: imagePaths,   // All images
         status: 'pending',
       })
       .select()

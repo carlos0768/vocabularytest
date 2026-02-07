@@ -6,7 +6,9 @@ import { getProviderFromConfig } from '@/lib/ai/providers';
 // API Route: POST /api/generate-quiz-distractors
 // Batch generates distractors for multiple words using AI provider (Cloud Run or direct)
 
-const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成者です。与えられた複数の英単語とその日本語訳に対して、それぞれクイズ用の誤答選択肢（distractors）を3つずつ生成してください。
+const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成者です。与えられた複数の英単語とその日本語訳に対して、それぞれ以下を生成してください:
+1. クイズ用の誤答選択肢（distractors）を3つ
+2. その単語を使った例文（英語）と日本語訳
 
 【最重要ルール】誤答のフォーマット統一:
 誤答は必ず正解と同じフォーマット・スタイル・長さで生成してください。フォーマットの違いで正解がバレてはいけません。
@@ -24,11 +26,17 @@ const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成者で�
 - フォーマットや長さが明らかに異なる誤答を生成しない
 - 正解と紛らわしすぎる選択肢は避ける（学習者が混乱するため）
 
+【例文ルール】
+- 各単語に対して1つの例文を生成
+- 10〜20語程度の実用的で分かりやすい文
+- 中学〜高校レベルの難易度
+- 熟語の場合は、その熟語全体を例文に含める
+
 【出力フォーマット】
 必ず以下のJSON形式のみを出力してください:
 {
   "results": [
-    { "id": "単語のID", "distractors": ["誤答1", "誤答2", "誤答3"] },
+    { "id": "単語のID", "distractors": ["誤答1", "誤答2", "誤答3"], "exampleSentence": "Example sentence.", "exampleSentenceJa": "例文の日本語訳。" },
     ...
   ]
 }`;
@@ -72,7 +80,7 @@ export async function POST(request: NextRequest) {
       .map((w, i) => `${i + 1}. ID: ${w.id} / 英語: ${w.english} / 日本語（正解）: ${w.japanese}`)
       .join('\n');
 
-    const promptText = `${BATCH_DISTRACTOR_PROMPT}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢を3つずつ生成してください:\n\n${wordListText}`;
+    const promptText = `${BATCH_DISTRACTOR_PROMPT}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢3つと例文を生成してください:\n\n${wordListText}`;
 
     // Generate using provider factory (Cloud Run or direct)
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
@@ -83,7 +91,7 @@ export async function POST(request: NextRequest) {
     const result = await provider.generateText(promptText, {
       ...config,
       temperature: 0.7,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 8192,
       responseFormat: 'json',
     });
 
@@ -117,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse response
-    let parsed: { results?: Array<{ id: string; distractors: string[] }> };
+    let parsed: { results?: Array<{ id: string; distractors: string[]; exampleSentence?: string; exampleSentenceJa?: string }> };
     try {
       parsed = JSON.parse(jsonContent);
     } catch {
@@ -143,7 +151,26 @@ export async function POST(request: NextRequest) {
       .map((r) => ({
         wordId: r.id,
         distractors: r.distractors,
+        exampleSentence: r.exampleSentence || '',
+        exampleSentenceJa: r.exampleSentenceJa || '',
       }));
+
+    // Save example sentences to DB for logged-in users
+    const examplesForDb = validResults.filter(r => r.exampleSentence);
+    if (user && examplesForDb.length > 0) {
+      for (const result of examplesForDb) {
+        await supabase
+          .from('words')
+          .update({
+            example_sentence: result.exampleSentence,
+            example_sentence_ja: result.exampleSentenceJa,
+          })
+          .eq('id', result.wordId)
+          .then(({ error }) => {
+            if (error) console.error(`Failed to save example for ${result.wordId}:`, error);
+          });
+      }
+    }
 
     return NextResponse.json({
       success: true,
