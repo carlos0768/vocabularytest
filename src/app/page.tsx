@@ -180,12 +180,13 @@ export default function HomePage() {
 
   // Note: Body scroll locking removed to allow page scrolling
 
-  // Load projects - 2-phase: fast first paint, then full data in background
-  // Uses stale-while-revalidate pattern for instant UI
+  // Load projects - LOCAL FIRST for instant display, then remote in background
+  // All users see IndexedDB data immediately, Pro users sync from Supabase after
   const loadProjects = useCallback(async (forceReload = false) => {
     const userId = isPro && user ? user.id : getGuestUserId();
+    const localRepo = new LocalWordRepository();
 
-    // Always show cached data first (stale-while-revalidate)
+    // 1. Show cached data immediately (stale-while-revalidate)
     const hasCache = getHasLoaded();
     if (hasCache) {
       const cachedProjects = getCachedProjects();
@@ -209,26 +210,42 @@ export default function HomePage() {
       if (!hasCache) {
         setLoading(true);
       }
-      let data: Project[] = [];
-      let activeRepo = repository; // Track which repository has the data
+
+      // 2. LOCAL FIRST: Always try IndexedDB first for instant display
+      const guestId = getGuestUserId();
+      let localData: Project[] = [];
+      try {
+        localData = await localRepo.getProjects(guestId);
+      } catch (e) {
+        console.error('Local fetch failed:', e);
+      }
+
+      // Show local data immediately if we have it and no cache was shown
+      if (localData.length > 0 && !hasCache) {
+        setProjects(localData);
+        setLoading(false);
+        // Quick load first project words from local
+        const firstWords = await localRepo.getWords(localData[0].id);
+        setWords(firstWords);
+        setTotalWords(firstWords.length);
+        setWrongAnswers(getWrongAnswers());
+      }
+
+      let data: Project[] = localData;
+      let activeRepo: typeof repository = localRepo;
       
-      // If user is logged in, always try remote first (handles background scan projects)
-      // This ensures Pro users see their Supabase projects immediately
+      // 3. For Pro users: fetch remote in background and merge
       if (user) {
         try {
-          data = await remoteRepository.getProjects(user.id);
-          if (data.length > 0) {
+          const remoteData = await remoteRepository.getProjects(user.id);
+          if (remoteData.length > 0) {
+            // Remote has data - use it (it's the source of truth for Pro)
+            data = remoteData;
             activeRepo = remoteRepository;
           }
         } catch (e) {
-          console.error('Remote fetch failed:', e);
+          console.error('Remote fetch failed, using local:', e);
         }
-      }
-      
-      // Fallback to default repository if remote is empty or user not logged in
-      if (data.length === 0) {
-        data = await repository.getProjects(userId);
-        activeRepo = repository;
       }
       
       setProjects(data);
