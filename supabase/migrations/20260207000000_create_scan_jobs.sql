@@ -3,27 +3,30 @@ CREATE TABLE IF NOT EXISTS scan_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
-  
+
   -- Job configuration
-  project_name TEXT NOT NULL,
+  project_title TEXT NOT NULL,
   scan_mode TEXT NOT NULL DEFAULT 'all', -- all, circled, highlighted, eiken, idiom, wrong
-  eiken_levels TEXT[], -- for eiken mode
-  
+  eiken_level TEXT, -- for eiken mode (single level string)
+
   -- Image references (paths in Supabase Storage)
-  image_paths TEXT[] NOT NULL,
-  
+  image_path TEXT,        -- Primary/single image (backward compat)
+  image_paths TEXT[],     -- All images (multiple support)
+
   -- Status tracking
   status TEXT NOT NULL DEFAULT 'pending', -- pending, processing, completed, failed
   error_message TEXT,
-  
+
   -- Results
   words_extracted INTEGER DEFAULT 0,
-  
+  result TEXT, -- JSON string with extraction results
+
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
-  
+
   -- Index for faster queries
   CONSTRAINT valid_status CHECK (status IN ('pending', 'processing', 'completed', 'failed'))
 );
