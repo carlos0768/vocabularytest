@@ -10,7 +10,7 @@ export const KOMOJU_CONFIG = {
     pro: {
       id: 'pro_monthly',
       name: 'Proプラン',
-      price: 500, // ¥500/month - TODO: Confirm with user
+      price: 500, // ¥500/month
       currency: 'JPY',
       interval: 'month' as const,
       features: [

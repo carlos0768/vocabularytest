@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
+import { isActiveProSubscription } from '@/lib/subscription/status';
 
 const BATCH_SIZE = 50; // 一度に処理する単語数
 
@@ -38,11 +39,19 @@ export async function POST(request: NextRequest) {
     // ============================================
     const { data: subscription } = await supabase
       .from('subscriptions')
-      .select('status')
+      .select('status, plan, pro_source, test_pro_expires_at, current_period_end')
       .eq('user_id', user.id)
       .single();
 
-    if (!subscription || subscription.status !== 'active') {
+    if (
+      !isActiveProSubscription({
+        status: subscription?.status,
+        plan: subscription?.plan,
+        proSource: subscription?.pro_source,
+        testProExpiresAt: subscription?.test_pro_expires_at,
+        currentPeriodEnd: subscription?.current_period_end,
+      })
+    ) {
       return NextResponse.json(
         { success: false, error: 'Embedding同期はProプラン限定機能です。' },
         { status: 403 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { cancelSubscription } from '@/lib/komoju';
+import { isActiveProSubscription } from '@/lib/subscription/status';
 
 // POST /api/subscription/cancel
 // Cancels the user's active subscription
@@ -32,34 +32,29 @@ export async function POST() {
       );
     }
 
-    if (subscription.status !== 'active') {
+    if (
+      !isActiveProSubscription({
+        status: subscription.status,
+        plan: subscription.plan,
+        proSource: subscription.pro_source,
+        testProExpiresAt: subscription.test_pro_expires_at,
+        currentPeriodEnd: subscription.current_period_end,
+      })
+    ) {
       return NextResponse.json(
         { success: false, error: 'アクティブなサブスクリプションがありません' },
         { status: 400 }
       );
     }
 
-    // Cancel subscription in KOMOJU
-    if (subscription.komoju_subscription_id) {
-      try {
-        await cancelSubscription(subscription.komoju_subscription_id);
-      } catch (komojuError) {
-        console.error('KOMOJU cancellation error:', komojuError);
-        // Continue with local cancellation even if KOMOJU fails
-      }
-    }
-
-    // Update local subscription status via RPC (prevents client-side escalations)
-    const { error: cancelError } = await supabase.rpc('cancel_own_subscription');
-
-    if (cancelError) {
-      throw cancelError;
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'サブスクリプションを解約しました',
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        code: 'CANCELLATION_DISABLED',
+        error: '現在、アプリからの解約は受け付けていません。',
+      },
+      { status: 403 }
+    );
   } catch (error) {
     console.error('Subscription cancellation error:', error);
     return NextResponse.json(

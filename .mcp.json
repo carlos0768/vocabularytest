@@ -3,6 +3,14 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=ryoyvpayoacgeqgoehgk"
+    },
+    "hyperbrowser": {
+        "command": "npx",
+        "args": ["-y", "hyperbrowser-mcp"],
+        "env": {
+            "HYPERBROWSER_API_KEY": "YOUR_HYPERBROWSER_API_KEY",
+            "SERPER_API_KEY": "hb_03b3185e396240114d54261c0cec"
+        }
     }
   }
 }

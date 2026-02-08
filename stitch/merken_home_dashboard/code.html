@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MERKEN Home Dashboard</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Fonts: Lexend -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "surface-dark": "#1c2127",
+                        "surface-light": "#ffffff",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem", 
+                        "lg": "0.5rem", 
+                        "xl": "0.75rem", 
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Hide scrollbar for clean UI in some browsers */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white transition-colors duration-200">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<aside class="hidden w-64 flex-col justify-between border-r border-slate-200 bg-surface-light p-4 dark:border-slate-800 dark:bg-[#111418] md:flex">
+<div class="flex flex-col gap-6">
+<!-- Logo -->
+<div class="flex items-center gap-3 px-2">
+<div class="flex size-10 items-center justify-center rounded-full bg-primary text-white">
+<span class="material-symbols-outlined text-2xl font-bold">school</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">MERKEN</h1>
+</div>
+<!-- Navigation -->
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2 text-primary dark:bg-[#283039] dark:text-white" href="#">
+<span class="material-symbols-outlined fill">home</span>
+<span class="text-sm font-medium">Home</span>
+</a>
+<a class="group flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#1c2127] dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">folder</span>
+<span class="text-sm font-medium">Projects</span>
+</a>
+<a class="group flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#1c2127] dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">center_focus_weak</span>
+<span class="text-sm font-medium">Scan</span>
+</a>
+<a class="group flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#1c2127] dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-sm font-medium">Stats</span>
+</a>
+<a class="group flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#1c2127] dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+</div>
+<!-- User Profile -->
+<div class="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-[#1c2127]">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="User profile picture of a smiling man" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBaHEAIqPJw2xzcgWzg_1wvpjskuGOhr4KG-s2AJGbZdaL62gNBF_ga3NroR2Jfy0JmFEaCfD56RjNwJZ1M1i5S3g3GM5iNSzqID0VOw3Blrew1M6WiBz4g7YsJ4Z-r2hg-SWdXreesaGJ4Epe3BBByU2RKY7ZLBPYjaVKeM23ADN9A9wTZQYyL9Okq_yqzumG34LafWPaVz1u86B88fMbEigAuE5KDRBUr6E3lfJmI9rHABL04kB9qMWbyA1mlF-Dqiw_9rv0457GU');"></div>
+<div class="flex flex-col">
+<p class="text-sm font-bold text-slate-900 dark:text-white">Alex Morgan</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Pro Member</p>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto p-4 md:p-8">
+<div class="mx-auto max-w-[1200px]">
+<!-- Header -->
+<header class="mb-8 flex flex-wrap items-end justify-between gap-4">
+<div>
+<h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Dashboard</h2>
+<p class="mt-1 text-slate-500 dark:text-slate-400">Welcome back, ready to expand your vocabulary?</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-surface-dark dark:text-white dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                            New Project
+                        </button>
+</div>
+</header>
+<!-- Hero Grid -->
+<div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+<!-- Scan Action Card -->
+<div class="relative overflow-hidden rounded-xl bg-surface-light shadow-sm dark:bg-surface-dark lg:col-span-2">
+<div class="flex h-full flex-col justify-between p-6 sm:flex-row sm:items-center sm:gap-6">
+<div class="flex flex-col gap-4">
+<div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Scan your notes instantly</h3>
+<p class="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-md">
+                                        Upload images or documents to generate flashcards and quizzes instantly with our AI engine.
+                                    </p>
+</div>
+<button class="group mt-2 flex w-fit items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90">
+<span class="material-symbols-outlined">document_scanner</span>
+                                    Scan Now
+                                </button>
+</div>
+<div class="hidden sm:block sm:w-1/3">
+<!-- Abstract illustration representing scanning -->
+<div class="relative aspect-square w-full rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 p-6">
+<div class="flex h-full w-full items-center justify-center rounded-2xl bg-surface-light shadow-lg dark:bg-[#111418]">
+<span class="material-symbols-outlined text-6xl text-primary">auto_fix_high</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Pro Banner -->
+<div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-900 to-slate-900 p-6 shadow-sm">
+<div class="absolute right-0 top-0 -mr-8 -mt-8 size-32 rounded-full bg-primary/20 blur-2xl"></div>
+<div class="relative z-10 flex h-full flex-col justify-between">
+<div>
+<div class="mb-2 flex w-fit items-center rounded bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+                                    Pro Feature
+                                </div>
+<h3 class="text-xl font-bold text-white">Unlock Unlimited Scans</h3>
+<p class="mt-2 text-sm text-indigo-100">Get advanced grammar analysis and unlimited project storage.</p>
+</div>
+<button class="mt-6 flex w-full items-center justify-center rounded-lg bg-white py-2.5 text-sm font-bold text-indigo-900 transition-colors hover:bg-indigo-50">
+                                Upgrade Plan
+                            </button>
+</div>
+</div>
+</div>
+<!-- Recent Projects -->
+<div class="mb-8">
+<div class="mb-4 flex items-center justify-between">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Recent Projects</h3>
+<a class="text-sm font-medium text-primary hover:text-primary/80" href="#">View All</a>
+</div>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+<!-- Project Card 1 -->
+<div class="group cursor-pointer rounded-xl border border-slate-100 bg-surface-light p-4 transition-all hover:border-primary/50 hover:shadow-md dark:border-slate-800 dark:bg-surface-dark dark:hover:border-primary/50">
+<div class="mb-3 flex items-start justify-between">
+<div class="flex size-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
+<span class="material-symbols-outlined">school</span>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">more_horiz</span>
+</div>
+<h4 class="font-bold text-slate-900 dark:text-white">Business English</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400">45 Words • 2 Days ago</p>
+<div class="mt-4">
+<div class="mb-1 flex justify-between text-xs font-medium">
+<span class="text-slate-500 dark:text-slate-400">Mastery</span>
+<span class="text-primary">80%</span>
+</div>
+<div class="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
+<div class="h-1.5 rounded-full bg-primary transition-all duration-500" style="width: 80%"></div>
+</div>
+</div>
+</div>
+<!-- Project Card 2 -->
+<div class="group cursor-pointer rounded-xl border border-slate-100 bg-surface-light p-4 transition-all hover:border-primary/50 hover:shadow-md dark:border-slate-800 dark:bg-surface-dark dark:hover:border-primary/50">
+<div class="mb-3 flex items-start justify-between">
+<div class="flex size-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+<span class="material-symbols-outlined">menu_book</span>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">more_horiz</span>
+</div>
+<h4 class="font-bold text-slate-900 dark:text-white">TOEFL Prep</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400">120 Words • 5 Hours ago</p>
+<div class="mt-4">
+<div class="mb-1 flex justify-between text-xs font-medium">
+<span class="text-slate-500 dark:text-slate-400">Mastery</span>
+<span class="text-primary">35%</span>
+</div>
+<div class="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
+<div class="h-1.5 rounded-full bg-primary transition-all duration-500" style="width: 35%"></div>
+</div>
+</div>
+</div>
+<!-- Project Card 3 -->
+<div class="group cursor-pointer rounded-xl border border-slate-100 bg-surface-light p-4 transition-all hover:border-primary/50 hover:shadow-md dark:border-slate-800 dark:bg-surface-dark dark:hover:border-primary/50">
+<div class="mb-3 flex items-start justify-between">
+<div class="flex size-10 items-center justify-center rounded-lg bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400">
+<span class="material-symbols-outlined">flight</span>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">more_horiz</span>
+</div>
+<h4 class="font-bold text-slate-900 dark:text-white">Travel Vocabulary</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400">28 Words • 1 Week ago</p>
+<div class="mt-4">
+<div class="mb-1 flex justify-between text-xs font-medium">
+<span class="text-slate-500 dark:text-slate-400">Mastery</span>
+<span class="text-primary">12%</span>
+</div>
+<div class="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
+<div class="h-1.5 rounded-full bg-primary transition-all duration-500" style="width: 12%"></div>
+</div>
+</div>
+</div>
+<!-- Add New Project Placeholder -->
+<div class="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-transparent p-4 transition-all hover:border-primary hover:bg-primary/5 dark:border-slate-700">
+<div class="mb-2 flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-primary group-hover:text-white dark:bg-slate-800">
+<span class="material-symbols-outlined">add</span>
+</div>
+<h4 class="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-primary">Create Project</h4>
+</div>
+</div>
+</div>
+<!-- Bottom Section: Grid Layout -->
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+<!-- Spaced Repetition List -->
+<div class="flex flex-col rounded-xl border border-slate-100 bg-surface-light p-5 shadow-sm dark:border-slate-800 dark:bg-surface-dark lg:col-span-2">
+<div class="mb-4 flex items-center justify-between">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Words to Review</h3>
+<button class="text-xs font-bold text-primary hover:underline">Start Quiz (15 words)</button>
+</div>
+<div class="flex flex-col gap-3">
+<!-- List Item -->
+<div class="flex items-center justify-between rounded-lg border border-slate-100 bg-background-light p-3 dark:border-slate-700/50 dark:bg-[#111418]">
+<div class="flex items-center gap-4">
+<div class="flex size-10 items-center justify-center rounded bg-blue-100 text-lg font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                        Ub
+                                    </div>
+<div>
+<p class="font-bold text-slate-900 dark:text-white">Ubiquitous</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Adjective • Due Today</p>
+</div>
+</div>
+<button class="rounded bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30">
+                                    Review
+                                </button>
+</div>
+<!-- List Item -->
+<div class="flex items-center justify-between rounded-lg border border-slate-100 bg-background-light p-3 dark:border-slate-700/50 dark:bg-[#111418]">
+<div class="flex items-center gap-4">
+<div class="flex size-10 items-center justify-center rounded bg-pink-100 text-lg font-bold text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
+                                        Ep
+                                    </div>
+<div>
+<p class="font-bold text-slate-900 dark:text-white">Ephemeral</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Adjective • Due Today</p>
+</div>
+</div>
+<button class="rounded bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30">
+                                    Review
+                                </button>
+</div>
+<!-- List Item -->
+<div class="flex items-center justify-between rounded-lg border border-slate-100 bg-background-light p-3 dark:border-slate-700/50 dark:bg-[#111418]">
+<div class="flex items-center gap-4">
+<div class="flex size-10 items-center justify-center rounded bg-teal-100 text-lg font-bold text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+                                        Se
+                                    </div>
+<div>
+<p class="font-bold text-slate-900 dark:text-white">Serendipity</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Noun • Due Tomorrow</p>
+</div>
+</div>
+<div class="flex items-center gap-2 text-xs font-medium text-slate-400">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+                                    Wait
+                                </div>
+</div>
+</div>
+</div>
+<!-- Quick Access Grid -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Card -->
+<div class="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-100 bg-surface-light p-4 text-center shadow-sm transition-transform hover:scale-[1.02] dark:border-slate-800 dark:bg-surface-dark">
+<div class="flex size-10 items-center justify-center rounded-full bg-red-100 text-red-500 dark:bg-red-500/10">
+<span class="material-symbols-outlined fill">favorite</span>
+</div>
+<span class="text-sm font-bold text-slate-700 dark:text-slate-300">Favorites</span>
+</div>
+<!-- Card -->
+<div class="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-100 bg-surface-light p-4 text-center shadow-sm transition-transform hover:scale-[1.02] dark:border-slate-800 dark:bg-surface-dark">
+<div class="flex size-10 items-center justify-center rounded-full bg-amber-100 text-amber-500 dark:bg-amber-500/10">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<span class="text-sm font-bold text-slate-700 dark:text-slate-300">Wrong Words</span>
+</div>
+<!-- Card -->
+<div class="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-100 bg-surface-light p-4 text-center shadow-sm transition-transform hover:scale-[1.02] dark:border-slate-800 dark:bg-surface-dark">
+<div class="flex size-10 items-center justify-center rounded-full bg-violet-100 text-violet-500 dark:bg-violet-500/10">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<span class="text-sm font-bold text-slate-700 dark:text-slate-300">Daily Challenge</span>
+</div>
+<!-- Card -->
+<div class="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-100 bg-surface-light p-4 text-center shadow-sm transition-transform hover:scale-[1.02] dark:border-slate-800 dark:bg-surface-dark">
+<div class="flex size-10 items-center justify-center rounded-full bg-cyan-100 text-cyan-500 dark:bg-cyan-500/10">
+<span class="material-symbols-outlined">history</span>
+</div>
+<span class="text-sm font-bold text-slate-700 dark:text-slate-300">History</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

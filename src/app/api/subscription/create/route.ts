@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
-import { createSubscriptionSession } from '@/lib/komoju';
+import { createSubscriptionSession, KOMOJU_CONFIG } from '@/lib/komoju';
+import { isActiveProSubscription } from '@/lib/subscription/status';
 
 // POST /api/subscription/create
 // Creates a KOMOJU subscription session and returns the payment URL
@@ -21,28 +23,77 @@ export async function POST(request: NextRequest) {
     // Check if user already has active subscription
     const { data: existingSub } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select('status, plan, pro_source, test_pro_expires_at, current_period_end, komoju_customer_id')
       .eq('user_id', user.id)
       .single();
 
-    if (existingSub?.status === 'active') {
+    if (
+      isActiveProSubscription({
+        status: existingSub?.status,
+        plan: existingSub?.plan,
+        proSource: existingSub?.pro_source,
+        testProExpiresAt: existingSub?.test_pro_expires_at,
+        currentPeriodEnd: existingSub?.current_period_end,
+      })
+    ) {
       return NextResponse.json(
         { success: false, error: '既にProプランに加入しています' },
         { status: 400 }
       );
     }
 
+    if (!user.email) {
+      return NextResponse.json(
+        { success: false, error: 'メールアドレスが見つかりません' },
+        { status: 400 }
+      );
+    }
+
+    const planId = KOMOJU_CONFIG.plans.pro.id;
+    const customerId = existingSub?.komoju_customer_id ?? null;
+    const staleWindowMs = 30 * 60 * 1000;
+
+    const { data: pendingSession, error: pendingSessionError } = await supabase
+      .from('subscription_sessions')
+      .select('idempotency_key, created_at')
+      .eq('user_id', user.id)
+      .eq('plan_id', planId)
+      .is('used_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingSessionError) {
+      throw pendingSessionError;
+    }
+
+    const pendingCreatedAt = pendingSession?.created_at
+      ? new Date(pendingSession.created_at).getTime()
+      : null;
+    const isPendingFresh =
+      pendingCreatedAt !== null &&
+      Number.isFinite(pendingCreatedAt) &&
+      Date.now() - pendingCreatedAt < staleWindowMs;
+    const idempotencyKey =
+      isPendingFresh && pendingSession?.idempotency_key
+        ? pendingSession.idempotency_key
+        : randomUUID();
+
     // Create subscription session
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
     const session = await createSubscriptionSession({
-      planId: 'pro_monthly',
-      customerEmail: user.email!,
+      planId,
+      customerEmail: user.email,
+      customerId: customerId ?? undefined,
+      idempotencyKey,
       returnUrl: `${baseUrl}/subscription/success?session_id={SESSION_ID}`,
       cancelUrl: `${baseUrl}/subscription/cancel`,
       metadata: {
         user_id: user.id,
         plan: 'pro',
+        plan_id: planId,
+        ...(customerId ? { customer_id: customerId } : {}),
       },
     });
 
@@ -51,10 +102,12 @@ export async function POST(request: NextRequest) {
       .insert({
         id: session.id,
         user_id: user.id,
-        plan_id: 'pro_monthly',
+        plan_id: planId,
+        komoju_customer_id: customerId,
+        idempotency_key: idempotencyKey,
       });
 
-    if (sessionError) {
+    if (sessionError && sessionError.code !== '23505') {
       throw sessionError;
     }
 

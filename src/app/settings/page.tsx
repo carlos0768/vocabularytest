@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon, Button, AppShell } from '@/components/ui';
@@ -17,9 +16,7 @@ export default function SettingsPage() {
   const { user, subscription, isPro, signOut, loading: authLoading, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
   const { count: wordCount, loading: wordCountLoading } = useWordCount();
-  const [cancelling, setCancelling] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const hasCancellationScheduled = !!subscription?.cancelAtPeriodEnd;
 
   // Save settings
   const updateTheme = (newTheme: Theme) => {
@@ -29,30 +26,6 @@ export default function SettingsPage() {
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
-  };
-
-  const handleCancelSubscription = async () => {
-    setCancelling(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/subscription/cancel', {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error);
-      }
-
-      setShowCancelConfirm(false);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '解約に失敗しました');
-    } finally {
-      setCancelling(false);
-    }
   };
 
   const themeLabels: Record<Theme, string> = {
@@ -206,54 +179,22 @@ export default function SettingsPage() {
                 {/* Next Billing */}
                 {subscription?.currentPeriodEnd && (
                   <p className="text-sm text-[var(--color-muted)]">
-                    次回更新: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
+                    {hasCancellationScheduled ? '解約予定日' : '次回更新'}: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
                   </p>
                 )}
 
                 {/* Cancel Section */}
-                {!showCancelConfirm ? (
-                  <button
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="text-sm text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors"
-                  >
-                    解約する
-                  </button>
+                {hasCancellationScheduled ? (
+                  <div className="bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)]">
+                    <p className="text-sm text-[var(--color-muted)]">
+                      解約予約済みです。期間終了日までPro機能を利用できます。
+                    </p>
+                  </div>
                 ) : (
-                  <div className="bg-[var(--color-error)]/10 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-start gap-2 text-[var(--color-error)]">
-                      <Icon name="warning" size={20} className="flex-shrink-0 mt-0.5" />
-                      <p className="text-sm">
-                        解約すると、スキャン無制限やクラウド同期が使えなくなります。
-                      </p>
-                    </div>
-                    {error && (
-                      <p className="text-sm text-[var(--color-error)]">{error}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setShowCancelConfirm(false)}
-                        disabled={cancelling}
-                      >
-                        キャンセル
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={handleCancelSubscription}
-                        disabled={cancelling}
-                      >
-                        {cancelling ? (
-                          <>
-                            <Icon name="progress_activity" size={16} className="mr-1 animate-spin" />
-                            処理中
-                          </>
-                        ) : (
-                          '解約する'
-                        )}
-                      </Button>
-                    </div>
+                  <div className="bg-[var(--color-warning)]/10 rounded-2xl p-4 border border-[var(--color-warning)]/30">
+                    <p className="text-sm text-[var(--color-foreground)]">
+                      現在、アプリからの解約は受け付けていません。Proは継続利用できます。
+                    </p>
                   </div>
                 )}
               </div>

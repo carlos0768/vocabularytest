@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MERKEN - Learning Statistics &amp; Heatmap</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#111418", 
+                        "surface-dark": "#1e242b", 
+                        "surface-darker": "#161a20",
+                        "border-dark": "#283039",
+                        "text-secondary": "#9dabb9",
+                        "success": "#0bda5b",
+                        "warning": "#f59e0b",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem", 
+                        "lg": "0.5rem", 
+                        "xl": "0.75rem", 
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Lexend', sans-serif;
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111418; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #283039; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b4754; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-display selection:bg-primary/30">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-border-dark bg-surface-darker/95 backdrop-blur-sm px-10 py-3">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M36.7273 44C33.9891 44 31.6043 39.8386 30.3636 33.69C29.123 39.8386 26.7382 44 24 44C21.2618 44 18.877 39.8386 17.6364 33.69C16.3957 39.8386 14.0109 44 11.2727 44C7.25611 44 4 35.0457 4 24C4 12.9543 7.25611 4 11.2727 4C14.0109 4 16.3957 8.16144 17.6364 14.31C18.877 8.16144 21.2618 4 24 4C26.7382 4 29.123 8.16144 30.3636 14.31C31.6043 8.16144 33.9891 4 36.7273 4C40.7439 4 44 12.9543 44 24C44 35.0457 40.7439 44 36.7273 44Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-white text-xl font-bold leading-tight tracking-tight">MERKEN</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8 items-center">
+<nav class="hidden md:flex items-center gap-9">
+<a class="text-white text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-text-secondary text-sm font-medium leading-normal hover:text-white transition-colors" href="#">Library</a>
+<a class="text-text-secondary text-sm font-medium leading-normal hover:text-white transition-colors" href="#">Practice</a>
+</nav>
+<div class="flex gap-3 items-center">
+<div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-dark border border-border-dark">
+<div class="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(11,218,91,0.6)]"></div>
+<span class="text-xs font-bold text-text-secondary uppercase tracking-wide">Synced</span>
+</div>
+<button class="flex items-center justify-center rounded-lg h-9 w-9 bg-surface-dark hover:bg-border-dark text-white transition-colors border border-border-dark">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="flex h-9 items-center gap-2 pl-1 pr-3 rounded-full bg-surface-dark hover:bg-border-dark border border-border-dark transition-colors">
+<div class="h-7 w-7 rounded-full bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center text-xs font-bold text-white">AJ</div>
+<span class="text-sm font-medium text-white hidden sm:block">Alex J.</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 flex justify-center py-8 px-4 sm:px-8">
+<div class="flex flex-col max-w-[1100px] w-full gap-8">
+<!-- Welcome Section -->
+<section class="flex flex-wrap justify-between items-end gap-4">
+<div class="flex flex-col gap-2">
+<h1 class="text-white text-3xl sm:text-4xl font-black leading-tight tracking-tight">Welcome back, Alex</h1>
+<p class="text-text-secondary text-base font-normal">Here is your learning velocity for this week.</p>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">play_circle</span>
+                    Start Daily Quiz
+                </button>
+</section>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Left Column: Daily Stats & Heatmap (Span 8) -->
+<div class="lg:col-span-8 flex flex-col gap-6">
+<!-- Daily Snapshot Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Quizzes Card -->
+<div class="flex flex-col gap-4 rounded-xl p-6 bg-surface-dark border border-border-dark hover:border-primary/30 transition-colors group">
+<div class="flex justify-between items-start">
+<div class="p-2 rounded-lg bg-surface-darker text-primary">
+<span class="material-symbols-outlined">quiz</span>
+</div>
+<span class="bg-success/10 text-success text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +20%
+                                </span>
+</div>
+<div>
+<p class="text-text-secondary text-sm font-medium mb-1">Quizzes Completed Today</p>
+<p class="text-white text-3xl font-bold">12</p>
+</div>
+</div>
+<!-- Accuracy Card -->
+<div class="flex flex-col gap-4 rounded-xl p-6 bg-surface-dark border border-border-dark hover:border-primary/30 transition-colors group">
+<div class="flex justify-between items-start">
+<div class="p-2 rounded-lg bg-surface-darker text-warning">
+<span class="material-symbols-outlined">verified</span>
+</div>
+<span class="bg-success/10 text-success text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +5%
+                                </span>
+</div>
+<div>
+<p class="text-text-secondary text-sm font-medium mb-1">Average Accuracy Rate</p>
+<p class="text-white text-3xl font-bold">85%</p>
+</div>
+</div>
+</div>
+<!-- Heatmap Section -->
+<div class="flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden">
+<div class="px-6 py-5 border-b border-border-dark flex justify-between items-center">
+<h2 class="text-white text-lg font-bold">Study Consistency</h2>
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-sm bg-surface-darker border border-border-dark"></span>
+<span class="size-3 rounded-sm bg-primary/20"></span>
+<span class="size-3 rounded-sm bg-primary/50"></span>
+<span class="size-3 rounded-sm bg-primary"></span>
+<span class="text-xs text-text-secondary ml-2">Intensity</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex flex-col gap-4">
+<!-- Navigation -->
+<div class="flex items-center justify-between mb-2">
+<button class="text-text-secondary hover:text-white transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<span class="text-white text-sm font-bold">Last 4 Weeks Activity</span>
+<button class="text-text-secondary hover:text-white transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<!-- Heatmap Grid -->
+<div class="grid grid-cols-7 gap-2 sm:gap-3">
+<!-- Days Header -->
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Sun</div>
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Mon</div>
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Tue</div>
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Wed</div>
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Thu</div>
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Fri</div>
+<div class="text-center text-xs font-bold text-text-secondary pb-2">Sat</div>
+<!-- Week 1 -->
+<div class="aspect-square rounded-md bg-surface-darker border border-border-dark group relative">
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-max px-2 py-1 bg-white text-surface-darker text-xs rounded font-bold z-10">0 mins - Oct 1</div>
+</div>
+<div class="aspect-square rounded-md bg-primary/20 border border-transparent group relative">
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-max px-2 py-1 bg-white text-surface-darker text-xs rounded font-bold z-10">15 mins - Oct 2</div>
+</div>
+<div class="aspect-square rounded-md bg-primary/60 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-surface-darker border border-border-dark group relative"></div>
+<div class="aspect-square rounded-md bg-primary/40 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<!-- Week 2 -->
+<div class="aspect-square rounded-md bg-primary/20 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-surface-darker border border-border-dark group relative"></div>
+<div class="aspect-square rounded-md bg-primary/80 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary/40 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-surface-darker border border-border-dark group relative"></div>
+<!-- Week 3 -->
+<div class="aspect-square rounded-md bg-surface-darker border border-border-dark group relative"></div>
+<div class="aspect-square rounded-md bg-primary/20 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary/60 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary/90 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary/30 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<!-- Week 4 -->
+<div class="aspect-square rounded-md bg-primary border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary/80 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-primary/50 border border-transparent group relative"></div>
+<div class="aspect-square rounded-md bg-surface-darker border border-border-dark group relative"></div>
+<div class="aspect-square rounded-md bg-primary/20 border border-transparent group relative">
+<div class="flex h-full w-full items-center justify-center">
+<div class="h-1.5 w-1.5 rounded-full bg-white animate-pulse"></div>
+</div>
+</div>
+<div class="aspect-square rounded-md bg-surface-darker border border-dashed border-border-dark opacity-50"></div>
+<div class="aspect-square rounded-md bg-surface-darker border border-dashed border-border-dark opacity-50"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity List -->
+<div class="flex flex-col gap-4">
+<h3 class="text-white text-lg font-bold">Recent Activity</h3>
+<div class="flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden">
+<!-- Item 1 -->
+<div class="flex items-center gap-4 p-4 border-b border-border-dark hover:bg-surface-darker/50 transition-colors cursor-pointer group">
+<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">menu_book</span>
+</div>
+<div class="flex-1">
+<h4 class="text-white font-medium text-sm">Business English: Negotiation</h4>
+<p class="text-text-secondary text-xs mt-0.5">Scanned 2 hours ago • 24 words</p>
+</div>
+<div class="text-right">
+<span class="text-success text-sm font-bold">92%</span>
+<p class="text-text-secondary text-xs">Score</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary">chevron_right</span>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center gap-4 p-4 border-b border-border-dark hover:bg-surface-darker/50 transition-colors cursor-pointer group">
+<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">school</span>
+</div>
+<div class="flex-1">
+<h4 class="text-white font-medium text-sm">Tech Vocabulary Set A</h4>
+<p class="text-text-secondary text-xs mt-0.5">Studied yesterday • 50 words</p>
+</div>
+<div class="text-right">
+<span class="text-warning text-sm font-bold">78%</span>
+<p class="text-text-secondary text-xs">Score</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary">chevron_right</span>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-darker/50 transition-colors cursor-pointer group">
+<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">edit_note</span>
+</div>
+<div class="flex-1">
+<h4 class="text-white font-medium text-sm">Common Idioms</h4>
+<p class="text-text-secondary text-xs mt-0.5">Created 2 days ago • 15 words</p>
+</div>
+<div class="text-right">
+<span class="text-text-secondary text-sm font-bold">--</span>
+<p class="text-text-secondary text-xs">New</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Donut Chart & Details (Span 4) -->
+<div class="lg:col-span-4 flex flex-col gap-6">
+<!-- Vocabulary Mastery Chart -->
+<div class="flex flex-col h-full rounded-xl bg-surface-dark border border-border-dark">
+<div class="px-6 py-5 border-b border-border-dark">
+<h2 class="text-white text-lg font-bold">Vocabulary Status</h2>
+</div>
+<div class="p-6 flex flex-col items-center justify-center flex-1 gap-8">
+<!-- CSS Donut Chart Implementation using conic-gradient -->
+<div class="relative size-56 rounded-full" style="background: conic-gradient(#137fec 0% 65%, #38bdf8 65% 85%, #334155 85% 100%);">
+<div class="absolute inset-4 bg-surface-dark rounded-full flex flex-col items-center justify-center z-10">
+<span class="text-text-secondary text-sm font-medium">Total Words</span>
+<span class="text-white text-4xl font-black tracking-tight">1,240</span>
+</div>
+</div>
+<!-- Legend -->
+<div class="w-full flex flex-col gap-3">
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-darker/50 border border-border-dark">
+<div class="flex items-center gap-3">
+<div class="size-3 rounded-full bg-primary"></div>
+<span class="text-white text-sm font-medium">Mastered</span>
+</div>
+<span class="text-white font-bold">806</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-darker/50 border border-border-dark">
+<div class="flex items-center gap-3">
+<div class="size-3 rounded-full bg-sky-400"></div>
+<span class="text-white text-sm font-medium">Reviewing</span>
+</div>
+<span class="text-white font-bold">248</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-darker/50 border border-border-dark">
+<div class="flex items-center gap-3">
+<div class="size-3 rounded-full bg-slate-700"></div>
+<span class="text-white text-sm font-medium">New</span>
+</div>
+<span class="text-white font-bold">186</span>
+</div>
+</div>
+</div>
+<!-- CTA -->
+<div class="p-6 pt-0">
+<button class="w-full py-3 rounded-lg border border-border-dark text-white font-medium hover:bg-surface-darker transition-colors text-sm">
+                                View Vocabulary List
+                            </button>
+</div>
+</div>
+<!-- Quick Ad / Feature Highlight -->
+<div class="rounded-xl p-6 bg-gradient-to-br from-primary/20 to-surface-dark border border-primary/30 relative overflow-hidden">
+<div class="relative z-10 flex flex-col gap-3">
+<div class="size-10 rounded-lg bg-primary flex items-center justify-center text-white mb-1">
+<span class="material-symbols-outlined">auto_awesome</span>
+</div>
+<h3 class="text-white font-bold text-lg">AI Smart Review</h3>
+<p class="text-text-secondary text-sm">Your personalized deck is ready based on your weak spots.</p>
+<button class="mt-2 text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all">
+                                Review Now <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<!-- Abstract decorative shapes -->
+<div class="absolute -top-10 -right-10 size-32 bg-primary/10 rounded-full blur-2xl"></div>
+<div class="absolute bottom-0 right-0 size-24 bg-purple-500/10 rounded-full blur-xl"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>
