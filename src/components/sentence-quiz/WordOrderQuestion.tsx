@@ -333,7 +333,7 @@ export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps
       </div>
 
       {/* 固定ボタンエリア - 常に下部に表示 */}
-      <div className="flex-shrink-0 pt-2 pb-safe mt-auto bg-[var(--color-background)]">
+      <div className="flex-shrink-0 pt-2 mt-auto bg-[var(--color-background)]">
         {!isRevealed ? (
           <Button
             onClick={handleSubmit}
