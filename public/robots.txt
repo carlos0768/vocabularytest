@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://merken.jp/sitemap.xml

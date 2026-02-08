@@ -28,9 +28,11 @@ const zenMaruGothic = Zen_Maru_Gothic({
 });
 
 export const metadata: Metadata = {
-  title: 'MERKEN - 手入力ゼロで単語帳を作成',
+  title: 'MERKEN - 英語学習・単語帳アプリ｜写真で自動作成',
   description:
-    '手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ',
+    '英語教育向け単語学習アプリ。手書きのノートやプリントを撮影するだけで英単語と日本語訳を自動抽出。4択クイズ・フラッシュカード・例文クイズで効率的に英語を学習できます。',
+  keywords: ['英語学習', '単語帳', '英語教育', '教育アプリ', 'English vocabulary', 'クイズ', 'フラッシュカード', '英検対策'],
+  category: 'education',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',
@@ -42,17 +44,17 @@ export const metadata: Metadata = {
     title: 'MERKEN',
   },
   openGraph: {
-    title: 'MERKEN - 手入力ゼロで単語帳を作成',
+    title: 'MERKEN - 英語学習・単語帳アプリ｜写真で自動作成',
     description:
-      '手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ',
-    siteName: 'MERKEN',
+      '英語教育向け単語学習アプリ。手書きのノートやプリントを撮影するだけで英単語と日本語訳を自動抽出。4択クイズ・フラッシュカード・例文クイズで効率的に英語を学習できます。',
+    siteName: 'MERKEN - 英語学習アプリ',
     url: 'https://merken.jp',
     images: [
       {
         url: 'https://merken.jp/icon-512.png',
         width: 512,
         height: 512,
-        alt: 'MERKEN',
+        alt: 'MERKEN - 英語学習・単語帳アプリ',
       },
     ],
     locale: 'ja_JP',
@@ -60,9 +62,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'MERKEN - 手入力ゼロで単語帳を作成',
+    title: 'MERKEN - 英語学習・単語帳アプリ｜写真で自動作成',
     description:
-      '手書きのノートやプリントを撮影するだけで、英単語と日本語訳を自動抽出し、4択クイズで学習できるアプリ',
+      '英語教育向け単語学習アプリ。写真を撮るだけで英単語帳を自動作成。4択クイズ・フラッシュカードで効率的に学習。',
     images: ['https://merken.jp/icon-512.png'],
   },
 };
@@ -86,6 +88,34 @@ export default function RootLayout({
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebApplication',
+              name: 'MERKEN',
+              url: 'https://merken.jp',
+              description: '英語教育向け単語学習アプリ。写真を撮るだけで英単語帳を自動作成し、クイズやフラッシュカードで学習できます。',
+              applicationCategory: 'EducationalApplication',
+              operatingSystem: 'Web',
+              inLanguage: ['ja', 'en'],
+              isAccessibleForFree: true,
+              educationalUse: ['自主学習', '英語学習', '単語学習', '英検対策'],
+              audience: {
+                '@type': 'EducationalAudience',
+                educationalRole: '学生',
+                audienceType: '英語学習者',
+              },
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'JPY',
+                description: '無料プランで基本機能を利用可能',
+              },
+            }),
+          }}
         />
       </head>
       <body
