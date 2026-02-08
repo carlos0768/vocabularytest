@@ -649,34 +649,34 @@ export default function FlashcardPage() {
 
       {/* Bottom controls */}
       <div
-        className="px-6 pt-2 pb-8"
-        style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
+        className="px-4 sm:px-6 pt-1 sm:pt-2"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Action buttons */}
-        <div className="flex justify-center gap-3 mb-4">
+        <div className="flex justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
           <button
             onClick={() => {
               setJapaneseFirst(!japaneseFirst);
               setIsFlipped(false);
             }}
-            className={`w-11 h-11 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
+            className={`w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
               japaneseFirst
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
             }`}
             aria-label={japaneseFirst ? '英→日モードに切替' : '日→英モードに切替'}
           >
-            <Icon name="translate" size={20} />
+            <Icon name="translate" size={18} />
           </button>
 
           <button
             onClick={handleToggleFavorite}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
+            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
             aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
             <Icon
               name="flag"
-              size={20}
+              size={18}
               filled={currentWord?.isFavorite}
               className={`transition-colors ${
                 currentWord?.isFavorite
@@ -688,37 +688,37 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleOpenDictionary}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
             aria-label="辞書で調べる"
           >
-            <Icon name="search" size={20} />
+            <Icon name="search" size={18} />
           </button>
 
           <button
             onClick={handleOpenEditModal}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
             aria-label="単語を編集"
           >
-            <Icon name="edit" size={20} />
+            <Icon name="edit" size={18} />
           </button>
 
           <button
             onClick={handleDeleteWord}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
+            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
             aria-label="この単語を削除"
           >
-            <Icon name="delete" size={20} />
+            <Icon name="delete" size={18} />
           </button>
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-3 sm:gap-4">
           <Button
             variant="secondary"
             size="icon"
             onClick={() => handlePrev(true)}
             disabled={isAnimating}
-            className="w-14 h-14"
+            className="w-12 h-12 sm:w-14 sm:h-14"
           >
             <Icon name="chevron_left" size={24} />
           </Button>
@@ -729,7 +729,7 @@ export default function FlashcardPage() {
             size="icon"
             onClick={() => setIsFlipped(!isFlipped)}
             disabled={isAnimating}
-            className="w-14 h-14"
+            className="w-12 h-12 sm:w-14 sm:h-14"
             aria-label="カードをめくる"
           >
             <Icon name="refresh" size={24} />
@@ -740,7 +740,7 @@ export default function FlashcardPage() {
             variant="secondary"
             onClick={() => handleNext(true)}
             disabled={isAnimating}
-            className="w-14 h-14"
+            className="w-12 h-12 sm:w-14 sm:h-14"
             size="icon"
           >
             <Icon name="chevron_right" size={24} />
