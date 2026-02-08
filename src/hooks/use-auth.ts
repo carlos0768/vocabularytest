@@ -15,6 +15,22 @@ interface AuthState {
   subscription: Subscription | null;
   loading: boolean;
   error: string | null;
+  sessionExpired: boolean;
+}
+
+// Track if user was previously authenticated (persists across sessions)
+const WAS_AUTHENTICATED_KEY = 'merken_was_authenticated';
+
+function markAuthenticated() {
+  try { localStorage.setItem(WAS_AUTHENTICATED_KEY, 'true'); } catch {}
+}
+
+function wasAuthenticated(): boolean {
+  try { return localStorage.getItem(WAS_AUTHENTICATED_KEY) === 'true'; } catch { return false; }
+}
+
+function clearAuthenticatedMark() {
+  try { localStorage.removeItem(WAS_AUTHENTICATED_KEY); } catch {}
 }
 
 function mapSubscriptionRow(
@@ -179,6 +195,7 @@ let globalAuthState: AuthState = {
   subscription: null,
   loading: true,
   error: null,
+  sessionExpired: false,
 };
 
 // Track if we've done the instant-load optimization
@@ -203,6 +220,7 @@ function tryOptimisticLoad(): boolean {
         subscription: cachedSub,
         loading: false, // Instant UI!
         error: null,
+        sessionExpired: false,
       };
       return true;
     }
@@ -318,6 +336,7 @@ export function useAuth() {
                 subscription: freshSub,
                 loading: false,
                 error: null,
+                sessionExpired: false,
               });
             }
           } catch {
@@ -374,11 +393,13 @@ export function useAuth() {
         subscription: result.subscription,
         loading: false,
         error: null,
+        sessionExpired: !result.user && wasAuthenticated(),
       };
       notifyListeners(newState);
 
       // Log daily activity for authenticated users
       if (result.user) {
+        markAuthenticated();
         logDailyActivity(result.user.id);
         
         // Trigger initial sync for Pro users (background, non-blocking)
@@ -413,6 +434,7 @@ export function useAuth() {
         subscription: null,
         loading: false,
         error: isSessionMissing || isTimeout ? null : '認証エラーが発生しました',
+        sessionExpired: wasAuthenticated(),
       };
       notifyListeners(newState);
     } finally {
@@ -475,11 +497,12 @@ export function useAuth() {
     if (!supabase) return;
     await supabase.auth.signOut();
     clearCachedSubscription();
+    clearAuthenticatedMark();
     hybridRepository.clearSyncData();
     invalidateStatsCache();
     clearHomeCache();
     clearAllUserStats();
-    notifyListeners({ user: null, subscription: null, loading: false, error: null });
+    notifyListeners({ user: null, subscription: null, loading: false, error: null, sessionExpired: false });
     hasInitialized = false;
     hasOptimisticLoad = false;
   }, [getSupabase]);
@@ -516,10 +539,11 @@ export function useAuth() {
         // Handle specific events
         if (event === 'SIGNED_OUT') {
           clearCachedSubscription();
+          clearAuthenticatedMark();
           invalidateStatsCache();
           clearHomeCache();
           clearAllUserStats();
-          notifyListeners({ user: null, subscription: null, loading: false, error: null });
+          notifyListeners({ user: null, subscription: null, loading: false, error: null, sessionExpired: false });
           hasInitialized = false;
           hasOptimisticLoad = false;
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
