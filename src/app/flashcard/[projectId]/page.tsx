@@ -155,17 +155,7 @@ export default function FlashcardPage() {
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           wordsData = allProjectWords.flat().filter(w => w.isFavorite);
         } else {
-          let allWords = await repository.getWords(projectId);
-          
-          // Fallback to remote if local is empty and user is logged in
-          // This handles background scan projects stored in remote
-          if (allWords.length === 0 && user) {
-            try {
-              allWords = await remoteRepository.getWords(projectId);
-            } catch (e) {
-              console.error('Remote fallback failed:', e);
-            }
-          }
+          const allWords = await repository.getWords(projectId);
           
           wordsData = favoritesOnly
             ? allWords.filter((w) => w.isFavorite)
@@ -218,6 +208,38 @@ export default function FlashcardPage() {
 
     loadWords();
   }, [projectId, repository, router, authLoading, favoritesOnly, isPro]);
+
+  // Phase 2: Fetch latest from remote in background (Pro users)
+  // If remote has more words, merge new words into the end of the list
+  useEffect(() => {
+    if (authLoading || !user || collectionId || (projectId === 'all' && favoritesOnly)) return;
+
+    const syncRemote = async () => {
+      try {
+        const remoteWords = await remoteRepository.getWords(projectId);
+        if (remoteWords.length === 0) return;
+
+        setWords(prev => {
+          if (prev.length === 0) return prev;
+          // Only update if remote has more words
+          if (remoteWords.length <= prev.length) return prev;
+
+          const existingIds = new Set(prev.map(w => w.id));
+          const remoteMap = new Map(remoteWords.map(w => [w.id, w]));
+
+          // Keep current order, update existing words with fresh data
+          const updated = prev.map(w => remoteMap.get(w.id) ?? w);
+          // Append new words not in local
+          const newWords = remoteWords.filter(w => !existingIds.has(w.id));
+          return [...updated, ...shuffleArray(newWords)];
+        });
+      } catch {
+        // Silent fail - local data is already displayed
+      }
+    };
+
+    syncRemote();
+  }, [authLoading, user, projectId, collectionId, favoritesOnly]);
 
   // Auto-save progress when index changes
   useEffect(() => {

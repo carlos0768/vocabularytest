@@ -489,18 +489,7 @@ export default function QuizPage() {
           // Collection mode: load words from all projects in the collection
           sourceWords = await loadCollectionWords(collectionId);
         } else {
-          let loadedWords = await repository.getWords(projectId);
-          
-          // Fallback to remote if local is empty and user is logged in
-          // This handles background scan projects stored in remote
-          if (loadedWords.length === 0 && user) {
-            try {
-              loadedWords = await remoteRepository.getWords(projectId);
-            } catch (e) {
-              console.error('Remote fallback failed:', e);
-            }
-          }
-          
+          const loadedWords = await repository.getWords(projectId);
           sourceWords = loadedWords;
         }
 
@@ -536,6 +525,29 @@ export default function QuizPage() {
 
     loadWords();
   }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey]);
+
+  // Phase 2: Fetch latest from remote in background (Pro users)
+  // Updates allWords if remote has more words than local
+  useEffect(() => {
+    if (authLoading || !user || reviewMode || collectionId) return;
+
+    const syncRemote = async () => {
+      try {
+        const remoteWords = await remoteRepository.getWords(projectId);
+        if (remoteWords.length > 0) {
+          setAllWords(prev => {
+            // Only update if remote has more words
+            if (remoteWords.length > prev.length) return remoteWords;
+            return prev;
+          });
+        }
+      } catch (e) {
+        // Silent fail - local data is already displayed
+      }
+    };
+
+    syncRemote();
+  }, [authLoading, user, projectId, reviewMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
 
