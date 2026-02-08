@@ -28,10 +28,10 @@ const zenMaruGothic = Zen_Maru_Gothic({
 });
 
 export const metadata: Metadata = {
-  title: 'MERKEN - 英語学習・単語帳アプリ｜写真で自動作成',
+  title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
   description:
-    '英語教育向け単語学習アプリ。手書きのノートやプリントを撮影するだけで英単語と日本語訳を自動抽出。4択クイズ・フラッシュカード・例文クイズで効率的に英語を学習できます。',
-  keywords: ['英語学習', '単語帳', '英語教育', '教育アプリ', 'English vocabulary', 'クイズ', 'フラッシュカード', '英検対策'],
+    '画像を撮るだけで英単語を自動抽出して単語帳に登録。マークした単語だけを単語帳に登録することも可能。自分だけのカスタム単語帳を作成し、4択クイズ・フラッシュカード・例文クイズで効率的に学習できます。',
+  keywords: ['画像を撮るだけで単語帳登録', 'マークした単語だけ単語帳に登録', 'カスタム単語帳', '英語学習', '単語帳アプリ', '英検対策'],
   category: 'education',
   manifest: '/manifest.json',
   icons: {
@@ -44,10 +44,10 @@ export const metadata: Metadata = {
     title: 'MERKEN',
   },
   openGraph: {
-    title: 'MERKEN - 英語学習・単語帳アプリ｜写真で自動作成',
+    title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
     description:
-      '英語教育向け単語学習アプリ。手書きのノートやプリントを撮影するだけで英単語と日本語訳を自動抽出。4択クイズ・フラッシュカード・例文クイズで効率的に英語を学習できます。',
-    siteName: 'MERKEN - 英語学習アプリ',
+      '画像を撮るだけで英単語を自動抽出して単語帳に登録。マークした単語だけを登録することも可能。自分だけのカスタム単語帳で効率的に学習。',
+    siteName: 'MERKEN',
     url: 'https://merken.jp',
     images: [
       {
@@ -62,9 +62,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'MERKEN - 英語学習・単語帳アプリ｜写真で自動作成',
+    title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
     description:
-      '英語教育向け単語学習アプリ。写真を撮るだけで英単語帳を自動作成。4択クイズ・フラッシュカードで効率的に学習。',
+      '画像を撮るだけで単語帳登録。マークした単語だけ登録も可能。カスタム単語帳でクイズ・フラッシュカード学習。',
     images: ['https://merken.jp/icon-512.png'],
   },
 };
