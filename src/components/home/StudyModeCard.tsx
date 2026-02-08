@@ -24,7 +24,7 @@ const variantStyles: Record<ColorVariant, {
   glow: string;
 }> = {
   primary: {
-    bg: 'bg-[var(--color-primary)]',
+    bg: 'bg-[#2563EB]',
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',
@@ -32,7 +32,7 @@ const variantStyles: Record<ColorVariant, {
     glow: 'shadow-glow',
   },
   red: {
-    bg: 'bg-[var(--color-primary)]',
+    bg: 'bg-[#2563EB]',
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',
@@ -40,12 +40,12 @@ const variantStyles: Record<ColorVariant, {
     glow: 'shadow-glow',
   },
   blue: {
-    bg: 'bg-[var(--color-surface)]',
-    iconBg: 'bg-[var(--color-primary-light)]',
-    iconColor: 'text-[var(--color-primary)]',
-    textColor: 'text-[var(--color-foreground)]',
-    descColor: 'text-[var(--color-muted)]',
-    glow: 'shadow-soft',
+    bg: 'bg-[#3B82F6]',
+    iconBg: 'bg-white/20',
+    iconColor: 'text-white',
+    textColor: 'text-white',
+    descColor: 'text-white/85',
+    glow: 'shadow-glow',
   },
   green: {
     bg: 'bg-[var(--color-success-light)]',
@@ -56,20 +56,20 @@ const variantStyles: Record<ColorVariant, {
     glow: 'shadow-soft',
   },
   orange: {
-    bg: 'bg-[var(--color-warning-light)]',
-    iconBg: 'bg-[var(--color-warning)]/25',
-    iconColor: 'text-[var(--color-warning)]',
-    textColor: 'text-[var(--color-foreground)]',
-    descColor: 'text-[var(--color-muted)]',
-    glow: 'shadow-soft',
+    bg: 'bg-[#60A5FA]',
+    iconBg: 'bg-white/20',
+    iconColor: 'text-white',
+    textColor: 'text-white',
+    descColor: 'text-white/85',
+    glow: 'shadow-glow',
   },
   purple: {
-    bg: 'bg-purple-50 dark:bg-purple-950/30',
-    iconBg: 'bg-purple-500/20',
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    textColor: 'text-[var(--color-foreground)]',
-    descColor: 'text-[var(--color-muted)]',
-    glow: 'shadow-soft',
+    bg: 'bg-[#93C5FD]',
+    iconBg: 'bg-white/25',
+    iconColor: 'text-[#1E40AF]',
+    textColor: 'text-[#1E3A5F]',
+    descColor: 'text-[#1E3A5F]/75',
+    glow: 'shadow-glow',
   },
 };
 
