@@ -1170,8 +1170,8 @@ export default function HomePage() {
   return (
     <AppShell>
       <div className="flex flex-col pb-28 lg:pb-8">
-        {/* Word limit banner */}
-        {!isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
+        {/* Word limit banner - only show after auth resolves to avoid flash for Pro users */}
+        {!authLoading && !isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
         {/* Hidden file input for new project (legacy scan flow) */}
         <input
