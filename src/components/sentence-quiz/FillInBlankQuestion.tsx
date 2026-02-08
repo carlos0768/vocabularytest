@@ -51,7 +51,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
   const renderSentence = () => {
     const parts = question.sentence.split('___');
     return (
-      <div className="text-lg font-medium text-[var(--color-foreground)] leading-relaxed text-center">
+      <p className="text-lg font-medium text-[var(--color-foreground)] leading-[2.5] text-center">
         {parts.map((part, index) => (
           <span key={index}>
             {part}
@@ -79,7 +79,7 @@ export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionP
             )}
           </span>
         ))}
-      </div>
+      </p>
     );
   };
 
