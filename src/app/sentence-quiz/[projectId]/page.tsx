@@ -384,7 +384,7 @@ export default function SentenceQuizPage() {
         onClose={handleGoHome}
       />
 
-      <main className="flex-1 flex flex-col px-4 pb-4 min-h-0">
+      <main className="flex-1 flex flex-col px-4 min-h-0 safe-area-bottom">
         {currentQuestion.type === 'multi-fill-in-blank' ? (
           <MultiFillInBlankQuestion
             question={currentQuestion}
