@@ -114,36 +114,14 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
     : '今日は1問だけでも解いて連続記録を伸ばしましょう。';
 
   return (
-    <div className="card p-5 space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+    <div className="card p-5 space-y-3">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="font-bold text-[var(--color-foreground)] flex items-center gap-2">
           <Icon name="calendar_month" size={20} className="text-[var(--color-primary)]" />
           学習カレンダー
         </h2>
-        <span
-          className={`text-xs font-semibold px-3 py-1 rounded-full ${
-            todayCompleted
-              ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-              : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
-          }`}
-        >
-          {todayCompleted ? '今日達成' : '今日未達'}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-[var(--color-primary-light)] p-3">
-          <p className="text-xs text-[var(--color-muted)]">連続学習</p>
-          <p className="text-lg font-bold text-[var(--color-foreground)]">{summary.currentStreak}日</p>
-        </div>
-        <div className="rounded-xl bg-[var(--color-success-light)] p-3">
-          <p className="text-xs text-[var(--color-muted)]">ベスト連続</p>
-          <p className="text-lg font-bold text-[var(--color-foreground)]">{summary.bestStreak}日</p>
-        </div>
-        <div className="rounded-xl bg-[var(--color-surface)] p-3">
-          <p className="text-xs text-[var(--color-muted)]">今週アクティブ</p>
-          <p className="text-lg font-bold text-[var(--color-foreground)]">{summary.thisWeekActiveDays}日</p>
-          <p className="text-[10px] text-[var(--color-muted)]">{summary.thisWeekQuizCount}問</p>
+        <div className="flex items-center gap-3 text-xs text-[var(--color-muted)]">
+          <span>🔥 {summary.currentStreak}日連続</span>
         </div>
       </div>
 
@@ -172,22 +150,17 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
             {grid.map((row, dayIndex) => (
               <div key={`heatmap_row_${dayIndex}`} className="flex gap-1">
                 {row.map((day, weekIndex) => {
-                  const isSelected = day.date === selectedDate;
                   const correctRate = day.quizCount > 0
                     ? Math.round((day.correctCount / day.quizCount) * 100)
                     : 0;
 
                   return (
-                    <button
-                      type="button"
+                    <div
                       key={`${day.date}_${weekIndex}`}
-                      onClick={() => setSelectedDate(day.date)}
-                      aria-label={`${day.date} ${day.quizCount}問 正答率${correctRate}%`}
+                      title={day.quizCount > 0 ? `${day.date}: ${day.quizCount}問 正答率${correctRate}%` : day.date}
                       className={`w-[14px] h-[14px] rounded-sm ${getColorClass(day.intensity)} ${
                         day.isToday ? 'ring-1 ring-[var(--color-primary)] ring-offset-1' : ''
-                      } ${
-                        isSelected ? 'outline outline-2 outline-[var(--color-foreground)] outline-offset-1' : ''
-                      } transition-all`}
+                      }`}
                     />
                   );
                 })}
@@ -195,42 +168,6 @@ function ActivityHeatmap({ activityHistory }: { activityHistory: DailyActivity[]
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--color-border)] p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="font-semibold text-[var(--color-foreground)]">{selectedDateLabel}</p>
-          <span
-            className={`text-xs font-semibold px-2 py-1 rounded-full ${
-              selectedDetail.quizCount > 0
-                ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-                : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
-            }`}
-          >
-            {selectedDetail.statusLabel}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-xl bg-[var(--color-primary-light)] p-3">
-            <p className="text-[var(--color-muted)]">問題数</p>
-            <p className="text-lg font-bold text-[var(--color-foreground)]">{selectedDetail.quizCount}問</p>
-          </div>
-          <div className="rounded-xl bg-[var(--color-success-light)] p-3">
-            <p className="text-[var(--color-muted)]">正答率</p>
-            <p className="text-lg font-bold text-[var(--color-foreground)]">{selectedDetail.correctRate}%</p>
-          </div>
-        </div>
-
-        <p className="text-sm text-[var(--color-muted)]">{selectedMessage}</p>
-
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-primary)] text-white text-sm font-semibold"
-        >
-          <Icon name="play_arrow" size={18} className="text-white" />
-          学習を続ける
-        </Link>
       </div>
 
       <div className="flex items-center justify-end gap-2 text-xs text-[var(--color-muted)]">
