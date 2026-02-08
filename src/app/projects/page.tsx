@@ -2,47 +2,47 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { ProjectCard } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
+import { hybridRepository } from '@/lib/db/hybrid-repository';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import {
+  buildProjectStats,
+  getWordsByProjectMap,
+  mergeProjectsById,
+  type ProjectWithStats,
+  type WordReadRepository,
+} from '@/lib/projects/load-helpers';
 import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import type { Project, Word } from '@/types';
-
-interface ProjectWithStats extends Project {
-  totalWords: number;
-  masteredWords: number;
-  progress: number;
-}
+import type { Project } from '@/types';
 
 async function addStatsToProjects(
   projects: Project[],
-  repo: { getWords(projectId: string): Promise<Word[]> },
+  repo: WordReadRepository,
 ): Promise<ProjectWithStats[]> {
-  return Promise.all(
-    projects.map(async (project): Promise<ProjectWithStats> => {
-      let words: Word[] = [];
-      try {
-        words = await repo.getWords(project.id);
-      } catch {
-        // ignore
-      }
-      const mastered = words.filter((w: Word) => w.status === 'mastered').length;
-      const total = words.length;
-      const progress = total > 0 ? Math.round((mastered / total) * 100) : 0;
-      return { ...project, totalWords: total, masteredWords: mastered, progress };
-    })
+  const wordsByProject = await getWordsByProjectMap(
+    repo,
+    projects.map((project) => project.id)
   );
+  return buildProjectStats(projects, wordsByProject);
+}
+
+function withEmptyStats(projects: Project[]): ProjectWithStats[] {
+  return projects.map((project) => ({
+    ...project,
+    totalWords: 0,
+    masteredWords: 0,
+    progress: 0,
+  }));
 }
 
 export default function ProjectsPage() {
-  const router = useRouter();
   const { user, subscription, loading: authLoading, isPro } = useAuth();
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,11 +110,21 @@ export default function ProjectsPage() {
     (async () => {
       try {
         const guestId = getGuestUserId();
-        const localProjects = await localRepository.getProjects(guestId);
+        const syncedUserId = hybridRepository.getSyncedUserId();
+        const candidateUserIds = [...new Set([syncedUserId, guestId].filter((id): id is string => Boolean(id)))];
+        const localProjectGroups = await Promise.all(candidateUserIds.map((id) => localRepository.getProjects(id)));
+        const localProjects = mergeProjectsById(localProjectGroups.flat());
         if (localProjects.length > 0) {
-          const withStats = await addStatsToProjects(localProjects, localRepository);
-          setProjects(withStats);
+          setProjects(withEmptyStats(localProjects));
           setLoading(false);
+          void (async () => {
+            try {
+              const withStats = await addStatsToProjects(localProjects, localRepository);
+              setProjects(withStats);
+            } catch (error) {
+              console.error('Failed to build initial local stats:', error);
+            }
+          })();
         }
       } catch (e) {
         console.error('Local projects load failed:', e);
@@ -127,6 +137,24 @@ export default function ProjectsPage() {
     if (authLoading) return;
 
     (async () => {
+      let latestDisplaySeq = 0;
+      const showProjectsImmediately = (rawProjects: Project[], repo: WordReadRepository) => {
+        const seq = ++latestDisplaySeq;
+        setProjects(withEmptyStats(rawProjects));
+        setLoading(false);
+
+        void (async () => {
+          try {
+            const withStats = await addStatsToProjects(rawProjects, repo);
+            if (seq === latestDisplaySeq) {
+              setProjects(withStats);
+            }
+          } catch (error) {
+            console.error('Failed to build project stats:', error);
+          }
+        })();
+      };
+
       try {
         const userId = isPro && user ? user.id : getGuestUserId();
 
@@ -137,13 +165,22 @@ export default function ProjectsPage() {
             return;
           }
           const localProjects = await repository.getProjects(userId);
-          const withStats = await addStatsToProjects(localProjects, repository);
-          setProjects(withStats);
-          setLoading(false);
+          showProjectsImmediately(localProjects, repository);
           return;
         }
 
         // Pro user: fetch from remote for latest data
+        let showedLocalProjects = false;
+        try {
+          const localProjectsForUser = await localRepository.getProjects(user.id);
+          if (localProjectsForUser.length > 0) {
+            showProjectsImmediately(localProjectsForUser, localRepository);
+            showedLocalProjects = true;
+          }
+        } catch (e) {
+          console.error('Local Pro preload failed:', e);
+        }
+
         let remoteProjects: Project[] = [];
         try {
           remoteProjects = await remoteRepository.getProjects(user.id);
@@ -152,13 +189,11 @@ export default function ProjectsPage() {
         }
 
         if (remoteProjects.length > 0) {
-          const withStats = await addStatsToProjects(remoteProjects, remoteRepository);
-          setProjects(withStats);
-        } else if (projects.length === 0) {
+          showProjectsImmediately(remoteProjects, remoteRepository);
+        } else if (!showedLocalProjects) {
           // Fallback to default repository
           const fallback = await repository.getProjects(userId);
-          const withStats = await addStatsToProjects(fallback, repository);
-          setProjects(withStats);
+          showProjectsImmediately(fallback, repository);
         }
       } catch (error) {
         console.error('Failed to load projects:', error);
