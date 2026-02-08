@@ -25,6 +25,9 @@
   /* Border & Shadow */
   --color-border: #e5e7eb;
   --color-border-light: #f3f4f6;
+
+  /* Dot grid */
+  --color-dot: #d1d5db;
 }
 
 .dark {
@@ -38,6 +41,7 @@
   --color-success-light: #14291e;
   --color-error-light: #2e1a1a;
   --color-warning-light: #2e2a1a;
+  --color-dot: #1a1e23;
 }
 
 @theme inline {
