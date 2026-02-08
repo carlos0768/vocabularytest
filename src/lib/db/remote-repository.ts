@@ -25,6 +25,9 @@ import {
 // Remote implementation of WordRepository using Supabase
 // Used for Pro tier users - data synced across devices
 
+export const WORDS_SELECT_COLUMNS =
+  'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
+
 export class RemoteWordRepository implements WordRepository {
   private _supabase: SupabaseClient | null = null;
 
@@ -136,7 +139,7 @@ export class RemoteWordRepository implements WordRepository {
   async getWords(projectId: string): Promise<Word[]> {
     const { data, error } = await this.supabase
       .from('words')
-      .select('*')
+      .select(WORDS_SELECT_COLUMNS)
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 
@@ -148,7 +151,7 @@ export class RemoteWordRepository implements WordRepository {
   async getWord(id: string): Promise<Word | undefined> {
     const { data, error } = await this.supabase
       .from('words')
-      .select('*')
+      .select(WORDS_SELECT_COLUMNS)
       .eq('id', id)
       .single();
 
@@ -199,7 +202,7 @@ export class RemoteWordRepository implements WordRepository {
 
     const { data, error } = await this.supabase
       .from('words')
-      .select('*')
+      .select(WORDS_SELECT_COLUMNS)
       .in('project_id', projectIds)
       .order('created_at', { ascending: false });
 
@@ -268,7 +271,7 @@ export class RemoteWordRepository implements WordRepository {
 
     const { data, error } = await this.supabase
       .from('words')
-      .select('*')
+      .select(WORDS_SELECT_COLUMNS)
       .eq('project_id', project.id)
       .order('created_at', { ascending: false });
 

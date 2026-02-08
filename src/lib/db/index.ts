@@ -4,7 +4,12 @@
 export { db, getDb } from './dexie';
 export { LocalWordRepository, localRepository } from './local-repository';
 export { RemoteWordRepository, remoteRepository } from './remote-repository';
-export { HybridWordRepository, hybridRepository } from './hybrid-repository';
+export {
+  HybridWordRepository,
+  hybridRepository,
+  FULL_SYNC_INTERVAL_MS,
+  shouldRunFullSync,
+} from './hybrid-repository';
 export { SyncQueue, syncQueue } from './sync-queue';
 
 import type { WordRepository, SubscriptionStatus } from '@/types';
