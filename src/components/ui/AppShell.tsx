@@ -15,7 +15,7 @@ export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
       className="min-h-screen"
       style={{
         backgroundColor: 'var(--color-background)',
-        backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(circle, var(--color-dot) 1px, transparent 1px)',
         backgroundSize: '24px 24px',
       }}
     >
