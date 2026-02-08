@@ -26,8 +26,8 @@ export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
   }, []);
 
   const bgImage = isDark
-    ? buildDotSvg('#1e2228', 24, 0.75)
-    : buildDotSvg('#d1d5db', 24, 0.75);
+    ? buildDotSvg('#2a2f38', 24, 1)
+    : buildDotSvg('#9ca3af', 24, 1);
 
   return (
     <div
