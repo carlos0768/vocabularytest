@@ -1242,24 +1242,6 @@ export default function HomePage() {
 
         {/* Main content */}
         <main className="flex-1 max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 w-full space-y-6">
-          {/* Review section */}
-          <section className="card p-4 lg:p-6 flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs text-[var(--color-muted)]">復習セクション</p>
-              <p className="text-lg font-bold text-[var(--color-foreground)] mt-1">
-                {reviewDueCount > 0 ? `今日の復習 ${reviewDueCount}語` : '今日は復習がありません'}
-              </p>
-            </div>
-            {reviewDueCount > 0 && (
-              <Link
-                href={reviewQuizHref}
-                className="px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-colors"
-              >
-                復習クイズへ
-              </Link>
-            )}
-          </section>
-
           {/* Quick actions */}
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
