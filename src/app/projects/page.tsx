@@ -177,7 +177,7 @@ export default function ProjectsPage() {
     <AppShell>
     <div className="min-h-screen pb-28 lg:pb-6">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
           <div className="flex-1">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>
             <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
@@ -192,7 +192,7 @@ export default function ProjectsPage() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 space-y-6">
         <div className="relative">
           <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
@@ -242,7 +242,7 @@ export default function ProjectsPage() {
                   <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
                   <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
                 </div>
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {favorites.map((project) => (
                     <ProjectCard
                       key={project.id}
@@ -263,7 +263,7 @@ export default function ProjectsPage() {
                 <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filtered.map((project) => (
                   <ProjectCard
                     key={project.id}
