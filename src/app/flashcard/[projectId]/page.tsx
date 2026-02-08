@@ -155,8 +155,17 @@ export default function FlashcardPage() {
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           wordsData = allProjectWords.flat().filter(w => w.isFavorite);
         } else {
-          const allWords = await repository.getWords(projectId);
-          
+          let allWords = await repository.getWords(projectId);
+
+          // If local is empty and user is logged in, wait for remote
+          if (allWords.length === 0 && user) {
+            try {
+              allWords = await remoteRepository.getWords(projectId);
+            } catch (e) {
+              console.error('Remote fallback failed:', e);
+            }
+          }
+
           wordsData = favoritesOnly
             ? allWords.filter((w) => w.isFavorite)
             : allWords;

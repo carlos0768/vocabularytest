@@ -489,7 +489,17 @@ export default function QuizPage() {
           // Collection mode: load words from all projects in the collection
           sourceWords = await loadCollectionWords(collectionId);
         } else {
-          const loadedWords = await repository.getWords(projectId);
+          let loadedWords = await repository.getWords(projectId);
+
+          // If local is empty and user is logged in, wait for remote
+          if (loadedWords.length === 0 && user) {
+            try {
+              loadedWords = await remoteRepository.getWords(projectId);
+            } catch (e) {
+              console.error('Remote fallback failed:', e);
+            }
+          }
+
           sourceWords = loadedWords;
         }
 
