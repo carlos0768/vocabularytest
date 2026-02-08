@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -38,8 +38,7 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [japaneseFirst, setJapaneseFirst] = useState(false); // 日→英モーチE
-  
+  const [japaneseFirst, setJapaneseFirst] = useState(false); // 譌･竊定恭繝｢繝ｼ繝・  
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editEnglish, setEditEnglish] = useState('');
@@ -149,8 +148,7 @@ export default function FlashcardPage() {
           // Collection mode: load words from all projects in the collection
           wordsData = await loadCollectionWords(collectionId);
         } else if (projectId === 'all' && favoritesOnly) {
-          // 全単語帳横断でお気に入り単語を取征E
-          const userId = isPro && user ? user.id : getGuestUserId();
+          // 蜈ｨ蜊倩ｪ槫ｸｳ讓ｪ譁ｭ縺ｧ縺頑ｰ励↓蜈･繧雁腰隱槭ｒ蜿門ｾ・          const userId = isPro && user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           wordsData = allProjectWords.flat().filter(w => w.isFavorite);
@@ -440,7 +438,7 @@ export default function FlashcardPage() {
   const handleDeleteWord = async () => {
     if (!currentWord) return;
 
-    const confirmed = window.confirm(`、E{currentWord.english}」を削除しますか�E�E�E�`);
+    const confirmed = window.confirm(`縲・{currentWord.english}縲阪ｒ蜑企勁縺励∪縺吶°・歔);
     if (!confirmed) return;
 
     await repository.deleteWord(currentWord.id);
@@ -532,7 +530,7 @@ export default function FlashcardPage() {
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">フラチE�E��E�ュカードを準備中...</p>
+          <p className="text-[var(--color-muted)]">繝輔Λ繝・す繝･繧ｫ繝ｼ繝峨ｒ貅門ｙ荳ｭ...</p>
         </div>
       </div>
     );
@@ -565,7 +563,7 @@ export default function FlashcardPage() {
         <div className="flex justify-center -mt-2 mb-2">
           <div className="chip chip-tough">
             <Icon name="flag" size={16} filled />
-            <span>苦手な単誁E/span>
+            <span>闍ｦ謇九↑蜊倩ｪ・/span>
           </div>
         </div>
       )}
@@ -590,7 +588,7 @@ export default function FlashcardPage() {
               {/* Mode badge */}
               <div className="absolute top-6 left-6">
                 <span className="px-3 py-1 bg-[var(--color-primary-light)] text-[var(--color-muted)] text-xs font-semibold rounded-full uppercase tracking-wide">
-                  {japaneseFirst ? '日→英' : '英→日'}
+                  {japaneseFirst ? '譌･竊定恭' : '闍ｱ竊呈律'}
                 </span>
               </div>
 
@@ -602,7 +600,7 @@ export default function FlashcardPage() {
                     speakWord();
                   }}
                   className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[var(--color-primary)]"
-                  aria-label="発音を聞ぁE
+                  aria-label="逋ｺ髻ｳ繧定◇縺・
                 >
                   <Icon name="volume_up" size={24} />
                 </button>
@@ -615,7 +613,7 @@ export default function FlashcardPage() {
 
               {/* Hint */}
               <p className="absolute bottom-6 text-sm text-[var(--color-muted)]">
-                タチE�E�Eして{japaneseFirst ? '英誁E : '意味'}を表示
+                繧ｿ繝・・縺励※{japaneseFirst ? '闍ｱ隱・ : '諢丞袖'}繧定｡ｨ遉ｺ
               </p>
             </div>
 
@@ -629,7 +627,7 @@ export default function FlashcardPage() {
                     speakWord();
                   }}
                   className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-white"
-                  aria-label="発音を聞ぁE
+                  aria-label="逋ｺ髻ｳ繧定◇縺・
                 >
                   <Icon name="volume_up" size={24} />
                 </button>
@@ -640,8 +638,7 @@ export default function FlashcardPage() {
               </h2>
 
               <p className="absolute bottom-6 text-sm text-white/60">
-                タチE�E�Eして戻めE
-              </p>
+                繧ｿ繝・・縺励※謌ｻ繧・              </p>
             </div>
           </div>
         </div>
@@ -664,7 +661,7 @@ export default function FlashcardPage() {
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
             }`}
-            aria-label={japaneseFirst ? '英→日モードに刁E�E��E�' : '日→英モードに刁E�E��E�'}
+            aria-label={japaneseFirst ? '闍ｱ竊呈律繝｢繝ｼ繝峨↓蛻・崛' : '譌･竊定恭繝｢繝ｼ繝峨↓蛻・崛'}
           >
             <Icon name="translate" size={20} />
           </button>
@@ -672,7 +669,7 @@ export default function FlashcardPage() {
           <button
             onClick={handleToggleFavorite}
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
-            aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマ�Eク'}
+            aria-label={currentWord?.isFavorite ? '闍ｦ謇九ｒ隗｣髯､' : '闍ｦ謇九↓繝槭・繧ｯ'}
           >
             <Icon
               name="flag"
@@ -689,7 +686,7 @@ export default function FlashcardPage() {
           <button
             onClick={handleOpenDictionary}
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="辞書で調べめE
+            aria-label="霎樊嶌縺ｧ隱ｿ縺ｹ繧・
           >
             <Icon name="search" size={20} />
           </button>
@@ -697,7 +694,7 @@ export default function FlashcardPage() {
           <button
             onClick={handleOpenEditModal}
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="単語を編雁E
+            aria-label="蜊倩ｪ槭ｒ邱ｨ髮・
           >
             <Icon name="edit" size={20} />
           </button>
@@ -705,7 +702,7 @@ export default function FlashcardPage() {
           <button
             onClick={handleDeleteWord}
             className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
-            aria-label="こ�E単語を削除"
+            aria-label="縺薙・蜊倩ｪ槭ｒ蜑企勁"
           >
             <Icon name="delete" size={20} />
           </button>
@@ -730,7 +727,7 @@ export default function FlashcardPage() {
             onClick={() => setIsFlipped(!isFlipped)}
             disabled={isAnimating}
             className="w-14 h-14"
-            aria-label="カードをめくめE
+            aria-label="繧ｫ繝ｼ繝峨ｒ繧√￥繧・
           >
             <Icon name="refresh" size={24} />
           </Button>
@@ -752,32 +749,30 @@ export default function FlashcardPage() {
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語を編雁E/h2>
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">蜊倩ｪ槭ｒ邱ｨ髮・/h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                  英誁E
-                </label>
+                  闍ｱ隱・                </label>
                 <input
                   type="text"
                   value={editEnglish}
                   onChange={(e) => setEditEnglish(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  placeholder="英単誁E
+                  placeholder="闍ｱ蜊倩ｪ・
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                  日本誁E
-                </label>
+                  譌･譛ｬ隱・                </label>
                 <input
                   type="text"
                   value={editJapanese}
                   onChange={(e) => setEditJapanese(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  placeholder="日本語訳"
+                  placeholder="譌･譛ｬ隱櫁ｨｳ"
                 />
               </div>
             </div>
@@ -788,14 +783,14 @@ export default function FlashcardPage() {
                 className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
                 disabled={isSaving}
               >
-                キャンセル
+                繧ｭ繝｣繝ｳ繧ｻ繝ｫ
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={isSaving || !editEnglish.trim() || !editJapanese.trim()}
                 className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {isSaving ? '保存中...' : '保孁E}
+                {isSaving ? '菫晏ｭ倅ｸｭ...' : '菫晏ｭ・}
               </button>
             </div>
           </div>
