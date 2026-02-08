@@ -87,7 +87,7 @@ function ensureCacheRestored(): boolean {
 
 export default function HomePage() {
   const router = useRouter();
-  const { user, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isAuthenticated, isPro, loading: authLoading, sessionExpired } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1072,6 +1072,28 @@ export default function HomePage() {
     setProcessing(false);
     setProcessingSteps([]);
   };
+
+  // Session expired: was logged in before but session is now invalid
+  // Show re-login prompt instead of local data with free plan restrictions
+  if (sessionExpired && !authLoading && !user) {
+    return (
+      <AppShell>
+        <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center mb-4">
+            <Icon name="lock" size={32} className="text-[var(--color-primary)]" />
+          </div>
+          <h1 className="text-xl font-bold text-[var(--color-foreground)]">セッションが切れました</h1>
+          <p className="text-sm text-[var(--color-muted)] mt-2">もう一度ログインしてください</p>
+          <Link
+            href="/login"
+            className="mt-6 px-6 py-3 rounded-full bg-[var(--color-primary)] text-white font-semibold shadow-lg shadow-primary/20"
+          >
+            ログイン
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
 
   // Loading state — only gate on data loading, not auth
   // Auth resolves in background; cached data displays instantly
