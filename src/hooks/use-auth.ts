@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Subscription, SubscriptionPlan } from '@/types';
-import { hybridRepository } from '@/lib/db';
+import { hybridRepository, shouldRunFullSync } from '@/lib/db';
 import { invalidateStatsCache } from '@/lib/stats-cache';
 import { clearHomeCache } from '@/lib/home-cache';
 import { clearAllUserStats } from '@/lib/utils';
@@ -385,9 +385,9 @@ export function useAuth() {
         if (isActiveProSubscription(result.subscription)) {
           const syncedUserId = hybridRepository.getSyncedUserId();
           const lastSync = hybridRepository.getLastSync();
-          const needsSync = !lastSync || syncedUserId !== result.user.id;
+          const needsFullSync = shouldRunFullSync(lastSync, syncedUserId, result.user.id);
           
-          if (needsSync) {
+          if (needsFullSync) {
             console.log('[Auth] Pro user detected, triggering initial sync');
             hybridRepository.fullSync(result.user.id).catch((error) => {
               console.error('[Auth] Initial sync failed:', error);

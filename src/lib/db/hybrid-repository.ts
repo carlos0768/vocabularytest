@@ -16,6 +16,18 @@ function isOnline(): boolean {
 // Sync status stored in localStorage
 const LAST_SYNC_KEY = 'scanvocab_last_sync';
 const SYNC_USER_KEY = 'scanvocab_sync_user';
+export const FULL_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+
+export function shouldRunFullSync(
+  lastSync: number | null,
+  syncedUserId: string | null,
+  userId: string,
+  now: number = Date.now()
+): boolean {
+  if (syncedUserId !== userId) return true;
+  if (!lastSync || Number.isNaN(lastSync)) return true;
+  return now - lastSync >= FULL_SYNC_INTERVAL_MS;
+}
 
 export class HybridWordRepository implements WordRepository {
   // Get last sync timestamp
