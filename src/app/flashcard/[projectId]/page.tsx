@@ -38,7 +38,7 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [japaneseFirst, setJapaneseFirst] = useState(false); // 日→英モード
+  const [japaneseFirst, setJapaneseFirst] = useState(false); // 日→英モーチE
   
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -149,7 +149,7 @@ export default function FlashcardPage() {
           // Collection mode: load words from all projects in the collection
           wordsData = await loadCollectionWords(collectionId);
         } else if (projectId === 'all' && favoritesOnly) {
-          // 全単語帳横断でお気に入り単語を取得
+          // 全単語帳横断でお気に入り単語を取征E
           const userId = isPro && user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
@@ -440,7 +440,7 @@ export default function FlashcardPage() {
   const handleDeleteWord = async () => {
     if (!currentWord) return;
 
-    const confirmed = window.confirm(`「${currentWord.english}」を削除しますか？`);
+    const confirmed = window.confirm(`、E{currentWord.english}」を削除しますか�E�E�E�`);
     if (!confirmed) return;
 
     await repository.deleteWord(currentWord.id);
@@ -532,7 +532,7 @@ export default function FlashcardPage() {
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">フラッシュカードを準備中...</p>
+          <p className="text-[var(--color-muted)]">フラチE�E��E�ュカードを準備中...</p>
         </div>
       </div>
     );
@@ -565,7 +565,7 @@ export default function FlashcardPage() {
         <div className="flex justify-center -mt-2 mb-2">
           <div className="chip chip-tough">
             <Icon name="flag" size={16} filled />
-            <span>苦手な単語</span>
+            <span>苦手な単誁E/span>
           </div>
         </div>
       )}
@@ -578,7 +578,7 @@ export default function FlashcardPage() {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="flashcard w-full max-w-sm aspect-[3/4] max-h-full cursor-pointer"
+          className="flashcard w-full max-w-sm aspect-[3/4] max-h-[min(100%,55dvh)] cursor-pointer"
           style={{
             transform: getCardTransform(),
             transition: slidePhase === 'enter' ? 'none' : (isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none'),
@@ -602,7 +602,7 @@ export default function FlashcardPage() {
                     speakWord();
                   }}
                   className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[var(--color-primary)]"
-                  aria-label="発音を聞く"
+                  aria-label="発音を聞ぁE
                 >
                   <Icon name="volume_up" size={24} />
                 </button>
@@ -615,7 +615,7 @@ export default function FlashcardPage() {
 
               {/* Hint */}
               <p className="absolute bottom-6 text-sm text-[var(--color-muted)]">
-                タップして{japaneseFirst ? '英語' : '意味'}を表示
+                タチE�E�Eして{japaneseFirst ? '英誁E : '意味'}を表示
               </p>
             </div>
 
@@ -629,7 +629,7 @@ export default function FlashcardPage() {
                     speakWord();
                   }}
                   className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-white"
-                  aria-label="発音を聞く"
+                  aria-label="発音を聞ぁE
                 >
                   <Icon name="volume_up" size={24} />
                 </button>
@@ -640,7 +640,7 @@ export default function FlashcardPage() {
               </h2>
 
               <p className="absolute bottom-6 text-sm text-white/60">
-                タップして戻る
+                タチE�E�Eして戻めE
               </p>
             </div>
           </div>
@@ -653,30 +653,30 @@ export default function FlashcardPage() {
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Action buttons */}
-        <div className="flex justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+        <div className="flex justify-center gap-3 mb-4">
           <button
             onClick={() => {
               setJapaneseFirst(!japaneseFirst);
               setIsFlipped(false);
             }}
-            className={`w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
+            className={`w-11 h-11 flex items-center justify-center rounded-full shadow-soft hover:shadow-md transition-all ${
               japaneseFirst
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
             }`}
-            aria-label={japaneseFirst ? '英→日モードに切替' : '日→英モードに切替'}
+            aria-label={japaneseFirst ? '英→日モードに刁E�E��E�' : '日→英モードに刁E�E��E�'}
           >
-            <Icon name="translate" size={18} />
+            <Icon name="translate" size={20} />
           </button>
 
           <button
             onClick={handleToggleFavorite}
-            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
-            aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all"
+            aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマ�Eク'}
           >
             <Icon
               name="flag"
-              size={18}
+              size={20}
               filled={currentWord?.isFavorite}
               className={`transition-colors ${
                 currentWord?.isFavorite
@@ -688,37 +688,37 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleOpenDictionary}
-            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="辞書で調べる"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            aria-label="辞書で調べめE
           >
-            <Icon name="search" size={18} />
+            <Icon name="search" size={20} />
           </button>
 
           <button
             onClick={handleOpenEditModal}
-            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
-            aria-label="単語を編集"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md transition-all text-[var(--color-muted)]"
+            aria-label="単語を編雁E
           >
-            <Icon name="edit" size={18} />
+            <Icon name="edit" size={20} />
           </button>
 
           <button
             onClick={handleDeleteWord}
-            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
-            aria-label="この単語を削除"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-[var(--color-surface)] shadow-soft hover:shadow-md hover:bg-[var(--color-error-light)] transition-all text-[var(--color-muted)] hover:text-[var(--color-error)]"
+            aria-label="こ�E単語を削除"
           >
-            <Icon name="delete" size={18} />
+            <Icon name="delete" size={20} />
           </button>
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-center gap-3 sm:gap-4">
+        <div className="flex items-center justify-center gap-4">
           <Button
             variant="secondary"
             size="icon"
             onClick={() => handlePrev(true)}
             disabled={isAnimating}
-            className="w-12 h-12 sm:w-14 sm:h-14"
+            className="w-14 h-14"
           >
             <Icon name="chevron_left" size={24} />
           </Button>
@@ -729,8 +729,8 @@ export default function FlashcardPage() {
             size="icon"
             onClick={() => setIsFlipped(!isFlipped)}
             disabled={isAnimating}
-            className="w-12 h-12 sm:w-14 sm:h-14"
-            aria-label="カードをめくる"
+            className="w-14 h-14"
+            aria-label="カードをめくめE
           >
             <Icon name="refresh" size={24} />
           </Button>
@@ -740,7 +740,7 @@ export default function FlashcardPage() {
             variant="secondary"
             onClick={() => handleNext(true)}
             disabled={isAnimating}
-            className="w-12 h-12 sm:w-14 sm:h-14"
+            className="w-14 h-14"
             size="icon"
           >
             <Icon name="chevron_right" size={24} />
@@ -752,25 +752,25 @@ export default function FlashcardPage() {
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語を編集</h2>
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語を編雁E/h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                  英語
+                  英誁E
                 </label>
                 <input
                   type="text"
                   value={editEnglish}
                   onChange={(e) => setEditEnglish(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  placeholder="英単語"
+                  placeholder="英単誁E
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                  日本語
+                  日本誁E
                 </label>
                 <input
                   type="text"
@@ -795,7 +795,7 @@ export default function FlashcardPage() {
                 disabled={isSaving || !editEnglish.trim() || !editJapanese.trim()}
                 className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {isSaving ? '保存中...' : '保存'}
+                {isSaving ? '保存中...' : '保孁E}
               </button>
             </div>
           </div>
