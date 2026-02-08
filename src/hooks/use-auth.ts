@@ -3,17 +3,50 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import type { Subscription, SubscriptionStatus, SubscriptionPlan } from '@/types';
+import type { Subscription, SubscriptionPlan } from '@/types';
 import { hybridRepository } from '@/lib/db';
 import { invalidateStatsCache } from '@/lib/stats-cache';
 import { clearHomeCache } from '@/lib/home-cache';
 import { clearAllUserStats } from '@/lib/utils';
+import { getEffectiveSubscriptionStatus, isActiveProSubscription } from '@/lib/subscription/status';
 
 interface AuthState {
   user: User | null;
   subscription: Subscription | null;
   loading: boolean;
   error: string | null;
+}
+
+function mapSubscriptionRow(
+  row: Record<string, unknown> | null
+): Subscription | null {
+  if (!row) return null;
+
+  const plan = row.plan as SubscriptionPlan;
+  const status = getEffectiveSubscriptionStatus(
+    row.status as string | null,
+    plan,
+    row.pro_source as string | null,
+    row.test_pro_expires_at as string | null,
+    row.current_period_end as string | null
+  );
+
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    status,
+    plan,
+    proSource: (row.pro_source as 'none' | 'billing' | 'test' | null) ?? 'none',
+    testProExpiresAt: (row.test_pro_expires_at as string | null | undefined) ?? null,
+    komojuSubscriptionId: row.komoju_subscription_id as string | undefined,
+    komojuCustomerId: row.komoju_customer_id as string | undefined,
+    currentPeriodStart: row.current_period_start as string | undefined,
+    currentPeriodEnd: row.current_period_end as string | undefined,
+    cancelAtPeriodEnd: (row.cancel_at_period_end as boolean | null) ?? false,
+    cancelRequestedAt: row.cancel_requested_at as string | undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
 }
 
 // ---- Fast session detection ----
@@ -267,25 +300,19 @@ export function useAuth() {
 
             if (subError && subError.code !== 'PGRST116') return;
 
-            const freshSub: Subscription | null = subData ? {
-              id: subData.id,
-              userId: subData.user_id,
-              status: subData.status as SubscriptionStatus,
-              plan: subData.plan as SubscriptionPlan,
-              komojuSubscriptionId: subData.komoju_subscription_id,
-              komojuCustomerId: subData.komoju_customer_id,
-              currentPeriodStart: subData.current_period_start,
-              currentPeriodEnd: subData.current_period_end,
-              createdAt: subData.created_at,
-              updatedAt: subData.updated_at,
-            } : null;
+            const freshSub: Subscription | null = mapSubscriptionRow(
+              (subData as Record<string, unknown> | null) ?? null
+            );
 
             setCachedSubscription(user.id, freshSub);
 
             // Only notify if subscription actually changed
-            const cachedStatus = cachedSub?.status;
-            const freshStatus = freshSub?.status;
-            if (cachedStatus !== freshStatus) {
+            const hasSubscriptionChanged =
+              cachedSub?.status !== freshSub?.status ||
+              cachedSub?.currentPeriodEnd !== freshSub?.currentPeriodEnd ||
+              cachedSub?.cancelAtPeriodEnd !== freshSub?.cancelAtPeriodEnd;
+
+            if (hasSubscriptionChanged) {
               notifyListeners({
                 user,
                 subscription: freshSub,
@@ -313,18 +340,9 @@ export function useAuth() {
       console.error('Failed to fetch subscription:', subError);
     }
 
-    const subscription: Subscription | null = subscriptionData ? {
-      id: subscriptionData.id,
-      userId: subscriptionData.user_id,
-      status: subscriptionData.status as SubscriptionStatus,
-      plan: subscriptionData.plan as SubscriptionPlan,
-      komojuSubscriptionId: subscriptionData.komoju_subscription_id,
-      komojuCustomerId: subscriptionData.komoju_customer_id,
-      currentPeriodStart: subscriptionData.current_period_start,
-      currentPeriodEnd: subscriptionData.current_period_end,
-      createdAt: subscriptionData.created_at,
-      updatedAt: subscriptionData.updated_at,
-    } : null;
+    const subscription: Subscription | null = mapSubscriptionRow(
+      (subscriptionData as Record<string, unknown> | null) ?? null
+    );
 
     // Cache for next time
     setCachedSubscription(user.id, subscription);
@@ -364,7 +382,7 @@ export function useAuth() {
         logDailyActivity(result.user.id);
         
         // Trigger initial sync for Pro users (background, non-blocking)
-        if (result.subscription?.status === 'active') {
+        if (isActiveProSubscription(result.subscription)) {
           const syncedUserId = hybridRepository.getSyncedUserId();
           const lastSync = hybridRepository.getLastSync();
           const needsSync = !lastSync || syncedUserId !== result.user.id;
@@ -522,7 +540,7 @@ export function useAuth() {
 
   // Computed properties
   const isAuthenticated = !!state.user;
-  const isPro = state.subscription?.status === 'active' && state.subscription?.plan === 'pro';
+  const isPro = isActiveProSubscription(state.subscription);
 
   return {
     ...state,

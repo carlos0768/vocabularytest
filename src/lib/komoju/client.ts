@@ -13,18 +13,30 @@ function getAuthHeader() {
   return `Basic ${encoded}`;
 }
 
+type KomojuRequestOptions = RequestInit & {
+  idempotencyKey?: string;
+};
+
 // API request helper
 async function komojuRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: KomojuRequestOptions = {}
 ): Promise<T> {
+  const { idempotencyKey, headers: customHeaders, ...fetchOptions } = options;
+
   const response = await fetch(`${KOMOJU_API_URL}${endpoint}`, {
-    ...options,
+    ...fetchOptions,
     headers: {
       'Authorization': getAuthHeader(),
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      ...options.headers,
+      ...(idempotencyKey
+        ? {
+            'X-KOMOJU-IDEMPOTENCY': idempotencyKey,
+            'Idempotency-Key': idempotencyKey,
+          }
+        : {}),
+      ...customHeaders,
     },
   });
 
@@ -54,7 +66,7 @@ export interface CreateSessionParams {
 export interface KomojuSession {
   id: string;
   resource: 'session';
-  mode: 'payment' | 'subscription';
+  mode: 'payment' | 'subscription' | 'customer_payment';
   amount: number;
   currency: string;
   session_url: string;
@@ -95,6 +107,7 @@ export interface CreateSubscriptionParams {
   returnUrl: string;
   cancelUrl: string;
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export interface KomojuSubscription {
@@ -119,9 +132,13 @@ export async function createSubscriptionSession(
 
   return komojuRequest<KomojuSession>('/sessions', {
     method: 'POST',
+    idempotencyKey: params.idempotencyKey,
     body: JSON.stringify({
+      mode: 'customer_payment',
       amount: plan.price,
       currency: plan.currency,
+      email: params.customerEmail,
+      ...(params.customerId ? { customer_id: params.customerId } : {}),
       return_url: params.returnUrl,
       cancel_url: params.cancelUrl,
       default_locale: 'ja',

@@ -6,26 +6,117 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 
+const POLL_INTERVAL_MS = 1500;
+const MAX_ATTEMPTS = 20;
+
+type VerificationState = 'verifying' | 'confirmed' | 'delayed' | 'failed';
+
 function SuccessContent() {
   const { refresh } = useAuth();
-  const [verifying, setVerifying] = useState(true);
+  const [state, setState] = useState<VerificationState>('verifying');
+  const [attempt, setAttempt] = useState(0);
+  const [pollToken, setPollToken] = useState(0);
 
   useEffect(() => {
-    // Refresh auth state to get updated subscription
-    const verifyAndRefresh = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for webhook
-      await refresh();
-      setVerifying(false);
+    let cancelled = false;
+
+    const verifyWithPolling = async () => {
+      for (let i = 1; i <= MAX_ATTEMPTS; i += 1) {
+        if (cancelled) {
+          return;
+        }
+
+        setAttempt(i);
+
+        const response = await fetch('/api/subscription/me', { cache: 'no-store' });
+        if (response.ok) {
+          const result = await response.json();
+          const subscription = result?.subscription as
+            | {
+                isActivePro?: boolean;
+                proSource?: string;
+              }
+            | undefined;
+
+          if (subscription?.isActivePro && subscription.proSource === 'billing') {
+            await refresh();
+            if (cancelled) {
+              return;
+            }
+            setState('confirmed');
+            return;
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      }
+
+      if (!cancelled) {
+        setState('delayed');
+      }
     };
 
-    verifyAndRefresh();
-  }, [refresh]);
+    verifyWithPolling().catch(async () => {
+      if (!cancelled) {
+        try {
+          await refresh();
+        } catch {
+          // Ignore refresh failure in fallback path.
+        }
+        setState('failed');
+      }
+    });
 
-  if (verifying) {
+    return () => {
+      cancelled = true;
+    };
+  }, [pollToken, refresh]);
+
+  if (state === 'verifying') {
     return (
       <div className="flex flex-col items-center">
         <div className="w-6 h-6 border-2 border-[var(--color-border)] border-t-[var(--color-primary)] rounded-full animate-spin mb-4" />
-        <p className="text-[var(--color-muted)] text-sm">決済を確認中...</p>
+        <p className="text-[var(--color-muted)] text-sm">決済を確認中... ({attempt}/{MAX_ATTEMPTS})</p>
+      </div>
+    );
+  }
+
+  if (state === 'delayed' || state === 'failed') {
+    return (
+      <div className="w-full max-w-sm text-center">
+        <div className="w-16 h-16 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center mx-auto mb-6">
+          <Icon name="hourglass_top" size={32} className="text-[var(--color-warning)]" />
+        </div>
+
+        <h1 className="text-xl font-semibold text-[var(--color-foreground)] mb-2">
+          決済反映を待っています
+        </h1>
+
+        <p className="text-[var(--color-muted)] text-sm mb-8">
+          Webhookの反映に時間がかかっている可能性があります。
+          <br />
+          数秒後に再確認してください。
+        </p>
+
+        <div className="grid gap-3">
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={() => {
+              setState('verifying');
+              setAttempt(0);
+              setPollToken((current) => current + 1);
+            }}
+          >
+            再確認する
+          </Button>
+
+          <Link href="/">
+            <Button className="w-full" size="lg" variant="secondary">
+              ダッシュボードへ
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
