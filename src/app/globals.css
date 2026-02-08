@@ -84,6 +84,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+
 /* Display font for headings */
 .font-display {
   font-family: var(--font-display);
