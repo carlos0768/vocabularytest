@@ -256,11 +256,9 @@ export default function HomePage() {
       setProjects(data);
 
       if (data.length === 0) {
-        // If auth is still loading, don't show empty state yet — the user might be Pro
-        // and the real data will come from Supabase after auth completes.
-        if (authLoading) {
-          return;
-        }
+        // Always stop loading spinner — if auth is still pending and user is Pro,
+        // the auth-resolved useEffect will trigger a reload with remote data.
+        setLoading(false);
         setTotalWords(0);
         setAllFavoriteWords([]);
         setProjectFavoriteCounts({});
@@ -400,11 +398,12 @@ export default function HomePage() {
       prevSubscriptionStatusRef.current = subscriptionStatus;
 
       if (isFirstAuthLoad) {
-        // First auth resolution
+        // First auth resolution — always reload for Pro (needs remote data)
+        // For free users, reload if no projects were found in eager load
         if (isPro) {
           loadProjects(true);
-        } else if (!hasEagerLoadedRef.current) {
-          loadProjects();
+        } else if (projects.length === 0) {
+          loadProjects(true);
         }
       } else if (statusChanged) {
         // Subscription status actually changed (e.g., upgraded/downgraded)
