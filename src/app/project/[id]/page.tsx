@@ -105,9 +105,15 @@ export default function ProjectDetailPage() {
         if (loadedProject) {
           setProject(loadedProject);
           setActiveRepository(localRepository);
-          const localWords = await localRepository.getWords(projectId);
-          setWords(localWords);
           setLoading(false);
+          void (async () => {
+            try {
+              const localWords = await localRepository.getWords(projectId);
+              setWords(localWords);
+            } catch (error) {
+              console.error('Initial local words load failed:', error);
+            }
+          })();
         }
       } catch (e) {
         console.error('Local load failed:', e);
@@ -121,8 +127,6 @@ export default function ProjectDetailPage() {
 
     (async () => {
       try {
-        const userId = isPro && user ? user.id : getGuestUserId();
-
         // For non-Pro users, if local already loaded, we're done
         if (!user) {
           // Still need to handle case where local didn't find anything
@@ -140,6 +144,27 @@ export default function ProjectDetailPage() {
         }
 
         // Pro user: try remote for latest data
+        let showedLocalProject = false;
+        try {
+          const localProject = await localRepository.getProject(projectId);
+          if (localProject) {
+            setProject(localProject);
+            setActiveRepository(localRepository);
+            setLoading(false);
+            showedLocalProject = true;
+            void (async () => {
+              try {
+                const localWords = await localRepository.getWords(projectId);
+                setWords(localWords);
+              } catch (error) {
+                console.error('Local Pro words preload failed:', error);
+              }
+            })();
+          }
+        } catch (e) {
+          console.error('Local Pro project preload failed:', e);
+        }
+
         let remoteProject: Project | undefined;
         try {
           remoteProject = await remoteRepository.getProject(projectId);
@@ -150,16 +175,30 @@ export default function ProjectDetailPage() {
         if (remoteProject) {
           setProject(remoteProject);
           setActiveRepository(remoteRepository);
-          const remoteWords = await remoteRepository.getWords(projectId);
-          setWords(remoteWords);
-        } else if (!project) {
+          setLoading(false);
+          void (async () => {
+            try {
+              const remoteWords = await remoteRepository.getWords(projectId);
+              setWords(remoteWords);
+            } catch (error) {
+              console.error('Remote words load failed:', error);
+            }
+          })();
+        } else if (!showedLocalProject) {
           // Remote didn't have it either, try default repository as last resort
           const fallback = await defaultRepository.getProject(projectId);
           if (fallback) {
             setProject(fallback);
             setActiveRepository(defaultRepository);
-            const fallbackWords = await defaultRepository.getWords(projectId);
-            setWords(fallbackWords);
+            setLoading(false);
+            void (async () => {
+              try {
+                const fallbackWords = await defaultRepository.getWords(projectId);
+                setWords(fallbackWords);
+              } catch (error) {
+                console.error('Fallback words load failed:', error);
+              }
+            })();
           }
         }
       } catch (error) {

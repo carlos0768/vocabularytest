@@ -14,8 +14,10 @@ import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
 import { ScanJobNotifications } from '@/components/scan/ScanJobNotification';
 import { getRepository } from '@/lib/db';
+import { hybridRepository } from '@/lib/db/hybrid-repository';
 import { LocalWordRepository } from '@/lib/db/local-repository';
-import { RemoteWordRepository, remoteRepository } from '@/lib/db/remote-repository';
+import { remoteRepository } from '@/lib/db/remote-repository';
+import { getWordsByProjectMap, mergeProjectsById } from '@/lib/projects/load-helpers';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
@@ -218,9 +220,23 @@ export default function HomePage() {
 
       // 2. LOCAL FIRST: Always try IndexedDB first for instant display
       const guestId = getGuestUserId();
+      const syncedUserId = hybridRepository.getSyncedUserId();
+      const localCandidateUserIds = [
+        ...new Set([user?.id, syncedUserId, guestId].filter((id): id is string => Boolean(id))),
+      ];
       let localData: Project[] = [];
       try {
-        localData = await localRepo.getProjects(guestId);
+        const localProjectGroups = await Promise.all(
+          localCandidateUserIds.map(async (candidateUserId) => {
+            try {
+              return await localRepo.getProjects(candidateUserId);
+            } catch (error) {
+              console.error(`[Home] Local fetch failed for ${candidateUserId}:`, error);
+              return [];
+            }
+          })
+        );
+        localData = mergeProjectsById(localProjectGroups.flat());
       } catch (e) {
         console.error('Local fetch failed:', e);
       }
@@ -254,6 +270,9 @@ export default function HomePage() {
       }
       
       setProjects(data);
+      if (!hasCache && data.length > 0) {
+        setLoading(false);
+      }
 
       if (data.length === 0) {
         // Always stop loading spinner — if auth is still pending and user is Pro,
@@ -272,12 +291,9 @@ export default function HomePage() {
       // Only fetch: current project words + total word count
       const firstProject = data[0];
 
-      let firstProjectWords: Word[] = [];
-      let total: number;
-
       // Phase 1: Only first project words (1 query) → show UI immediately
-      firstProjectWords = await activeRepo.getWords(firstProject.id);
-      total = firstProjectWords.length; // Approximate; Phase 2 gets exact count
+      const firstProjectWords = await activeRepo.getWords(firstProject.id);
+      const total = firstProjectWords.length; // Approximate; Phase 2 gets exact count
 
       // Show UI immediately — merge with existing cache to avoid zeroing out other projects
       setWords(firstProjectWords);
@@ -303,23 +319,7 @@ export default function HomePage() {
       setTimeout(async () => {
         try {
           const projectIds = data.map(p => p.id);
-          let fullWordsCache: Record<string, Word[]>;
-
-          if (capturedRepository instanceof RemoteWordRepository) {
-            // Pro: 1 Supabase query with IN clause
-            fullWordsCache = await capturedRepository.getAllWordsByProjectIds(projectIds);
-          } else if (capturedRepository instanceof LocalWordRepository) {
-            // Free: 1 IndexedDB query with anyOf
-            fullWordsCache = await capturedRepository.getAllWordsByProject(projectIds);
-          } else {
-            // Fallback: parallel individual queries
-            const wordPromises = data.map(project => capturedRepository.getWords(project.id));
-            const allProjectWords = await Promise.all(wordPromises);
-            fullWordsCache = {};
-            data.forEach((project, index) => {
-              fullWordsCache[project.id] = allProjectWords[index];
-            });
-          }
+          const fullWordsCache = await getWordsByProjectMap(capturedRepository, projectIds);
 
           const allFavorites: Word[] = [];
           const favoriteCounts: Record<string, number> = {};

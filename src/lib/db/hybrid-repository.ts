@@ -118,10 +118,18 @@ export class HybridWordRepository implements WordRepository {
         await db.projects.bulkPut(mergedProjects);
       }
 
-      // 7. Sync words for each project
-      for (const project of mergedProjects) {
-        const remoteWords = await remoteRepository.getWords(project.id);
-        await db.words.where('projectId').equals(project.id).delete();
+      // 7. Sync words in bulk to avoid project-by-project N+1 fetches
+      const mergedProjectIds = mergedProjects.map((project) => project.id);
+      const localProjectIds = localProjects.map((project) => project.id);
+      const wordsProjectIdsToReplace = [...new Set([...localProjectIds, ...mergedProjectIds])];
+
+      if (wordsProjectIdsToReplace.length > 0) {
+        await db.words.where('projectId').anyOf(wordsProjectIdsToReplace).delete();
+      }
+
+      if (mergedProjectIds.length > 0) {
+        const remoteWordsByProject = await remoteRepository.getAllWordsByProjectIds(mergedProjectIds);
+        const remoteWords = mergedProjectIds.flatMap((projectId) => remoteWordsByProject[projectId] ?? []);
         if (remoteWords.length > 0) {
           await db.words.bulkPut(remoteWords);
         }
