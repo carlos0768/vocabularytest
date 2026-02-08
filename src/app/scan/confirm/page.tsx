@@ -240,8 +240,12 @@ export default function ConfirmPage() {
       // Invalidate home page cache so it fetches fresh data
       invalidateHomeCache();
 
-      // Navigate directly to home (project detail is integrated into home page)
-      router.push('/');
+      // Navigate back: to the project page if adding to existing, otherwise home
+      if (isAddingToExisting && existingProjectId) {
+        router.push(`/project/${existingProjectId}`);
+      } else {
+        router.push('/');
+      }
     } catch (error) {
       console.error('Save error:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);

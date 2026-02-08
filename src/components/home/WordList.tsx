@@ -118,6 +118,7 @@ interface WordListProps {
   onDelete: (wordId: string) => void;
   onToggleFavorite: (wordId: string) => void;
   onAddClick?: () => void;
+  onScanClick?: () => void;
   showProjectName?: boolean;
 }
 
@@ -130,9 +131,11 @@ export function WordList({
   onDelete,
   onToggleFavorite,
   onAddClick,
+  onScanClick,
   showProjectName = false,
 }: WordListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Filter words by search query
   const filteredWords = useMemo(() => {
@@ -159,16 +162,49 @@ export function WordList({
           </div>
         </div>
         {onAddClick && (
-          <button
-            onClick={() => {
-              onAddClick();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary)]/90 transition-colors"
-            aria-label="単語を追加"
-          >
-            <Icon name="add" size={16} />
-            追加
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (onScanClick) {
+                  setShowAddMenu(prev => !prev);
+                } else {
+                  onAddClick();
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary)]/90 transition-colors"
+              aria-label="単語を追加"
+            >
+              <Icon name="add" size={16} />
+              追加
+            </button>
+            {showAddMenu && onScanClick && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+                <div className="absolute right-0 top-full mt-2 w-48 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl shadow-lg z-50 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setShowAddMenu(false);
+                      onScanClick();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-surface)] transition-colors text-left"
+                  >
+                    <Icon name="photo_camera" size={18} className="text-[var(--color-primary)]" />
+                    <span className="text-sm font-medium text-[var(--color-foreground)]">スキャンで追加</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddMenu(false);
+                      onAddClick();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-surface)] transition-colors text-left border-t border-[var(--color-border-light)]"
+                  >
+                    <Icon name="edit" size={18} className="text-[var(--color-muted)]" />
+                    <span className="text-sm font-medium text-[var(--color-foreground)]">手動で入力</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 

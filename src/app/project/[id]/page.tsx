@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
-import { DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
+import { DeleteConfirmModal, AppShell, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { StudyModeCard, WordList } from '@/components/home';
@@ -14,8 +15,15 @@ import { getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
+import { processImageFile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, Word, SubscriptionStatus } from '@/types';
+import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+
+const ScanModeModal = dynamic(
+  () => import('@/components/home/ScanModeModal').then(mod => ({ default: mod.ScanModeModal })),
+  { ssr: false }
+);
 
 const tabs = [
   { id: 'study', label: '学習' },
@@ -66,6 +74,15 @@ export default function ProjectDetailPage() {
   const [showEditNameModal, setShowEditNameModal] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [editNameSaving, setEditNameSaving] = useState(false);
+
+  // Scan-to-add state
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showScanModeModal, setShowScanModeModal] = useState(false);
+  const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
+  const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
+  const [processing, setProcessing] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
+  const scanFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load from local IndexedDB immediately (no auth needed), then update from remote
   const hasLocalLoadedRef = useRef(false);
@@ -152,6 +169,167 @@ export default function ProjectDetailPage() {
       }
     })();
   }, [authLoading, isPro, user, defaultRepository, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scan-to-add handlers
+  const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
+    if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
+      setShowScanModeModal(false);
+      router.push('/subscription');
+      return;
+    }
+    setSelectedScanMode(mode);
+    setSelectedEikenLevel(eikenLevel);
+    scanFileInputRef.current?.click();
+  };
+
+  const handleScanFiles = async (files: File[]) => {
+    setShowScanModeModal(false);
+    if (!files.length || !project) return;
+
+    // Set existing project id so /scan/confirm adds to this project
+    sessionStorage.setItem('scanvocab_existing_project_id', project.id);
+    sessionStorage.removeItem('scanvocab_project_name');
+
+    const totalFiles = files.length;
+    setProcessing(true);
+
+    if (totalFiles === 1) {
+      // Single file flow
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'active' },
+        { id: 'analyze', label: '文字を解析中...', status: 'pending' },
+      ]);
+
+      try {
+        const processedFile = await processImageFile(files[0]);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            if (!result || !result.includes(',')) {
+              reject(new Error('画像データの読み取りに失敗しました'));
+              return;
+            }
+            resolve(result);
+          };
+          reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
+          reader.readAsDataURL(processedFile);
+        });
+
+        setProcessingSteps([
+          { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+          { id: 'analyze', label: '文字を解析中...', status: 'active' },
+        ]);
+
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, mode: selectedScanMode, eikenLevel: selectedEikenLevel }),
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '解析に失敗しました');
+        }
+
+        sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
+        router.push('/scan/confirm');
+        setProcessing(false);
+      } catch (error) {
+        console.error('Scan error:', error);
+        setProcessingSteps(prev => prev.map(s =>
+          s.status === 'active' || s.status === 'pending'
+            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
+            : s
+        ));
+      }
+    } else {
+      // Multi-file flow
+      const initialSteps: ProgressStep[] = files.map((_, i) => ({
+        id: `file-${i}`,
+        label: `画像 ${i + 1}/${totalFiles} を処理中...`,
+        status: i === 0 ? 'active' : 'pending',
+      }));
+      setProcessingSteps(initialSteps);
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allWords: any[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+          setProcessingSteps(prev => prev.map((s, idx) => ({
+            ...s,
+            status: idx < i ? 'complete' : idx === i ? 'active' : 'pending',
+            label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
+          })));
+
+          let processedFile: File;
+          try {
+            processedFile = await processImageFile(files[i]);
+          } catch {
+            setProcessingSteps(prev => prev.map((s, idx) => ({
+              ...s,
+              status: idx === i ? 'error' : s.status,
+              label: idx === i ? `画像 ${i + 1}: 処理エラー` : s.label,
+            })));
+            continue;
+          }
+
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              if (!result || !result.includes(',')) {
+                reject(new Error('読み取り失敗'));
+                return;
+              }
+              resolve(result);
+            };
+            reader.onerror = () => reject(new Error('読み取り失敗'));
+            reader.readAsDataURL(processedFile);
+          });
+
+          const response = await fetch('/api/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64, mode: selectedScanMode, eikenLevel: selectedEikenLevel }),
+          });
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            setProcessingSteps(prev => prev.map((s, idx) => ({
+              ...s,
+              status: idx === i ? 'error' : s.status,
+              label: idx === i ? `画像 ${i + 1}: エラー` : s.label,
+            })));
+            continue;
+          }
+
+          allWords.push(...result.words);
+          setProcessingSteps(prev => prev.map((s, idx) => ({
+            ...s,
+            status: idx === i ? 'complete' : s.status,
+            label: idx === i ? `画像 ${i + 1}/${totalFiles} 完了` : s.label,
+          })));
+        }
+
+        if (allWords.length === 0) {
+          throw new Error('画像から単語を読み取れませんでした');
+        }
+
+        sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
+        router.push('/scan/confirm');
+        setProcessing(false);
+      } catch (error) {
+        console.error('Scan error:', error);
+        setProcessingSteps(prev => prev.map(s =>
+          s.status === 'active' || s.status === 'pending'
+            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
+            : s
+        ));
+      }
+    }
+  };
 
   const handleDeleteWord = (wordId: string) => {
     setDeleteWordTargetId(wordId);
@@ -505,6 +683,7 @@ export default function ProjectDetailPage() {
                 onDelete={(wordId) => handleDeleteWord(wordId)}
                 onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
                 onAddClick={() => setShowManualWordModal(true)}
+                onScanClick={() => setShowScanModeModal(true)}
               />
             </section>
           )}
@@ -609,6 +788,73 @@ export default function ProjectDetailPage() {
                 {editNameSaving ? '保存中...' : '保存'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Hidden file input for scan-to-add */}
+      <input
+        ref={scanFileInputRef}
+        type="file"
+        accept="image/*,.heic,.heif,.pdf,application/pdf"
+        multiple
+        onChange={(e) => {
+          setShowScanModeModal(false);
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            handleScanFiles(Array.from(files));
+          }
+          e.target.value = '';
+        }}
+        className="hidden"
+      />
+
+      <ScanModeModal
+        isOpen={showScanModeModal}
+        onClose={() => setShowScanModeModal(false)}
+        onSelectMode={handleScanModeSelect}
+        isPro={isPro}
+      />
+
+      {/* Processing modal */}
+      {processing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 w-full max-w-sm">
+            <h2 className="text-base font-bold text-center text-[var(--color-foreground)] mb-4">
+              スキャン中...
+            </h2>
+            <div className="space-y-3">
+              {processingSteps.map((step) => (
+                <div key={step.id} className="flex items-center gap-3">
+                  {step.status === 'active' && (
+                    <Icon name="progress_activity" size={18} className="animate-spin text-[var(--color-primary)]" />
+                  )}
+                  {step.status === 'complete' && (
+                    <Icon name="check_circle" size={18} className="text-[var(--color-success)]" />
+                  )}
+                  {step.status === 'pending' && (
+                    <Icon name="radio_button_unchecked" size={18} className="text-[var(--color-muted)]" />
+                  )}
+                  {step.status === 'error' && (
+                    <Icon name="error" size={18} className="text-[var(--color-error)]" />
+                  )}
+                  <span className={`text-sm ${
+                    step.status === 'error' ? 'text-[var(--color-error)]' :
+                    step.status === 'active' ? 'text-[var(--color-foreground)] font-medium' :
+                    'text-[var(--color-muted)]'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {processingSteps.some(s => s.status === 'error') && (
+              <button
+                onClick={() => { setProcessing(false); setProcessingSteps([]); }}
+                className="mt-4 w-full px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
+              >
+                閉じる
+              </button>
+            )}
           </div>
         </div>
       )}
