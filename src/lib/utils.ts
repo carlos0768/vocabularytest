@@ -426,9 +426,9 @@ export function recordDailyActivity(isCorrect: boolean): void {
     });
   }
 
-  // Keep only last 60 days to prevent localStorage bloat
+  // Keep only last 180 days to cover 12-week calendar and buffer
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 60);
+  cutoffDate.setDate(cutoffDate.getDate() - 180);
   const cutoffStr = cutoffDate.toISOString().split('T')[0];
   history = history.filter(h => h.date >= cutoffStr);
 
