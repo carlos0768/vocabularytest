@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
@@ -13,12 +14,56 @@ type VerificationState = 'verifying' | 'confirmed' | 'delayed' | 'failed';
 
 function SuccessContent() {
   const { refresh } = useAuth();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session_id');
   const [state, setState] = useState<VerificationState>('verifying');
   const [attempt, setAttempt] = useState(0);
   const [pollToken, setPollToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+
+    const isBillingConfirmed = (subscription: {
+      isActivePro?: boolean;
+      proSource?: string;
+    } | undefined): boolean => {
+      return Boolean(subscription?.isActivePro && subscription.proSource === 'billing');
+    };
+
+    const verifySubscription = async (): Promise<'confirmed' | 'pending' | 'failed'> => {
+      const meResponse = await fetch('/api/subscription/me', { cache: 'no-store' });
+      if (meResponse.ok) {
+        const meResult = await meResponse.json();
+        if (isBillingConfirmed(meResult?.subscription)) {
+          return 'confirmed';
+        }
+      }
+
+      if (!sessionId) {
+        return 'pending';
+      }
+
+      const reconcileResponse = await fetch(
+        `/api/subscription/reconcile?session_id=${encodeURIComponent(sessionId)}`,
+        { cache: 'no-store' }
+      );
+
+      if (!reconcileResponse.ok) {
+        if (reconcileResponse.status >= 400 && reconcileResponse.status < 500) {
+          return 'failed';
+        }
+        return 'pending';
+      }
+
+      const reconcileResult = await reconcileResponse.json();
+      if (reconcileResult?.state === 'confirmed') {
+        return 'confirmed';
+      }
+      if (reconcileResult?.state === 'failed') {
+        return 'failed';
+      }
+      return 'pending';
+    };
 
     const verifyWithPolling = async () => {
       for (let i = 1; i <= MAX_ATTEMPTS; i += 1) {
@@ -28,24 +73,19 @@ function SuccessContent() {
 
         setAttempt(i);
 
-        const response = await fetch('/api/subscription/me', { cache: 'no-store' });
-        if (response.ok) {
-          const result = await response.json();
-          const subscription = result?.subscription as
-            | {
-                isActivePro?: boolean;
-                proSource?: string;
-              }
-            | undefined;
-
-          if (subscription?.isActivePro && subscription.proSource === 'billing') {
-            await refresh();
-            if (cancelled) {
-              return;
-            }
-            setState('confirmed');
+        const result = await verifySubscription();
+        if (result === 'confirmed') {
+          await refresh();
+          if (cancelled) {
             return;
           }
+          setState('confirmed');
+          return;
+        }
+
+        if (result === 'failed') {
+          setState('failed');
+          return;
         }
 
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
@@ -70,7 +110,7 @@ function SuccessContent() {
     return () => {
       cancelled = true;
     };
-  }, [pollToken, refresh]);
+  }, [pollToken, refresh, sessionId]);
 
   if (state === 'verifying') {
     return (

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
-import { createCustomer, createSubscription, KOMOJU_CONFIG, verifyWebhookSignature } from '@/lib/komoju';
+import { KOMOJU_CONFIG, verifyWebhookSignature } from '@/lib/komoju';
+import { activateBillingFromSession } from '@/lib/subscription/billing-activation';
 
 type JsonRecord = Record<string, unknown>;
 type WebhookEvent = {
@@ -48,10 +49,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (!signature) {
+      console.error('[KOMOJU webhook] signature missing', {
+        path: request.nextUrl.pathname,
+        requestId: request.headers.get('x-vercel-id'),
+      });
       throw new WebhookError('Signature missing', 401);
     }
 
     if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
+      console.error('[KOMOJU webhook] invalid signature', {
+        path: request.nextUrl.pathname,
+        requestId: request.headers.get('x-vercel-id'),
+        signatureLength: signature.length,
+      });
       throw new WebhookError('Invalid signature', 401);
     }
 
@@ -188,122 +198,22 @@ async function handlePaymentCaptured(
     throw new WebhookError('Missing session id', 400);
   }
 
-  const { data: session, error: sessionError } = await supabaseAdmin
-    .from('subscription_sessions')
-    .select('id, user_id, plan_id, used_at, komoju_customer_id, komoju_subscription_id')
-    .eq('id', sessionId)
-    .single();
-
-  if (sessionError || !session) {
-    throw new WebhookError('Unknown session id', 400);
-  }
-
-  if (session.used_at) {
-    console.log('payment.captured already processed for session:', sessionId);
-    return;
-  }
-
-  if (session.user_id !== userId) {
-    throw new WebhookError('Session user mismatch', 400);
-  }
-
-  if (session.plan_id !== planConfig.id) {
-    throw new WebhookError('Session plan mismatch', 400);
-  }
-
   const metadataCustomerId = metadata ? getStringField(metadata, 'customer_id') : null;
-  let customerId = extractCustomerId(data) || session.komoju_customer_id || metadataCustomerId;
+  const customerIdFromEvent = extractCustomerId(data);
 
-  if (!customerId) {
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
-    const email = userData?.user?.email ?? null;
-    if (userError || !email) {
-      throw new WebhookError('Missing customer id and user email', 400);
-    }
-    const createdCustomer = await createCustomer(email, {
-      user_id: userId,
-      plan: 'pro',
-    });
-    customerId = createdCustomer.id;
-  }
+  await activateBillingFromSession(supabaseAdmin, {
+    sessionId,
+    userId,
+    customerIdFromEvent,
+    customerIdFromMetadata: metadataCustomerId,
+    context: 'webhook',
+  });
 
-  let komojuSubscriptionId = session.komoju_subscription_id as string | null;
-
-  if (!komojuSubscriptionId) {
-    const { data: existingSubscription, error: existingSubscriptionError } = await supabaseAdmin
-      .from('subscriptions')
-      .select('komoju_subscription_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (existingSubscriptionError) {
-      throw existingSubscriptionError;
-    }
-
-    komojuSubscriptionId = existingSubscription?.komoju_subscription_id ?? null;
-  }
-
-  if (!komojuSubscriptionId) {
-    const createdSubscription = await createSubscription(customerId, {
-      user_id: userId,
-      plan: 'pro',
-      plan_id: planConfig.id,
-      session_id: sessionId,
-    });
-    komojuSubscriptionId = createdSubscription.id;
-  }
-
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const periodStartIso = nowIso;
-  const periodEndIso = addOneMonth(now).toISOString();
-
-  const { error: sessionMetaError } = await supabaseAdmin
-    .from('subscription_sessions')
-    .update({
-      komoju_customer_id: customerId,
-      komoju_subscription_id: komojuSubscriptionId,
-    })
-    .eq('id', sessionId);
-
-  if (sessionMetaError) {
-    console.error('Failed to persist session metadata:', sessionMetaError);
-    throw sessionMetaError;
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from('subscriptions')
-    .update({
-      status: 'active',
-      plan: 'pro',
-      pro_source: 'billing',
-      test_pro_expires_at: null,
-      komoju_customer_id: customerId,
-      komoju_subscription_id: komojuSubscriptionId,
-      current_period_start: periodStartIso,
-      current_period_end: periodEndIso,
-      cancel_at_period_end: false,
-      cancel_requested_at: null,
-      updated_at: nowIso,
-    })
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('Failed to update subscription:', updateError);
-    throw updateError;
-  }
-
-  const { error: markError } = await supabaseAdmin
-    .from('subscription_sessions')
-    .update({ used_at: nowIso })
-    .eq('id', sessionId);
-
-  if (markError) {
-    console.error('Failed to mark session as used:', markError);
-    throw markError;
-  }
-
-  console.log(`Pro plan activated for user: ${userId}`);
+  console.log('[KOMOJU webhook] billing activated', {
+    userId,
+    sessionId,
+    eventType: 'payment.captured',
+  });
 }
 
 async function handlePaymentRefunded(
@@ -589,6 +499,12 @@ function extractPeriodEndIso(data: JsonRecord): string | null {
   );
 }
 
+function addOneMonth(base: Date): Date {
+  const periodEnd = new Date(base);
+  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  return periodEnd;
+}
+
 function toIsoTimestamp(value: unknown): string | null {
   if (value === null || value === undefined) {
     return null;
@@ -613,12 +529,6 @@ function toIsoTimestamp(value: unknown): string | null {
   }
 
   return null;
-}
-
-function addOneMonth(base: Date): Date {
-  const periodEnd = new Date(base);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-  return periodEnd;
 }
 
 function hashPayload(payload: string): string {
