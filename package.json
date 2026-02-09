@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/komoju/client.test.ts src/lib/subscription/status.test.ts src/lib/db/remote-repository.test.ts src/lib/db/hybrid-repository.test.ts src/lib/projects/load-helpers.test.ts src/lib/stats/calendar.test.ts"
+    "test": "tsx --test src/lib/komoju/client.test.ts src/lib/subscription/status.test.ts src/lib/subscription/reconcile-status.test.ts src/lib/subscription/billing-activation.test.ts src/lib/db/remote-repository.test.ts src/lib/db/hybrid-repository.test.ts src/lib/projects/load-helpers.test.ts src/lib/stats/calendar.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.38.0",

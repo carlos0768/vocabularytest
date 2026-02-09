@@ -3,11 +3,19 @@ import { createSubscription, getSession, KOMOJU_CONFIG, type KomojuSession } fro
 
 type ActivationContext = 'webhook' | 'reconcile';
 
+export const BILLING_ACTIVATION_ERRORS = {
+  ACTIVATION_IN_PROGRESS: 'Activation in progress',
+  MISSING_CUSTOMER_ID: 'Missing customer id from KOMOJU session',
+  SESSION_CANCELLED: 'Session cancelled',
+} as const;
+
 export type ActivateBillingParams = {
   sessionId: string;
   userId: string;
   customerIdFromEvent?: string | null;
   customerIdFromMetadata?: string | null;
+  subscriptionIdFromEvent?: string | null;
+  eventType?: string | null;
   context: ActivationContext;
 };
 
@@ -18,6 +26,7 @@ export type ActivateBillingResult = {
   sessionId: string;
   komojuCustomerId: string;
   komojuSubscriptionId: string;
+  skippedReason?: 'already_succeeded' | 'in_progress';
 };
 
 type SessionRow = {
@@ -27,10 +36,22 @@ type SessionRow = {
   used_at: string | null;
   komoju_customer_id: string | null;
   komoju_subscription_id: string | null;
+  status: string;
+};
+
+type SessionClaimRow = {
+  id: string;
+  status: string;
+  used_at: string | null;
+  komoju_customer_id: string | null;
+  komoju_subscription_id: string | null;
+  should_process: boolean;
+  claim_reason: string;
 };
 
 type SubscriptionRow = {
   komoju_subscription_id: string | null;
+  komoju_customer_id: string | null;
 };
 
 function addOneMonth(base: Date): Date {
@@ -45,13 +66,36 @@ function ensurePlanId(planId: string) {
   }
 }
 
+function pickFirstString(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+
+function normalizeClaimReason(
+  value: string
+): 'claim_granted' | 'already_succeeded' | 'cancelled' | 'in_progress' {
+  if (
+    value === 'claim_granted' ||
+    value === 'already_succeeded' ||
+    value === 'cancelled' ||
+    value === 'in_progress'
+  ) {
+    return value;
+  }
+  return 'in_progress';
+}
+
 async function getSessionRow(
   supabaseAdmin: SupabaseClient,
   sessionId: string
 ): Promise<SessionRow> {
   const { data, error } = await supabaseAdmin
     .from('subscription_sessions')
-    .select('id, user_id, plan_id, used_at, komoju_customer_id, komoju_subscription_id')
+    .select('id, user_id, plan_id, used_at, komoju_customer_id, komoju_subscription_id, status')
     .eq('id', sessionId)
     .single();
 
@@ -62,7 +106,59 @@ async function getSessionRow(
   return data as SessionRow;
 }
 
-function getCustomerIdFromSessionPayload(session: KomojuSession): string | null {
+async function claimSessionForActivation(
+  supabaseAdmin: SupabaseClient,
+  sessionId: string,
+  userId: string
+): Promise<SessionClaimRow> {
+  const { data, error } = await supabaseAdmin.rpc('claim_subscription_session', {
+    p_session_id: sessionId,
+    p_user_id: userId,
+    p_stale_after_seconds: 300,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    throw new Error('Failed to claim subscription session');
+  }
+
+  return row as SessionClaimRow;
+}
+
+async function getExistingSubscriptionRow(
+  supabaseAdmin: SupabaseClient,
+  userId: string
+): Promise<SubscriptionRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from('subscriptions')
+    .select('komoju_subscription_id, komoju_customer_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as SubscriptionRow | null) ?? null;
+}
+
+export function resolveSubscriptionIdCandidate(
+  subscriptionIdFromEvent: string | null | undefined,
+  sessionSubscriptionId: string | null | undefined,
+  existingSubscriptionId: string | null | undefined
+): string | null {
+  return pickFirstString(
+    subscriptionIdFromEvent,
+    sessionSubscriptionId,
+    existingSubscriptionId
+  );
+}
+
+export function extractCustomerIdFromSessionPayload(session: KomojuSession): string | null {
   if (typeof session.customer_id === 'string' && session.customer_id) {
     return session.customer_id;
   }
@@ -109,7 +205,7 @@ async function ensureCustomerId(
 
   try {
     const session = await getSession(sessionId);
-    const customerId = getCustomerIdFromSessionPayload(session);
+    const customerId = extractCustomerIdFromSessionPayload(session);
     if (customerId) {
       return customerId;
     }
@@ -120,7 +216,7 @@ async function ensureCustomerId(
     });
   }
 
-  throw new Error('Missing customer id from KOMOJU session');
+  throw new Error(BILLING_ACTIVATION_ERRORS.MISSING_CUSTOMER_ID);
 }
 
 async function ensureBillingSubscriptionId(
@@ -128,35 +224,37 @@ async function ensureBillingSubscriptionId(
   userId: string,
   sessionId: string,
   customerId: string,
+  subscriptionIdFromEvent: string | null,
   sessionSubscriptionId: string | null
 ): Promise<string> {
-  if (sessionSubscriptionId) {
-    return sessionSubscriptionId;
+  const existingSubscription = await getExistingSubscriptionRow(supabaseAdmin, userId);
+  const existingSubscriptionId = existingSubscription?.komoju_subscription_id ?? null;
+
+  const resolvedSubscriptionId = resolveSubscriptionIdCandidate(
+    subscriptionIdFromEvent,
+    sessionSubscriptionId,
+    existingSubscriptionId
+  );
+  if (resolvedSubscriptionId) {
+    return resolvedSubscriptionId;
   }
 
-  const { data: existingSubscription, error: existingSubscriptionError } = await supabaseAdmin
-    .from('subscriptions')
-    .select('komoju_subscription_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (existingSubscriptionError) {
-    throw existingSubscriptionError;
+  try {
+    const createdSubscription = await createSubscription(customerId, {
+      user_id: userId,
+      plan: 'pro',
+      plan_id: KOMOJU_CONFIG.plans.pro.id,
+      session_id: sessionId,
+    });
+    return createdSubscription.id;
+  } catch (error) {
+    // If another processor created it concurrently, read back once before failing.
+    const postCreateRow = await getExistingSubscriptionRow(supabaseAdmin, userId);
+    if (postCreateRow?.komoju_subscription_id) {
+      return postCreateRow.komoju_subscription_id;
+    }
+    throw error;
   }
-
-  const subscriptionRow = existingSubscription as SubscriptionRow | null;
-  if (subscriptionRow?.komoju_subscription_id) {
-    return subscriptionRow.komoju_subscription_id;
-  }
-
-  const createdSubscription = await createSubscription(customerId, {
-    user_id: userId,
-    plan: 'pro',
-    plan_id: KOMOJU_CONFIG.plans.pro.id,
-    session_id: sessionId,
-  });
-
-  return createdSubscription.id;
 }
 
 export async function activateBillingFromSession(
@@ -169,9 +267,48 @@ export async function activateBillingFromSession(
   }
   ensurePlanId(session.plan_id);
 
+  const claim = await claimSessionForActivation(supabaseAdmin, params.sessionId, params.userId);
+  const claimReason = normalizeClaimReason(claim.claim_reason);
+  if (!claim.should_process) {
+    if (claimReason === 'cancelled') {
+      throw new Error(BILLING_ACTIVATION_ERRORS.SESSION_CANCELLED);
+    }
+
+    const existingSubscription = await getExistingSubscriptionRow(supabaseAdmin, params.userId);
+    const existingCustomerId = pickFirstString(
+      claim.komoju_customer_id,
+      existingSubscription?.komoju_customer_id,
+      params.customerIdFromEvent,
+      params.customerIdFromMetadata
+    );
+    const existingSubscriptionId = pickFirstString(
+      claim.komoju_subscription_id,
+      existingSubscription?.komoju_subscription_id,
+      params.subscriptionIdFromEvent
+    );
+
+    if (!existingCustomerId || !existingSubscriptionId) {
+      throw new Error(BILLING_ACTIVATION_ERRORS.ACTIVATION_IN_PROGRESS);
+    }
+
+    return {
+      activated: false,
+      alreadyProcessed: true,
+      skippedReason: claimReason === 'in_progress' ? 'in_progress' : 'already_succeeded',
+      userId: params.userId,
+      sessionId: params.sessionId,
+      komojuCustomerId: existingCustomerId,
+      komojuSubscriptionId: existingSubscriptionId,
+    };
+  }
+
   const customerId = await ensureCustomerId(
     params.sessionId,
-    params.customerIdFromEvent ?? session.komoju_customer_id ?? params.customerIdFromMetadata ?? null
+    pickFirstString(
+      params.customerIdFromEvent,
+      session.komoju_customer_id,
+      params.customerIdFromMetadata
+    )
   );
 
   const komojuSubscriptionId = await ensureBillingSubscriptionId(
@@ -179,6 +316,7 @@ export async function activateBillingFromSession(
     params.userId,
     params.sessionId,
     customerId,
+    params.subscriptionIdFromEvent ?? null,
     session.komoju_subscription_id
   );
 
@@ -186,18 +324,6 @@ export async function activateBillingFromSession(
   const nowIso = now.toISOString();
   const periodStartIso = nowIso;
   const periodEndIso = addOneMonth(now).toISOString();
-
-  const { error: sessionMetaError } = await supabaseAdmin
-    .from('subscription_sessions')
-    .update({
-      komoju_customer_id: customerId,
-      komoju_subscription_id: komojuSubscriptionId,
-    })
-    .eq('id', params.sessionId);
-
-  if (sessionMetaError) {
-    throw sessionMetaError;
-  }
 
   const { error: updateError } = await supabaseAdmin
     .from('subscriptions')
@@ -220,15 +346,23 @@ export async function activateBillingFromSession(
     throw updateError;
   }
 
-  if (!session.used_at) {
-    const { error: markError } = await supabaseAdmin
-      .from('subscription_sessions')
-      .update({ used_at: nowIso })
-      .eq('id', params.sessionId);
+  const { error: sessionUpdateError } = await supabaseAdmin
+    .from('subscription_sessions')
+    .update({
+      komoju_customer_id: customerId,
+      komoju_subscription_id: komojuSubscriptionId,
+      used_at: session.used_at ?? nowIso,
+      status: 'succeeded',
+      failure_code: null,
+      failure_message: null,
+      last_event_type: params.eventType ?? session.status ?? null,
+      processing_started_at: null,
+      updated_at: nowIso,
+    })
+    .eq('id', params.sessionId);
 
-    if (markError) {
-      throw markError;
-    }
+  if (sessionUpdateError) {
+    throw sessionUpdateError;
   }
 
   console.log('[BillingActivation] completed', {

@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       .select('idempotency_key, created_at')
       .eq('user_id', user.id)
       .eq('plan_id', planId)
+      .eq('status', 'pending')
       .is('used_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         plan: 'pro',
         plan_id: planId,
+        idempotency_key: idempotencyKey,
         ...(customerId ? { customer_id: customerId } : {}),
       },
     });
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
         plan_id: planId,
         komoju_customer_id: customerId,
         idempotency_key: idempotencyKey,
+        status: 'pending',
       });
 
     if (sessionError && sessionError.code !== '23505') {
