@@ -23,8 +23,11 @@ const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成者で�
 
 【禁止事項】
 - 正解の類義語や、その英単語が持つ「別の正しい意味」を誤答に含めない
+- 正解と意味が近い・似ている選択肢は絶対に避ける（例: 「祝う」と「祝福する」、「捧げる」と「献上する」は類義語なのでNG）
+- 誤答同士も意味が被らないようにする
+- 正解のテキストを誤答の中に重複して含めない（同じ訳が2回出るのはNG）
 - フォーマットや長さが明らかに異なる誤答を生成しない
-- 正解と紛らわしすぎる選択肢は避ける（学習者が混乱するため）
+- 3つの誤答はそれぞれ全く異なるジャンル・分野の意味にする
 
 【例文ルール】
 - 各単語に対して1つの例文を生成
@@ -145,15 +148,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate each result has 3 distractors
+    // Validate each result has 3 distractors and remove duplicates
+    const inputMap = new Map(words.map((w) => [w.id, w]));
     const validResults = parsed.results
       .filter((r) => r.id && Array.isArray(r.distractors) && r.distractors.length === 3)
-      .map((r) => ({
-        wordId: r.id,
-        distractors: r.distractors,
-        exampleSentence: r.exampleSentence || '',
-        exampleSentenceJa: r.exampleSentenceJa || '',
-      }));
+      .map((r) => {
+        const word = inputMap.get(r.id);
+        let distractors = r.distractors;
+
+        if (word) {
+          // Remove distractors that are identical or too similar to the correct answer
+          const correctAnswer = word.japanese.trim().toLowerCase();
+          distractors = distractors.filter((d) => {
+            const dLower = d.trim().toLowerCase();
+            // Exact match check
+            if (dLower === correctAnswer) return false;
+            // Check if distractor is contained in correct answer or vice versa
+            if (correctAnswer.includes(dLower) || dLower.includes(correctAnswer)) return false;
+            return true;
+          });
+
+          // Remove duplicate distractors
+          distractors = [...new Set(distractors)];
+
+          // If we lost distractors, pad with generic ones
+          const fallbacks = ['（該当なし）', '（不明）', '（未定義）'];
+          let fallbackIdx = 0;
+          while (distractors.length < 3 && fallbackIdx < fallbacks.length) {
+            distractors.push(fallbacks[fallbackIdx++]);
+          }
+        }
+
+        return {
+          wordId: r.id,
+          distractors: distractors.slice(0, 3),
+          exampleSentence: r.exampleSentence || '',
+          exampleSentenceJa: r.exampleSentenceJa || '',
+        };
+      });
 
     // Save example sentences to DB for logged-in users
     const examplesForDb = validResults.filter(r => r.exampleSentence);
