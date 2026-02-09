@@ -19,6 +19,9 @@ export const MarkerColorSchema = z.enum([
   'orange',
   'blue',
   'purple',
+  'red',
+  'black',
+  'pen',
   'unknown',
 ]).default('unknown');
 
