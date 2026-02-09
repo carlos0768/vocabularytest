@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createCustomer, createSubscription, KOMOJU_CONFIG } from '@/lib/komoju';
+import { createSubscription, getSession, KOMOJU_CONFIG, type KomojuSession } from '@/lib/komoju';
 
 type ActivationContext = 'webhook' | 'reconcile';
 
@@ -62,27 +62,65 @@ async function getSessionRow(
   return data as SessionRow;
 }
 
+function getCustomerIdFromSessionPayload(session: KomojuSession): string | null {
+  if (typeof session.customer_id === 'string' && session.customer_id) {
+    return session.customer_id;
+  }
+
+  if (typeof session.customer === 'string' && session.customer) {
+    return session.customer;
+  }
+
+  if (session.customer && typeof session.customer === 'object') {
+    const customerObjectId = typeof session.customer.id === 'string' ? session.customer.id : null;
+    if (customerObjectId) {
+      return customerObjectId;
+    }
+  }
+
+  if (typeof session.payment?.customer === 'string' && session.payment.customer) {
+    return session.payment.customer;
+  }
+
+  if (typeof session.payment?.customer_id === 'string' && session.payment.customer_id) {
+    return session.payment.customer_id;
+  }
+
+  const metadataCustomerId = session.metadata?.customer_id;
+  if (typeof metadataCustomerId === 'string' && metadataCustomerId) {
+    return metadataCustomerId;
+  }
+
+  const paymentMetadataCustomerId = session.payment?.metadata?.customer_id;
+  if (typeof paymentMetadataCustomerId === 'string' && paymentMetadataCustomerId) {
+    return paymentMetadataCustomerId;
+  }
+
+  return null;
+}
+
 async function ensureCustomerId(
-  supabaseAdmin: SupabaseClient,
-  userId: string,
+  sessionId: string,
   candidateCustomerId: string | null
 ): Promise<string> {
   if (candidateCustomerId) {
     return candidateCustomerId;
   }
 
-  const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
-  const email = userData?.user?.email ?? null;
-  if (userError || !email) {
-    throw new Error('Missing customer id and user email');
+  try {
+    const session = await getSession(sessionId);
+    const customerId = getCustomerIdFromSessionPayload(session);
+    if (customerId) {
+      return customerId;
+    }
+  } catch (error) {
+    console.error('[BillingActivation] failed to fetch session for customer recovery', {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
-  const createdCustomer = await createCustomer(email, {
-    user_id: userId,
-    plan: 'pro',
-  });
-
-  return createdCustomer.id;
+  throw new Error('Missing customer id from KOMOJU session');
 }
 
 async function ensureBillingSubscriptionId(
@@ -132,8 +170,7 @@ export async function activateBillingFromSession(
   ensurePlanId(session.plan_id);
 
   const customerId = await ensureCustomerId(
-    supabaseAdmin,
-    params.userId,
+    params.sessionId,
     params.customerIdFromEvent ?? session.komoju_customer_id ?? params.customerIdFromMetadata ?? null
   );
 

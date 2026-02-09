@@ -34,10 +34,19 @@ function getString(record: JsonRecord | null, key: string): string | null {
 function isPaymentCaptured(status: string | null): boolean {
   if (!status) return false;
   const normalized = status.toLowerCase();
-  return normalized === 'captured' || normalized === 'completed' || normalized === 'paid';
+  return (
+    normalized === 'captured' ||
+    normalized === 'completed' ||
+    normalized === 'complete' ||
+    normalized === 'paid'
+  );
 }
 
 function extractCustomerIdFromSession(session: Awaited<ReturnType<typeof getSession>>): string | null {
+  if (typeof session.customer_id === 'string' && session.customer_id) {
+    return session.customer_id;
+  }
+
   if (typeof session.customer === 'string' && session.customer) {
     return session.customer;
   }
@@ -51,6 +60,10 @@ function extractCustomerIdFromSession(session: Awaited<ReturnType<typeof getSess
 
   if (session.payment?.customer && typeof session.payment.customer === 'string') {
     return session.payment.customer;
+  }
+
+  if (session.payment?.customer_id && typeof session.payment.customer_id === 'string') {
+    return session.payment.customer_id;
   }
 
   return null;
@@ -205,13 +218,25 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    await activateBillingFromSession(supabaseAdmin, {
-      sessionId,
-      userId: user.id,
-      customerIdFromEvent: extractCustomerIdFromSession(komojuSession),
-      customerIdFromMetadata: metadataCustomerId,
-      context: 'reconcile',
-    });
+    try {
+      await activateBillingFromSession(supabaseAdmin, {
+        sessionId,
+        userId: user.id,
+        customerIdFromEvent: extractCustomerIdFromSession(komojuSession),
+        customerIdFromMetadata: metadataCustomerId,
+        context: 'reconcile',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('Missing customer id')) {
+        return NextResponse.json({
+          success: true,
+          state: 'pending',
+          reason: 'customer_not_ready',
+        });
+      }
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,

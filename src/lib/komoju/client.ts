@@ -71,7 +71,8 @@ export interface KomojuSession {
   currency: string;
   session_url: string;
   return_url: string;
-  status: 'created' | 'completed' | 'expired';
+  status: 'created' | 'pending' | 'completed' | 'complete' | 'cancelled' | 'expired';
+  customer_id?: string;
   metadata?: Record<string, string | number | boolean | null>;
   customer?:
     | string
@@ -82,6 +83,7 @@ export interface KomojuSession {
     id: string;
     status: string;
     customer?: string;
+    customer_id?: string;
     session_id?: string;
     metadata?: Record<string, string | number | boolean | null>;
   };
