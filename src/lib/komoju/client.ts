@@ -72,9 +72,18 @@ export interface KomojuSession {
   session_url: string;
   return_url: string;
   status: 'created' | 'completed' | 'expired';
+  metadata?: Record<string, string | number | boolean | null>;
+  customer?:
+    | string
+    | {
+        id?: string;
+      };
   payment?: {
     id: string;
     status: string;
+    customer?: string;
+    session_id?: string;
+    metadata?: Record<string, string | number | boolean | null>;
   };
 }
 
@@ -149,6 +158,10 @@ export async function createSubscriptionSession(
       },
     }),
   });
+}
+
+export async function getSession(sessionId: string): Promise<KomojuSession> {
+  return komojuRequest<KomojuSession>(`/sessions/${sessionId}`);
 }
 
 // Create subscription with existing customer
