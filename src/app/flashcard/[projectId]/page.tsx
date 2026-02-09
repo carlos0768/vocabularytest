@@ -472,7 +472,7 @@ export default function FlashcardPage() {
   const handleOpenDictionary = () => {
     if (currentWord?.english) {
       const encoded = encodeURIComponent(currentWord.english);
-      const url = "https://ejje.weblio.jp/content/" + encoded;
+      const url = "https://eow.alc.co.jp/search?q=" + encoded;
       window.open(url, '_blank');
     }
   };
