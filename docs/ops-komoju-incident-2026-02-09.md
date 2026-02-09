@@ -29,3 +29,12 @@
 - Webhook経路の正常化に加え、
   `session_id` を使った **reconcile API** を追加し、Webhook不達時でも成功画面から安全に回復可能にする。
 - Webhookとreconcileで同じアクティベーション処理を共通化し、二重処理を防ぐ。
+
+## 追加で判明した不具合（Vercelログ）
+- `SubscriptionReconcile` 実行中に `missing_parameter: payment_details` が発生。
+- 直接原因は、顧客IDを拾えなかった場合に `createCustomer` を呼ぶフォールバック実装。
+- KOMOJU `POST /customers` は `payment_details` 必須のため、`email` だけの作成は失敗する。
+
+### 修正方針
+- 顧客IDは `session.customer_id` / `session.customer` / `session.payment.customer(_id)` から回収する。
+- 顧客IDが取れない場合は新規顧客作成を試みず、`pending` として再試行に回す。
