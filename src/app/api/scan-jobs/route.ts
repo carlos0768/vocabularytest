@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
       .from('scan_jobs')
       .select('*')
       .eq('user_id', user.id)
-      .in('status', ['completed', 'pending', 'processing'])
+      .in('status', ['completed', 'pending', 'processing', 'failed'])
       .order('created_at', { ascending: false })
       .limit(10);
 

@@ -13,6 +13,10 @@ interface AggregatedNotification {
   jobIds: string[];
   /** True only when every job in this project group is completed */
   allComplete: boolean;
+  /** True if any job in this group failed */
+  hasFailed: boolean;
+  /** Error message from the first failed job */
+  errorMessage: string | null;
 }
 
 interface ScanJobNotificationProps {
@@ -22,6 +26,7 @@ interface ScanJobNotificationProps {
 
 export function ScanJobNotification({ notification, onDismiss }: ScanJobNotificationProps) {
   const router = useRouter();
+  const isFailed = notification.hasFailed;
 
   const handleView = () => {
     if (notification.projectId) {
@@ -34,33 +39,45 @@ export function ScanJobNotification({ notification, onDismiss }: ScanJobNotifica
     <div className="fixed bottom-20 left-4 right-4 z-50 animate-slide-up lg:left-auto lg:right-6 lg:bottom-6 lg:w-96">
       <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-lg p-4">
         <div className="flex items-start gap-3">
-          {/* Success icon */}
-          <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center flex-shrink-0">
-            <Icon name="check_circle" size={24} className="text-[var(--color-success)]" />
+          {/* Icon */}
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+            isFailed ? 'bg-red-100 dark:bg-red-900/20' : 'bg-[var(--color-success-light)]'
+          }`}>
+            <Icon
+              name={isFailed ? 'error' : 'check_circle'}
+              size={24}
+              className={isFailed ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}
+            />
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-[var(--color-foreground)] mb-1">
-              スキャン完了！
+              {isFailed ? 'スキャン失敗' : 'スキャン完了！'}
             </h3>
             <p className="text-sm text-[var(--color-muted)] mb-3">
-              「{notification.projectTitle}」に{notification.totalWordCount}語追加されました
+              {isFailed
+                ? `「${notification.projectTitle}」のスキャンに失敗しました。もう一度お試しください。`
+                : `「${notification.projectTitle}」に${notification.totalWordCount}語追加されました`
+              }
             </p>
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={handleView}
-                className="flex-1"
-              >
-                確認する
-              </Button>
+              {!isFailed && (
+                <Button
+                  size="sm"
+                  onClick={handleView}
+                  className="flex-1"
+                >
+                  確認する
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={onDismiss}
+                className={isFailed ? 'flex-1' : ''}
               >
                 閉じる
               </Button>
@@ -105,19 +122,25 @@ export function ScanJobNotifications({ jobs, onDismiss }: ScanJobNotificationsPr
     if (existing) {
       existing.totalWordCount += wordCount;
       existing.jobIds.push(job.id);
-      if (job.status !== 'completed') existing.allComplete = false;
+      if (job.status === 'failed') {
+        existing.hasFailed = true;
+        if (!existing.errorMessage) existing.errorMessage = job.error_message;
+      }
+      if (job.status !== 'completed' && job.status !== 'failed') existing.allComplete = false;
     } else {
       groupMap.set(key, {
         projectId: job.project_id,
         projectTitle: job.project_title,
         totalWordCount: wordCount,
         jobIds: [job.id],
-        allComplete: job.status === 'completed',
+        allComplete: job.status === 'completed' || job.status === 'failed',
+        hasFailed: job.status === 'failed',
+        errorMessage: job.status === 'failed' ? job.error_message : null,
       });
     }
   }
 
-  // Only show notifications for groups where all jobs are complete
+  // Show notifications for groups where all jobs are finished (completed or failed)
   const readyNotifications = Array.from(groupMap.values()).filter(n => n.allComplete);
   if (readyNotifications.length === 0) return null;
 
