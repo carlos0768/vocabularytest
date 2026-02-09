@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { activateBillingFromSession } from '@/lib/subscription/billing-activation';
+import {
+  activateBillingFromSession,
+  BILLING_ACTIVATION_ERRORS,
+} from '@/lib/subscription/billing-activation';
 import { getSession, KOMOJU_CONFIG } from '@/lib/komoju';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription } from '@/lib/subscription/status';
+import { classifyPaymentStatus } from '@/lib/subscription/reconcile-status';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -29,17 +33,6 @@ function getString(record: JsonRecord | null, key: string): string | null {
   if (!record) return null;
   const value = record[key];
   return typeof value === 'string' ? value : null;
-}
-
-function isPaymentCaptured(status: string | null): boolean {
-  if (!status) return false;
-  const normalized = status.toLowerCase();
-  return (
-    normalized === 'captured' ||
-    normalized === 'completed' ||
-    normalized === 'complete' ||
-    normalized === 'paid'
-  );
 }
 
 function extractCustomerIdFromSession(session: Awaited<ReturnType<typeof getSession>>): string | null {
@@ -69,12 +62,69 @@ function extractCustomerIdFromSession(session: Awaited<ReturnType<typeof getSess
   return null;
 }
 
+function extractFailureCodeFromSession(session: Awaited<ReturnType<typeof getSession>>): string | null {
+  const payment = asRecord(session.payment ?? null);
+  const sessionRecord = asRecord(session);
+  return (
+    getString(payment, 'failure_code') ??
+    getString(payment, 'error_code') ??
+    getString(sessionRecord, 'failure_code') ??
+    getString(sessionRecord, 'error_code')
+  );
+}
+
+function extractFailureMessageFromSession(
+  session: Awaited<ReturnType<typeof getSession>>
+): string | null {
+  const payment = asRecord(session.payment ?? null);
+  const sessionRecord = asRecord(session);
+  return (
+    getString(payment, 'failure_message') ??
+    getString(payment, 'error_message') ??
+    getString(sessionRecord, 'failure_message') ??
+    getString(sessionRecord, 'error_message') ??
+    getString(sessionRecord, 'message')
+  );
+}
+
+async function markSessionFailed(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+  sessionId: string,
+  paymentStatus: string | null,
+  failureCode: string | null,
+  failureMessage: string | null
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('subscription_sessions')
+    .update({
+      status: 'failed',
+      failure_code: failureCode,
+      failure_message: failureMessage,
+      last_event_type: paymentStatus ? `reconcile:${paymentStatus}` : 'reconcile:failed',
+      processing_started_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .is('used_at', null)
+    .neq('status', 'succeeded')
+    .neq('status', 'cancelled');
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const sessionId = request.nextUrl.searchParams.get('session_id');
     if (!sessionId) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'session_id is required' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'invalid_request',
+          error: 'session_id is required',
+        },
         { status: 400 }
       );
     }
@@ -87,7 +137,12 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'ログインが必要です' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'unauthorized',
+          error: 'ログインが必要です',
+        },
         { status: 401 }
       );
     }
@@ -122,6 +177,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         state: 'confirmed',
+        reason: 'already_active',
         source: 'existing',
       });
     }
@@ -129,7 +185,9 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
     const { data: sessionRow, error: sessionRowError } = await supabaseAdmin
       .from('subscription_sessions')
-      .select('id, user_id, used_at, komoju_customer_id, komoju_subscription_id, plan_id')
+      .select(
+        'id, user_id, used_at, komoju_customer_id, komoju_subscription_id, plan_id, status, failure_code, failure_message, last_event_type'
+      )
       .eq('id', sessionId)
       .maybeSingle();
 
@@ -139,16 +197,46 @@ export async function GET(request: NextRequest) {
 
     if (!sessionRow) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'unknown session id' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'unknown_session',
+          error: 'unknown session id',
+        },
         { status: 404 }
       );
     }
 
     if (sessionRow.user_id !== user.id) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'forbidden session id' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'forbidden_session',
+          error: 'forbidden session id',
+        },
         { status: 403 }
       );
+    }
+
+    if (sessionRow.status === 'failed') {
+      return NextResponse.json({
+        success: true,
+        state: 'failed',
+        reason: 'payment_failed',
+        paymentStatus: 'failed',
+        failureCode: sessionRow.failure_code ?? null,
+        failureMessage: sessionRow.failure_message ?? null,
+      });
+    }
+
+    if (sessionRow.status === 'cancelled') {
+      return NextResponse.json({
+        success: true,
+        state: 'failed',
+        reason: 'session_cancelled',
+        paymentStatus: 'cancelled',
+      });
     }
 
     let komojuSession: Awaited<ReturnType<typeof getSession>>;
@@ -164,19 +252,30 @@ export async function GET(request: NextRequest) {
         success: true,
         state: 'pending',
         reason: 'komoju_session_fetch_failed',
+        paymentStatus: null,
       });
     }
 
     if (komojuSession.amount !== KOMOJU_CONFIG.plans.pro.price) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'amount mismatch' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'amount_mismatch',
+          error: 'amount mismatch',
+        },
         { status: 409 }
       );
     }
 
     if ((komojuSession.currency || '').toUpperCase() !== KOMOJU_CONFIG.plans.pro.currency.toUpperCase()) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'currency mismatch' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'currency_mismatch',
+          error: 'currency mismatch',
+        },
         { status: 409 }
       );
     }
@@ -189,32 +288,65 @@ export async function GET(request: NextRequest) {
 
     if (metadataUserId && metadataUserId !== user.id) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'metadata user mismatch' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'metadata_user_mismatch',
+          error: 'metadata user mismatch',
+        },
         { status: 409 }
       );
     }
 
     if (metadataPlan && metadataPlan !== 'pro') {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'metadata plan mismatch' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'metadata_plan_mismatch',
+          error: 'metadata plan mismatch',
+        },
         { status: 409 }
       );
     }
 
     if (metadataPlanId && metadataPlanId !== KOMOJU_CONFIG.plans.pro.id) {
       return NextResponse.json(
-        { success: false, state: 'failed', error: 'metadata plan_id mismatch' },
+        {
+          success: false,
+          state: 'failed',
+          reason: 'metadata_plan_id_mismatch',
+          error: 'metadata plan_id mismatch',
+        },
         { status: 409 }
       );
     }
 
     const paymentStatus = komojuSession.payment?.status ?? komojuSession.status ?? null;
-    if (!isPaymentCaptured(paymentStatus)) {
+    const classifiedPaymentState = classifyPaymentStatus(paymentStatus);
+    if (classifiedPaymentState !== 'confirmed') {
+      const failureCode = extractFailureCodeFromSession(komojuSession);
+      const failureMessage = extractFailureMessageFromSession(komojuSession);
+      if (classifiedPaymentState === 'failed') {
+        await markSessionFailed(
+          supabaseAdmin,
+          sessionId,
+          paymentStatus,
+          failureCode,
+          failureMessage
+        );
+      }
+
       return NextResponse.json({
         success: true,
-        state: 'pending',
-        reason: 'payment_not_captured',
+        state: classifiedPaymentState,
+        reason:
+          classifiedPaymentState === 'failed'
+            ? 'payment_failed'
+            : 'payment_not_captured',
         paymentStatus,
+        failureCode: classifiedPaymentState === 'failed' ? failureCode : null,
+        failureMessage: classifiedPaymentState === 'failed' ? failureMessage : null,
       });
     }
 
@@ -224,15 +356,34 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         customerIdFromEvent: extractCustomerIdFromSession(komojuSession),
         customerIdFromMetadata: metadataCustomerId,
+        subscriptionIdFromEvent: sessionRow.komoju_subscription_id ?? null,
+        eventType: 'reconcile.confirmed',
         context: 'reconcile',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes('Missing customer id')) {
+      if (message === BILLING_ACTIVATION_ERRORS.MISSING_CUSTOMER_ID) {
         return NextResponse.json({
           success: true,
           state: 'pending',
           reason: 'customer_not_ready',
+          paymentStatus,
+        });
+      }
+      if (message === BILLING_ACTIVATION_ERRORS.ACTIVATION_IN_PROGRESS) {
+        return NextResponse.json({
+          success: true,
+          state: 'pending',
+          reason: 'activation_in_progress',
+          paymentStatus,
+        });
+      }
+      if (message === BILLING_ACTIVATION_ERRORS.SESSION_CANCELLED) {
+        return NextResponse.json({
+          success: true,
+          state: 'failed',
+          reason: 'session_cancelled',
+          paymentStatus,
         });
       }
       throw error;
@@ -241,6 +392,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       state: 'confirmed',
+      reason: 'payment_confirmed',
+      paymentStatus,
       source: 'reconcile',
     });
   } catch (error) {
@@ -249,6 +402,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         state: 'failed',
+        reason: 'reconcile_internal_error',
         error: error instanceof Error ? error.message : 'reconcile failed',
       },
       { status: 500 }

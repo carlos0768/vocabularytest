@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 import { KOMOJU_CONFIG, verifyWebhookSignature } from '@/lib/komoju';
-import { activateBillingFromSession } from '@/lib/subscription/billing-activation';
+import {
+  activateBillingFromSession,
+} from '@/lib/subscription/billing-activation';
 
 type JsonRecord = Record<string, unknown>;
 type WebhookEvent = {
@@ -15,6 +17,14 @@ type WebhookClaim = {
   shouldProcess: boolean;
 };
 
+type SessionLookupRow = {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  created_at: string;
+  used_at: string | null;
+};
+
 class WebhookError extends Error {
   status: number;
 
@@ -24,7 +34,6 @@ class WebhookError extends Error {
   }
 }
 
-// Lazy initialization of Supabase admin client
 function getSupabaseAdmin(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,8 +45,6 @@ function getSupabaseAdmin(): SupabaseClient {
   return createClient(url, key);
 }
 
-// POST /api/subscription/webhook
-// Handles KOMOJU webhook events
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.text();
@@ -75,19 +82,12 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
     const eventType = getStringValue(event.type) ?? 'unknown';
     const eventId = deriveEventId(event, eventType);
-
     if (!eventId) {
       throw new WebhookError('Missing event id', 400);
     }
 
     const payloadHash = hashPayload(payload);
-    const claim = await claimWebhookEvent(
-      supabaseAdmin,
-      eventId,
-      eventType,
-      payloadHash
-    );
-
+    const claim = await claimWebhookEvent(supabaseAdmin, eventId, eventType, payloadHash);
     if (!claim.shouldProcess) {
       return NextResponse.json({ received: true });
     }
@@ -96,34 +96,32 @@ export async function POST(request: NextRequest) {
 
     try {
       const eventData = asRecord(event.data);
+      if (!eventData) {
+        throw new WebhookError('Invalid event data', 400);
+      }
 
       switch (eventType) {
         case 'payment.captured':
-          if (!eventData) {
-            throw new WebhookError('Invalid event data', 400);
-          }
           await handlePaymentCaptured(supabaseAdmin, eventData);
           break;
 
+        case 'payment.failed':
+        case 'payment.cancelled':
+        case 'payment.canceled':
+        case 'payment.expired':
+          await handlePaymentFailed(supabaseAdmin, eventData, eventType);
+          break;
+
         case 'payment.refunded':
-          if (!eventData) {
-            throw new WebhookError('Invalid event data', 400);
-          }
           await handlePaymentRefunded(supabaseAdmin, eventData);
           break;
 
         case 'subscription.captured':
-          if (!eventData) {
-            throw new WebhookError('Invalid event data', 400);
-          }
           await handleSubscriptionCaptured(supabaseAdmin, eventData);
           break;
 
         case 'subscription.canceled':
         case 'subscription.cancelled':
-          if (!eventData) {
-            throw new WebhookError('Invalid event data', 400);
-          }
           await handleSubscriptionCanceled(supabaseAdmin, eventData);
           break;
 
@@ -166,29 +164,24 @@ async function handlePaymentCaptured(
 ) {
   const metadata = asRecord(data.metadata);
   const userId = metadata ? getStringField(metadata, 'user_id') : null;
-
   if (!userId) {
     throw new WebhookError('No user_id in payment metadata', 400);
   }
 
   const planConfig = KOMOJU_CONFIG.plans.pro;
   const planId = metadata ? getStringField(metadata, 'plan_id') : null;
-
   if (metadata && getStringField(metadata, 'plan') !== 'pro') {
     throw new WebhookError('Payment is not for Pro plan', 400);
   }
-
   if (planId !== planConfig.id) {
     throw new WebhookError('Plan id mismatch', 400);
   }
 
   const amount = extractAmount(data);
   const currency = extractCurrency(data);
-
   if (amount === null || amount !== planConfig.price) {
     throw new WebhookError('Amount mismatch', 400);
   }
-
   if (!currency || currency !== planConfig.currency.toUpperCase()) {
     throw new WebhookError('Currency mismatch', 400);
   }
@@ -200,12 +193,15 @@ async function handlePaymentCaptured(
 
   const metadataCustomerId = metadata ? getStringField(metadata, 'customer_id') : null;
   const customerIdFromEvent = extractCustomerId(data);
+  const subscriptionIdFromEvent = extractSubscriptionId(data);
 
   await activateBillingFromSession(supabaseAdmin, {
     sessionId,
     userId,
     customerIdFromEvent,
     customerIdFromMetadata: metadataCustomerId,
+    subscriptionIdFromEvent,
+    eventType: 'payment.captured',
     context: 'webhook',
   });
 
@@ -213,6 +209,81 @@ async function handlePaymentCaptured(
     userId,
     sessionId,
     eventType: 'payment.captured',
+  });
+}
+
+async function handlePaymentFailed(
+  supabaseAdmin: SupabaseClient,
+  data: JsonRecord,
+  eventType: string
+) {
+  const metadata = asRecord(data.metadata);
+  const metadataUserId = metadata ? getStringField(metadata, 'user_id') : null;
+  const metadataPlanId = metadata ? getStringField(metadata, 'plan_id') : null;
+  const idempotencyKey = metadata ? getStringField(metadata, 'idempotency_key') : null;
+
+  let session = await resolveSessionById(supabaseAdmin, extractSessionId(data));
+  if (!session && idempotencyKey) {
+    session = await resolveSessionByIdempotencyKey(supabaseAdmin, idempotencyKey);
+  }
+  if (!session && metadata) {
+    const fallbackPlanId = metadataPlanId ?? KOMOJU_CONFIG.plans.pro.id;
+    session = await resolveLatestPendingSessionForUser(
+      supabaseAdmin,
+      metadataUserId,
+      fallbackPlanId,
+      120
+    );
+  }
+
+  if (!session) {
+    console.warn('[KOMOJU webhook] payment failure without resolvable session', {
+      eventType,
+      idempotencyKey,
+    });
+    return;
+  }
+
+  validateSessionWithMetadata(session, metadataUserId, metadataPlanId);
+
+  const payment = asRecord(data.payment);
+  const failureCode =
+    getStringField(data, 'failure_code') ??
+    getStringField(data, 'error_code') ??
+    (payment ? getStringField(payment, 'failure_code') : null) ??
+    (payment ? getStringField(payment, 'error_code') : null);
+  const failureMessage =
+    getStringField(data, 'failure_message') ??
+    getStringField(data, 'error_message') ??
+    getStringField(data, 'message') ??
+    (payment ? getStringField(payment, 'failure_message') : null) ??
+    (payment ? getStringField(payment, 'error_message') : null);
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from('subscription_sessions')
+    .update({
+      status: 'failed',
+      failure_code: failureCode,
+      failure_message: failureMessage,
+      last_event_type: eventType,
+      processing_started_at: null,
+      updated_at: nowIso,
+    })
+    .eq('id', session.id)
+    .is('used_at', null)
+    .neq('status', 'succeeded')
+    .neq('status', 'cancelled');
+
+  if (error) {
+    throw error;
+  }
+
+  console.log('[KOMOJU webhook] payment marked failed', {
+    sessionId: session.id,
+    userId: session.user_id,
+    eventType,
+    failureCode,
   });
 }
 
@@ -264,7 +335,6 @@ async function handlePaymentRefunded(
     .eq('user_id', userId);
 
   if (error) {
-    console.error('Failed to update subscription:', error);
     throw error;
   }
 
@@ -290,17 +360,54 @@ async function handleSubscriptionCaptured(
     throw fetchError;
   }
 
-  if (!subscriptionRow) {
-    console.log('subscription.captured ignored: unknown subscription id', komojuSubscriptionId);
-    return;
-  }
-
   const now = new Date();
   const nowIso = now.toISOString();
   const periodStartIso = extractPeriodStartIso(data) ?? nowIso;
   const periodEndIso = extractPeriodEndIso(data) ?? addOneMonth(now).toISOString();
 
-  const { error } = await supabaseAdmin
+  if (subscriptionRow) {
+    const { error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        status: 'active',
+        pro_source: 'billing',
+        test_pro_expires_at: null,
+        current_period_start: periodStartIso,
+        current_period_end: periodEndIso,
+        cancel_at_period_end: false,
+        cancel_requested_at: null,
+        updated_at: nowIso,
+      })
+      .eq('komoju_subscription_id', komojuSubscriptionId);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`Subscription period updated: ${komojuSubscriptionId}`);
+    return;
+  }
+
+  const metadata = asRecord(data.metadata);
+  const resolvedSession = await resolveSessionForSubscriptionCaptured(supabaseAdmin, data, metadata);
+  if (!resolvedSession) {
+    throw new WebhookError('Unable to resolve session for subscription.captured bootstrap', 400);
+  }
+
+  const metadataCustomerId = metadata ? getStringField(metadata, 'customer_id') : null;
+  const customerIdFromEvent = extractCustomerId(data);
+
+  await activateBillingFromSession(supabaseAdmin, {
+    sessionId: resolvedSession.id,
+    userId: resolvedSession.user_id,
+    customerIdFromEvent,
+    customerIdFromMetadata: metadataCustomerId,
+    subscriptionIdFromEvent: komojuSubscriptionId,
+    eventType: 'subscription.captured',
+    context: 'webhook',
+  });
+
+  const { error: periodError } = await supabaseAdmin
     .from('subscriptions')
     .update({
       status: 'active',
@@ -314,11 +421,15 @@ async function handleSubscriptionCaptured(
     })
     .eq('komoju_subscription_id', komojuSubscriptionId);
 
-  if (error) {
-    throw error;
+  if (periodError) {
+    throw periodError;
   }
 
-  console.log(`Subscription period updated: ${komojuSubscriptionId}`);
+  console.log('[KOMOJU webhook] subscription.captured bootstrap activated', {
+    sessionId: resolvedSession.id,
+    userId: resolvedSession.user_id,
+    komojuSubscriptionId,
+  });
 }
 
 async function handleSubscriptionCanceled(
@@ -378,6 +489,120 @@ async function handleSubscriptionCanceled(
   console.log(`Subscription cancellation updated: ${komojuSubscriptionId}`);
 }
 
+async function resolveSessionForSubscriptionCaptured(
+  supabaseAdmin: SupabaseClient,
+  data: JsonRecord,
+  metadata: JsonRecord | null
+): Promise<SessionLookupRow | null> {
+  const metadataUserId = metadata ? getStringField(metadata, 'user_id') : null;
+  const metadataPlanId = metadata ? getStringField(metadata, 'plan_id') : null;
+  const metadataIdempotencyKey = metadata ? getStringField(metadata, 'idempotency_key') : null;
+  const sessionId = extractSessionId(data);
+
+  const bySessionId = await resolveSessionById(supabaseAdmin, sessionId);
+  if (bySessionId) {
+    validateSessionWithMetadata(bySessionId, metadataUserId, metadataPlanId);
+    return bySessionId;
+  }
+
+  if (metadataIdempotencyKey) {
+    const byIdempotencyKey = await resolveSessionByIdempotencyKey(
+      supabaseAdmin,
+      metadataIdempotencyKey
+    );
+    if (byIdempotencyKey) {
+      validateSessionWithMetadata(byIdempotencyKey, metadataUserId, metadataPlanId);
+      return byIdempotencyKey;
+    }
+  }
+
+  const fallbackPlanId = metadataPlanId ?? KOMOJU_CONFIG.plans.pro.id;
+  const byUserPendingSession = await resolveLatestPendingSessionForUser(
+    supabaseAdmin,
+    metadataUserId,
+    fallbackPlanId,
+    120
+  );
+  if (byUserPendingSession) {
+    validateSessionWithMetadata(byUserPendingSession, metadataUserId, metadataPlanId);
+    return byUserPendingSession;
+  }
+
+  return null;
+}
+
+function validateSessionWithMetadata(
+  session: SessionLookupRow,
+  metadataUserId: string | null,
+  metadataPlanId: string | null
+) {
+  if (metadataUserId && session.user_id !== metadataUserId) {
+    throw new WebhookError('Session metadata user mismatch', 400);
+  }
+  if (metadataPlanId && session.plan_id !== metadataPlanId) {
+    throw new WebhookError('Session metadata plan mismatch', 400);
+  }
+}
+
+async function resolveSessionById(
+  supabaseAdmin: SupabaseClient,
+  sessionId: string | null
+): Promise<SessionLookupRow | null> {
+  if (!sessionId) return null;
+  const { data, error } = await supabaseAdmin
+    .from('subscription_sessions')
+    .select('id, user_id, plan_id, created_at, used_at')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  return (data as SessionLookupRow | null) ?? null;
+}
+
+async function resolveSessionByIdempotencyKey(
+  supabaseAdmin: SupabaseClient,
+  idempotencyKey: string
+): Promise<SessionLookupRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from('subscription_sessions')
+    .select('id, user_id, plan_id, created_at, used_at')
+    .eq('idempotency_key', idempotencyKey)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  return (data as SessionLookupRow | null) ?? null;
+}
+
+async function resolveLatestPendingSessionForUser(
+  supabaseAdmin: SupabaseClient,
+  userId: string | null,
+  planId: string,
+  maxAgeMinutes: number
+): Promise<SessionLookupRow | null> {
+  if (!userId) return null;
+  const threshold = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('subscription_sessions')
+    .select('id, user_id, plan_id, created_at, used_at')
+    .eq('user_id', userId)
+    .eq('plan_id', planId)
+    .eq('status', 'pending')
+    .is('used_at', null)
+    .gte('created_at', threshold)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  return (data as SessionLookupRow | null) ?? null;
+}
+
 function deriveEventId(event: WebhookEvent, eventType: string): string | null {
   const eventId = getStringValue(event.id);
   if (eventId) {
@@ -391,7 +616,6 @@ function deriveEventId(event: WebhookEvent, eventType: string): string | null {
     (data ? getStringField(data, 'payment_id') : null) ||
     (data ? getStringField(data, 'id') : null) ||
     (payment ? getStringField(payment, 'payment_id') : null);
-
   if (paymentId) {
     return `payment:${eventType || 'unknown'}:${paymentId}`;
   }
@@ -461,7 +685,6 @@ function extractCustomerId(data: JsonRecord): string | null {
 
 function extractSubscriptionId(data: JsonRecord): string | null {
   const subscription = asRecord(data.subscription);
-
   if (subscription) {
     const subscriptionId =
       getStringField(subscription, 'id') ??
