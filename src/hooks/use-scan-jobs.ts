@@ -39,11 +39,11 @@ export function useScanJobs() {
 
       if (response.ok) {
         const data = await response.json();
-        // Filter to only completed jobs that haven't been acknowledged
-        const completed = (data.jobs || []).filter(
-          (job: ScanJob) => job.status === 'completed'
+        // Filter to completed or failed jobs that haven't been acknowledged
+        const finished = (data.jobs || []).filter(
+          (job: ScanJob) => job.status === 'completed' || job.status === 'failed'
         );
-        setCompletedJobs(completed);
+        setCompletedJobs(finished);
       }
     } catch (error) {
       console.error('Failed to fetch scan jobs:', error);
