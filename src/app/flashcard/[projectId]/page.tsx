@@ -471,7 +471,9 @@ export default function FlashcardPage() {
   // Open dictionary (Weblio)
   const handleOpenDictionary = () => {
     if (currentWord?.english) {
-      window.open(`https://ejje.weblio.jp/content/${encodeURIComponent(currentWord.english)}`, '_blank');
+      const encoded = encodeURIComponent(currentWord.english);
+      const url = "https://ejje.weblio.jp/content/" + encoded;
+      window.open(url, '_blank');
     }
   };
 
