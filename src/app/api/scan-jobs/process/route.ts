@@ -6,6 +6,7 @@ import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-w
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { AI_CONFIG } from '@/lib/ai/config';
+import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
 
 // Lazy initialization to avoid build-time errors
@@ -176,13 +177,37 @@ export async function POST(request: NextRequest) {
         example_sentence_ja: word.exampleSentenceJa || null,
       }));
 
-      const { error: wordsError } = await getSupabaseAdmin()
+      const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
         .from('words')
-        .insert(wordsToInsert);
+        .insert(wordsToInsert)
+        .select('id, english, japanese');
 
       if (wordsError) {
         await getSupabaseAdmin().from('projects').delete().eq('id', newProject.id);
         throw new Error('Failed to insert words');
+      }
+
+      // Generate embeddings for semantic search (fire and forget - don't block completion)
+      if (insertedWords && insertedWords.length > 0) {
+        try {
+          const texts = insertedWords.map((w: { english: string; japanese: string }) =>
+            `${w.english} - ${w.japanese}`
+          );
+          const embeddings = await batchGenerateEmbeddings(texts);
+
+          for (let i = 0; i < insertedWords.length; i++) {
+            if (embeddings[i]) {
+              await getSupabaseAdmin().rpc('update_word_embedding', {
+                word_id: insertedWords[i].id,
+                new_embedding: embeddings[i],
+              });
+            }
+          }
+          console.log(`Generated embeddings for ${insertedWords.length} words`);
+        } catch (embeddingError) {
+          // Don't fail the scan if embedding generation fails
+          console.error('Embedding generation failed (non-critical):', embeddingError);
+        }
       }
 
       await getSupabaseAdmin()
