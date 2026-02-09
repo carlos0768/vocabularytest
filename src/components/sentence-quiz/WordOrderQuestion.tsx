@@ -7,6 +7,7 @@ import type { WordOrderQuestion as WordOrderQuestionType } from '@/types';
 
 interface WordOrderQuestionProps {
   question: WordOrderQuestionType;
+  questionIndex: number;
   onAnswer: (isCorrect: boolean) => void;
 }
 
@@ -21,17 +22,17 @@ interface DragState {
   currentY: number;
 }
 
-export function WordOrderQuestion({ question, onAnswer }: WordOrderQuestionProps) {
+export function WordOrderQuestion({ question, questionIndex, onAnswer }: WordOrderQuestionProps) {
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
   const [remainingWords, setRemainingWords] = useState<string[]>(question.shuffledWords);
   const [isRevealed, setIsRevealed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 問題が変わったら状態をリセット
-  const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
-  if (question.wordId !== currentQuestionId) {
-    setCurrentQuestionId(question.wordId);
+  // 問題が変わったら状態をリセット（indexベースで重複wordIdにも対応）
+  const [currentIdx, setCurrentIdx] = useState(questionIndex);
+  if (questionIndex !== currentIdx) {
+    setCurrentIdx(questionIndex);
     setSelectedWords([]);
     setRemainingWords(question.shuffledWords);
     setIsRevealed(false);

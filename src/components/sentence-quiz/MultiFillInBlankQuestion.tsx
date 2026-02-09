@@ -6,10 +6,11 @@ import type { MultiFillInBlankQuestion as MultiFillInBlankQuestionType, Enhanced
 
 interface MultiFillInBlankQuestionProps {
   question: MultiFillInBlankQuestionType;
+  questionIndex: number;
   onAnswer: (isCorrect: boolean) => void;
 }
 
-export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlankQuestionProps) {
+export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: MultiFillInBlankQuestionProps) {
   // 各空欄の選択状態
   const [selectedOptions, setSelectedOptions] = useState<Record<number, string | null>>({});
   // 現在アクティブな空欄のインデックス
@@ -23,11 +24,11 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
   // 連打防止
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 問題が変わったら状態をリセット
-  const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
+  // 問題が変わったら状態をリセット（indexベースで重複wordIdにも対応）
+  const [currentIdx, setCurrentIdx] = useState(questionIndex);
   useEffect(() => {
-    if (question.wordId !== currentQuestionId) {
-      setCurrentQuestionId(question.wordId);
+    if (questionIndex !== currentIdx) {
+      setCurrentIdx(questionIndex);
       setSelectedOptions({});
       setCurrentBlankIndex(0);
       setIsRevealed(false);
@@ -35,7 +36,7 @@ export function MultiFillInBlankQuestion({ question, onAnswer }: MultiFillInBlan
       setBlankResults({});
       setIsSubmitting(false);
     }
-  }, [question.wordId, currentQuestionId]);
+  }, [questionIndex, currentIdx]);
 
   const blanks = question.blanks;
 

@@ -6,19 +6,20 @@ import type { FillInBlankQuestion as FillInBlankQuestionType } from '@/types';
 
 interface FillInBlankQuestionProps {
   question: FillInBlankQuestionType;
+  questionIndex: number;
   onAnswer: (isCorrect: boolean) => void;
 }
 
-export function FillInBlankQuestion({ question, onAnswer }: FillInBlankQuestionProps) {
+export function FillInBlankQuestion({ question, questionIndex, onAnswer }: FillInBlankQuestionProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 問題が変わったら状態をリセット
-  const [currentQuestionId, setCurrentQuestionId] = useState(question.wordId);
-  if (question.wordId !== currentQuestionId) {
-    setCurrentQuestionId(question.wordId);
+  // 問題が変わったら状態をリセット（indexベースで重複wordIdにも対応）
+  const [currentIndex, setCurrentIndex] = useState(questionIndex);
+  if (questionIndex !== currentIndex) {
+    setCurrentIndex(questionIndex);
     setSelectedOption(null);
     setIsRevealed(false);
     setIsCorrect(false);

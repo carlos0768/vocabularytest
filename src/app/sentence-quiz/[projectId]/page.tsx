@@ -388,16 +388,19 @@ export default function SentenceQuizPage() {
         {currentQuestion.type === 'multi-fill-in-blank' ? (
           <MultiFillInBlankQuestion
             question={currentQuestion}
+            questionIndex={currentIndex}
             onAnswer={handleAnswer}
           />
         ) : currentQuestion.type === 'fill-in-blank' ? (
           <FillInBlankQuestion
             question={currentQuestion}
+            questionIndex={currentIndex}
             onAnswer={handleAnswer}
           />
         ) : (
           <WordOrderQuestion
             question={currentQuestion}
+            questionIndex={currentIndex}
             onAnswer={handleAnswer}
           />
         )}
