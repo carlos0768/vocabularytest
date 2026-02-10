@@ -125,3 +125,41 @@ test('getSession fetches KOMOJU session by id', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('cancelSubscription deletes KOMOJU subscription by id', async () => {
+  process.env.KOMOJU_SECRET_KEY = 'sk_test_dummy';
+
+  const calls: FetchCall[] = [];
+  const originalFetch = global.fetch;
+  global.fetch = (async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        id: 'sub_test_123',
+        resource: 'subscription',
+        status: 'deleted',
+        amount: 500,
+        currency: 'JPY',
+        period: 'monthly',
+        customer: 'cust_123',
+        created_at: '2026-02-09T00:00:00.000Z',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }) as typeof fetch;
+
+  try {
+    const { cancelSubscription } = await importFreshClientModule();
+    const subscription = await cancelSubscription('sub_test_123');
+
+    assert.equal(calls.length, 1);
+    assert.equal(String(calls[0].input), 'https://komoju.com/api/v1/subscriptions/sub_test_123');
+    assert.equal(calls[0].init?.method, 'DELETE');
+    assert.equal(subscription.status, 'deleted');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

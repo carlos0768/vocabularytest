@@ -124,7 +124,7 @@ export interface CreateSubscriptionParams {
 export interface KomojuSubscription {
   id: string;
   resource: 'subscription';
-  status: 'active' | 'cancelled' | 'past_due' | 'pending' | 'retrying' | 'suspended';
+  status: 'active' | 'cancelled' | 'past_due' | 'pending' | 'retrying' | 'suspended' | 'deleted';
   amount: number;
   currency: string;
   period: 'weekly' | 'monthly' | 'yearly';
@@ -196,10 +196,9 @@ export async function getSubscription(
 export async function cancelSubscription(
   subscriptionId: string
 ): Promise<KomojuSubscription> {
-  return komojuRequest<KomojuSubscription>(
-    `/subscriptions/${subscriptionId}/cancel`,
-    { method: 'POST' }
-  );
+  return komojuRequest<KomojuSubscription>(`/subscriptions/${subscriptionId}`, {
+    method: 'DELETE',
+  });
 }
 
 // ============================================

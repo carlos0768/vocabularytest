@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon, Button, AppShell } from '@/components/ui';
@@ -13,10 +14,14 @@ type Theme = 'light' | 'dark' | 'system';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, subscription, isPro, signOut, loading: authLoading, isAuthenticated } = useAuth();
+  const { user, subscription, isPro, signOut, refresh, loading: authLoading, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
   const { count: wordCount, loading: wordCountLoading } = useWordCount();
   const hasCancellationScheduled = !!subscription?.cancelAtPeriodEnd;
+  const isBillingPro = isPro && subscription?.proSource === 'billing';
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
 
   // Save settings
   const updateTheme = (newTheme: Theme) => {
@@ -26,6 +31,37 @@ export default function SettingsPage() {
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
+  };
+
+  const handleCancelAtPeriodEnd = async () => {
+    const shouldProceed = window.confirm(
+      '期間末で解約しますか？現在の契約期間が終了するまでPro機能は利用できます。'
+    );
+    if (!shouldProceed) return;
+
+    setIsCancelling(true);
+    setCancelError(null);
+    setCancelSuccess(null);
+
+    try {
+      const response = await fetch('/api/subscription/cancel', { method: 'POST' });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error ?? '解約処理に失敗しました');
+      }
+
+      await refresh();
+      setCancelSuccess(
+        typeof result.message === 'string'
+          ? result.message
+          : '期間末解約を受け付けました。'
+      );
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : '解約処理に失敗しました');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const themeLabels: Record<Theme, string> = {
@@ -190,10 +226,39 @@ export default function SettingsPage() {
                       解約予約済みです。期間終了日までPro機能を利用できます。
                     </p>
                   </div>
+                ) : isBillingPro ? (
+                  <div className="space-y-3">
+                    <div className="bg-[var(--color-warning)]/10 rounded-2xl p-4 border border-[var(--color-warning)]/30">
+                      <p className="text-sm text-[var(--color-foreground)]">
+                        解約後も現在の契約期間が終了するまではPro機能を利用できます。
+                      </p>
+                    </div>
+
+                    {cancelError && (
+                      <div className="bg-[var(--color-error-light)] rounded-2xl p-3 border border-[var(--color-error)]/30">
+                        <p className="text-sm text-[var(--color-error)]">{cancelError}</p>
+                      </div>
+                    )}
+
+                    {cancelSuccess && (
+                      <div className="bg-[var(--color-success-light)] rounded-2xl p-3 border border-[var(--color-success)]/30">
+                        <p className="text-sm text-[var(--color-success)]">{cancelSuccess}</p>
+                      </div>
+                    )}
+
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={handleCancelAtPeriodEnd}
+                      disabled={isCancelling}
+                    >
+                      {isCancelling ? '処理中...' : '期間末で解約する'}
+                    </Button>
+                  </div>
                 ) : (
-                  <div className="bg-[var(--color-warning)]/10 rounded-2xl p-4 border border-[var(--color-warning)]/30">
-                    <p className="text-sm text-[var(--color-foreground)]">
-                      現在、アプリからの解約は受け付けていません。Proは継続利用できます。
+                  <div className="bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)]">
+                    <p className="text-sm text-[var(--color-muted)]">
+                      現在のProは課金サブスクリプションではないため、解約操作は不要です。
                     </p>
                   </div>
                 )}
