@@ -25,6 +25,11 @@ type SessionLookupRow = {
   used_at: string | null;
 };
 
+type SubscriptionLookupRow = {
+  user_id: string;
+  current_period_end: string | null;
+};
+
 class WebhookError extends Error {
   status: number;
 
@@ -352,7 +357,7 @@ async function handleSubscriptionCaptured(
 
   const { data: subscriptionRow, error: fetchError } = await supabaseAdmin
     .from('subscriptions')
-    .select('user_id')
+    .select('user_id, status, plan, pro_source, current_period_end')
     .eq('komoju_subscription_id', komojuSubscriptionId)
     .maybeSingle();
 
@@ -441,9 +446,9 @@ async function handleSubscriptionCanceled(
     throw new WebhookError('Missing subscription id', 400);
   }
 
-  const { data: subscriptionRow, error: fetchError } = await supabaseAdmin
+  const { data: subscriptionRowRaw, error: fetchError } = await supabaseAdmin
     .from('subscriptions')
-    .select('user_id')
+    .select('user_id, current_period_end')
     .eq('komoju_subscription_id', komojuSubscriptionId)
     .maybeSingle();
 
@@ -451,24 +456,33 @@ async function handleSubscriptionCanceled(
     throw fetchError;
   }
 
-  if (!subscriptionRow) {
+  if (!subscriptionRowRaw) {
     console.log('subscription.canceled ignored: unknown subscription id', komojuSubscriptionId);
     return;
   }
+  const subscriptionRow = subscriptionRowRaw as SubscriptionLookupRow;
 
   const now = new Date();
   const nowIso = now.toISOString();
-  const periodEndIso = extractPeriodEndIso(data);
-  const isFutureEnd = periodEndIso ? new Date(periodEndIso).getTime() > now.getTime() : false;
+  const periodEndFromEvent = extractPeriodEndIso(data);
+  const existingPeriodEnd = toIsoTimestamp(subscriptionRow.current_period_end);
+  const effectivePeriodEndIso = periodEndFromEvent ?? existingPeriodEnd;
+  const isFutureEnd = effectivePeriodEndIso
+    ? new Date(effectivePeriodEndIso).getTime() > now.getTime()
+    : false;
 
   const { error } = await supabaseAdmin
     .from('subscriptions')
     .update(
       isFutureEnd
         ? {
+            status: 'active',
+            plan: 'pro',
+            pro_source: 'billing',
+            test_pro_expires_at: null,
             cancel_at_period_end: true,
             cancel_requested_at: nowIso,
-            current_period_end: periodEndIso,
+            current_period_end: effectivePeriodEndIso,
             updated_at: nowIso,
           }
         : {
@@ -476,7 +490,7 @@ async function handleSubscriptionCanceled(
             pro_source: 'billing',
             cancel_at_period_end: false,
             cancel_requested_at: null,
-            current_period_end: periodEndIso ?? nowIso,
+            current_period_end: effectivePeriodEndIso ?? nowIso,
             updated_at: nowIso,
           }
     )

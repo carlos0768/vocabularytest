@@ -1,8 +1,10 @@
 # Subscription Policy
 
 ## Cancellation
-- アプリ内の解約API (`/api/subscription/cancel`) は仕様として無効化します。
-- APIは常に `403` と `CANCELLATION_DISABLED` を返し、KOMOJU起点の状態変化のみを受け付けます。
+- アプリ内の解約API (`/api/subscription/cancel`) は有効です。
+- 既定の動作は「期間末解約」です。解約受付後も現在の `current_period_end` まではPro機能を利用できます。
+- 解約対象は `pro_source='billing'` のみです（`test` 付与は対象外）。
+- 実際の最終状態はKOMOJU webhook（`subscription.canceled|cancelled`）で確定します。
 
 ## Pro Source Rule
 - `pro_source='billing'`: 実KOMOJU契約ID (`komoju_subscription_id` が `NULL` でなく `manual_%` ではない) のみ。

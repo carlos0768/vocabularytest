@@ -17,7 +17,6 @@ Applies To: `src/app/api/subscription/*`, `src/lib/subscription/*`, `src/lib/kom
 
 ## 2. Non-goals
 
-- アプリ内解約機能の提供（`CANCELLATION_DISABLED` を維持）
 - 料金体系の変更
 - UIデザイン刷新
 
@@ -27,6 +26,7 @@ Applies To: `src/app/api/subscription/*`, `src/lib/subscription/*`, `src/lib/kom
 
 - `create`: `POST /api/subscription/create`
 - `webhook`: `POST /api/subscription/webhook`
+- `cancel`: `POST /api/subscription/cancel`
 - `reconcile`: `GET /api/subscription/reconcile?session_id=...`
 - `me`: `GET /api/subscription/me`
 - client confirmation: `/subscription/success`
@@ -131,7 +131,23 @@ KOMOJU request requirements:
 - `subscription.canceled|cancelled`
   - 期間末解約または即時解約を反映
 
-## 6.3 `GET /api/subscription/reconcile`
+## 6.3 `POST /api/subscription/cancel`
+
+責務:
+
+- 認証済みユーザーの課金Proのみ解約受付
+- KOMOJUへ解約リクエスト送信
+- 既定は期間末解約（`cancel_at_period_end=true`）
+- `current_period_end` が未来でない場合は即時解約 (`status='cancelled'`)
+
+戻り値:
+
+- `success`
+- `cancellationType`: `period_end | immediate`
+- `currentPeriodEnd`
+- `message`
+
+## 6.4 `GET /api/subscription/reconcile`
 
 戻り値 `state`:
 
@@ -156,7 +172,7 @@ KOMOJU request requirements:
 - failed系: `failed|declined|expired|cancelled|canceled|rejected` -> `failed`
 - それ以外 -> `pending`
 
-## 6.4 `/subscription/success`
+## 6.5 `/subscription/success`
 
 - `me` と `reconcile` をポーリング
 - `confirmed` -> 完了UI
