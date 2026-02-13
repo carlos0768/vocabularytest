@@ -13,6 +13,7 @@ interface StudyModeCardProps {
   variant: ColorVariant;
   disabled?: boolean;
   badge?: string;
+  layout?: 'vertical' | 'horizontal';
 }
 
 const variantStyles: Record<ColorVariant, {
@@ -81,30 +82,36 @@ export function StudyModeCard({
   variant,
   disabled = false,
   badge,
+  layout = 'vertical',
 }: StudyModeCardProps) {
   const styles = variantStyles[variant];
 
+  const isHorizontal = layout === 'horizontal';
+
   const content = (
     <div
-      className={`relative p-5 rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer'
+      className={`relative ${isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
+        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'
       }`}
     >
       {badge && (
-        <span className="absolute top-3 right-3 chip chip-pro">
+        <span className={`absolute ${isHorizontal ? 'top-2.5 right-3' : 'top-3 right-3'} chip chip-pro`}>
           <Icon name="auto_awesome" size={14} />
           {badge}
         </span>
       )}
 
-      <div className="relative z-10 flex flex-col gap-3">
-        <div className={`w-10 h-10 rounded-full ${styles.iconBg} flex items-center justify-center`}>
-          <Icon name={icon} size={22} className={styles.iconColor} />
+      <div className={`relative z-10 flex ${isHorizontal ? 'flex-row items-center gap-3.5' : 'flex-col gap-3'}`}>
+        <div className={`${isHorizontal ? 'w-11 h-11' : 'w-10 h-10'} rounded-full ${styles.iconBg} flex items-center justify-center flex-shrink-0`}>
+          <Icon name={icon} size={isHorizontal ? 24 : 22} className={styles.iconColor} />
         </div>
-        <div className="min-w-0">
-          <h3 className={`font-bold text-lg leading-tight ${styles.textColor}`}>{title}</h3>
-          <p className={`text-xs mt-1 font-medium ${styles.descColor}`}>{description}</p>
+        <div className="min-w-0 flex-1">
+          <h3 className={`font-bold ${isHorizontal ? 'text-base' : 'text-lg'} leading-tight ${styles.textColor}`}>{title}</h3>
+          <p className={`text-xs mt-0.5 font-medium ${styles.descColor}`}>{description}</p>
         </div>
+        {isHorizontal && !disabled && (
+          <Icon name="chevron_right" size={20} className={`${styles.descColor} flex-shrink-0`} />
+        )}
       </div>
     </div>
   );

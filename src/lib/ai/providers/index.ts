@@ -2,11 +2,10 @@
  * AI Provider Factory
  *
  * プロバイダーの一元管理とファクトリー。
+ * 直接 OpenAI / Gemini APIを呼ぶ。
  *
- * CLOUD_RUN_URL が設定されている場合:
- *   → 全てのAI呼び出しがCloud Run経由 (Vertex AI) になる
- * 設定されていない場合:
- *   → 直接 Google AI / OpenAI APIを呼ぶ（ローカル開発用）
+ * Cloud Runを使いたい場合は USE_CLOUD_RUN を true にして
+ * CLOUD_RUN_URL / CLOUD_RUN_AUTH_TOKEN 環境変数を設定する。
  */
 
 import type { AIProvider as AIProviderType } from '../config';
@@ -23,11 +22,14 @@ export { OpenAIProvider, createOpenAIProvider } from './openai';
 export { CloudRunProvider } from './cloud-run';
 
 /**
- * Cloud Run設定の検出
+ * Cloud Run使用フラグ（コード内で明示的に制御）
+ * true にすると環境変数の CLOUD_RUN_URL / CLOUD_RUN_AUTH_TOKEN を参照する
  */
+const USE_CLOUD_RUN = false;
+
 const CLOUD_RUN_URL = process.env.CLOUD_RUN_URL;
 const CLOUD_RUN_AUTH_TOKEN = process.env.CLOUD_RUN_AUTH_TOKEN;
-const useCloudRun = !!(CLOUD_RUN_URL && CLOUD_RUN_AUTH_TOKEN);
+const useCloudRun = USE_CLOUD_RUN && !!(CLOUD_RUN_URL && CLOUD_RUN_AUTH_TOKEN);
 
 /**
  * プロバイダーのキャッシュ
