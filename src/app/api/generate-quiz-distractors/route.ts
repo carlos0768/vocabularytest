@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // API Route: POST /api/generate-quiz-distractors
 // Batch generates distractors for multiple words using AI provider (Cloud Run or direct)
@@ -50,6 +52,16 @@ interface WordInput {
   japanese: string;
 }
 
+const requestSchema = z.object({
+  words: z.array(
+    z.object({
+      id: z.string().trim().min(1).max(80),
+      english: z.string().trim().min(1).max(200),
+      japanese: z.string().trim().min(1).max(300),
+    }).strict(),
+  ).min(1).max(30),
+}).strict();
+
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
@@ -68,15 +80,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json();
-    const { words } = body as { words?: WordInput[] };
-
-    if (!words || !Array.isArray(words) || words.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '単語リストが必要です' },
-        { status: 400 }
-      );
+    const bodyResult = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: '単語リストが必要です',
+    });
+    if (!bodyResult.ok) {
+      return bodyResult.response;
     }
+    const { words } = bodyResult.data as { words: WordInput[] };
 
     // Build word list for the prompt
     const wordListText = words
@@ -128,9 +138,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse response
-    let parsed: { results?: Array<{ id: string; distractors: string[]; exampleSentence?: string; exampleSentenceJa?: string }> };
+    let aiParsed: { results?: Array<{ id: string; distractors: string[]; exampleSentence?: string; exampleSentenceJa?: string }> };
     try {
-      parsed = JSON.parse(jsonContent);
+      aiParsed = JSON.parse(jsonContent);
     } catch {
       console.error('Failed to parse Gemini response:', content);
       return NextResponse.json(
@@ -140,8 +150,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate results
-    if (!parsed.results || !Array.isArray(parsed.results)) {
-      console.error('Invalid results format:', parsed);
+    if (!aiParsed.results || !Array.isArray(aiParsed.results)) {
+      console.error('Invalid results format:', aiParsed);
       return NextResponse.json(
         { success: false, error: '誤答の形式が不正です' },
         { status: 500 }
@@ -150,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     // Validate each result has 3 distractors and remove duplicates
     const inputMap = new Map(words.map((w) => [w.id, w]));
-    const validResults = parsed.results
+    const validResults = aiParsed.results
       .filter((r) => r.id && Array.isArray(r.distractors) && r.distractors.length === 3)
       .map((r) => {
         const word = inputMap.get(r.id);

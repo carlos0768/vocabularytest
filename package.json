@@ -7,8 +7,14 @@
     "build": "next build",
     "start": "next start",
     "security:sql": "node scripts/check-sql-injection-guard.mjs",
+    "security:secrets": "node scripts/check-secrets-guard.mjs",
+    "security:deps": "node scripts/check-deps-audit.mjs",
+    "security:all": "npm run security:sql && npm run security:secrets && npm run security:deps",
     "lint": "npm run security:sql && eslint",
     "test:security:sql": "node --test scripts/check-sql-injection-guard.test.mjs",
+    "test:security:secrets": "node --test scripts/check-secrets-guard.test.mjs",
+    "test:security:routes": "tsx --test src/app/api/**/*.security.test.ts",
+    "test:security": "npm run test:security:sql && npm run test:security:secrets && npm run test:security:routes",
     "test": "tsx --test src/lib/komoju/client.test.ts src/lib/subscription/status.test.ts src/lib/subscription/reconcile-status.test.ts src/lib/subscription/billing-activation.test.ts src/lib/db/remote-repository.test.ts src/lib/db/hybrid-repository.test.ts src/lib/projects/load-helpers.test.ts src/lib/stats/calendar.test.ts"
   },
   "dependencies": {
@@ -19,7 +25,7 @@
     "dexie": "^4.2.1",
     "framer-motion": "^12.29.0",
     "heic2any": "^0.0.4",
-    "next": "16.1.4",
+    "next": "^16.1.6",
     "openai": "^6.16.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -34,7 +40,7 @@
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.1.4",
+    "eslint-config-next": "^16.1.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { generateWordEmbedding } from '@/lib/embeddings';
 import { isActiveProSubscription } from '@/lib/subscription/status';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 import type {
   SentenceQuizQuestion,
   FillInBlankQuestion,
@@ -16,15 +17,17 @@ import type {
 
 // リクエストスキーマ
 const requestSchema = z.object({
-  words: z.array(z.object({
-    id: z.string(),
-    english: z.string(),
-    japanese: z.string(),
-    status: z.enum(['new', 'review', 'mastered']),
-  })).min(1).max(15),
+  words: z.array(
+    z.object({
+      id: z.string().trim().min(1).max(80),
+      english: z.string().trim().min(1).max(200),
+      japanese: z.string().trim().min(1).max(300),
+      status: z.enum(['new', 'review', 'mastered']),
+    }).strict(),
+  ).min(1).max(15),
   // 新機能: VectorDB検索を使うかどうか（デフォルトはtrue）
   useVectorSearch: z.boolean().optional().default(true),
-});
+}).strict();
 
 // AIレスポンススキーマ（従来の穴埋め問題）
 const fillInBlankAISchema = z.object({
@@ -579,25 +582,18 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 3. PARSE REQUEST BODY
     // ============================================
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'リクエストの解析に失敗しました' },
-        { status: 400 }
-      );
-    }
-
-    const parseResult = requestSchema.safeParse(body);
-    if (!parseResult.success) {
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      parseMessage: 'リクエストの解析に失敗しました',
+      invalidMessage: '無効なリクエスト形式です',
+    });
+    if (!parsed.ok) {
       return NextResponse.json(
         { success: false, error: '無効なリクエスト形式です' },
         { status: 400 }
       );
     }
 
-    const { words, useVectorSearch } = parseResult.data;
+    const { words, useVectorSearch } = parsed.data;
 
     // ============================================
     // 4. CHECK OPENAI API KEY

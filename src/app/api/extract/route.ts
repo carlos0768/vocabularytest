@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
 import { AI_CONFIG } from '@/lib/ai/config';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Extraction modes
 // - 'all': Extract all words (OpenAI)
@@ -14,6 +16,12 @@ export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom' 
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
+
+const requestSchema = z.object({
+  image: z.string().min(1).max(15_000_000),
+  mode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
+  eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
+}).strict();
 
 // API Route: POST /api/extract
 // Extracts words from an uploaded image using OpenAI Vision API or Gemini API
@@ -42,21 +50,16 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 2. PARSE REQUEST BODY
     // ============================================
-    let body;
-    try {
-      body = await request.json();
-    } catch (jsonError) {
-      console.error('JSON parse error:', jsonError);
-      return NextResponse.json(
-        { success: false, error: 'リクエストの解析に失敗しました' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: 'リクエストの解析に失敗しました',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
-
-    const { image, mode = 'all', eikenLevel = null } = body as {
-      image?: string;
-      mode?: ExtractMode;
-      eikenLevel?: EikenLevel;
+    const { image, mode, eikenLevel } = parsed.data as {
+      image: string;
+      mode: ExtractMode;
+      eikenLevel: EikenLevel;
     };
 
     // Detailed logging for debugging
@@ -73,13 +76,6 @@ export async function POST(request: NextRequest) {
       detectedType,
       first50Chars: image?.slice(0, 50),
     });
-
-    if (!image) {
-      return NextResponse.json(
-        { success: false, error: '画像が必要です' },
-        { status: 400 }
-      );
-    }
 
     // Validate base64 data URL format (accepts images and PDFs)
     const isValidImage = image.startsWith('data:image/');

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -15,6 +17,22 @@ function getSupabaseAdmin(): SupabaseClient {
   }
   return supabaseAdmin;
 }
+
+const requestSchema = z.object({
+  projectTitle: z.string().trim().min(1).max(120),
+  scanMode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
+  eikenLevel: z.string().trim().max(100).nullable().optional(),
+  imagePath: z.string().trim().min(1).max(500).optional(),
+  imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
+}).strict().superRefine((value, ctx) => {
+  if (!value.imagePath && (!value.imagePaths || value.imagePaths.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'imagePath または imagePaths が必要です',
+      path: ['imagePaths'],
+    });
+  }
+});
 
 // Lightweight endpoint: just create job record and trigger processing
 // Images are already uploaded directly to Storage by client
@@ -32,15 +50,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { projectTitle, scanMode, eikenLevel } = body;
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: 'Missing required fields',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
+    }
+    const { projectTitle, scanMode, eikenLevel, imagePath, imagePaths: multiplePaths } = parsed.data;
 
     // Support both single imagePath and multiple imagePaths
-    const imagePaths: string[] = body.imagePaths || (body.imagePath ? [body.imagePath] : []);
-
-    if (imagePaths.length === 0 || !projectTitle) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);
 
     // Verify all images exist in storage
     for (const imagePath of imagePaths) {

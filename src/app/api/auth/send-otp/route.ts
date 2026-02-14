@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -11,28 +13,22 @@ function getAdminClient() {
   });
 }
 
+const requestSchema = z.object({
+  email: z.string().trim().email().max(254),
+}).strict();
+
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json();
-
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json(
-        { error: 'メールアドレスを入力してください' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: '有効なメールアドレスを入力してください',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
-
-    // メールアドレスの簡易バリデーション
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: '有効なメールアドレスを入力してください' },
-        { status: 400 }
-      );
-    }
+    const { email } = parsed.data;
 
     const supabase = getAdminClient();
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase();
 
     // 既存ユーザーチェック
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
