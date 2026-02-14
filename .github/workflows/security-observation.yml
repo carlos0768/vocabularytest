@@ -1,0 +1,54 @@
+name: Security Observation Week 1
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 1 * * *'
+
+jobs:
+  observation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Check observation window
+        id: window
+        run: |
+          TODAY="$(date -u +%F)"
+          echo "today=${TODAY}" >> "$GITHUB_OUTPUT"
+          if [[ "${TODAY}" < "2026-02-14" || "${TODAY}" > "2026-02-21" ]]; then
+            echo "in_window=false" >> "$GITHUB_OUTPUT"
+            echo "Observation window closed for ${TODAY}."
+          else
+            echo "in_window=true" >> "$GITHUB_OUTPUT"
+            echo "Observation window active for ${TODAY}."
+          fi
+
+      - name: Install dependencies
+        if: steps.window.outputs.in_window == 'true'
+        run: npm ci
+
+      - name: Run observation
+        id: observe
+        if: steps.window.outputs.in_window == 'true'
+        continue-on-error: true
+        run: npm run security:observe:ci
+
+      - name: Upload observation artifact
+        if: always() && steps.window.outputs.in_window == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-observation-${{ steps.window.outputs.today }}
+          path: coverage/security-observation/${{ steps.window.outputs.today }}/
+          if-no-files-found: warn
+
+      - name: Fail job when observation fails
+        if: steps.window.outputs.in_window == 'true' && steps.observe.outcome == 'failure'
+        run: exit 1

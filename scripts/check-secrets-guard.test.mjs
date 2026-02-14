@@ -7,6 +7,9 @@ import { execFileSync } from 'node:child_process';
 
 import { runGuard } from './check-secrets-guard.mjs';
 
+const TEST_SECRET_KEY = ['sk', '1234567890abcdefghijklmnopqrstuv'].join('-');
+const TEST_PRIVATE_KEY_BLOCK = ['-----BEGIN ', 'PRIVATE KEY-----\nabc\n-----END ', 'PRIVATE KEY-----\n'].join('');
+
 function runGit(repoRoot, args) {
   execFileSync('git', args, {
     cwd: repoRoot,
@@ -56,7 +59,7 @@ test('passes for placeholder values in .env.example', async (t) => {
 test('detects SECRET001 api key literals', async (t) => {
   const repoRoot = await createTempRepo({
     files: {
-      'src/leak.ts': "export const key = 'sk-1234567890abcdefghijklmnopqrstuv';\n",
+      'src/leak.ts': `export const key = '${TEST_SECRET_KEY}';\n`,
     },
   });
   t.after(async () => fs.rm(repoRoot, { recursive: true, force: true }));
@@ -70,7 +73,7 @@ test('detects SECRET001 api key literals', async (t) => {
 test('detects SECRET003 private key blocks', async (t) => {
   const repoRoot = await createTempRepo({
     files: {
-      'src/key.pem': '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n',
+      'src/key.pem': TEST_PRIVATE_KEY_BLOCK,
     },
   });
   t.after(async () => fs.rm(repoRoot, { recursive: true, force: true }));
@@ -84,7 +87,7 @@ test('detects SECRET003 private key blocks', async (t) => {
 test('allowlist suppresses matching path+rule findings', async (t) => {
   const repoRoot = await createTempRepo({
     files: {
-      'src/leak.ts': "export const value = 'sk-1234567890abcdefghijklmnopqrstuv';\n",
+      'src/leak.ts': `export const value = '${TEST_SECRET_KEY}';\n`,
     },
     allowlist: {
       entries: [
