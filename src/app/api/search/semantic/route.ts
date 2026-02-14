@@ -1,35 +1,56 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { generateWordEmbedding } from '@/lib/embeddings';
+import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+const requestSchema = z.object({
+  query: z.string().trim().min(1).max(120),
+}).strict();
 
-export async function POST(request: Request) {
+type SearchClient = Awaited<ReturnType<typeof createRouteHandlerClient>>;
+
+type SearchDeps = {
+  createClient: (request: NextRequest) => Promise<SearchClient>;
+  generateEmbedding: (query: string) => Promise<number[]>;
+};
+
+const defaultDeps: SearchDeps = {
+  createClient: createRouteHandlerClient,
+  generateEmbedding: generateWordEmbedding,
+};
+
+export async function handleSearchSemanticPost(
+  request: NextRequest,
+  deps: SearchDeps = defaultDeps,
+) {
   try {
-    const { query, userId } = await request.json();
-
-    if (!query || typeof query !== 'string' || !query.trim()) {
-      return NextResponse.json({ error: '検索クエリを入力してください' }, { status: 400 });
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: '検索クエリを入力してください',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+    const { query } = parsed.data;
 
-    if (!userId) {
+    const supabase = await deps.createClient(request);
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const { data: { user }, error: authError } = bearerToken
+      ? await supabase.auth.getUser(bearerToken)
+      : await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     // Generate embedding for the search query
-    const queryEmbedding = await generateWordEmbedding(query.trim());
+    const queryEmbedding = await deps.generateEmbedding(query);
 
     // Search using pgvector
-    const supabase = getAdminClient();
     const { data, error } = await supabase.rpc('match_words_by_embedding', {
       query_embedding: queryEmbedding,
-      user_id_filter: userId,
+      user_id_filter: user.id,
       exclude_word_ids: [],
       match_threshold: 0.45,
       match_count: 20,
@@ -69,4 +90,8 @@ export async function POST(request: Request) {
     console.error('Semantic search error:', error);
     return NextResponse.json({ error: '検索に失敗しました' }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleSearchSemanticPost(request, defaultDeps);
 }

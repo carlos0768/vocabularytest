@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // API Route: POST /api/translate
 // Translates an English word/phrase to Japanese using AI
@@ -14,17 +16,19 @@ const TRANSLATE_PROMPT = `あなたは英和辞典です。与えられた英単
 - 名詞・形容詞はそのまま返す
 - フレーズの場合は自然な日本語訳を返す`;
 
+const requestSchema = z.object({
+  text: z.string().trim().min(1).max(300),
+}).strict();
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { text } = body as { text?: string };
-
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'テキストが必要です' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: 'テキストが必要です',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+    const { text } = parsed.data;
 
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
     const openaiApiKey = process.env.OPENAI_API_KEY || '';
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
     const provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
 
     const result = await provider.generateText(
-      `${TRANSLATE_PROMPT}\n\n英語: ${text.trim()}`,
+      `${TRANSLATE_PROMPT}\n\n英語: ${text}`,
       config
     );
 

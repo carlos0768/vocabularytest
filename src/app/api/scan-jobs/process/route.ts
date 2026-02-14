@@ -8,6 +8,8 @@ import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -25,6 +27,10 @@ function getSupabaseAdmin(): SupabaseClient {
 }
 
 export const maxDuration = 120;
+
+const processSchema = z.object({
+  jobId: z.string().uuid(),
+}).strict();
 
 // Extract words from a single image using the appropriate mode
 async function extractFromImage(
@@ -74,10 +80,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { jobId } = await request.json();
-    if (!jobId) {
-      return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+    const parsed = await parseJsonWithSchema(request, processSchema, {
+      invalidMessage: 'Missing jobId',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+    const { jobId } = parsed.data;
 
     const { data: job, error: jobError } = await getSupabaseAdmin()
       .from('scan_jobs')

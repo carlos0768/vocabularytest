@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // API Route: POST /api/regenerate-distractors
 // Regenerates distractors (wrong answer choices) when a word's japanese translation is updated
@@ -31,6 +33,11 @@ const DISTRACTOR_GENERATION_PROMPT = `あなたは英語学習教材の作成者
   "distractors": ["誤答1", "誤答2", "誤答3"]
 }`;
 
+const requestSchema = z.object({
+  english: z.string().trim().min(1).max(200),
+  japanese: z.string().trim().min(1).max(300),
+}).strict();
+
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
@@ -49,18 +56,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json();
-    const { english, japanese } = body as {
-      english?: string;
-      japanese?: string;
-    };
-
-    if (!english || !japanese) {
-      return NextResponse.json(
-        { success: false, error: '英単語と日本語訳が必要です' },
-        { status: 400 }
-      );
+    const bodyResult = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: '英単語と日本語訳が必要です',
+    });
+    if (!bodyResult.ok) {
+      return bodyResult.response;
     }
+    const { english, japanese } = bodyResult.data;
 
     // Generate distractors using provider factory (Cloud Run or direct)
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
@@ -107,9 +109,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse response
-    let parsed: { distractors?: string[] };
+    let aiParsed: { distractors?: string[] };
     try {
-      parsed = JSON.parse(jsonContent);
+      aiParsed = JSON.parse(jsonContent);
     } catch {
       console.error('Failed to parse Gemini response:', content);
       return NextResponse.json(
@@ -119,8 +121,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate distractors
-    if (!parsed.distractors || !Array.isArray(parsed.distractors) || parsed.distractors.length !== 3) {
-      console.error('Invalid distractors format:', parsed);
+    if (!aiParsed.distractors || !Array.isArray(aiParsed.distractors) || aiParsed.distractors.length !== 3) {
+      console.error('Invalid distractors format:', aiParsed);
       return NextResponse.json(
         { success: false, error: '誤答の形式が不正です' },
         { status: 500 }
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      distractors: parsed.distractors,
+      distractors: aiParsed.distractors,
     });
   } catch (error) {
     console.error('Regenerate distractors error:', error);

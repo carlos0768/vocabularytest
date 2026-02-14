@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import { isActiveProSubscription } from '@/lib/subscription/status';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 const BATCH_SIZE = 50; // 一度に処理する単語数
+const requestSchema = z.object({
+  wordIds: z.array(z.string().min(1).max(64)).max(500).optional(),
+  limit: z.number().int().min(1).max(BATCH_SIZE).optional(),
+}).strict();
 
 /**
  * POST /api/embeddings/sync
@@ -62,11 +68,14 @@ export async function POST(request: NextRequest) {
     // 3. PARSE REQUEST BODY
     // ============================================
     let body: { wordIds?: string[]; limit?: number } = {};
-    try {
-      body = await request.json();
-    } catch {
-      // 空ボディの場合はデフォルト値を使用
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: '無効なリクエスト形式です',
+      allowEmptyBody: true,
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+    body = parsed.data;
 
     const limit = Math.min(body.limit || BATCH_SIZE, BATCH_SIZE);
 

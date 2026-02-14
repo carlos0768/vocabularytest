@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -34,21 +36,24 @@ async function getServerClient() {
 }
 
 const MAX_ATTEMPTS = 5;
+const requestSchema = z.object({
+  email: z.string().trim().email().max(254),
+  code: z.string().trim().regex(/^\d{6}$/),
+}).strict();
 
 export async function POST(request: Request) {
   try {
-    const { email, code } = await request.json();
-
-    if (!email || !code) {
-      return NextResponse.json(
-        { error: 'メールアドレスと認証コードを入力してください' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: 'メールアドレスと6桁の認証コードを入力してください',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+    const { email, code } = parsed.data;
 
     const adminClient = getAdminClient();
-    const normalizedEmail = email.toLowerCase().trim();
-    const normalizedCode = code.trim();
+    const normalizedEmail = email.toLowerCase();
+    const normalizedCode = code;
 
     // OTPレコードを取得
     const { data: otpRecord, error: fetchError } = await adminClient

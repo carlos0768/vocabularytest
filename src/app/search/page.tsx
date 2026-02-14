@@ -34,7 +34,7 @@ export default function SearchPage() {
       const response = await fetch('/api/search/semantic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), userId: user.id }),
+        body: JSON.stringify({ query: query.trim() }),
       });
 
       const data = await response.json();

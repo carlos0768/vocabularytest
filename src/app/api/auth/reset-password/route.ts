@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -35,23 +37,53 @@ async function getServerClient() {
 }
 
 const MAX_ATTEMPTS = 5;
+const emailSchema = z.string().trim().email().max(254);
+const codeSchema = z.string().trim().regex(/^\d{6}$/);
+const passwordSchema = z.string().min(8).max(128);
+
+const sendOtpSchema = z.object({
+  action: z.literal('send-otp'),
+  email: emailSchema,
+}).strict();
+
+const verifyOtpSchema = z.object({
+  action: z.literal('verify-otp'),
+  email: emailSchema,
+  code: codeSchema,
+}).strict();
+
+const setPasswordSchema = z.object({
+  action: z.literal('set-password'),
+  email: emailSchema,
+  code: codeSchema,
+  newPassword: passwordSchema,
+}).strict();
+
+const requestSchema = z.discriminatedUnion('action', [
+  sendOtpSchema,
+  verifyOtpSchema,
+  setPasswordSchema,
+]);
 
 // POST /api/auth/reset-password
 // action: 'send-otp' | 'verify-otp' | 'set-password'
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { action } = body;
-
-    if (action === 'send-otp') {
-      return handleSendOtp(body);
-    } else if (action === 'verify-otp') {
-      return handleVerifyOtp(body);
-    } else if (action === 'set-password') {
-      return handleSetPassword(body);
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: '不正なリクエストです',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+    const body = parsed.data;
 
-    return NextResponse.json({ error: '不正なリクエストです' }, { status: 400 });
+    if (body.action === 'send-otp') {
+      return handleSendOtp(body);
+    }
+    if (body.action === 'verify-otp') {
+      return handleVerifyOtp(body);
+    }
+    return handleSetPassword(body);
   } catch (error) {
     console.error('Reset password error:', error);
     return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 });
@@ -59,18 +91,9 @@ export async function POST(request: Request) {
 }
 
 // Step 1: Send OTP to email
-async function handleSendOtp({ email }: { email: string }) {
-  if (!email || typeof email !== 'string') {
-    return NextResponse.json({ error: 'メールアドレスを入力してください' }, { status: 400 });
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return NextResponse.json({ error: '有効なメールアドレスを入力してください' }, { status: 400 });
-  }
-
+async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
   const adminClient = getAdminClient();
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = email.toLowerCase();
 
   // Check if user exists
   const { data: existingUsers } = await adminClient.auth.admin.listUsers();
@@ -132,14 +155,10 @@ async function handleSendOtp({ email }: { email: string }) {
 }
 
 // Step 2: Verify OTP
-async function handleVerifyOtp({ email, code }: { email: string; code: string }) {
-  if (!email || !code) {
-    return NextResponse.json({ error: 'メールアドレスと認証コードを入力してください' }, { status: 400 });
-  }
-
+async function handleVerifyOtp({ email, code }: z.infer<typeof verifyOtpSchema>) {
   const adminClient = getAdminClient();
-  const normalizedEmail = email.toLowerCase().trim();
-  const normalizedCode = code.trim();
+  const normalizedEmail = email.toLowerCase();
+  const normalizedCode = code;
 
   // Get OTP record
   const { data: otpRecord, error: fetchError } = await adminClient
@@ -203,17 +222,9 @@ async function handleVerifyOtp({ email, code }: { email: string; code: string })
 }
 
 // Step 3: Set new password
-async function handleSetPassword({ email, code, newPassword }: { email: string; code: string; newPassword: string }) {
-  if (!email || !code || !newPassword) {
-    return NextResponse.json({ error: '必要な情報が不足しています' }, { status: 400 });
-  }
-
-  if (newPassword.length < 8) {
-    return NextResponse.json({ error: 'パスワードは8文字以上で入力してください' }, { status: 400 });
-  }
-
+async function handleSetPassword({ email, newPassword }: z.infer<typeof setPasswordSchema>) {
   const adminClient = getAdminClient();
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = email.toLowerCase();
 
   // Verify OTP was already verified
   const { data: otpRecord, error: fetchError } = await adminClient

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { z } from 'zod';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -25,14 +27,29 @@ interface GradeRequest {
   direction: 'ja-to-en' | 'en-to-ja';
 }
 
+const requestSchema = z.object({
+  image: z.string().trim().min(1).max(10_000_000),
+  questions: z.array(
+    z.object({
+      number: z.number().int().min(1).max(500),
+      question: z.string().trim().min(1).max(500),
+      correctAnswer: z.string().trim().min(1).max(500),
+    }).strict(),
+  ).min(1).max(200),
+  direction: z.enum(['ja-to-en', 'en-to-ja']),
+}).strict();
+
 export async function POST(request: NextRequest) {
   try {
-    const body: GradeRequest = await request.json();
-    const { image, questions, direction } = body;
-
-    if (!image || !questions || questions.length === 0) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      invalidMessage: 'Missing required fields',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
     }
+
+    const body: GradeRequest = parsed.data;
+    const { image, questions, direction } = body;
 
     // Build prompt for GPT-4 Vision
     const questionList = questions

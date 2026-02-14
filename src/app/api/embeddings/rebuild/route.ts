@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
+import { z } from 'zod';
 
 const BATCH_SIZE = 100;
+const adminHeaderSchema = z.object({
+  adminSecret: z.string().trim().min(1),
+}).strict();
 
 function getAdminClient() {
   return createClient(
@@ -22,7 +26,14 @@ export async function POST(request: NextRequest) {
   try {
     // Admin認証
     const adminSecret = request.headers.get('x-admin-secret');
-    if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+    if (adminSecret === null) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const parsedHeader = adminHeaderSchema.safeParse({ adminSecret });
+    if (!parsedHeader.success) {
+      return NextResponse.json({ error: 'Invalid admin secret header' }, { status: 400 });
+    }
+    if (parsedHeader.data.adminSecret !== process.env.ADMIN_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

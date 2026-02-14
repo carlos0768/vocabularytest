@@ -3,15 +3,18 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { z } from 'zod';
 import { getProvider } from '@/lib/ai/providers';
 import { AI_CONFIG } from '@/lib/ai/config';
+import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // リクエストスキーマ
 const requestSchema = z.object({
-  words: z.array(z.object({
-    id: z.string(),
-    english: z.string(),
-    japanese: z.string(),
-  })).min(1).max(30), // 最大30語まで
-});
+  words: z.array(
+    z.object({
+      id: z.string().trim().min(1).max(80),
+      english: z.string().trim().min(1).max(200),
+      japanese: z.string().trim().min(1).max(300),
+    }).strict(),
+  ).min(1).max(30), // 最大30語まで
+}).strict();
 
 // AIレスポンススキーマ
 const exampleResponseSchema = z.object({
@@ -69,25 +72,18 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 2. PARSE REQUEST BODY
     // ============================================
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'リクエストの解析に失敗しました' },
-        { status: 400 }
-      );
-    }
-
-    const parseResult = requestSchema.safeParse(body);
-    if (!parseResult.success) {
+    const parsed = await parseJsonWithSchema(request, requestSchema, {
+      parseMessage: 'リクエストの解析に失敗しました',
+      invalidMessage: '無効なリクエスト形式です',
+    });
+    if (!parsed.ok) {
       return NextResponse.json(
         { success: false, error: '無効なリクエスト形式です' },
         { status: 400 }
       );
     }
 
-    const { words } = parseResult.data;
+    const { words } = parsed.data;
     const wordIds = words.map(w => w.id);
 
     // ============================================
