@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
-import { AI_CONFIG } from '@/lib/ai/config';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Extraction modes
 // - 'all': Extract all words (OpenAI)
-// - 'circled': Extract circled/marked words only (Gemini)
-// - 'highlighted': Extract highlighted/marker words only (Gemini 2.5 Flash)
-// - 'eiken': Extract words filtered by EIKEN level (Gemini OCR → GPT analysis)
+// - 'circled': Extract circled/marked words only (OpenAI)
+// - 'highlighted': Extract highlighted/marker words only (OpenAI)
+// - 'eiken': Extract words filtered by EIKEN level (OpenAI)
 // - 'idiom': Extract idioms and phrases only (OpenAI)
-// - 'wrong': Extract only incorrectly answered words from vocabulary tests (Gemini OCR → GPT analysis)
+// - 'wrong': Extract only incorrectly answered words from vocabulary tests (OpenAI)
 export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom' | 'wrong';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
@@ -24,7 +23,7 @@ const requestSchema = z.object({
 }).strict();
 
 // API Route: POST /api/extract
-// Extracts words from an uploaded image using OpenAI Vision API or Gemini API
+// Extracts words from an uploaded image using OpenAI Vision API
 // SECURITY: Requires authentication, enforces server-side scan limits
 
 export async function POST(request: NextRequest) {
@@ -142,52 +141,21 @@ export async function POST(request: NextRequest) {
     // 4. PROCESS IMAGE
     // ============================================
     let result;
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return NextResponse.json(
+        { success: false, error: 'OpenAI APIキーが設定されていません' },
+        { status: 500 }
+      );
+    }
 
     if (mode === 'wrong') {
-      // Wrong answer mode: Gemini OCR → GPT analysis for vocabulary test mistakes
-      if (!geminiApiKey) {
-        return NextResponse.json(
-          { success: false, error: 'Gemini APIキーが設定されていません' },
-          { status: 500 }
-        );
-      }
-      if (!openaiApiKey) {
-        return NextResponse.json(
-          { success: false, error: 'OpenAI APIキーが設定されていません' },
-          { status: 500 }
-        );
-      }
-
-      result = await extractWrongAnswersFromImage(image, geminiApiKey, openaiApiKey);
+      // Wrong answer mode: OCR + analysis for vocabulary test mistakes
+      result = await extractWrongAnswersFromImage(image, openaiApiKey);
     } else if (mode === 'idiom') {
-      // Idiom mode: Use configured provider for idiom/phrase extraction
-      const idiomsProvider = AI_CONFIG.extraction.idioms.provider;
-      const idiomsApiKey = idiomsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-
-      if (!idiomsApiKey) {
-        return NextResponse.json(
-          { success: false, error: `${idiomsProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
-          { status: 500 }
-        );
-      }
-
-      result = await extractIdiomsFromImage(image, idiomsApiKey);
+      result = await extractIdiomsFromImage(image, openaiApiKey);
     } else if (mode === 'eiken') {
-      // EIKEN filter mode: Gemini OCR → GPT analysis (two-stage processing)
-      if (!geminiApiKey) {
-        return NextResponse.json(
-          { success: false, error: 'Gemini APIキーが設定されていません' },
-          { status: 500 }
-        );
-      }
-      if (!openaiApiKey) {
-        return NextResponse.json(
-          { success: false, error: 'OpenAI APIキーが設定されていません' },
-          { status: 500 }
-        );
-      }
+      // EIKEN filter mode
       if (!eikenLevel) {
         return NextResponse.json(
           { success: false, error: '英検レベルを指定してください' },
@@ -195,49 +163,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await extractEikenWordsFromImage(image, geminiApiKey, openaiApiKey, eikenLevel);
+      result = await extractEikenWordsFromImage(image, openaiApiKey, eikenLevel);
     } else if (mode === 'circled') {
-      // Circled mode: Use configured provider for circled word extraction
-      const circledProvider = AI_CONFIG.extraction.circled.provider;
-      const circledApiKey = circledProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-
-      if (!circledApiKey) {
-        return NextResponse.json(
-          { success: false, error: `${circledProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
-          { status: 500 }
-        );
-      }
-
       // Note: eikenLevel is NOT used for circled mode anymore
-      result = await extractCircledWordsFromImage(image, circledApiKey, {}, openaiApiKey);
+      result = await extractCircledWordsFromImage(image, openaiApiKey, {}, openaiApiKey);
     } else if (mode === 'highlighted') {
-      // Highlighted mode: Use configured provider for highlighted/marker word extraction
-      const highlightedProvider = AI_CONFIG.extraction.circled.provider; // Same config as circled
-      const highlightedApiKey = highlightedProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-
-      if (!highlightedApiKey) {
-        return NextResponse.json(
-          { success: false, error: `${highlightedProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
-          { status: 500 }
-        );
-      }
-
-      result = await extractHighlightedWordsFromImage(image, highlightedApiKey, openaiApiKey);
+      result = await extractHighlightedWordsFromImage(image, openaiApiKey, openaiApiKey);
     } else {
-      // Default 'all' mode: Use configured provider for all word extraction
-      const wordsProvider = AI_CONFIG.extraction.words.provider;
-      const wordsApiKey = wordsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-
-      if (!wordsApiKey) {
-        return NextResponse.json(
-          { success: false, error: `${wordsProvider === 'gemini' ? 'Gemini' : 'OpenAI'} APIキーが設定されていません` },
-          { status: 500 }
-        );
-      }
-
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
       // Pro users get example sentences included (determined server-side)
-      result = await extractWordsFromImage(image, wordsApiKey, {
+      result = await extractWordsFromImage(image, openaiApiKey, {
         includeExamples: scanData.is_pro === true,
       });
     }

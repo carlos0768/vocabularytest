@@ -64,10 +64,13 @@ export async function POST(request: NextRequest) {
     }
     const { english, japanese } = bodyResult.data;
 
-    // Generate distractors using provider factory (Cloud Run or direct)
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
-    const config = AI_CONFIG.defaults.gemini;
-    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+    // Generate distractors using OpenAI provider (Cloud Run or direct)
+    const openaiApiKey = process.env.OPENAI_API_KEY || '';
+    const config = {
+      ...AI_CONFIG.defaults.openai,
+      maxOutputTokens: 256,
+    };
+    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
     const result = await provider.generateText(
       `${DISTRACTOR_GENERATION_PROMPT}\n\n英単語: ${english}\n日本語訳（正解）: ${japanese}\n\nこの単語に対する誤答選択肢を3つ生成してください。`,
@@ -94,7 +97,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract JSON from response (Gemini may include markdown code blocks)
+    // Extract JSON from response
     let jsonContent = content;
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
     try {
       aiParsed = JSON.parse(jsonContent);
     } catch {
-      console.error('Failed to parse Gemini response:', content);
+      console.error('Failed to parse AI response:', content);
       return NextResponse.json(
         { success: false, error: '応答の解析に失敗しました' },
         { status: 500 }

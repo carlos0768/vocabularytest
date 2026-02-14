@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
     }
     const { text } = parsed.data;
 
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
     const openaiApiKey = process.env.OPENAI_API_KEY || '';
 
     const config = {
@@ -38,7 +37,7 @@ export async function POST(request: NextRequest) {
       model: 'gpt-4o-mini',
       maxOutputTokens: 256,
     };
-    const provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
     const result = await provider.generateText(
       `${TRANSLATE_PROMPT}\n\n英語: ${text}`,

@@ -96,10 +96,9 @@ export async function POST(request: NextRequest) {
     const promptText = `${BATCH_DISTRACTOR_PROMPT}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢3つと例文を生成してください:\n\n${wordListText}`;
 
     // Generate using provider factory (Cloud Run or direct)
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY || '';
     const openaiApiKey = process.env.OPENAI_API_KEY || '';
     const config = AI_CONFIG.defaults.openai; // Use OpenAI for reliability
-    const provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
     const result = await provider.generateText(promptText, {
       ...config,
@@ -142,7 +141,7 @@ export async function POST(request: NextRequest) {
     try {
       aiParsed = JSON.parse(jsonContent);
     } catch {
-      console.error('Failed to parse Gemini response:', content);
+      console.error('Failed to parse AI response:', content);
       return NextResponse.json(
         { success: false, error: '応答の解析に失敗しました' },
         { status: 500 }

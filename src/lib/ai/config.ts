@@ -62,8 +62,8 @@ export const AI_CONFIG: AIConfig = {
     },
     grammar: {
       ocr: {
-        provider: 'gemini',
-        model: 'gemini-1.5-flash-002',
+        provider: 'openai',
+        model: 'gpt-4o',
         temperature: 0.3,
         maxOutputTokens: 8192,
       },
@@ -77,10 +77,10 @@ export const AI_CONFIG: AIConfig = {
   },
   defaults: {
     gemini: {
-      provider: 'gemini',
-      model: 'gemini-1.5-flash-002',
+      provider: 'openai',
+      model: 'gpt-4o',
       temperature: 0.7,
-      maxOutputTokens: 65535,
+      maxOutputTokens: 16384,
     },
     openai: {
       provider: 'openai',
@@ -106,7 +106,7 @@ export function getAPIKey(provider: AIProvider): string | undefined {
 }
 
 export function setGlobalProvider(provider: AIProvider, model?: string): void {
-  const defaultModel = provider === 'gemini' ? 'gemini-1.5-flash-002' : 'gpt-4o';
+  const defaultModel = provider === 'openai' ? 'gpt-4o' : 'gemini-2.0-flash-001';
   const targetModel = model || defaultModel;
 
   AI_CONFIG.extraction.words.provider = provider;
