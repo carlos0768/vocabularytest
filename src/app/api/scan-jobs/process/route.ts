@@ -5,7 +5,6 @@ import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
-import { AI_CONFIG } from '@/lib/ai/config';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
@@ -37,38 +36,26 @@ async function extractFromImage(
   base64Image: string,
   mode: ExtractMode,
   eikenLevel: string | null,
-  geminiApiKey: string | undefined,
   openaiApiKey: string | undefined
 ) {
+  if (!openaiApiKey) throw new Error('OpenAI API key not configured');
+
   switch (mode) {
     case 'circled': {
-      const circledProvider = AI_CONFIG.extraction.circled.provider;
-      const circledApiKey = circledProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-      if (!circledApiKey) throw new Error('API key not configured');
-      return await extractCircledWordsFromImage(base64Image, circledApiKey, {}, openaiApiKey);
+      return await extractCircledWordsFromImage(base64Image, openaiApiKey, {}, openaiApiKey);
     }
     case 'highlighted': {
-      const highlightedProvider = AI_CONFIG.extraction.circled.provider;
-      const highlightedApiKey = highlightedProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-      if (!highlightedApiKey) throw new Error('API key not configured');
-      return await extractHighlightedWordsFromImage(base64Image, highlightedApiKey, openaiApiKey);
+      return await extractHighlightedWordsFromImage(base64Image, openaiApiKey, openaiApiKey);
     }
     case 'eiken': {
-      if (!geminiApiKey || !openaiApiKey) throw new Error('API keys not configured');
       const levels = eikenLevel?.split(',') || ['3', 'pre2', '2'];
-      return await extractEikenWordsFromImage(base64Image, geminiApiKey, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1');
+      return await extractEikenWordsFromImage(base64Image, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1');
     }
     case 'idiom': {
-      const idiomsProvider = AI_CONFIG.extraction.idioms.provider;
-      const idiomsApiKey = idiomsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-      if (!idiomsApiKey) throw new Error('API key not configured');
-      return await extractIdiomsFromImage(base64Image, idiomsApiKey);
+      return await extractIdiomsFromImage(base64Image, openaiApiKey);
     }
     default: {
-      const wordsProvider = AI_CONFIG.extraction.words.provider;
-      const wordsApiKey = wordsProvider === 'gemini' ? geminiApiKey : openaiApiKey;
-      if (!wordsApiKey) throw new Error('API key not configured');
-      return await extractWordsFromImage(base64Image, wordsApiKey, { includeExamples: true });
+      return await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true });
     }
   }
 }
@@ -108,7 +95,6 @@ export async function POST(request: NextRequest) {
       .update({ status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', jobId);
 
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
     try {
@@ -140,7 +126,7 @@ export async function POST(request: NextRequest) {
         const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
         const base64Image = `data:${mimeType};base64,${base64}`;
 
-        const result = await extractFromImage(base64Image, mode, job.eiken_level, geminiApiKey, openaiApiKey);
+        const result = await extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey);
 
         if (result.success && result.data?.words) {
           allExtractedWords.push(...result.data.words);

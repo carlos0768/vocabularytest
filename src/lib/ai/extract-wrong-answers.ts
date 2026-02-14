@@ -52,12 +52,12 @@ export type WrongAnswerExtractionResult =
   | { success: false; error: string };
 
 /**
- * Step 1: Extract test structure from image using Gemini
+ * Step 1: Extract test structure from image using OpenAI
  * Analyzes the vocabulary test image and extracts question/answer/marking data
  */
 export async function extractTestFromImage(
   imageBase64: string,
-  geminiApiKey: string
+  openaiApiKey: string
 ): Promise<WrongAnswerOCRResult> {
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -94,8 +94,8 @@ export async function extractTestFromImage(
   console.log('AI OCR for Wrong Answer extraction:', { mimeType, base64Length: base64Data.length });
 
   try {
-    const config = AI_CONFIG.extraction.words; // Use default gemini config
-    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+    const config = AI_CONFIG.extraction.grammar.ocr;
+    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
     const result = await provider.generate({
       systemPrompt: WRONG_ANSWER_OCR_SYSTEM_PROMPT,
@@ -118,7 +118,7 @@ export async function extractTestFromImage(
       return { success: false, error: '画像からテストを読み取れませんでした' };
     }
 
-    // Extract JSON from response (Gemini may include markdown code blocks)
+    // Extract JSON from response
     let jsonContent = content;
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
@@ -137,7 +137,7 @@ export async function extractTestFromImage(
     try {
       parsed = JSON.parse(jsonContent);
     } catch {
-      console.error('Failed to parse Gemini response:', content);
+      console.error('Failed to parse AI response:', content);
       return { success: false, error: 'テストの解析に失敗しました。画像が不鮮明な可能性があります。' };
     }
 
@@ -153,14 +153,14 @@ export async function extractTestFromImage(
 
     return { success: true, data: parsed };
   } catch (error) {
-    console.error('Gemini OCR error:', error);
+    console.error('AI OCR error:', error);
 
     if (error instanceof Error) {
       const errorMessage = error.message;
-      console.error('Gemini error message:', errorMessage);
+      console.error('AI error message:', errorMessage);
 
       if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
-        return { success: false, error: 'Gemini APIキーが無効です' };
+        return { success: false, error: 'OpenAI APIキーが無効です' };
       }
       if (errorMessage.includes('quota') || errorMessage.includes('rate')) {
         return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
@@ -290,16 +290,15 @@ export async function analyzeWrongAnswers(
 }
 
 /**
- * Full pipeline: Extract test with Gemini → Analyze wrong answers with GPT
+ * Full pipeline: Extract test and analyze wrong answers with OpenAI
  * Returns only the incorrectly answered words as vocabulary data
  */
 export async function extractWrongAnswersFromImage(
   imageBase64: string,
-  geminiApiKey: string,
   openaiApiKey: string
 ): Promise<WrongAnswerExtractionResult> {
-  // Step 1: OCR with Gemini - extract test structure
-  const ocrResult = await extractTestFromImage(imageBase64, geminiApiKey);
+  // Step 1: OCR - extract test structure
+  const ocrResult = await extractTestFromImage(imageBase64, openaiApiKey);
 
   if (!ocrResult.success) {
     return ocrResult;

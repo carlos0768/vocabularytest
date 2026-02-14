@@ -27,11 +27,11 @@ export type EikenExtractionResult =
   | { success: false; error: string };
 
 /**
- * Step 1: Extract text from image using Gemini OCR
+ * Step 1: Extract text from image using OpenAI OCR
  */
 export async function extractTextForEiken(
   imageBase64: string,
-  geminiApiKey: string
+  openaiApiKey: string
 ): Promise<EikenOCRResult> {
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -69,7 +69,7 @@ export async function extractTextForEiken(
 
   try {
     const config = AI_CONFIG.extraction.eiken;
-    const provider = getProviderFromConfig(config, { gemini: geminiApiKey });
+    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
     const result = await provider.generate({
       prompt: EIKEN_OCR_PROMPT,
@@ -100,7 +100,7 @@ export async function extractTextForEiken(
       console.error('AI error message:', errorMessage);
 
       if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
-        return { success: false, error: 'Gemini APIキーが無効です' };
+        return { success: false, error: 'OpenAI APIキーが無効です' };
       }
       if (errorMessage.includes('quota') || errorMessage.includes('rate')) {
         return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
@@ -220,16 +220,15 @@ export async function analyzeWordsForEiken(
 }
 
 /**
- * Full pipeline: Extract text with Gemini → Analyze words with GPT at specified EIKEN level
+ * Full pipeline: Extract text and analyze words with OpenAI at specified EIKEN level
  */
 export async function extractEikenWordsFromImage(
   imageBase64: string,
-  geminiApiKey: string,
   openaiApiKey: string,
   eikenLevel: EikenLevel
 ): Promise<EikenExtractionResult> {
-  // Step 1: OCR with Gemini
-  const ocrResult = await extractTextForEiken(imageBase64, geminiApiKey);
+  // Step 1: OCR with OpenAI
+  const ocrResult = await extractTextForEiken(imageBase64, openaiApiKey);
 
   if (!ocrResult.success) {
     return ocrResult;
