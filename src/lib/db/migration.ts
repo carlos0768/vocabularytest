@@ -55,6 +55,7 @@ async function migrateProjects(
     const remoteProject = await remoteRepository.createProject({
       userId,
       title: localProject.title,
+      iconImage: localProject.iconImage,
     });
 
     projectsMigrated++;

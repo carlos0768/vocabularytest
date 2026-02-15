@@ -19,6 +19,7 @@ export interface ProjectRow {
   id: string;
   user_id: string;
   title: string;
+  icon_image?: string | null;
   created_at: string;
   share_id?: string | null;
   is_favorite?: boolean | null;
@@ -29,6 +30,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     id: row.id,
     userId: row.user_id,
     title: row.title,
+    iconImage: row.icon_image ?? undefined,
     createdAt: row.created_at,
     shareId: row.share_id ?? undefined,
     isFavorite: row.is_favorite ?? false,
@@ -38,10 +40,12 @@ export function mapProjectFromRow(row: ProjectRow): Project {
 export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt'>): {
   user_id: string;
   title: string;
+  icon_image?: string;
 } {
   return {
     user_id: project.userId,
     title: project.title,
+    ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
   };
 }
 
@@ -49,6 +53,7 @@ export function mapProjectToInsertWithId(project: Project): {
   id: string;
   user_id: string;
   title: string;
+  icon_image?: string;
   created_at: string;
   share_id?: string;
   is_favorite?: boolean;
@@ -57,6 +62,7 @@ export function mapProjectToInsertWithId(project: Project): {
     id: project.id,
     user_id: project.userId,
     title: project.title,
+    ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
     created_at: project.createdAt,
     ...(project.shareId !== undefined && { share_id: project.shareId }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
@@ -66,6 +72,7 @@ export function mapProjectToInsertWithId(project: Project): {
 export function mapProjectUpdates(updates: Partial<Project>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.iconImage !== undefined) updateData.icon_image = updates.iconImage;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
   return updateData;

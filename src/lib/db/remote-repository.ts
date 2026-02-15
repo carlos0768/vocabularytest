@@ -297,6 +297,7 @@ export class RemoteWordRepository implements WordRepository {
     const newProject = await this.createProject({
       userId: newUserId,
       title: `${sharedProject.title} (コピー)`,
+      iconImage: sharedProject.iconImage,
     });
 
     // Copy words to the new project

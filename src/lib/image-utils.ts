@@ -3,6 +3,7 @@
 
 // Maximum image size in bytes (2MB to stay well under Vercel's 4.5MB limit after base64 encoding)
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+const PROJECT_ICON_SIZE = 256;
 
 // Maximum PDF size (Gemini supports up to 100MB, but we limit to 20MB for performance)
 const MAX_PDF_SIZE = 20 * 1024 * 1024;
@@ -227,5 +228,93 @@ export async function processImageToBase64(file: File): Promise<string> {
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(new Error('Failed to read image file'));
     reader.readAsDataURL(processedFile);
+  });
+}
+
+/**
+ * Process image file for project icon
+ * - Converts HEIC/HEIF to JPEG
+ * - Compresses large images
+ * - Crops center to a square and resizes to PROJECT_ICON_SIZE
+ * - Returns a compact data URL for storing in project metadata
+ */
+export async function processProjectIconFile(file: File): Promise<string> {
+  if (isPdfFile(file)) {
+    throw new Error('アイコンには画像ファイルを選択してください');
+  }
+
+  const processedFile = await processImageFile(file);
+
+  return new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const objectUrl = URL.createObjectURL(processedFile);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    img.onload = () => {
+      try {
+        const size = Math.min(img.width, img.height);
+        const offsetX = Math.floor((img.width - size) / 2);
+        const offsetY = Math.floor((img.height - size) / 2);
+
+        canvas.width = PROJECT_ICON_SIZE;
+        canvas.height = PROJECT_ICON_SIZE;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          cleanup();
+          reject(new Error('アイコン画像の処理に失敗しました'));
+          return;
+        }
+
+        ctx.drawImage(
+          img,
+          offsetX,
+          offsetY,
+          size,
+          size,
+          0,
+          0,
+          PROJECT_ICON_SIZE,
+          PROJECT_ICON_SIZE
+        );
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              cleanup();
+              reject(new Error('アイコン画像の生成に失敗しました'));
+              return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+              cleanup();
+              resolve(reader.result as string);
+            };
+            reader.onerror = () => {
+              cleanup();
+              reject(new Error('アイコン画像の読み込みに失敗しました'));
+            };
+            reader.readAsDataURL(blob);
+          },
+          'image/jpeg',
+          0.82
+        );
+      } catch (error) {
+        cleanup();
+        reject(error instanceof Error ? error : new Error('アイコン画像の処理に失敗しました'));
+      }
+    };
+
+    img.onerror = () => {
+      cleanup();
+      reject(new Error('アイコン画像の読み込みに失敗しました'));
+    };
+
+    img.src = objectUrl;
   });
 }

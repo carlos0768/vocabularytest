@@ -36,14 +36,14 @@ export default function StatsPage() {
 
   return (
     <AppShell>
-      <div className="pb-24 lg:pb-8">
+      <div className="min-h-screen pb-24 lg:pb-6">
         <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
-          <div className="max-w-lg lg:max-w-5xl mx-auto">
+          <div className="max-w-lg mx-auto">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">統計</h1>
           </div>
         </header>
 
-        <main className="px-6 max-w-lg lg:max-w-5xl mx-auto">
+        <main className="max-w-lg mx-auto px-6 py-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />

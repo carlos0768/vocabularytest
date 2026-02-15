@@ -20,6 +20,7 @@ function getSupabaseAdmin(): SupabaseClient {
 
 const requestSchema = z.object({
   projectTitle: z.string().trim().min(1).max(120),
+  projectIcon: z.string().trim().max(600_000).regex(/^data:image\//, 'projectIcon must be an image data URL').nullable().optional(),
   scanMode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
   eikenLevel: z.string().trim().max(100).nullable().optional(),
   imagePath: z.string().trim().min(1).max(500).optional(),
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { projectTitle, scanMode, eikenLevel, imagePath, imagePaths: multiplePaths } = parsed.data;
+    const { projectTitle, projectIcon, scanMode, eikenLevel, imagePath, imagePaths: multiplePaths } = parsed.data;
 
     // Support both single imagePath and multiple imagePaths
     const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         project_title: projectTitle,
+        project_icon_image: projectIcon ?? null,
         scan_mode: scanMode || 'all',
         eiken_level: eikenLevel,
         image_path: imagePaths[0], // Primary image (backward compat)

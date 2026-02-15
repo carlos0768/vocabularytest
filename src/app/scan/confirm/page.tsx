@@ -21,23 +21,29 @@ interface EditableWord extends AIWordExtraction {
 
 // Check sessionStorage synchronously before any React rendering
 // This prevents any flash by determining data availability immediately
-function getInitialData(): { words: AIWordExtraction[] | null; projectName: string | null; existingProjectId: string | null } {
+function getInitialData(): {
+  words: AIWordExtraction[] | null;
+  projectName: string | null;
+  projectIcon: string | null;
+  existingProjectId: string | null;
+} {
   if (typeof window === 'undefined') {
-    return { words: null, projectName: null, existingProjectId: null };
+    return { words: null, projectName: null, projectIcon: null, existingProjectId: null };
   }
   try {
     const stored = sessionStorage.getItem('scanvocab_extracted_words');
     const projectName = sessionStorage.getItem('scanvocab_project_name');
+    const projectIcon = sessionStorage.getItem('scanvocab_project_icon');
     const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
 
     if (stored) {
       const words = JSON.parse(stored) as AIWordExtraction[];
-      return { words, projectName, existingProjectId };
+      return { words, projectName, projectIcon, existingProjectId };
     }
   } catch {
     // Parse error - will redirect
   }
-  return { words: null, projectName: null, existingProjectId: null };
+  return { words: null, projectName: null, projectIcon: null, existingProjectId: null };
 }
 
 export default function ConfirmPage() {
@@ -191,6 +197,7 @@ export default function ConfirmPage() {
         const project = await repository.createProject({
           userId,
           title: projectTitle.trim(),
+          iconImage: initialData.projectIcon ?? undefined,
         });
         targetProjectId = project.id;
       }
@@ -210,6 +217,7 @@ export default function ConfirmPage() {
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
       sessionStorage.removeItem('scanvocab_project_name');
+      sessionStorage.removeItem('scanvocab_project_icon');
       sessionStorage.removeItem('scanvocab_existing_project_id');
 
       // Refresh word count
