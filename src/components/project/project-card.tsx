@@ -50,6 +50,13 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
               </div>
               <div className="min-w-0 flex-1">
                 <CardTitle className="line-clamp-2">{project.title}</CardTitle>
+                <div className="mt-1 flex items-center gap-4 text-sm text-[var(--color-muted)]">
+                  <div className="flex items-center gap-1">
+                    <Icon name="menu_book" size={16} />
+                    <span>{wordCount}語</span>
+                  </div>
+                  <span>{formatDate(project.createdAt)}</span>
+                </div>
                 {project.isFavorite && (
                   <span className="chip chip-pro text-xs inline-flex items-center gap-1 mt-2">
                     <Icon name="push_pin" size={12} />
@@ -61,14 +68,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
-            <div className="flex items-center gap-1">
-              <Icon name="menu_book" size={16} />
-              <span>{wordCount}語</span>
-            </div>
-            <span>{formatDate(project.createdAt)}</span>
-          </div>
-          <div className="mt-4">
+          <div>
             <div className="flex items-center justify-between text-xs text-[var(--color-muted)] mb-2">
               <span>習得率</span>
               <span>{Math.round(progress)}%</span>
