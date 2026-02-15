@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { Button, Icon } from '@/components/ui';
+import { processProjectIconFile } from '@/lib/image-utils';
 
 export function ProjectNameModal({
   isOpen,
@@ -10,14 +11,21 @@ export function ProjectNameModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (name: string) => void;
+  onConfirm: (name: string, iconImage?: string) => void;
 }) {
   const [name, setName] = useState('');
+  const [iconImage, setIconImage] = useState<string | null>(null);
+  const [iconError, setIconError] = useState<string | null>(null);
+  const [iconProcessing, setIconProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const iconInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setName('');
+      setIconImage(null);
+      setIconError(null);
+      setIconProcessing(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
@@ -26,7 +34,25 @@ export function ProjectNameModal({
     e.preventDefault();
     const trimmedName = name.trim();
     if (trimmedName) {
-      onConfirm(trimmedName);
+      onConfirm(trimmedName, iconImage ?? undefined);
+    }
+  };
+
+  const handleIconFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIconProcessing(true);
+    setIconError(null);
+    try {
+      const processed = await processProjectIconFile(file);
+      setIconImage(processed);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '画像の読み込みに失敗しました';
+      setIconError(message);
+    } finally {
+      setIconProcessing(false);
     }
   };
 
@@ -39,6 +65,64 @@ export function ProjectNameModal({
           単語帳の名前
         </h2>
         <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-[var(--color-muted)] mb-2">
+              アイコン画像
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => iconInputRef.current?.click()}
+                disabled={iconProcessing}
+                className="w-16 h-16 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center hover:border-[var(--color-primary)] transition-colors disabled:opacity-60"
+              >
+                {iconImage ? (
+                  <span
+                    className="w-full h-full bg-center bg-cover"
+                    style={{ backgroundImage: `url(${iconImage})` }}
+                  />
+                ) : (
+                  <Icon name="image" size={24} className="text-[var(--color-muted)]" />
+                )}
+              </button>
+              <div className="flex-1 min-w-0 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => iconInputRef.current?.click()}
+                  disabled={iconProcessing}
+                  className="text-sm font-semibold text-[var(--color-primary)] hover:underline disabled:opacity-60"
+                >
+                  {iconImage ? '画像を変更' : '画像を選択'}
+                </button>
+                {iconImage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIconImage(null);
+                      setIconError(null);
+                    }}
+                    disabled={iconProcessing}
+                    className="block text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                  >
+                    画像を削除
+                  </button>
+                )}
+                <p className="text-xs text-[var(--color-muted)]">
+                  正方形で表示されます
+                </p>
+              </div>
+            </div>
+            {iconError && (
+              <p className="mt-2 text-xs text-[var(--color-error)]">{iconError}</p>
+            )}
+            <input
+              ref={iconInputRef}
+              type="file"
+              accept="image/*,.heic,.heif"
+              onChange={handleIconFileChange}
+              className="hidden"
+            />
+          </div>
           <input
             ref={inputRef}
             type="text"
@@ -59,10 +143,10 @@ export function ProjectNameModal({
             </Button>
             <Button
               type="submit"
-              disabled={!name.trim()}
+              disabled={!name.trim() || iconProcessing}
               className="flex-1"
             >
-              次へ
+              {iconProcessing ? '画像処理中...' : '次へ'}
             </Button>
           </div>
         </form>
@@ -87,6 +171,7 @@ export function EditProjectNameModal({
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(currentName);
       setTimeout(() => inputRef.current?.focus(), 100);
     }

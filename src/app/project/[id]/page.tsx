@@ -601,14 +601,28 @@ export default function ProjectDetailPage() {
   }
 
   const returnToProject = encodeURIComponent(`/project/${project.id}`);
+  const safeProjectIcon =
+    typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
+      ? project.iconImage
+      : null;
 
   return (
     <AppShell>
       <div className="pb-28 lg:pb-8">
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-          <div className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
+          <div className="max-w-lg mx-auto px-6 py-4 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
+                  {safeProjectIcon ? (
+                    <span
+                      className="w-full h-full bg-center bg-cover"
+                      style={{ backgroundImage: `url(${safeProjectIcon})` }}
+                    />
+                  ) : (
+                    <Icon name="menu_book" size={18} className="text-[var(--color-muted)]" />
+                  )}
+                </div>
                 <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
                 <button
                   onClick={handleOpenEditNameModal}
@@ -652,7 +666,7 @@ export default function ProjectDetailPage() {
           </div>
         </header>
 
-        <main className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+        <main className="max-w-lg mx-auto px-6 py-6 space-y-6">
           <div className="flex gap-2">
             {tabs.map((tab) => (
               <button

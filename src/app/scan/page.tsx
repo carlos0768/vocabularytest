@@ -9,7 +9,7 @@ import { ProgressSteps, type ProgressStep, useToast, Icon, AppShell } from '@/co
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
-import { processImageToBase64 } from '@/lib/image-utils';
+import { processImageToBase64, processProjectIconFile } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 
 
@@ -37,8 +37,12 @@ function ScanPageContent() {
   // Background scan state
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [projectName, setProjectName] = useState('');
+  const [projectIcon, setProjectIcon] = useState<string | null>(null);
+  const [projectIconError, setProjectIconError] = useState<string | null>(null);
+  const [projectIconProcessing, setProjectIconProcessing] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const projectIconInputRef = useRef<HTMLInputElement>(null);
 
   const scanModes = [
     {
@@ -159,7 +163,7 @@ function ScanPageContent() {
 
   // Background upload for Pro users - Direct to Supabase Storage
   // Uploads ALL images first, then creates a single scan job with all image paths
-  const handleBackgroundUpload = useCallback(async (files: File[], name: string) => {
+  const handleBackgroundUpload = useCallback(async (files: File[], name: string, iconImage?: string) => {
     setUploading(true);
 
     try {
@@ -208,6 +212,7 @@ function ScanPageContent() {
         body: JSON.stringify({
           imagePaths: uploadedPaths,
           projectTitle: name,
+          projectIcon: iconImage ?? null,
           scanMode: selectedMode,
           eikenLevel: selectedMode === 'eiken' ? selectedEiken : null,
         }),
@@ -240,6 +245,9 @@ function ScanPageContent() {
       setShowProjectNameModal(false);
       setPendingFiles([]);
       setProjectName('');
+      setProjectIcon(null);
+      setProjectIconError(null);
+      setProjectIconProcessing(false);
     }
   }, [selectedMode, selectedEiken, router, showToast, compressForUpload]);
 
@@ -283,6 +291,9 @@ function ScanPageContent() {
         const now = new Date();
         const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
         setProjectName(defaultName);
+        setProjectIcon(null);
+        setProjectIconError(null);
+        setProjectIconProcessing(false);
         setPendingFiles(files);
         setShowProjectNameModal(true);
         return;
@@ -408,6 +419,24 @@ function ScanPageContent() {
       );
     }
   }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, handleBackgroundUpload]);
+
+  const handleProjectIconChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setProjectIconProcessing(true);
+    setProjectIconError(null);
+    try {
+      const processed = await processProjectIconFile(file);
+      setProjectIcon(processed);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '画像の読み込みに失敗しました';
+      setProjectIconError(message);
+    } finally {
+      setProjectIconProcessing(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -640,6 +669,64 @@ function ScanPageContent() {
               <h2 className="text-lg font-bold mb-4 text-[var(--color-foreground)]">
                 単語帳の名前
               </h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-2">
+                  アイコン画像
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => projectIconInputRef.current?.click()}
+                    disabled={uploading || projectIconProcessing}
+                    className="w-16 h-16 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center hover:border-[var(--color-primary)] transition-colors disabled:opacity-60"
+                  >
+                    {projectIcon ? (
+                      <span
+                        className="w-full h-full bg-cover bg-center"
+                        style={{ backgroundImage: `url(${projectIcon})` }}
+                      />
+                    ) : (
+                      <Icon name="image" size={24} className="text-[var(--color-muted)]" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => projectIconInputRef.current?.click()}
+                      disabled={uploading || projectIconProcessing}
+                      className="text-sm font-semibold text-[var(--color-primary)] hover:underline disabled:opacity-60"
+                    >
+                      {projectIcon ? '画像を変更' : '画像を選択'}
+                    </button>
+                    {projectIcon && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProjectIcon(null);
+                          setProjectIconError(null);
+                        }}
+                        disabled={uploading || projectIconProcessing}
+                        className="block text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                      >
+                        画像を削除
+                      </button>
+                    )}
+                    <p className="text-xs text-[var(--color-muted)]">
+                      正方形で表示されます
+                    </p>
+                  </div>
+                </div>
+                {projectIconError && (
+                  <p className="mt-2 text-xs text-[var(--color-error)]">{projectIconError}</p>
+                )}
+                <input
+                  ref={projectIconInputRef}
+                  type="file"
+                  accept="image/*,.heic,.heif"
+                  onChange={handleProjectIconChange}
+                  className="hidden"
+                />
+              </div>
               <input
                 type="text"
                 value={projectName}
@@ -657,8 +744,11 @@ function ScanPageContent() {
                     setShowProjectNameModal(false);
                     setPendingFiles([]);
                     setProjectName('');
+                    setProjectIcon(null);
+                    setProjectIconError(null);
+                    setProjectIconProcessing(false);
                   }}
-                  disabled={uploading}
+                  disabled={uploading || projectIconProcessing}
                   className="flex-1 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] font-medium hover:bg-[var(--color-border-light)] transition-colors disabled:opacity-50"
                 >
                   キャンセル
@@ -666,16 +756,16 @@ function ScanPageContent() {
                 <button
                   onClick={() => {
                     if (projectName.trim() && pendingFiles.length > 0) {
-                      handleBackgroundUpload(pendingFiles, projectName.trim());
+                      handleBackgroundUpload(pendingFiles, projectName.trim(), projectIcon ?? undefined);
                     }
                   }}
-                  disabled={!projectName.trim() || uploading}
+                  disabled={!projectName.trim() || uploading || projectIconProcessing}
                   className="flex-1 py-3 rounded-xl bg-[var(--color-primary)] text-white font-medium hover:bg-[var(--color-primary)]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {uploading ? (
+                  {uploading || projectIconProcessing ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      送信中...
+                      {uploading ? '送信中...' : '画像処理中...'}
                     </>
                   ) : (
                     'スキャン開始'

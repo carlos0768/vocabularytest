@@ -29,6 +29,7 @@ export interface Project {
   id: string;
   userId: string;
   title: string;
+  iconImage?: string; // Base64 data URL icon shown on project cards
   createdAt: string; // ISO string
   isSynced?: boolean; // Local-only flag for cloud sync status
   shareId?: string; // Unique share ID for URL sharing (null = private)

@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: job.user_id,
           title: job.project_title,
+          icon_image: job.project_icon_image ?? null,
         })
         .select()
         .single();

@@ -27,19 +27,37 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 0, onDelete, onToggleFavorite, extraMenuItems }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const safeIconImage =
+    typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
+      ? project.iconImage
+      : null;
 
   return (
     <Card className="relative group overflow-hidden">
       <Link href={`/project/${project.id}`} className="block">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
-            <CardTitle className="line-clamp-2 pr-8">{project.title}</CardTitle>
-            {project.isFavorite && (
-              <span className="chip chip-pro text-xs flex items-center gap-1 mr-8">
-                <Icon name="push_pin" size={12} />
-                ピン留め
-              </span>
-            )}
+            <div className="flex items-start gap-3 min-w-0 flex-1 pr-8">
+              <div className="w-12 h-12 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
+                {safeIconImage ? (
+                  <span
+                    className="w-full h-full bg-center bg-cover"
+                    style={{ backgroundImage: `url(${safeIconImage})` }}
+                  />
+                ) : (
+                  <Icon name="menu_book" size={20} className="text-[var(--color-muted)]" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="line-clamp-2">{project.title}</CardTitle>
+                {project.isFavorite && (
+                  <span className="chip chip-pro text-xs inline-flex items-center gap-1 mt-2">
+                    <Icon name="push_pin" size={12} />
+                    ピン留め
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">

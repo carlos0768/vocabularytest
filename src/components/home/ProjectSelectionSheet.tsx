@@ -202,6 +202,10 @@ export function ProjectSelectionSheet({
                 const originalIndex = getOriginalIndex(project);
                 const isSelected = originalIndex === currentProjectIndex && !showFavoritesOnly && !showWrongAnswers;
                 const favoriteCount = projectFavoriteCounts[project.id] || 0;
+                const safeIconImage =
+                  typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
+                    ? project.iconImage
+                    : null;
                 return (
                   <div
                     key={project.id}
@@ -219,22 +223,36 @@ export function ProjectSelectionSheet({
                         }}
                         className="flex-1 text-left"
                       >
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-[var(--color-foreground)]">{project.title}</p>
-                          {project.isFavorite && (
-                            <Icon name="star" size={16} filled className="text-yellow-400" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-sm text-[var(--color-muted)]">
-                            {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
-                          </p>
-                          {favoriteCount > 0 && (
-                            <span className="flex items-center gap-1 text-sm text-[var(--color-primary)]">
-                              <Icon name="flag" size={12} filled className="text-[var(--color-primary)]" />
-                              {favoriteCount}
-                            </span>
-                          )}
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
+                            {safeIconImage ? (
+                              <span
+                                className="w-full h-full bg-center bg-cover"
+                                style={{ backgroundImage: `url(${safeIconImage})` }}
+                              />
+                            ) : (
+                              <Icon name="menu_book" size={16} className="text-[var(--color-muted)]" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-[var(--color-foreground)] truncate">{project.title}</p>
+                              {project.isFavorite && (
+                                <Icon name="star" size={16} filled className="text-yellow-400" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-sm text-[var(--color-muted)]">
+                                {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
+                              </p>
+                              {favoriteCount > 0 && (
+                                <span className="flex items-center gap-1 text-sm text-[var(--color-primary)]">
+                                  <Icon name="flag" size={12} filled className="text-[var(--color-primary)]" />
+                                  {favoriteCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </button>
                       <div className="flex items-center gap-2 ml-3">

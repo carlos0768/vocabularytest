@@ -812,6 +812,7 @@ export default function HomePage() {
     if (isAddingToExisting && currentProject) {
       sessionStorage.setItem('scanvocab_existing_project_id', currentProject.id);
       sessionStorage.removeItem('scanvocab_project_name');
+      sessionStorage.removeItem('scanvocab_project_icon');
       processMultipleImages(files);
     } else {
       setShowProjectNameModal(true);
@@ -1050,7 +1051,7 @@ export default function HomePage() {
     }
   };
 
-  const handleProjectNameConfirm = async (projectName: string) => {
+  const handleProjectNameConfirm = async (projectName: string, projectIcon?: string) => {
     setShowProjectNameModal(false);
     const files = pendingFiles.length > 0 ? pendingFiles : (pendingFile ? [pendingFile] : []);
     setPendingFile(null);
@@ -1059,6 +1060,11 @@ export default function HomePage() {
     if (files.length === 0) return;
 
     sessionStorage.setItem('scanvocab_project_name', projectName);
+    if (projectIcon) {
+      sessionStorage.setItem('scanvocab_project_icon', projectIcon);
+    } else {
+      sessionStorage.removeItem('scanvocab_project_icon');
+    }
     sessionStorage.removeItem('scanvocab_project_id');
     
     if (files.length === 1) {
@@ -1180,7 +1186,12 @@ export default function HomePage() {
           <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
           <ProjectNameModal
             isOpen={showProjectNameModal}
-            onClose={() => { setShowProjectNameModal(false); setPendingFile(null); }}
+            onClose={() => {
+              setShowProjectNameModal(false);
+              setPendingFile(null);
+              setPendingFiles([]);
+              sessionStorage.removeItem('scanvocab_project_icon');
+            }}
             onConfirm={handleProjectNameConfirm}
           />
         </div>
@@ -1394,7 +1405,12 @@ export default function HomePage() {
       <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
       <ProjectNameModal
         isOpen={showProjectNameModal}
-        onClose={() => { setShowProjectNameModal(false); setPendingFile(null); }}
+        onClose={() => {
+          setShowProjectNameModal(false);
+          setPendingFile(null);
+          setPendingFiles([]);
+          sessionStorage.removeItem('scanvocab_project_icon');
+        }}
         onConfirm={handleProjectNameConfirm}
       />
 
