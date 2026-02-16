@@ -94,7 +94,7 @@ export default function NewCollectionPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
       {/* Header */}
-      <header className="z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           <button onClick={() => router.back()} className="p-1 -ml-1">
             <Icon name="arrow_back" size={22} className="text-[var(--color-foreground)]" />

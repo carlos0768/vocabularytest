@@ -354,7 +354,7 @@ function DictationContent() {
   if (words.length < DEFAULT_QUESTION_COUNT) {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={goBack}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -386,7 +386,7 @@ function DictationContent() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
-        <header className="flex-shrink-0 p-4 flex items-center gap-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
           <button
             onClick={goBack}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -509,7 +509,7 @@ function DictationContent() {
     return (
       <div className="h-[100dvh] flex flex-col bg-[var(--color-background)] fixed inset-0">
         {/* Header */}
-        <header className="flex-shrink-0 p-4 flex items-center gap-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
           <button
             onClick={() => {
               pausePlayback();
@@ -664,7 +664,7 @@ function DictationContent() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
-        <header className="flex-shrink-0 p-4 flex items-center gap-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
           <button
             onClick={restartQuiz}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -775,7 +775,7 @@ function DictationContent() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
         {/* Header */}
-        <header className="flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={goBack}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"

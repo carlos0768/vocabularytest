@@ -723,7 +723,7 @@ export default function QuizPage() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
-        <header className="flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -757,7 +757,7 @@ export default function QuizPage() {
   if (distractorError) {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -812,7 +812,7 @@ export default function QuizPage() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
-        <header className="flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -901,7 +901,7 @@ export default function QuizPage() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
         {/* Header */}
-        <header className="p-4">
+        <header className="sticky top-0 p-4">
           <button
             onClick={backToProject}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
@@ -964,7 +964,7 @@ export default function QuizPage() {
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       {/* Header */}
-      <header className="flex-shrink-0 p-4 flex items-center gap-4">
+      <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
         <button
           onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"

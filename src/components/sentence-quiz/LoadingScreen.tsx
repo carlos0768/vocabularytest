@@ -15,7 +15,7 @@ export function LoadingScreen({ words, onCancel }: LoadingScreenProps) {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header with close button */}
-        <header className="flex-shrink-0 p-4 flex items-center justify-between">
+        <header className="sticky top-0 flex-shrink-0 p-4 flex items-center justify-between">
           {onCancel ? (
             <button
               onClick={onCancel}
@@ -53,7 +53,7 @@ export function LoadingScreen({ words, onCancel }: LoadingScreenProps) {
   return (
     <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       {onCancel && (
-        <header className="flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={onCancel}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"

@@ -129,7 +129,7 @@ export default function SharedProjectPage() {
   return (
     <div className="min-h-screen pb-24 bg-[var(--color-background)]">
       {/* Header */}
-      <header className="bg-[var(--color-background)]/95 border-b border-[var(--color-border)] z-40">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 border-b border-[var(--color-border)] z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
