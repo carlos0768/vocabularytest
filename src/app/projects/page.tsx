@@ -237,7 +237,7 @@ export default function ProjectsPage() {
           </div>
           <Link
             href="/scan"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-sm font-semibold"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-sm font-semibold border-2 border-[var(--color-primary)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
           >
             <Icon name="add" size={16} />
             新規スキャン
@@ -266,10 +266,10 @@ export default function ProjectsPage() {
               <button
                 key={key}
                 onClick={() => setSortBy(key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   sortBy === key
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-primary)]/30'
+                    ? 'bg-[var(--color-primary)] text-white border-b-[3px] border-[#0a5bbd] active:border-b-[1px] active:mt-[2px]'
+                    : 'bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-[3px] text-[var(--color-muted)] hover:border-[var(--color-primary)]/30 active:border-b-[1px] active:mt-[2px]'
                 }`}
               >
                 <Icon name={icon} size={14} />

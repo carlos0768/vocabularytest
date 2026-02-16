@@ -21,16 +21,16 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           // Variants
           variant === 'primary' && [
             'bg-primary text-white',
-            'rounded-full shadow-lg shadow-primary/20',
-            'hover:bg-primary-dark hover:-translate-y-0.5',
-            'active:translate-y-0 active:scale-[0.98]',
+            'rounded-full border-b-[3px] border-[#0a5bbd]',
+            'hover:bg-primary-dark',
+            'active:border-b-[1px] active:mt-[2px]',
             'focus-visible:ring-primary',
           ],
           variant === 'secondary' && [
             'bg-[var(--color-surface)] text-[var(--color-foreground)]',
-            'rounded-full border border-[var(--color-border)]',
+            'rounded-full border-2 border-[var(--color-border)] border-b-4',
             'hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]',
-            'active:scale-[0.98]',
+            'active:border-b-2 active:mt-[2px]',
             'focus-visible:ring-[var(--color-primary)]',
           ],
           variant === 'ghost' && [
@@ -41,9 +41,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           ],
           variant === 'danger' && [
             'bg-[var(--color-error)] text-white',
-            'rounded-full shadow-soft',
-            'hover:bg-red-600 hover:-translate-y-0.5',
-            'active:translate-y-0 active:scale-[0.98]',
+            'rounded-full border-b-[3px] border-[#b91c1c]',
+            'hover:bg-red-600',
+            'active:border-b-[1px] active:mt-[2px]',
             'focus-visible:ring-[var(--color-error)]',
           ],
           // Sizes

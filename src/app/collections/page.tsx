@@ -63,7 +63,7 @@ export default function CollectionsPage() {
             </div>
             <Link
               href="/collections/new"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] text-sm font-semibold"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] text-sm font-semibold border-2 border-[var(--color-success)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
             >
               <Icon name="add" size={16} />
               新規作成
