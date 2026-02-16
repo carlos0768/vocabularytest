@@ -12,6 +12,7 @@
 
 import { createBrowserClient } from '@/lib/supabase';
 import type { WrongAnswer, DailyActivity } from '@/lib/utils';
+import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
 
 // ---- Sync daily stats ----
 
@@ -22,6 +23,8 @@ export async function syncDailyStats(
   correctCount: number,
   masteredCount: number,
 ): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     const supabase = createBrowserClient();
     const { error } = await supabase.rpc('upsert_daily_stats', {
@@ -44,6 +47,8 @@ export async function syncStreak(
   streakCount: number,
   lastActivityDate: string,
 ): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     const supabase = createBrowserClient();
     const { error } = await supabase.rpc('upsert_user_streak', {
@@ -63,6 +68,8 @@ export async function syncWrongAnswer(
   userId: string,
   wrongAnswer: WrongAnswer,
 ): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     const supabase = createBrowserClient();
     const { error } = await supabase
@@ -90,6 +97,8 @@ export async function syncRemoveWrongAnswer(
   userId: string,
   wordId: string,
 ): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     const supabase = createBrowserClient();
     const { error } = await supabase
@@ -104,6 +113,8 @@ export async function syncRemoveWrongAnswer(
 }
 
 export async function syncClearAllWrongAnswers(userId: string): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     const supabase = createBrowserClient();
     const { error } = await supabase
@@ -125,12 +136,14 @@ const WRONG_ANSWERS_KEY = 'scanvocab_wrong_answers';
 const ACTIVITY_HISTORY_KEY = 'scanvocab_activity_history';
 
 export async function pullStatsFromRemote(userId: string): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     const supabase = createBrowserClient();
 
     // Pull in parallel
     const [streakResult, wrongResult, activityResult] = await Promise.all([
-      supabase.from('user_streak').select('*').eq('user_id', userId).single(),
+      supabase.from('user_streak').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('user_wrong_answers').select('*').eq('user_id', userId),
       supabase.rpc('get_daily_stats_range', {
         p_user_id: userId,
@@ -250,6 +263,8 @@ export async function pullStatsFromRemote(userId: string): Promise<void> {
 // ---- Push localStorage → Supabase (initial Pro migration) ----
 
 export async function pushLocalStatsToRemote(userId: string): Promise<void> {
+  if (!isRemoteStatsSyncEnabled()) return;
+
   try {
     // Push streak
     const streak = parseInt(localStorage.getItem(STREAK_KEY) || '0', 10);

@@ -9,6 +9,7 @@
 import { createBrowserClient } from '@/lib/supabase';
 import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId } from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
+import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
 import type { SubscriptionStatus } from '@/types';
 
 export interface CachedStats {
@@ -245,12 +246,12 @@ async function fetchStatsData(
     let wrongAnswersCount = wrongAnswers.length;
     let finalStreakDays = streakDays;
 
-    if (isProUser) {
+    if (isProUser && isRemoteStatsSyncEnabled()) {
       try {
         const supabase = createBrowserClient();
         const [wrongCountResult, streakResult] = await Promise.all([
           supabase.from('user_wrong_answers').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-          supabase.from('user_streak').select('streak_count, last_activity_date').eq('user_id', userId).single(),
+          supabase.from('user_streak').select('streak_count, last_activity_date').eq('user_id', userId).maybeSingle(),
         ]);
 
         if (wrongCountResult.count !== null && wrongCountResult.count !== undefined) {
