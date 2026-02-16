@@ -522,7 +522,7 @@ function ScanPageContent() {
                   e.stopPropagation();
                   cameraInputRef.current?.click();
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary-dark)] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold border-b-[3px] border-[#0a5bbd] active:border-b-[1px] active:mt-[2px] transition-all"
               >
                 <Icon name="photo_camera" size={18} />
                 撮影する
@@ -532,7 +532,7 @@ function ScanPageContent() {
                   e.stopPropagation();
                   uploadInputRef.current?.click();
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] rounded-full text-sm font-semibold hover:bg-[var(--color-border-light)] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 border-2 border-[var(--color-border)] border-b-4 bg-[var(--color-surface)] text-[var(--color-foreground)] rounded-full text-sm font-semibold active:border-b-2 active:mt-[2px] transition-all"
               >
                 <Icon name="image" size={18} />
                 画像を選択

@@ -1382,7 +1382,7 @@ export default function HomePage() {
                 <span className="text-sm font-bold text-[var(--color-foreground)]">検索</span>
               </Link>
               <Link
-                href="/projects"
+                href="/collections"
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-amber-50 flex items-center justify-center">
@@ -1391,7 +1391,7 @@ export default function HomePage() {
                 <span className="text-sm font-bold text-[var(--color-foreground)]">プロジェクト</span>
               </Link>
               <Link
-                href="/favorites"
+                href="/projects"
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-teal-50 flex items-center justify-center">
