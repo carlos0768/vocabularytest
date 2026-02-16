@@ -109,7 +109,7 @@ export function ProjectBookTile({
               <div className="absolute left-0 inset-y-0 w-[3px] bg-black/15" />
               {/* Title initial */}
               <span className="text-white/90 text-2xl font-bold leading-none">{initial}</span>
-              <span className="text-white/60 text-[8px] mt-1.5 tracking-wider">{wordCount}語</span>
+              <span className="text-white/60 text-[16px] mt-1.5 tracking-wider">{wordCount}語</span>
             </div>
           )}
 

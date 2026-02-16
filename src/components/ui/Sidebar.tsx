@@ -27,7 +27,7 @@ const navItems: NavItem[] = [
   },
   {
     href: '/collections',
-    icon: 'workspaces',
+    icon: 'shelves',
     label: 'プロジェクト',
     matchPaths: ['/collections'],
   },

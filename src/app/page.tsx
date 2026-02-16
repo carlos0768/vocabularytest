@@ -1448,15 +1448,15 @@ export default function HomePage() {
           {/* Quick links */}
           <section>
             <div className="grid grid-cols-4 gap-3">
-              <Link
-                href="/scan"
+              <button
+                onClick={() => handleScanButtonClick(false)}
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-sky-100 flex items-center justify-center">
                   <Icon name="photo_camera" size={26} className="text-sky-600" />
                 </div>
                 <span className="text-sm font-bold text-[var(--color-foreground)]">スキャン</span>
-              </Link>
+              </button>
               <Link
                 href="/search"
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
@@ -1471,7 +1471,7 @@ export default function HomePage() {
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-amber-50 flex items-center justify-center">
-                  <Icon name="workspaces" size={26} className="text-amber-600" />
+                  <Icon name="shelves" size={26} className="text-amber-600" />
                 </div>
                 <span className="text-sm font-bold text-[var(--color-foreground)]">プロジェクト</span>
               </Link>
