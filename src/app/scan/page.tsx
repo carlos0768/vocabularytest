@@ -109,8 +109,13 @@ function ScanPageContent() {
   }, [selectedMode]);
 
   // Compress image for fast upload (always compress, target 500KB)
-  const compressForUpload = useCallback(async (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
+  const compressForUpload = useCallback(async (file: File): Promise<{ blob: Blob; contentType: string; ext: string }> => {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (isPdf) {
+      return { blob: file, contentType: 'application/pdf', ext: '.pdf' };
+    }
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
       const img = new Image();
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -118,11 +123,11 @@ function ScanPageContent() {
 
       img.onload = () => {
         URL.revokeObjectURL(objectUrl);
-        
+
         // Target max dimension 1600px (good enough for OCR, much smaller file)
         const MAX_DIM = 1600;
         let { width, height } = img;
-        
+
         if (width > MAX_DIM || height > MAX_DIM) {
           if (width > height) {
             height = Math.round((height * MAX_DIM) / width);
@@ -139,10 +144,10 @@ function ScanPageContent() {
 
         // Compress to JPEG with quality 0.7
         canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              console.log(`Compressed: ${file.size} -> ${blob.size} (${Math.round(blob.size / file.size * 100)}%)`);
-              resolve(blob);
+          (b) => {
+            if (b) {
+              console.log(`Compressed: ${file.size} -> ${b.size} (${Math.round(b.size / file.size * 100)}%)`);
+              resolve(b);
             } else {
               reject(new Error('Compression failed'));
             }
@@ -159,6 +164,7 @@ function ScanPageContent() {
 
       img.src = objectUrl;
     });
+    return { blob, contentType: 'image/jpeg', ext: '.jpg' };
   }, []);
 
   // Background upload for Pro users - Direct to Supabase Storage
@@ -179,15 +185,15 @@ function ScanPageContent() {
       const uploadedPaths: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const compressedBlob = await compressForUpload(file);
+        const { blob: compressedBlob, contentType, ext } = await compressForUpload(file);
 
         const timestamp = Date.now() + i; // Ensure unique timestamps
-        const imagePath = `${user.id}/${timestamp}.jpg`;
+        const imagePath = `${user.id}/${timestamp}${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from('scan-images')
           .upload(imagePath, compressedBlob, {
-            contentType: 'image/jpeg',
+            contentType,
             upsert: false,
           });
 
