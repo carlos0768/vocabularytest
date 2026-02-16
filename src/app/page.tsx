@@ -160,6 +160,7 @@ export default function HomePage() {
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [scanUploadStatus, setScanUploadStatus] = useState<'uploading' | 'done' | 'error' | undefined>(undefined);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [isAddingToExisting, setIsAddingToExisting] = useState(false); // true = add to current project, false = new project
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -1061,7 +1062,6 @@ export default function HomePage() {
   };
 
   const handleProjectNameConfirm = async (projectName: string, projectIcon?: string) => {
-    setShowProjectNameModal(false);
     const files = pendingFiles.length > 0 ? pendingFiles : (pendingFile ? [pendingFile] : []);
     setPendingFile(null);
     setPendingFiles([]);
@@ -1070,6 +1070,7 @@ export default function HomePage() {
 
     // Pro users: use background upload (same as /scan page)
     if (isPro && user) {
+      setScanUploadStatus('uploading');
       try {
         const supabase = createBrowserClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -1134,14 +1135,12 @@ export default function HomePage() {
           throw new Error(error.error || 'ジョブの作成に失敗しました');
         }
 
-        showToast({
-          message: `${files.length > 1 ? `${files.length}枚の画像の` : ''}スキャンを開始しました`,
-          type: 'success',
-          duration: 3000,
-        });
+        setScanUploadStatus('done');
         return;
       } catch (error) {
         console.error('Background upload error:', error);
+        setScanUploadStatus(undefined);
+        setShowProjectNameModal(false);
         showToast({
           message: error instanceof Error ? error.message : 'アップロードに失敗しました',
           type: 'error',
@@ -1150,6 +1149,9 @@ export default function HomePage() {
         return;
       }
     }
+
+    // Free users: close modal before processing
+    setShowProjectNameModal(false);
 
     // Free users: use traditional flow
     sessionStorage.setItem('scanvocab_project_name', projectName);
@@ -1281,11 +1283,13 @@ export default function HomePage() {
             isOpen={showProjectNameModal}
             onClose={() => {
               setShowProjectNameModal(false);
+              setScanUploadStatus(undefined);
               setPendingFile(null);
               setPendingFiles([]);
               sessionStorage.removeItem('scanvocab_project_icon');
             }}
             onConfirm={handleProjectNameConfirm}
+            scanStatus={scanUploadStatus}
           />
         </div>
       </AppShell>
@@ -1547,11 +1551,13 @@ export default function HomePage() {
         isOpen={showProjectNameModal}
         onClose={() => {
           setShowProjectNameModal(false);
+          setScanUploadStatus(undefined);
           setPendingFile(null);
           setPendingFiles([]);
           sessionStorage.removeItem('scanvocab_project_icon');
         }}
         onConfirm={handleProjectNameConfirm}
+        scanStatus={scanUploadStatus}
       />
 
       <EditProjectNameModal

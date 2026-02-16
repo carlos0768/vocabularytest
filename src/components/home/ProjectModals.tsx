@@ -8,10 +8,13 @@ export function ProjectNameModal({
   isOpen,
   onClose,
   onConfirm,
+  scanStatus,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (name: string, iconImage?: string) => void;
+  /** 'uploading' while background scan is being created, 'done' when finished, undefined for default form */
+  scanStatus?: 'uploading' | 'done' | 'error';
 }) {
   const [name, setName] = useState('');
   const [iconImage, setIconImage] = useState<string | null>(null);
@@ -21,14 +24,14 @@ export function ProjectNameModal({
   const iconInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !scanStatus) {
       setName('');
       setIconImage(null);
       setIconError(null);
       setIconProcessing(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, scanStatus]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +60,44 @@ export function ProjectNameModal({
   };
 
   if (!isOpen) return null;
+
+  // Show scan status screen instead of form
+  if (scanStatus === 'uploading' || scanStatus === 'done') {
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="card p-6 w-full max-w-sm animate-fade-in-up text-center">
+          {scanStatus === 'uploading' ? (
+            <>
+              <div className="mx-auto w-14 h-14 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center mb-4">
+                <Icon name="progress_activity" size={28} className="text-[var(--color-primary)] animate-spin" />
+              </div>
+              <h2 className="text-lg font-bold text-[var(--color-foreground)]">
+                アップロード中...
+              </h2>
+              <p className="text-sm text-[var(--color-muted)] mt-2">
+                画像をサーバーに送信しています
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto w-14 h-14 rounded-full bg-[var(--color-success-light)] flex items-center justify-center mb-4">
+                <Icon name="check_circle" size={28} className="text-[var(--color-success)]" />
+              </div>
+              <h2 className="text-lg font-bold text-[var(--color-foreground)]">
+                スキャンを開始しました
+              </h2>
+              <p className="text-sm text-[var(--color-muted)] mt-2">
+                バックグラウンドで処理中です。完了したら通知でお知らせします。
+              </p>
+              <Button onClick={onClose} className="mt-5 w-full">
+                閉じる
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
