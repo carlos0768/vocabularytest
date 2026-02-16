@@ -85,11 +85,11 @@ export default function SettingsPage() {
       <main className="max-w-lg mx-auto px-6 py-4 space-y-6">
         {/* Account - show login prompt or user info */}
         {authLoading ? (
-          <div className="card p-4 flex items-center justify-center">
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : isAuthenticated ? (
-          <div className="card p-4">
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center">
                 <Icon name="mail" size={24} className="text-[var(--color-primary)]" />
@@ -110,7 +110,7 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : (
-          <div className="card p-4">
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-[var(--color-surface)] rounded-full flex items-center justify-center">
                 <Icon name="person" size={24} className="text-[var(--color-muted)]" />
@@ -133,7 +133,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
             表示
           </h2>
-          <div className="card overflow-hidden">
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 overflow-hidden">
             {/* Theme */}
             <div className="flex items-center justify-between px-4 py-4">
               <span className="font-medium text-[var(--color-foreground)]">テーマ</span>
@@ -162,7 +162,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
             プラン
           </h2>
-          <div className="card p-4">
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4">
             {isPro ? (
               // Pro User Plan View
               <div className="space-y-4">
@@ -340,7 +340,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
             サポート
           </h2>
-          <div className="card overflow-hidden">
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 overflow-hidden">
             <Link
               href="/contact"
               className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-primary-light)] transition-colors"

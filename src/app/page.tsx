@@ -1369,7 +1369,7 @@ export default function HomePage() {
         <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
           {/* === Hero Section === */}
           <section>
-            <div className="rounded-2xl bg-[var(--color-primary)] p-5 lg:p-6 text-white">
+            <div className="rounded-2xl bg-[var(--color-hero)] p-5 lg:p-6 text-white">
               {/* Tier A: ストリーク + 動機付け */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center shrink-0">
@@ -1416,7 +1416,7 @@ export default function HomePage() {
                 {reviewDueCount > 0 ? (
                   <Link
                     href={reviewQuizHref}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-bold text-sm border-b-[3px] border-gray-300 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--color-hero-btn)] text-[var(--color-hero-btn-text)] font-bold text-sm border-b-[3px] border-[var(--color-hero-btn-border)] active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                   >
                     <Icon name="replay" size={20} />
                     復習を始める ({reviewDueCount}問)
@@ -1425,7 +1425,7 @@ export default function HomePage() {
                   projects.length > 0 && totalWords > 0 && (
                     <Link
                       href={`/quiz/${projects[0].id}?from=${encodeURIComponent('/')}`}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-bold text-sm border-b-[3px] border-gray-300 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--color-hero-btn)] text-[var(--color-hero-btn-text)] font-bold text-sm border-b-[3px] border-[var(--color-hero-btn-border)] active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                     >
                       <Icon name="quiz" size={20} />
                       クイズに挑戦

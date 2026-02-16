@@ -54,7 +54,7 @@ export default function StatsPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="card p-5">
+              <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-5">
                 <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
                   <Icon name="today" size={20} className="text-[var(--color-primary)]" />
                   今日の学習
@@ -71,7 +71,7 @@ export default function StatsPage() {
                 </div>
               </div>
 
-              <div className="card p-5">
+              <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-5">
                 <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
                   <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
                   単語統計
@@ -91,17 +91,17 @@ export default function StatsPage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center p-3 bg-[var(--color-success-light)] rounded-xl">
+                  <div className="text-center p-3 bg-[var(--color-success-light)] rounded-xl border border-[var(--color-border)]">
                     <Icon name="check_circle" size={20} className="text-[var(--color-success)] mx-auto mb-1" />
                     <p className="text-lg font-bold text-[var(--color-foreground)]">{stats.masteredWords}</p>
                     <p className="text-xs text-[var(--color-muted)]">習得済み</p>
                   </div>
-                  <div className="text-center p-3 bg-[var(--color-primary-light)] rounded-xl">
+                  <div className="text-center p-3 bg-[var(--color-primary-light)] rounded-xl border border-[var(--color-border)]">
                     <Icon name="target" size={20} className="text-[var(--color-primary)] mx-auto mb-1" />
                     <p className="text-lg font-bold text-[var(--color-foreground)]">{stats.reviewWords}</p>
                     <p className="text-xs text-[var(--color-muted)]">復習中</p>
                   </div>
-                  <div className="text-center p-3 bg-[var(--color-surface)] rounded-xl">
+                  <div className="text-center p-3 bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)]">
                     <Icon name="trending_up" size={20} className="text-[var(--color-muted)] mx-auto mb-1" />
                     <p className="text-lg font-bold text-[var(--color-foreground)]">{stats.newWords}</p>
                     <p className="text-xs text-[var(--color-muted)]">未学習</p>
@@ -109,7 +109,7 @@ export default function StatsPage() {
                 </div>
               </div>
 
-              <div className="card p-5">
+              <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-5">
                 <h2 className="font-bold text-[var(--color-foreground)] mb-4 flex items-center gap-2">
                   <Icon name="bar_chart" size={20} className="text-[var(--color-primary)]" />
                   概要
