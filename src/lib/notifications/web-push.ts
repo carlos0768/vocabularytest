@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-type ScanJobPushStatus = 'completed' | 'failed';
+type ScanJobPushStatus = 'completed' | 'failed' | 'warning';
 
 type ScanJobPushParams = {
   userId: string;
@@ -40,15 +40,24 @@ function configureWebPush(): boolean {
 }
 
 function createPayload(params: ScanJobPushParams): string {
-  const title = params.status === 'failed' ? 'MERKEN: スキャン失敗' : 'MERKEN: スキャン完了';
+  const title = params.status === 'failed'
+    ? 'MERKEN: スキャン失敗'
+    : params.status === 'warning'
+    ? 'MERKEN: 文法抽出なし'
+    : 'MERKEN: スキャン完了';
   const body = params.status === 'failed'
     ? `「${params.projectTitle}」のスキャンに失敗しました`
+    : params.status === 'warning'
+    ? `「${params.projectTitle}」では文法抽出が見つからなかったため、通常抽出に切り替えました`
     : `「${params.projectTitle}」に${params.wordCount ?? 0}語追加されました`;
+  const tag = params.status === 'warning'
+    ? `scan-job-warning-${params.jobId}`
+    : `scan-job-${params.projectId ?? params.jobId}`;
 
   return JSON.stringify({
     title,
     body,
-    tag: `scan-job-${params.projectId ?? params.jobId}`,
+    tag,
     data: {
       url: params.projectId ? `/project/${params.projectId}` : '/',
       projectId: params.projectId,
