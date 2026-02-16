@@ -21,7 +21,7 @@ import { getWordsByProjectMap, mergeProjectsById } from '@/lib/projects/load-hel
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
-import { processImageFile } from '@/lib/image-utils';
+import { processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import {
   getCachedProjects,
@@ -838,29 +838,14 @@ export default function HomePage() {
     ]);
 
     try {
-      // Process image (convert HEIC to JPEG if needed)
-      let processedFile: File;
+      // Process image/PDF and convert to base64
+      let base64: string;
       try {
-        processedFile = await processImageFile(file);
+        base64 = await processImageToBase64(file);
       } catch (imageError) {
         console.error('Image processing error:', imageError);
         throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
       }
-
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          if (!result || !result.includes(',')) {
-            reject(new Error('画像データの読み取りに失敗しました'));
-            return;
-          }
-          resolve(result);
-        };
-        reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
-        reader.readAsDataURL(processedFile);
-      });
 
       setProcessingSteps([
         { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
@@ -958,10 +943,10 @@ export default function HomePage() {
           label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
         })));
 
-        // Process image (convert HEIC to JPEG if needed)
-        let processedFile: File;
+        // Process image/PDF and convert to base64
+        let base64: string;
         try {
-          processedFile = await processImageFile(file);
+          base64 = await processImageToBase64(file);
         } catch (imageError) {
           console.error('Image processing error:', imageError);
           setProcessingSteps(prev => prev.map((s, idx) => ({
@@ -971,21 +956,6 @@ export default function HomePage() {
           })));
           continue;
         }
-
-        // Convert file to base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            if (!result || !result.includes(',')) {
-              reject(new Error('画像データの読み取りに失敗しました'));
-              return;
-            }
-            resolve(result);
-          };
-          reader.onerror = () => reject(new Error('ファイルの読み取りに失敗しました'));
-          reader.readAsDataURL(processedFile);
-        });
 
         const response = await fetch('/api/extract', {
           method: 'POST',
@@ -1067,9 +1037,10 @@ export default function HomePage() {
     setPendingFiles([]);
 
     if (files.length === 0) return;
+    const hasPdf = files.some((file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name));
 
     // Pro users: use background upload (same as /scan page)
-    if (isPro && user) {
+    if (isPro && user && !hasPdf) {
       setScanUploadStatus('uploading');
       try {
         const supabase = createBrowserClient();
@@ -1118,15 +1089,17 @@ export default function HomePage() {
             ext = '.jpg';
           }
 
-          const timestamp = Date.now() + i;
-          const imagePath = `${user.id}/${timestamp}${ext}`;
+          const randomSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : Math.random().toString(36).slice(2);
+          const imagePath = `${user.id}/${Date.now()}-${i}-${randomSuffix}${ext}`;
           const { error: uploadError } = await supabase.storage
             .from('scan-images')
             .upload(imagePath, blob, { contentType, upsert: false });
 
           if (uploadError) {
             if (uploadedPaths.length > 0) await supabase.storage.from('scan-images').remove(uploadedPaths);
-            throw new Error('画像のアップロードに失敗しました');
+            throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
           }
           uploadedPaths.push(imagePath);
         }
@@ -1163,6 +1136,14 @@ export default function HomePage() {
         });
         return;
       }
+    }
+
+    if (isPro && hasPdf) {
+      showToast({
+        message: 'PDFは通常解析モードで処理します',
+        type: 'warning',
+        duration: 3500,
+      });
     }
 
     // Free users: close modal before processing

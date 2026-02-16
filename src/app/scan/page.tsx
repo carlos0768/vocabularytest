@@ -108,9 +108,13 @@ function ScanPageContent() {
     }
   }, [selectedMode]);
 
+  const isPdfFile = useCallback((file: File) => {
+    return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  }, []);
+
   // Compress image for fast upload (always compress, target 500KB)
   const compressForUpload = useCallback(async (file: File): Promise<{ blob: Blob; contentType: string; ext: string }> => {
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    const isPdf = isPdfFile(file);
     if (isPdf) {
       return { blob: file, contentType: 'application/pdf', ext: '.pdf' };
     }
@@ -165,7 +169,7 @@ function ScanPageContent() {
       img.src = objectUrl;
     });
     return { blob, contentType: 'image/jpeg', ext: '.jpg' };
-  }, []);
+  }, [isPdfFile]);
 
   // Background upload for Pro users - Direct to Supabase Storage
   // Uploads ALL images first, then creates a single scan job with all image paths
@@ -187,8 +191,10 @@ function ScanPageContent() {
         const file = files[i];
         const { blob: compressedBlob, contentType, ext } = await compressForUpload(file);
 
-        const timestamp = Date.now() + i; // Ensure unique timestamps
-        const imagePath = `${user.id}/${timestamp}${ext}`;
+        const randomSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2);
+        const imagePath = `${user.id}/${Date.now()}-${i}-${randomSuffix}${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from('scan-images')
@@ -203,7 +209,7 @@ function ScanPageContent() {
           if (uploadedPaths.length > 0) {
             await supabase.storage.from('scan-images').remove(uploadedPaths);
           }
-          throw new Error('画像のアップロードに失敗しました');
+          throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
         }
         uploadedPaths.push(imagePath);
       }
@@ -287,22 +293,33 @@ function ScanPageContent() {
       return;
     }
 
-    // Pro users: use background processing
+    const hasPdf = files.some((file) => isPdfFile(file));
+
+    // Pro users: use background processing for image files only
+    // PDF is processed through the direct extract flow for compatibility.
     if (isPro) {
       // If adding to existing project, use traditional flow
       if (projectId) {
         // Fall through to traditional flow
       } else {
-        // New project: show project name modal and use background upload
-        const now = new Date();
-        const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-        setProjectName(defaultName);
-        setProjectIcon(null);
-        setProjectIconError(null);
-        setProjectIconProcessing(false);
-        setPendingFiles(files);
-        setShowProjectNameModal(true);
-        return;
+        if (hasPdf) {
+          showToast({
+            message: 'PDFは互換性のため通常解析モードで処理します',
+            type: 'warning',
+            duration: 3500,
+          });
+        } else {
+          // New project: show project name modal and use background upload
+          const now = new Date();
+          const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+          setProjectName(defaultName);
+          setProjectIcon(null);
+          setProjectIconError(null);
+          setProjectIconProcessing(false);
+          setPendingFiles(files);
+          setShowProjectNameModal(true);
+          return;
+        }
       }
     }
 
@@ -424,7 +441,7 @@ function ScanPageContent() {
         )
       );
     }
-  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, handleBackgroundUpload]);
+  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, isPdfFile]);
 
   const handleProjectIconChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
