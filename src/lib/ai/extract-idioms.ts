@@ -10,7 +10,7 @@ import { safeParseJSON } from './utils/json';
 
 export type IdiomExtractionResult =
   | { success: true; data: ValidatedAIResponse }
-  | { success: false; error: string };
+  | { success: false; error: string; reason?: 'no_idiom_found' };
 
 // Extracts idioms and phrases from an image using AI provider (configured in config.ts)
 // Returns validated word data (using same schema as words) or an error message
@@ -83,9 +83,11 @@ export async function extractIdiomsFromImage(
 
     // Check if any idioms were extracted
     if (validated.data!.words.length === 0) {
+      console.warn('Idiom extraction returned valid JSON but no idioms were found');
       return {
         success: false,
-        error: '画像から熟語・イディオムを読み取れませんでした。熟語が含まれる画像を撮影してください。',
+        error: '画像から熟語・イディオムを読み取れませんでした。',
+        reason: 'no_idiom_found',
       };
     }
 

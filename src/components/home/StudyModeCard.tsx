@@ -93,7 +93,7 @@ export function StudyModeCard({
 
   const content = (
     <div
-      className={`relative ${isMobileSquareLayout ? 'aspect-square sm:aspect-auto p-3 sm:p-4' : isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
+      className={`relative ${isMobileSquareLayout ? 'aspect-[5/4] sm:aspect-auto p-3 sm:p-4' : isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
         disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'
       }`}
     >

@@ -33,12 +33,15 @@ export function parseAIResponse(data: unknown): {
   data?: ValidatedAIResponse;
   error?: string;
 } {
-  console.log('parseAIResponse input:', JSON.stringify(data, null, 2));
-
   const result = AIResponseSchema.safeParse(data);
 
   if (result.success) {
-    console.log('parseAIResponse success:', JSON.stringify(result.data, null, 2));
+    const count = result.data.words.length;
+    if (count === 0) {
+      console.warn('parseAIResponse parsed valid JSON but no words were extracted');
+    } else {
+      console.log(`parseAIResponse success: extracted ${count} words`);
+    }
     return { success: true, data: result.data };
   }
 

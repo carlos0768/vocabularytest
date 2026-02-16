@@ -54,7 +54,12 @@ async function extractFromImage(
       return await extractEikenWordsFromImage(base64Image, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1');
     }
     case 'idiom': {
-      return await extractIdiomsFromImage(base64Image, openaiApiKey);
+      const idiomResult = await extractIdiomsFromImage(base64Image, openaiApiKey);
+      if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
+        console.warn('No idioms found in background scan. Falling back to all-word extraction.');
+        return await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true });
+      }
+      return idiomResult;
     }
     default: {
       return await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true });

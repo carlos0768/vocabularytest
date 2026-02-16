@@ -180,7 +180,6 @@ export default function HomePage() {
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [scanUploadStatus, setScanUploadStatus] = useState<'uploading' | 'done' | 'error' | undefined>(undefined);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
-  const [showScanDestinationModal, setShowScanDestinationModal] = useState(false);
   const [isAddingToExisting, setIsAddingToExisting] = useState(false); // true = add to current project, false = new project
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -949,14 +948,6 @@ export default function HomePage() {
     setShowScanModeModal(true);
   };
 
-  const handleOpenScanEntry = () => {
-    if (currentProject) {
-      setShowScanDestinationModal(true);
-      return;
-    }
-    handleScanButtonClick(false);
-  };
-
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
     // Pro-only features: circled, highlighted, eiken filter, idiom modes
     if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
@@ -1639,7 +1630,7 @@ export default function HomePage() {
           <section>
             <div className="grid grid-cols-4 gap-2">
               <button
-                onClick={handleOpenScanEntry}
+                onClick={() => handleScanButtonClick(false)}
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-11 h-11 rounded-xl bg-sky-100 flex items-center justify-center">
@@ -1731,46 +1722,6 @@ export default function HomePage() {
         onSelectMode={handleScanModeSelect}
         isPro={isPro}
       />
-      {showScanDestinationModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl">
-            <h3 className="text-base font-bold text-[var(--color-foreground)] mb-2">スキャン先を選択</h3>
-            <p className="text-sm text-[var(--color-muted)] mb-4">
-              新しい単語帳を作るか、今の単語帳に追加するか選べます。
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  setShowScanDestinationModal(false);
-                  handleScanButtonClick(true);
-                }}
-                className="w-full flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3 text-left hover:bg-[var(--color-primary-light)] transition-colors"
-              >
-                <span className="font-medium text-[var(--color-foreground)] truncate pr-3">
-                  「{currentProject?.title || '現在の単語帳'}」に追加
-                </span>
-                <Icon name="add_circle" size={20} className="text-[var(--color-primary)] shrink-0" />
-              </button>
-              <button
-                onClick={() => {
-                  setShowScanDestinationModal(false);
-                  handleScanButtonClick(false);
-                }}
-                className="w-full flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3 text-left hover:bg-[var(--color-primary-light)] transition-colors"
-              >
-                <span className="font-medium text-[var(--color-foreground)]">新しい単語帳を作成</span>
-                <Icon name="library_add" size={20} className="text-[var(--color-primary)] shrink-0" />
-              </button>
-            </div>
-            <button
-              onClick={() => setShowScanDestinationModal(false)}
-              className="w-full mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[var(--color-muted)] hover:bg-[var(--color-background)] transition-colors"
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
-      )}
       <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
       <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
       <ProjectNameModal
