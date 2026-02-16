@@ -1515,24 +1515,15 @@ export default function HomePage() {
               <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
               <p className="text-xs text-[var(--color-muted)]">手入力ゼロで単語帳を作成</p>
             </div>
-            <div className="flex items-center gap-2">
-              {isPro && (
-                <>
-                  <SyncStatusIndicator />
-                  <span className="chip chip-pro">
-                    <Icon name="auto_awesome" size={14} />
-                    Pro
-                  </span>
-                </>
-              )}
-              <Link
-                href="/projects"
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
-                aria-label="単語帳一覧"
-              >
-                <Icon name="folder" size={24} />
-              </Link>
-            </div>
+            {isPro && (
+              <div className="flex items-center gap-2">
+                <SyncStatusIndicator />
+                <span className="chip chip-pro">
+                  <Icon name="auto_awesome" size={14} />
+                  Pro
+                </span>
+              </div>
+            )}
           </div>
         </header>
 
