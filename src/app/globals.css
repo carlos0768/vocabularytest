@@ -28,6 +28,12 @@
 
   /* Dot grid */
   --color-dot: #6b7280;
+
+  /* Hero (dashboard) */
+  --color-hero: #137fec;
+  --color-hero-btn: #ffffff;
+  --color-hero-btn-text: #137fec;
+  --color-hero-btn-border: #d1d5db;
 }
 
 .dark {
@@ -42,6 +48,12 @@
   --color-error-light: #2e1a1a;
   --color-warning-light: #2e2a1a;
   --color-dot: #1a1e23;
+
+  /* Hero (dashboard) */
+  --color-hero: #1a3a5c;
+  --color-hero-btn: rgba(255, 255, 255, 0.15);
+  --color-hero-btn-text: #ffffff;
+  --color-hero-btn-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
