@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
-import { formatDate } from '@/lib/utils';
+import { getBookCoverColors } from '@/lib/book-cover-utils';
 import type { Project } from '@/types';
 
 interface ProjectBookTileProps {
@@ -13,26 +13,6 @@ interface ProjectBookTileProps {
   progress?: number;
   onDelete?: (id: string) => void;
   onToggleFavorite?: (id: string) => void;
-}
-
-/** Color palette for generated book covers (when no iconImage) */
-const COVER_COLORS = [
-  ['#3b82f6', '#2563eb'], // blue
-  ['#8b5cf6', '#7c3aed'], // violet
-  ['#06b6d4', '#0891b2'], // cyan
-  ['#10b981', '#059669'], // emerald
-  ['#f59e0b', '#d97706'], // amber
-  ['#ef4444', '#dc2626'], // red
-  ['#ec4899', '#db2777'], // pink
-  ['#6366f1', '#4f46e5'], // indigo
-];
-
-function hashCode(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
 }
 
 export function ProjectBookTile({
@@ -49,8 +29,7 @@ export function ProjectBookTile({
       ? project.iconImage
       : null;
 
-  const colorIdx = hashCode(project.id) % COVER_COLORS.length;
-  const [colorFrom, colorTo] = COVER_COLORS[colorIdx];
+  const [colorFrom, colorTo] = getBookCoverColors(project.id);
 
   // First character of title for the generated cover
   const initial = project.title.charAt(0).toUpperCase();

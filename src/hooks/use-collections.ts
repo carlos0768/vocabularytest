@@ -5,9 +5,14 @@ import { useAuth } from '@/hooks/use-auth';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import type { Collection, CollectionProject } from '@/types';
 
+export type CollectionStats = Record<string, { projectCount: number; wordCount: number; masteredCount: number }>;
+export type CollectionPreviews = Record<string, { id: string; title: string; iconImage?: string }[]>;
+
 export function useCollections() {
   const { user, isPro, loading: authLoading } = useAuth();
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [stats, setStats] = useState<CollectionStats>({});
+  const [previews, setPreviews] = useState<CollectionPreviews>({});
   const [loading, setLoading] = useState(true);
 
   const loadCollections = useCallback(async () => {
@@ -20,6 +25,16 @@ export function useCollections() {
       setLoading(true);
       const data = await remoteRepository.getCollections(user.id);
       setCollections(data);
+      // Load stats and previews for all collections
+      if (data.length > 0) {
+        const ids = data.map((c) => c.id);
+        const [s, p] = await Promise.all([
+          remoteRepository.getCollectionStats(ids),
+          remoteRepository.getCollectionPreviews(ids),
+        ]);
+        setStats(s);
+        setPreviews(p);
+      }
     } catch (e) {
       console.error('Failed to load collections:', e);
     } finally {
@@ -122,6 +137,8 @@ export function useCollections() {
 
   return {
     collections,
+    stats,
+    previews,
     loading,
     createCollection,
     updateCollection,
