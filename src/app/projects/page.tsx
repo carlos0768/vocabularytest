@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
-import { ProjectCard } from '@/components/project';
+import { ProjectBookTile } from '@/components/project/ProjectBookTile';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
@@ -212,7 +212,7 @@ export default function ProjectsPage() {
     <AppShell>
     <div className="min-h-screen pb-28 lg:pb-6">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
+        <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
           <div className="flex-1">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>
             <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
@@ -227,7 +227,7 @@ export default function ProjectsPage() {
         </div>
       </header>
 
-      <main className="max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+      <main className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-6 space-y-6">
         <div className="relative">
           <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
@@ -237,17 +237,6 @@ export default function ProjectsPage() {
             placeholder="単語帳を検索"
             className="w-full pl-10 pr-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)]"
           />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-[var(--color-muted)]">単語検索や意味検索はこちら</p>
-          <Link
-            href="/search"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold hover:border-[var(--color-primary)] transition-colors"
-          >
-            <Icon name="search" size={14} />
-            単語検索へ
-          </Link>
         </div>
 
         {loading ? (
@@ -277,9 +266,9 @@ export default function ProjectsPage() {
                   <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
                   <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {favorites.map((project) => (
-                    <ProjectCard
+                    <ProjectBookTile
                       key={project.id}
                       project={project}
                       wordCount={project.totalWords}
@@ -298,9 +287,9 @@ export default function ProjectsPage() {
                 <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {filtered.map((project) => (
-                  <ProjectCard
+                  <ProjectBookTile
                     key={project.id}
                     project={project}
                     wordCount={project.totalWords}
