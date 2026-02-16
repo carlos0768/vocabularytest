@@ -932,7 +932,7 @@ export default function QuizPage() {
 
   // Main quiz screen
   return (
-    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       {/* Header */}
       <header className="flex-shrink-0 p-4 flex items-center gap-4">
         <button
@@ -953,18 +953,18 @@ export default function QuizPage() {
         </div>
       </header>
 
-      {/* Question */}
-      <main className="flex-1 flex flex-col p-6 overflow-y-auto pb-24">
+      {/* Question area - scrollable only when content overflows */}
+      <main className="flex-1 flex flex-col min-h-0 px-6 overflow-y-auto">
         {/* Mode badge */}
-        <div className="flex justify-center mb-2">
+        <div className="flex justify-center mb-1 flex-shrink-0">
           <span className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)]">
             {quizDirection === 'en-to-ja' ? '英→日' : '日→英'}
           </span>
         </div>
 
         {/* Question word */}
-        <div className="flex flex-col items-center justify-center py-8 animate-fade-in-up">
-          <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center mb-4 tracking-tight">
+        <div className="flex flex-col items-center justify-center py-4 flex-shrink-0 animate-fade-in-up">
+          <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center mb-2 tracking-tight">
             {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
           </h1>
 
@@ -989,7 +989,7 @@ export default function QuizPage() {
                 )
               );
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors ${
               currentQuestion?.word.isFavorite
                 ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
                 : 'hover:bg-black/5 dark:hover:bg-white/10 text-[var(--color-muted)]'
@@ -1004,7 +1004,7 @@ export default function QuizPage() {
         </div>
 
         {/* Options */}
-        <div className="space-y-3 mb-4 max-w-lg mx-auto w-full">
+        <div className="space-y-2.5 max-w-lg mx-auto w-full flex-shrink-0">
           {currentQuestion?.options.map((option, index) => (
             <QuizOption
               key={index}
@@ -1021,7 +1021,7 @@ export default function QuizPage() {
 
         {/* Example sentence shown after answering */}
         {isRevealed && currentQuestion && (
-          <div className="max-w-lg mx-auto w-full mb-24">
+          <div className="max-w-lg mx-auto w-full mt-3 flex-shrink-0">
             {currentQuestion.word.exampleSentence ? (
               <div className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold mb-1">
@@ -1041,16 +1041,15 @@ export default function QuizPage() {
             ) : null}
           </div>
         )}
-
       </main>
 
-      {/* Fixed bottom next button (shown after answering) */}
+      {/* Bottom next button (shown after answering) */}
       {isRevealed && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-background)] p-6 safe-area-bottom z-50">
-          <Button 
-            onClick={moveToNext} 
+        <div className="flex-shrink-0 bg-[var(--color-background)] px-6 pt-3 pb-6 safe-area-bottom">
+          <Button
+            onClick={moveToNext}
             disabled={isTransitioning}
-            className="w-full max-w-lg mx-auto flex" 
+            className="w-full max-w-lg mx-auto flex"
             size="lg"
           >
             次へ
