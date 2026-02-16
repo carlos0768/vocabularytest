@@ -1363,15 +1363,15 @@ export default function HomePage() {
           {/* Quick links */}
           <section>
             <div className="grid grid-cols-4 gap-3">
-              <button
-                onClick={() => handleScanButtonClick(false)}
+              <Link
+                href="/scan"
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-sky-100 flex items-center justify-center">
                   <Icon name="photo_camera" size={26} className="text-sky-600" />
                 </div>
                 <span className="text-sm font-bold text-[var(--color-foreground)]">スキャン</span>
-              </button>
+              </Link>
               <Link
                 href="/search"
                 className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
