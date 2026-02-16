@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
-import { ProjectCard } from '@/components/project';
+import { ProjectBookTile } from '@/components/project/ProjectBookTile';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
@@ -1281,7 +1281,7 @@ export default function HomePage() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-8">
+        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
           {/* === Hero Section === */}
           <section>
             <div className="rounded-2xl bg-[var(--color-primary)] p-5 lg:p-6 text-white">
@@ -1360,46 +1360,85 @@ export default function HomePage() {
             </div>
           </section>
 
+          {/* Quick links */}
+          <section>
+            <div className="grid grid-cols-4 gap-2.5">
+              <button
+                onClick={() => handleScanButtonClick(false)}
+                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-sky-100 flex items-center justify-center">
+                  <Icon name="photo_camera" size={22} className="text-sky-600" />
+                </div>
+                <span className="text-xs font-semibold text-[var(--color-foreground)]">スキャン</span>
+              </button>
+              <Link
+                href="/search"
+                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <Icon name="search" size={22} className="text-slate-600" />
+                </div>
+                <span className="text-xs font-semibold text-[var(--color-foreground)]">検索</span>
+              </Link>
+              <Link
+                href="/projects"
+                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Icon name="workspaces" size={22} className="text-amber-600" />
+                </div>
+                <span className="text-xs font-semibold text-[var(--color-foreground)]">プロジェクト</span>
+              </Link>
+              <Link
+                href="/favorites"
+                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center">
+                  <Icon name="folder" size={22} className="text-teal-600" />
+                </div>
+                <span className="text-xs font-semibold text-[var(--color-foreground)]">単語帳</span>
+              </Link>
+            </div>
+          </section>
+
           {/* Recent projects */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">最近の単語帳</h2>
               <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {projects.length === 0 ? (
-                <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                  まだ単語帳がありません。スキャンから始めましょう。
-                </div>
-              ) : (
-                [...projects]
+            {projects.length === 0 ? (
+              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
+                まだ単語帳がありません。スキャンから始めましょう。
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {[...projects]
                   .sort((a, b) => {
-                    // Pinned projects first
                     if (a.isFavorite && !b.isFavorite) return -1;
                     if (!a.isFavorite && b.isFavorite) return 1;
-                    // Then by date
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                   })
-                  .slice(0, 4)
-                  .map((project, index) => {
+                  .slice(0, 8)
+                  .map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
                     const mastered = projectWords.filter((w) => w.status === 'mastered').length;
                     const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
                     return (
-                      <div key={project.id} className={index >= 2 ? 'hidden lg:block' : ''}>
-                        <ProjectCard
-                          project={project}
-                          wordCount={projectWords.length}
-                          masteredCount={mastered}
-                          progress={progress}
-                          onDelete={(id) => handleDeleteProject(id)}
-                          onToggleFavorite={handleToggleProjectFavorite}
-                        />
-                      </div>
+                      <ProjectBookTile
+                        key={project.id}
+                        project={project}
+                        wordCount={projectWords.length}
+                        masteredCount={mastered}
+                        progress={progress}
+                        onDelete={(id) => handleDeleteProject(id)}
+                        onToggleFavorite={handleToggleProjectFavorite}
+                      />
                     );
-                  })
-              )}
-            </div>
+                  })}
+              </div>
+            )}
           </section>
         </main>
 
