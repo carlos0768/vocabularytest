@@ -1,8 +1,8 @@
 // Image utility functions
 // Handles HEIC conversion, compression, PDF pass-through, and other image processing
 
-// Maximum image size in bytes (2MB to stay well under Vercel's 4.5MB limit after base64 encoding)
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+// Maximum image size in bytes (1MB to reduce OpenAI API processing time and avoid Vercel timeout)
+const MAX_IMAGE_SIZE = 1 * 1024 * 1024;
 const PROJECT_ICON_SIZE = 256;
 
 // Maximum PDF size (Gemini supports up to 100MB, but we limit to 20MB for performance)
@@ -35,7 +35,8 @@ async function readFileHeader(file: File): Promise<string> {
 }
 
 // Maximum dimension for resizing
-const MAX_DIMENSION = 2048;
+// Reduced to speed up OpenAI API processing
+const MAX_DIMENSION = 1024;
 
 /**
  * Convert HEIC/HEIF image to JPEG
@@ -89,12 +90,8 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
  * Uses canvas to resize and compress
  */
 export async function compressImage(file: File): Promise<File> {
-  // Skip if already small enough - early return for performance
-  if (file.size <= MAX_IMAGE_SIZE) {
-    return file;
-  }
-
-  console.log('Compressing large image:', { size: file.size });
+  // Always resize to MAX_DIMENSION to speed up API processing, even if file size is small
+  // This ensures consistent processing time regardless of original image dimensions
 
   return new Promise((resolve, reject) => {
     const img = new Image();
