@@ -1080,34 +1080,49 @@ export default function HomePage() {
         const uploadedPaths: string[] = [];
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          // Compress image
-          const blob = await new Promise<Blob>((resolve, reject) => {
-            const img = new Image();
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const objectUrl = URL.createObjectURL(file);
-            img.onload = () => {
-              URL.revokeObjectURL(objectUrl);
-              const MAX_DIM = 1600;
-              let { width, height } = img;
-              if (width > MAX_DIM || height > MAX_DIM) {
-                if (width > height) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; }
-                else { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; }
-              }
-              canvas.width = width;
-              canvas.height = height;
-              ctx?.drawImage(img, 0, 0, width, height);
-              canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.7);
-            };
-            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image')); };
-            img.src = objectUrl;
-          });
+          const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
+          let blob: Blob;
+          let contentType: string;
+          let ext: string;
+
+          if (isPdf) {
+            // PDF: upload as-is without compression
+            blob = file;
+            contentType = 'application/pdf';
+            ext = '.pdf';
+          } else {
+            // Image: compress via canvas
+            blob = await new Promise<Blob>((resolve, reject) => {
+              const img = new Image();
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              const objectUrl = URL.createObjectURL(file);
+              img.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                const MAX_DIM = 1600;
+                let { width, height } = img;
+                if (width > MAX_DIM || height > MAX_DIM) {
+                  if (width > height) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; }
+                  else { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                ctx?.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.7);
+              };
+              img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image')); };
+              img.src = objectUrl;
+            });
+            contentType = 'image/jpeg';
+            ext = '.jpg';
+          }
 
           const timestamp = Date.now() + i;
-          const imagePath = `${user.id}/${timestamp}.jpg`;
+          const imagePath = `${user.id}/${timestamp}${ext}`;
           const { error: uploadError } = await supabase.storage
             .from('scan-images')
-            .upload(imagePath, blob, { contentType: 'image/jpeg', upsert: false });
+            .upload(imagePath, blob, { contentType, upsert: false });
 
           if (uploadError) {
             if (uploadedPaths.length > 0) await supabase.storage.from('scan-images').remove(uploadedPaths);
