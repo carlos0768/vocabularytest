@@ -32,12 +32,6 @@ const navItems: NavItem[] = [
     matchPaths: ['/collections'],
   },
   {
-    href: '/scan',
-    icon: 'center_focus_weak',
-    label: 'スキャン',
-    matchPaths: ['/scan'],
-  },
-  {
     href: '/search',
     icon: 'search',
     label: '検索',
