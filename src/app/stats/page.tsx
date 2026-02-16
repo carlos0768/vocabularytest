@@ -37,7 +37,7 @@ export default function StatsPage() {
   return (
     <AppShell>
       <div className="min-h-screen pb-24 lg:pb-6">
-        <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
+        <header className="bg-[var(--color-background)]/95 z-40 px-6 py-4">
           <div className="max-w-lg mx-auto">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">統計</h1>
           </div>

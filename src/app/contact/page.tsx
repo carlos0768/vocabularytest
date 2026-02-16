@@ -6,7 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 export default function ContactPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
+      <header className="bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <Link href="/settings" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
             <Icon name="arrow_back" size={20} className="text-[var(--color-foreground)]" />
