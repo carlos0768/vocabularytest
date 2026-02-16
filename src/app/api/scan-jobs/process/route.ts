@@ -10,6 +10,7 @@ import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
+import { generateQuizContentForWords } from '@/lib/ai/generate-quiz-content';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -219,6 +220,37 @@ export async function POST(request: NextRequest) {
         } catch (embeddingError) {
           // Don't fail the scan if embedding generation fails
           console.error('Embedding generation failed (non-critical):', embeddingError);
+        }
+      }
+
+      // Pre-generate quiz distractors and example sentences so quiz screens open instantly.
+      // Keep this best-effort and bounded (first 30 words) to avoid delaying completion too much.
+      if (insertedWords && insertedWords.length > 0) {
+        try {
+          const quizSeedWords = insertedWords
+            .slice(0, 30)
+            .map((w: { id: string; english: string; japanese: string }) => ({
+              id: w.id,
+              english: w.english,
+              japanese: w.japanese,
+            }));
+
+          const generatedQuizContent = await generateQuizContentForWords(quizSeedWords);
+          await Promise.all(
+            generatedQuizContent.map((item) =>
+              getSupabaseAdmin()
+                .from('words')
+                .update({
+                  distractors: item.distractors,
+                  example_sentence: item.exampleSentence || null,
+                  example_sentence_ja: item.exampleSentenceJa || null,
+                })
+                .eq('id', item.wordId)
+            )
+          );
+        } catch (quizGenerationError) {
+          // Non-critical: scan should still complete even if quiz pre-generation fails.
+          console.error('Quiz pre-generation failed (non-critical):', quizGenerationError);
         }
       }
 

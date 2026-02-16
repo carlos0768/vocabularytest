@@ -343,7 +343,7 @@ export default function CollectionDetailPage() {
               {/* Study Modes */}
               <div>
                 <h3 className="text-sm font-bold text-[var(--color-foreground)] mb-3">学習モード</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <StudyModeCard
                     title="クイズ"
                     description="4択で意味を確認"
@@ -352,6 +352,7 @@ export default function CollectionDetailPage() {
                     variant="primary"
                     disabled={allWords.length === 0}
                     layout="horizontal"
+                    mobileSquare
                   />
                   <StudyModeCard
                     title="カード"
@@ -361,6 +362,7 @@ export default function CollectionDetailPage() {
                     variant="blue"
                     disabled={allWords.length === 0}
                     layout="horizontal"
+                    mobileSquare
                   />
                   <StudyModeCard
                     title="例文クイズ"
@@ -370,6 +372,7 @@ export default function CollectionDetailPage() {
                     variant="orange"
                     disabled={allWords.length === 0}
                     layout="horizontal"
+                    mobileSquare
                   />
                   <StudyModeCard
                     title="音声クイズ"
@@ -379,6 +382,7 @@ export default function CollectionDetailPage() {
                     variant="purple"
                     disabled={allWords.length < 10}
                     layout="horizontal"
+                    mobileSquare
                   />
                 </div>
               </div>
