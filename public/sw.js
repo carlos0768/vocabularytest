@@ -1,8 +1,8 @@
 // ScanVocab Service Worker
 // Cache-first for static assets, Network-first for API
 
-const CACHE_NAME = 'scanvocab-v2';
-const STATIC_CACHE_NAME = 'scanvocab-static-v2';
+const CACHE_NAME = 'scanvocab-v3';
+const STATIC_CACHE_NAME = 'scanvocab-static-v3';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -91,8 +91,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pages: Stale-while-revalidate
-  event.respondWith(staleWhileRevalidate(request));
+  // Pages: Network-first (avoid stale HTML causing hydration mismatches)
+  event.respondWith(networkFirst(request));
 });
 
 // Check if request is for a static asset

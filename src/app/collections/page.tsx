@@ -80,7 +80,7 @@ export default function CollectionsPage() {
           ) : collections.length === 0 ? (
             <div className="card p-6 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-success-light)] flex items-center justify-center">
-                <Icon name="workspaces" size={24} className="text-[var(--color-success)]" />
+                <Icon name="shelves" size={24} className="text-[var(--color-success)]" />
               </div>
               <h2 className="mt-4 text-lg font-bold">プロジェクトがありません</h2>
               <p className="text-sm text-[var(--color-muted)] mt-2">

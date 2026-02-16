@@ -69,7 +69,7 @@ export function CollectionBookshelfCard({
         {previews.length === 0 ? (
           /* Empty state */
           <div className="w-full h-[56px] rounded-md border-2 border-dashed border-[var(--color-border)] flex items-center justify-center">
-            <Icon name="workspaces" size={20} className="text-[var(--color-muted)]" />
+            <Icon name="shelves" size={20} className="text-[var(--color-muted)]" />
           </div>
         ) : (
           <>
