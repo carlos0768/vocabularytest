@@ -1331,7 +1331,7 @@ export default function HomePage() {
                 {reviewDueCount > 0 ? (
                   <Link
                     href={reviewQuizHref}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-semibold text-sm hover:bg-white/90 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-bold text-sm border-b-[3px] border-gray-300 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                   >
                     <Icon name="replay" size={20} />
                     復習を始める ({reviewDueCount}問)
@@ -1340,7 +1340,7 @@ export default function HomePage() {
                   projects.length > 0 && totalWords > 0 && (
                     <Link
                       href={`/quiz/${projects[0].id}?from=${encodeURIComponent('/')}`}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-semibold text-sm hover:bg-white/90 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-bold text-sm border-b-[3px] border-gray-300 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                     >
                       <Icon name="quiz" size={20} />
                       クイズに挑戦
@@ -1350,7 +1350,7 @@ export default function HomePage() {
                 {wrongAnswers.length > 0 && (
                   <button
                     onClick={() => setShowWrongAnswers(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 text-white font-semibold text-sm hover:bg-white/25 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 text-white font-bold text-sm border-b-[3px] border-white/10 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                   >
                     <Icon name="error" size={20} />
                     苦手単語 ({wrongAnswers.length})
@@ -1365,39 +1365,39 @@ export default function HomePage() {
             <div className="grid grid-cols-4 gap-3">
               <button
                 onClick={() => handleScanButtonClick(false)}
-                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-sky-100 flex items-center justify-center">
                   <Icon name="photo_camera" size={26} className="text-sky-600" />
                 </div>
-                <span className="text-sm font-semibold text-[var(--color-foreground)]">スキャン</span>
+                <span className="text-sm font-bold text-[var(--color-foreground)]">スキャン</span>
               </button>
               <Link
                 href="/search"
-                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-slate-100 flex items-center justify-center">
                   <Icon name="search" size={26} className="text-slate-600" />
                 </div>
-                <span className="text-sm font-semibold text-[var(--color-foreground)]">検索</span>
+                <span className="text-sm font-bold text-[var(--color-foreground)]">検索</span>
               </Link>
               <Link
                 href="/projects"
-                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-amber-50 flex items-center justify-center">
                   <Icon name="workspaces" size={26} className="text-amber-600" />
                 </div>
-                <span className="text-sm font-semibold text-[var(--color-foreground)]">プロジェクト</span>
+                <span className="text-sm font-bold text-[var(--color-foreground)]">プロジェクト</span>
               </Link>
               <Link
                 href="/favorites"
-                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-13 h-13 rounded-xl bg-teal-50 flex items-center justify-center">
                   <Icon name="folder" size={26} className="text-teal-600" />
                 </div>
-                <span className="text-sm font-semibold text-[var(--color-foreground)]">単語帳</span>
+                <span className="text-sm font-bold text-[var(--color-foreground)]">単語帳</span>
               </Link>
             </div>
           </section>
