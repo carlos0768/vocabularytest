@@ -34,7 +34,7 @@ export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
       {/* Fixed dot background layer - immune to iOS bounce */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 pointer-events-none -z-10"
+        className="fixed inset-0 pointer-events-none z-0"
         style={{
           backgroundImage: bgImage,
           backgroundRepeat: 'repeat',
