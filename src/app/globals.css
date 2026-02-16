@@ -462,7 +462,7 @@ body {
 
 .bottom-nav-inner {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   max-width: 520px;
   margin: 0 auto;
@@ -488,29 +488,6 @@ body {
   color: var(--color-primary);
 }
 
-.bottom-nav-cta {
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: var(--radius-full);
-  background: #137fec;
-  color: white;
-  box-shadow: 0 10px 22px rgba(19, 127, 236, 0.28);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(-1.1rem);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.bottom-nav-cta:hover {
-  background: #0d6ecc;
-  transform: translateY(-1.2rem);
-  box-shadow: 0 14px 26px rgba(19, 127, 236, 0.32);
-}
-
-.bottom-nav-cta:active {
-  transform: translateY(-1rem) scale(0.98);
-}
 
 /* ===== Scrollbar ===== */
 

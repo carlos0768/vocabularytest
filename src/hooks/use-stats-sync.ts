@@ -13,6 +13,7 @@ import {
   pullStatsFromRemote,
   pushLocalStatsToRemote,
 } from '@/lib/stats-sync';
+import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
 
 const STATS_SYNC_INIT_KEY = 'merken_stats_sync_initialized';
 
@@ -21,7 +22,7 @@ export function useStatsSync() {
   const hasInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (!user || !isPro) {
+    if (!user || !isPro || !isRemoteStatsSyncEnabled()) {
       // Unregister callback when not Pro
       registerStatsSyncCallback(null);
       hasInitializedRef.current = false;

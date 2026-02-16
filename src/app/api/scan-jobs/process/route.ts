@@ -123,7 +123,13 @@ export async function POST(request: NextRequest) {
         const buffer = await imageData.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
         const ext = imagePath.split('.').pop()?.toLowerCase();
-        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+        const mimeType = ext === 'pdf'
+          ? 'application/pdf'
+          : ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+          ? 'image/webp'
+          : 'image/jpeg';
         const base64Image = `data:${mimeType};base64,${base64}`;
 
         const result = await extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey);
