@@ -10,7 +10,7 @@ interface QuizProgressProps {
 
 export function QuizProgress({ currentIndex, total, onClose }: QuizProgressProps) {
   return (
-    <header className="flex-shrink-0 px-3 py-2 flex items-center justify-between">
+    <header className="sticky top-0 flex-shrink-0 px-3 py-2 flex items-center justify-between">
       <button
         onClick={onClose}
         className="p-1 hover:bg-[var(--color-background)] rounded-full transition-colors"

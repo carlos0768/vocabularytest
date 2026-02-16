@@ -261,7 +261,7 @@ export default function FavoritesQuizPage() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         {/* Header */}
-        <header className="flex-shrink-0 p-4 flex items-center justify-between">
+        <header className="sticky top-0 flex-shrink-0 p-4 flex items-center justify-between">
           <button
             onClick={backToProject}
             className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
@@ -355,7 +355,7 @@ export default function FavoritesQuizPage() {
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
         {/* Header */}
-        <header className="p-4">
+        <header className="sticky top-0 p-4">
           <button
             onClick={backToProject}
             className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
@@ -418,7 +418,7 @@ export default function FavoritesQuizPage() {
   return (
     <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 p-4 flex items-center justify-between">
+      <header className="sticky top-0 flex-shrink-0 p-4 flex items-center justify-between">
         <button
           onClick={backToProject}
           className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"

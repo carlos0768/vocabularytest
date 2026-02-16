@@ -15,6 +15,7 @@ interface StudyModeCardProps {
   badge?: string;
   layout?: 'vertical' | 'horizontal';
   mobileSquare?: boolean;
+  styleMode?: 'filled' | 'home';
 }
 
 const variantStyles: Record<ColorVariant, {
@@ -75,6 +76,43 @@ const variantStyles: Record<ColorVariant, {
   },
 };
 
+const homeStyleAccents: Record<ColorVariant, {
+  iconBg: string;
+  iconColor: string;
+  hoverBg: string;
+}> = {
+  primary: {
+    iconBg: 'bg-sky-100',
+    iconColor: 'text-sky-600',
+    hoverBg: 'hover:bg-sky-50',
+  },
+  blue: {
+    iconBg: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    hoverBg: 'hover:bg-indigo-50',
+  },
+  orange: {
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+    hoverBg: 'hover:bg-amber-50',
+  },
+  purple: {
+    iconBg: 'bg-violet-100',
+    iconColor: 'text-violet-600',
+    hoverBg: 'hover:bg-violet-50',
+  },
+  green: {
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-600',
+    hoverBg: 'hover:bg-emerald-50',
+  },
+  red: {
+    iconBg: 'bg-rose-100',
+    iconColor: 'text-rose-600',
+    hoverBg: 'hover:bg-rose-50',
+  },
+};
+
 export function StudyModeCard({
   title,
   description,
@@ -85,16 +123,27 @@ export function StudyModeCard({
   badge,
   layout = 'vertical',
   mobileSquare = false,
+  styleMode = 'filled',
 }: StudyModeCardProps) {
   const styles = variantStyles[variant];
+  const accent = homeStyleAccents[variant];
+  const isHomeStyle = styleMode === 'home';
 
   const isHorizontal = layout === 'horizontal';
   const isMobileSquareLayout = mobileSquare && isHorizontal;
 
   const content = (
     <div
-      className={`relative ${isMobileSquareLayout ? 'aspect-[5/4] sm:aspect-auto p-3 sm:p-4' : isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'
+      className={`relative ${isMobileSquareLayout ? 'aspect-[5/4] sm:aspect-auto p-3 sm:p-4' : isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] overflow-hidden group ${
+        isHomeStyle
+          ? `bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 ${
+              disabled
+                ? 'opacity-50 cursor-not-allowed'
+                : `${accent.hoverBg} active:border-b-2 active:mt-[2px] transition-all cursor-pointer`
+            }`
+          : `${styles.bg} ${styles.glow} border border-[var(--color-border)] ${
+              disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'
+            }`
       }`}
     >
       {badge && (
@@ -105,15 +154,15 @@ export function StudyModeCard({
       )}
 
       <div className={`relative z-10 flex h-full ${isMobileSquareLayout ? 'flex-col justify-center gap-2 sm:flex-row sm:items-center sm:gap-3.5' : isHorizontal ? 'flex-row items-center gap-3.5' : 'flex-col gap-3'}`}>
-        <div className={`${isMobileSquareLayout ? 'w-10 h-10 sm:w-11 sm:h-11' : isHorizontal ? 'w-11 h-11' : 'w-10 h-10'} rounded-full ${styles.iconBg} flex items-center justify-center flex-shrink-0`}>
-          <Icon name={icon} size={isMobileSquareLayout ? 22 : isHorizontal ? 24 : 22} className={styles.iconColor} />
+        <div className={`${isMobileSquareLayout ? 'w-10 h-10 sm:w-11 sm:h-11' : isHorizontal ? 'w-11 h-11' : 'w-10 h-10'} ${isHomeStyle ? 'rounded-xl' : 'rounded-full'} ${isHomeStyle ? accent.iconBg : styles.iconBg} flex items-center justify-center flex-shrink-0`}>
+          <Icon name={icon} size={isMobileSquareLayout ? 22 : isHorizontal ? 24 : 22} className={isHomeStyle ? accent.iconColor : styles.iconColor} />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className={`font-bold ${isMobileSquareLayout ? 'text-sm sm:text-base' : isHorizontal ? 'text-base' : 'text-lg'} leading-tight ${styles.textColor}`}>{title}</h3>
-          <p className={`text-xs mt-0.5 font-medium ${styles.descColor} ${isMobileSquareLayout ? 'line-clamp-2' : ''}`}>{description}</p>
+          <h3 className={`font-bold ${isMobileSquareLayout ? 'text-sm sm:text-base' : isHorizontal ? 'text-base' : 'text-lg'} leading-tight ${isHomeStyle ? 'text-[var(--color-foreground)]' : styles.textColor}`}>{title}</h3>
+          <p className={`text-xs mt-0.5 font-medium ${isHomeStyle ? 'text-[var(--color-muted)]' : styles.descColor} ${isMobileSquareLayout ? 'line-clamp-2' : ''}`}>{description}</p>
         </div>
         {isHorizontal && !disabled && (
-          <Icon name="chevron_right" size={20} className={`${styles.descColor} flex-shrink-0 ${isMobileSquareLayout ? 'hidden sm:block' : ''}`} />
+          <Icon name="chevron_right" size={20} className={`${isHomeStyle ? 'text-[var(--color-muted)]' : styles.descColor} flex-shrink-0 ${isMobileSquareLayout ? 'hidden sm:block' : ''}`} />
         )}
       </div>
     </div>

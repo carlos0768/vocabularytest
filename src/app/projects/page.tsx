@@ -225,7 +225,7 @@ export default function ProjectsPage() {
   return (
     <AppShell>
     <div className="min-h-screen pb-28 lg:pb-6">
-      <header className="z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
           <div className="flex-1">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>

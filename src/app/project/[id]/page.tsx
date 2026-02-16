@@ -619,7 +619,7 @@ export default function ProjectDetailPage() {
   return (
     <AppShell>
       <div className="pb-28 lg:pb-8">
-        <header className="z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-lg lg:max-w-xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
@@ -682,7 +682,7 @@ export default function ProjectDetailPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border-2 border-b-4 active:border-b-2 active:mt-[2px] transition-all ${
                   activeTab === tab.id
                     ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
                     : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
@@ -696,7 +696,7 @@ export default function ProjectDetailPage() {
           {activeTab === 'study' && (
             <section className="space-y-6">
               {/* Progress Overview */}
-              <div className="card p-5 lg:p-6">
+              <div className="card p-5 lg:p-6 border-2 border-[var(--color-border)] border-b-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-[var(--color-foreground)]">学習の進捗</h3>
                   <span className="text-xs font-semibold text-[var(--color-primary)]">
@@ -744,6 +744,7 @@ export default function ProjectDetailPage() {
                     disabled={words.length === 0}
                     layout="horizontal"
                     mobileSquare
+                    styleMode="home"
                   />
                   <StudyModeCard
                     title="カード"
@@ -755,6 +756,7 @@ export default function ProjectDetailPage() {
                     badge={!isPro ? 'Pro' : undefined}
                     layout="horizontal"
                     mobileSquare
+                    styleMode="home"
                   />
                   <StudyModeCard
                     title="例文クイズ"
@@ -766,6 +768,7 @@ export default function ProjectDetailPage() {
                     badge={!isPro ? 'Pro' : undefined}
                     layout="horizontal"
                     mobileSquare
+                    styleMode="home"
                   />
                   <StudyModeCard
                     title="音声クイズ"
@@ -777,13 +780,14 @@ export default function ProjectDetailPage() {
                     badge={!isPro ? 'Pro' : undefined}
                     layout="horizontal"
                     mobileSquare
+                    styleMode="home"
                   />
                 </div>
               </div>
 
               {/* Quick Tip */}
               {words.length > 0 && stats.mastered < stats.total && (
-                <div className="flex items-start gap-3 p-4 rounded-2xl bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/10">
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4">
                   <Icon name="lightbulb" size={20} className="text-[var(--color-primary)] flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-[var(--color-muted)] leading-relaxed">
                     {stats.newWords > 0
@@ -829,7 +833,7 @@ export default function ProjectDetailPage() {
             return (
             <section className="space-y-5">
               {/* Progress ring */}
-              <div className="card p-6 flex flex-col items-center">
+              <div className="card p-6 flex flex-col items-center border-2 border-[var(--color-border)] border-b-4">
                 <div className="relative w-36 h-36 mb-4">
                   <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
                     <circle cx="60" cy="60" r="54" fill="none" stroke="var(--color-border)" strokeWidth="10" />
@@ -854,7 +858,7 @@ export default function ProjectDetailPage() {
               </div>
 
               {/* Status breakdown */}
-              <div className="card p-5 space-y-4">
+              <div className="card p-5 space-y-4 border-2 border-[var(--color-border)] border-b-4">
                 <h3 className="text-sm font-bold text-[var(--color-foreground)]">ステータス内訳</h3>
                 {[
                   { label: '習得済み', count: stats.mastered, color: 'var(--color-success)', icon: 'check_circle', iconClass: 'text-[var(--color-success)]' },
@@ -884,7 +888,7 @@ export default function ProjectDetailPage() {
 
               {/* Stat cards grid */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="card p-4 flex items-center gap-3">
+                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
                   <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
                     <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
                   </div>
@@ -893,7 +897,7 @@ export default function ProjectDetailPage() {
                     <p className="text-xs text-[var(--color-muted)]">総単語</p>
                   </div>
                 </div>
-                <div className="card p-4 flex items-center gap-3">
+                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
                   <div className="w-10 h-10 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center">
                     <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
                   </div>
@@ -902,7 +906,7 @@ export default function ProjectDetailPage() {
                     <p className="text-xs text-[var(--color-muted)]">習得済み</p>
                   </div>
                 </div>
-                <div className="card p-4 flex items-center gap-3">
+                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
                   <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
                     <Icon name="autorenew" size={20} className="text-[var(--color-primary)]" />
                   </div>
@@ -911,7 +915,7 @@ export default function ProjectDetailPage() {
                     <p className="text-xs text-[var(--color-muted)]">復習中</p>
                   </div>
                 </div>
-                <div className="card p-4 flex items-center gap-3">
+                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
                   <div className="w-10 h-10 rounded-xl bg-[var(--color-surface)] flex items-center justify-center border border-[var(--color-border)]">
                     <Icon name="schedule" size={20} className="text-[var(--color-muted)]" />
                   </div>
@@ -1034,7 +1038,7 @@ export default function ProjectDetailPage() {
       {/* Processing modal */}
       {processing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card p-6 w-full max-w-sm">
+          <div className="card p-6 w-full max-w-sm border-2 border-[var(--color-border)] border-b-4">
             <h2 className="text-base font-bold text-center text-[var(--color-foreground)] mb-4">
               スキャン中...
             </h2>
