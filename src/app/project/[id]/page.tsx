@@ -33,6 +33,10 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]['id'];
 
+function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
+  return Boolean(project && project.userId === expectedUserId);
+}
+
 export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -87,22 +91,18 @@ export default function ProjectDetailPage() {
   // Load from local IndexedDB immediately (no auth needed), then update from remote
   const hasLocalLoadedRef = useRef(false);
 
-  // Phase 1: Instant local load (runs once, no auth dependency)
+  // Phase 1: Local preload after auth resolves to avoid cross-account leakage
   useEffect(() => {
+    if (authLoading) return;
     if (hasLocalLoadedRef.current) return;
     hasLocalLoadedRef.current = true;
 
     (async () => {
       try {
-        let loadedProject = await localRepository.getProject(projectId);
-        if (!loadedProject) {
-          // Try listing all local projects to find it
-          const guestId = getGuestUserId();
-          const allLocal = await localRepository.getProjects(guestId);
-          loadedProject = allLocal.find((p) => p.id === projectId);
-        }
+        const expectedUserId = user ? user.id : getGuestUserId();
+        const loadedProject = await localRepository.getProject(projectId);
 
-        if (loadedProject) {
+        if (isOwnedBy(loadedProject, expectedUserId)) {
           setProject(loadedProject);
           setActiveRepository(localRepository);
           setLoading(false);
@@ -119,7 +119,7 @@ export default function ProjectDetailPage() {
         console.error('Local load failed:', e);
       }
     })();
-  }, [projectId]);
+  }, [authLoading, projectId, user]);
 
   // Phase 2: Remote update after auth resolves (Pro users)
   useEffect(() => {
@@ -131,8 +131,9 @@ export default function ProjectDetailPage() {
         if (!user) {
           // Still need to handle case where local didn't find anything
           if (!project) {
+            const guestUserId = getGuestUserId();
             const localProject = await localRepository.getProject(projectId);
-            if (localProject) {
+            if (isOwnedBy(localProject, guestUserId)) {
               setProject(localProject);
               setActiveRepository(localRepository);
               const localWords = await localRepository.getWords(projectId);
@@ -147,7 +148,7 @@ export default function ProjectDetailPage() {
         let showedLocalProject = false;
         try {
           const localProject = await localRepository.getProject(projectId);
-          if (localProject) {
+          if (isOwnedBy(localProject, user.id)) {
             setProject(localProject);
             setActiveRepository(localRepository);
             setLoading(false);
@@ -172,7 +173,7 @@ export default function ProjectDetailPage() {
           console.error('Remote lookup failed:', e);
         }
 
-        if (remoteProject) {
+        if (isOwnedBy(remoteProject, user.id)) {
           setProject(remoteProject);
           setActiveRepository(remoteRepository);
           setLoading(false);
@@ -186,8 +187,9 @@ export default function ProjectDetailPage() {
           })();
         } else if (!showedLocalProject) {
           // Remote didn't have it either, try default repository as last resort
+          const expectedUserId = user.id;
           const fallback = await defaultRepository.getProject(projectId);
-          if (fallback) {
+          if (isOwnedBy(fallback, expectedUserId)) {
             setProject(fallback);
             setActiveRepository(defaultRepository);
             setLoading(false);

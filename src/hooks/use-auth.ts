@@ -164,6 +164,25 @@ function clearCachedSubscription() {
   }
 }
 
+function clearSessionScopedState() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+}
+
+function resetClientScopedData() {
+  clearCachedSubscription();
+  clearAuthenticatedMark();
+  hybridRepository.clearSyncData();
+  invalidateStatsCache();
+  clearHomeCache();
+  clearAllUserStats();
+  clearSessionScopedState();
+}
+
 // ---- Daily activity logging ----
 const ACTIVITY_LOG_KEY = 'merken_activity_logged';
 
@@ -496,12 +515,7 @@ export function useAuth() {
     const supabase = getSupabase();
     if (!supabase) return;
     await supabase.auth.signOut();
-    clearCachedSubscription();
-    clearAuthenticatedMark();
-    hybridRepository.clearSyncData();
-    invalidateStatsCache();
-    clearHomeCache();
-    clearAllUserStats();
+    resetClientScopedData();
     notifyListeners({ user: null, subscription: null, loading: false, error: null, sessionExpired: false });
     hasInitialized = false;
     hasOptimisticLoad = false;
@@ -535,18 +549,21 @@ export function useAuth() {
 
     // Listen for auth changes - only set up once per component instance
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event) => {
+      (event, session) => {
         // Handle specific events
         if (event === 'SIGNED_OUT') {
-          clearCachedSubscription();
-          clearAuthenticatedMark();
-          invalidateStatsCache();
-          clearHomeCache();
-          clearAllUserStats();
+          resetClientScopedData();
           notifyListeners({ user: null, subscription: null, loading: false, error: null, sessionExpired: false });
           hasInitialized = false;
           hasOptimisticLoad = false;
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        } else if (event === 'SIGNED_IN') {
+          const previousUserId = globalAuthState.user?.id ?? null;
+          const nextUserId = session?.user?.id ?? null;
+          if (previousUserId !== nextUserId) {
+            resetClientScopedData();
+          }
+          loadUser();
+        } else if (event === 'TOKEN_REFRESHED') {
           // Reload user state on sign-in (e.g., after email confirmation callback)
           // and on token refresh
           loadUser();

@@ -14,10 +14,9 @@ import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
 import { ScanJobNotifications } from '@/components/scan/ScanJobNotification';
 import { getRepository } from '@/lib/db';
-import { hybridRepository } from '@/lib/db/hybrid-repository';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { getWordsByProjectMap, mergeProjectsById } from '@/lib/projects/load-helpers';
+import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
@@ -68,6 +67,23 @@ const ProjectSelectionSheet = dynamic(
 // Scan mode types
 type ScanMode = ExtractMode;
 
+function getCachedSessionUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return null;
+    const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
+    if (!match) return null;
+    const sessionKey = `sb-${match[1]}-auth-token`;
+    const sessionData = localStorage.getItem(sessionKey);
+    if (!sessionData) return null;
+    const parsed = JSON.parse(sessionData);
+    return parsed?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Synchronously attempt to restore home cache from sessionStorage or in-memory.
  * Called once during module init (before any React render) so the very first
@@ -76,8 +92,8 @@ type ScanMode = ExtractMode;
 function ensureCacheRestored(): boolean {
   if (getHasLoaded()) return true;
   if (typeof window !== 'undefined') {
-    const guestId = getGuestUserId();
-    const snapshot = restoreFromSessionStorage(guestId);
+    const userId = getCachedSessionUserId() ?? getGuestUserId();
+    const snapshot = restoreFromSessionStorage(userId);
     if (snapshot && snapshot.projects.length > 0) {
       setHomeCache(snapshot);
       return true;
@@ -200,7 +216,7 @@ export default function HomePage() {
   // Load projects - LOCAL FIRST for instant display, then remote in background
   // All users see IndexedDB data immediately, Pro users sync from Supabase after
   const loadProjects = useCallback(async (forceReload = false) => {
-    const userId = isPro && user ? user.id : getGuestUserId();
+    const userId = user ? user.id : getGuestUserId();
     const localRepo = new LocalWordRepository();
 
     // 1. Show cached data immediately (stale-while-revalidate)
@@ -229,24 +245,9 @@ export default function HomePage() {
       }
 
       // 2. LOCAL FIRST: Always try IndexedDB first for instant display
-      const guestId = getGuestUserId();
-      const syncedUserId = hybridRepository.getSyncedUserId();
-      const localCandidateUserIds = [
-        ...new Set([user?.id, syncedUserId, guestId].filter((id): id is string => Boolean(id))),
-      ];
       let localData: Project[] = [];
       try {
-        const localProjectGroups = await Promise.all(
-          localCandidateUserIds.map(async (candidateUserId) => {
-            try {
-              return await localRepo.getProjects(candidateUserId);
-            } catch (error) {
-              console.error(`[Home] Local fetch failed for ${candidateUserId}:`, error);
-              return [];
-            }
-          })
-        );
-        localData = mergeProjectsById(localProjectGroups.flat());
+        localData = await localRepo.getProjects(userId);
       } catch (e) {
         console.error('Local fetch failed:', e);
       }
@@ -355,7 +356,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [isPro, user, repository, authLoading]);
+  }, [user]);
 
   // Load words for current project - use cache if available
   const loadWords = useCallback(async () => {
