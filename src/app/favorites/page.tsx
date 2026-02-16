@@ -22,7 +22,7 @@ const tabs = [
 type TabId = (typeof tabs)[number]['id'];
 
 export default function FavoritesPage() {
-  const { user, subscription, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading, isPro } = useAuth();
 
   const [favorites, setFavorites] = useState<FavoriteWord[]>([]);
   const [loading, setLoading] = useState(true);

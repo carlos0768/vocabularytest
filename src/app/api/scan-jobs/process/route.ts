@@ -9,6 +9,7 @@ import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -151,6 +152,15 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', jobId);
 
+        await sendScanJobPushNotifications(getSupabaseAdmin(), {
+          userId: job.user_id,
+          jobId,
+          projectId: null,
+          projectTitle: job.project_title,
+          status: 'failed',
+          wordCount: 0,
+        });
+
         return NextResponse.json({ error: 'No words found' }, { status: 400 });
       }
 
@@ -222,6 +232,15 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', jobId);
 
+      await sendScanJobPushNotifications(getSupabaseAdmin(), {
+        userId: job.user_id,
+        jobId,
+        projectId: newProject.id,
+        projectTitle: job.project_title,
+        status: 'completed',
+        wordCount: allExtractedWords.length,
+      });
+
       return NextResponse.json({
         success: true,
         projectId: newProject.id,
@@ -239,6 +258,15 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
+
+      await sendScanJobPushNotifications(getSupabaseAdmin(), {
+        userId: job.user_id,
+        jobId,
+        projectId: null,
+        projectTitle: job.project_title,
+        status: 'failed',
+        wordCount: 0,
+      });
 
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
     }
