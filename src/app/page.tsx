@@ -1362,42 +1362,42 @@ export default function HomePage() {
 
           {/* Quick links */}
           <section>
-            <div className="grid grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-4 gap-3">
               <button
                 onClick={() => handleScanButtonClick(false)}
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-sky-100 flex items-center justify-center">
-                  <Icon name="photo_camera" size={22} className="text-sky-600" />
+                <div className="w-13 h-13 rounded-xl bg-sky-100 flex items-center justify-center">
+                  <Icon name="photo_camera" size={26} className="text-sky-600" />
                 </div>
-                <span className="text-xs font-semibold text-[var(--color-foreground)]">スキャン</span>
+                <span className="text-sm font-semibold text-[var(--color-foreground)]">スキャン</span>
               </button>
               <Link
                 href="/search"
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center">
-                  <Icon name="search" size={22} className="text-slate-600" />
+                <div className="w-13 h-13 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <Icon name="search" size={26} className="text-slate-600" />
                 </div>
-                <span className="text-xs font-semibold text-[var(--color-foreground)]">検索</span>
+                <span className="text-sm font-semibold text-[var(--color-foreground)]">検索</span>
               </Link>
               <Link
                 href="/projects"
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
-                  <Icon name="workspaces" size={22} className="text-amber-600" />
+                <div className="w-13 h-13 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Icon name="workspaces" size={26} className="text-amber-600" />
                 </div>
-                <span className="text-xs font-semibold text-[var(--color-foreground)]">プロジェクト</span>
+                <span className="text-sm font-semibold text-[var(--color-foreground)]">プロジェクト</span>
               </Link>
               <Link
                 href="/favorites"
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
+                className="flex flex-col items-center gap-3 py-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:shadow-md active:scale-[0.97] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center">
-                  <Icon name="folder" size={22} className="text-teal-600" />
+                <div className="w-13 h-13 rounded-xl bg-teal-50 flex items-center justify-center">
+                  <Icon name="folder" size={26} className="text-teal-600" />
                 </div>
-                <span className="text-xs font-semibold text-[var(--color-foreground)]">単語帳</span>
+                <span className="text-sm font-semibold text-[var(--color-foreground)]">単語帳</span>
               </Link>
             </div>
           </section>
