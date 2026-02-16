@@ -807,26 +807,109 @@ export default function ProjectDetailPage() {
             </section>
           )}
 
-          {activeTab === 'stats' && (
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="card p-4">
-                <p className="text-xs text-[var(--color-muted)]">総単語</p>
-                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.total}</p>
+          {activeTab === 'stats' && (() => {
+            const pct = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
+            const circumference = 2 * Math.PI * 54;
+            const strokeDashoffset = circumference - (circumference * pct) / 100;
+
+            return (
+            <section className="space-y-5">
+              {/* Progress ring */}
+              <div className="card p-6 flex flex-col items-center">
+                <div className="relative w-36 h-36 mb-4">
+                  <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="var(--color-border)" strokeWidth="10" />
+                    <circle
+                      cx="60" cy="60" r="54" fill="none"
+                      stroke="var(--color-success)"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      className="transition-all duration-700"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-extrabold text-[var(--color-foreground)]">{pct}%</span>
+                    <span className="text-xs text-[var(--color-muted)]">習得率</span>
+                  </div>
+                </div>
+                <p className="text-sm text-[var(--color-muted)]">
+                  {stats.total}語中 <span className="font-bold text-[var(--color-success)]">{stats.mastered}語</span> 習得
+                </p>
               </div>
-              <div className="card p-4">
-                <p className="text-xs text-[var(--color-muted)]">習得済み</p>
-                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.mastered}</p>
+
+              {/* Status breakdown */}
+              <div className="card p-5 space-y-4">
+                <h3 className="text-sm font-bold text-[var(--color-foreground)]">ステータス内訳</h3>
+                {[
+                  { label: '習得済み', count: stats.mastered, color: 'var(--color-success)', icon: 'check_circle' },
+                  { label: '復習中', count: stats.review, color: 'var(--color-primary)', icon: 'autorenew' },
+                  { label: '未学習', count: stats.newWords, color: 'var(--color-muted)', icon: 'radio_button_unchecked' },
+                ].map((item) => {
+                  const barPct = stats.total > 0 ? (item.count / stats.total) * 100 : 0;
+                  return (
+                    <div key={item.label} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Icon name={item.icon} size={16} style={{ color: item.color }} />
+                          <span className="text-sm text-[var(--color-foreground)]">{item.label}</span>
+                        </div>
+                        <span className="text-sm font-bold text-[var(--color-foreground)]">{item.count}語</span>
+                      </div>
+                      <div className="w-full h-2 bg-[var(--color-surface-alt,var(--color-border-light))] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${barPct}%`, backgroundColor: item.color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="card p-4">
-                <p className="text-xs text-[var(--color-muted)]">復習中</p>
-                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.review}</p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs text-[var(--color-muted)]">未学習</p>
-                <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.newWords}</p>
+
+              {/* Stat cards grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="card p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
+                    <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.total}</p>
+                    <p className="text-xs text-[var(--color-muted)]">総単語</p>
+                  </div>
+                </div>
+                <div className="card p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center">
+                    <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.mastered}</p>
+                    <p className="text-xs text-[var(--color-muted)]">習得済み</p>
+                  </div>
+                </div>
+                <div className="card p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
+                    <Icon name="autorenew" size={20} className="text-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.review}</p>
+                    <p className="text-xs text-[var(--color-muted)]">復習中</p>
+                  </div>
+                </div>
+                <div className="card p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--color-surface)] flex items-center justify-center border border-[var(--color-border)]">
+                    <Icon name="schedule" size={20} className="text-[var(--color-muted)]" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.newWords}</p>
+                    <p className="text-xs text-[var(--color-muted)]">未学習</p>
+                  </div>
+                </div>
               </div>
             </section>
-          )}
+            );
+          })()}
         </main>
 
       <ManualWordInputModal
