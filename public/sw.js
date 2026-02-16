@@ -85,7 +85,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: Cache-first
+  // Next.js runtime chunks should be network-first to avoid stale bundles
+  // that can cause hydration mismatch after deployments.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Other static assets: Cache-first
   if (isStaticAsset(url.pathname)) {
     event.respondWith(cacheFirst(request));
     return;
