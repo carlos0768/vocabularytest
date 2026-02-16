@@ -22,6 +22,8 @@ import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
+import { hasVisitedProject } from '@/lib/project-visit';
+import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 import {
   getCachedProjects,
   getCachedProjectWords,
@@ -202,6 +204,9 @@ export default function HomePage() {
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
+  const notifiedJobIdsRef = useRef<Set<string>>(new Set());
+  const autoAcknowledgingJobIdsRef = useRef<Set<string>>(new Set());
+  const syncedPushUserIdRef = useRef<string | null>(null);
 
   // Get repository
   const subscriptionStatus = subscription?.status || 'free';
@@ -426,28 +431,188 @@ export default function HomePage() {
     }
   }, [authLoading, isPro, loadProjects, subscriptionStatus, user?.id]);
 
+  // Keep push subscription ownership aligned with the currently logged-in user.
+  useEffect(() => {
+    if (!user?.id) {
+      syncedPushUserIdRef.current = null;
+      return;
+    }
+
+    if (syncedPushUserIdRef.current === user.id) {
+      return;
+    }
+    syncedPushUserIdRef.current = user.id;
+
+    const syncPushSubscription = async () => {
+      const supabase = createBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      await ensureWebPushSubscription({
+        accessToken: session.access_token,
+        requestPermission: false,
+      });
+    };
+
+    syncPushSubscription().catch(() => {
+      // ignore push setup failures
+    });
+  }, [user?.id]);
+
   // Load words when project changes
   useEffect(() => {
     loadWords();
   }, [loadWords]);
 
-  // Reload projects when background scan completes
-  const prevCompletedJobsRef = useRef<string[]>([]);
+  // Reload projects immediately when a new background scan completes.
+  const prevCompletedJobIdsRef = useRef<string[]>([]);
   useEffect(() => {
-    const currentJobIds = completedJobs.map(j => j.id);
-    const prevJobIds = prevCompletedJobsRef.current;
-    
-    // Check if there are new completed jobs
-    const hasNewJobs = currentJobIds.some(id => !prevJobIds.includes(id));
-    
-    if (hasNewJobs && currentJobIds.length > 0) {
-      // New background scan completed - refresh project list
+    const currentCompletedJobIds = completedJobs
+      .filter((job) => job.status === 'completed')
+      .map((job) => job.id);
+    const prevJobIds = prevCompletedJobIdsRef.current;
+
+    const hasNewCompletedJobs = currentCompletedJobIds.some((id) => !prevJobIds.includes(id));
+    if (hasNewCompletedJobs) {
       invalidateHomeCache();
       loadProjects(true);
     }
-    
-    prevCompletedJobsRef.current = currentJobIds;
+
+    prevCompletedJobIdsRef.current = currentCompletedJobIds;
   }, [completedJobs, loadProjects]);
+
+  // Dismiss delayed scan notifications if user has already accessed the project.
+  useEffect(() => {
+    const alreadyVisitedJobs = completedJobs.filter(
+      (job) =>
+        job.project_id &&
+        hasVisitedProject(job.project_id) &&
+        !autoAcknowledgingJobIdsRef.current.has(job.id)
+    );
+    if (alreadyVisitedJobs.length === 0) return;
+    alreadyVisitedJobs.forEach((job) => {
+      autoAcknowledgingJobIdsRef.current.add(job.id);
+      acknowledgeJob(job.id);
+    });
+  }, [completedJobs, acknowledgeJob]);
+
+  const displayedProjectIds = useMemo(() => new Set(projects.map((project) => project.id)), [projects]);
+
+  // Only notify once the project is actually visible on Home.
+  const notifiableJobs = useMemo(() => {
+    return completedJobs.filter((job) => {
+      if (job.project_id && hasVisitedProject(job.project_id)) {
+        return false;
+      }
+      if (job.status === 'completed' && job.project_id) {
+        return displayedProjectIds.has(job.project_id);
+      }
+      return true;
+    });
+  }, [completedJobs, displayedProjectIds]);
+
+  // Show system notifications whenever Notification API is available.
+  useEffect(() => {
+    const freshJobs = notifiableJobs.filter((job) => !notifiedJobIdsRef.current.has(job.id));
+    if (freshJobs.length === 0) return;
+    freshJobs.forEach((job) => notifiedJobIdsRef.current.add(job.id));
+
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const showNotifications = async () => {
+      const grouped = new Map<string, { title: string; wordCount: number; hasFailed: boolean }>();
+
+      for (const job of freshJobs) {
+        const key = job.project_id || job.project_title || job.id;
+        const existing = grouped.get(key);
+        let wordCount = 0;
+        try {
+          const parsed = job.result ? JSON.parse(job.result) : null;
+          wordCount = typeof parsed?.wordCount === 'number' ? parsed.wordCount : 0;
+        } catch {
+          wordCount = 0;
+        }
+
+        if (existing) {
+          existing.wordCount += wordCount;
+          existing.hasFailed = existing.hasFailed || job.status === 'failed';
+        } else {
+          grouped.set(key, {
+            title: job.project_title || '単語帳',
+            wordCount,
+            hasFailed: job.status === 'failed',
+          });
+        }
+      }
+
+      const entries = Array.from(grouped.entries());
+      for (const [key, entry] of entries) {
+        const title = entry.hasFailed ? 'MERKEN: スキャン失敗' : 'MERKEN: スキャン完了';
+        const body = entry.hasFailed
+          ? `「${entry.title}」のスキャンに失敗しました`
+          : `「${entry.title}」に${entry.wordCount}語追加されました`;
+
+        try {
+          if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+              await registration.showNotification(title, {
+                body,
+                tag: `scan-job-${key}`,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+              });
+            } else {
+              new Notification(title, { body, tag: `scan-job-${key}` });
+            }
+          } else {
+            // Fallback when service worker is unavailable
+            new Notification(title, { body, tag: `scan-job-${key}` });
+          }
+        } catch {
+          // ignore notification delivery errors
+        }
+      }
+    };
+
+    const shouldSkipLocalNotifications = async (): Promise<boolean> => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return false;
+      }
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) {
+          return false;
+        }
+        const subscription = await registration.pushManager.getSubscription();
+        return subscription !== null;
+      } catch {
+        return false;
+      }
+    };
+
+    const deliverLocalNotifications = async () => {
+      const skipLocal = await shouldSkipLocalNotifications();
+      if (skipLocal) return;
+      await showNotifications();
+    };
+
+    if (Notification.permission === 'granted') {
+      deliverLocalNotifications().catch(() => {
+        // ignore
+      });
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          deliverLocalNotifications().catch(() => {
+            // ignore
+          });
+        }
+      }).catch(() => {
+        // ignore
+      });
+    }
+  }, [notifiableJobs]);
 
   // Restore selected project from sessionStorage when projects are loaded
   useEffect(() => {
@@ -1048,6 +1213,11 @@ export default function HomePage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('認証が必要です');
 
+        await ensureWebPushSubscription({
+          accessToken: session.access_token,
+          requestPermission: true,
+        });
+
         // Compress and upload images to Supabase Storage
         const uploadedPaths: string[] = [];
         for (let i = 0; i < files.length; i++) {
@@ -1125,6 +1295,7 @@ export default function HomePage() {
         }
 
         setScanUploadStatus('done');
+        refreshJobs();
         return;
       } catch (error) {
         console.error('Background upload error:', error);
@@ -1637,7 +1808,7 @@ export default function HomePage() {
       {/* Background scan job completion notifications */}
       {isPro && (
         <ScanJobNotifications
-          jobs={completedJobs}
+          jobs={notifiableJobs}
           onDismiss={(jobId) => {
             acknowledgeJob(jobId);
             // Refresh projects to show the new one

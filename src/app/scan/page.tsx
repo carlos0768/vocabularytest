@@ -11,6 +11,7 @@ import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { processImageToBase64, processProjectIconFile } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
+import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 
 
 function ScanPageContent() {
@@ -184,6 +185,11 @@ function ScanPageContent() {
       if (!session?.access_token || !user) {
         throw new Error('認証が必要です');
       }
+
+      await ensureWebPushSubscription({
+        accessToken: session.access_token,
+        requestPermission: true,
+      });
 
       // 1. Upload all images first
       const uploadedPaths: string[] = [];

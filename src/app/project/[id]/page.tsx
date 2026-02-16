@@ -15,6 +15,7 @@ import { getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
+import { markProjectVisited } from '@/lib/project-visit';
 import { processImageFile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, Word, SubscriptionStatus } from '@/types';
@@ -210,6 +211,13 @@ export default function ProjectDetailPage() {
       }
     })();
   }, [authLoading, isPro, user, defaultRepository, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mark project as visited so delayed completion notifications can be suppressed.
+  useEffect(() => {
+    if (project?.id) {
+      markProjectVisited(project.id);
+    }
+  }, [project?.id]);
 
   // Scan-to-add handlers
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {

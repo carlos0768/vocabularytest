@@ -1,8 +1,8 @@
 // ScanVocab Service Worker
 // Cache-first for static assets, Network-first for API
 
-const CACHE_NAME = 'scanvocab-v3';
-const STATIC_CACHE_NAME = 'scanvocab-static-v3';
+const CACHE_NAME = 'scanvocab-v4';
+const STATIC_CACHE_NAME = 'scanvocab-static-v4';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -185,4 +185,100 @@ self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
   }
+});
+
+function parsePushPayload(event) {
+  if (!event.data) return null;
+
+  try {
+    return event.data.json();
+  } catch {
+    try {
+      return JSON.parse(event.data.text());
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function shouldSuppressNotification(targetPath) {
+  // If the exact project page is already open, notification is redundant.
+  if (!targetPath.startsWith('/project/')) {
+    return false;
+  }
+
+  const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  return clientsList.some((client) => {
+    try {
+      const clientUrl = new URL(client.url);
+      return clientUrl.origin === self.location.origin && clientUrl.pathname === targetPath;
+    } catch {
+      return false;
+    }
+  });
+}
+
+self.addEventListener('push', (event) => {
+  const payload = parsePushPayload(event);
+  if (!payload) return;
+
+  const title = typeof payload.title === 'string' ? payload.title : 'MERKEN';
+  const body = typeof payload.body === 'string' ? payload.body : '';
+  const tag = typeof payload.tag === 'string' ? payload.tag : undefined;
+  const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+  const targetUrl = typeof data.url === 'string' ? data.url : '/';
+
+  event.waitUntil((async () => {
+    const absoluteTarget = new URL(targetUrl, self.location.origin);
+    const suppress = await shouldSuppressNotification(absoluteTarget.pathname);
+    if (suppress) {
+      return;
+    }
+
+    await self.registration.showNotification(title, {
+      body,
+      tag,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: {
+        url: absoluteTarget.href,
+      },
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = typeof event.notification.data?.url === 'string'
+    ? event.notification.data.url
+    : new URL('/', self.location.origin).href;
+
+  event.waitUntil((async () => {
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const target = new URL(targetUrl, self.location.origin);
+
+    for (const client of clientList) {
+      try {
+        const clientUrl = new URL(client.url);
+        if (clientUrl.origin === target.origin && clientUrl.pathname === target.pathname) {
+          await client.focus();
+          return;
+        }
+      } catch {
+        // ignore URL parsing errors
+      }
+    }
+
+    if (clientList.length > 0) {
+      const client = clientList[0];
+      if ('navigate' in client) {
+        await client.navigate(target.href);
+      }
+      await client.focus();
+      return;
+    }
+
+    await self.clients.openWindow(target.href);
+  })());
 });
