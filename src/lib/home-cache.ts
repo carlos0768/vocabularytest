@@ -90,6 +90,15 @@ export function clearHomeCache() {
   totalWordsCache = 0;
   hasLoaded = false;
   loadedUserId = null;
+
+  // Clear persisted snapshot to avoid restoring another account's cache
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // ignore
+  }
+
+  notifyListeners();
 }
 
 // ---------- sessionStorage persistence (Strategy 5) ----------

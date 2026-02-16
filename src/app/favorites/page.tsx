@@ -22,7 +22,7 @@ const tabs = [
 type TabId = (typeof tabs)[number]['id'];
 
 export default function FavoritesPage() {
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading } = useAuth();
 
   const [favorites, setFavorites] = useState<FavoriteWord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function FavoritesPage() {
     if (authLoading) return;
 
     try {
-      const userId = isPro && user ? user.id : getGuestUserId();
+      const userId = user ? user.id : getGuestUserId();
       const projects = await repository.getProjects(userId);
       const projectIds = projects.map((project) => project.id);
       const projectTitleMap = new Map(projects.map((project) => [project.id, project.title]));
@@ -82,7 +82,7 @@ export default function FavoritesPage() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user, isPro, repository]);
+  }, [authLoading, user, repository]);
 
   useEffect(() => {
     loadFavorites();

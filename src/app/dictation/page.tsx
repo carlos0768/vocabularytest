@@ -23,7 +23,7 @@ function DictationContent() {
   const projectId = searchParams.get('projectId');
   const collectionId = searchParams.get('collectionId');
   const returnPath = searchParams.get('from');
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading } = useAuth();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
@@ -62,11 +62,42 @@ function DictationContent() {
     const loadWords = async () => {
       setLoading(true);
       try {
+        const ensureProjectAccess = async (): Promise<boolean> => {
+          if (!projectId) return false;
+          const ownerUserId = user ? user.id : getGuestUserId();
+
+          try {
+            const localProject = await repository.getProject(projectId);
+            if (localProject?.userId === ownerUserId) {
+              return true;
+            }
+          } catch (error) {
+            console.error('Project ownership check failed (local):', error);
+          }
+
+          if (user) {
+            try {
+              const remoteProject = await remoteRepository.getProject(projectId);
+              return remoteProject?.userId === ownerUserId;
+            } catch (error) {
+              console.error('Project ownership check failed (remote):', error);
+            }
+          }
+
+          return false;
+        };
+
         let loadedWords: Word[] = [];
 
         if (collectionId) {
           loadedWords = await loadCollectionWords(collectionId);
         } else if (projectId) {
+          const hasAccess = await ensureProjectAccess();
+          if (!hasAccess) {
+            goBack();
+            return;
+          }
+
           if (user) {
             try {
               loadedWords = await remoteRepository.getWords(projectId);
@@ -78,7 +109,7 @@ function DictationContent() {
             loadedWords = await repository.getWords(projectId);
           }
         } else {
-          const userId = isPro && user ? user.id : getGuestUserId();
+          const userId = user ? user.id : getGuestUserId();
           let projects = user ? await remoteRepository.getProjects(user.id) : [];
           if (projects.length === 0) {
             projects = await repository.getProjects(userId);
@@ -107,7 +138,7 @@ function DictationContent() {
     };
 
     loadWords();
-  }, [authLoading, isPro, user, repository, projectId]);
+  }, [authLoading, user, repository, projectId, collectionId, goBack]);
 
   // Text-to-Speech function
   const speak = useCallback((text: string, lang: 'ja-JP' | 'en-US') => {

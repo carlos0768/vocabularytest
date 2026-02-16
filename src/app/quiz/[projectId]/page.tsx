@@ -441,10 +441,34 @@ export default function QuizPage() {
 
     const loadWords = async () => {
       try {
+        const ensureProjectAccess = async (): Promise<boolean> => {
+          const ownerUserId = user ? user.id : getGuestUserId();
+
+          try {
+            const localProject = await repository.getProject(projectId);
+            if (localProject?.userId === ownerUserId) {
+              return true;
+            }
+          } catch (error) {
+            console.error('Project ownership check failed (local):', error);
+          }
+
+          if (user) {
+            try {
+              const remoteProject = await remoteRepository.getProject(projectId);
+              return remoteProject?.userId === ownerUserId;
+            } catch (error) {
+              console.error('Project ownership check failed (remote):', error);
+            }
+          }
+
+          return false;
+        };
+
         let sourceWords: Word[] = [];
 
         if (reviewMode) {
-          const userId = isPro && user ? user.id : getGuestUserId();
+          const userId = user ? user.id : getGuestUserId();
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
 
@@ -489,6 +513,12 @@ export default function QuizPage() {
           // Collection mode: load words from all projects in the collection
           sourceWords = await loadCollectionWords(collectionId);
         } else {
+          const hasAccess = await ensureProjectAccess();
+          if (!hasAccess) {
+            backToProject();
+            return;
+          }
+
           let loadedWords = await repository.getWords(projectId);
 
           // If local is empty and user is logged in, wait for remote

@@ -8,13 +8,11 @@ import { ProjectBookTile } from '@/components/project/ProjectBookTile';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
-import { hybridRepository } from '@/lib/db/hybrid-repository';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import {
   buildProjectStats,
   getWordsByProjectMap,
-  mergeProjectsById,
   type ProjectWithStats,
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
@@ -106,16 +104,14 @@ export default function ProjectsPage() {
   // Phase 1: Instant local load (no auth dependency)
   const hasLocalLoadedRef = useRef(false);
   useEffect(() => {
+    if (authLoading) return;
     if (hasLocalLoadedRef.current) return;
     hasLocalLoadedRef.current = true;
 
     (async () => {
       try {
-        const guestId = getGuestUserId();
-        const syncedUserId = hybridRepository.getSyncedUserId();
-        const candidateUserIds = [...new Set([syncedUserId, guestId].filter((id): id is string => Boolean(id)))];
-        const localProjectGroups = await Promise.all(candidateUserIds.map((id) => localRepository.getProjects(id)));
-        const localProjects = mergeProjectsById(localProjectGroups.flat());
+        const localUserId = user ? user.id : getGuestUserId();
+        const localProjects = await localRepository.getProjects(localUserId);
         if (localProjects.length > 0) {
           setProjects(withEmptyStats(localProjects));
           setLoading(false);
@@ -132,7 +128,7 @@ export default function ProjectsPage() {
         console.error('Local projects load failed:', e);
       }
     })();
-  }, []);
+  }, [authLoading, user]);
 
   // Phase 2: Remote update after auth resolves (Pro users)
   useEffect(() => {
@@ -158,7 +154,7 @@ export default function ProjectsPage() {
       };
 
       try {
-        const userId = isPro && user ? user.id : getGuestUserId();
+        const userId = user ? user.id : getGuestUserId();
 
         if (!user) {
           // Free user: local is the source of truth — if Phase 1 already loaded, done

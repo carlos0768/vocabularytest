@@ -185,11 +185,15 @@ export default function ConfirmPage() {
       // Get repository and userId
       const subscriptionStatus = subscription?.status || 'free';
       const repository = getRepository(subscriptionStatus);
-      const userId = isPro && user ? user.id : getGuestUserId();
+      const userId = user ? user.id : getGuestUserId();
 
       let targetProjectId: string;
 
       if (isAddingToExisting && existingProjectId) {
+        const existingProject = await repository.getProject(existingProjectId);
+        if (!existingProject || existingProject.userId !== userId) {
+          throw new Error('選択した単語帳へのアクセス権がありません');
+        }
         // Add to existing project
         targetProjectId = existingProjectId;
       } else {

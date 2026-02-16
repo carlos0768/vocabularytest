@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { QuizOption } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
+import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
@@ -27,9 +28,9 @@ export default function FavoritesQuizPage() {
     countFromUrl ? parseInt(countFromUrl, 10) : null
   );
 
-  const backToProject = () => {
+  const backToProject = useCallback(() => {
     router.push(returnPath || `/project/${projectId}`);
-  };
+  }, [router, returnPath, projectId]);
 
   const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // Store all favorite words for restart
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -98,15 +99,44 @@ export default function FavoritesQuizPage() {
 
     const loadWords = async () => {
       try {
+        const ensureProjectAccess = async (): Promise<boolean> => {
+          const ownerUserId = user ? user.id : getGuestUserId();
+
+          try {
+            const localProject = await repository.getProject(projectId);
+            if (localProject?.userId === ownerUserId) {
+              return true;
+            }
+          } catch (error) {
+            console.error('Project ownership check failed (local):', error);
+          }
+
+          if (user) {
+            try {
+              const remoteProject = await remoteRepository.getProject(projectId);
+              return remoteProject?.userId === ownerUserId;
+            } catch (error) {
+              console.error('Project ownership check failed (remote):', error);
+            }
+          }
+
+          return false;
+        };
+
         let favoriteWords: Word[];
 
         if (projectId === 'all') {
           // 全単語帳横断でお気に入り単語を取得
-          const userId = isPro && user ? user.id : getGuestUserId();
+          const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           favoriteWords = allWords.flat().filter(w => w.isFavorite);
         } else {
+          const hasAccess = await ensureProjectAccess();
+          if (!hasAccess) {
+            backToProject();
+            return;
+          }
           const words = await repository.getWords(projectId);
           favoriteWords = words.filter((w) => w.isFavorite);
         }
@@ -132,7 +162,7 @@ export default function FavoritesQuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading, isPro, questionCount, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, authLoading, isPro, questionCount, quizDirection, user, backToProject]);
 
   const currentQuestion = questions[currentIndex];
 

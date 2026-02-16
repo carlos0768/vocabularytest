@@ -9,7 +9,7 @@ import type { SubscriptionStatus } from '@/types';
 
 // Hook for managing projects with appropriate storage based on subscription
 export function useProjects() {
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +20,8 @@ export function useProjects() {
 
   // Get user ID based on authentication status
   const userId = useMemo(() => {
-    return isPro && user ? user.id : getGuestUserId();
-  }, [isPro, user]);
+    return user ? user.id : getGuestUserId();
+  }, [user]);
 
   // Load projects
   const loadProjects = useCallback(async () => {

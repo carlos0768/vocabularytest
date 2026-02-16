@@ -172,6 +172,30 @@ export default function SentenceQuizPage() {
 
     const loadWords = async () => {
       try {
+        const ensureProjectAccess = async (): Promise<boolean> => {
+          const ownerUserId = user ? user.id : getGuestUserId();
+
+          try {
+            const localProject = await repository.getProject(projectId);
+            if (localProject?.userId === ownerUserId) {
+              return true;
+            }
+          } catch (error) {
+            console.error('Project ownership check failed (local):', error);
+          }
+
+          if (user) {
+            try {
+              const remoteProject = await remoteRepository.getProject(projectId);
+              return remoteProject?.userId === ownerUserId;
+            } catch (error) {
+              console.error('Project ownership check failed (remote):', error);
+            }
+          }
+
+          return false;
+        };
+
         let words: Word[];
 
         if (collectionId) {
@@ -179,11 +203,17 @@ export default function SentenceQuizPage() {
           words = await loadCollectionWords(collectionId);
         } else if (projectId === 'all' && favoritesOnly) {
           // 全単語帳横断でお気に入り単語を取得
-          const userId = subscription?.status === 'active' && user ? user.id : getGuestUserId();
+          const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           words = allWords.flat().filter(w => w.isFavorite);
         } else {
+          const hasAccess = await ensureProjectAccess();
+          if (!hasAccess) {
+            router.push('/');
+            return;
+          }
+
           words = await repository.getWords(projectId);
           
           // Fallback to remote if local is empty and user is logged in
@@ -242,7 +272,7 @@ export default function SentenceQuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading, subscription?.status, favoritesOnly]);
+  }, [projectId, repository, router, generateQuestions, authLoading, subscription?.status, favoritesOnly, user, collectionId]);
 
   // 回答処理
   const handleAnswer = async (isCorrect: boolean) => {

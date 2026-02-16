@@ -73,7 +73,7 @@ export function prefetchStats(
   userId: string | null,
   isPro: boolean,
 ): void {
-  const resolvedUserId = isPro && userId ? userId : getGuestUserId();
+  const resolvedUserId = userId ?? getGuestUserId();
 
   // 同じユーザーのキャッシュが既にあればスキップ
   if (cachedStats && cachedUserId === resolvedUserId) return;
@@ -95,7 +95,7 @@ export async function getStats(
   userId: string | null,
   isPro: boolean,
 ): Promise<CachedStats> {
-  const resolvedUserId = isPro && userId ? userId : getGuestUserId();
+  const resolvedUserId = userId ?? getGuestUserId();
 
   // キャッシュがあれば即返す
   if (cachedStats && cachedUserId === resolvedUserId) {

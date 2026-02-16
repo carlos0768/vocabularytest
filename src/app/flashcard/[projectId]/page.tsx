@@ -98,6 +98,30 @@ export default function FlashcardPage() {
       }
 
       try {
+        const ensureProjectAccess = async (): Promise<boolean> => {
+          const ownerUserId = user ? user.id : getGuestUserId();
+
+          try {
+            const localProject = await repository.getProject(projectId);
+            if (localProject?.userId === ownerUserId) {
+              return true;
+            }
+          } catch (error) {
+            console.error('Project ownership check failed (local):', error);
+          }
+
+          if (user) {
+            try {
+              const remoteProject = await remoteRepository.getProject(projectId);
+              return remoteProject?.userId === ownerUserId;
+            } catch (error) {
+              console.error('Project ownership check failed (remote):', error);
+            }
+          }
+
+          return false;
+        };
+
         // First, try to restore from sessionStorage (most recent state)
         const sessionKey = getSessionKey(projectId, favoritesOnly);
         const sessionProgressStr = sessionStorage.getItem(sessionKey);
@@ -114,11 +138,16 @@ export default function FlashcardPage() {
               if (collectionId) {
                 wordsData = await loadCollectionWords(collectionId);
               } else if (projectId === 'all' && favoritesOnly) {
-                const userId = isPro && user ? user.id : getGuestUserId();
+                const userId = user ? user.id : getGuestUserId();
                 const projects = await repository.getProjects(userId);
                 const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
                 wordsData = allProjectWords.flat().filter(w => w.isFavorite);
               } else {
+                const hasAccess = await ensureProjectAccess();
+                if (!hasAccess) {
+                  backToProject();
+                  return;
+                }
                 const allWords = await repository.getWords(projectId);
                 wordsData = favoritesOnly ? allWords.filter((w) => w.isFavorite) : allWords;
               }
@@ -150,11 +179,17 @@ export default function FlashcardPage() {
           wordsData = await loadCollectionWords(collectionId);
         } else if (projectId === 'all' && favoritesOnly) {
           // 全単語帳横断でお気に入り単語を取得
-          const userId = isPro && user ? user.id : getGuestUserId();
+          const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
           wordsData = allProjectWords.flat().filter(w => w.isFavorite);
         } else {
+          const hasAccess = await ensureProjectAccess();
+          if (!hasAccess) {
+            backToProject();
+            return;
+          }
+
           let allWords = await repository.getWords(projectId);
 
           // If local is empty and user is logged in, wait for remote
@@ -216,7 +251,7 @@ export default function FlashcardPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, authLoading, favoritesOnly, isPro]);
+  }, [projectId, repository, router, authLoading, favoritesOnly, isPro, user]);
 
   // Phase 2: Fetch latest from remote in background (Pro users)
   // If remote has more words, merge new words into the end of the list

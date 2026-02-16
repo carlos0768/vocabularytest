@@ -8,7 +8,6 @@ import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useProjects } from '@/hooks/use-projects';
 import { getRepository } from '@/lib/db';
-import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import type { SubscriptionStatus } from '@/types';
 
@@ -50,7 +49,7 @@ function ShareTargetContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { subscription, loading: authLoading } = useAuth();
   const { projects, loading: projectsLoading, createProject } = useProjects();
 
   const sharedText = searchParams.get('text') || '';
@@ -132,7 +131,6 @@ function ShareTargetContent() {
     try {
       const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
       const repository = getRepository(subscriptionStatus);
-      const userId = isPro && user ? user.id : getGuestUserId();
 
       // Determine project
       let targetProjectId: string;
