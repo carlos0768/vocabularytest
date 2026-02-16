@@ -90,7 +90,7 @@ export function ProjectBookTile({
 
       <Link
         href={`/project/${project.id}`}
-        className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 pb-2.5 hover:shadow-card hover:border-[var(--color-border-light)] transition-all"
+        className="block rounded-xl border-2 border-[var(--color-border)] border-b-4 bg-[var(--color-surface)] p-3 pb-2.5 active:border-b-2 active:mt-[2px] transition-all"
       >
         {/* Book cover */}
         <div className="relative mx-auto w-[72px] h-[100px] rounded-md overflow-hidden shadow-sm">
