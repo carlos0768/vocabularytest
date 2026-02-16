@@ -520,36 +520,47 @@ export default function HomePage() {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
 
     const showNotifications = async () => {
-      const grouped = new Map<string, { title: string; wordCount: number; hasFailed: boolean }>();
+      const grouped = new Map<string, { title: string; wordCount: number; hasFailed: boolean; hasGrammarWarning: boolean }>();
 
       for (const job of freshJobs) {
         const key = job.project_id || job.project_title || job.id;
         const existing = grouped.get(key);
         let wordCount = 0;
+        let hasGrammarWarning = false;
         try {
           const parsed = job.result ? JSON.parse(job.result) : null;
           wordCount = typeof parsed?.wordCount === 'number' ? parsed.wordCount : 0;
+          hasGrammarWarning = Array.isArray(parsed?.warnings) && parsed.warnings.includes('grammar_not_found');
         } catch {
           wordCount = 0;
+          hasGrammarWarning = false;
         }
 
         if (existing) {
           existing.wordCount += wordCount;
           existing.hasFailed = existing.hasFailed || job.status === 'failed';
+          existing.hasGrammarWarning = existing.hasGrammarWarning || hasGrammarWarning;
         } else {
           grouped.set(key, {
             title: job.project_title || '単語帳',
             wordCount,
             hasFailed: job.status === 'failed',
+            hasGrammarWarning,
           });
         }
       }
 
       const entries = Array.from(grouped.entries());
       for (const [key, entry] of entries) {
-        const title = entry.hasFailed ? 'MERKEN: スキャン失敗' : 'MERKEN: スキャン完了';
+        const title = entry.hasFailed
+          ? 'MERKEN: スキャン失敗'
+          : entry.hasGrammarWarning
+          ? 'MERKEN: 文法抽出なし'
+          : 'MERKEN: スキャン完了';
         const body = entry.hasFailed
           ? `「${entry.title}」のスキャンに失敗しました`
+          : entry.hasGrammarWarning
+          ? `「${entry.title}」で文法抽出が見つからなかったため、通常抽出に切り替えました`
           : `「${entry.title}」に${entry.wordCount}語追加されました`;
 
         try {

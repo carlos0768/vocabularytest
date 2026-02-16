@@ -15,6 +15,8 @@ interface AggregatedNotification {
   allComplete: boolean;
   /** True if any job in this group failed */
   hasFailed: boolean;
+  /** True if any job switched from grammar/idiom mode to fallback extraction */
+  hasGrammarWarning: boolean;
   /** Error message from the first failed job */
   errorMessage: string | null;
 }
@@ -27,6 +29,7 @@ interface ScanJobNotificationProps {
 export function ScanJobNotification({ notification, onDismiss }: ScanJobNotificationProps) {
   const router = useRouter();
   const isFailed = notification.hasFailed;
+  const isWarning = !isFailed && notification.hasGrammarWarning;
 
   const handleView = () => {
     if (notification.projectId) {
@@ -41,23 +44,35 @@ export function ScanJobNotification({ notification, onDismiss }: ScanJobNotifica
         <div className="flex items-start gap-3">
           {/* Icon */}
           <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isFailed ? 'bg-red-100 dark:bg-red-900/20' : 'bg-[var(--color-success-light)]'
+            isFailed
+              ? 'bg-red-100 dark:bg-red-900/20'
+              : isWarning
+              ? 'bg-amber-100 dark:bg-amber-900/20'
+              : 'bg-[var(--color-success-light)]'
           }`}>
             <Icon
-              name={isFailed ? 'error' : 'check_circle'}
+              name={isFailed ? 'error' : isWarning ? 'warning' : 'check_circle'}
               size={24}
-              className={isFailed ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}
+              className={
+                isFailed
+                  ? 'text-[var(--color-error)]'
+                  : isWarning
+                  ? 'text-amber-600'
+                  : 'text-[var(--color-success)]'
+              }
             />
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-[var(--color-foreground)] mb-1">
-              {isFailed ? 'スキャン失敗' : 'スキャン完了！'}
+              {isFailed ? 'スキャン失敗' : isWarning ? '文法抽出なし' : 'スキャン完了！'}
             </h3>
             <p className="text-sm text-[var(--color-muted)] mb-3">
               {isFailed
                 ? `「${notification.projectTitle}」のスキャンに失敗しました。もう一度お試しください。`
+                : isWarning
+                ? `「${notification.projectTitle}」で文法抽出が見つからなかったため、通常抽出に切り替えました。`
                 : `「${notification.projectTitle}」に${notification.totalWordCount}語追加されました`
               }
             </p>
@@ -116,12 +131,19 @@ export function ScanJobNotifications({ jobs, onDismiss }: ScanJobNotificationsPr
   for (const job of jobs) {
     const key = job.project_id || job.project_title || 'unknown';
     const existing = groupMap.get(key);
-    const result = job.result ? JSON.parse(job.result) : null;
+    let result: { wordCount?: number; warnings?: string[] } | null = null;
+    try {
+      result = job.result ? JSON.parse(job.result) : null;
+    } catch {
+      result = null;
+    }
     const wordCount = result?.wordCount || 0;
+    const hasGrammarWarning = Array.isArray(result?.warnings) && result.warnings.includes('grammar_not_found');
 
     if (existing) {
       existing.totalWordCount += wordCount;
       existing.jobIds.push(job.id);
+      existing.hasGrammarWarning = existing.hasGrammarWarning || hasGrammarWarning;
       if (job.status === 'failed') {
         existing.hasFailed = true;
         if (!existing.errorMessage) existing.errorMessage = job.error_message;
@@ -135,6 +157,7 @@ export function ScanJobNotifications({ jobs, onDismiss }: ScanJobNotificationsPr
         jobIds: [job.id],
         allComplete: job.status === 'completed' || job.status === 'failed',
         hasFailed: job.status === 'failed',
+        hasGrammarWarning,
         errorMessage: job.status === 'failed' ? job.error_message : null,
       });
     }

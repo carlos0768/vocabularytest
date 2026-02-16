@@ -33,36 +33,45 @@ const processSchema = z.object({
   jobId: z.string().uuid(),
 }).strict();
 
+type ExtractionWarningCode = 'grammar_not_found';
+
+type ExtractionLikeResult =
+  | { success: true; data: { words: unknown[] } }
+  | { success: false; error: string; reason?: string };
+
 // Extract words from a single image using the appropriate mode
 async function extractFromImage(
   base64Image: string,
   mode: ExtractMode,
   eikenLevel: string | null,
   openaiApiKey: string | undefined
-) {
+): Promise<{ result: ExtractionLikeResult; warningCode?: ExtractionWarningCode }> {
   if (!openaiApiKey) throw new Error('OpenAI API key not configured');
 
   switch (mode) {
     case 'circled': {
-      return await extractCircledWordsFromImage(base64Image, openaiApiKey, {}, openaiApiKey);
+      return { result: await extractCircledWordsFromImage(base64Image, openaiApiKey, {}, openaiApiKey) as ExtractionLikeResult };
     }
     case 'highlighted': {
-      return await extractHighlightedWordsFromImage(base64Image, openaiApiKey, openaiApiKey);
+      return { result: await extractHighlightedWordsFromImage(base64Image, openaiApiKey, openaiApiKey) as ExtractionLikeResult };
     }
     case 'eiken': {
       const levels = eikenLevel?.split(',') || ['3', 'pre2', '2'];
-      return await extractEikenWordsFromImage(base64Image, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1');
+      return { result: await extractEikenWordsFromImage(base64Image, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1') as ExtractionLikeResult };
     }
     case 'idiom': {
       const idiomResult = await extractIdiomsFromImage(base64Image, openaiApiKey);
       if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
         console.warn('No idioms found in background scan. Falling back to all-word extraction.');
-        return await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true });
+        return {
+          result: await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true }) as ExtractionLikeResult,
+          warningCode: 'grammar_not_found',
+        };
       }
-      return idiomResult;
+      return { result: idiomResult as ExtractionLikeResult };
     }
     default: {
-      return await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true });
+      return { result: await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true }) as ExtractionLikeResult };
     }
   }
 }
@@ -115,6 +124,8 @@ export async function POST(request: NextRequest) {
       const mode = job.scan_mode as ExtractMode;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allExtractedWords: any[] = [];
+      const warningCodes = new Set<ExtractionWarningCode>();
+      let grammarWarningNotified = false;
 
       // Process each image and merge results
       for (const imagePath of imagePaths) {
@@ -139,7 +150,21 @@ export async function POST(request: NextRequest) {
           : 'image/jpeg';
         const base64Image = `data:${mimeType};base64,${base64}`;
 
-        const result = await extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey);
+        const { result, warningCode } = await extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey);
+
+        if (warningCode) {
+          warningCodes.add(warningCode);
+        }
+        if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
+          grammarWarningNotified = true;
+          await sendScanJobPushNotifications(getSupabaseAdmin(), {
+            userId: job.user_id,
+            jobId,
+            projectId: null,
+            projectTitle: job.project_title,
+            status: 'warning',
+          });
+        }
 
         if (result.success && result.data?.words) {
           allExtractedWords.push(...result.data.words);
@@ -259,12 +284,19 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const resultPayload: { wordCount: number; warnings?: ExtractionWarningCode[] } = {
+        wordCount: allExtractedWords.length,
+      };
+      if (warningCodes.size > 0) {
+        resultPayload.warnings = Array.from(warningCodes);
+      }
+
       await getSupabaseAdmin()
         .from('scan_jobs')
         .update({
           status: 'completed',
           project_id: newProject.id,
-          result: JSON.stringify({ wordCount: allExtractedWords.length }),
+          result: JSON.stringify(resultPayload),
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
