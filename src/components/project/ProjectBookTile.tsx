@@ -6,6 +6,13 @@ import { Icon } from '@/components/ui/Icon';
 import { getBookCoverColors } from '@/lib/book-cover-utils';
 import type { Project } from '@/types';
 
+interface CustomMenuItem {
+  label: string;
+  icon: string;
+  onClick: (id: string) => void;
+  danger?: boolean;
+}
+
 interface ProjectBookTileProps {
   project: Project;
   wordCount: number;
@@ -13,6 +20,7 @@ interface ProjectBookTileProps {
   progress?: number;
   onDelete?: (id: string) => void;
   onToggleFavorite?: (id: string) => void;
+  extraMenuItems?: CustomMenuItem[];
 }
 
 export function ProjectBookTile({
@@ -21,6 +29,7 @@ export function ProjectBookTile({
   progress = 0,
   onDelete,
   onToggleFavorite,
+  extraMenuItems,
 }: ProjectBookTileProps) {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -37,7 +46,7 @@ export function ProjectBookTile({
   return (
     <div className="relative group">
       {/* ⋯ menu — always visible on mobile, hover on desktop */}
-      {(onDelete || onToggleFavorite) && (
+      {(onDelete || onToggleFavorite || (extraMenuItems && extraMenuItems.length > 0)) && (
         <div className="absolute top-1.5 right-1.5 z-10">
           <button
             className="w-7 h-7 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-[var(--color-muted)] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity hover:bg-white hover:text-[var(--color-foreground)]"
@@ -68,6 +77,25 @@ export function ProjectBookTile({
                     {project.isFavorite ? 'ピン解除' : 'ピン留め'}
                   </button>
                 )}
+                {extraMenuItems && extraMenuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                      item.danger
+                        ? 'text-[var(--color-error)] hover:bg-[var(--color-error-light)]'
+                        : 'text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      item.onClick(project.id);
+                    }}
+                  >
+                    <Icon name={item.icon} size={16} />
+                    {item.label}
+                  </button>
+                ))}
                 {onDelete && (
                   <button
                     className="w-full px-4 py-2 text-left text-sm text-[var(--color-error)] hover:bg-[var(--color-error-light)] flex items-center gap-2"

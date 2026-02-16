@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { StudyModeCard, WordList } from '@/components/home';
-import { ProjectCard } from '@/components/project';
+import { ProjectBookTile } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -428,9 +428,9 @@ export default function CollectionDetailPage() {
                   まだ単語帳が追加されていません
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {memberProjects.map((project) => (
-                    <ProjectCard
+                    <ProjectBookTile
                       key={project.id}
                       project={project}
                       wordCount={project.totalWords}
