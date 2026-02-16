@@ -573,14 +573,14 @@ export default function FlashcardPage() {
       )}
 
       {/* Card area */}
-      <main className="flex items-center justify-center px-6 touch-pan-y overflow-hidden min-h-0">
+      <main className="flex items-center justify-center px-6 touch-pan-y overflow-hidden min-h-0 py-2">
         {/* Flashcard */}
         <div
           onClick={handleFlip}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="flashcard w-full max-w-sm aspect-[3/4] max-h-[min(100%,55dvh)] cursor-pointer"
+          className="flashcard w-full max-w-sm aspect-[3/4] max-h-full cursor-pointer"
           style={{
             transform: getCardTransform(),
             transition: slidePhase === 'enter' ? 'none' : (isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none'),
