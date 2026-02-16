@@ -422,6 +422,118 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to remove project from collection: ${error.message}`);
   }
+
+  async getCollectionPreviews(collectionIds: string[]): Promise<Record<string, { id: string; title: string; iconImage?: string }[]>> {
+    if (collectionIds.length === 0) return {};
+
+    // Get first 3 projects per collection (sorted by sort_order)
+    const { data: cpRows, error: cpError } = await this.supabase
+      .from('collection_projects')
+      .select('collection_id, project_id, sort_order')
+      .in('collection_id', collectionIds)
+      .order('sort_order', { ascending: true });
+
+    if (cpError) throw new Error(`Failed to get collection previews: ${cpError.message}`);
+    if (!cpRows || cpRows.length === 0) {
+      return Object.fromEntries(collectionIds.map((id) => [id, []]));
+    }
+
+    // Group by collection and take first 3
+    const grouped: Record<string, string[]> = {};
+    for (const row of cpRows) {
+      const cid = row.collection_id as string;
+      if (!grouped[cid]) grouped[cid] = [];
+      if (grouped[cid].length < 3) {
+        grouped[cid].push(row.project_id as string);
+      }
+    }
+
+    // Fetch project details for all referenced project IDs
+    const allPids = [...new Set(Object.values(grouped).flat())];
+    if (allPids.length === 0) {
+      return Object.fromEntries(collectionIds.map((id) => [id, []]));
+    }
+
+    const { data: projRows, error: pError } = await this.supabase
+      .from('projects')
+      .select('id, title, icon_image')
+      .in('id', allPids);
+
+    if (pError) throw new Error(`Failed to get preview projects: ${pError.message}`);
+
+    const projMap = new Map<string, { id: string; title: string; iconImage?: string }>();
+    for (const row of projRows || []) {
+      projMap.set(row.id as string, {
+        id: row.id as string,
+        title: row.title as string,
+        iconImage: (row.icon_image as string) || undefined,
+      });
+    }
+
+    const result: Record<string, { id: string; title: string; iconImage?: string }[]> = {};
+    for (const cid of collectionIds) {
+      const pids = grouped[cid] || [];
+      result[cid] = pids.map((pid) => projMap.get(pid)).filter(Boolean) as { id: string; title: string; iconImage?: string }[];
+    }
+    return result;
+  }
+
+  async getCollectionStats(collectionIds: string[]): Promise<Record<string, { projectCount: number; wordCount: number; masteredCount: number }>> {
+    if (collectionIds.length === 0) return {};
+
+    // Get all collection_projects for these collections
+    const { data: cpRows, error: cpError } = await this.supabase
+      .from('collection_projects')
+      .select('collection_id, project_id')
+      .in('collection_id', collectionIds);
+
+    if (cpError) throw new Error(`Failed to get collection stats: ${cpError.message}`);
+    if (!cpRows || cpRows.length === 0) {
+      return Object.fromEntries(collectionIds.map((id) => [id, { projectCount: 0, wordCount: 0, masteredCount: 0 }]));
+    }
+
+    // Group project IDs by collection
+    const collectionProjectMap: Record<string, string[]> = {};
+    for (const row of cpRows) {
+      const cid = row.collection_id as string;
+      if (!collectionProjectMap[cid]) collectionProjectMap[cid] = [];
+      collectionProjectMap[cid].push(row.project_id as string);
+    }
+
+    // Get word counts for all relevant projects in one query
+    const allProjectIds = [...new Set(cpRows.map((r) => r.project_id as string))];
+    const { data: wordRows, error: wError } = await this.supabase
+      .from('words')
+      .select('project_id, status')
+      .in('project_id', allProjectIds);
+
+    if (wError) throw new Error(`Failed to get word stats: ${wError.message}`);
+
+    // Count words per project
+    const projectWordCount: Record<string, number> = {};
+    const projectMasteredCount: Record<string, number> = {};
+    for (const w of wordRows || []) {
+      const pid = w.project_id as string;
+      projectWordCount[pid] = (projectWordCount[pid] || 0) + 1;
+      if (w.status === 'mastered') {
+        projectMasteredCount[pid] = (projectMasteredCount[pid] || 0) + 1;
+      }
+    }
+
+    // Aggregate per collection
+    const result: Record<string, { projectCount: number; wordCount: number; masteredCount: number }> = {};
+    for (const cid of collectionIds) {
+      const pids = collectionProjectMap[cid] || [];
+      let wordCount = 0;
+      let masteredCount = 0;
+      for (const pid of pids) {
+        wordCount += projectWordCount[pid] || 0;
+        masteredCount += projectMasteredCount[pid] || 0;
+      }
+      result[cid] = { projectCount: pids.length, wordCount, masteredCount };
+    }
+    return result;
+  }
 }
 
 // Export singleton

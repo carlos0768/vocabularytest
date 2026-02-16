@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
+import { CollectionBookshelfCard } from '@/components/collection/CollectionBookshelfCard';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollections } from '@/hooks/use-collections';
@@ -12,7 +13,7 @@ import { useState } from 'react';
 export default function CollectionsPage() {
   const router = useRouter();
   const { isPro, loading: authLoading } = useAuth();
-  const { collections, loading, deleteCollection, refresh } = useCollections();
+  const { collections, stats, previews, loading, deleteCollection, refresh } = useCollections();
   const { showToast } = useToast();
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export default function CollectionsPage() {
     <AppShell>
       <div className="min-h-screen pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6">
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-          <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
+          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
             <div className="flex-1">
               <h1 className="text-xl font-bold text-[var(--color-foreground)]">プロジェクト</h1>
               <p className="text-sm text-[var(--color-muted)]">単語帳をまとめて管理</p>
@@ -70,7 +71,7 @@ export default function CollectionsPage() {
           </div>
         </header>
 
-        <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
+        <main className="max-w-2xl mx-auto px-4 py-6">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
               <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -93,25 +94,21 @@ export default function CollectionsPage() {
               </Link>
             </div>
           ) : (
-            <div className="space-y-3">
-              {collections.map((collection) => (
-                <Link
-                  key={collection.id}
-                  href={`/collections/${collection.id}`}
-                  className="card p-4 flex items-center gap-4 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all"
-                >
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
-                    <Icon name="workspaces" size={22} className="text-[var(--color-success)]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{collection.name}</p>
-                    {collection.description && (
-                      <p className="text-xs text-[var(--color-muted)] truncate mt-0.5">{collection.description}</p>
-                    )}
-                  </div>
-                  <Icon name="chevron_right" size={18} className="text-[var(--color-muted)] shrink-0" />
-                </Link>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {collections.map((collection) => {
+                const s = stats[collection.id];
+                return (
+                  <CollectionBookshelfCard
+                    key={collection.id}
+                    id={collection.id}
+                    name={collection.name}
+                    projectCount={s?.projectCount ?? 0}
+                    wordCount={s?.wordCount ?? 0}
+                    masteredCount={s?.masteredCount ?? 0}
+                    previews={previews[collection.id] ?? []}
+                  />
+                );
+              })}
             </div>
           )}
         </main>
