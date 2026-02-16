@@ -34,14 +34,14 @@ export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
       {/* Fixed dot background layer - immune to iOS bounce */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none -z-10"
         style={{
           backgroundImage: bgImage,
           backgroundRepeat: 'repeat',
         }}
       />
       <Sidebar />
-      <div className="lg:ml-[280px] relative z-10">
+      <div className="lg:ml-[280px] relative">
         {children}
       </div>
       {!hideBottomNav && <BottomNav />}
