@@ -93,6 +93,16 @@ export class OpenAIProvider implements AIProvider {
       if (error.status === 429 || message.includes('rate')) {
         throw new AIError('rate_limit', 'API制限に達しました', error);
       }
+      if (
+        message.includes('image_url') &&
+        (message.includes('application/pdf') || message.toLowerCase().includes('unsupported image'))
+      ) {
+        throw new AIError(
+          'invalid_request',
+          '現在の設定ではPDF解析に対応していません。PDFを画像（PNG/JPEG）に変換して再アップロードしてください。',
+          error
+        );
+      }
       if (message.includes('model')) {
         throw new AIError('model_error', 'AIモデルが利用できません', error);
       }

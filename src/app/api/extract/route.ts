@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
+import { AI_CONFIG } from '@/lib/ai/config';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
@@ -21,6 +22,24 @@ const requestSchema = z.object({
   mode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
 }).strict();
+
+function getProviderForMode(mode: ExtractMode): 'gemini' | 'openai' {
+  switch (mode) {
+    case 'idiom':
+      return AI_CONFIG.extraction.idioms.provider;
+    case 'eiken':
+      return AI_CONFIG.extraction.eiken.provider;
+    case 'circled':
+      return AI_CONFIG.extraction.circled.provider;
+    case 'highlighted':
+      return AI_CONFIG.extraction.words.provider;
+    case 'wrong':
+      return AI_CONFIG.extraction.words.provider;
+    case 'all':
+    default:
+      return AI_CONFIG.extraction.words.provider;
+  }
+}
 
 // API Route: POST /api/extract
 // Extracts words from an uploaded image using OpenAI Vision API
@@ -84,6 +103,18 @@ export async function POST(request: NextRequest) {
       console.error('Invalid file format - not image or PDF', { first100: image.slice(0, 100) });
       return NextResponse.json(
         { success: false, error: 'ファイル形式が不正です。JPEG/PNG形式の画像またはPDFを使用してください。' },
+        { status: 400 }
+      );
+    }
+
+    // Current OpenAI image endpoint does not accept PDF data URLs.
+    // Return a clear message instead of surfacing a vague provider error.
+    if (isValidPdf && getProviderForMode(mode) === 'openai') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '現在のサーバー設定ではPDF解析に対応していません。PDFを画像（PNG/JPEG）に変換して再アップロードしてください。',
+        },
         { status: 400 }
       );
     }
