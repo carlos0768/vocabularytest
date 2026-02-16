@@ -1243,14 +1243,21 @@ export default function HomePage() {
             </div>
           </header>
 
-          <main className="flex flex-col items-center justify-center px-6 py-20">
+          <main className="min-h-[calc(100vh-14rem)] flex flex-col items-center justify-center px-6 py-10">
             <div className="w-20 h-20 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mb-6">
               <Icon name="menu_book" size={40} className="text-[var(--color-primary)]" />
             </div>
             <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
-            <p className="text-[var(--color-muted)] text-center mb-8">
-              下のカメラボタンから<br />ノートやプリントを撮影しましょう
+            <p className="text-[var(--color-muted)] text-center mb-6">
+              ノートやプリントを撮影して<br />最初の単語帳を作りましょう
             </p>
+            <button
+              onClick={() => handleScanButtonClick(false)}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[var(--color-primary)] text-white font-bold border-b-[3px] border-[var(--color-primary-dark)] active:border-b-0 active:mt-[3px] transition-all mb-8"
+            >
+              <Icon name="photo_camera" size={20} />
+              スキャンをはじめる
+            </button>
             {!isAuthenticated && (
               <p className="text-sm text-[var(--color-muted)]">
                 <Link href="/signup" className="text-[var(--color-primary)] font-semibold hover:underline">
