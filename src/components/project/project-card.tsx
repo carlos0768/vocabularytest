@@ -49,7 +49,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <CardTitle className="line-clamp-2">{project.title}</CardTitle>
+                <CardTitle className="line-clamp-1 break-all">{project.title}</CardTitle>
                 <div className="mt-1 flex items-center gap-4 text-sm text-[var(--color-muted)]">
                   <div className="flex items-center gap-1">
                     <Icon name="menu_book" size={16} />
@@ -68,16 +68,27 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div>
-            <div className="flex items-center justify-between text-xs text-[var(--color-muted)] mb-2">
-              <span>習得率</span>
-              <span>{Math.round(progress)}%</span>
+          {progress === 0 ? (
+            <span className="inline-flex items-center gap-1 text-xs text-[var(--color-muted)] bg-[var(--color-border-light)] px-2 py-0.5 rounded-full">
+              未学習
+            </span>
+          ) : progress >= 100 ? (
+            <span className="inline-flex items-center gap-1 text-xs text-[var(--color-success)] bg-[var(--color-success-light)] px-2 py-0.5 rounded-full">
+              <Icon name="check_circle" size={14} />
+              習得完了
+            </span>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between text-xs text-[var(--color-muted)] mb-2">
+                <span>習得率</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="mt-2 text-xs text-[var(--color-muted)]">{masteredCount}語 習得済み</p>
             </div>
-            <div className="progress-bar">
-              <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
-            </div>
-            <p className="mt-2 text-xs text-[var(--color-muted)]">{masteredCount}語 習得済み</p>
-          </div>
+          )}
         </CardContent>
       </Link>
 

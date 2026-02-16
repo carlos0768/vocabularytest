@@ -18,7 +18,7 @@ import { hybridRepository } from '@/lib/db/hybrid-repository';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getWordsByProjectMap, mergeProjectsById } from '@/lib/projects/load-helpers';
-import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
+import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
@@ -128,6 +128,14 @@ export default function HomePage() {
   const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
   const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
   const [totalWords, setTotalWords] = useState(() => getCachedTotalWords());
+
+  // Daily learning stats (localStorage sync read, no API call)
+  const dailyStats = useMemo(() => getDailyStats(), []);
+  const streakDays = useMemo(() => getStreakDays(), []);
+  const accuracyPercent = dailyStats.todayCount > 0
+    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
+    : 0;
+
   // Start with loading=false if cache is already populated (in-memory or sessionStorage)
   const [loading, setLoading] = useState(() => !getHasLoaded());
   const [wordsLoading, setWordsLoading] = useState(false);
@@ -1252,8 +1260,8 @@ export default function HomePage() {
         </header>
 
         {/* Desktop header */}
-        <header className="hidden lg:block px-8 py-6">
-          <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <header className="hidden lg:block pt-6 pb-4">
+          <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-[var(--color-foreground)] font-display">ダッシュボード</h1>
               <p className="text-sm text-[var(--color-muted)] mt-1">手入力ゼロで単語帳を作成</p>
@@ -1273,45 +1281,83 @@ export default function HomePage() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 max-w-lg lg:max-w-5xl mx-auto px-4 lg:px-8 py-6 w-full space-y-6">
-          {/* Quick actions */}
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Link href="/scan" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
-              <div className="w-10 h-10 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center text-[var(--color-primary)]">
-                <Icon name="add" size={22} />
+        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-8">
+          {/* === Hero Section === */}
+          <section>
+            <div className="rounded-2xl bg-[var(--color-primary)] p-5 lg:p-6 text-white">
+              {/* Tier A: ストリーク + 動機付け */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Icon name="local_fire_department" size={24} filled className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg font-bold font-display">
+                    {streakDays > 0
+                      ? `${streakDays}日連続学習中`
+                      : dailyStats.todayCount > 0
+                      ? '今日も頑張っています'
+                      : '今日の学習を始めよう'}
+                  </p>
+                  <p className="text-sm text-white/70">
+                    {dailyStats.todayCount > 0
+                      ? `今日 ${dailyStats.todayCount}問回答`
+                      : 'クイズに挑戦して単語を覚えよう'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">スキャン</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">ノートを取り込む</p>
+
+              {/* Tier B: コンパクトスタット（活動ある時のみ） */}
+              {dailyStats.todayCount > 0 && (
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-sm font-medium">
+                    <Icon name="check_circle" size={16} />
+                    {accuracyPercent}% 正答率
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-sm font-medium">
+                    <Icon name="school" size={16} />
+                    {dailyStats.masteredCount} 習得
+                  </span>
+                  {reviewDueCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-sm font-medium">
+                      <Icon name="schedule" size={16} />
+                      {reviewDueCount} 復習待ち
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Tier C: プライマリCTA */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                {reviewDueCount > 0 ? (
+                  <Link
+                    href={reviewQuizHref}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-semibold text-sm hover:bg-white/90 transition-colors"
+                  >
+                    <Icon name="replay" size={20} />
+                    復習を始める ({reviewDueCount}問)
+                  </Link>
+                ) : (
+                  projects.length > 0 && totalWords > 0 && (
+                    <Link
+                      href={`/quiz/${projects[0].id}?from=${encodeURIComponent('/')}`}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-[var(--color-primary)] font-semibold text-sm hover:bg-white/90 transition-colors"
+                    >
+                      <Icon name="quiz" size={20} />
+                      クイズに挑戦
+                    </Link>
+                  )
+                )}
+                {wrongAnswers.length > 0 && (
+                  <button
+                    onClick={() => setShowWrongAnswers(true)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 text-white font-semibold text-sm hover:bg-white/25 transition-colors"
+                  >
+                    <Icon name="error" size={20} />
+                    苦手単語 ({wrongAnswers.length})
+                  </button>
+                )}
               </div>
-            </Link>
-            <Link href="/projects" className="card p-4 flex flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
-              <div className="w-10 h-10 rounded-full bg-[var(--color-warning-light)] flex items-center justify-center text-[var(--color-warning)]">
-                <Icon name="folder" size={22} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">単語帳</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">すべての単語帳</p>
-              </div>
-            </Link>
-            <Link href={isPro ? '/collections' : '/subscription'} className={`hidden lg:flex card p-4 flex-col gap-3 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all ${!isPro ? 'opacity-60' : ''}`}>
-              <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center text-[var(--color-success)]">
-                <Icon name="workspaces" size={22} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">プロジェクト</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">まとめて管理</p>
-              </div>
-            </Link>
-            <Link href="/search" className="hidden lg:flex card p-4 flex-col gap-3 hover:shadow-card hover:border-primary/30 transition-all">
-              <div className="w-10 h-10 rounded-full bg-[var(--color-purple-light,#f3e8ff)] flex items-center justify-center text-[var(--color-purple,#a855f7)]">
-                <Icon name="search" size={22} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">検索</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">意味で単語検索</p>
-              </div>
-            </Link>
+            </div>
           </section>
 
           {/* Recent projects */}
@@ -1355,36 +1401,6 @@ export default function HomePage() {
               )}
             </div>
           </section>
-
-          {/* Collections (Pro only, shown when they exist) */}
-          {isPro && !collectionsLoading && collections.length > 0 && (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">プロジェクト</h2>
-                <Link href="/collections" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {collections.slice(0, 4).map((collection) => (
-                  <Link
-                    key={collection.id}
-                    href={`/collections/${collection.id}`}
-                    className="card p-4 flex items-center gap-4 hover:shadow-card hover:border-[var(--color-success)]/30 transition-all"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
-                      <Icon name="workspaces" size={22} className="text-[var(--color-success)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{collection.name}</p>
-                      {collection.description && (
-                        <p className="text-xs text-[var(--color-muted)] truncate mt-0.5">{collection.description}</p>
-                      )}
-                    </div>
-                    <Icon name="chevron_right" size={18} className="text-[var(--color-muted)] shrink-0" />
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
         </main>
 
       {/* Modals */}
