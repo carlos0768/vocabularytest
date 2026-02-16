@@ -39,6 +39,7 @@ function withEmptyStats(projects: Project[]): ProjectWithStats[] {
     totalWords: 0,
     masteredWords: 0,
     progress: 0,
+    lastUsedAt: null,
   }));
 }
 
@@ -47,6 +48,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'words' | 'lastUsed'>('newest');
 
   const { showToast } = useToast();
   const { refresh: refreshWordCount } = useWordCount();
@@ -204,9 +206,25 @@ export default function ProjectsPage() {
   }, [authLoading, isPro, user, repository]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const favorites = projects.filter((project) => project.isFavorite);
-  const filtered = projects.filter((project) =>
-    project.title.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const base = projects.filter((project) =>
+      project.title.toLowerCase().includes(query.toLowerCase())
+    );
+    return [...base].sort((a, b) => {
+      switch (sortBy) {
+        case 'words':
+          return b.totalWords - a.totalWords;
+        case 'lastUsed': {
+          const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+          const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+          return bTime - aTime;
+        }
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+  }, [projects, query, sortBy]);
 
   return (
     <AppShell>
@@ -228,15 +246,37 @@ export default function ProjectsPage() {
       </header>
 
       <main className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-        <div className="relative">
-          <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="単語帳を検索"
-            className="w-full pl-10 pr-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)]"
-          />
+        <div className="space-y-3">
+          <div className="relative">
+            <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="単語帳を検索"
+              className="w-full pl-10 pr-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)]"
+            />
+          </div>
+          <div className="flex gap-2">
+            {([
+              { key: 'newest', label: '新しい順', icon: 'schedule' },
+              { key: 'words', label: '単語が多い順', icon: 'sort' },
+              { key: 'lastUsed', label: '最近使った順', icon: 'history' },
+            ] as const).map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setSortBy(key)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  sortBy === key
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-primary)]/30'
+                }`}
+              >
+                <Icon name={icon} size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (

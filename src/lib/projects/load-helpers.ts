@@ -4,6 +4,7 @@ export interface ProjectWithStats extends Project {
   totalWords: number;
   masteredWords: number;
   progress: number;
+  lastUsedAt: string | null; // Most recent lastReviewedAt among words, or null
 }
 
 export interface WordReadRepository {
@@ -58,11 +59,19 @@ export function buildProjectStats(
     const totalWords = words.length;
     const progress = totalWords > 0 ? Math.round((masteredWords / totalWords) * 100) : 0;
 
+    let lastUsedAt: string | null = null;
+    for (const w of words) {
+      if (w.lastReviewedAt && (!lastUsedAt || w.lastReviewedAt > lastUsedAt)) {
+        lastUsedAt = w.lastReviewedAt;
+      }
+    }
+
     return {
       ...project,
       totalWords,
       masteredWords,
       progress,
+      lastUsedAt,
     };
   });
 }
