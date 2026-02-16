@@ -22,6 +22,7 @@ import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, ge
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
 import { processImageFile } from '@/lib/image-utils';
+import { createBrowserClient } from '@/lib/supabase';
 import {
   getCachedProjects,
   getCachedProjectWords,
@@ -1067,6 +1068,90 @@ export default function HomePage() {
 
     if (files.length === 0) return;
 
+    // Pro users: use background upload (same as /scan page)
+    if (isPro && user) {
+      try {
+        const supabase = createBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('認証が必要です');
+
+        // Compress and upload images to Supabase Storage
+        const uploadedPaths: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          // Compress image
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const objectUrl = URL.createObjectURL(file);
+            img.onload = () => {
+              URL.revokeObjectURL(objectUrl);
+              const MAX_DIM = 1600;
+              let { width, height } = img;
+              if (width > MAX_DIM || height > MAX_DIM) {
+                if (width > height) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; }
+                else { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              ctx?.drawImage(img, 0, 0, width, height);
+              canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.7);
+            };
+            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image')); };
+            img.src = objectUrl;
+          });
+
+          const timestamp = Date.now() + i;
+          const imagePath = `${user.id}/${timestamp}.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from('scan-images')
+            .upload(imagePath, blob, { contentType: 'image/jpeg', upsert: false });
+
+          if (uploadError) {
+            if (uploadedPaths.length > 0) await supabase.storage.from('scan-images').remove(uploadedPaths);
+            throw new Error('画像のアップロードに失敗しました');
+          }
+          uploadedPaths.push(imagePath);
+        }
+
+        // Create background scan job
+        const response = await fetch('/api/scan-jobs/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            imagePaths: uploadedPaths,
+            projectTitle: projectName,
+            projectIcon: projectIcon ?? null,
+            scanMode: selectedScanMode,
+            eikenLevel: selectedScanMode === 'eiken' ? selectedEikenLevel : null,
+          }),
+        });
+
+        if (!response.ok) {
+          await supabase.storage.from('scan-images').remove(uploadedPaths);
+          const error = await response.json();
+          throw new Error(error.error || 'ジョブの作成に失敗しました');
+        }
+
+        showToast({
+          message: `${files.length > 1 ? `${files.length}枚の画像の` : ''}スキャンを開始しました`,
+          type: 'success',
+          duration: 3000,
+        });
+        return;
+      } catch (error) {
+        console.error('Background upload error:', error);
+        showToast({
+          message: error instanceof Error ? error.message : 'アップロードに失敗しました',
+          type: 'error',
+          duration: 4000,
+        });
+        return;
+      }
+    }
+
+    // Free users: use traditional flow
     sessionStorage.setItem('scanvocab_project_name', projectName);
     if (projectIcon) {
       sessionStorage.setItem('scanvocab_project_icon', projectIcon);
@@ -1074,7 +1159,7 @@ export default function HomePage() {
       sessionStorage.removeItem('scanvocab_project_icon');
     }
     sessionStorage.removeItem('scanvocab_project_id');
-    
+
     if (files.length === 1) {
       processImage(files[0]);
     } else {
