@@ -14,20 +14,22 @@ function buildDotSvg(color: string, size: number, dotRadius: number) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
+const LIGHT_DOT = buildDotSvg('#9ca3af', 24, 1);
+const DARK_DOT = buildDotSvg('#2a2f38', 24, 1);
+
 export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
-  const [isDark, setIsDark] = useState(false);
+  const [bgImage, setBgImage] = useState(LIGHT_DOT);
 
   useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    check();
-    const observer = new MutationObserver(check);
+    const update = () => {
+      const dark = document.documentElement.classList.contains('dark');
+      setBgImage(dark ? DARK_DOT : LIGHT_DOT);
+    };
+    update();
+    const observer = new MutationObserver(update);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
   }, []);
-
-  const bgImage = isDark
-    ? buildDotSvg('#2a2f38', 24, 1)
-    : buildDotSvg('#9ca3af', 24, 1);
 
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: 'var(--color-background)' }}>
