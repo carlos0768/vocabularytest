@@ -11,13 +11,17 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import type { AIWordExtraction } from '@/types';
+import { createBrowserClient } from '@/lib/supabase';
+import type { AIWordExtraction, Word } from '@/types';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
   isEditing: boolean;
   isSelected: boolean;
 }
+
+const QUIZ_PREFILL_BATCH_SIZE = 30;
+const SENTENCE_QUIZ_SIZE = 15;
 
 // Check sessionStorage synchronously before any React rendering
 // This prevents any flash by determining data availability immediately
@@ -160,6 +164,161 @@ export default function ConfirmPage() {
     setWords((prev) => [...prev, newWord]);
   };
 
+  const prefillQuizData = async (
+    createdWords: Word[],
+    updateWord: (id: string, updates: Partial<Word>) => Promise<void>
+  ): Promise<Word[]> => {
+    if (createdWords.length === 0) return createdWords;
+
+    const supabase = createBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return createdWords;
+
+    const seedWords = createdWords
+      .filter((word) => word.english.trim().length > 0 && word.japanese.trim().length > 0)
+      .slice(0, QUIZ_PREFILL_BATCH_SIZE)
+      .map((word) => ({
+        id: word.id,
+        english: word.english,
+        japanese: word.japanese,
+      }));
+
+    if (seedWords.length === 0) return createdWords;
+
+    const response = await fetch('/api/generate-quiz-distractors', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ words: seedWords }),
+    });
+
+    if (!response.ok) {
+      return createdWords;
+    }
+
+    const data = await response.json();
+    if (!data.success || !Array.isArray(data.results)) {
+      return createdWords;
+    }
+
+    const resultMap = new Map<string, {
+      distractors: string[];
+      exampleSentence: string;
+      exampleSentenceJa: string;
+    }>();
+
+    for (const result of data.results) {
+      if (!result?.wordId || !Array.isArray(result.distractors)) continue;
+      resultMap.set(result.wordId, {
+        distractors: result.distractors,
+        exampleSentence: result.exampleSentence || '',
+        exampleSentenceJa: result.exampleSentenceJa || '',
+      });
+    }
+
+    const updates: Array<Promise<void>> = [];
+    for (const word of createdWords) {
+      const generated = resultMap.get(word.id);
+      if (!generated) continue;
+
+      const patch: Partial<Word> = {
+        distractors: generated.distractors,
+      };
+
+      if (generated.exampleSentence.trim().length > 0) {
+        patch.exampleSentence = generated.exampleSentence;
+        patch.exampleSentenceJa = generated.exampleSentenceJa;
+      }
+
+      updates.push(updateWord(word.id, patch));
+    }
+
+    await Promise.all(updates);
+
+    return createdWords.map((word) => {
+      const generated = resultMap.get(word.id);
+      if (!generated) return word;
+      return {
+        ...word,
+        distractors: generated.distractors,
+        ...(generated.exampleSentence.trim().length > 0
+          ? {
+              exampleSentence: generated.exampleSentence,
+              exampleSentenceJa: generated.exampleSentenceJa,
+            }
+          : {}),
+      };
+    });
+  };
+
+  const preGenerateSentenceQuiz = async (projectId: string, wordsForQuiz: Word[]) => {
+    if (!isPro || wordsForQuiz.length < 10) return;
+
+    const progressKey = `sentence_quiz_progress_${projectId}`;
+    const existingProgress = sessionStorage.getItem(progressKey);
+    if (existingProgress) {
+      try {
+        const parsed = JSON.parse(existingProgress) as { questions?: unknown[]; currentIndex?: number };
+        if (Array.isArray(parsed.questions) && parsed.questions.length > 0 && (parsed.currentIndex ?? 0) > 0) {
+          return;
+        }
+      } catch {
+        // ignore invalid cache and overwrite below
+      }
+    }
+
+    const shuffled = [...wordsForQuiz].sort(() => Math.random() - 0.5);
+    let selectedWords: Word[] = [];
+    if (shuffled.length >= SENTENCE_QUIZ_SIZE) {
+      selectedWords = shuffled.slice(0, SENTENCE_QUIZ_SIZE);
+    } else {
+      while (selectedWords.length < SENTENCE_QUIZ_SIZE) {
+        selectedWords.push(...shuffled);
+      }
+      selectedWords = selectedWords.slice(0, SENTENCE_QUIZ_SIZE);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    try {
+      const response = await fetch('/api/sentence-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          words: selectedWords.map((w) => ({
+            id: w.id,
+            english: w.english,
+            japanese: w.japanese,
+            status: w.status,
+          })),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.questions) || data.questions.length === 0) return;
+
+      sessionStorage.setItem(
+        progressKey,
+        JSON.stringify({
+          questions: data.questions,
+          currentIndex: 0,
+          results: { correct: 0, total: 0 },
+          savedAt: Date.now(),
+        })
+      );
+    } catch {
+      // Non-critical: skip sentence quiz pre-generation on timeout/network errors.
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
   const handleSaveProject = async () => {
     const selectedWords = words.filter(w => w.isSelected);
 
@@ -207,7 +366,7 @@ export default function ConfirmPage() {
       }
 
       // Add words to project
-      await repository.createWords(
+      const createdWords = await repository.createWords(
         selectedWords.map((w) => ({
           projectId: targetProjectId,
           english: w.english,
@@ -217,6 +376,12 @@ export default function ConfirmPage() {
           exampleSentenceJa: w.exampleSentenceJa,
         }))
       );
+
+      // Pre-generate quiz distractors and examples at scan-time.
+      const quizReadyWords = await prefillQuizData(createdWords, repository.updateWord.bind(repository));
+
+      // Pro users: pre-generate sentence quiz questions so the first launch is instant.
+      await preGenerateSentenceQuiz(targetProjectId, quizReadyWords);
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');

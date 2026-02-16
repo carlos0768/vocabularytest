@@ -14,6 +14,7 @@ interface StudyModeCardProps {
   disabled?: boolean;
   badge?: string;
   layout?: 'vertical' | 'horizontal';
+  mobileSquare?: boolean;
 }
 
 const variantStyles: Record<ColorVariant, {
@@ -83,14 +84,16 @@ export function StudyModeCard({
   disabled = false,
   badge,
   layout = 'vertical',
+  mobileSquare = false,
 }: StudyModeCardProps) {
   const styles = variantStyles[variant];
 
   const isHorizontal = layout === 'horizontal';
+  const isMobileSquareLayout = mobileSquare && isHorizontal;
 
   const content = (
     <div
-      className={`relative ${isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
+      className={`relative ${isMobileSquareLayout ? 'aspect-square sm:aspect-auto p-3 sm:p-4' : isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] ${styles.bg} ${styles.glow} overflow-hidden group border border-[var(--color-border)] ${
         disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'
       }`}
     >
@@ -101,16 +104,16 @@ export function StudyModeCard({
         </span>
       )}
 
-      <div className={`relative z-10 flex ${isHorizontal ? 'flex-row items-center gap-3.5' : 'flex-col gap-3'}`}>
-        <div className={`${isHorizontal ? 'w-11 h-11' : 'w-10 h-10'} rounded-full ${styles.iconBg} flex items-center justify-center flex-shrink-0`}>
-          <Icon name={icon} size={isHorizontal ? 24 : 22} className={styles.iconColor} />
+      <div className={`relative z-10 flex h-full ${isMobileSquareLayout ? 'flex-col justify-center gap-2 sm:flex-row sm:items-center sm:gap-3.5' : isHorizontal ? 'flex-row items-center gap-3.5' : 'flex-col gap-3'}`}>
+        <div className={`${isMobileSquareLayout ? 'w-10 h-10 sm:w-11 sm:h-11' : isHorizontal ? 'w-11 h-11' : 'w-10 h-10'} rounded-full ${styles.iconBg} flex items-center justify-center flex-shrink-0`}>
+          <Icon name={icon} size={isMobileSquareLayout ? 22 : isHorizontal ? 24 : 22} className={styles.iconColor} />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className={`font-bold ${isHorizontal ? 'text-base' : 'text-lg'} leading-tight ${styles.textColor}`}>{title}</h3>
-          <p className={`text-xs mt-0.5 font-medium ${styles.descColor}`}>{description}</p>
+          <h3 className={`font-bold ${isMobileSquareLayout ? 'text-sm sm:text-base' : isHorizontal ? 'text-base' : 'text-lg'} leading-tight ${styles.textColor}`}>{title}</h3>
+          <p className={`text-xs mt-0.5 font-medium ${styles.descColor} ${isMobileSquareLayout ? 'line-clamp-2' : ''}`}>{description}</p>
         </div>
         {isHorizontal && !disabled && (
-          <Icon name="chevron_right" size={20} className={`${styles.descColor} flex-shrink-0`} />
+          <Icon name="chevron_right" size={20} className={`${styles.descColor} flex-shrink-0 ${isMobileSquareLayout ? 'hidden sm:block' : ''}`} />
         )}
       </div>
     </div>
