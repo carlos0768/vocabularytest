@@ -488,16 +488,16 @@ export default function CollectionDetailPage() {
               <div className="card p-5 space-y-4">
                 <h3 className="text-sm font-bold text-[var(--color-foreground)]">ステータス内訳</h3>
                 {[
-                  { label: '習得済み', count: stats.mastered, color: 'var(--color-success)', icon: 'check_circle' },
-                  { label: '復習中', count: stats.review, color: 'var(--color-primary)', icon: 'autorenew' },
-                  { label: '未学習', count: stats.newWords, color: 'var(--color-muted)', icon: 'radio_button_unchecked' },
+                  { label: '習得済み', count: stats.mastered, color: 'var(--color-success)', icon: 'check_circle', iconClass: 'text-[var(--color-success)]' },
+                  { label: '復習中', count: stats.review, color: 'var(--color-primary)', icon: 'autorenew', iconClass: 'text-[var(--color-primary)]' },
+                  { label: '未学習', count: stats.newWords, color: 'var(--color-muted)', icon: 'radio_button_unchecked', iconClass: 'text-[var(--color-muted)]' },
                 ].map((item) => {
                   const barPct = stats.total > 0 ? (item.count / stats.total) * 100 : 0;
                   return (
                     <div key={item.label} className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Icon name={item.icon} size={16} style={{ color: item.color }} />
+                          <Icon name={item.icon} size={16} className={item.iconClass} />
                           <span className="text-sm text-[var(--color-foreground)]">{item.label}</span>
                         </div>
                         <span className="text-sm font-bold text-[var(--color-foreground)]">{item.count}語</span>

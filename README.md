@@ -19,98 +19,98 @@
 
 ---
 
-## Overview
+## 概要
 
-MERKEN is a vocabulary learning PWA designed for Japanese students studying English. Users photograph handwritten notes or printed materials, and GPT-4o with vision extracts English words with Japanese translations and generates quiz distractors automatically.
+MERKENは、英語を学ぶ日本の学生向けに設計された単語学習PWAです。手書きノートやプリントを撮影すると、GPT-4o（Vision）が英単語を自動抽出し、日本語訳とクイズ用の誤答選択肢を生成します。
 
-### Key Features
+### 主な機能
 
-| Feature | Description |
-|---------|-------------|
-| **OCR Scan** | Photograph notes/textbooks &rarr; AI extracts words with translations |
-| **4-Choice Quiz** | Spaced repetition quiz with auto-generated distractors |
-| **Flashcards** | Swipe-based card review (Pro) |
-| **Sentence Quiz** | AI-generated example sentences with vector similarity search (Pro) |
-| **Dictation** | Listen-and-type exercises with text-to-speech (Pro) |
-| **Smart Scan Modes** | Circled words only, highlighted words, EIKEN level filter, idiom extraction |
-| **Background Processing** | Pro users can scan in the background while continuing to study |
-| **Offline Support** | PWA with Service Worker &mdash; works offline with local IndexedDB storage |
-| **Cross-device Sync** | Pro users get real-time cloud sync via Supabase |
-| **Share & Import** | Share word lists via link (Pro) |
+| 機能 | 説明 |
+|------|------|
+| **OCRスキャン** | ノートや教科書を撮影 → AIが単語と翻訳を抽出 |
+| **4択クイズ** | 間隔反復法に基づくクイズ（誤答選択肢は自動生成） |
+| **フラッシュカード** | スワイプ式カードレビュー（Pro） |
+| **例文クイズ** | AI生成の例文 + ベクトル類似検索による出題（Pro） |
+| **ディクテーション** | 音声を聞いて入力する練習（Pro） |
+| **スマートスキャン** | 丸をつけた単語のみ、マーカー箇所、英検級フィルター、熟語抽出 |
+| **バックグラウンド処理** | スキャン中も学習を続行可能（Pro） |
+| **オフライン対応** | Service Worker + IndexedDBでオフラインでも利用可能 |
+| **クロスデバイス同期** | Supabase経由でリアルタイム同期（Pro） |
+| **共有・インポート** | リンクで単語帳を共有（Pro） |
 
-## Architecture
+## アーキテクチャ
 
 ```
 src/
 ├── app/                    # Next.js 16 App Router
 │   ├── api/
-│   │   ├── extract/        # GPT-4o vision OCR + translation
-│   │   ├── sentence-quiz/  # Example sentence generation with pgvector
-│   │   ├── scan-jobs/      # Background scan job management
-│   │   └── subscription/   # KOMOJU payment integration
-│   ├── quiz/[projectId]/   # 4-choice quiz with spaced repetition
-│   ├── flashcard/          # Swipe card review
-│   ├── dictation/          # Listen-and-type exercises
-│   └── project/[id]/       # Project detail (study, words, stats)
+│   │   ├── extract/        # GPT-4o Vision OCR + 翻訳
+│   │   ├── sentence-quiz/  # 例文生成（pgvectorベクトル検索）
+│   │   ├── scan-jobs/      # バックグラウンドスキャン管理
+│   │   └── subscription/   # KOMOJU決済連携
+│   ├── quiz/[projectId]/   # 4択クイズ（間隔反復）
+│   ├── flashcard/          # スワイプ式カードレビュー
+│   ├── dictation/          # ディクテーション練習
+│   └── project/[id]/       # 単語帳詳細（学習・単語一覧・統計）
 ├── components/
-│   ├── ui/                 # Design system (AppShell, Icon, Button, etc.)
-│   ├── home/               # Dashboard widgets
+│   ├── ui/                 # デザインシステム（AppShell, Icon, Button等）
+│   ├── home/               # ダッシュボードウィジェット
 │   ├── project/            # ProjectBookTile, ProjectCard
 │   └── quiz/               # QuizOption
-├── hooks/                  # Custom React hooks (use-auth, use-projects, etc.)
+├── hooks/                  # カスタムReactフック（use-auth, use-projects等）
 ├── lib/
-│   ├── ai/                 # OpenAI prompts & response parsing
-│   ├── db/                 # Repository pattern (Local/Remote/Hybrid)
-│   ├── supabase/           # Supabase client (browser + server)
-│   ├── komoju/             # KOMOJU payment client
-│   └── spaced-repetition/  # SM-2 algorithm implementation
-└── types/                  # TypeScript interfaces
+│   ├── ai/                 # OpenAIプロンプト・レスポンス解析
+│   ├── db/                 # リポジトリパターン（Local/Remote/Hybrid）
+│   ├── supabase/           # Supabaseクライアント（ブラウザ + サーバー）
+│   ├── komoju/             # KOMOJU決済クライアント
+│   └── spaced-repetition/  # SM-2アルゴリズム実装
+└── types/                  # TypeScript型定義
 ```
 
-### Data Layer
+### データ層
 
-The app uses a **Repository Pattern** to abstract storage:
+**リポジトリパターン**でストレージを抽象化しています：
 
 ```
-Free users  →  LocalWordRepository   (IndexedDB via Dexie.js)
-Pro users   →  HybridWordRepository  (IndexedDB + Supabase sync)
+無料ユーザー  →  LocalWordRepository   （Dexie.js経由のIndexedDB）
+Proユーザー   →  HybridWordRepository  （IndexedDB + Supabase同期）
 ```
 
-Both implementations share the same `WordRepository` interface, so the UI layer is storage-agnostic.
+どちらの実装も同じ `WordRepository` インターフェースを共有しているため、UI層はストレージの種類を意識しません。
 
-### Design System
+### デザインシステム
 
-- **Primary color**: `#137fec`
-- **Font**: [Lexend](https://fonts.google.com/specimen/Lexend) (Google Fonts)
-- **Icons**: [Material Symbols Outlined](https://fonts.google.com/icons) via CDN
-- **Layout**: `AppShell` with Sidebar (desktop) / BottomNav (mobile)
-- **Buttons**: Duolingo-style 3D effect (`border-b-4` + `active:border-b-2`)
+- **基調色**: `#137fec`
+- **フォント**: [Lexend](https://fonts.google.com/specimen/Lexend)（Google Fonts）
+- **アイコン**: [Material Symbols Outlined](https://fonts.google.com/icons)（CDN経由）
+- **レイアウト**: `AppShell`（デスクトップ: サイドバー / モバイル: ボトムナビ）
+- **ボタン**: Duolingo風3Dエフェクト（`border-b-4` + `active:border-b-2`）
 
-## Tech Stack
+## 技術スタック
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router, Turbopack) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 |
-| Local DB | Dexie.js (IndexedDB wrapper) |
-| Cloud DB | Supabase (PostgreSQL + pgvector) |
-| Auth | Supabase Auth (Email/Password) |
-| AI | OpenAI GPT-4o (vision + text) |
-| Payment | KOMOJU (PayPay, credit card, convenience store) |
-| Validation | Zod |
+| レイヤー | 技術 |
+|----------|------|
+| フレームワーク | Next.js 16（App Router, Turbopack） |
+| 言語 | TypeScript 5 |
+| スタイリング | Tailwind CSS 4 |
+| ローカルDB | Dexie.js（IndexedDBラッパー） |
+| クラウドDB | Supabase（PostgreSQL + pgvector） |
+| 認証 | Supabase Auth（メール/パスワード） |
+| AI | OpenAI GPT-4o（Vision + テキスト） |
+| 決済 | KOMOJU（PayPay、クレジットカード、コンビニ決済） |
+| バリデーション | Zod |
 | PWA | Service Worker + Web App Manifest |
 
-## Getting Started
+## セットアップ
 
-### Prerequisites
+### 前提条件
 
-- Node.js 20+
-- npm 10+
-- Supabase project (for Pro features)
-- OpenAI API key
+- Node.js 20以上
+- npm 10以上
+- Supabaseプロジェクト（Pro機能用）
+- OpenAI APIキー
 
-### Installation
+### インストール
 
 ```bash
 git clone https://github.com/carlos0768/vocabularytest.git
@@ -118,15 +118,15 @@ cd vocabularytest
 npm install
 ```
 
-### Environment Variables
+### 環境変数
 
-Copy `.env.example` to `.env.local`:
+`.env.example` を `.env.local` にコピーして設定：
 
 ```bash
 cp .env.example .env.local
 ```
 
-Required variables:
+必要な環境変数：
 
 ```env
 # OpenAI
@@ -137,58 +137,58 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# KOMOJU Payment
+# KOMOJU決済
 KOMOJU_SECRET_KEY=your-secret
 KOMOJU_WEBHOOK_SECRET=your-webhook-secret
 
-# App
+# アプリURL
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### Database Setup
+### データベースセットアップ
 
-Run all Supabase migrations:
+Supabaseマイグレーションを実行：
 
 ```bash
 npx supabase db push
 ```
 
-### Development
+### 開発
 
 ```bash
-npm run dev      # Start dev server (localhost:3000)
-npm run build    # Production build
-npm run lint     # ESLint
+npm run dev      # 開発サーバー起動（localhost:3000）
+npm run build    # 本番ビルド
+npm run lint     # ESLint実行
 ```
 
-## Subscription Tiers
+## プラン比較
 
-| | Free | Pro (500 yen/month) |
+| | 無料 | Pro（月額500円） |
 |---|---|---|
-| Scans | Unlimited* | Unlimited |
-| Word limit | 200 words | Unlimited |
-| Storage | Local (IndexedDB) | Cloud (Supabase) |
-| Cross-device sync | - | Yes |
-| Flashcards | - | Yes |
-| Sentence quiz | - | Yes |
-| Dictation | - | Yes |
-| Smart scan modes | - | Yes |
-| Background scan | - | Yes |
-| Share word lists | - | Yes |
+| スキャン | 無制限* | 無制限 |
+| 単語数上限 | 200語 | 無制限 |
+| ストレージ | ローカル（IndexedDB） | クラウド（Supabase） |
+| クロスデバイス同期 | - | ○ |
+| フラッシュカード | - | ○ |
+| 例文クイズ | - | ○ |
+| ディクテーション | - | ○ |
+| スマートスキャン | - | ○ |
+| バックグラウンドスキャン | - | ○ |
+| 単語帳の共有 | - | ○ |
 
-## Deployment
+## デプロイ
 
-Deployed on **Vercel**. Ensure all environment variables are set and Supabase migrations are applied.
+**Vercel**にデプロイ。すべての環境変数を設定し、Supabaseマイグレーションを適用してください。
 
 ```bash
-npm run build   # Verify build succeeds locally first
+npm run build   # まずローカルでビルド成功を確認
 ```
 
-KOMOJU webhook URL must point to your production domain:
+KOMOJUのWebhook URLを本番ドメインに設定：
 ```
 https://your-domain.com/api/subscription/webhook
 ```
 
-## License
+## ライセンス
 
-Private repository. All rights reserved.
+プライベートリポジトリ。All rights reserved.
