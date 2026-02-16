@@ -1260,7 +1260,7 @@ export default function HomePage() {
         </header>
 
         {/* Desktop header */}
-        <header className="hidden lg:block pt-6 pb-4">
+        <header className="hidden lg:block pt-6 pb-1">
           <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-[var(--color-foreground)] font-display">ダッシュボード</h1>
