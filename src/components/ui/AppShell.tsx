@@ -30,16 +30,18 @@ export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
     : buildDotSvg('#9ca3af', 24, 1);
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor: 'var(--color-background)',
-        backgroundImage: bgImage,
-        backgroundRepeat: 'repeat',
-      }}
-    >
+    <div className="min-h-screen relative" style={{ backgroundColor: 'var(--color-background)' }}>
+      {/* Fixed dot background layer - immune to iOS bounce */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage: bgImage,
+          backgroundRepeat: 'repeat',
+        }}
+      />
       <Sidebar />
-      <div className="lg:ml-[280px]">
+      <div className="lg:ml-[280px] relative z-10">
         {children}
       </div>
       {!hideBottomNav && <BottomNav />}
