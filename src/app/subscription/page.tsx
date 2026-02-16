@@ -57,7 +57,7 @@ export default function SubscriptionPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
       {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border)]">
+      <header className="bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border)]">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <Link

@@ -1409,7 +1409,7 @@ export default function HomePage() {
             className="hidden"
           />
 
-          <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4 lg:hidden">
+          <header className="bg-[var(--color-background)]/95 z-40 px-6 py-4 lg:hidden">
             <div className="max-w-lg mx-auto">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1509,7 +1509,7 @@ export default function HomePage() {
         />
 
         {/* Header - mobile only */}
-        <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)] lg:hidden">
+        <header className="bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)] lg:hidden">
           <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
@@ -1697,7 +1697,7 @@ export default function HomePage() {
                     if (!a.isFavorite && b.isFavorite) return 1;
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                   })
-                  .slice(0, 8)
+                  .slice(0, 6)
                   .map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
                     const mastered = projectWords.filter((w) => w.status === 'mastered').length;

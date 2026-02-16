@@ -134,7 +134,7 @@ export default function FavoritesPage() {
     <AppShell>
     <div className="min-h-screen pb-28 lg:pb-6">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+      <header className="z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link

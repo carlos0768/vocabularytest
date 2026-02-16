@@ -63,7 +63,7 @@ export function ProjectSelectionSheet({
       <div
         className="absolute inset-0 bg-[var(--color-background)] flex flex-col animate-fade-in-up"
       >
-        <div className="sticky top-0 bg-[var(--color-background)]/95 px-4 py-4 border-b border-[var(--color-border)]">
+        <div className="bg-[var(--color-background)]/95 px-4 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center justify-between">
             <button
               onClick={onClose}

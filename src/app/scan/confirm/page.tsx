@@ -452,7 +452,7 @@ export default function ConfirmPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] pb-32">
       {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40">
+      <header className="bg-[var(--color-background)]/95 z-40">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
             <button
