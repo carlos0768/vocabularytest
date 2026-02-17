@@ -546,6 +546,10 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
+        if (!reviewMode) {
+          sourceWords = sourceWords.filter((word) => word.status !== 'mastered');
+        }
+
         if (sourceWords.length === 0) {
           backToProject();
           return;
@@ -599,10 +603,11 @@ export default function QuizPage() {
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
-        if (remoteWords.length > 0) {
+        const pendingRemoteWords = remoteWords.filter((word) => word.status !== 'mastered');
+        if (pendingRemoteWords.length > 0) {
           setAllWords(prev => {
             // Only update if remote has more words
-            if (remoteWords.length > prev.length) return remoteWords;
+            if (pendingRemoteWords.length > prev.length) return pendingRemoteWords;
             return prev;
           });
         }
