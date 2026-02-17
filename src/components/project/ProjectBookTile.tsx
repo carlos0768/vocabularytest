@@ -40,8 +40,8 @@ export function ProjectBookTile({
 
   const [colorFrom, colorTo] = getBookCoverColors(project.id);
   const clampedProgress = Math.max(0, Math.min(progress, 100));
-  const progressStrokeColor =
-    clampedProgress >= 100 ? 'var(--color-success)' : 'rgba(255, 255, 255, 0.92)';
+  const isCompleted = clampedProgress >= 100 && wordCount > 0;
+  const isInProgress = clampedProgress > 0 && clampedProgress < 100;
 
   // First character of title for the generated cover
   const initial = project.title.charAt(0).toUpperCase();
@@ -144,38 +144,25 @@ export function ProjectBookTile({
             </div>
           )}
 
-          {/* Progress ring around the whole cover */}
-          {clampedProgress > 0 && (
-            <svg
-              viewBox="0 0 72 100"
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              aria-hidden
-            >
-              <rect
-                x="1.5"
-                y="1.5"
-                width="69"
-                height="97"
-                rx="8"
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.28)"
-                strokeWidth="3"
+          {/* Progress (in-progress only): middle bar */}
+          {isInProgress && (
+            <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-2.5 rounded-full bg-black/30 border border-white/25 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-white/85"
+                style={{ width: `${clampedProgress}%` }}
               />
-              <rect
-                x="1.5"
-                y="1.5"
-                width="69"
-                height="97"
-                rx="8"
-                fill="none"
-                stroke={progressStrokeColor}
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                pathLength={100}
-                strokeDasharray={`${clampedProgress} ${100 - clampedProgress}`}
-              />
-            </svg>
+            </div>
+          )}
+
+          {/* Completed: wrapped ribbon */}
+          {isCompleted && (
+            <>
+              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[10px] bg-[var(--color-success)]/70 pointer-events-none" />
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-6 bg-[var(--color-success)]/95 border-y border-[var(--color-success)]/70 shadow-sm pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/95 text-[var(--color-success)] flex items-center justify-center shadow-sm pointer-events-none">
+                <Icon name="check" size={14} filled />
+              </div>
+            </>
           )}
 
           {/* Pin badge */}
