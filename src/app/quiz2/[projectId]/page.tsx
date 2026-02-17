@@ -148,6 +148,17 @@ export default function Quiz2Page() {
   const currentWord = words[currentIndex];
   const currentSimilarWords = currentWord ? (similarByWordId[currentWord.id] || []) : [];
 
+  const speakCurrentWord = useCallback(() => {
+    if (!currentWord?.english || typeof window === 'undefined') return;
+    if (!('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(currentWord.english);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  }, [currentWord?.english]);
+
   const backToOrigin = useCallback(() => {
     if (returnPath) {
       router.push(returnPath);
@@ -313,6 +324,24 @@ export default function Quiz2Page() {
     backToOrigin,
     loadAllUserWords,
   ]);
+
+  useEffect(() => {
+    if (loading || isComplete || !currentWord?.id) return;
+
+    try {
+      speakCurrentWord();
+    } catch (error) {
+      console.error('Failed to play quiz2 question audio:', error);
+    }
+  }, [currentWord?.id, loading, isComplete, speakCurrentWord]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const goToNext = useCallback(() => {
     if (currentIndex + 1 >= words.length) {
