@@ -40,8 +40,7 @@ export function ProjectBookTile({
 
   const [colorFrom, colorTo] = getBookCoverColors(project.id);
   const clampedProgress = Math.max(0, Math.min(progress, 100));
-  const isCompleted = clampedProgress >= 100 && wordCount > 0;
-  const isInProgress = clampedProgress > 0 && clampedProgress < 100;
+  const hasProgress = clampedProgress > 0 && wordCount > 0;
 
   // First character of title for the generated cover
   const initial = project.title.charAt(0).toUpperCase();
@@ -122,7 +121,7 @@ export function ProjectBookTile({
       <Link
         href={`/project/${project.id}`}
         className={`block rounded-xl border-2 border-b-4 bg-[var(--color-surface)] p-3 pb-2.5 active:border-b-2 active:mt-[2px] transition-all ${
-          isCompleted
+          hasProgress
             ? 'border-[var(--color-success)]'
             : 'border-[var(--color-border)]'
         }`}
@@ -145,16 +144,6 @@ export function ProjectBookTile({
               {/* Title initial */}
               <span className="text-white/90 text-2xl font-bold leading-none">{initial}</span>
               <span className="text-white/60 text-[16px] mt-1.5 tracking-wider">{wordCount}語</span>
-            </div>
-          )}
-
-          {/* Progress (in-progress only): middle bar */}
-          {isInProgress && (
-            <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-2.5 rounded-full bg-black/30 border border-white/25 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-white/85"
-                style={{ width: `${clampedProgress}%` }}
-              />
             </div>
           )}
 
