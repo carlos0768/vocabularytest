@@ -384,16 +384,6 @@ export default function CollectionDetailPage() {
                     layout="horizontal"
                     mobileSquare
                   />
-                  <StudyModeCard
-                    title="音声クイズ"
-                    description="聞いて書く練習"
-                    icon="headphones"
-                    href={`/dictation?collectionId=${collectionId}`}
-                    variant="purple"
-                    disabled={allWords.length < 10}
-                    layout="horizontal"
-                    mobileSquare
-                  />
                 </div>
               </div>
 
