@@ -383,7 +383,8 @@ export default function FlashcardPage() {
 
   const handleFlip = () => {
     if (!isAnimating && !isSwiping.current) {
-      setIsFlipped(!isFlipped);
+      setIsFlipped((prev) => !prev);
+      speakWord();
     }
   };
 
@@ -496,14 +497,15 @@ export default function FlashcardPage() {
   };
 
   // Speak word
-  const speakWord = () => {
+  function speakWord() {
     if (currentWord?.english && typeof window !== 'undefined') {
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(currentWord.english);
       utterance.lang = 'en-US';
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     }
-  };
+  }
 
   // Open dictionary (ALC)
   const handleOpenDictionary = () => {
@@ -764,7 +766,7 @@ export default function FlashcardPage() {
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => setIsFlipped(!isFlipped)}
+            onClick={handleFlip}
             disabled={isAnimating}
             className="w-12 h-12 sm:w-14 sm:h-14"
             aria-label="カードをめくる"
