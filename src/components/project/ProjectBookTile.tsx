@@ -171,9 +171,9 @@ export function ProjectBookTile({
                 stroke={progressStrokeColor}
                 strokeWidth="3"
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 pathLength={100}
-                strokeDasharray={`${clampedProgress} 100`}
-                transform="rotate(-90 36 50)"
+                strokeDasharray={`${clampedProgress} ${100 - clampedProgress}`}
               />
             </svg>
           )}
