@@ -4,6 +4,8 @@ import { NextRequest } from 'next/server';
 
 import { handleSearchSemanticPost } from '@/app/api/search/semantic/route';
 import { handleQuiz2SimilarPost } from '@/app/api/quiz2/similar/route';
+import { handleQuiz2SimilarBatchPost } from '@/app/api/quiz2/similar/batch/route';
+import { handleSimilarCacheRebuildPost } from '@/app/api/similar-cache/rebuild/route';
 import { POST as processScanJobPost } from '@/app/api/scan-jobs/process/route';
 import { POST as rebuildEmbeddingsPost } from '@/app/api/embeddings/rebuild/route';
 
@@ -224,6 +226,118 @@ test('quiz2 similar returns empty results when source word has no embedding', as
   assert.equal(matchCalled, false);
   assert.deepEqual(payload.results, []);
   assert.equal(payload.source, 'vector');
+});
+
+test('quiz2 similar batch rejects unexpected userId field (strict schema)', async () => {
+  let createClientCalled = false;
+  const req = jsonRequest('http://localhost/api/quiz2/similar/batch', {
+    sourceWordIds: ['11111111-1111-4111-8111-111111111111'],
+    userId: 'another-user',
+  });
+
+  const res = await handleQuiz2SimilarBatchPost(req, {
+    createClient: async () => {
+      createClientCalled = true;
+      throw new Error('should not be called');
+    },
+    getAuthenticatedUserId: async () => 'user-auth-1',
+    getSourceWords: async () => [],
+    getOwnedProjectIds: async () => new Set<string>(),
+    getCachedRows: async () => [],
+    getWordsByIds: async () => [],
+    computeSimilarWords: async () => [],
+    triggerSingleWordRebuild: () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+  assert.equal(createClientCalled, false);
+});
+
+test('quiz2 similar batch returns 401 when unauthenticated', async () => {
+  const req = jsonRequest('http://localhost/api/quiz2/similar/batch', {
+    sourceWordIds: ['11111111-1111-4111-8111-111111111111'],
+  });
+
+  const res = await handleQuiz2SimilarBatchPost(req, {
+    createClient: async () => ({}) as never,
+    getAuthenticatedUserId: async () => null,
+    getSourceWords: async () => [],
+    getOwnedProjectIds: async () => new Set<string>(),
+    getCachedRows: async () => [],
+    getWordsByIds: async () => [],
+    computeSimilarWords: async () => [],
+    triggerSingleWordRebuild: () => undefined,
+  });
+
+  assert.equal(res.status, 401);
+});
+
+test('quiz2 similar batch rejects words outside authenticated ownership', async () => {
+  const req = jsonRequest('http://localhost/api/quiz2/similar/batch', {
+    sourceWordIds: ['11111111-1111-4111-8111-111111111111'],
+  });
+
+  const res = await handleQuiz2SimilarBatchPost(req, {
+    createClient: async () => ({}) as never,
+    getAuthenticatedUserId: async () => 'user-auth-1',
+    getSourceWords: async () => [{
+      id: '11111111-1111-4111-8111-111111111111',
+      project_id: 'foreign-project',
+      english: 'happy',
+      japanese: '嬉しい',
+      embedding: [0.1, 0.2, 0.3],
+    }],
+    getOwnedProjectIds: async () => new Set<string>(['project-owned']),
+    getCachedRows: async () => [],
+    getWordsByIds: async () => [],
+    computeSimilarWords: async () => [],
+    triggerSingleWordRebuild: () => undefined,
+  });
+
+  assert.equal(res.status, 403);
+});
+
+test('similar-cache/rebuild returns 401 when service token is invalid', async () => {
+  const req = jsonRequest('http://localhost/api/similar-cache/rebuild', {
+    userId: '11111111-1111-4111-8111-111111111111',
+    mode: 'single_word',
+    sourceWordId: '22222222-2222-4222-8222-222222222222',
+    newWordIds: [],
+  });
+
+  const res = await handleSimilarCacheRebuildPost(req, {
+    getServiceRoleToken: () => 'service-key',
+    createAdminClient: () => ({}) as never,
+    fetchUserWords: async () => [],
+    refreshCacheForSources: async () => 0,
+    collectImpactedSourceIds: async () => [],
+  });
+
+  assert.equal(res.status, 401);
+});
+
+test('similar-cache/rebuild rejects unexpected fields (strict schema)', async () => {
+  const req = jsonRequest(
+    'http://localhost/api/similar-cache/rebuild',
+    {
+      userId: '11111111-1111-4111-8111-111111111111',
+      mode: 'single_word',
+      sourceWordId: '22222222-2222-4222-8222-222222222222',
+      newWordIds: [],
+      userIdFromClient: 'forbidden',
+    },
+    { authorization: 'Bearer service-key' },
+  );
+
+  const res = await handleSimilarCacheRebuildPost(req, {
+    getServiceRoleToken: () => 'service-key',
+    createAdminClient: () => ({}) as never,
+    fetchUserWords: async () => [],
+    refreshCacheForSources: async () => 0,
+    collectImpactedSourceIds: async () => [],
+  });
+
+  assert.equal(res.status, 400);
 });
 
 test('scan-jobs/process returns 401 when worker auth header is invalid', async () => {

@@ -253,6 +253,28 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (insertedWords && insertedWords.length > 0) {
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (serviceRoleKey) {
+          const rebuildUrl = new URL('/api/similar-cache/rebuild', request.url);
+          fetch(rebuildUrl.toString(), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              userId: job.user_id,
+              mode: 'on_new_words',
+              newWordIds: insertedWords.map((word: { id: string }) => word.id),
+            }),
+          }).catch((error) => {
+            // Keep scan completion path fast even if similar cache rebuild fails.
+            console.error('Failed to trigger similar cache rebuild:', error);
+          });
+        }
+      }
+
       // Pre-generate quiz distractors and example sentences so quiz screens open instantly.
       // Keep this best-effort and bounded (first 30 words) to avoid delaying completion too much.
       if (insertedWords && insertedWords.length > 0) {
