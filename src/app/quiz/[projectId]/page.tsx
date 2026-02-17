@@ -17,6 +17,7 @@ import { getGuestUserId } from '@/lib/utils';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
+const MAX_NORMAL_QUIZ_QUESTION_COUNT = 20;
 
 // Session storage key for quiz state persistence
 const getQuizStorageKey = (projectId: string, reviewMode: boolean) => 
@@ -48,9 +49,11 @@ export default function QuizPage() {
   const returnPath = searchParams.get('from');
   const reviewMode = searchParams.get('review') === '1';
   const collectionId = searchParams.get('collectionId');
-  const [questionCount, setQuestionCount] = useState<number | null>(
-    countFromUrl ? parseInt(countFromUrl, 10) : null
-  );
+  const [questionCount, setQuestionCount] = useState<number | null>(() => {
+    if (!countFromUrl) return null;
+    const parsed = Number.parseInt(countFromUrl, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  });
 
   const backToProject = useCallback(() => {
     router.push(returnPath || `/project/${projectId}`);
@@ -411,17 +414,27 @@ export default function QuizPage() {
         // Validate state
         if (!state.questions || state.questions.length === 0) return false;
 
+        const restoredCount = Math.max(
+          1,
+          Math.min(
+            state.questionCount || state.questions.length,
+            state.questions.length,
+            MAX_NORMAL_QUIZ_QUESTION_COUNT,
+          ),
+        );
+        const restoredQuestions = state.questions.slice(0, restoredCount);
+
         // Restore state
-        setQuestions(state.questions);
-        setCurrentIndex(state.currentIndex);
+        setQuestions(restoredQuestions);
+        setCurrentIndex(Math.min(state.currentIndex, Math.max(0, restoredQuestions.length - 1)));
         setSelectedIndex(state.selectedIndex);
         setIsRevealed(state.isRevealed);
         setResults(state.results);
-        setQuestionCount(state.questionCount);
+        setQuestionCount(restoredCount);
         setQuizDirection(state.quizDirection);
         
         // Extract allWords from questions
-        const words = state.questions.map(q => q.word);
+        const words = restoredQuestions.map(q => q.word);
         setAllWords(words);
         
         restoredFromStorage.current = true;
@@ -540,7 +553,19 @@ export default function QuizPage() {
 
         setAllWords(sourceWords);
 
-        if (questionCount) {
+        const resolvedCount = Math.max(
+          1,
+          Math.min(
+            questionCount ?? sourceWords.length,
+            sourceWords.length,
+            MAX_NORMAL_QUIZ_QUESTION_COUNT,
+          ),
+        );
+        if (questionCount !== resolvedCount) {
+          setQuestionCount(resolvedCount);
+        }
+
+        if (resolvedCount) {
           // Check if any words need distractors or example sentences
           const needsGeneration = sourceWords.some(
             (w) => !w.distractors || w.distractors.length === 0 ||
@@ -549,9 +574,9 @@ export default function QuizPage() {
           );
 
           if (needsGeneration) {
-            await startQuizWithDistractors(sourceWords, questionCount);
+            await startQuizWithDistractors(sourceWords, resolvedCount);
           } else {
-            const generated = generateQuestions(sourceWords, questionCount, quizDirection);
+            const generated = generateQuestions(sourceWords, resolvedCount, quizDirection);
             setQuestions(generated);
           }
         }
@@ -659,8 +684,15 @@ export default function QuizPage() {
   const handleRestart = async () => {
     // Clear old state before restarting
     clearQuizState();
-    
-    const count = questionCount || DEFAULT_QUESTION_COUNT;
+
+    const count = Math.max(
+      1,
+      Math.min(
+        questionCount ?? allWords.length ?? DEFAULT_QUESTION_COUNT,
+        allWords.length || DEFAULT_QUESTION_COUNT,
+        MAX_NORMAL_QUIZ_QUESTION_COUNT,
+      ),
+    );
 
     // Check if any words still need distractors
     const needsGeneration = allWords.some(
@@ -799,7 +831,7 @@ export default function QuizPage() {
 
   // Question count selection screen
   if (!questionCount) {
-    const maxQuestions = allWords.length;
+    const maxQuestions = Math.min(allWords.length, MAX_NORMAL_QUIZ_QUESTION_COUNT);
     const parsedInput = parseInt(inputCount, 10);
     const isValidInput = !isNaN(parsedInput) && parsedInput >= 1 && parsedInput <= maxQuestions;
 
