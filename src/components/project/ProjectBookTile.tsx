@@ -123,8 +123,8 @@ export function ProjectBookTile({
         href={`/project/${project.id}`}
         className={`block rounded-xl border-2 border-b-4 bg-[var(--color-surface)] p-3 pb-2.5 active:border-b-2 active:mt-[2px] transition-all ${
           isCompleted
-            ? 'border-[var(--color-border)]'
-            : 'border-[var(--color-success)]'
+            ? 'border-[var(--color-success)]'
+            : 'border-[var(--color-border)]'
         }`}
       >
         {/* Book cover */}
@@ -155,13 +155,6 @@ export function ProjectBookTile({
                 className="h-full rounded-full bg-white/85"
                 style={{ width: `${clampedProgress}%` }}
               />
-            </div>
-          )}
-
-          {/* Completed: check badge only */}
-          {isCompleted && (
-            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white/95 text-[var(--color-success)] flex items-center justify-center shadow-sm pointer-events-none">
-              <Icon name="check" size={14} filled />
             </div>
           )}
 
