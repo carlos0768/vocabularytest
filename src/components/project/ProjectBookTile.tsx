@@ -154,15 +154,11 @@ export function ProjectBookTile({
             </div>
           )}
 
-          {/* Completed: wrapped ribbon */}
+          {/* Completed: check badge only */}
           {isCompleted && (
-            <>
-              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[10px] bg-[var(--color-success)]/70 pointer-events-none" />
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-6 bg-[var(--color-success)]/95 border-y border-[var(--color-success)]/70 shadow-sm pointer-events-none" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/95 text-[var(--color-success)] flex items-center justify-center shadow-sm pointer-events-none">
-                <Icon name="check" size={14} filled />
-              </div>
-            </>
+            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white/95 text-[var(--color-success)] flex items-center justify-center shadow-sm pointer-events-none">
+              <Icon name="check" size={14} filled />
+            </div>
           )}
 
           {/* Pin badge */}
