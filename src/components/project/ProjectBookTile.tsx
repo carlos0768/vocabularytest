@@ -39,6 +39,9 @@ export function ProjectBookTile({
       : null;
 
   const [colorFrom, colorTo] = getBookCoverColors(project.id);
+  const clampedProgress = Math.max(0, Math.min(progress, 100));
+  const progressStrokeColor =
+    clampedProgress >= 100 ? 'var(--color-success)' : 'rgba(255, 255, 255, 0.92)';
 
   // First character of title for the generated cover
   const initial = project.title.charAt(0).toUpperCase();
@@ -141,17 +144,38 @@ export function ProjectBookTile({
             </div>
           )}
 
-          {/* Progress strip at bottom of cover */}
-          {progress > 0 && progress < 100 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
-              <div
-                className="h-full bg-white/80"
-                style={{ width: `${progress}%` }}
+          {/* Progress ring around the whole cover */}
+          {clampedProgress > 0 && (
+            <svg
+              viewBox="0 0 72 100"
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              aria-hidden
+            >
+              <rect
+                x="1.5"
+                y="1.5"
+                width="69"
+                height="97"
+                rx="8"
+                fill="none"
+                stroke="rgba(255, 255, 255, 0.28)"
+                strokeWidth="3"
               />
-            </div>
-          )}
-          {progress >= 100 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-success)]" />
+              <rect
+                x="1.5"
+                y="1.5"
+                width="69"
+                height="97"
+                rx="8"
+                fill="none"
+                stroke={progressStrokeColor}
+                strokeWidth="3"
+                strokeLinecap="round"
+                pathLength={100}
+                strokeDasharray={`${clampedProgress} 100`}
+                transform="rotate(-90 36 50)"
+              />
+            </svg>
           )}
 
           {/* Pin badge */}
