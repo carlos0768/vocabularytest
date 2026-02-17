@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
@@ -70,28 +70,50 @@ function getStatusAfterGrade(currentStatus: WordStatus, grade: Quiz2Grade): Word
   return 'mastered';
 }
 
-async function fetchVectorSimilarWords(sourceWordId: string): Promise<SimilarWordItem[]> {
-  const response = await fetch('/api/quiz2/similar', {
+async function fetchSimilarBatch(sourceWordIds: string[]): Promise<Record<string, SimilarWordItem[]>> {
+  if (sourceWordIds.length === 0) return {};
+
+  const response = await fetch('/api/quiz2/similar/batch', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ sourceWordId, limit: 3 }),
+    body: JSON.stringify({ sourceWordIds, limit: 3 }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to fetch vector similar words');
+    throw new Error('Failed to fetch similar words');
   }
 
   const payload = await response.json();
-  const rows = Array.isArray(payload?.results) ? payload.results : [];
-  return rows
-    .map((row: { id: string; english: string; japanese: string; similarity: number }) => ({
-      id: row.id,
-      english: row.english,
-      japanese: row.japanese,
-      similarity: typeof row.similarity === 'number' ? row.similarity : 0,
-      source: 'vector' as const,
-    }))
-    .slice(0, 3);
+  const rawResults = payload?.resultsByWordId;
+  if (!rawResults || typeof rawResults !== 'object') return {};
+
+  const parsedResults: Record<string, SimilarWordItem[]> = {};
+  for (const [sourceWordId, value] of Object.entries(rawResults as Record<string, unknown>)) {
+    if (!Array.isArray(value)) continue;
+    parsedResults[sourceWordId] = value
+      .map((row) => {
+        const typed = row as {
+          id?: unknown;
+          english?: unknown;
+          japanese?: unknown;
+          similarity?: unknown;
+          source?: unknown;
+        };
+
+        if (typeof typed.id !== 'string') return null;
+        return {
+          id: typed.id,
+          english: typeof typed.english === 'string' ? typed.english : '',
+          japanese: typeof typed.japanese === 'string' ? typed.japanese : '',
+          similarity: typeof typed.similarity === 'number' ? typed.similarity : Number(typed.similarity) || 0,
+          source: typed.source === 'local' ? 'local' as const : 'vector' as const,
+        };
+      })
+      .filter((item): item is SimilarWordItem => item !== null)
+      .slice(0, 3);
+  }
+
+  return parsedResults;
 }
 
 export default function Quiz2Page() {
@@ -109,11 +131,10 @@ export default function Quiz2Page() {
 
   const [loading, setLoading] = useState(true);
   const [words, setWords] = useState<Word[]>([]);
-  const [allUserWords, setAllUserWords] = useState<Word[]>([]);
+  const [similarByWordId, setSimilarByWordId] = useState<Record<string, SimilarWordItem[]>>({});
+  const [isPreparingSimilar, setIsPreparingSimilar] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
-  const [similarWords, setSimilarWords] = useState<SimilarWordItem[]>([]);
   const [isSubmittingGrade, setIsSubmittingGrade] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<Quiz2Grade | null>(null);
   const [isComplete, setIsComplete] = useState(false);
@@ -123,9 +144,9 @@ export default function Quiz2Page() {
     good: 0,
     easy: 0,
   });
-  const similarRequestIdRef = useRef(0);
 
   const currentWord = words[currentIndex];
+  const currentSimilarWords = currentWord ? (similarByWordId[currentWord.id] || []) : [];
 
   const backToOrigin = useCallback(() => {
     if (returnPath) {
@@ -232,18 +253,49 @@ export default function Quiz2Page() {
         setWords(shuffledWords);
         setCurrentIndex(0);
         setShowAnswer(false);
-        setSimilarWords([]);
+        setSimilarByWordId({});
+        setIsPreparingSimilar(true);
         setIsComplete(false);
         setSelectedGrade(null);
         setIsSubmittingGrade(false);
         setGradeCounts({ again: 0, hard: 0, good: 0, easy: 0 });
 
         const allWords = await loadAllUserWords();
-        setAllUserWords(allWords.length > 0 ? allWords : shuffledWords);
+        const userWordPool = allWords.length > 0 ? allWords : shuffledWords;
+
+        let batchSimilar: Record<string, SimilarWordItem[]> = {};
+        try {
+          batchSimilar = await fetchSimilarBatch(shuffledWords.map((word) => word.id));
+        } catch (error) {
+          console.error('Failed to fetch similar words batch:', error);
+        }
+
+        const mergedSimilarByWordId: Record<string, SimilarWordItem[]> = {};
+        for (const sourceWord of shuffledWords) {
+          const vectorResults = batchSimilar[sourceWord.id] || [];
+          const neededCount = Math.max(0, 3 - vectorResults.length);
+          const localResults = neededCount > 0
+            ? findLocalSimilarWords(sourceWord, userWordPool, {
+                limit: neededCount,
+                excludeIds: [sourceWord.id, ...vectorResults.map((item) => item.id)],
+              }).map((item) => ({
+                id: item.id,
+                english: item.english,
+                japanese: item.japanese,
+                similarity: item.score,
+                source: 'local' as const,
+              }))
+            : [];
+
+          mergedSimilarByWordId[sourceWord.id] = [...vectorResults, ...localResults].slice(0, 3);
+        }
+
+        setSimilarByWordId(mergedSimilarByWordId);
       } catch (error) {
         console.error('Failed to load quiz2 words:', error);
         backToOrigin();
       } finally {
+        setIsPreparingSimilar(false);
         setLoading(false);
       }
     };
@@ -262,63 +314,6 @@ export default function Quiz2Page() {
     loadAllUserWords,
   ]);
 
-  useEffect(() => {
-    if (!showAnswer || !currentWord) {
-      setSimilarWords([]);
-      setLoadingSimilar(false);
-      return;
-    }
-
-    const requestId = similarRequestIdRef.current + 1;
-    similarRequestIdRef.current = requestId;
-    let cancelled = false;
-
-    const loadSimilarWords = async () => {
-      setLoadingSimilar(true);
-
-      let vectorResults: SimilarWordItem[] = [];
-      try {
-        vectorResults = await fetchVectorSimilarWords(currentWord.id);
-      } catch (error) {
-        console.error('Vector similar word lookup failed:', error);
-      }
-
-      const neededCount = Math.max(0, 3 - vectorResults.length);
-      const localResults = neededCount > 0
-        ? findLocalSimilarWords(currentWord, allUserWords, {
-            limit: neededCount,
-            excludeIds: [currentWord.id, ...vectorResults.map((item) => item.id)],
-          }).map((item) => ({
-            id: item.id,
-            english: item.english,
-            japanese: item.japanese,
-            similarity: item.score,
-            source: 'local' as const,
-          }))
-        : [];
-
-      if (cancelled || requestId !== similarRequestIdRef.current) {
-        return;
-      }
-
-      const merged = [...vectorResults, ...localResults].slice(0, 3);
-      setSimilarWords(merged);
-      setLoadingSimilar(false);
-    };
-
-    loadSimilarWords().catch((error) => {
-      console.error('Failed to load similar words:', error);
-      if (!cancelled && requestId === similarRequestIdRef.current) {
-        setSimilarWords([]);
-        setLoadingSimilar(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [showAnswer, currentWord, allUserWords]);
-
   const goToNext = useCallback(() => {
     if (currentIndex + 1 >= words.length) {
       setIsComplete(true);
@@ -329,8 +324,6 @@ export default function Quiz2Page() {
 
     setCurrentIndex((prev) => prev + 1);
     setShowAnswer(false);
-    setSimilarWords([]);
-    setLoadingSimilar(false);
     setSelectedGrade(null);
     setIsSubmittingGrade(false);
   }, [currentIndex, words.length]);
@@ -352,11 +345,6 @@ export default function Quiz2Page() {
       setWords((prev) =>
         prev.map((word, index) =>
           index === currentIndex ? { ...word, ...updates } : word,
-        ),
-      );
-      setAllUserWords((prev) =>
-        prev.map((word) =>
-          word.id === currentWord.id ? { ...word, ...updates } : word,
         ),
       );
       setGradeCounts((prev) => ({ ...prev, [grade]: prev[grade] + 1 }));
@@ -388,7 +376,6 @@ export default function Quiz2Page() {
     setWords(shuffleArray([...words]));
     setCurrentIndex(0);
     setShowAnswer(false);
-    setSimilarWords([]);
     setSelectedGrade(null);
     setIsSubmittingGrade(false);
     setIsComplete(false);
@@ -507,17 +494,17 @@ export default function Quiz2Page() {
                 <span className="text-xs text-[var(--color-muted)]">最大3件</span>
               </div>
 
-              {loadingSimilar ? (
+              {isPreparingSimilar ? (
                 <div className="py-3 text-sm text-[var(--color-muted)] flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                  類似語を検索中...
+                  類似語を準備中...
                 </div>
-              ) : similarWords.length === 0 ? (
+              ) : currentSimilarWords.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted)] py-2">類似語がまだ十分にありません。</p>
               ) : (
                 <>
                   <div className="space-y-2">
-                    {similarWords.map((item) => (
+                    {currentSimilarWords.map((item) => (
                       <div
                         key={item.id}
                         className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex items-start justify-between gap-3"
@@ -538,9 +525,9 @@ export default function Quiz2Page() {
                       </div>
                     ))}
                   </div>
-                  {similarWords.length < 3 && (
+                  {currentSimilarWords.length < 3 && (
                     <p className="text-xs text-[var(--color-muted)] mt-3">
-                      類似語データが不足しているため、{similarWords.length}件のみ表示しています。
+                      類似語データが不足しているため、{currentSimilarWords.length}件のみ表示しています。
                     </p>
                   )}
                 </>
