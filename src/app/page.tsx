@@ -1688,21 +1688,22 @@ export default function HomePage() {
                     if (!a.isFavorite && b.isFavorite) return 1;
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                   })
-                  .slice(0, 6)
-                  .map((project) => {
+                  .slice(0, 8)
+                  .map((project, index) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
                     const mastered = projectWords.filter((w) => w.status === 'mastered').length;
                     const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
                     return (
-                      <ProjectBookTile
-                        key={project.id}
-                        project={project}
-                        wordCount={projectWords.length}
-                        masteredCount={mastered}
-                        progress={progress}
-                        onDelete={(id) => handleDeleteProject(id)}
-                        onToggleFavorite={handleToggleProjectFavorite}
-                      />
+                      <div key={project.id} className={index >= 6 ? 'hidden lg:block' : ''}>
+                        <ProjectBookTile
+                          project={project}
+                          wordCount={projectWords.length}
+                          masteredCount={mastered}
+                          progress={progress}
+                          onDelete={(id) => handleDeleteProject(id)}
+                          onToggleFavorite={handleToggleProjectFavorite}
+                        />
+                      </div>
                     );
                   })}
               </div>
