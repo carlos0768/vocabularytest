@@ -3,6 +3,7 @@ import test from 'node:test';
 import { NextRequest } from 'next/server';
 
 import { handleSearchSemanticPost } from '@/app/api/search/semantic/route';
+import { handleQuiz2SimilarPost } from '@/app/api/quiz2/similar/route';
 import { POST as processScanJobPost } from '@/app/api/scan-jobs/process/route';
 import { POST as rebuildEmbeddingsPost } from '@/app/api/embeddings/rebuild/route';
 
@@ -92,9 +93,137 @@ test('search semantic always uses authenticated user id', async () => {
 
   const payload = await res.json();
   assert.equal(res.status, 200);
-  assert.equal(rpcArgs?.user_id_filter, 'user-auth-1');
+  assert.equal(rpcArgs?.['user_id_filter'], 'user-auth-1');
   assert.equal(Array.isArray(payload.results), true);
   assert.equal(payload.results[0].projectTitle, 'Animals');
+});
+
+test('quiz2 similar rejects unexpected userId field (strict schema)', async () => {
+  let createClientCalled = false;
+  const req = jsonRequest('http://localhost/api/quiz2/similar', {
+    sourceWordId: '11111111-1111-4111-8111-111111111111',
+    userId: 'another-user',
+  });
+
+  const res = await handleQuiz2SimilarPost(req, {
+    createClient: async () => {
+      createClientCalled = true;
+      throw new Error('should not be called');
+    },
+    getAuthenticatedUserId: async () => 'user-auth-1',
+    getSourceWord: async () => null,
+    hasProjectOwnership: async () => false,
+    matchSimilarWords: async () => [],
+  });
+
+  assert.equal(res.status, 400);
+  assert.equal(createClientCalled, false);
+});
+
+test('quiz2 similar returns 401 when unauthenticated', async () => {
+  const req = jsonRequest('http://localhost/api/quiz2/similar', {
+    sourceWordId: '11111111-1111-4111-8111-111111111111',
+  });
+
+  const res = await handleQuiz2SimilarPost(req, {
+    createClient: async () => ({}) as never,
+    getAuthenticatedUserId: async () => null,
+    getSourceWord: async () => null,
+    hasProjectOwnership: async () => false,
+    matchSimilarWords: async () => [],
+  });
+
+  assert.equal(res.status, 401);
+});
+
+test('quiz2 similar always uses authenticated user id', async () => {
+  let argsFromMatch: Record<string, unknown> | null = null;
+  const req = jsonRequest('http://localhost/api/quiz2/similar', {
+    sourceWordId: '11111111-1111-4111-8111-111111111111',
+    limit: 2,
+  });
+
+  const res = await handleQuiz2SimilarPost(req, {
+    createClient: async () => ({}) as never,
+    getAuthenticatedUserId: async () => 'user-auth-1',
+    getSourceWord: async () => ({
+      id: '11111111-1111-4111-8111-111111111111',
+      project_id: 'project-1',
+      english: 'happy',
+      japanese: '嬉しい',
+      embedding: [0.1, 0.2, 0.3],
+    }),
+    hasProjectOwnership: async (_client, _projectId, userId) => userId === 'user-auth-1',
+    matchSimilarWords: async (_client, args) => {
+      argsFromMatch = {
+        userId: args.userId,
+        excludeWordIds: args.excludeWordIds,
+        count: args.count,
+      };
+      return [
+        { id: 'word-2', english: 'glad', japanese: 'うれしい', similarity: 0.92 },
+      ];
+    },
+  });
+
+  const payload = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(argsFromMatch?.['userId'], 'user-auth-1');
+  assert.deepEqual(argsFromMatch?.['excludeWordIds'], ['11111111-1111-4111-8111-111111111111']);
+  assert.equal(argsFromMatch?.['count'], 2);
+  assert.equal(payload.results.length, 1);
+});
+
+test('quiz2 similar returns 403 when source word is not owned by user', async () => {
+  const req = jsonRequest('http://localhost/api/quiz2/similar', {
+    sourceWordId: '11111111-1111-4111-8111-111111111111',
+  });
+
+  const res = await handleQuiz2SimilarPost(req, {
+    createClient: async () => ({}) as never,
+    getAuthenticatedUserId: async () => 'user-auth-1',
+    getSourceWord: async () => ({
+      id: '11111111-1111-4111-8111-111111111111',
+      project_id: 'project-foreign',
+      english: 'happy',
+      japanese: '嬉しい',
+      embedding: [0.1, 0.2, 0.3],
+    }),
+    hasProjectOwnership: async () => false,
+    matchSimilarWords: async () => [],
+  });
+
+  assert.equal(res.status, 403);
+});
+
+test('quiz2 similar returns empty results when source word has no embedding', async () => {
+  let matchCalled = false;
+  const req = jsonRequest('http://localhost/api/quiz2/similar', {
+    sourceWordId: '11111111-1111-4111-8111-111111111111',
+  });
+
+  const res = await handleQuiz2SimilarPost(req, {
+    createClient: async () => ({}) as never,
+    getAuthenticatedUserId: async () => 'user-auth-1',
+    getSourceWord: async () => ({
+      id: '11111111-1111-4111-8111-111111111111',
+      project_id: 'project-1',
+      english: 'happy',
+      japanese: '嬉しい',
+      embedding: null,
+    }),
+    hasProjectOwnership: async () => true,
+    matchSimilarWords: async () => {
+      matchCalled = true;
+      return [];
+    },
+  });
+
+  const payload = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(matchCalled, false);
+  assert.deepEqual(payload.results, []);
+  assert.equal(payload.source, 'vector');
 });
 
 test('scan-jobs/process returns 401 when worker auth header is invalid', async () => {

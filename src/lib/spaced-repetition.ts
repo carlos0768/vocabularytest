@@ -18,6 +18,13 @@ export { getDefaultSpacedRepetitionFields };
 // SM-2 algorithm constants
 const MIN_EASE_FACTOR = 1.3;
 const DEFAULT_EASE_FACTOR = 2.5;
+export type ReviewQuality = 0 | 1 | 2 | 3 | 4 | 5;
+
+function clampQuality(quality: number): ReviewQuality {
+  if (quality <= 0) return 0;
+  if (quality >= 5) return 5;
+  return Math.round(quality) as ReviewQuality;
+}
 
 /**
  * Calculate the next review schedule based on SM-2 algorithm
@@ -36,13 +43,32 @@ export function calculateNextReview(
   nextReviewAt: string;
   lastReviewedAt: string;
 } {
+  const quality: ReviewQuality = isCorrect ? 4 : 1;
+  return calculateNextReviewByQuality(quality, word);
+}
+
+/**
+ * Calculate the next review schedule based on SM-2 algorithm using direct quality score.
+ *
+ * Quality scale (0-5):
+ * - 0-2: incorrect / poor recall
+ * - 3: difficult recall
+ * - 4: correct recall
+ * - 5: very easy recall
+ */
+export function calculateNextReviewByQuality(
+  qualityInput: ReviewQuality,
+  word: Word
+): {
+  easeFactor: number;
+  intervalDays: number;
+  repetition: number;
+  nextReviewAt: string;
+  lastReviewedAt: string;
+} {
   const now = new Date();
   const lastReviewedAt = now.toISOString();
-
-  // Map correct/incorrect to quality score (0-5 scale)
-  // Correct = 4 (correct response with hesitation)
-  // Wrong = 1 (incorrect but remembered upon seeing correct)
-  const quality = isCorrect ? 4 : 1;
+  const quality = clampQuality(qualityInput);
 
   let { easeFactor, intervalDays, repetition } = word;
 
@@ -119,4 +145,3 @@ export function getWordsDueForReview(words: Word[]): Word[] {
 export function getReviewCount(words: Word[]): number {
   return getWordsDueForReview(words).length;
 }
-

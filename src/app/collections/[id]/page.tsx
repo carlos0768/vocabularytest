@@ -355,6 +355,16 @@ export default function CollectionDetailPage() {
                     mobileSquare
                   />
                   <StudyModeCard
+                    title="クイズ２"
+                    description="思い出して自己評価"
+                    icon="psychology"
+                    href={`/quiz2/collection?collectionId=${collectionId}&from=${returnTo}`}
+                    variant="green"
+                    disabled={allWords.length === 0}
+                    layout="horizontal"
+                    mobileSquare
+                  />
+                  <StudyModeCard
                     title="カード"
                     description="スワイプで復習"
                     icon="style"

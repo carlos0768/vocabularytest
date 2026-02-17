@@ -747,6 +747,18 @@ export default function ProjectDetailPage() {
                     styleMode="home"
                   />
                   <StudyModeCard
+                    title="クイズ２"
+                    description="思い出して自己評価"
+                    icon="psychology"
+                    href={isPro ? `/quiz2/${project.id}?from=${returnToProject}` : '/subscription'}
+                    variant="green"
+                    disabled={words.length === 0}
+                    badge={!isPro ? 'Pro' : undefined}
+                    layout="horizontal"
+                    mobileSquare
+                    styleMode="home"
+                  />
+                  <StudyModeCard
                     title="カード"
                     description="スワイプで復習"
                     icon="style"
