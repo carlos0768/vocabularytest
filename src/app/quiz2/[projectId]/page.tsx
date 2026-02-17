@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
@@ -138,12 +138,14 @@ export default function Quiz2Page() {
   const [isSubmittingGrade, setIsSubmittingGrade] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<Quiz2Grade | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const [isFrozenByTabLeave, setIsFrozenByTabLeave] = useState(false);
   const [gradeCounts, setGradeCounts] = useState<Record<Quiz2Grade, number>>({
     again: 0,
     hard: 0,
     good: 0,
     easy: 0,
   });
+  const isFrozenByTabLeaveRef = useRef(false);
 
   const currentWord = words[currentIndex];
   const currentSimilarWords = currentWord ? (similarByWordId[currentWord.id] || []) : [];
@@ -201,7 +203,28 @@ export default function Quiz2Page() {
   }, [repository, user]);
 
   useEffect(() => {
-    if (authLoading) return;
+    isFrozenByTabLeaveRef.current = isFrozenByTabLeave;
+  }, [isFrozenByTabLeave]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        isFrozenByTabLeaveRef.current = true;
+        setIsFrozenByTabLeave(true);
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || isFrozenByTabLeave) return;
 
     if (!isPro) {
       router.push('/subscription');
@@ -259,6 +282,7 @@ export default function Quiz2Page() {
           backToOrigin();
           return;
         }
+        if (isFrozenByTabLeaveRef.current) return;
 
         const shuffledWords = shuffleArray(sourceWords);
         setWords(shuffledWords);
@@ -273,6 +297,7 @@ export default function Quiz2Page() {
 
         const allWords = await loadAllUserWords();
         const userWordPool = allWords.length > 0 ? allWords : shuffledWords;
+        if (isFrozenByTabLeaveRef.current) return;
 
         let batchSimilar: Record<string, SimilarWordItem[]> = {};
         try {
@@ -280,6 +305,7 @@ export default function Quiz2Page() {
         } catch (error) {
           console.error('Failed to fetch similar words batch:', error);
         }
+        if (isFrozenByTabLeaveRef.current) return;
 
         const mergedSimilarByWordId: Record<string, SimilarWordItem[]> = {};
         for (const sourceWord of shuffledWords) {
@@ -306,8 +332,10 @@ export default function Quiz2Page() {
         console.error('Failed to load quiz2 words:', error);
         backToOrigin();
       } finally {
-        setIsPreparingSimilar(false);
-        setLoading(false);
+        if (!isFrozenByTabLeaveRef.current) {
+          setIsPreparingSimilar(false);
+          setLoading(false);
+        }
       }
     };
 
@@ -323,17 +351,18 @@ export default function Quiz2Page() {
     isCollectionMode,
     backToOrigin,
     loadAllUserWords,
+    isFrozenByTabLeave,
   ]);
 
   useEffect(() => {
-    if (loading || isComplete || !currentWord?.id) return;
+    if (isFrozenByTabLeave || loading || isComplete || !currentWord?.id) return;
 
     try {
       speakCurrentWord();
     } catch (error) {
       console.error('Failed to play quiz2 question audio:', error);
     }
-  }, [currentWord?.id, loading, isComplete, speakCurrentWord]);
+  }, [currentWord?.id, loading, isComplete, speakCurrentWord, isFrozenByTabLeave]);
 
   useEffect(() => {
     return () => {
@@ -344,6 +373,7 @@ export default function Quiz2Page() {
   }, []);
 
   const goToNext = useCallback(() => {
+    if (isFrozenByTabLeaveRef.current) return;
     if (currentIndex + 1 >= words.length) {
       setIsComplete(true);
       setIsSubmittingGrade(false);
@@ -358,7 +388,7 @@ export default function Quiz2Page() {
   }, [currentIndex, words.length]);
 
   const handleGrade = useCallback(async (grade: Quiz2Grade) => {
-    if (!currentWord || isSubmittingGrade) return;
+    if (!currentWord || isSubmittingGrade || isFrozenByTabLeaveRef.current) return;
 
     setIsSubmittingGrade(true);
     setSelectedGrade(grade);
@@ -370,6 +400,7 @@ export default function Quiz2Page() {
       const updates = { status: nextStatus, ...srUpdate };
 
       await repository.updateWord(currentWord.id, updates);
+      if (isFrozenByTabLeaveRef.current) return;
 
       setWords((prev) =>
         prev.map((word, index) =>
@@ -401,7 +432,7 @@ export default function Quiz2Page() {
   }, [currentWord, isSubmittingGrade, repository, currentIndex, goToNext]);
 
   const handleRestart = useCallback(() => {
-    if (words.length === 0) return;
+    if (words.length === 0 || isFrozenByTabLeaveRef.current) return;
     setWords(shuffleArray([...words]));
     setCurrentIndex(0);
     setShowAnswer(false);
@@ -410,6 +441,35 @@ export default function Quiz2Page() {
     setIsComplete(false);
     setGradeCounts({ again: 0, hard: 0, good: 0, easy: 0 });
   }, [words]);
+
+  if (isFrozenByTabLeave) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] fixed inset-0 p-6">
+        <div className="w-full max-w-md card p-6 border-2 border-[var(--color-border)] border-b-4 text-center">
+          <div className="w-12 h-12 rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] flex items-center justify-center mx-auto mb-4">
+            <Icon name="pause_circle" size={28} />
+          </div>
+          <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">更新を停止しました</h1>
+          <p className="text-sm text-[var(--color-muted)] mb-6">
+            タブを離れたため、クイズ２の進行を停止しています。
+          </p>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={backToOrigin}>
+              戻る
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                window.location.reload();
+              }}
+            >
+              再読み込み
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
