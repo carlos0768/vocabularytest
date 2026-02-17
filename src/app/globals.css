@@ -256,6 +256,40 @@ body {
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.1);
 }
 
+/* ===== Header Film ===== */
+
+.header-film {
+  position: relative;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.header-film::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0.2)
+  );
+}
+
+.dark .header-film::before {
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.04)
+  );
+}
+
+.header-film > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* ===== Quiz Option Styles ===== */
 
 .quiz-option {
