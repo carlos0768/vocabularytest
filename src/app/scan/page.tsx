@@ -186,7 +186,7 @@ function ScanPageContent() {
         throw new Error('認証が必要です');
       }
 
-      await ensureWebPushSubscription({
+      void ensureWebPushSubscription({
         accessToken: session.access_token,
         requestPermission: true,
       });

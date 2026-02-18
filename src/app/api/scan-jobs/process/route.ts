@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       const mode = job.scan_mode as ExtractMode;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allExtractedWords: any[] = [];
+      let firstExtractionError: string | null = null;
       const warningCodes = new Set<ExtractionWarningCode>();
       let grammarWarningNotified = false;
 
@@ -135,6 +136,9 @@ export async function POST(request: NextRequest) {
 
         if (downloadError || !imageData) {
           console.error(`Failed to download image ${imagePath}:`, downloadError);
+          if (!firstExtractionError) {
+            firstExtractionError = '画像データの取得に失敗しました';
+          }
           continue; // Skip failed images, process the rest
         }
 
@@ -170,15 +174,19 @@ export async function POST(request: NextRequest) {
           allExtractedWords.push(...result.data.words);
         } else if (!result.success) {
           console.error(`Extraction failed for ${imagePath}:`, result.error);
+          if (!firstExtractionError) {
+            firstExtractionError = result.error || '画像の解析に失敗しました';
+          }
         }
       }
 
       if (allExtractedWords.length === 0) {
+        const errorMessage = firstExtractionError || 'No words found in any image';
         await getSupabaseAdmin()
           .from('scan_jobs')
           .update({
             status: 'failed',
-            error_message: 'No words found in any image',
+            error_message: errorMessage,
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -192,7 +200,7 @@ export async function POST(request: NextRequest) {
           wordCount: 0,
         });
 
-        return NextResponse.json({ error: 'No words found' }, { status: 400 });
+        return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
 
       // Create project and save all words at once
