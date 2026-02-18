@@ -97,7 +97,6 @@ JSONのみを出力し、説明は不要です。`;
         },
       ],
       max_completion_tokens: 1000,
-      temperature: 0,
     });
 
     const content = response.choices[0]?.message?.content || '';

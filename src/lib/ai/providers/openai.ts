@@ -51,10 +51,11 @@ export class OpenAIProvider implements AIProvider {
         });
       }
 
+      const isGpt5Family = config.model.startsWith('gpt-5');
       const response = await this.client.chat.completions.create({
         model: config.model,
         messages,
-        temperature: config.temperature,
+        ...(isGpt5Family ? {} : { temperature: config.temperature }),
         max_completion_tokens: config.maxOutputTokens,
         ...(config.responseFormat === 'json' && { response_format: { type: 'json_object' as const } }),
       });
@@ -86,12 +87,18 @@ export class OpenAIProvider implements AIProvider {
 
     if (error instanceof OpenAI.APIError) {
       const message = error.message;
+      const code = typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : '';
 
       if (error.status === 401 || message.includes('API key')) {
         throw new AIError('invalid_api_key', 'OpenAI APIキーが無効です', error);
       }
       if (error.status === 429 || message.includes('rate')) {
         throw new AIError('rate_limit', 'API制限に達しました', error);
+      }
+      if (code === 'unsupported_parameter' || code === 'unsupported_value') {
+        throw new AIError('invalid_request', 'モデル設定パラメータが未対応です', error);
       }
       if (
         message.includes('image_url') &&
@@ -103,7 +110,12 @@ export class OpenAIProvider implements AIProvider {
           error
         );
       }
-      if (message.includes('model')) {
+      if (
+        message.includes('model') &&
+        (message.toLowerCase().includes('not found') ||
+          message.toLowerCase().includes('does not exist') ||
+          message.toLowerCase().includes('unavailable'))
+      ) {
         throw new AIError('model_error', 'AIモデルが利用できません', error);
       }
     }

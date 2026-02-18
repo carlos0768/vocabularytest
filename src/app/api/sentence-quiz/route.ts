@@ -232,7 +232,6 @@ async function generateDistractors(
         },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -276,7 +275,6 @@ async function generateMultiFillInBlank(
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
     });
 
     const phase1Content = phase1Response.choices[0]?.message?.content;
@@ -404,7 +402,6 @@ async function generateMultiFillInBlank(
             },
             { role: 'user', content: completedSentence },
           ],
-          temperature: 0.3,
         });
 
         const translatedText = translationResponse.choices[0]?.message?.content;
@@ -473,7 +470,6 @@ async function generateFillInBlank(
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -515,7 +511,6 @@ async function generateWordOrder(
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
     });
 
     const content = response.choices[0]?.message?.content;
