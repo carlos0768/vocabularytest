@@ -34,7 +34,7 @@ export function ProjectCard({ project, wordCount, masteredCount = 0, progress = 
 
   return (
     <Card className="relative group overflow-hidden">
-      <Link href={`/project/${project.id}`} className="block">
+      <Link href={`/project/${project.id}`} prefetch={false} className="block">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0 flex-1 pr-8">
