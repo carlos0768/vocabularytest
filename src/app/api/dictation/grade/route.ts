@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { AI_CONFIG } from '@/lib/ai/config';
 
-const OPENAI_MODEL = AI_CONFIG.defaults.openai.model;
+const OPENAI_MODEL = AI_CONFIG.extraction.words.model;
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
