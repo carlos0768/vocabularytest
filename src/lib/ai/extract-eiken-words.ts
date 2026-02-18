@@ -9,6 +9,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { getProviderFromConfig } from './providers';
+import { extractWordsFromImage } from './extract-words';
 import type { EikenLevel } from '@/app/api/extract/route';
 
 // Result type for OCR extraction
@@ -19,7 +20,11 @@ export type EikenOCRResult =
 // Result type for word analysis
 export type EikenWordAnalysisResult =
   | { success: true; data: ValidatedAIResponse }
-  | { success: false; error: string };
+  | {
+      success: false;
+      error: string;
+      reason?: 'invalid_json' | 'invalid_format' | 'no_words_found' | 'unknown';
+    };
 
 // Combined result for the full pipeline
 export type EikenExtractionResult =
@@ -144,12 +149,13 @@ export async function analyzeWordsForEiken(
     .replace('{LEVEL_DESC}', levelDesc)
     .replace('{LEVEL_RANGE}', levelRange);
   const userPrompt = EIKEN_WORD_ANALYSIS_USER_PROMPT + text;
+  const config = AI_CONFIG.extraction.eiken;
 
   console.log('GPT Word analysis for EIKEN:', { textLength: text.length, eikenLevel });
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: config.model,
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -161,14 +167,14 @@ export async function analyzeWordsForEiken(
           content: userPrompt,
         },
       ],
-      max_tokens: 4096,
-      temperature: 0.7,
+      max_tokens: config.maxOutputTokens,
+      temperature: 0.3,
     });
 
     const content = response.choices[0]?.message?.content;
 
     if (!content) {
-      return { success: false, error: '単語解析の結果を取得できませんでした' };
+      return { success: false, error: '単語解析の結果を取得できませんでした', reason: 'unknown' };
     }
 
     // Parse JSON response
@@ -177,7 +183,15 @@ export async function analyzeWordsForEiken(
       parsed = JSON.parse(content);
     } catch {
       console.error('Failed to parse GPT response:', content);
-      return { success: false, error: 'AIの応答を解析できませんでした' };
+      return { success: false, error: 'AIの応答を解析できませんでした', reason: 'invalid_json' };
+    }
+
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Object.prototype.hasOwnProperty.call(parsed, 'words')
+    ) {
+      console.warn('EIKEN analysis response missing "words" key');
     }
 
     // Validate with Zod schema
@@ -187,6 +201,7 @@ export async function analyzeWordsForEiken(
       return {
         success: false,
         error: validated.error || 'データ形式が不正です',
+        reason: 'invalid_format',
       };
     }
 
@@ -195,6 +210,7 @@ export async function analyzeWordsForEiken(
       return {
         success: false,
         error: `${levelDesc}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
+        reason: 'no_words_found',
       };
     }
 
@@ -215,6 +231,7 @@ export async function analyzeWordsForEiken(
     return {
       success: false,
       error: '単語解析に失敗しました。もう一度お試しください。',
+      reason: 'unknown',
     };
   }
 }
@@ -242,6 +259,37 @@ export async function extractEikenWordsFromImage(
   );
 
   if (!analysisResult.success) {
+    const shouldFallback =
+      analysisResult.reason === 'no_words_found' ||
+      analysisResult.reason === 'invalid_format' ||
+      analysisResult.reason === 'invalid_json';
+
+    if (shouldFallback) {
+      console.warn('EIKEN two-stage extraction fallback triggered', {
+        reason: analysisResult.reason,
+        textLength: ocrResult.text.length,
+        eikenLevel,
+      });
+
+      const fallbackResult = await extractWordsFromImage(imageBase64, openaiApiKey, {
+        eikenLevel,
+        includeExamples: false,
+      });
+
+      if (fallbackResult.success && fallbackResult.data.words.length > 0) {
+        console.log(`EIKEN fallback success: extracted ${fallbackResult.data.words.length} words`);
+        return {
+          success: true,
+          extractedText: ocrResult.text,
+          data: fallbackResult.data,
+        };
+      }
+
+      if (!fallbackResult.success) {
+        return fallbackResult;
+      }
+    }
+
     return analysisResult;
   }
 
