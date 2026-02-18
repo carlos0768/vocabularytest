@@ -8,3 +8,4 @@ export { BottomNav } from './bottom-nav';
 export { Icon } from './Icon';
 export { Sidebar } from './Sidebar';
 export { AppShell } from './AppShell';
+export { DotGridBackground } from './DotGridBackground';

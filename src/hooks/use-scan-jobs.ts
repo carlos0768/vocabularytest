@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { createBrowserClient } from '@/lib/supabase';
+import { createBrowserClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export interface ScanJob {
   id: string;
@@ -23,6 +23,13 @@ export function useScanJobs() {
   const [loading, setLoading] = useState(true);
 
   const fetchJobs = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setCompletedJobs([]);
+      setHasActiveJobs(false);
+      setLoading(false);
+      return;
+    }
+
     try {
       const supabase = createBrowserClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -59,6 +66,8 @@ export function useScanJobs() {
 
   // Acknowledge (dismiss) a completed job
   const acknowledgeJob = useCallback(async (jobId: string) => {
+    if (!isSupabaseConfigured()) return;
+
     try {
       const supabase = createBrowserClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -96,6 +105,8 @@ export function useScanJobs() {
 
   // Real-time updates for immediate completion detection.
   useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
     const supabase = createBrowserClient();
     let mounted = true;
     let unsubscribe: (() => void) | null = null;

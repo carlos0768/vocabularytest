@@ -17,13 +17,22 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Local/offline development may run without Supabase env.
+  // In that case, skip middleware auth enforcement instead of crashing.
+  if (!url || !key) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {

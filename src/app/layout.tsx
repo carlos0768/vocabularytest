@@ -28,6 +28,7 @@ const zenMaruGothic = Zen_Maru_Gothic({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.merken.jp'),
   title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
   description:
     '画像を撮るだけで英単語を自動抽出して単語帳に登録。マークした単語だけを単語帳に登録することも可能。自分だけのカスタム単語帳を作成し、4択クイズ・フラッシュカード・例文クイズで効率的に学習できます。',
@@ -48,10 +49,10 @@ export const metadata: Metadata = {
     description:
       '画像を撮るだけで英単語を自動抽出して単語帳に登録。マークした単語だけを登録することも可能。自分だけのカスタム単語帳で効率的に学習。',
     siteName: 'MERKEN',
-    url: 'https://merken.jp',
+    url: 'https://www.merken.jp',
     images: [
       {
-        url: 'https://merken.jp/icon-512.png',
+        url: 'https://www.merken.jp/icon-512.png',
         width: 512,
         height: 512,
         alt: 'MERKEN - 英語学習・単語帳アプリ',
@@ -65,7 +66,7 @@ export const metadata: Metadata = {
     title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
     description:
       '画像を撮るだけで単語帳登録。マークした単語だけ登録も可能。カスタム単語帳でクイズ・フラッシュカード学習。',
-    images: ['https://merken.jp/icon-512.png'],
+    images: ['https://www.merken.jp/icon-512.png'],
   },
 };
 
@@ -96,7 +97,7 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'WebApplication',
               name: 'MERKEN',
-              url: 'https://merken.jp',
+              url: 'https://www.merken.jp',
               description: '英語教育向け単語学習アプリ。写真を撮るだけで英単語帳を自動作成し、クイズやフラッシュカードで学習できます。',
               applicationCategory: 'EducationalApplication',
               operatingSystem: 'Web',
