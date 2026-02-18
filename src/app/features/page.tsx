@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MarketingShell, ScrollFadeIn, StatusAwareCta } from '@/components/marketing';
 import { Icon } from '@/components/ui/Icon';
+import { cn } from '@/lib/utils';
 import {
   howItWorksSteps,
   lpScanModes,
@@ -190,38 +191,58 @@ export default function FeaturesPage() {
               </article>
             </ScrollFadeIn>
 
-            {/* Remaining 5 modes */}
-            {lpScanModes.slice(1).map((mode, i) => (
-              <ScrollFadeIn key={mode.title} delay={(i % 2) * 100}>
-                <article
-                  className="card p-5 h-full"
-                  style={{ borderLeftWidth: 4, borderLeftColor: mode.color }}
-                >
-                  <div className="flex items-center gap-3 mb-3">
+            {/* Remaining 5 modes — zigzag full-width strips */}
+            {lpScanModes.slice(1).map((mode, i) => {
+              const isReversed = i % 2 === 1;
+              return (
+                <ScrollFadeIn key={mode.title} className="md:col-span-2" delay={i * 100}>
+                  <article className="card p-0 overflow-hidden grid grid-cols-1 md:grid-cols-[2fr_3fr] gap-0">
+                    {/* Visual panel */}
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: mode.color + '18', color: mode.color }}
+                      className={cn(
+                        'relative flex items-center justify-center py-12 md:py-16',
+                        isReversed && 'md:order-2'
+                      )}
+                      style={{ background: `linear-gradient(135deg, ${mode.color}18, ${mode.color}08)` }}
                     >
-                      <Icon name={mode.icon} size={20} />
+                      <div
+                        className="absolute w-32 h-32 rounded-full"
+                        style={{ backgroundColor: mode.color + '15' }}
+                      />
+                      <div
+                        className="absolute w-20 h-20 rounded-full translate-x-8 -translate-y-6"
+                        style={{ backgroundColor: mode.color + '10' }}
+                      />
+                      <Icon name={mode.icon} size={72} style={{ color: mode.color }} className="relative z-10" />
                     </div>
-                    <h3 className="font-semibold text-[var(--color-foreground)]">
-                      {mode.title}
-                    </h3>
-                  </div>
-                  <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-                    {mode.description}
-                  </p>
-                  <p className="text-xs mt-3 flex items-start gap-2 text-[var(--color-muted)]">
-                    <Icon
-                      name="lightbulb"
-                      size={14}
-                      className="text-[var(--color-warning)] mt-0.5 shrink-0"
-                    />
-                    {mode.useCase}
-                  </p>
-                </article>
-              </ScrollFadeIn>
-            ))}
+
+                    {/* Text panel */}
+                    <div className={cn('p-6 md:p-10 flex flex-col justify-center', isReversed && 'md:order-1')}>
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full w-fit mb-4"
+                        style={{ backgroundColor: mode.color + '15', color: mode.color }}
+                      >
+                        <Icon name={mode.icon} size={14} style={{ color: mode.color }} />
+                        スキャンモード
+                      </span>
+                      <h3 className="font-display text-xl md:text-2xl font-bold text-[var(--color-foreground)]">
+                        {mode.title}
+                      </h3>
+                      <p className="text-[var(--color-muted)] mt-3 leading-relaxed text-base">
+                        {mode.description}
+                      </p>
+                      <div
+                        className="mt-4 p-3 rounded-xl flex items-start gap-2"
+                        style={{ backgroundColor: mode.color + '08' }}
+                      >
+                        <Icon name="lightbulb" size={18} style={{ color: mode.color }} className="mt-0.5 shrink-0" />
+                        <p className="text-sm text-[var(--color-muted)]">{mode.useCase}</p>
+                      </div>
+                    </div>
+                  </article>
+                </ScrollFadeIn>
+              );
+            })}
           </div>
         </section>
 
