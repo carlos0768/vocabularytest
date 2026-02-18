@@ -39,6 +39,7 @@ type ExtractionLikeResult =
   | { success: false; error: string; reason?: string };
 
 const EXTRACTION_TIMEOUT_MS = 10 * 60 * 1000;
+const EXTRACTION_TIMEOUT_MINUTES = Math.round(EXTRACTION_TIMEOUT_MS / 60_000);
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutId: NodeJS.Timeout | null = null;
@@ -151,6 +152,13 @@ export async function POST(request: NextRequest) {
       const warningCodes = new Set<ExtractionWarningCode>();
       let grammarWarningNotified = false;
 
+      console.log('scan-jobs/process config:', {
+        mode,
+        imageCount: imagePaths.length,
+        extractionTimeoutMs: EXTRACTION_TIMEOUT_MS,
+        extractionTimeoutMinutes: EXTRACTION_TIMEOUT_MINUTES,
+      });
+
       // Process each image and merge results
       for (const imagePath of imagePaths) {
         const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
@@ -182,7 +190,7 @@ export async function POST(request: NextRequest) {
           extractionResult = await withTimeout(
             extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey),
             EXTRACTION_TIMEOUT_MS,
-            '画像解析がタイムアウトしました'
+            `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
           );
         } catch (error) {
           console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
