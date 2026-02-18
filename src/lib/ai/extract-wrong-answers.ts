@@ -205,6 +205,7 @@ export async function analyzeWrongAnswers(
   }
 
   const openai = new OpenAI({ apiKey: openaiApiKey });
+  const analysisConfig = AI_CONFIG.extraction.grammar.analysis;
 
   const systemPrompt = WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT;
   const userPrompt = WRONG_ANSWER_ANALYSIS_USER_PROMPT + JSON.stringify(testData, null, 2);
@@ -217,7 +218,7 @@ export async function analyzeWrongAnswers(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-5-mini',
+      model: analysisConfig.model,
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -229,7 +230,7 @@ export async function analyzeWrongAnswers(
           content: userPrompt,
         },
       ],
-      max_completion_tokens: 4096,
+      max_completion_tokens: analysisConfig.maxOutputTokens,
     });
 
     const content = response.choices[0]?.message?.content;
