@@ -127,7 +127,7 @@ export function ProjectBookTile({
         }`}
       >
         {/* Book cover */}
-        <div className="relative mx-auto w-[72px] h-[100px] rounded-md overflow-hidden shadow-sm">
+        <div className="relative mx-auto w-[64px] h-[90px] rounded-md overflow-hidden shadow-sm">
           {safeIconImage ? (
             <span
               className="block w-full h-full bg-center bg-cover"
@@ -142,8 +142,8 @@ export function ProjectBookTile({
               {/* Spine edge highlight */}
               <div className="absolute left-0 inset-y-0 w-[3px] bg-black/15" />
               {/* Title initial */}
-              <span className="text-white/90 text-2xl font-bold leading-none">{initial}</span>
-              <span className="text-white/60 text-[16px] mt-1.5 tracking-wider">{wordCount}語</span>
+              <span className="text-white/90 text-xl font-bold leading-none">{initial}</span>
+              <span className="text-white/60 text-[14px] mt-1 tracking-wider">{wordCount}語</span>
             </div>
           )}
 
