@@ -167,7 +167,7 @@ export async function analyzeWordsForEiken(
           content: userPrompt,
         },
       ],
-      max_tokens: config.maxOutputTokens,
+      max_completion_tokens: config.maxOutputTokens,
       temperature: 0.3,
     });
 

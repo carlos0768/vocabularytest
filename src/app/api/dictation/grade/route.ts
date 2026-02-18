@@ -96,7 +96,7 @@ JSONのみを出力し、説明は不要です。`;
           ],
         },
       ],
-      max_tokens: 1000,
+      max_completion_tokens: 1000,
       temperature: 0,
     });
 
