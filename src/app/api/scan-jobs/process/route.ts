@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
+import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
@@ -40,6 +41,33 @@ type ExtractionLikeResult =
 
 const EXTRACTION_TIMEOUT_MS = 10 * 60 * 1000;
 const EXTRACTION_TIMEOUT_MINUTES = Math.round(EXTRACTION_TIMEOUT_MS / 60_000);
+const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
+type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
+const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
+
+function normalizeEikenLevel(rawLevel: string | null): EikenLevel {
+  if (!rawLevel) {
+    return '3';
+  }
+
+  const parsedLevels = rawLevel
+    .split(',')
+    .map(level => level.trim())
+    .filter((level): level is EikenLevel => EIKEN_LEVEL_SET.has(level));
+
+  if (parsedLevels.length === 0) {
+    return '3';
+  }
+
+  let hardest = parsedLevels[0];
+  for (const current of parsedLevels.slice(1)) {
+    if (EIKEN_LEVEL_ORDER.indexOf(current) > EIKEN_LEVEL_ORDER.indexOf(hardest)) {
+      hardest = current;
+    }
+  }
+
+  return hardest;
+}
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutId: NodeJS.Timeout | null = null;
@@ -74,13 +102,16 @@ async function extractFromImage(
       return { result: await extractHighlightedWordsFromImage(base64Image, openaiApiKey, openaiApiKey) as ExtractionLikeResult };
     }
     case 'eiken': {
-      const levels = eikenLevel?.split(',') || ['3', 'pre2', '2'];
-      // Background scan prioritizes speed: use single-pass extraction with EIKEN filter.
+      const normalizedLevel = normalizeEikenLevel(eikenLevel);
+      if (eikenLevel && normalizedLevel !== eikenLevel.trim()) {
+        console.log('Normalized eikenLevel for scan job:', { rawLevel: eikenLevel, normalizedLevel });
+      }
       return {
-        result: await extractWordsFromImage(base64Image, openaiApiKey, {
-          includeExamples: false,
-          eikenLevel: levels[0],
-        }) as ExtractionLikeResult,
+        result: await extractEikenWordsFromImage(
+          base64Image,
+          openaiApiKey,
+          normalizedLevel
+        ) as ExtractionLikeResult,
       };
     }
     case 'idiom': {
