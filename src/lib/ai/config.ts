@@ -7,7 +7,7 @@
 
 export type AIProvider = 'gemini' | 'openai';
 export type GeminiModel = 'gemini-1.5-flash-002' | 'gemini-1.5-pro-002' | 'gemini-2.0-flash-001';
-export type OpenAIModel = 'gpt5mini';
+export type OpenAIModel = 'gpt-5-mini';
 
 export interface AIModelConfig {
   provider: AIProvider;
@@ -38,38 +38,38 @@ export const AI_CONFIG: AIConfig = {
   extraction: {
     words: {
       provider: 'openai',
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     idioms: {
       provider: 'openai',
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     eiken: {
       provider: 'openai',
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     circled: {
       provider: 'openai',
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     grammar: {
       ocr: {
         provider: 'openai',
-        model: 'gpt5mini',
+        model: 'gpt-5-mini',
         temperature: 0.3,
         maxOutputTokens: 8192,
       },
       analysis: {
         provider: 'openai',
-        model: 'gpt5mini',
+        model: 'gpt-5-mini',
         temperature: 0.7,
         maxOutputTokens: 16384,
       },
@@ -78,13 +78,13 @@ export const AI_CONFIG: AIConfig = {
   defaults: {
     gemini: {
       provider: 'openai',
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     openai: {
       provider: 'openai',
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
@@ -106,7 +106,7 @@ export function getAPIKey(provider: AIProvider): string | undefined {
 }
 
 export function setGlobalProvider(provider: AIProvider, model?: string): void {
-  const defaultModel = provider === 'openai' ? 'gpt5mini' : 'gemini-2.0-flash-001';
+  const defaultModel = provider === 'openai' ? 'gpt-5-mini' : 'gemini-2.0-flash-001';
   const targetModel = model || defaultModel;
 
   AI_CONFIG.extraction.words.provider = provider;

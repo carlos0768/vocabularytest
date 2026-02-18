@@ -219,7 +219,7 @@ async function generateDistractors(
 ): Promise<string[]> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       messages: [
         { role: 'system', content: DISTRACTORS_SYSTEM_PROMPT },
         {
@@ -269,7 +269,7 @@ async function generateMultiFillInBlank(
     // Phase 1: LLMで3空欄の例文を生成（予測付き）
     // ============================================
     const phase1Response = await openai.chat.completions.create({
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       messages: [
         { role: 'system', content: MULTI_BLANK_SYSTEM_PROMPT },
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
@@ -394,7 +394,7 @@ async function generateMultiFillInBlank(
 
       try {
         const translationResponse = await openai.chat.completions.create({
-          model: 'gpt5mini',
+          model: 'gpt-5-mini',
           messages: [
             {
               role: 'system',
@@ -438,7 +438,7 @@ async function generateFillInBlank(
 ): Promise<FillInBlankQuestion | null> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       messages: [
         {
           role: 'system',
@@ -505,7 +505,7 @@ async function generateWordOrder(
 ): Promise<WordOrderQuestion | null> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt5mini',
+      model: 'gpt-5-mini',
       messages: [
         { role: 'system', content: WORD_ORDER_SYSTEM_PROMPT },
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
