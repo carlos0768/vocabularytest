@@ -27,7 +27,8 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
-export const maxDuration = 600;
+// Vercel Hobby plan upper limit is 300 seconds.
+export const maxDuration = 300;
 
 const processSchema = z.object({
   jobId: z.string().uuid(),
@@ -39,7 +40,8 @@ type ExtractionLikeResult =
   | { success: true; data: { words: unknown[] } }
   | { success: false; error: string; reason?: string };
 
-const EXTRACTION_TIMEOUT_MS = 10 * 60 * 1000;
+// Keep internal timeout below platform timeout to fail gracefully.
+const EXTRACTION_TIMEOUT_MS = 4 * 60 * 1000 + 30 * 1000;
 const EXTRACTION_TIMEOUT_MINUTES = Math.round(EXTRACTION_TIMEOUT_MS / 60_000);
 const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
 type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
