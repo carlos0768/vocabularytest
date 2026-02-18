@@ -80,7 +80,7 @@ ${questionList}
 JSONのみを出力し、説明は不要です。`;
 
     const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5',
       messages: [
         {
           role: 'user',
