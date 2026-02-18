@@ -3,7 +3,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
-import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
@@ -39,6 +38,24 @@ type ExtractionLikeResult =
   | { success: true; data: { words: unknown[] } }
   | { success: false; error: string; reason?: string };
 
+const EXTRACTION_TIMEOUT_MS = 90_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(timeoutMessage));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 // Extract words from a single image using the appropriate mode
 async function extractFromImage(
   base64Image: string,
@@ -57,7 +74,13 @@ async function extractFromImage(
     }
     case 'eiken': {
       const levels = eikenLevel?.split(',') || ['3', 'pre2', '2'];
-      return { result: await extractEikenWordsFromImage(base64Image, openaiApiKey, levels[0] as '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1') as ExtractionLikeResult };
+      // Background scan prioritizes speed: use single-pass extraction with EIKEN filter.
+      return {
+        result: await extractWordsFromImage(base64Image, openaiApiKey, {
+          includeExamples: false,
+          eikenLevel: levels[0],
+        }) as ExtractionLikeResult,
+      };
     }
     case 'idiom': {
       const idiomResult = await extractIdiomsFromImage(base64Image, openaiApiKey);
@@ -154,7 +177,22 @@ export async function POST(request: NextRequest) {
           : 'image/jpeg';
         const base64Image = `data:${mimeType};base64,${base64}`;
 
-        const { result, warningCode } = await extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey);
+        let extractionResult: { result: ExtractionLikeResult; warningCode?: ExtractionWarningCode } | null = null;
+        try {
+          extractionResult = await withTimeout(
+            extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey),
+            EXTRACTION_TIMEOUT_MS,
+            '画像解析がタイムアウトしました'
+          );
+        } catch (error) {
+          console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
+          if (!firstExtractionError) {
+            firstExtractionError = error instanceof Error ? error.message : '画像解析に失敗しました';
+          }
+          continue;
+        }
+
+        const { result, warningCode } = extractionResult;
 
         if (warningCode) {
           warningCodes.add(warningCode);

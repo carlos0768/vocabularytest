@@ -16,7 +16,7 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
-const SCAN_JOB_TIMEOUT_MS = 8 * 60 * 1000;
+const SCAN_JOB_TIMEOUT_MS = 6 * 60 * 1000;
 const SCAN_JOB_TIMEOUT_MESSAGE = '処理がタイムアウトしました。もう一度お試しください。';
 
 function isTimedOutJob(job: {
