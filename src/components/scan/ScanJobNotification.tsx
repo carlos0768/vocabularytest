@@ -70,7 +70,7 @@ export function ScanJobNotification({ notification, onDismiss }: ScanJobNotifica
             </h3>
             <p className="text-sm text-[var(--color-muted)] mb-3">
               {isFailed
-                ? `「${notification.projectTitle}」のスキャンに失敗しました。もう一度お試しください。`
+                ? `「${notification.projectTitle}」のスキャンに失敗しました。${notification.errorMessage ?? 'もう一度お試しください。'}`
                 : isWarning
                 ? `「${notification.projectTitle}」で文法抽出が見つからなかったため、通常抽出に切り替えました。`
                 : `「${notification.projectTitle}」に${notification.totalWordCount}語追加されました`

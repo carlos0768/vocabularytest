@@ -1224,7 +1224,7 @@ export default function HomePage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('認証が必要です');
 
-        await ensureWebPushSubscription({
+        void ensureWebPushSubscription({
           accessToken: session.access_token,
           requestPermission: true,
         });
