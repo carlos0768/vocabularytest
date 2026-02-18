@@ -9,7 +9,7 @@ import { ProgressSteps, type ProgressStep, useToast, Icon, AppShell } from '@/co
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
-import { processImageToBase64, processProjectIconFile } from '@/lib/image-utils';
+import { expandFilesForScan, isPdfFile, processImageToBase64, processProjectIconFile } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 
@@ -109,10 +109,6 @@ function ScanPageContent() {
     }
   }, [selectedMode]);
 
-  const isPdfFile = useCallback((file: File) => {
-    return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-  }, []);
-
   // Compress image for fast upload (always compress, target 500KB)
   const compressForUpload = useCallback(async (file: File): Promise<{ blob: Blob; contentType: string; ext: string }> => {
     const isPdf = isPdfFile(file);
@@ -170,7 +166,7 @@ function ScanPageContent() {
       img.src = objectUrl;
     });
     return { blob, contentType: 'image/jpeg', ext: '.jpg' };
-  }, [isPdfFile]);
+  }, []);
 
   // Background upload for Pro users - Direct to Supabase Storage
   // Uploads ALL images first, then creates a single scan job with all image paths
@@ -299,7 +295,22 @@ function ScanPageContent() {
       return;
     }
 
-    const hasPdf = files.some((file) => isPdfFile(file));
+    const hasOriginalPdf = files.some((file) => isPdfFile(file));
+    let scanFiles = files;
+    if (hasOriginalPdf) {
+      try {
+        scanFiles = await expandFilesForScan(files);
+      } catch (error) {
+        showToast({
+          message: error instanceof Error ? error.message : 'PDFの処理に失敗しました',
+          type: 'error',
+          duration: 4000,
+        });
+        return;
+      }
+    }
+
+    const hasPdf = scanFiles.some((file) => isPdfFile(file));
 
     // Pro users: use background processing for image files only
     // PDF is processed through the direct extract flow for compatibility.
@@ -322,7 +333,7 @@ function ScanPageContent() {
           setProjectIcon(null);
           setProjectIconError(null);
           setProjectIconProcessing(false);
-          setPendingFiles(files);
+          setPendingFiles(scanFiles);
           setShowProjectNameModal(true);
           return;
         }
@@ -335,11 +346,11 @@ function ScanPageContent() {
       return;
     }
 
-    const totalFiles = files.length;
+    const totalFiles = scanFiles.length;
     setProcessing(true);
 
     // Initialize steps for multiple files
-    const initialSteps: ProgressStep[] = files.map((_, index) => ({
+    const initialSteps: ProgressStep[] = scanFiles.map((_, index) => ({
       id: `file-${index}`,
       label: `画像 ${index + 1}/${totalFiles} を処理中...`,
       status: index === 0 ? 'active' : 'pending',
@@ -351,8 +362,8 @@ function ScanPageContent() {
       const allWords: any[] = [];
       let lastScanInfo = null;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < scanFiles.length; i++) {
+        const file = scanFiles[i];
 
         // Update current step to active
         setProcessingSteps(prev => prev.map((s, idx) => ({
@@ -447,7 +458,7 @@ function ScanPageContent() {
         )
       );
     }
-  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, isPdfFile]);
+  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken]);
 
   const handleProjectIconChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

@@ -7,12 +7,134 @@ const PROJECT_ICON_SIZE = 256;
 
 // Maximum PDF size (Gemini supports up to 100MB, but we limit to 20MB for performance)
 const MAX_PDF_SIZE = 20 * 1024 * 1024;
+const MAX_PDF_PAGES = 20;
+const PDF_RENDER_MAX_DIMENSION = 1600;
+const PDF_RENDER_QUALITY = 0.82;
 
 /**
  * Check if file is PDF format
  */
-function isPdfFile(file: File): boolean {
+export function isPdfFile(file: File): boolean {
   return /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+}
+
+type PdfJsModule = typeof import('pdfjs-dist');
+
+let pdfWorkerConfigured = false;
+
+async function getPdfJsModule(): Promise<PdfJsModule> {
+  const pdfjs = await import('pdfjs-dist');
+
+  if (!pdfWorkerConfigured && typeof window !== 'undefined') {
+    const version = typeof pdfjs.version === 'string' ? pdfjs.version : '4.10.38';
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+    pdfWorkerConfigured = true;
+  }
+
+  return pdfjs;
+}
+
+function stripPdfExtension(name: string): string {
+  return name.replace(/\.pdf$/i, '');
+}
+
+async function fileToDataUrl(file: Blob, readErrorMessage: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error(readErrorMessage));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Convert PDF pages into image files (JPEG), one file per page.
+ */
+export async function convertPdfToImageFiles(file: File): Promise<File[]> {
+  if (!isPdfFile(file)) {
+    return [file];
+  }
+
+  if (file.size > MAX_PDF_SIZE) {
+    throw new Error(`PDFファイルが大きすぎます（最大${MAX_PDF_SIZE / 1024 / 1024}MB）`);
+  }
+
+  if (typeof window === 'undefined') {
+    throw new Error('PDF変換はブラウザ環境でのみ利用できます');
+  }
+
+  const pdfjs = await getPdfJsModule();
+  const data = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = pdfjs.getDocument({ data });
+  const pdf = await loadingTask.promise;
+
+  if (pdf.numPages > MAX_PDF_PAGES) {
+    throw new Error(`PDFは最大${MAX_PDF_PAGES}ページまで対応しています。ファイルを分割してお試しください。`);
+  }
+
+  const outputFiles: File[] = [];
+  const baseName = stripPdfExtension(file.name) || 'document';
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const longestSide = Math.max(baseViewport.width, baseViewport.height) || 1;
+    const scale = Math.min(2, Math.max(0.75, PDF_RENDER_MAX_DIMENSION / longestSide));
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(viewport.width));
+    canvas.height = Math.max(1, Math.round(viewport.height));
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('PDFページ描画に失敗しました');
+    }
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (rendered) => {
+          if (rendered) resolve(rendered);
+          else reject(new Error('PDFページの画像化に失敗しました'));
+        },
+        'image/jpeg',
+        PDF_RENDER_QUALITY
+      );
+    });
+
+    const pageSuffix = String(pageNumber).padStart(3, '0');
+    outputFiles.push(
+      new File([blob], `${baseName}-page-${pageSuffix}.jpg`, { type: 'image/jpeg' })
+    );
+  }
+
+  try {
+    await loadingTask.destroy();
+  } catch {
+    // Ignore cleanup errors
+  }
+
+  return outputFiles;
+}
+
+/**
+ * Expand input files so PDF files are converted into per-page image files.
+ */
+export async function expandFilesForScan(files: File[]): Promise<File[]> {
+  const expanded: File[] = [];
+
+  for (const file of files) {
+    if (isPdfFile(file)) {
+      const pdfPages = await convertPdfToImageFiles(file);
+      expanded.push(...pdfPages);
+    } else {
+      expanded.push(file);
+    }
+  }
+
+  return expanded;
 }
 
 /**
@@ -182,6 +304,11 @@ export async function compressImage(file: File): Promise<File> {
  * - Returns processed file ready for base64 encoding
  */
 export async function processImageFile(file: File): Promise<File> {
+  if (isPdfFile(file)) {
+    const pages = await convertPdfToImageFiles(file);
+    return pages[0];
+  }
+
   // First convert HEIC if needed
   let processedFile = await convertHeicToJpeg(file);
 
@@ -200,17 +327,10 @@ export async function processImageFile(file: File): Promise<File> {
  * - Returns base64 string ready for API
  */
 export async function processImageToBase64(file: File): Promise<string> {
-  // PDF files: pass through without modification (Gemini API supports PDF natively)
+  // PDF files: convert to image (first page fallback) for OpenAI image flow
   if (isPdfFile(file)) {
-    if (file.size > MAX_PDF_SIZE) {
-      throw new Error(`PDFファイルが大きすぎます（最大${MAX_PDF_SIZE / 1024 / 1024}MB）`);
-    }
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('PDFファイルの読み込みに失敗しました'));
-      reader.readAsDataURL(file);
-    });
+    const pages = await convertPdfToImageFiles(file);
+    return fileToDataUrl(pages[0], 'PDFページの読み込みに失敗しました');
   }
 
   // First convert HEIC if needed
@@ -220,12 +340,7 @@ export async function processImageToBase64(file: File): Promise<string> {
   processedFile = await compressImage(processedFile);
 
   // Convert to base64 directly
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read image file'));
-    reader.readAsDataURL(processedFile);
-  });
+  return fileToDataUrl(processedFile, 'Failed to read image file');
 }
 
 /**

@@ -31,6 +31,7 @@
     "heic2any": "^0.0.4",
     "next": "^16.1.6",
     "openai": "^6.16.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0",
