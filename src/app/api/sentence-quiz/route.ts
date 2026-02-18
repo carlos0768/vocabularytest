@@ -122,6 +122,10 @@ const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問
 - 誤答は「惜しいけど間違い」という感じの単語を選ぶ
 - 例: "practice speaking" の誤答なら "writing", "reading", "listening" など関連する活動を選ぶ
 
+【重要：誤答は同品詞・同CEFR帯】
+- 誤答は正解と同じ品詞にしてください
+- 誤答は正解と同じCEFR帯（A1〜C2の同帯域）にしてください
+
 【ルール】
 1. 正解を含めて4つの選択肢を生成（全て単語1つのみ）
 2. 誤答は単純な活用形変化（三人称形、過去形等）を使わない
@@ -215,7 +219,7 @@ async function generateDistractors(
 ): Promise<string[]> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5',
       messages: [
         { role: 'system', content: DISTRACTORS_SYSTEM_PROMPT },
         {
@@ -266,7 +270,7 @@ async function generateMultiFillInBlank(
     // Phase 1: LLMで3空欄の例文を生成（予測付き）
     // ============================================
     const phase1Response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5',
       messages: [
         { role: 'system', content: MULTI_BLANK_SYSTEM_PROMPT },
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
@@ -392,7 +396,7 @@ async function generateMultiFillInBlank(
 
       try {
         const translationResponse = await openai.chat.completions.create({
-          model: 'gpt-4o',
+          model: 'gpt-5',
           messages: [
             {
               role: 'system',
@@ -437,7 +441,7 @@ async function generateFillInBlank(
 ): Promise<FillInBlankQuestion | null> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5',
       messages: [
         {
           role: 'system',
@@ -505,7 +509,7 @@ async function generateWordOrder(
 ): Promise<WordOrderQuestion | null> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5',
       messages: [
         { role: 'system', content: WORD_ORDER_SYSTEM_PROMPT },
         { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
