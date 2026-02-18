@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { AI_CONFIG } from '@/lib/ai/config';
+
+const OPENAI_MODEL = AI_CONFIG.defaults.openai.model;
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -80,7 +83,7 @@ ${questionList}
 JSONのみを出力し、説明は不要です。`;
 
     const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-5-mini',
+      model: OPENAI_MODEL,
       messages: [
         {
           role: 'user',
