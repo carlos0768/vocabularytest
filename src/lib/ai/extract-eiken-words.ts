@@ -120,7 +120,7 @@ export async function extractTextForEiken(
 }
 
 /**
- * Step 2: Analyze text and extract words at specified EIKEN level using GPT-4o
+ * Step 2: Analyze text and extract words at specified EIKEN level using GPT-5
  */
 export async function analyzeWordsForEiken(
   text: string,

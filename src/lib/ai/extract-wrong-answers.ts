@@ -175,7 +175,7 @@ export async function extractTestFromImage(
 }
 
 /**
- * Step 2: Analyze test data and extract only wrong answers using GPT-4o
+ * Step 2: Analyze test data and extract only wrong answers using GPT-5
  * Generates vocabulary data for incorrectly answered questions
  */
 export async function analyzeWrongAnswers(
@@ -217,7 +217,7 @@ export async function analyzeWrongAnswers(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5',
       response_format: { type: 'json_object' },
       messages: [
         {
