@@ -238,30 +238,61 @@ export async function POST(request: NextRequest) {
         throw new Error('Failed to insert words');
       }
 
-      // Generate embeddings for semantic search (fire and forget - don't block completion)
-      if (insertedWords && insertedWords.length > 0) {
+      const insertedWordsArray = insertedWords ?? [];
+
+      const resultPayload: { wordCount: number; warnings?: ExtractionWarningCode[] } = {
+        wordCount: allExtractedWords.length,
+      };
+      if (warningCodes.size > 0) {
+        resultPayload.warnings = Array.from(warningCodes);
+      }
+
+      await getSupabaseAdmin()
+        .from('scan_jobs')
+        .update({
+          status: 'completed',
+          project_id: newProject.id,
+          result: JSON.stringify(resultPayload),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', jobId);
+
+      void sendScanJobPushNotifications(getSupabaseAdmin(), {
+        userId: job.user_id,
+        jobId,
+        projectId: newProject.id,
+        projectTitle: job.project_title,
+        status: 'completed',
+        wordCount: allExtractedWords.length,
+      }).catch((error) => {
+        console.error('Failed to send completed push notification:', error);
+      });
+
+      // Heavy/non-critical tasks run after completion update so users are not blocked.
+      void (async () => {
+        if (insertedWordsArray.length === 0) return;
+
+        // Generate embeddings for semantic search (best effort)
         try {
-          const texts = insertedWords.map((w: { english: string; japanese: string }) =>
+          const texts = insertedWordsArray.map((w: { english: string; japanese: string }) =>
             `${w.english} - ${w.japanese}`
           );
           const embeddings = await batchGenerateEmbeddings(texts);
 
-          for (let i = 0; i < insertedWords.length; i++) {
-            if (embeddings[i]) {
-              await getSupabaseAdmin().rpc('update_word_embedding', {
-                word_id: insertedWords[i].id,
+          await Promise.all(
+            insertedWordsArray.map((word: { id: string }, i: number) => {
+              if (!embeddings[i]) return Promise.resolve();
+              return getSupabaseAdmin().rpc('update_word_embedding', {
+                word_id: word.id,
                 new_embedding: embeddings[i],
               });
-            }
-          }
-          console.log(`Generated embeddings for ${insertedWords.length} words`);
+            })
+          );
+          console.log(`Generated embeddings for ${insertedWordsArray.length} words`);
         } catch (embeddingError) {
-          // Don't fail the scan if embedding generation fails
           console.error('Embedding generation failed (non-critical):', embeddingError);
         }
-      }
 
-      if (insertedWords && insertedWords.length > 0) {
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (serviceRoleKey) {
           const rebuildUrl = new URL('/api/similar-cache/rebuild', request.url);
@@ -274,20 +305,16 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               userId: job.user_id,
               mode: 'on_new_words',
-              newWordIds: insertedWords.map((word: { id: string }) => word.id),
+              newWordIds: insertedWordsArray.map((word: { id: string }) => word.id),
             }),
           }).catch((error) => {
-            // Keep scan completion path fast even if similar cache rebuild fails.
             console.error('Failed to trigger similar cache rebuild:', error);
           });
         }
-      }
 
-      // Pre-generate quiz distractors and example sentences so quiz screens open instantly.
-      // Keep this best-effort and bounded (first 30 words) to avoid delaying completion too much.
-      if (insertedWords && insertedWords.length > 0) {
+        // Pre-generate quiz distractors and example sentences (best effort)
         try {
-          const quizSeedWords = insertedWords
+          const quizSeedWords = insertedWordsArray
             .slice(0, 30)
             .map((w: { id: string; english: string; japanese: string }) => ({
               id: w.id,
@@ -309,36 +336,9 @@ export async function POST(request: NextRequest) {
             )
           );
         } catch (quizGenerationError) {
-          // Non-critical: scan should still complete even if quiz pre-generation fails.
           console.error('Quiz pre-generation failed (non-critical):', quizGenerationError);
         }
-      }
-
-      const resultPayload: { wordCount: number; warnings?: ExtractionWarningCode[] } = {
-        wordCount: allExtractedWords.length,
-      };
-      if (warningCodes.size > 0) {
-        resultPayload.warnings = Array.from(warningCodes);
-      }
-
-      await getSupabaseAdmin()
-        .from('scan_jobs')
-        .update({
-          status: 'completed',
-          project_id: newProject.id,
-          result: JSON.stringify(resultPayload),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', jobId);
-
-      await sendScanJobPushNotifications(getSupabaseAdmin(), {
-        userId: job.user_id,
-        jobId,
-        projectId: newProject.id,
-        projectTitle: job.project_title,
-        status: 'completed',
-        wordCount: allExtractedWords.length,
-      });
+      })();
 
       return NextResponse.json({
         success: true,
