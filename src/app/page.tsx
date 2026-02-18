@@ -1409,8 +1409,8 @@ export default function HomePage() {
             className="hidden"
           />
 
-          <header className="header-film sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4 lg:hidden">
-            <div className="max-w-lg mx-auto">
+          <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)] lg:hidden">
+            <div className="max-w-lg mx-auto px-4 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-extrabold text-[var(--color-primary)] tracking-tight font-display">MERKEN</h1>
@@ -1509,7 +1509,7 @@ export default function HomePage() {
         />
 
         {/* Header - mobile only */}
-        <header className="header-film sticky top-0 bg-[var(--color-background)]/95 z-40 border-b border-[var(--color-border-light)] lg:hidden">
+        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)] lg:hidden">
           <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
@@ -1528,8 +1528,8 @@ export default function HomePage() {
         </header>
 
         {/* Desktop header */}
-        <header className="header-film sticky top-0 hidden lg:block pt-6 pb-1 z-40 bg-[var(--color-background)]/80">
-          <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 flex items-center justify-between">
+        <header className="sticky top-0 hidden lg:block z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+          <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-[var(--color-foreground)] font-display">ダッシュボード</h1>
               <p className="text-sm text-[var(--color-muted)] mt-1">手入力ゼロで単語帳を作成</p>
