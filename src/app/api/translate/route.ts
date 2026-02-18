@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const config = {
       ...AI_CONFIG.defaults.openai,
-      model: 'gpt-5',
+      model: 'gpt5mini',
       maxOutputTokens: 256,
     };
     const provider = getProviderFromConfig(config, { openai: openaiApiKey });
