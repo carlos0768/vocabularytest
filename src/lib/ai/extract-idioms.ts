@@ -12,6 +12,41 @@ export type IdiomExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string; reason?: 'no_idiom_found' };
 
+const VERB_HINTS = new Set([
+  'be', 'am', 'is', 'are', 'was', 'were', 'been', 'being',
+  'do', 'does', 'did', 'done',
+  'have', 'has', 'had',
+  'get', 'got', 'make', 'take', 'give', 'put', 'set',
+  'look', 'feel', 'issue', 'come', 'go', 'keep', 'turn', 'work', 'pay', 'run',
+  'call', 'bring', 'carry', 'pick', 'check', 'figure', 'point',
+]);
+
+const SUBJECT_STARTERS = new Set([
+  'i', 'you', 'he', 'she', 'we', 'they', 'it', 'this', 'that', 'these', 'those',
+]);
+
+function normalizeExpression(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function isStrictVerbIdiom(expression: string): boolean {
+  const normalized = normalizeExpression(expression);
+  if (!normalized) return false;
+  if (/[.!?]/.test(normalized)) return false;
+
+  const tokens = normalized.split(' ');
+  if (tokens.length < 2 || tokens.length > 6) return false;
+  if (SUBJECT_STARTERS.has(tokens[0])) return false;
+
+  const hasVerbLikeToken = tokens.some((token) =>
+    VERB_HINTS.has(token) ||
+    (token.endsWith('ing') && token.length > 4) ||
+    (token.endsWith('ed') && token.length > 3)
+  );
+
+  return hasVerbLikeToken;
+}
+
 // Extracts idioms and phrases from an image using AI provider (configured in config.ts)
 // Returns validated word data (using same schema as words) or an error message
 export async function extractIdiomsFromImage(
@@ -81,8 +116,17 @@ export async function extractIdiomsFromImage(
       };
     }
 
+    const strictWords = validated.data!.words.filter((word) => isStrictVerbIdiom(word.english));
+
+    if (strictWords.length !== validated.data!.words.length) {
+      console.log('Idiom strict filter applied:', {
+        before: validated.data!.words.length,
+        after: strictWords.length,
+      });
+    }
+
     // Check if any idioms were extracted
-    if (validated.data!.words.length === 0) {
+    if (strictWords.length === 0) {
       console.warn('Idiom extraction returned valid JSON but no idioms were found');
       return {
         success: false,
@@ -91,7 +135,13 @@ export async function extractIdiomsFromImage(
       };
     }
 
-    return { success: true, data: validated.data! };
+    return {
+      success: true,
+      data: {
+        ...validated.data!,
+        words: strictWords,
+      },
+    };
   } catch (error) {
     console.error('AI idiom extraction error:', error);
 

@@ -311,9 +311,10 @@ function ScanPageContent() {
     }
 
     const hasPdf = scanFiles.some((file) => isPdfFile(file));
+    const canUseBackground = scanFiles.length <= 20;
 
-    // Pro users: use background processing for image files only
-    // PDF is processed through the direct extract flow for compatibility.
+    // Pro users: prefer background processing.
+    // When PDF is included, it is converted to image pages before this branch.
     if (isPro) {
       // If adding to existing project, use traditional flow
       if (projectId) {
@@ -321,7 +322,13 @@ function ScanPageContent() {
       } else {
         if (hasPdf) {
           showToast({
-            message: 'PDFは互換性のため通常解析モードで処理します',
+            message: 'PDFは画像化して通常解析モードで処理します',
+            type: 'warning',
+            duration: 3500,
+          });
+        } else if (!canUseBackground) {
+          showToast({
+            message: '画像が20枚を超えるため通常解析モードで処理します',
             type: 'warning',
             duration: 3500,
           });

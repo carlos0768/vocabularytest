@@ -16,7 +16,7 @@ import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { markProjectVisited } from '@/lib/project-visit';
-import { processImageFile } from '@/lib/image-utils';
+import { expandFilesForScan, isPdfFile, processImageFile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -235,11 +235,24 @@ export default function ProjectDetailPage() {
     setShowScanModeModal(false);
     if (!files.length || !project) return;
 
+    let scanFiles = files;
+    if (files.some((file) => isPdfFile(file))) {
+      try {
+        scanFiles = await expandFilesForScan(files);
+      } catch (error) {
+        showToast({
+          message: error instanceof Error ? error.message : 'PDFの処理に失敗しました',
+          type: 'error',
+        });
+        return;
+      }
+    }
+
     // Set existing project id so /scan/confirm adds to this project
     sessionStorage.setItem('scanvocab_existing_project_id', project.id);
     sessionStorage.removeItem('scanvocab_project_name');
 
-    const totalFiles = files.length;
+    const totalFiles = scanFiles.length;
     setProcessing(true);
 
     if (totalFiles === 1) {
@@ -250,7 +263,7 @@ export default function ProjectDetailPage() {
       ]);
 
       try {
-        const processedFile = await processImageFile(files[0]);
+        const processedFile = await processImageFile(scanFiles[0]);
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
@@ -294,7 +307,7 @@ export default function ProjectDetailPage() {
       }
     } else {
       // Multi-file flow
-      const initialSteps: ProgressStep[] = files.map((_, i) => ({
+      const initialSteps: ProgressStep[] = scanFiles.map((_, i) => ({
         id: `file-${i}`,
         label: `画像 ${i + 1}/${totalFiles} を処理中...`,
         status: i === 0 ? 'active' : 'pending',
@@ -305,7 +318,7 @@ export default function ProjectDetailPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const allWords: any[] = [];
 
-        for (let i = 0; i < files.length; i++) {
+        for (let i = 0; i < scanFiles.length; i++) {
           setProcessingSteps(prev => prev.map((s, idx) => ({
             ...s,
             status: idx < i ? 'complete' : idx === i ? 'active' : 'pending',
@@ -314,7 +327,7 @@ export default function ProjectDetailPage() {
 
           let processedFile: File;
           try {
-            processedFile = await processImageFile(files[i]);
+            processedFile = await processImageFile(scanFiles[i]);
           } catch {
             setProcessingSteps(prev => prev.map((s, idx) => ({
               ...s,

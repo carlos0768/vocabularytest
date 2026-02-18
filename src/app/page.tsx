@@ -20,7 +20,7 @@ import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
 import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
-import { processImageToBase64 } from '@/lib/image-utils';
+import { expandFilesForScan, isPdfFile, processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import { hasVisitedProject } from '@/lib/project-visit';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
@@ -992,15 +992,29 @@ export default function HomePage() {
       return;
     }
 
-    setPendingFile(files[0]); // Keep first file for project name modal compatibility
-    setPendingFiles(files);
+    let scanFiles = files;
+    if (files.some((file) => isPdfFile(file))) {
+      try {
+        scanFiles = await expandFilesForScan(files);
+      } catch (error) {
+        showToast({
+          message: error instanceof Error ? error.message : 'PDFの処理に失敗しました',
+          type: 'error',
+          duration: 4000,
+        });
+        return;
+      }
+    }
+
+    setPendingFile(scanFiles[0] ?? null); // Keep first file for project name modal compatibility
+    setPendingFiles(scanFiles);
 
     // If adding to existing project, skip project name modal
     if (isAddingToExisting && currentProject) {
       sessionStorage.setItem('scanvocab_existing_project_id', currentProject.id);
       sessionStorage.removeItem('scanvocab_project_name');
       sessionStorage.removeItem('scanvocab_project_icon');
-      processMultipleImages(files);
+      processMultipleImages(scanFiles);
     } else {
       setShowProjectNameModal(true);
     }
@@ -1214,10 +1228,11 @@ export default function HomePage() {
     setPendingFiles([]);
 
     if (files.length === 0) return;
-    const hasPdf = files.some((file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name));
+    const hasPdf = files.some((file) => isPdfFile(file));
+    const canUseBackground = files.length <= 20;
 
     // Pro users: use background upload (same as /scan page)
-    if (isPro && user && !hasPdf) {
+    if (isPro && user && !hasPdf && canUseBackground) {
       setScanUploadStatus('uploading');
       try {
         const supabase = createBrowserClient();
@@ -1323,7 +1338,14 @@ export default function HomePage() {
 
     if (isPro && hasPdf) {
       showToast({
-        message: 'PDFは通常解析モードで処理します',
+        message: 'PDFは画像化して通常解析モードで処理します',
+        type: 'warning',
+        duration: 3500,
+      });
+    }
+    if (isPro && !hasPdf && !canUseBackground) {
+      showToast({
+        message: '画像が20枚を超えるため通常解析モードで処理します',
         type: 'warning',
         duration: 3500,
       });

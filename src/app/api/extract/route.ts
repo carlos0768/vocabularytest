@@ -184,15 +184,7 @@ export async function POST(request: NextRequest) {
       // Wrong answer mode: OCR + analysis for vocabulary test mistakes
       result = await extractWrongAnswersFromImage(image, openaiApiKey);
     } else if (mode === 'idiom') {
-      const idiomResult = await extractIdiomsFromImage(image, openaiApiKey);
-      if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
-        console.warn('No idioms found. Falling back to all-word extraction for this scan.');
-        result = await extractWordsFromImage(image, openaiApiKey, {
-          includeExamples: scanData.is_pro === true,
-        });
-      } else {
-        result = idiomResult;
-      }
+      result = await extractIdiomsFromImage(image, openaiApiKey);
     } else if (mode === 'eiken') {
       // EIKEN filter mode
       if (!eikenLevel) {
