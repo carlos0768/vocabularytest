@@ -38,7 +38,7 @@ type ExtractionLikeResult =
   | { success: true; data: { words: unknown[] } }
   | { success: false; error: string; reason?: string };
 
-const EXTRACTION_TIMEOUT_MS = 90_000;
+const EXTRACTION_TIMEOUT_MS = 10 * 60 * 1000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutId: NodeJS.Timeout | null = null;
