@@ -168,7 +168,6 @@ export async function analyzeWordsForEiken(
         },
       ],
       max_completion_tokens: config.maxOutputTokens,
-      temperature: 0.3,
     });
 
     const content = response.choices[0]?.message?.content;
