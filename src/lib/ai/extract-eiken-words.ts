@@ -12,6 +12,8 @@ import { getProviderFromConfig } from './providers';
 import { extractWordsFromImage } from './extract-words';
 import type { EikenLevel } from '@/app/api/extract/route';
 
+const EIKEN_FILTER_MODEL = process.env.OPENAI_MODEL_EIKEN_FILTER?.trim() || 'gpt-5';
+
 // Result type for OCR extraction
 export type EikenOCRResult =
   | { success: true; text: string }
@@ -151,11 +153,15 @@ export async function analyzeWordsForEiken(
   const userPrompt = EIKEN_WORD_ANALYSIS_USER_PROMPT + text;
   const config = AI_CONFIG.extraction.eiken;
 
-  console.log('GPT Word analysis for EIKEN:', { textLength: text.length, eikenLevel });
+  console.log('GPT Word analysis for EIKEN:', {
+    textLength: text.length,
+    eikenLevel,
+    model: EIKEN_FILTER_MODEL,
+  });
 
   try {
     const response = await openai.chat.completions.create({
-      model: config.model,
+      model: EIKEN_FILTER_MODEL,
       response_format: { type: 'json_object' },
       messages: [
         {
