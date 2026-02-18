@@ -104,7 +104,13 @@ export async function ensureWebPushSubscription(options: {
 
   let permission: NotificationPermission = Notification.permission;
   if (permission === 'default' && requestPermission) {
-    permission = await Notification.requestPermission();
+    try {
+      permission = await Notification.requestPermission();
+    } catch (error) {
+      // Some browsers/extensions can abort permission flow unexpectedly.
+      console.warn('Web push permission request aborted:', error);
+      return 'permission-default';
+    }
   }
 
   if (permission === 'default') {
@@ -138,7 +144,11 @@ export async function ensureWebPushSubscription(options: {
 
     return saved ? 'enabled' : 'error';
   } catch (error) {
-    console.error('Failed to ensure web push subscription:', error);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      console.warn('Web push subscription aborted by browser/push service:', error.message);
+    } else {
+      console.error('Failed to ensure web push subscription:', error);
+    }
     return 'error';
   }
 }

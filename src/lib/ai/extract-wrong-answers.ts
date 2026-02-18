@@ -230,7 +230,6 @@ export async function analyzeWrongAnswers(
         },
       ],
       max_completion_tokens: 4096,
-      temperature: 0.7,
     });
 
     const content = response.choices[0]?.message?.content;
