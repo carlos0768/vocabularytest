@@ -51,7 +51,8 @@ export class OpenAIProvider implements AIProvider {
         });
       }
 
-      const isGpt5Family = config.model.startsWith('gpt-5');
+      const isGpt5Family =
+        config.model.startsWith('gpt-5') || config.model.startsWith('gpt5');
       const response = await this.client.chat.completions.create({
         model: config.model,
         messages,

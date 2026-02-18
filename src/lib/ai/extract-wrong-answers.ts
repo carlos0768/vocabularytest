@@ -217,7 +217,7 @@ export async function analyzeWrongAnswers(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-5',
+      model: 'gpt5mini',
       response_format: { type: 'json_object' },
       messages: [
         {
