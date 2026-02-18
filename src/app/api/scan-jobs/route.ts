@@ -16,6 +16,26 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
+const SCAN_JOB_TIMEOUT_MS = 8 * 60 * 1000;
+const SCAN_JOB_TIMEOUT_MESSAGE = '処理がタイムアウトしました。もう一度お試しください。';
+
+function isTimedOutJob(job: {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  updated_at: string;
+  created_at: string;
+}): boolean {
+  if (job.status !== 'pending' && job.status !== 'processing') {
+    return false;
+  }
+
+  const baseTime = Date.parse(job.updated_at || job.created_at);
+  if (Number.isNaN(baseTime)) {
+    return false;
+  }
+
+  return Date.now() - baseTime > SCAN_JOB_TIMEOUT_MS;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -144,7 +164,52 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 });
     }
 
-    return NextResponse.json({ jobs });
+    const normalizedJobs = (jobs || []) as Array<{
+      id: string;
+      user_id: string;
+      project_id: string | null;
+      project_title: string;
+      scan_mode: string;
+      image_path: string;
+      status: 'pending' | 'processing' | 'completed' | 'failed';
+      result: string | null;
+      error_message: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+
+    const timedOutJobIds = normalizedJobs
+      .filter((job) => isTimedOutJob(job))
+      .map((job) => job.id);
+
+    if (timedOutJobIds.length > 0) {
+      const nowIso = new Date().toISOString();
+      const { error: timeoutUpdateError } = await getSupabaseAdmin()
+        .from('scan_jobs')
+        .update({
+          status: 'failed',
+          error_message: SCAN_JOB_TIMEOUT_MESSAGE,
+          updated_at: nowIso,
+        })
+        .eq('user_id', user.id)
+        .in('id', timedOutJobIds)
+        .in('status', ['pending', 'processing']);
+
+      if (timeoutUpdateError) {
+        console.error('Failed to mark timed-out scan jobs as failed:', timeoutUpdateError);
+      } else {
+        const timeoutSet = new Set(timedOutJobIds);
+        for (const job of normalizedJobs) {
+          if (timeoutSet.has(job.id)) {
+            job.status = 'failed';
+            job.error_message = SCAN_JOB_TIMEOUT_MESSAGE;
+            job.updated_at = nowIso;
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ jobs: normalizedJobs });
 
   } catch (error) {
     console.error('Scan job fetch error:', error);

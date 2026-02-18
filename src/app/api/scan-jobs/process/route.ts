@@ -27,7 +27,7 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const processSchema = z.object({
   jobId: z.string().uuid(),
