@@ -200,43 +200,43 @@ export default function FeaturesPage() {
                     {/* Visual panel */}
                     <div
                       className={cn(
-                        'relative flex items-center justify-center py-12 md:py-16',
+                        'relative flex items-center justify-center py-8 md:py-10',
                         isReversed && 'md:order-2'
                       )}
                       style={{ background: `linear-gradient(135deg, ${mode.color}18, ${mode.color}08)` }}
                     >
                       <div
-                        className="absolute w-32 h-32 rounded-full"
+                        className="absolute w-20 h-20 rounded-full"
                         style={{ backgroundColor: mode.color + '15' }}
                       />
                       <div
-                        className="absolute w-20 h-20 rounded-full translate-x-8 -translate-y-6"
+                        className="absolute w-12 h-12 rounded-full translate-x-6 -translate-y-4"
                         style={{ backgroundColor: mode.color + '10' }}
                       />
-                      <Icon name={mode.icon} size={72} style={{ color: mode.color }} className="relative z-10" />
+                      <Icon name={mode.icon} size={44} style={{ color: mode.color }} className="relative z-10" />
                     </div>
 
                     {/* Text panel */}
-                    <div className={cn('p-6 md:p-10 flex flex-col justify-center', isReversed && 'md:order-1')}>
+                    <div className={cn('p-5 md:p-7 flex flex-col justify-center', isReversed && 'md:order-1')}>
                       <span
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full w-fit mb-4"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full w-fit mb-3"
                         style={{ backgroundColor: mode.color + '15', color: mode.color }}
                       >
-                        <Icon name={mode.icon} size={14} style={{ color: mode.color }} />
+                        <Icon name={mode.icon} size={13} style={{ color: mode.color }} />
                         スキャンモード
                       </span>
-                      <h3 className="font-display text-xl md:text-2xl font-bold text-[var(--color-foreground)]">
+                      <h3 className="font-display text-lg md:text-xl font-bold text-[var(--color-foreground)]">
                         {mode.title}
                       </h3>
-                      <p className="text-[var(--color-muted)] mt-3 leading-relaxed text-base">
+                      <p className="text-sm text-[var(--color-muted)] mt-2 leading-relaxed">
                         {mode.description}
                       </p>
                       <div
-                        className="mt-4 p-3 rounded-xl flex items-start gap-2"
+                        className="mt-3 p-2.5 rounded-lg flex items-start gap-2"
                         style={{ backgroundColor: mode.color + '08' }}
                       >
-                        <Icon name="lightbulb" size={18} style={{ color: mode.color }} className="mt-0.5 shrink-0" />
-                        <p className="text-sm text-[var(--color-muted)]">{mode.useCase}</p>
+                        <Icon name="lightbulb" size={16} style={{ color: mode.color }} className="mt-0.5 shrink-0" />
+                        <p className="text-xs text-[var(--color-muted)]">{mode.useCase}</p>
                       </div>
                     </div>
                   </article>
@@ -295,7 +295,7 @@ export default function FeaturesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 <div>
                   <h2 className="font-display text-2xl md:text-3xl font-bold text-[var(--color-foreground)] mb-2">
-                    学習の進捗を見える化
+                    学習の進捗がひと目でわかる
                   </h2>
                   <p className="text-[var(--color-muted)] mb-6 leading-relaxed">
                     毎日の学習をデータで振り返り。モチベーションが続く仕組みがあります。
