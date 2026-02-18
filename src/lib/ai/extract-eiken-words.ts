@@ -259,7 +259,6 @@ export async function extractEikenWordsFromImage(
 
   if (!analysisResult.success) {
     const shouldFallback =
-      analysisResult.reason === 'no_words_found' ||
       analysisResult.reason === 'invalid_format' ||
       analysisResult.reason === 'invalid_json';
 
