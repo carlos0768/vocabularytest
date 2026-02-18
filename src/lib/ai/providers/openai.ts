@@ -55,7 +55,7 @@ export class OpenAIProvider implements AIProvider {
         model: config.model,
         messages,
         temperature: config.temperature,
-        max_tokens: config.maxOutputTokens,
+        max_completion_tokens: config.maxOutputTokens,
         ...(config.responseFormat === 'json' && { response_format: { type: 'json_object' as const } }),
       });
 
