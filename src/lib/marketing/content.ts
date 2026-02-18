@@ -88,6 +88,104 @@ export const studyModes: MarketingItem[] = [
   },
 ];
 
+/* ===== Features LP: How It Works ===== */
+
+export interface HowItWorksStep {
+  number: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+export const howItWorksSteps: HowItWorksStep[] = [
+  {
+    number: '01',
+    title: '撮影する',
+    description: 'ノート・プリント・教科書の写真を撮るだけ。',
+    icon: 'photo_camera',
+  },
+  {
+    number: '02',
+    title: '確認する',
+    description: 'AIが抽出した単語を確認・編集。',
+    icon: 'edit_note',
+  },
+  {
+    number: '03',
+    title: '学習する',
+    description: 'クイズ・カード・例文で繰り返し学習。',
+    icon: 'school',
+  },
+];
+
+/* ===== Features LP: Scan Modes (expanded) ===== */
+
+export interface LPScanMode extends MarketingItem {
+  useCase: string;
+  color: string;
+}
+
+export const lpScanModes: LPScanMode[] = [
+  {
+    title: 'すべての単語',
+    description: '写真内の英単語をまとめて抽出。ノートを丸ごとデジタル化。',
+    icon: 'center_focus_weak',
+    useCase: '授業ノートやプリントを一括取り込みしたいとき',
+    color: '#137fec',
+  },
+  {
+    title: '丸で囲んだ単語',
+    description: 'ペンで丸をつけた単語だけをAIが認識して抽出。',
+    icon: 'radio_button_checked',
+    useCase: 'テスト前に覚えたい単語だけピックアップしたいとき',
+    color: '#8b5cf6',
+  },
+  {
+    title: 'ハイライト単語',
+    description: '蛍光ペンで塗った単語だけを自動で抽出。',
+    icon: 'highlight',
+    useCase: '教科書の重要箇所をマーカーで印をつけているとき',
+    color: '#f59e0b',
+  },
+  {
+    title: '英検レベル',
+    description: '英検5級〜1級の範囲を指定して、該当する単語だけを抽出。',
+    icon: 'menu_book',
+    useCase: '英検対策で、自分の級に合った単語だけ学びたいとき',
+    color: '#22c55e',
+  },
+  {
+    title: '熟語・イディオム',
+    description: '句動詞や熟語をまとめて重点抽出。',
+    icon: 'translate',
+    useCase: '長文読解に必要なフレーズをまとめて覚えたいとき',
+    color: '#ec4899',
+  },
+  {
+    title: '間違えた単語',
+    description: 'テストで間違えた問題の英単語を再学習用に抽出。',
+    icon: 'warning',
+    useCase: 'テスト返却後、間違いだけを効率よく復習したいとき',
+    color: '#ef4444',
+  },
+];
+
+/* ===== Features LP: Progress Tracking ===== */
+
+export interface ProgressFeature {
+  icon: string;
+  text: string;
+}
+
+export const progressFeatures: ProgressFeature[] = [
+  { icon: 'check_circle', text: '習得済み・復習中・未学習を自動で分類' },
+  { icon: 'bar_chart', text: '今日の学習量と正答率をリアルタイム表示' },
+  { icon: 'local_fire_department', text: '連続学習日数で継続をサポート' },
+  { icon: 'star', text: '苦手単語をお気に入り登録して重点復習' },
+];
+
+/* ===== Pricing page ===== */
+
 export const pricingComparisonRows: PricingComparisonRow[] = [
   {
     feature: 'スキャン回数',

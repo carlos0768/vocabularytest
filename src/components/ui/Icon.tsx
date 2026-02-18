@@ -5,9 +5,10 @@ interface IconProps {
   filled?: boolean;
   size?: number;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function Icon({ name, filled = false, size = 24, className }: IconProps) {
+export function Icon({ name, filled = false, size = 24, className, style }: IconProps) {
   return (
     <span
       className={cn(
@@ -15,7 +16,7 @@ export function Icon({ name, filled = false, size = 24, className }: IconProps) 
         filled && 'filled',
         className
       )}
-      style={{ fontSize: size }}
+      style={{ fontSize: size, ...style }}
     >
       {name}
     </span>
