@@ -451,7 +451,7 @@ async function generateFillInBlank(
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成
 2. 例文は中学〜高校レベルの難易度
 3. 空欄は1つだけ（対象単語の部分）
-4. 選択肢は8つ（1つが正解、7つが誤答）
+4. 選択肢は4つ（1つが正解、3つが誤答）
 5. 空欄に入れる語は文脈に合った正しい活用形にする（be→is/are/was 等）
 
 【選択肢のルール - 重要】
@@ -465,7 +465,7 @@ async function generateFillInBlank(
 {
   "sentence": "She ___ to the store to buy some food.",
   "blanks": [
-    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned", "traveled", "walked", "drove", "visited"] }
+    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned"] }
   ],
   "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
 }`,
