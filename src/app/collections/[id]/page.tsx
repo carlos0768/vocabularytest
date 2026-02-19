@@ -451,6 +451,7 @@ export default function CollectionDetailPage() {
               onDelete={handleDeleteWord}
               onToggleFavorite={handleToggleFavorite}
               showProjectName
+              listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
             />
           </section>
 

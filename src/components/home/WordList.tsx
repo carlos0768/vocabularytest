@@ -120,6 +120,7 @@ interface WordListProps {
   onAddClick?: () => void;
   onScanClick?: () => void;
   showProjectName?: boolean;
+  listMaxHeightClassName?: string;
 }
 
 export function WordList({
@@ -133,6 +134,7 @@ export function WordList({
   onAddClick,
   onScanClick,
   showProjectName = false,
+  listMaxHeightClassName,
 }: WordListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -231,7 +233,13 @@ export function WordList({
       )}
 
       {/* Word list */}
-      <div className="space-y-2">
+      <div
+        className={`space-y-2 ${
+          listMaxHeightClassName
+            ? `${listMaxHeightClassName} overflow-y-auto overscroll-contain pr-1`
+            : ''
+        }`}
+      >
         {words.length === 0 ? (
           <p className="text-center text-[var(--color-muted)] py-4">単語がありません</p>
         ) : filteredWords.length === 0 ? (
