@@ -356,6 +356,89 @@ function ScanPageContent() {
     const totalFiles = scanFiles.length;
     setProcessing(true);
 
+    // Highlighted mode with multiple images: batch all into a single API call
+    if (selectedMode === 'highlighted' && totalFiles > 1) {
+      setProcessingSteps([
+        { id: 'convert', label: `${totalFiles}枚の画像を変換中...`, status: 'active' },
+        { id: 'analyze', label: `${totalFiles}枚の画像を一括解析中...`, status: 'pending' },
+      ]);
+
+      try {
+        // Convert all images to base64
+        const base64Images: string[] = [];
+        for (let i = 0; i < scanFiles.length; i++) {
+          const base64 = await processImageToBase64(scanFiles[i]);
+          base64Images.push(base64);
+        }
+
+        setProcessingSteps(prev => prev.map((s) => ({
+          ...s,
+          status: s.id === 'convert' ? 'complete' : s.id === 'analyze' ? 'active' : s.status,
+        })));
+
+        // Send all images in one request
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            images: base64Images,
+            mode: selectedMode,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          if (result.limitReached) {
+            setProcessing(false);
+            setProcessingSteps([]);
+            setScanInfo(result.scanInfo);
+            setShowScanLimitModal(true);
+            return;
+          }
+          throw new Error(result.error || '画像の解析に失敗しました');
+        }
+
+        if (result.scanInfo) {
+          setScanInfo(result.scanInfo);
+        }
+
+        if (!result.words || result.words.length === 0) {
+          throw new Error('画像から単語を読み取れませんでした');
+        }
+
+        sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
+        if (projectId) {
+          sessionStorage.setItem('scanvocab_existing_project_id', projectId);
+        }
+
+        setProcessingSteps([
+          { id: 'convert', label: '画像変換完了', status: 'complete' },
+          { id: 'analyze', label: `${result.words.length}語を検出`, status: 'complete' },
+          { id: 'navigate', label: '結果を表示中...', status: 'active' },
+        ]);
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+        router.replace('/scan/confirm');
+      } catch (error) {
+        console.error('Scan error (highlighted batch):', error);
+        setProcessing(false);
+        setProcessingSteps((prev) =>
+          prev.map((s) =>
+            s.status === 'active' || s.status === 'pending'
+              ? {
+                  ...s,
+                  status: 'error',
+                  label: error instanceof Error ? error.message : '予期しないエラーが発生しました',
+                }
+              : s
+          )
+        );
+      }
+      return;
+    }
+
+    // Default flow: process images one by one
     // Initialize steps for multiple files
     const initialSteps: ProgressStep[] = scanFiles.map((_, index) => ({
       id: `file-${index}`,
