@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
-import { extractHighlightedWordsFromImage, extractHighlightedWordsFromImages } from '@/lib/ai/extract-highlighted-words';
+import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
@@ -192,15 +192,18 @@ export async function POST(request: NextRequest) {
         extractionTimeoutMinutes: EXTRACTION_TIMEOUT_MINUTES,
       });
 
-      // Helper: download image and convert to data URL
-      async function downloadImageAsDataUrl(imagePath: string): Promise<string | null> {
+      // Process each image and merge results
+      for (const imagePath of imagePaths) {
         const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
           .from('scan-images')
           .download(imagePath);
 
         if (downloadError || !imageData) {
           console.error(`Failed to download image ${imagePath}:`, downloadError);
-          return null;
+          if (!firstExtractionError) {
+            firstExtractionError = '画像データの取得に失敗しました';
+          }
+          continue; // Skip failed images, process the rest
         }
 
         const buffer = await imageData.arrayBuffer();
@@ -213,94 +216,45 @@ export async function POST(request: NextRequest) {
           : ext === 'webp'
           ? 'image/webp'
           : 'image/jpeg';
-        return `data:${mimeType};base64,${base64}`;
-      }
+        const base64Image = `data:${mimeType};base64,${base64}`;
 
-      // Highlighted mode with multiple images: batch into a single API call
-      if (mode === 'highlighted' && imagePaths.length > 1) {
-        const base64Images: string[] = [];
-        for (const imagePath of imagePaths) {
-          const dataUrl = await downloadImageAsDataUrl(imagePath);
-          if (dataUrl) {
-            base64Images.push(dataUrl);
-          } else if (!firstExtractionError) {
-            firstExtractionError = '画像データの取得に失敗しました';
+        let extractionResult: { result: ExtractionLikeResult; warningCode?: ExtractionWarningCode } | null = null;
+        try {
+          extractionResult = await withTimeout(
+            extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey),
+            EXTRACTION_TIMEOUT_MS,
+            `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
+          );
+        } catch (error) {
+          console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
+          if (!firstExtractionError) {
+            firstExtractionError = error instanceof Error ? error.message : '画像解析に失敗しました';
           }
+          continue;
         }
 
-        if (base64Images.length > 0) {
-          try {
-            const batchResult = await withTimeout(
-              extractHighlightedWordsFromImages(base64Images, openaiApiKey!, openaiApiKey),
-              EXTRACTION_TIMEOUT_MS,
-              `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
-            );
+        const { result, warningCode } = extractionResult;
 
-            if (batchResult.success && batchResult.data?.words) {
-              allExtractedWords.push(...batchResult.data.words);
-            } else if (!batchResult.success) {
-              console.error('Highlighted batch extraction failed:', batchResult.error);
-              if (!firstExtractionError) {
-                firstExtractionError = batchResult.error || '画像の解析に失敗しました';
-              }
-            }
-          } catch (error) {
-            console.error('Highlighted batch extraction timed out:', error);
-            if (!firstExtractionError) {
-              firstExtractionError = error instanceof Error ? error.message : '画像解析に失敗しました';
-            }
-          }
+        if (warningCode) {
+          warningCodes.add(warningCode);
         }
-      } else {
-        // Default: process each image individually
-        for (const imagePath of imagePaths) {
-          const base64Image = await downloadImageAsDataUrl(imagePath);
+        if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
+          grammarWarningNotified = true;
+          await sendScanJobPushNotifications(getSupabaseAdmin(), {
+            userId: job.user_id,
+            jobId,
+            projectId: null,
+            projectTitle: job.project_title,
+            status: 'warning',
+          });
+        }
 
-          if (!base64Image) {
-            if (!firstExtractionError) {
-              firstExtractionError = '画像データの取得に失敗しました';
-            }
-            continue;
-          }
-
-          let extractionResult: { result: ExtractionLikeResult; warningCode?: ExtractionWarningCode } | null = null;
-          try {
-            extractionResult = await withTimeout(
-              extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey),
-              EXTRACTION_TIMEOUT_MS,
-              `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
-            );
-          } catch (error) {
-            console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
-            if (!firstExtractionError) {
-              firstExtractionError = error instanceof Error ? error.message : '画像解析に失敗しました';
-            }
-            continue;
-          }
-
-          const { result, warningCode } = extractionResult;
-
-          if (warningCode) {
-            warningCodes.add(warningCode);
-          }
-          if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
-            grammarWarningNotified = true;
-            await sendScanJobPushNotifications(getSupabaseAdmin(), {
-              userId: job.user_id,
-              jobId,
-              projectId: null,
-              projectTitle: job.project_title,
-              status: 'warning',
-            });
-          }
-
-          if (result.success && result.data?.words) {
-            allExtractedWords.push(...result.data.words);
-          } else if (!result.success) {
-            console.error(`Extraction failed for ${imagePath}:`, result.error);
-            if (!firstExtractionError) {
-              firstExtractionError = result.error || '画像の解析に失敗しました';
-            }
+        if (result.success && result.data?.words) {
+          allExtractedWords.push(...result.data.words);
+        } else if (!result.success) {
+          console.error(`Extraction failed for ${imagePath}:`, result.error);
+          if (!firstExtractionError) {
+            firstExtractionError = result.error || '画像の解析に失敗しました';
           }
         }
       }
