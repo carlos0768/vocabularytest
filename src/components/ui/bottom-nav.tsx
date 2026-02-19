@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -24,6 +24,12 @@ const navItems: NavItem[] = [
     icon: 'folder',
     label: '単語帳',
     matchPaths: ['/projects', '/project'],
+  },
+  {
+    href: '/collections',
+    icon: 'shelves',
+    label: '本棚',
+    matchPaths: ['/collections'],
   },
   {
     href: '/stats',
