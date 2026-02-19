@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractHighlightedWordsFromImages, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
+import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
@@ -18,14 +18,10 @@ export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom' 
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
 
 const requestSchema = z.object({
-  image: z.string().min(1).max(15_000_000).optional(),
-  images: z.array(z.string().min(1).max(15_000_000)).max(5).optional(),
+  image: z.string().min(1).max(15_000_000),
   mode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
-}).strict().refine(
-  (data) => data.image || (data.images && data.images.length > 0),
-  { message: 'image または images が必要です' }
-);
+}).strict();
 
 function getProviderForMode(mode: ExtractMode): 'gemini' | 'openai' {
   switch (mode) {
@@ -78,63 +74,59 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { image, images, mode, eikenLevel } = parsed.data as {
-      image?: string;
-      images?: string[];
+    const { image, mode, eikenLevel } = parsed.data as {
+      image: string;
       mode: ExtractMode;
       eikenLevel: EikenLevel;
     };
 
-    // Collect all images for validation (single or multi)
-    const allImageStrings = images && images.length > 0 ? images : (image ? [image] : []);
-
     // Detailed logging for debugging
-    const primaryImage = allImageStrings[0];
-    const imageLength = primaryImage?.length || 0;
-    const hasDataPrefix = primaryImage?.startsWith('data:') || false;
-    const dataTypeMatch = primaryImage?.match(/^data:([^;,]+)/);
+    const imageLength = image?.length || 0;
+    const hasDataPrefix = image?.startsWith('data:') || false;
+    const dataTypeMatch = image?.match(/^data:([^;,]+)/);
     const detectedType = dataTypeMatch ? dataTypeMatch[1] : 'unknown';
 
     console.log('Extract API called:', {
       mode,
       eikenLevel,
-      imageCount: allImageStrings.length,
       imageLength,
       hasDataPrefix,
       detectedType,
-      first50Chars: primaryImage?.slice(0, 50),
+      first50Chars: image?.slice(0, 50),
     });
 
-    // Validate each image
-    for (const img of allImageStrings) {
-      const isValidImage = img.startsWith('data:image/');
-      const isValidPdf = img.startsWith('data:application/pdf');
+    // Validate base64 data URL format (accepts images and PDFs)
+    const isValidImage = image.startsWith('data:image/');
+    const isValidPdf = image.startsWith('data:application/pdf');
 
-      if (!isValidImage && !isValidPdf) {
-        console.error('Invalid file format - not image or PDF', { first100: img.slice(0, 100) });
-        return NextResponse.json(
-          { success: false, error: 'ファイル形式が不正です。JPEG/PNG形式の画像またはPDFを使用してください。' },
-          { status: 400 }
-        );
-      }
+    if (!isValidImage && !isValidPdf) {
+      console.error('Invalid file format - not image or PDF', { first100: image.slice(0, 100) });
+      return NextResponse.json(
+        { success: false, error: 'ファイル形式が不正です。JPEG/PNG形式の画像またはPDFを使用してください。' },
+        { status: 400 }
+      );
+    }
 
-      if (isValidPdf && getProviderForMode(mode) === 'openai') {
-        return NextResponse.json(
-          {
-            success: false,
-            error: '現在のサーバー設定ではPDF解析に対応していません。PDFを画像（PNG/JPEG）に変換して再アップロードしてください。',
-          },
-          { status: 400 }
-        );
-      }
+    // Current OpenAI image endpoint does not accept PDF data URLs.
+    // Return a clear message instead of surfacing a vague provider error.
+    if (isValidPdf && getProviderForMode(mode) === 'openai') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '現在のサーバー設定ではPDF解析に対応していません。PDFを画像（PNG/JPEG）に変換して再アップロードしてください。',
+        },
+        { status: 400 }
+      );
+    }
 
-      if (img.startsWith('data:image/heic') || img.startsWith('data:image/heif')) {
-        console.error('Unsupported image format: HEIC/HEIF detected');
-        return NextResponse.json(
-          { success: false, error: 'HEIC/HEIF形式は対応していません。カメラアプリの設定で「互換性優先」を選択するか、スクリーンショットをお試しください。' },
-          { status: 400 }
-        );
-      }
+    // Reject unsupported image formats (HEIC/HEIF are not supported by OpenAI Vision API)
+    // This can happen when client-side HEIC conversion fails
+    if (image.startsWith('data:image/heic') || image.startsWith('data:image/heif')) {
+      console.error('Unsupported image format: HEIC/HEIF detected', { detectedType });
+      return NextResponse.json(
+        { success: false, error: 'HEIC/HEIF形式は対応していません。カメラアプリの設定で「互換性優先」を選択するか、スクリーンショットをお試しください。' },
+        { status: 400 }
+      );
     }
 
     // ============================================
@@ -188,14 +180,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use the first image for single-image modes
-    const singleImage = allImageStrings[0];
-
     if (mode === 'wrong') {
       // Wrong answer mode: OCR + analysis for vocabulary test mistakes
-      result = await extractWrongAnswersFromImage(singleImage, openaiApiKey);
+      result = await extractWrongAnswersFromImage(image, openaiApiKey);
     } else if (mode === 'idiom') {
-      result = await extractIdiomsFromImage(singleImage, openaiApiKey);
+      result = await extractIdiomsFromImage(image, openaiApiKey);
     } else if (mode === 'eiken') {
       // EIKEN filter mode
       if (!eikenLevel) {
@@ -205,21 +194,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await extractEikenWordsFromImage(singleImage, openaiApiKey, eikenLevel);
+      result = await extractEikenWordsFromImage(image, openaiApiKey, eikenLevel);
     } else if (mode === 'circled') {
       // Note: eikenLevel is NOT used for circled mode anymore
-      result = await extractCircledWordsFromImage(singleImage, openaiApiKey, {}, openaiApiKey);
+      result = await extractCircledWordsFromImage(image, openaiApiKey, {}, openaiApiKey);
     } else if (mode === 'highlighted') {
-      // Multi-image: send all images in a single API call for unified color calibration
-      if (allImageStrings.length > 1) {
-        result = await extractHighlightedWordsFromImages(allImageStrings, openaiApiKey, openaiApiKey);
-      } else {
-        result = await extractHighlightedWordsFromImage(singleImage, openaiApiKey, openaiApiKey);
-      }
+      result = await extractHighlightedWordsFromImage(image, openaiApiKey, openaiApiKey);
     } else {
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
       // Pro users get example sentences included (determined server-side)
-      result = await extractWordsFromImage(singleImage, openaiApiKey, {
+      result = await extractWordsFromImage(image, openaiApiKey, {
         includeExamples: scanData.is_pro === true,
       });
     }

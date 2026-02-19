@@ -119,31 +119,18 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
 }
 
 // Remove duplicate words (same english word detected multiple times)
-// When the same word is detected across multiple images, boost confidence
-// by +0.05 per additional detection (capped at 1.0)
 export function removeDuplicates(words: HighlightedWord[]): HighlightedWord[] {
-  const seen = new Map<string, { word: HighlightedWord; count: number }>();
+  const seen = new Map<string, HighlightedWord>();
 
   for (const word of words) {
     const key = word.english.toLowerCase().trim();
     const existing = seen.get(key);
 
-    if (!existing) {
-      seen.set(key, { word, count: 1 });
-    } else {
-      existing.count++;
-      // Keep the one with higher confidence
-      if (word.confidence > existing.word.confidence) {
-        existing.word = word;
-      }
+    // Keep the one with higher confidence
+    if (!existing || (word.confidence > existing.confidence)) {
+      seen.set(key, word);
     }
   }
 
-  return Array.from(seen.values()).map(({ word, count }) => {
-    if (count > 1) {
-      const boost = (count - 1) * 0.05;
-      return { ...word, confidence: Math.min(1.0, word.confidence + boost) };
-    }
-    return word;
-  });
+  return Array.from(seen.values());
 }
