@@ -43,6 +43,7 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
+  const [wordsLoaded, setWordsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   // Track which repository the project was loaded from
   const [activeRepository, setActiveRepository] = useState<typeof defaultRepository>(defaultRepository);
@@ -83,6 +84,10 @@ export default function ProjectDetailPage() {
   // Load from local IndexedDB immediately (no auth needed), then update from remote
   const hasLocalLoadedRef = useRef(false);
 
+  useEffect(() => {
+    setWordsLoaded(false);
+  }, [projectId]);
+
   // Phase 1: Local preload after auth resolves to avoid cross-account leakage
   useEffect(() => {
     if (authLoading) return;
@@ -104,6 +109,8 @@ export default function ProjectDetailPage() {
               setWords(localWords);
             } catch (error) {
               console.error('Initial local words load failed:', error);
+            } finally {
+              setWordsLoaded(true);
             }
           })();
         }
@@ -130,6 +137,7 @@ export default function ProjectDetailPage() {
               setActiveRepository(localRepository);
               const localWords = await localRepository.getWords(projectId);
               setWords(localWords);
+              setWordsLoaded(true);
             }
           }
           setLoading(false);
@@ -151,6 +159,8 @@ export default function ProjectDetailPage() {
                 setWords(localWords);
               } catch (error) {
                 console.error('Local Pro words preload failed:', error);
+              } finally {
+                setWordsLoaded(true);
               }
             })();
           }
@@ -175,6 +185,8 @@ export default function ProjectDetailPage() {
               setWords(remoteWords);
             } catch (error) {
               console.error('Remote words load failed:', error);
+            } finally {
+              setWordsLoaded(true);
             }
           })();
         } else if (!showedLocalProject) {
@@ -191,6 +203,8 @@ export default function ProjectDetailPage() {
                 setWords(fallbackWords);
               } catch (error) {
                 console.error('Fallback words load failed:', error);
+              } finally {
+                setWordsLoaded(true);
               }
             })();
           }
@@ -726,7 +740,14 @@ export default function ProjectDetailPage() {
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 py-5 lg:py-6 space-y-5 lg:space-y-6">
           {/* 学習の進捗 & 次のステップ */}
           <section>
-            {recommendedMode ? (
+            {!wordsLoaded ? (
+              <div className="card p-6 border-2 border-[var(--color-border)] border-b-4">
+                <div className="flex items-center gap-3 text-[var(--color-muted)]">
+                  <Icon name="progress_activity" size={18} className="animate-spin" />
+                  <span className="text-sm font-medium">単語データを読み込み中...</span>
+                </div>
+              </div>
+            ) : recommendedMode ? (
               <div className="card overflow-hidden border-2 border-[var(--color-border)] border-b-4">
                 {/* 上部: メインアクション (CTA) */}
                 <div className={`p-6 lg:p-8 relative overflow-hidden ${recommendedMode.bgClasses}`}>
@@ -857,18 +878,25 @@ export default function ProjectDetailPage() {
               </h2>
             </div>
             
-            <WordList
-              words={words}
-              editingWordId={editingWordId}
-              onEditStart={(wordId) => setEditingWordId(wordId)}
-              onEditCancel={() => setEditingWordId(null)}
-              onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-              onDelete={(wordId) => handleDeleteWord(wordId)}
-              onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-              onAddClick={() => setShowManualWordModal(true)}
-              onScanClick={() => setShowScanModeModal(true)}
-              listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
-            />
+            {wordsLoaded ? (
+              <WordList
+                words={words}
+                editingWordId={editingWordId}
+                onEditStart={(wordId) => setEditingWordId(wordId)}
+                onEditCancel={() => setEditingWordId(null)}
+                onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
+                onDelete={(wordId) => handleDeleteWord(wordId)}
+                onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
+                onAddClick={() => setShowManualWordModal(true)}
+                onScanClick={() => setShowScanModeModal(true)}
+                listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
+              />
+            ) : (
+              <div className="card p-4 text-sm text-[var(--color-muted)] flex items-center gap-2">
+                <Icon name="progress_activity" size={16} className="animate-spin" />
+                単語一覧を読み込み中...
+              </div>
+            )}
           </section>
         </main>
 
