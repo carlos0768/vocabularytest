@@ -723,7 +723,7 @@ export default function ProjectDetailPage() {
           </div>
         </header>
 
-        <main className="max-w-lg lg:max-w-2xl mx-auto px-6 py-6 space-y-6">
+        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 py-5 lg:py-6 space-y-5 lg:space-y-6">
           {/* 学習の進捗 & 次のステップ */}
           <section>
             {recommendedMode ? (
@@ -850,7 +850,7 @@ export default function ProjectDetailPage() {
           )}
 
           {/* 単語リスト */}
-          <section className="space-y-3 pt-3 border-t border-[var(--color-border-light)]">
+          <section className="space-y-2.5 lg:space-y-3 pt-2.5 lg:pt-3 border-t border-[var(--color-border-light)]">
             <div className="flex items-center justify-between px-1">
               <h2 className="text-base font-bold text-[var(--color-foreground)]">
                 単語一覧 <span className="text-sm font-medium text-[var(--color-muted)] ml-2">{words.length}語</span>
