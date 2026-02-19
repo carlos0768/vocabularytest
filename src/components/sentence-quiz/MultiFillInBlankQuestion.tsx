@@ -40,13 +40,25 @@ export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: 
 
   const blanks = question.blanks;
 
-  // 全ての空欄の選択肢をまとめて、シャッフルした状態で保持
+  // 全ての空欄の選択肢をまとめて、シャッフルした状態で保持（最大8個）
   const allOptions = useMemo(() => {
+    // まず正解を必ず含める
+    const correctAnswers = new Set(blanks.map(blank => blank.correctAnswer));
     const options = blanks.flatMap(blank => blank.options);
     // 重複を削除
     const uniqueOptions = [...new Set(options)];
-    // シャッフル
-    return uniqueOptions.sort(() => Math.random() - 0.5);
+    
+    // 8個以下ならそのまま
+    if (uniqueOptions.length <= 8) {
+      return uniqueOptions.sort(() => Math.random() - 0.5);
+    }
+    
+    // 8個超の場合: 正解を確保してから残りをランダムに選ぶ
+    const correct = uniqueOptions.filter(o => correctAnswers.has(o));
+    const distractors = uniqueOptions.filter(o => !correctAnswers.has(o));
+    const shuffledDistractors = distractors.sort(() => Math.random() - 0.5);
+    const selected = [...correct, ...shuffledDistractors.slice(0, 8 - correct.length)];
+    return selected.sort(() => Math.random() - 0.5);
   }, [blanks]);
 
   // 全ての空欄が埋まっているかチェック
