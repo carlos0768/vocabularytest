@@ -200,7 +200,7 @@ export const GRAMMAR_OCR_PROMPT = `この画像からテキストを抽出して
 出力フォーマット:
 抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
 
-// GPT: Grammar pattern analysis and quiz generation (NEW Duolingo-style format)
+// GPT: Grammar pattern analysis and quiz generation
 export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英検1級専門の超厳格な文法問題作成者です。
 
 ██████████████████████████████████████████████████████████████████

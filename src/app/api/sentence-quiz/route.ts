@@ -143,7 +143,7 @@ const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問
 }`;
 
 // 並び替え問題生成プロンプト
-const WORD_ORDER_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、Duolingo形式の並び替え問題を生成してください。
+const WORD_ORDER_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、並び替え問題を生成してください。
 
 【ルール】
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成
@@ -445,7 +445,7 @@ async function generateFillInBlank(
       messages: [
         {
           role: 'system',
-          content: `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、Duolingo形式の穴埋め問題を生成してください。
+          content: `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、穴埋め問題を生成してください。
 
 【ルール】
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成

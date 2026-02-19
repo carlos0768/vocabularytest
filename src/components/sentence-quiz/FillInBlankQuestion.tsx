@@ -96,7 +96,7 @@ export function FillInBlankQuestion({ question, questionIndex, onAnswer }: FillI
         {renderSentence()}
       </div>
 
-      {/* 選択肢 - Duolingo風に横並び */}
+      {/* 選択肢 */}
       <div className="flex-shrink-0 flex flex-wrap justify-center gap-2 mb-6">
         {options.map((option) => {
           const isSelected = selectedOption === option;
