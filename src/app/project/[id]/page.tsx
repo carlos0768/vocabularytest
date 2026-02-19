@@ -867,6 +867,7 @@ export default function ProjectDetailPage() {
               onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
               onAddClick={() => setShowManualWordModal(true)}
               onScanClick={() => setShowScanModeModal(true)}
+              listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
             />
           </section>
         </main>
