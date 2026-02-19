@@ -19,7 +19,7 @@ export type {
   Subscription,
   UserState,
   AuthUser,
-  // Sentence Quiz types (Duolingo-style)
+  // Sentence Quiz types
   SentenceQuizType,
   BlankSlot,
   FillInBlankQuestion,
