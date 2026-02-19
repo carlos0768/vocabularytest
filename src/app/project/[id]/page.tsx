@@ -26,14 +26,6 @@ const ScanModeModal = dynamic(
   { ssr: false }
 );
 
-const tabs = [
-  { id: 'study', label: '学習' },
-  { id: 'words', label: '単語' },
-  { id: 'stats', label: '統計' },
-] as const;
-
-type TabId = (typeof tabs)[number]['id'];
-
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
   return Boolean(project && project.userId === expectedUserId);
 }
@@ -54,7 +46,6 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   // Track which repository the project was loaded from
   const [activeRepository, setActiveRepository] = useState<typeof defaultRepository>(defaultRepository);
-  const [activeTab, setActiveTab] = useState<TabId>('study');
 
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -602,6 +593,49 @@ export default function ProjectDetailPage() {
     return { total, mastered, review, newWords };
   }, [words]);
 
+  const recommendedMode = useMemo(() => {
+    if (words.length === 0) return null;
+    const returnPath = encodeURIComponent(`/project/${project?.id || projectId}`);
+    
+    if (stats.newWords > 0) {
+      return {
+        title: '未学習の単語を覚える',
+        description: 'まずは4択クイズで意味を確認しましょう',
+        icon: 'quiz',
+        href: `/quiz/${project?.id || projectId}?from=${returnPath}`,
+        buttonText: 'クイズを始める',
+        iconBg: 'bg-sky-100',
+        iconColor: 'text-sky-600',
+        bgClasses: 'bg-[var(--color-primary)] text-white shadow-glow hover:opacity-90',
+        btnClasses: 'bg-white/20 text-white hover:bg-white/30'
+      };
+    }
+    if (stats.review > 0) {
+      return {
+        title: '復習して記憶に定着させる',
+        description: isPro ? 'スワイプ式のカードで効率よく復習しましょう' : 'クイズで繰り返し復習しましょう',
+        icon: isPro ? 'style' : 'quiz',
+        href: isPro ? `/flashcard/${project?.id || projectId}?from=${returnPath}` : `/quiz/${project?.id || projectId}?from=${returnPath}`,
+        buttonText: isPro ? 'カード学習を始める' : 'クイズを始める',
+        iconBg: isPro ? 'bg-indigo-100' : 'bg-sky-100',
+        iconColor: isPro ? 'text-indigo-600' : 'text-sky-600',
+        bgClasses: isPro ? 'bg-[#3B82F6] text-white shadow-glow hover:opacity-90' : 'bg-[var(--color-primary)] text-white shadow-glow hover:opacity-90',
+        btnClasses: 'bg-white/20 text-white hover:bg-white/30'
+      };
+    }
+    return {
+      title: '実践力を試す',
+      description: isPro ? '例文クイズで実際の使われ方を確認しましょう' : 'クイズで記憶を確実にしましょう',
+      icon: isPro ? 'auto_awesome' : 'quiz',
+      href: isPro ? `/sentence-quiz/${project?.id || projectId}?from=${returnPath}` : `/quiz/${project?.id || projectId}?from=${returnPath}`,
+      buttonText: isPro ? '例文クイズを始める' : 'クイズを始める',
+      iconBg: isPro ? 'bg-amber-100' : 'bg-sky-100',
+      iconColor: isPro ? 'text-amber-600' : 'text-sky-600',
+      bgClasses: isPro ? 'bg-[#60A5FA] text-white shadow-glow hover:opacity-90' : 'bg-[var(--color-primary)] text-white shadow-glow hover:opacity-90',
+      btnClasses: 'bg-white/20 text-white hover:bg-white/30'
+    };
+  }, [stats.newWords, stats.review, words.length, project?.id, projectId, isPro]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-[var(--color-muted)]">
@@ -689,258 +723,152 @@ export default function ProjectDetailPage() {
           </div>
         </header>
 
-        <main className="max-w-lg lg:max-w-xl mx-auto px-6 py-8 space-y-8">
-          <div className="flex gap-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border-2 border-b-4 active:border-b-2 active:mt-[2px] transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                    : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === 'study' && (
-            <section className="space-y-6">
-              {/* Progress Overview */}
-              <div className="card p-5 lg:p-6 border-2 border-[var(--color-border)] border-b-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-[var(--color-foreground)]">学習の進捗</h3>
-                  <span className="text-xs font-semibold text-[var(--color-primary)]">
-                    {stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0}% 習得
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-[var(--color-surface-alt,var(--color-surface))] rounded-full overflow-hidden">
-                  <div className="h-full rounded-full flex">
-                    <div
-                      className="bg-[var(--color-success)] transition-all duration-500"
-                      style={{ width: stats.total > 0 ? `${(stats.mastered / stats.total) * 100}%` : '0%' }}
-                    />
-                    <div
-                      className="bg-[var(--color-primary)] transition-all duration-500"
-                      style={{ width: stats.total > 0 ? `${(stats.review / stats.total) * 100}%` : '0%' }}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 mt-3 text-xs text-[var(--color-muted)]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-success)]" />
-                    習得 {stats.mastered}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
-                    復習中 {stats.review}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-surface-alt,var(--color-border))]" />
-                    未学習 {stats.newWords}
-                  </span>
-                </div>
-              </div>
-
-              {/* Study Modes */}
-              <div>
-                <h3 className="text-sm font-bold text-[var(--color-foreground)] mb-3">学習モード</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <StudyModeCard
-                    title="クイズ"
-                    description="4択で意味を確認"
-                    icon="quiz"
-                    href={`/quiz/${project.id}?from=${returnToProject}`}
-                    variant="primary"
-                    disabled={words.length === 0}
-                    layout="horizontal"
-                    mobileSquare
-                    styleMode="home"
-                  />
-                  <StudyModeCard
-                    title="クイズ２"
-                    description="思い出して自己評価"
-                    icon="psychology"
-                    href={isPro ? `/quiz2/${project.id}?from=${returnToProject}` : '/subscription'}
-                    variant="green"
-                    disabled={words.length === 0}
-                    badge={!isPro ? 'Pro' : undefined}
-                    layout="horizontal"
-                    mobileSquare
-                    styleMode="home"
-                  />
-                  <StudyModeCard
-                    title="カード"
-                    description="スワイプで復習"
-                    icon="style"
-                    href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
-                    variant="blue"
-                    disabled={words.length === 0}
-                    badge={!isPro ? 'Pro' : undefined}
-                    layout="horizontal"
-                    mobileSquare
-                    styleMode="home"
-                  />
-                  <StudyModeCard
-                    title="例文クイズ"
-                    description="例文で記憶を定着"
-                    icon="auto_awesome"
-                    href={isPro ? `/sentence-quiz/${project.id}?from=${returnToProject}` : '/subscription'}
-                    variant="orange"
-                    disabled={words.length === 0}
-                    badge={!isPro ? 'Pro' : undefined}
-                    layout="horizontal"
-                    mobileSquare
-                    styleMode="home"
-                  />
-                </div>
-              </div>
-
-              {/* Quick Tip */}
-              {words.length > 0 && stats.mastered < stats.total && (
-                <div className="flex items-start gap-3 p-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4">
-                  <Icon name="lightbulb" size={20} className="text-[var(--color-primary)] flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-[var(--color-muted)] leading-relaxed">
-                    {stats.newWords > 0
-                      ? `まだ${stats.newWords}語が未学習です。まずはクイズで意味を確認しましょう！`
-                      : stats.review > 0
-                        ? `${stats.review}語が復習中です。カードやクイズで繰り返し練習しましょう。`
-                        : '全単語を習得しました！例文クイズで実践力を鍛えましょう。'}
-                  </p>
-                </div>
-              )}
-
-              {words.length === 0 && (
-                <div className="text-center py-8">
-                  <Icon name="menu_book" size={40} className="text-[var(--color-border)] mx-auto mb-3" />
-                  <p className="text-sm text-[var(--color-muted)]">まだ単語がありません</p>
-                  <p className="text-xs text-[var(--color-muted)] mt-1">「単語」タブから単語を追加して学習を始めましょう</p>
-                </div>
-              )}
-            </section>
-          )}
-
-          {activeTab === 'words' && (
-            <section>
-              <WordList
-                words={words}
-                editingWordId={editingWordId}
-                onEditStart={(wordId) => setEditingWordId(wordId)}
-                onEditCancel={() => setEditingWordId(null)}
-                onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-                onDelete={(wordId) => handleDeleteWord(wordId)}
-                onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-                onAddClick={() => setShowManualWordModal(true)}
-                onScanClick={() => setShowScanModeModal(true)}
-              />
-            </section>
-          )}
-
-          {activeTab === 'stats' && (() => {
-            const pct = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
-            const circumference = 2 * Math.PI * 54;
-            const strokeDashoffset = circumference - (circumference * pct) / 100;
-
-            return (
-            <section className="space-y-5">
-              {/* Progress ring */}
-              <div className="card p-6 flex flex-col items-center border-2 border-[var(--color-border)] border-b-4">
-                <div className="relative w-36 h-36 mb-4">
-                  <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-                    <circle cx="60" cy="60" r="54" fill="none" stroke="var(--color-border)" strokeWidth="10" />
-                    <circle
-                      cx="60" cy="60" r="54" fill="none"
-                      stroke="var(--color-success)"
-                      strokeWidth="10"
-                      strokeLinecap="round"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      className="transition-all duration-700"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-extrabold text-[var(--color-foreground)]">{pct}%</span>
-                    <span className="text-xs text-[var(--color-muted)]">習得率</span>
-                  </div>
-                </div>
-                <p className="text-sm text-[var(--color-muted)]">
-                  {stats.total}語中 <span className="font-bold text-[var(--color-success)]">{stats.mastered}語</span> 習得
-                </p>
-              </div>
-
-              {/* Status breakdown */}
-              <div className="card p-5 space-y-4 border-2 border-[var(--color-border)] border-b-4">
-                <h3 className="text-sm font-bold text-[var(--color-foreground)]">ステータス内訳</h3>
-                {[
-                  { label: '習得済み', count: stats.mastered, color: 'var(--color-success)', icon: 'check_circle', iconClass: 'text-[var(--color-success)]' },
-                  { label: '復習中', count: stats.review, color: 'var(--color-primary)', icon: 'autorenew', iconClass: 'text-[var(--color-primary)]' },
-                  { label: '未学習', count: stats.newWords, color: 'var(--color-muted)', icon: 'radio_button_unchecked', iconClass: 'text-[var(--color-muted)]' },
-                ].map((item) => {
-                  const barPct = stats.total > 0 ? (item.count / stats.total) * 100 : 0;
-                  return (
-                    <div key={item.label} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon name={item.icon} size={16} className={item.iconClass} />
-                          <span className="text-sm text-[var(--color-foreground)]">{item.label}</span>
-                        </div>
-                        <span className="text-sm font-bold text-[var(--color-foreground)]">{item.count}語</span>
+        <main className="max-w-lg lg:max-w-2xl mx-auto px-6 py-8 space-y-10">
+          {/* 学習の進捗 & 次のステップ */}
+          <section>
+            {recommendedMode ? (
+              <div className="card overflow-hidden border-2 border-[var(--color-border)] border-b-4">
+                {/* 上部: メインアクション (CTA) */}
+                <div className={`p-6 lg:p-8 relative overflow-hidden ${recommendedMode.bgClasses}`}>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${recommendedMode.iconBg}`}>
+                        <Icon name={recommendedMode.icon} size={28} className={recommendedMode.iconColor} />
                       </div>
-                      <div className="w-full h-2 bg-[var(--color-surface-alt,var(--color-border-light))] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${barPct}%`, backgroundColor: item.color }}
-                        />
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-xl lg:text-2xl font-bold mb-1 tracking-tight">{recommendedMode.title}</h2>
+                        <p className="text-sm font-medium opacity-90">{recommendedMode.description}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    
+                    <Link 
+                      href={recommendedMode.href}
+                      className={`block w-full py-4 rounded-xl text-center font-bold text-base transition-transform active:scale-[0.98] ${recommendedMode.btnClasses}`}
+                    >
+                      {recommendedMode.buttonText}
+                    </Link>
+                  </div>
+                  
+                  {/* Decorative background icon */}
+                  <Icon 
+                    name={recommendedMode.icon} 
+                    size={160} 
+                    className="absolute -right-6 -bottom-6 opacity-[0.08] transform rotate-12 pointer-events-none" 
+                  />
+                </div>
 
-              {/* Stat cards grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
-                    <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
+                {/* 下部: 進捗バー (コンパクト) */}
+                <div className="p-4 bg-[var(--color-surface)] border-t border-[var(--color-border)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-bold text-[var(--color-muted)]">現在の進捗</h3>
+                    <span className="text-xs font-bold text-[var(--color-foreground)]">
+                      {stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0}% 習得
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.total}</p>
-                    <p className="text-xs text-[var(--color-muted)]">総単語</p>
+                  <div className="w-full h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden flex mb-2">
+                    <div className="bg-[var(--color-success)] transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.mastered / stats.total) * 100 : 0}%` }} />
+                    <div className="bg-[var(--color-primary)] transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.review / stats.total) * 100 : 0}%` }} />
                   </div>
-                </div>
-                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center">
-                    <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.mastered}</p>
-                    <p className="text-xs text-[var(--color-muted)]">習得済み</p>
+                  <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--color-muted)] px-1">
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />習得 {stats.mastered}</span>
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />復習中 {stats.review}</span>
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-border-light)]" />未学習 {stats.newWords}</span>
                   </div>
                 </div>
-                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
-                    <Icon name="autorenew" size={20} className="text-[var(--color-primary)]" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.review}</p>
-                    <p className="text-xs text-[var(--color-muted)]">復習中</p>
-                  </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 card border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-alt,var(--color-surface))]">
+                <div className="w-16 h-16 mx-auto bg-[var(--color-surface)] rounded-full flex items-center justify-center border-2 border-[var(--color-border)] mb-4">
+                  <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />
                 </div>
-                <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--color-surface)] flex items-center justify-center border border-[var(--color-border)]">
-                    <Icon name="schedule" size={20} className="text-[var(--color-muted)]" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.newWords}</p>
-                    <p className="text-xs text-[var(--color-muted)]">未学習</p>
-                  </div>
+                <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-2">単語を追加して始めましょう</h3>
+                <p className="text-sm text-[var(--color-muted)] mb-8 max-w-[240px] mx-auto">
+                  カメラでノートをスキャンするか、手動で単語を追加できます
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center px-6">
+                  <button onClick={() => setShowScanModeModal(true)} className="flex-1 px-5 py-3.5 rounded-xl bg-[var(--color-primary)] text-white font-bold shadow-glow hover:opacity-90 flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <Icon name="document_scanner" size={20} /> カメラでスキャン
+                  </button>
+                  <button onClick={() => setShowManualWordModal(true)} className="flex-1 px-5 py-3.5 rounded-xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-foreground)] font-bold hover:bg-[var(--color-surface-hover)] flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <Icon name="edit" size={20} /> 手動で追加
+                  </button>
                 </div>
+              </div>
+            )}
+          </section>
+
+          {/* その他の学習モード */}
+          {words.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">その他の学習モード</h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StudyModeCard
+                  title="クイズ"
+                  description="4択で確認"
+                  icon="quiz"
+                  href={`/quiz/${project.id}?from=${returnToProject}`}
+                  variant="primary"
+                  disabled={words.length === 0}
+                  layout="vertical"
+                  styleMode="home"
+                />
+                <StudyModeCard
+                  title="クイズ２"
+                  description="思い出して評価"
+                  icon="psychology"
+                  href={isPro ? `/quiz2/${project.id}?from=${returnToProject}` : '/subscription'}
+                  variant="green"
+                  disabled={words.length === 0}
+                  badge={!isPro ? 'Pro' : undefined}
+                  layout="vertical"
+                  styleMode="home"
+                />
+                <StudyModeCard
+                  title="カード"
+                  description="スワイプ復習"
+                  icon="style"
+                  href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
+                  variant="blue"
+                  disabled={words.length === 0}
+                  badge={!isPro ? 'Pro' : undefined}
+                  layout="vertical"
+                  styleMode="home"
+                />
+                <StudyModeCard
+                  title="例文"
+                  description="例文で定着"
+                  icon="auto_awesome"
+                  href={isPro ? `/sentence-quiz/${project.id}?from=${returnToProject}` : '/subscription'}
+                  variant="orange"
+                  disabled={words.length === 0}
+                  badge={!isPro ? 'Pro' : undefined}
+                  layout="vertical"
+                  styleMode="home"
+                />
               </div>
             </section>
-            );
-          })()}
+          )}
+
+          {/* 単語リスト */}
+          <section className="space-y-4 pt-4 border-t border-[var(--color-border-light)]">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-base font-bold text-[var(--color-foreground)]">
+                単語一覧 <span className="text-sm font-medium text-[var(--color-muted)] ml-2">{words.length}語</span>
+              </h2>
+            </div>
+            
+            <WordList
+              words={words}
+              editingWordId={editingWordId}
+              onEditStart={(wordId) => setEditingWordId(wordId)}
+              onEditCancel={() => setEditingWordId(null)}
+              onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
+              onDelete={(wordId) => handleDeleteWord(wordId)}
+              onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
+              onAddClick={() => setShowManualWordModal(true)}
+              onScanClick={() => setShowScanModeModal(true)}
+            />
+          </section>
         </main>
 
       <ManualWordInputModal
