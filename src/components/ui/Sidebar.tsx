@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
   {
     href: '/collections',
     icon: 'shelves',
-    label: 'プロジェクト',
+    label: '本棚',
     matchPaths: ['/collections'],
   },
   {

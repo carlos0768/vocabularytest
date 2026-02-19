@@ -18,6 +18,11 @@ import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
 const MAX_NORMAL_QUIZ_QUESTION_COUNT = 20;
+const DISTRACTOR_MAX_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Session storage key for quiz state persistence
 const getQuizStorageKey = (projectId: string, reviewMode: boolean) => 
@@ -243,46 +248,90 @@ export default function QuizPage() {
   // Generate distractors for words that don't have them, then start quiz
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = shuffleArray(words).slice(0, count);
+    setDistractorError(null);
+
+    if (quizDirection === 'ja-to-en') {
+      const jaToEnQuestions = generateQuestions(selected, selected.length, quizDirection);
+      setQuestions(jaToEnQuestions);
+      return;
+    }
 
     const wordsToGenerate = selected.filter((w) => needsDistractors(w));
-
-    let updatedSelected = selected;
-    setDistractorError(null);
+    const distractorMap = new Map<string, string[]>();
+    const exampleMap = new Map<string, { exampleSentence: string; exampleSentenceJa: string }>();
 
     if (wordsToGenerate.length > 0) {
       setGeneratingDistractors(true);
+      let pendingWords = wordsToGenerate;
 
       try {
-        const response = await fetch('/api/generate-quiz-distractors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            words: wordsToGenerate.map((w) => ({
-              id: w.id,
-              english: w.english,
-              japanese: w.japanese,
-            })),
-          }),
-        });
+        for (let attempt = 1; attempt <= DISTRACTOR_MAX_ATTEMPTS && pendingWords.length > 0; attempt += 1) {
+          try {
+            const response = await fetch('/api/generate-quiz-distractors', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                words: pendingWords.map((w) => ({
+                  id: w.id,
+                  english: w.english,
+                  japanese: w.japanese,
+                })),
+              }),
+            });
 
-        const data = await response.json();
+            const data = await response.json();
+            if (!response.ok || !data.success || !Array.isArray(data.results)) {
+              throw new Error(data?.error || 'failed to generate quiz distractors');
+            }
 
-        if (data.success && data.results) {
-          // Create maps for distractors and examples
-          const distractorMap = new Map<string, string[]>();
-          const exampleMap = new Map<string, { exampleSentence: string; exampleSentenceJa: string }>();
-          for (const result of data.results) {
-            distractorMap.set(result.wordId, result.distractors);
-            if (result.exampleSentence) {
-              exampleMap.set(result.wordId, {
-                exampleSentence: result.exampleSentence,
-                exampleSentenceJa: result.exampleSentenceJa || '',
-              });
+            const succeededIds = new Set<string>();
+            for (const result of data.results) {
+              if (!result?.wordId || !Array.isArray(result.distractors) || result.distractors.length === 0) continue;
+              distractorMap.set(result.wordId, result.distractors);
+              succeededIds.add(result.wordId);
+              if (result.exampleSentence) {
+                exampleMap.set(result.wordId, {
+                  exampleSentence: result.exampleSentence,
+                  exampleSentenceJa: result.exampleSentenceJa || '',
+                });
+              }
+            }
+
+            pendingWords = pendingWords.filter((word) => !succeededIds.has(word.id));
+            if (pendingWords.length > 0 && attempt < DISTRACTOR_MAX_ATTEMPTS) {
+              await sleep(250 * attempt);
+            }
+          } catch (error) {
+            console.error(`Failed to generate distractors (attempt ${attempt}/${DISTRACTOR_MAX_ATTEMPTS}):`, error);
+            if (attempt < DISTRACTOR_MAX_ATTEMPTS) {
+              await sleep(250 * attempt);
             }
           }
+        }
+      } finally {
+        setGeneratingDistractors(false);
+      }
 
-          // Update words with generated distractors and examples
-          updatedSelected = selected.map((w) => {
+      if (distractorMap.size > 0) {
+        const updatePromises: Promise<void>[] = [];
+        for (const [wordId, distractors] of distractorMap.entries()) {
+          const updates: Record<string, unknown> = { distractors };
+          const example = exampleMap.get(wordId);
+          if (example) {
+            updates.exampleSentence = example.exampleSentence;
+            updates.exampleSentenceJa = example.exampleSentenceJa;
+          }
+          updatePromises.push(repository.updateWord(wordId, updates));
+        }
+
+        try {
+          await Promise.all(updatePromises);
+        } catch (error) {
+          console.error('Failed to persist generated distractors:', error);
+        }
+
+        setAllWords((prev) =>
+          prev.map((w) => {
             const newDistractors = distractorMap.get(w.id);
             const newExample = exampleMap.get(w.id);
             return {
@@ -293,99 +342,50 @@ export default function QuizPage() {
                 exampleSentenceJa: newExample.exampleSentenceJa,
               } : {}),
             };
-          });
-
-          // Check if all words now have distractors
-          const stillMissing = updatedSelected.filter(
-            (w) => !w.distractors || w.distractors.length === 0
-          );
-          if (stillMissing.length > 0) {
-            setGeneratingDistractors(false);
-            setDistractorError('一部の単語で選択肢の生成に失敗しました。再試行してください。');
-            return;
-          }
-
-          // Save distractors and examples to DB and update local state
-          const updatePromises: Promise<void>[] = [];
-          for (const result of data.results) {
-            const updates: Record<string, unknown> = { distractors: result.distractors };
-            if (result.exampleSentence) {
-              updates.exampleSentence = result.exampleSentence;
-              updates.exampleSentenceJa = result.exampleSentenceJa || '';
-            }
-            updatePromises.push(
-              repository.updateWord(result.wordId, updates)
-            );
-          }
-          await Promise.all(updatePromises);
-
-          // Update allWords state with new distractors and examples
-          setAllWords((prev) =>
-            prev.map((w) => {
-              const newDistractors = distractorMap.get(w.id);
-              const newExample = exampleMap.get(w.id);
-              return {
-                ...w,
-                ...(newDistractors ? { distractors: newDistractors } : {}),
-                ...(newExample && (!w.exampleSentence || w.exampleSentence.trim().length === 0) ? {
-                  exampleSentence: newExample.exampleSentence,
-                  exampleSentenceJa: newExample.exampleSentenceJa,
-                } : {}),
-              };
-            })
-          );
-        } else {
-          // API returned error
-          setGeneratingDistractors(false);
-          setDistractorError(data.error || 'クイズの生成に失敗しました。再試行してください。');
-          return;
-        }
-      } catch (error) {
-        console.error('Failed to generate distractors:', error);
-        setGeneratingDistractors(false);
-        setDistractorError('クイズの生成に失敗しました。再試行してください。');
-        return;
-      } finally {
-        setGeneratingDistractors(false);
+          })
+        );
       }
     }
 
-    // Generate quiz questions from updated words
-    const quizQuestions = updatedSelected.map((word) => {
-      if (quizDirection === 'ja-to-en') {
-        // Japanese → English: use other English words as distractors
-        const otherWords = allWords.filter(w => w.id !== word.id);
-        const englishDistractors = shuffleArray(otherWords)
-          .slice(0, 3)
-          .map(w => w.english);
-        const allOptions = [word.english, ...englishDistractors];
-        const shuffled = shuffleArray(allOptions);
-        const correctIndex = shuffled.indexOf(word.english);
-
-        return {
-          word,
-          options: shuffled,
-          correctIndex,
-        };
-      } else {
-        // English → Japanese: use pre-generated Japanese distractors
-        const allOptions = [word.japanese, ...word.distractors];
-        const shuffled = shuffleArray(allOptions);
-        const correctIndex = shuffled.indexOf(word.japanese);
-
-        return {
-          word,
-          options: shuffled,
-          correctIndex,
-        };
-      }
+    const updatedSelected = selected.map((w) => {
+      const newDistractors = distractorMap.get(w.id);
+      const newExample = exampleMap.get(w.id);
+      return {
+        ...w,
+        ...(newDistractors ? { distractors: newDistractors } : {}),
+        ...(newExample && (!w.exampleSentence || w.exampleSentence.trim().length === 0) ? {
+          exampleSentence: newExample.exampleSentence,
+          exampleSentenceJa: newExample.exampleSentenceJa,
+        } : {}),
+      };
     });
 
+    const finalWords = updatedSelected.filter((w) => !needsDistractors(w));
+    if (finalWords.length < count) {
+      const selectedIds = new Set(finalWords.map((word) => word.id));
+      const topUpCandidates = shuffleArray(words).filter(
+        (word) => !selectedIds.has(word.id) && !needsDistractors(word)
+      );
+
+      for (const word of topUpCandidates) {
+        if (finalWords.length >= count) break;
+        finalWords.push(word);
+      }
+    }
+
+    const finalCount = Math.min(count, finalWords.length);
+    if (finalCount <= 0) {
+      setDistractorError('クイズに必要な選択肢を生成できませんでした。時間をおいて再試行してください。');
+      return;
+    }
+
+    if (finalCount < count) {
+      setQuestionCount(finalCount);
+    }
+
+    const quizQuestions = generateQuestions(finalWords, finalCount, quizDirection);
     setQuestions(quizQuestions);
-  // Note: allWords is intentionally excluded - we use the 'words' parameter passed to this function
-  // quizDirection is accessed via closure but changes don't need to recreate this function
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsDistractors, repository]);
+  }, [generateQuestions, needsDistractors, quizDirection, repository]);
 
   useEffect(() => {
     if (authLoading) return;

@@ -21,7 +21,21 @@ interface EditableWord extends AIWordExtraction {
 }
 
 const QUIZ_PREFILL_BATCH_SIZE = 30;
+const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 const SENTENCE_QUIZ_SIZE = 15;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Check sessionStorage synchronously before any React rendering
 // This prevents any flash by determining data availability immediately
@@ -181,7 +195,6 @@ export default function ConfirmPage() {
 
     const seedWords = createdWords
       .filter((word) => word.english.trim().length > 0 && word.japanese.trim().length > 0)
-      .slice(0, QUIZ_PREFILL_BATCH_SIZE)
       .map((word) => ({
         id: word.id,
         english: word.english,
@@ -190,34 +203,60 @@ export default function ConfirmPage() {
 
     if (seedWords.length === 0) return createdWords;
 
-    const response = await fetch('/api/generate-quiz-distractors', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ words: seedWords }),
-    });
-
-    if (!response.ok) {
-      return createdWords;
-    }
-
-    const data = await response.json();
-    if (!data.success || !Array.isArray(data.results)) {
-      return createdWords;
-    }
-
     const resultMap = new Map<string, {
       distractors: string[];
       exampleSentence: string;
       exampleSentenceJa: string;
     }>();
 
-    for (const result of data.results) {
-      if (!result?.wordId || !Array.isArray(result.distractors)) continue;
-      resultMap.set(result.wordId, {
-        distractors: result.distractors,
-        exampleSentence: result.exampleSentence || '',
-        exampleSentenceJa: result.exampleSentenceJa || '',
-      });
+    const batches = chunkArray(seedWords, QUIZ_PREFILL_BATCH_SIZE);
+
+    for (const batch of batches) {
+      let pending = batch;
+
+      for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
+        try {
+          const response = await fetch('/api/generate-quiz-distractors', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ words: pending }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`prefill request failed: ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (!data.success || !Array.isArray(data.results)) {
+            throw new Error('prefill response format is invalid');
+          }
+
+          const succeeded = new Set<string>();
+          for (const result of data.results) {
+            if (!result?.wordId || !Array.isArray(result.distractors)) continue;
+            succeeded.add(result.wordId);
+            resultMap.set(result.wordId, {
+              distractors: result.distractors,
+              exampleSentence: result.exampleSentence || '',
+              exampleSentenceJa: result.exampleSentenceJa || '',
+            });
+          }
+
+          pending = pending.filter((word) => !succeeded.has(word.id));
+          if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) {
+            await sleep(250 * attempt);
+          }
+        } catch (error) {
+          if (attempt >= QUIZ_PREFILL_MAX_ATTEMPTS) {
+            console.error('Quiz prefill failed after max attempts:', {
+              failedWordIds: pending.map((word) => word.id),
+              error,
+            });
+            break;
+          }
+          await sleep(250 * attempt);
+        }
+      }
     }
 
     const updates: Array<Promise<void>> = [];
