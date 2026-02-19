@@ -172,7 +172,12 @@ export default function ConfirmPage() {
 
     const supabase = createBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) return createdWords;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
 
     const seedWords = createdWords
       .filter((word) => word.english.trim().length > 0 && word.japanese.trim().length > 0)
@@ -187,10 +192,7 @@ export default function ConfirmPage() {
 
     const response = await fetch('/api/generate-quiz-distractors', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
+      headers,
       body: JSON.stringify({ words: seedWords }),
     });
 

@@ -18,7 +18,7 @@ export class GeminiProvider implements AIProvider {
   }
 
   async generate(request: AIRequest): Promise<AIResponse> {
-    const { systemPrompt, prompt, image, config } = request;
+    const { systemPrompt, prompt, image, images, config } = request;
 
     try {
       const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
@@ -27,11 +27,13 @@ export class GeminiProvider implements AIProvider {
       const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
       parts.push({ text: fullPrompt });
 
-      if (image) {
+      // Consolidate images: prefer `images` array, fall back to single `image`
+      const allImages = images ?? (image ? [image] : []);
+      for (const img of allImages) {
         parts.push({
           inlineData: {
-            mimeType: image.mimeType,
-            data: image.base64,
+            mimeType: img.mimeType,
+            data: img.base64,
           },
         });
       }

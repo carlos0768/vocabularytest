@@ -80,6 +80,10 @@ export default function QuizPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const needsDistractors = useCallback((w: Word) =>
+    !w.distractors || w.distractors.length === 0 ||
+    (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
+  , []);
 
   // Track if state was restored from session storage
   const restoredFromStorage = useRef(false);
@@ -240,16 +244,7 @@ export default function QuizPage() {
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = shuffleArray(words).slice(0, count);
 
-    // Find words that need distractors or example sentences
-    const needsDistractors = (w: Word) =>
-      !w.distractors || w.distractors.length === 0 ||
-      (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
-    const needsExample = (w: Word) =>
-      !w.exampleSentence || w.exampleSentence.trim().length === 0;
-
-    const wordsToGenerate = selected.filter(
-      (w) => needsDistractors(w) || needsExample(w)
-    );
+    const wordsToGenerate = selected.filter((w) => needsDistractors(w));
 
     let updatedSelected = selected;
     setDistractorError(null);
@@ -390,7 +385,7 @@ export default function QuizPage() {
   // Note: allWords is intentionally excluded - we use the 'words' parameter passed to this function
   // quizDirection is accessed via closure but changes don't need to recreate this function
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repository]);
+  }, [needsDistractors, repository]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -570,12 +565,8 @@ export default function QuizPage() {
         }
 
         if (resolvedCount) {
-          // Check if any words need distractors or example sentences
-          const needsGeneration = sourceWords.some(
-            (w) => !w.distractors || w.distractors.length === 0 ||
-              (w.distractors.length === 3 && w.distractors[0] === '選択肢1') ||
-              !w.exampleSentence || w.exampleSentence.trim().length === 0
-          );
+          // Check if any words need distractors
+          const needsGeneration = sourceWords.some((w) => needsDistractors(w));
 
           if (needsGeneration) {
             await startQuizWithDistractors(sourceWords, resolvedCount);
@@ -593,7 +584,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors]);
 
   // Phase 2: Fetch latest from remote in background (Pro users)
   // Updates allWords if remote has more words than local
@@ -700,10 +691,7 @@ export default function QuizPage() {
     );
 
     // Check if any words still need distractors
-    const needsGeneration = allWords.some(
-      (w) => !w.distractors || w.distractors.length === 0 ||
-        (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
-    );
+    const needsGeneration = allWords.some((w) => needsDistractors(w));
 
     if (needsGeneration) {
       await startQuizWithDistractors(allWords, count);
@@ -722,12 +710,8 @@ export default function QuizPage() {
   const handleSelectCount = async (count: number) => {
     setQuestionCount(count);
     if (allWords.length > 0) {
-      // Check if any words need distractors or example sentences
-      const needsGeneration = allWords.some(
-        (w) => !w.distractors || w.distractors.length === 0 ||
-          (w.distractors.length === 3 && w.distractors[0] === '選択肢1') ||
-          !w.exampleSentence || w.exampleSentence.trim().length === 0
-      );
+      // Check if any words need distractors
+      const needsGeneration = allWords.some((w) => needsDistractors(w));
 
       if (needsGeneration) {
         // Offline check: can't generate without internet
