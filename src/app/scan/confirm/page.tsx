@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,7 @@ interface EditableWord extends AIWordExtraction {
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 const SENTENCE_QUIZ_SIZE = 15;
+const QUIZ2_PREFILL_BATCH_SIZE = 200;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   if (items.length === 0) return [];
@@ -35,6 +36,18 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const supabase = createBrowserClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return headers;
 }
 
 // Check sessionStorage synchronously before any React rendering
@@ -183,15 +196,7 @@ export default function ConfirmPage() {
     updateWord: (id: string, updates: Partial<Word>) => Promise<void>
   ): Promise<Word[]> => {
     if (createdWords.length === 0) return createdWords;
-
-    const supabase = createBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (session?.access_token) {
-      headers.Authorization = `Bearer ${session.access_token}`;
-    }
+    const headers = await getAuthHeaders();
 
     const seedWords = createdWords
       .filter((word) => word.english.trim().length > 0 && word.japanese.trim().length > 0)
@@ -292,6 +297,46 @@ export default function ConfirmPage() {
           : {}),
       };
     });
+  };
+
+  const prefillQuiz2Data = async (createdWords: Word[]) => {
+    if (!isPro || createdWords.length === 0) return;
+
+    const wordIds = createdWords.map((word) => word.id);
+    if (wordIds.length === 0) return;
+
+    const headers = await getAuthHeaders();
+
+    // 1) Create embeddings for just-created words.
+    // 2) Warm similar cache in batches so quiz2 opens with prepared data.
+    try {
+      await fetch('/api/embeddings/sync', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          wordIds,
+          limit: Math.min(wordIds.length, 50),
+        }),
+      });
+    } catch {
+      // Non-critical: quiz2 can still fallback to local similarity.
+    }
+
+    const batches = chunkArray(wordIds, QUIZ2_PREFILL_BATCH_SIZE);
+    for (const batch of batches) {
+      try {
+        await fetch('/api/quiz2/similar/batch', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            sourceWordIds: batch,
+            limit: 3,
+          }),
+        });
+      } catch {
+        // Non-critical: skip failed batch and continue.
+      }
+    }
   };
 
   const preGenerateSentenceQuiz = async (projectId: string, wordsForQuiz: Word[]) => {
@@ -423,6 +468,9 @@ export default function ConfirmPage() {
 
       // Pro users: pre-generate sentence quiz questions so the first launch is instant.
       await preGenerateSentenceQuiz(targetProjectId, quizReadyWords);
+
+      // Pro users: warm quiz2 similarity data during save.
+      await prefillQuiz2Data(quizReadyWords);
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
