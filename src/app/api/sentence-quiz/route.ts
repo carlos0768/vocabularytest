@@ -130,7 +130,7 @@ const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問
 - 誤答は正解と同じCEFR帯（A1〜C2の同帯域）にしてください
 
 【ルール】
-1. 正解を含めて4つの選択肢を生成（全て単語1つのみ）
+1. 正解を含めて8つの選択肢を生成（全て単語1つのみ）
 2. 誤答は単純な活用形変化（三人称形、過去形等）を使わない
 3. 誤答は正解の類義語を絶対に使わない
 4. 誤答は同じ品詞で、文の内容に関連するが正解ではない単語を選ぶ
@@ -139,7 +139,7 @@ const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問
 
 【出力形式】JSON
 {
-  "options": ["正解", "誤答1", "誤答2", "誤答3"]
+  "options": ["正解", "誤答1", "誤答2", "誤答3", "誤答4", "誤答5", "誤答6", "誤答7"]
 }`;
 
 // 並び替え問題生成プロンプト
@@ -451,7 +451,7 @@ async function generateFillInBlank(
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成
 2. 例文は中学〜高校レベルの難易度
 3. 空欄は1つだけ（対象単語の部分）
-4. 選択肢は4つ（1つが正解、3つが誤答）
+4. 選択肢は8つ（1つが正解、7つが誤答）
 5. 空欄に入れる語は文脈に合った正しい活用形にする（be→is/are/was 等）
 
 【選択肢のルール - 重要】
@@ -465,7 +465,7 @@ async function generateFillInBlank(
 {
   "sentence": "She ___ to the store to buy some food.",
   "blanks": [
-    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned"] }
+    { "correctAnswer": "went", "options": ["went", "came", "arrived", "returned", "traveled", "walked", "drove", "visited"] }
   ],
   "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
 }`,
