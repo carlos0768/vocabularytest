@@ -73,7 +73,7 @@ export default function NewCollectionPage() {
         await addProjectsToCollection(collection.id, Array.from(selectedIds));
       }
 
-      showToast({ message: 'プロジェクトを作成しました', type: 'success' });
+      showToast({ message: '本棚を作成しました', type: 'success' });
       router.replace(`/collections/${collection.id}`);
     } catch (e) {
       console.error('Failed to create collection:', e);
@@ -99,7 +99,7 @@ export default function NewCollectionPage() {
           <button onClick={() => router.back()} className="p-1 -ml-1">
             <Icon name="arrow_back" size={22} className="text-[var(--color-foreground)]" />
           </button>
-          <h1 className="flex-1 text-lg font-bold text-[var(--color-foreground)]">新しいプロジェクト</h1>
+          <h1 className="flex-1 text-lg font-bold text-[var(--color-foreground)]">新しい本棚</h1>
           <button
             onClick={handleSave}
             disabled={!canSave || saving}
@@ -117,7 +117,7 @@ export default function NewCollectionPage() {
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Name */}
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[var(--color-foreground)]">プロジェクト名</label>
+          <label className="text-sm font-semibold text-[var(--color-foreground)]">本棚の名前</label>
           <input
             type="text"
             value={name}

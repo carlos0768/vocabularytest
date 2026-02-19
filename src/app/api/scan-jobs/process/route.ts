@@ -10,7 +10,7 @@ import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
-import { generateQuizContentForWords } from '@/lib/ai/generate-quiz-content';
+import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -43,6 +43,8 @@ type ExtractionLikeResult =
 // Keep internal timeout below platform timeout to fail gracefully.
 const EXTRACTION_TIMEOUT_MS = 4 * 60 * 1000 + 30 * 1000;
 const EXTRACTION_TIMEOUT_MINUTES = Math.round(EXTRACTION_TIMEOUT_MS / 60_000);
+const QUIZ_PREFILL_BATCH_SIZE = 30;
+const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
 type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
 const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
@@ -85,6 +87,65 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+interface QuizSeedWord {
+  id: string;
+  english: string;
+  japanese: string;
+}
+
+async function generateQuizContentWithRetry(words: QuizSeedWord[]): Promise<{
+  results: QuizContentResult[];
+  failedWordIds: string[];
+}> {
+  if (words.length === 0) {
+    return { results: [], failedWordIds: [] };
+  }
+
+  const resultMap = new Map<string, QuizContentResult>();
+  let pending = words;
+
+  for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
+    try {
+      const generated = await generateQuizContentForWords(pending);
+      const succeededIds = new Set<string>();
+
+      for (const item of generated) {
+        if (!item?.wordId || !Array.isArray(item.distractors) || item.distractors.length === 0) continue;
+        resultMap.set(item.wordId, item);
+        succeededIds.add(item.wordId);
+      }
+
+      pending = pending.filter((word) => !succeededIds.has(word.id));
+      if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) {
+        await sleep(250 * attempt);
+      }
+    } catch (error) {
+      console.error(`Quiz prefill failed (attempt ${attempt}/${QUIZ_PREFILL_MAX_ATTEMPTS}):`, error);
+      if (attempt < QUIZ_PREFILL_MAX_ATTEMPTS) {
+        await sleep(250 * attempt);
+      }
+    }
+  }
+
+  return {
+    results: Array.from(resultMap.values()),
+    failedWordIds: pending.map((word) => word.id),
+  };
 }
 
 // Extract words from a single image using the appropriate mode
@@ -319,11 +380,63 @@ export async function POST(request: NextRequest) {
 
       const insertedWordsArray = insertedWords ?? [];
 
-      const resultPayload: { wordCount: number; warnings?: ExtractionWarningCode[] } = {
+      const resultPayload: {
+        wordCount: number;
+        warnings?: ExtractionWarningCode[];
+        quizPrefillRequested?: number;
+        quizPrefillSucceeded?: number;
+        quizPrefillFailed?: number;
+      } = {
         wordCount: allExtractedWords.length,
       };
       if (warningCodes.size > 0) {
         resultPayload.warnings = Array.from(warningCodes);
+      }
+
+      const quizSeedWords: QuizSeedWord[] = insertedWordsArray.map((w: { id: string; english: string; japanese: string }) => ({
+        id: w.id,
+        english: w.english,
+        japanese: w.japanese,
+      }));
+
+      let quizPrefillSucceeded = 0;
+      const quizPrefillFailedWordIds = new Set<string>();
+
+      for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
+        const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
+
+        if (results.length > 0) {
+          try {
+            await Promise.all(
+              results.map((item) =>
+                getSupabaseAdmin()
+                  .from('words')
+                  .update({
+                    distractors: item.distractors,
+                    example_sentence: item.exampleSentence || null,
+                    example_sentence_ja: item.exampleSentenceJa || null,
+                  })
+                  .eq('id', item.wordId)
+              )
+            );
+            quizPrefillSucceeded += results.length;
+          } catch (persistError) {
+            console.error('Failed to persist quiz prefill batch:', persistError);
+            for (const item of results) {
+              quizPrefillFailedWordIds.add(item.wordId);
+            }
+          }
+        }
+
+        for (const failedWordId of failedWordIds) {
+          quizPrefillFailedWordIds.add(failedWordId);
+        }
+      }
+
+      if (quizSeedWords.length > 0) {
+        resultPayload.quizPrefillRequested = quizSeedWords.length;
+        resultPayload.quizPrefillSucceeded = quizPrefillSucceeded;
+        resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
       }
 
       await getSupabaseAdmin()
@@ -347,7 +460,7 @@ export async function POST(request: NextRequest) {
         console.error('Failed to send completed push notification:', error);
       });
 
-      // Heavy/non-critical tasks run after completion update so users are not blocked.
+      // Heavy/non-critical tasks run after completion update.
       void (async () => {
         if (insertedWordsArray.length === 0) return;
 
@@ -391,32 +504,6 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Pre-generate quiz distractors and example sentences (best effort)
-        try {
-          const quizSeedWords = insertedWordsArray
-            .slice(0, 30)
-            .map((w: { id: string; english: string; japanese: string }) => ({
-              id: w.id,
-              english: w.english,
-              japanese: w.japanese,
-            }));
-
-          const generatedQuizContent = await generateQuizContentForWords(quizSeedWords);
-          await Promise.all(
-            generatedQuizContent.map((item) =>
-              getSupabaseAdmin()
-                .from('words')
-                .update({
-                  distractors: item.distractors,
-                  example_sentence: item.exampleSentence || null,
-                  example_sentence_ja: item.exampleSentenceJa || null,
-                })
-                .eq('id', item.wordId)
-            )
-          );
-        } catch (quizGenerationError) {
-          console.error('Quiz pre-generation failed (non-critical):', quizGenerationError);
-        }
       })();
 
       return NextResponse.json({

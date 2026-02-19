@@ -145,7 +145,7 @@ export default function CollectionDetailPage() {
     try {
       const ok = await deleteCollection(collectionId);
       if (ok) {
-        showToast({ message: 'プロジェクトを削除しました', type: 'success' });
+        showToast({ message: '本棚を削除しました', type: 'success' });
         router.replace('/collections');
       } else {
         showToast({ message: '削除に失敗しました', type: 'error' });
@@ -442,7 +442,7 @@ export default function CollectionDetailPage() {
                       progress={project.progress}
                       extraMenuItems={[
                         {
-                          label: 'プロジェクトから除外',
+                          label: '本棚から除外',
                           icon: 'link_off',
                           onClick: handleRemoveProject,
                           danger: true,
@@ -566,8 +566,8 @@ export default function CollectionDetailPage() {
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
           onConfirm={handleDelete}
-          title="プロジェクトを削除"
-          message="このプロジェクトを削除しますか？単語帳自体は削除されません。"
+          title="本棚を削除"
+          message="この本棚を削除しますか？単語帳自体は削除されません。"
           isLoading={deleteLoading}
         />
 
@@ -578,7 +578,7 @@ export default function CollectionDetailPage() {
               className="w-full max-w-lg bg-[var(--color-surface)] rounded-t-2xl sm:rounded-2xl p-6 space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[var(--color-foreground)]">プロジェクトを編集</h3>
+              <h3 className="text-lg font-bold text-[var(--color-foreground)]">本棚を編集</h3>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-[var(--color-foreground)]">名前</label>
                 <input

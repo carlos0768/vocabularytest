@@ -32,7 +32,7 @@ export default function CollectionsPage() {
     try {
       const ok = await deleteCollection(deleteId);
       if (ok) {
-        showToast({ message: 'プロジェクトを削除しました', type: 'success' });
+        showToast({ message: '本棚を削除しました', type: 'success' });
       } else {
         showToast({ message: '削除に失敗しました', type: 'error' });
       }
@@ -58,7 +58,7 @@ export default function CollectionsPage() {
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-[var(--color-foreground)]">プロジェクト</h1>
+              <h1 className="text-xl font-bold text-[var(--color-foreground)]">本棚</h1>
               <p className="text-sm text-[var(--color-muted)]">単語帳をまとめて管理</p>
             </div>
             <Link
@@ -82,7 +82,7 @@ export default function CollectionsPage() {
               <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-success-light)] flex items-center justify-center">
                 <Icon name="shelves" size={24} className="text-[var(--color-success)]" />
               </div>
-              <h2 className="mt-4 text-lg font-bold">プロジェクトがありません</h2>
+              <h2 className="mt-4 text-lg font-bold">本棚がありません</h2>
               <p className="text-sm text-[var(--color-muted)] mt-2">
                 複数の単語帳をまとめて学期末試験や模試の対策に活用しましょう
               </p>
@@ -90,7 +90,7 @@ export default function CollectionsPage() {
                 href="/collections/new"
                 className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-full bg-[var(--color-success)] text-white font-semibold"
               >
-                プロジェクトを作成
+                本棚を作成
               </Link>
             </div>
           ) : (
@@ -117,8 +117,8 @@ export default function CollectionsPage() {
           isOpen={!!deleteId}
           onClose={() => setDeleteId(null)}
           onConfirm={handleConfirmDelete}
-          title="プロジェクトを削除"
-          message="このプロジェクトを削除しますか？単語帳自体は削除されません。"
+          title="本棚を削除"
+          message="この本棚を削除しますか？単語帳自体は削除されません。"
           isLoading={deleteLoading}
         />
       </div>
