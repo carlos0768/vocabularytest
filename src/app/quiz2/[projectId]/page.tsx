@@ -294,6 +294,8 @@ export default function Quiz2Page() {
         setSelectedGrade(null);
         setIsSubmittingGrade(false);
         setGradeCounts({ again: 0, hard: 0, good: 0, easy: 0 });
+        // Show first question immediately; keep similar-word prep in background.
+        setLoading(false);
 
         const allWords = await loadAllUserWords();
         const userWordPool = allWords.length > 0 ? allWords : shuffledWords;
