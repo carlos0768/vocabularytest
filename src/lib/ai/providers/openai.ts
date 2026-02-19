@@ -18,7 +18,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async generate(request: AIRequest): Promise<AIResponse> {
-    const { prompt, systemPrompt, image, config } = request;
+    const { prompt, systemPrompt, image, images, config } = request;
 
     try {
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
@@ -31,19 +31,20 @@ export class OpenAIProvider implements AIProvider {
         });
       }
 
-      if (image) {
-        messages.push({
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${image.mimeType};base64,${image.base64}`,
-              },
+      // Consolidate images: prefer `images` array, fall back to single `image`
+      const allImages = images ?? (image ? [image] : []);
+
+      if (allImages.length > 0) {
+        const content: OpenAI.Chat.ChatCompletionContentPart[] = [
+          { type: 'text', text: prompt },
+          ...allImages.map((img) => ({
+            type: 'image_url' as const,
+            image_url: {
+              url: `data:${img.mimeType};base64,${img.base64}`,
             },
-          ],
-        });
+          })),
+        ];
+        messages.push({ role: 'user', content });
       } else {
         messages.push({
           role: 'user',

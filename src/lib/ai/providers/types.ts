@@ -18,6 +18,10 @@ export interface AIRequest {
     base64: string;
     mimeType: string;
   };
+  images?: Array<{
+    base64: string;
+    mimeType: string;
+  }>;
   config: AIModelConfig;
 }
 
