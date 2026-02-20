@@ -22,8 +22,7 @@ export type HighlightedExtractionResult =
 // Features: color detection, confidence scoring, bounding box coordinates
 export async function extractHighlightedWordsFromImage(
   imageBase64: string,
-  apiKey: string,
-  openaiApiKey?: string
+  apiKeys: { gemini?: string; openai?: string }
 ): Promise<HighlightedExtractionResult> {
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -66,7 +65,7 @@ export async function extractHighlightedWordsFromImage(
 
   try {
     const config = AI_CONFIG.extraction.circled; // Same config as circled mode
-    const provider = getProviderFromConfig(config, { gemini: apiKey, openai: openaiApiKey || apiKey });
+    const provider = getProviderFromConfig(config, apiKeys);
 
     const result = await provider.generate({
       systemPrompt: HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,

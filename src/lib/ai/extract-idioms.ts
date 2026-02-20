@@ -4,7 +4,7 @@ import {
   IDIOM_USER_PROMPT,
 } from './prompts';
 import { AI_CONFIG } from './config';
-import { getProvider, AIError } from './providers';
+import { getProviderFromConfig, AIError } from './providers';
 import { prepareImageForProvider } from './utils/image';
 import { safeParseJSON } from './utils/json';
 
@@ -51,7 +51,7 @@ function isStrictVerbIdiom(expression: string): boolean {
 // Returns validated word data (using same schema as words) or an error message
 export async function extractIdiomsFromImage(
   imageBase64: string,
-  apiKey: string
+  apiKeys: { gemini?: string; openai?: string }
 ): Promise<IdiomExtractionResult> {
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -73,7 +73,7 @@ export async function extractIdiomsFromImage(
     startsWithData: imageBase64.startsWith('data:')
   });
 
-  const provider = getProvider(config.provider, apiKey);
+  const provider = getProviderFromConfig(config, apiKeys);
 
   // Prepare image for provider
   const image = prepareImageForProvider(imageBase64);

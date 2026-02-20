@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
   WRONG_ANSWER_OCR_SYSTEM_PROMPT,
@@ -7,7 +6,7 @@ import {
   WRONG_ANSWER_ANALYSIS_USER_PROMPT,
 } from './prompts';
 import { AI_CONFIG } from './config';
-import { getProviderFromConfig } from './providers';
+import { AIError, getProviderFromConfig } from './providers';
 
 // Type for OCR result - structured test data
 export interface TestQuestion {
@@ -51,13 +50,38 @@ export type WrongAnswerExtractionResult =
   | { success: true; ocrData: TestOCRData; data: ValidatedAIResponse; summary: WrongAnswerSummary }
   | { success: false; error: string };
 
+interface ProviderApiKeys {
+  gemini?: string;
+  openai?: string;
+}
+
+interface WrongAnswerDeps {
+  getProviderFromConfig?: typeof getProviderFromConfig;
+}
+
+function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
 /**
- * Step 1: Extract test structure from image using OpenAI
+ * Step 1: Extract test structure from image
  * Analyzes the vocabulary test image and extracts question/answer/marking data
  */
 export async function extractTestFromImage(
   imageBase64: string,
-  openaiApiKey: string
+  apiKeys: ProviderApiKeys,
+  deps: WrongAnswerDeps = {}
 ): Promise<WrongAnswerOCRResult> {
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -95,7 +119,8 @@ export async function extractTestFromImage(
 
   try {
     const config = AI_CONFIG.extraction.grammar.ocr;
-    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
+    const resolveProvider = deps.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(config, apiKeys);
 
     const result = await provider.generate({
       systemPrompt: WRONG_ANSWER_OCR_SYSTEM_PROMPT,
@@ -155,16 +180,8 @@ export async function extractTestFromImage(
   } catch (error) {
     console.error('AI OCR error:', error);
 
-    if (error instanceof Error) {
-      const errorMessage = error.message;
-      console.error('AI error message:', errorMessage);
-
-      if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
-        return { success: false, error: 'OpenAI APIキーが無効です' };
-      }
-      if (errorMessage.includes('quota') || errorMessage.includes('rate')) {
-        return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
-      }
+    if (error instanceof AIError) {
+      return { success: false, error: error.getUserMessage() };
     }
 
     return {
@@ -175,12 +192,13 @@ export async function extractTestFromImage(
 }
 
 /**
- * Step 2: Analyze test data and extract only wrong answers using GPT-5
+ * Step 2: Analyze test data and extract only wrong answers
  * Generates vocabulary data for incorrectly answered questions
  */
 export async function analyzeWrongAnswers(
   testData: TestOCRData,
-  openaiApiKey: string
+  apiKeys: ProviderApiKeys,
+  deps: WrongAnswerDeps = {}
 ): Promise<WrongAnswerAnalysisResult> {
   if (!testData.questions || testData.questions.length === 0) {
     return { success: false, error: '解析するテストデータがありません' };
@@ -204,7 +222,6 @@ export async function analyzeWrongAnswers(
     };
   }
 
-  const openai = new OpenAI({ apiKey: openaiApiKey });
   const analysisConfig = AI_CONFIG.extraction.grammar.analysis;
 
   const systemPrompt = WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT;
@@ -217,24 +234,22 @@ export async function analyzeWrongAnswers(
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: analysisConfig.model,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      max_completion_tokens: analysisConfig.maxOutputTokens,
+    const resolveProvider = deps.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(analysisConfig, apiKeys);
+    const response = await provider.generate({
+      systemPrompt,
+      prompt: userPrompt,
+      config: {
+        ...analysisConfig,
+        responseFormat: 'json',
+      },
     });
 
-    const content = response.choices[0]?.message?.content;
+    if (!response.success) {
+      return { success: false, error: response.error };
+    }
 
+    const content = response.content?.trim();
     if (!content) {
       return { success: false, error: '間違い分析の結果を取得できませんでした' };
     }
@@ -242,7 +257,7 @@ export async function analyzeWrongAnswers(
     // Parse JSON response
     let parsed: { words: unknown[]; summary?: WrongAnswerSummary };
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(extractJsonContent(content));
     } catch {
       console.error('Failed to parse GPT response:', content);
       return { success: false, error: 'AIの応答を解析できませんでした' };
@@ -270,16 +285,10 @@ export async function analyzeWrongAnswers(
       summary,
     };
   } catch (error) {
-    console.error('OpenAI wrong answer analysis error:', error);
+    console.error('AI wrong answer analysis error:', error);
 
-    if (error instanceof OpenAI.APIError) {
-      console.error('OpenAI API Error:', { status: error.status, message: error.message });
-      if (error.status === 401) {
-        return { success: false, error: 'APIキーが無効です' };
-      }
-      if (error.status === 429) {
-        return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
-      }
+    if (error instanceof AIError) {
+      return { success: false, error: error.getUserMessage() };
     }
 
     return {
@@ -290,22 +299,23 @@ export async function analyzeWrongAnswers(
 }
 
 /**
- * Full pipeline: Extract test and analyze wrong answers with OpenAI
+ * Full pipeline: Extract test and analyze wrong answers
  * Returns only the incorrectly answered words as vocabulary data
  */
 export async function extractWrongAnswersFromImage(
   imageBase64: string,
-  openaiApiKey: string
+  apiKeys: ProviderApiKeys,
+  deps: WrongAnswerDeps = {}
 ): Promise<WrongAnswerExtractionResult> {
   // Step 1: OCR - extract test structure
-  const ocrResult = await extractTestFromImage(imageBase64, openaiApiKey);
+  const ocrResult = await extractTestFromImage(imageBase64, apiKeys, deps);
 
   if (!ocrResult.success) {
     return ocrResult;
   }
 
   // Step 2: Analyze wrong answers with GPT
-  const analysisResult = await analyzeWrongAnswers(ocrResult.data, openaiApiKey);
+  const analysisResult = await analyzeWrongAnswers(ocrResult.data, apiKeys, deps);
 
   if (!analysisResult.success) {
     return analysisResult;

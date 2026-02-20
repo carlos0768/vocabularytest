@@ -5,12 +5,15 @@ import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
+import { extractWrongAnswersFromImage } from '@/lib/ai/extract-wrong-answers';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
+import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
+import { isCloudRunConfigured } from '@/lib/ai/providers';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -48,6 +51,61 @@ const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
 type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
 const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
+
+function getProvidersForMode(mode: ExtractMode): AIProvider[] {
+  switch (mode) {
+    case 'circled':
+      return [AI_CONFIG.extraction.circled.provider];
+    case 'highlighted':
+      return [AI_CONFIG.extraction.circled.provider];
+    case 'eiken':
+      return [AI_CONFIG.extraction.eiken.provider];
+    case 'idiom':
+      return [AI_CONFIG.extraction.idioms.provider];
+    case 'wrong':
+      return [AI_CONFIG.extraction.grammar.ocr.provider, AI_CONFIG.extraction.grammar.analysis.provider];
+    case 'all':
+    default:
+      return [AI_CONFIG.extraction.words.provider];
+  }
+}
+
+function getMissingProviderKey(mode: ExtractMode, apiKeys: { gemini?: string; openai?: string }): AIProvider | null {
+  if (isCloudRunConfigured()) return null;
+
+  const requiredProviders = new Set(getProvidersForMode(mode));
+  for (const provider of requiredProviders) {
+    if (!apiKeys[provider]) {
+      return provider;
+    }
+  }
+
+  return null;
+}
+
+export const __internal = {
+  getProvidersForMode,
+  getMissingProviderKey,
+  extractFromImage,
+};
+
+interface ExtractionHandlers {
+  extractWordsFromImage: typeof extractWordsFromImage;
+  extractCircledWordsFromImage: typeof extractCircledWordsFromImage;
+  extractHighlightedWordsFromImage: typeof extractHighlightedWordsFromImage;
+  extractEikenWordsFromImage: typeof extractEikenWordsFromImage;
+  extractIdiomsFromImage: typeof extractIdiomsFromImage;
+  extractWrongAnswersFromImage: typeof extractWrongAnswersFromImage;
+}
+
+const defaultExtractionHandlers: ExtractionHandlers = {
+  extractWordsFromImage,
+  extractCircledWordsFromImage,
+  extractHighlightedWordsFromImage,
+  extractEikenWordsFromImage,
+  extractIdiomsFromImage,
+  extractWrongAnswersFromImage,
+};
 
 function normalizeEikenLevel(rawLevel: string | null): EikenLevel {
   if (!rawLevel) {
@@ -153,16 +211,15 @@ async function extractFromImage(
   base64Image: string,
   mode: ExtractMode,
   eikenLevel: string | null,
-  openaiApiKey: string | undefined
+  apiKeys: { gemini?: string; openai?: string },
+  handlers: ExtractionHandlers = defaultExtractionHandlers
 ): Promise<{ result: ExtractionLikeResult; warningCode?: ExtractionWarningCode }> {
-  if (!openaiApiKey) throw new Error('OpenAI API key not configured');
-
   switch (mode) {
     case 'circled': {
-      return { result: await extractCircledWordsFromImage(base64Image, openaiApiKey, {}, openaiApiKey) as ExtractionLikeResult };
+      return { result: await handlers.extractCircledWordsFromImage(base64Image, apiKeys, {}) as ExtractionLikeResult };
     }
     case 'highlighted': {
-      return { result: await extractHighlightedWordsFromImage(base64Image, openaiApiKey, openaiApiKey) as ExtractionLikeResult };
+      return { result: await handlers.extractHighlightedWordsFromImage(base64Image, apiKeys) as ExtractionLikeResult };
     }
     case 'eiken': {
       const normalizedLevel = normalizeEikenLevel(eikenLevel);
@@ -170,26 +227,29 @@ async function extractFromImage(
         console.log('Normalized eikenLevel for scan job:', { rawLevel: eikenLevel, normalizedLevel });
       }
       return {
-        result: await extractEikenWordsFromImage(
+        result: await handlers.extractEikenWordsFromImage(
           base64Image,
-          openaiApiKey,
+          apiKeys,
           normalizedLevel
         ) as ExtractionLikeResult,
       };
     }
     case 'idiom': {
-      const idiomResult = await extractIdiomsFromImage(base64Image, openaiApiKey);
+      const idiomResult = await handlers.extractIdiomsFromImage(base64Image, apiKeys);
       if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
         console.warn('No idioms found in background scan. Falling back to all-word extraction.');
         return {
-          result: await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true }) as ExtractionLikeResult,
+          result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: true }) as ExtractionLikeResult,
           warningCode: 'grammar_not_found',
         };
       }
       return { result: idiomResult as ExtractionLikeResult };
     }
+    case 'wrong': {
+      return { result: await handlers.extractWrongAnswersFromImage(base64Image, apiKeys) as ExtractionLikeResult };
+    }
     default: {
-      return { result: await extractWordsFromImage(base64Image, openaiApiKey, { includeExamples: true }) as ExtractionLikeResult };
+      return { result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: true }) as ExtractionLikeResult };
     }
   }
 }
@@ -229,7 +289,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', jobId);
 
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const apiKeys = getAPIKeys();
 
     try {
       // Collect all image paths (support both single and multiple)
@@ -240,6 +300,12 @@ export async function POST(request: NextRequest) {
       }
 
       const mode = job.scan_mode as ExtractMode;
+      const missingProviderKey = getMissingProviderKey(mode, apiKeys);
+      if (missingProviderKey) {
+        const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
+        throw new Error(`${providerLabel} APIキーが設定されていません`);
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allExtractedWords: any[] = [];
       let firstExtractionError: string | null = null;
@@ -282,7 +348,7 @@ export async function POST(request: NextRequest) {
         let extractionResult: { result: ExtractionLikeResult; warningCode?: ExtractionWarningCode } | null = null;
         try {
           extractionResult = await withTimeout(
-            extractFromImage(base64Image, mode, job.eiken_level, openaiApiKey),
+            extractFromImage(base64Image, mode, job.eiken_level, apiKeys),
             EXTRACTION_TIMEOUT_MS,
             `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
           );

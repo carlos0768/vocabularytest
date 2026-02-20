@@ -6,10 +6,14 @@
  */
 
 export type AIProvider = 'gemini' | 'openai';
-export type GeminiModel = 'gemini-1.5-flash-002' | 'gemini-1.5-pro-002' | 'gemini-2.0-flash-001';
+export type GeminiModel =
+  | 'gemini-1.5-flash-002'
+  | 'gemini-1.5-pro-002'
+  | 'gemini-2.0-flash-001'
+  | 'gemini-2.5-flash';
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
-const EXTRACTION_MODEL: OpenAIModel = 'gpt-4o';
+const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
 const QUESTION_GENERATION_MODEL: OpenAIModel = 'gpt-4o-mini';
 
 export interface AIModelConfig {
@@ -40,38 +44,38 @@ export interface AIConfig {
 export const AI_CONFIG: AIConfig = {
   extraction: {
     words: {
-      provider: 'openai',
+      provider: 'gemini',
       model: EXTRACTION_MODEL,
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     idioms: {
-      provider: 'openai',
+      provider: 'gemini',
       model: EXTRACTION_MODEL,
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     eiken: {
-      provider: 'openai',
+      provider: 'gemini',
       model: EXTRACTION_MODEL,
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     circled: {
-      provider: 'openai',
+      provider: 'gemini',
       model: EXTRACTION_MODEL,
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
     grammar: {
       ocr: {
-        provider: 'openai',
+        provider: 'gemini',
         model: EXTRACTION_MODEL,
         temperature: 0.3,
         maxOutputTokens: 8192,
       },
       analysis: {
-        provider: 'openai',
+        provider: 'gemini',
         model: EXTRACTION_MODEL,
         temperature: 0.7,
         maxOutputTokens: 16384,
@@ -80,8 +84,8 @@ export const AI_CONFIG: AIConfig = {
   },
   defaults: {
     gemini: {
-      provider: 'openai',
-      model: QUESTION_GENERATION_MODEL,
+      provider: 'gemini',
+      model: EXTRACTION_MODEL,
       temperature: 0.7,
       maxOutputTokens: 16384,
     },
@@ -93,8 +97,6 @@ export const AI_CONFIG: AIConfig = {
     },
   },
 };
-
-// NOTE: Temporarily using OpenAI due to Gemini/Cloud Run issues (2026-02-06)
 
 export function getAPIKeys() {
   return {
@@ -109,7 +111,7 @@ export function getAPIKey(provider: AIProvider): string | undefined {
 }
 
 export function setGlobalProvider(provider: AIProvider, model?: string): void {
-  const defaultModel = provider === 'openai' ? QUESTION_GENERATION_MODEL : 'gemini-2.0-flash-001';
+  const defaultModel = provider === 'openai' ? QUESTION_GENERATION_MODEL : EXTRACTION_MODEL;
   const targetModel = model || defaultModel;
 
   AI_CONFIG.extraction.words.provider = provider;
@@ -123,4 +125,10 @@ export function setGlobalProvider(provider: AIProvider, model?: string): void {
 
   AI_CONFIG.extraction.circled.provider = provider;
   AI_CONFIG.extraction.circled.model = targetModel;
+
+  AI_CONFIG.extraction.grammar.ocr.provider = provider;
+  AI_CONFIG.extraction.grammar.ocr.model = targetModel;
+
+  AI_CONFIG.extraction.grammar.analysis.provider = provider;
+  AI_CONFIG.extraction.grammar.analysis.model = targetModel;
 }

@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
   EIKEN_OCR_PROMPT,
@@ -8,8 +7,8 @@ import {
   getEikenLevelsAbove,
 } from './prompts';
 import { AI_CONFIG } from './config';
-import { getProviderFromConfig } from './providers';
-import { extractWordsFromImage } from './extract-words';
+import { AIError, getProviderFromConfig } from './providers';
+import { extractWordsFromImage as extractWordsFromImageBase } from './extract-words';
 import type { EikenLevel } from '@/app/api/extract/route';
 
 // Result type for OCR extraction
@@ -31,12 +30,38 @@ export type EikenExtractionResult =
   | { success: true; extractedText: string; data: ValidatedAIResponse }
   | { success: false; error: string };
 
+interface ProviderApiKeys {
+  gemini?: string;
+  openai?: string;
+}
+
+interface EikenDeps {
+  getProviderFromConfig?: typeof getProviderFromConfig;
+  extractWordsFromImage?: typeof extractWordsFromImageBase;
+}
+
+function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
 /**
- * Step 1: Extract text from image using OpenAI OCR
+ * Step 1: Extract text from image
  */
 export async function extractTextForEiken(
   imageBase64: string,
-  openaiApiKey: string
+  apiKeys: ProviderApiKeys,
+  deps: EikenDeps = {}
 ): Promise<EikenOCRResult> {
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -74,7 +99,8 @@ export async function extractTextForEiken(
 
   try {
     const config = AI_CONFIG.extraction.eiken;
-    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
+    const resolveProvider = deps.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(config, apiKeys);
 
     const result = await provider.generate({
       prompt: EIKEN_OCR_PROMPT,
@@ -100,16 +126,8 @@ export async function extractTextForEiken(
   } catch (error) {
     console.error('AI OCR error:', error);
 
-    if (error instanceof Error) {
-      const errorMessage = error.message;
-      console.error('AI error message:', errorMessage);
-
-      if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
-        return { success: false, error: 'OpenAI APIキーが無効です' };
-      }
-      if (errorMessage.includes('quota') || errorMessage.includes('rate')) {
-        return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
-      }
+    if (error instanceof AIError) {
+      return { success: false, error: error.getUserMessage() };
     }
 
     return {
@@ -120,12 +138,13 @@ export async function extractTextForEiken(
 }
 
 /**
- * Step 2: Analyze text and extract words at specified EIKEN level using GPT-5
+ * Step 2: Analyze text and extract words at specified EIKEN level
  */
 export async function analyzeWordsForEiken(
   text: string,
-  openaiApiKey: string,
-  eikenLevel: EikenLevel
+  apiKeys: ProviderApiKeys,
+  eikenLevel: EikenLevel,
+  deps: EikenDeps = {}
 ): Promise<EikenWordAnalysisResult> {
   if (!text || text.trim().length === 0) {
     return { success: false, error: '解析するテキストがありません' };
@@ -139,8 +158,6 @@ export async function analyzeWordsForEiken(
   if (!levelDesc) {
     return { success: false, error: '無効な英検レベルです' };
   }
-
-  const openai = new OpenAI({ apiKey: openaiApiKey });
 
   // Build prompts with level filter
   const levelsAbove = getEikenLevelsAbove(eikenLevel);
@@ -158,24 +175,22 @@ export async function analyzeWordsForEiken(
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: config.model,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      max_completion_tokens: config.maxOutputTokens,
+    const resolveProvider = deps.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(config, apiKeys);
+    const response = await provider.generate({
+      systemPrompt,
+      prompt: userPrompt,
+      config: {
+        ...config,
+        responseFormat: 'json',
+      },
     });
 
-    const content = response.choices[0]?.message?.content;
+    if (!response.success) {
+      return { success: false, error: response.error, reason: 'unknown' };
+    }
 
+    const content = response.content?.trim();
     if (!content) {
       return { success: false, error: '単語解析の結果を取得できませんでした', reason: 'unknown' };
     }
@@ -183,7 +198,7 @@ export async function analyzeWordsForEiken(
     // Parse JSON response
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(extractJsonContent(content));
     } catch {
       console.error('Failed to parse GPT response:', content);
       return { success: false, error: 'AIの応答を解析できませんでした', reason: 'invalid_json' };
@@ -219,16 +234,10 @@ export async function analyzeWordsForEiken(
 
     return { success: true, data: validated.data! };
   } catch (error) {
-    console.error('OpenAI word analysis error:', error);
+    console.error('AI word analysis error:', error);
 
-    if (error instanceof OpenAI.APIError) {
-      console.error('OpenAI API Error:', { status: error.status, message: error.message });
-      if (error.status === 401) {
-        return { success: false, error: 'APIキーが無効です' };
-      }
-      if (error.status === 429) {
-        return { success: false, error: 'API制限に達しました。しばらく待ってから再試行してください。' };
-      }
+    if (error instanceof AIError) {
+      return { success: false, error: error.getUserMessage(), reason: 'unknown' };
     }
 
     return {
@@ -240,25 +249,27 @@ export async function analyzeWordsForEiken(
 }
 
 /**
- * Full pipeline: Extract text and analyze words with OpenAI at specified EIKEN level
+ * Full pipeline: Extract text and analyze words at specified EIKEN level
  */
 export async function extractEikenWordsFromImage(
   imageBase64: string,
-  openaiApiKey: string,
-  eikenLevel: EikenLevel
+  apiKeys: ProviderApiKeys,
+  eikenLevel: EikenLevel,
+  deps: EikenDeps = {}
 ): Promise<EikenExtractionResult> {
-  // Step 1: OCR with OpenAI
-  const ocrResult = await extractTextForEiken(imageBase64, openaiApiKey);
+  // Step 1: OCR
+  const ocrResult = await extractTextForEiken(imageBase64, apiKeys, deps);
 
   if (!ocrResult.success) {
     return ocrResult;
   }
 
-  // Step 2: Word analysis with GPT
+  // Step 2: Word analysis
   const analysisResult = await analyzeWordsForEiken(
     ocrResult.text,
-    openaiApiKey,
-    eikenLevel
+    apiKeys,
+    eikenLevel,
+    deps
   );
 
   if (!analysisResult.success) {
@@ -273,7 +284,8 @@ export async function extractEikenWordsFromImage(
         eikenLevel,
       });
 
-      const fallbackResult = await extractWordsFromImage(imageBase64, openaiApiKey, {
+      const extractWords = deps.extractWordsFromImage ?? extractWordsFromImageBase;
+      const fallbackResult = await extractWords(imageBase64, apiKeys, {
         eikenLevel,
         includeExamples: false,
       });

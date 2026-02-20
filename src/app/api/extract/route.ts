@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
-import { AI_CONFIG } from '@/lib/ai/config';
+import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
+import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Extraction modes
-// - 'all': Extract all words (OpenAI)
-// - 'circled': Extract circled/marked words only (OpenAI)
-// - 'highlighted': Extract highlighted/marker words only (OpenAI)
-// - 'eiken': Extract words filtered by EIKEN level (OpenAI)
-// - 'idiom': Extract idioms and phrases only (OpenAI)
-// - 'wrong': Extract only incorrectly answered words from vocabulary tests (OpenAI)
+// - 'all': Extract all words
+// - 'circled': Extract circled/marked words only
+// - 'highlighted': Extract highlighted/marker words only
+// - 'eiken': Extract words filtered by EIKEN level
+// - 'idiom': Extract idioms and phrases only
+// - 'wrong': Extract only incorrectly answered words from vocabulary tests
 export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom' | 'wrong';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
@@ -23,26 +24,44 @@ const requestSchema = z.object({
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
 }).strict();
 
-function getProviderForMode(mode: ExtractMode): 'gemini' | 'openai' {
+function getProvidersForMode(mode: ExtractMode): AIProvider[] {
   switch (mode) {
     case 'idiom':
-      return AI_CONFIG.extraction.idioms.provider;
+      return [AI_CONFIG.extraction.idioms.provider];
     case 'eiken':
-      return AI_CONFIG.extraction.eiken.provider;
+      return [AI_CONFIG.extraction.eiken.provider];
     case 'circled':
-      return AI_CONFIG.extraction.circled.provider;
+      return [AI_CONFIG.extraction.circled.provider];
     case 'highlighted':
-      return AI_CONFIG.extraction.words.provider;
+      return [AI_CONFIG.extraction.circled.provider];
     case 'wrong':
-      return AI_CONFIG.extraction.words.provider;
+      return [AI_CONFIG.extraction.grammar.ocr.provider, AI_CONFIG.extraction.grammar.analysis.provider];
     case 'all':
     default:
-      return AI_CONFIG.extraction.words.provider;
+      return [AI_CONFIG.extraction.words.provider];
   }
 }
 
+function getMissingProviderKey(mode: ExtractMode, apiKeys: { gemini?: string; openai?: string }): AIProvider | null {
+  if (isCloudRunConfigured()) return null;
+
+  const requiredProviders = new Set(getProvidersForMode(mode));
+  for (const provider of requiredProviders) {
+    if (!apiKeys[provider]) {
+      return provider;
+    }
+  }
+
+  return null;
+}
+
+export const __internal = {
+  getProvidersForMode,
+  getMissingProviderKey,
+};
+
 // API Route: POST /api/extract
-// Extracts words from an uploaded image using OpenAI Vision API
+// Extracts words from an uploaded image using configured AI provider
 // SECURITY: Requires authentication, enforces server-side scan limits
 
 export async function POST(request: NextRequest) {
@@ -107,9 +126,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Current OpenAI image endpoint does not accept PDF data URLs.
+    // OpenAI image endpoint does not accept PDF data URLs.
     // Return a clear message instead of surfacing a vague provider error.
-    if (isValidPdf && getProviderForMode(mode) === 'openai') {
+    if (isValidPdf && getProvidersForMode(mode).includes('openai')) {
       return NextResponse.json(
         {
           success: false,
@@ -119,7 +138,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Reject unsupported image formats (HEIC/HEIF are not supported by OpenAI Vision API)
+    // Reject unsupported image formats (HEIC/HEIF are not supported by the extraction path)
     // This can happen when client-side HEIC conversion fails
     if (image.startsWith('data:image/heic') || image.startsWith('data:image/heif')) {
       console.error('Unsupported image format: HEIC/HEIF detected', { detectedType });
@@ -171,20 +190,22 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 4. PROCESS IMAGE
     // ============================================
-    let result;
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
+    const apiKeys = getAPIKeys();
+    const missingProviderKey = getMissingProviderKey(mode, apiKeys);
+    if (missingProviderKey) {
+      const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
       return NextResponse.json(
-        { success: false, error: 'OpenAI APIキーが設定されていません' },
+        { success: false, error: `${providerLabel} APIキーが設定されていません` },
         { status: 500 }
       );
     }
 
+    let result;
     if (mode === 'wrong') {
       // Wrong answer mode: OCR + analysis for vocabulary test mistakes
-      result = await extractWrongAnswersFromImage(image, openaiApiKey);
+      result = await extractWrongAnswersFromImage(image, apiKeys);
     } else if (mode === 'idiom') {
-      result = await extractIdiomsFromImage(image, openaiApiKey);
+      result = await extractIdiomsFromImage(image, apiKeys);
     } else if (mode === 'eiken') {
       // EIKEN filter mode
       if (!eikenLevel) {
@@ -194,16 +215,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await extractEikenWordsFromImage(image, openaiApiKey, eikenLevel);
+      result = await extractEikenWordsFromImage(image, apiKeys, eikenLevel);
     } else if (mode === 'circled') {
       // Note: eikenLevel is NOT used for circled mode anymore
-      result = await extractCircledWordsFromImage(image, openaiApiKey, {}, openaiApiKey);
+      result = await extractCircledWordsFromImage(image, apiKeys, {});
     } else if (mode === 'highlighted') {
-      result = await extractHighlightedWordsFromImage(image, openaiApiKey, openaiApiKey);
+      result = await extractHighlightedWordsFromImage(image, apiKeys);
     } else {
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
       // Pro users get example sentences included (determined server-side)
-      result = await extractWordsFromImage(image, openaiApiKey, {
+      result = await extractWordsFromImage(image, apiKeys, {
         includeExamples: scanData.is_pro === true,
       });
     }

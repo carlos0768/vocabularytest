@@ -18,9 +18,8 @@ export interface CircledExtractionOptions {
 // Extracts only circled/marked words from an image using AI provider (Cloud Run or direct)
 export async function extractCircledWordsFromImage(
   imageBase64: string,
-  apiKey: string,
-  options: CircledExtractionOptions = {},
-  openaiApiKey?: string
+  apiKeys: { gemini?: string; openai?: string },
+  options: CircledExtractionOptions = {}
 ): Promise<CircledExtractionResult> {
   const { eikenLevel = null } = options;
 
@@ -61,7 +60,7 @@ export async function extractCircledWordsFromImage(
 
   try {
     const config = AI_CONFIG.extraction.circled;
-    const provider = getProviderFromConfig(config, { gemini: apiKey, openai: openaiApiKey || apiKey });
+    const provider = getProviderFromConfig(config, apiKeys);
 
     const result = await provider.generate({
       systemPrompt: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}${getEikenFilterInstruction(eikenLevel)}`,

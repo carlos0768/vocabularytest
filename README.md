@@ -21,7 +21,7 @@
 
 ## 概要
 
-MERKENは、英語を学ぶ日本の学生向けに設計された単語学習PWAです。手書きノートやプリントを撮影すると、GPT-4o（Vision）が英単語を自動抽出し、日本語訳とクイズ用の誤答選択肢を生成します。
+MERKENは、英語を学ぶ日本の学生向けに設計された単語学習PWAです。手書きノートやプリントを撮影すると、Gemini 2.5 Flash（Cloud Run経由）が英単語を自動抽出し、日本語訳とクイズ用の誤答選択肢を生成します。
 
 ### 主な機能
 
@@ -44,7 +44,7 @@ MERKENは、英語を学ぶ日本の学生向けに設計された単語学習PW
 src/
 ├── app/                    # Next.js 16 App Router
 │   ├── api/
-│   │   ├── extract/        # GPT-4o Vision OCR + 翻訳
+│   │   ├── extract/        # Gemini 2.5 Flash OCR + 翻訳
 │   │   ├── sentence-quiz/  # 例文生成（pgvectorベクトル検索）
 │   │   ├── scan-jobs/      # バックグラウンドスキャン管理
 │   │   └── subscription/   # KOMOJU決済連携
@@ -59,7 +59,7 @@ src/
 │   └── quiz/               # QuizOption
 ├── hooks/                  # カスタムReactフック（use-auth, use-projects等）
 ├── lib/
-│   ├── ai/                 # OpenAIプロンプト・レスポンス解析
+│   ├── ai/                 # AIプロンプト・レスポンス解析（Gemini/OpenAI）
 │   ├── db/                 # リポジトリパターン（Local/Remote/Hybrid）
 │   ├── supabase/           # Supabaseクライアント（ブラウザ + サーバー）
 │   ├── komoju/             # KOMOJU決済クライアント
@@ -96,7 +96,7 @@ Proユーザー   →  HybridWordRepository  （IndexedDB + Supabase同期）
 | ローカルDB | Dexie.js（IndexedDBラッパー） |
 | クラウドDB | Supabase（PostgreSQL + pgvector） |
 | 認証 | Supabase Auth（メール/パスワード） |
-| AI | OpenAI GPT-4o（Vision + テキスト） |
+| AI | Gemini 2.5 Flash（スキャン抽出） + OpenAI GPT系（クイズ生成・埋め込みなど） |
 | 決済 | KOMOJU（PayPay、クレジットカード、コンビニ決済） |
 | バリデーション | Zod |
 | PWA | Service Worker + Web App Manifest |
@@ -108,7 +108,8 @@ Proユーザー   →  HybridWordRepository  （IndexedDB + Supabase同期）
 - Node.js 20以上
 - npm 10以上
 - Supabaseプロジェクト（Pro機能用）
-- OpenAI APIキー
+- OpenAI APIキー（クイズ生成/埋め込み用）
+- Gemini APIキー（ローカル直接呼び出し時）または Cloud Run Scan Gateway
 
 ### インストール
 
@@ -131,6 +132,13 @@ cp .env.example .env.local
 ```env
 # OpenAI
 OPENAI_API_KEY=sk-...
+
+# Gemini direct call (optional when Cloud Run is configured)
+GOOGLE_AI_API_KEY=...
+
+# Cloud Run scan gateway (recommended for production)
+CLOUD_RUN_URL=https://your-cloud-run-service-url
+CLOUD_RUN_AUTH_TOKEN=your-cloud-run-shared-token
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -179,6 +187,8 @@ npm run lint     # ESLint実行
 ## デプロイ
 
 **Vercel**にデプロイ。すべての環境変数を設定し、Supabaseマイグレーションを適用してください。
+
+スキャン抽出のCloud Run運用手順: [`docs/ops/scan-gemini-cloudrun-runbook.md`](docs/ops/scan-gemini-cloudrun-runbook.md)
 
 ```bash
 npm run build   # まずローカルでビルド成功を確認

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { AI_CONFIG } from '@/lib/ai/config';
 
-const OPENAI_MODEL = AI_CONFIG.extraction.words.model;
+const OPENAI_MODEL = 'gpt-4o';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: GradeRequest = parsed.data;
-    const { image, questions, direction } = body;
+    const { image, questions } = body;
 
     // Build prompt for GPT-4 Vision
     const questionList = questions
@@ -111,7 +110,7 @@ JSONのみを出力し、説明は不要です。`;
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
       const jsonStr = jsonMatch[1]?.trim() || content.trim();
       result = JSON.parse(jsonStr);
-    } catch (parseError) {
+    } catch {
       console.error('Failed to parse GPT response:', content);
       // Create default "unreadable" response
       result = {

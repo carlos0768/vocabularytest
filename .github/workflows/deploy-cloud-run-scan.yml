@@ -1,0 +1,75 @@
+name: Deploy Cloud Run Scan Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloud-run-scan/**'
+      - '.github/workflows/deploy-cloud-run-scan.yml'
+  workflow_dispatch:
+
+env:
+  GCP_REGION: asia-northeast1
+  SERVICE_NAME: scanvocab-ai-gateway
+  ARTIFACT_REPOSITORY: cloud-run-scan
+  IMAGE_NAME: scan-gateway
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          gcloud artifacts repositories describe "${{ env.ARTIFACT_REPOSITORY }}" \
+            --location "${{ env.GCP_REGION }}" >/dev/null 2>&1 || \
+          gcloud artifacts repositories create "${{ env.ARTIFACT_REPOSITORY }}" \
+            --repository-format=docker \
+            --location="${{ env.GCP_REGION }}" \
+            --description="Container images for scan gateway"
+
+      - name: Build and push image
+        env:
+          PROJECT_ID: ${{ steps.auth.outputs.project_id }}
+        run: |
+          IMAGE_URI="${{ env.GCP_REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
+          gcloud builds submit cloud-run-scan --tag "${IMAGE_URI}"
+          echo "IMAGE_URI=${IMAGE_URI}" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloud Run service
+        env:
+          PROJECT_ID: ${{ steps.auth.outputs.project_id }}
+        run: |
+          gcloud run deploy "${{ env.SERVICE_NAME }}" \
+            --image "${IMAGE_URI}" \
+            --region "${{ env.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=${{ env.GCP_REGION }}" \
+            --set-secrets "AUTH_TOKEN=scan-gateway-auth-token:latest"
+
+      - name: Show service URL
+        run: |
+          URL=$(gcloud run services describe "${{ env.SERVICE_NAME }}" --region "${{ env.GCP_REGION }}" --format='value(status.url)')
+          echo "Deployed URL: ${URL}"
