@@ -2,6 +2,7 @@ import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-resp
 import {
   CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT,
   CIRCLED_WORD_USER_PROMPT,
+  CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT,
   getEikenFilterInstruction,
 } from './prompts';
 import { AI_CONFIG } from './config';
@@ -11,17 +12,104 @@ export type CircledExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string };
 
-export interface CircledExtractionOptions {
-  eikenLevel?: string | null;
+interface CircledExtractionDependencies {
+  getProviderFromConfig: typeof getProviderFromConfig;
 }
 
-// Extracts only circled/marked words from an image using AI provider (Cloud Run or direct)
+export interface CircledExtractionOptions {
+  eikenLevel?: string | null;
+  dependencies?: Partial<CircledExtractionDependencies>;
+}
+
+const CIRCLED_VERIFICATION_THRESHOLD = 10;
+
+function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
+function parseValidatedResponse(content: string): CircledExtractionResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonContent(content));
+  } catch {
+    console.error('Failed to parse Gemini response:', content);
+    return { success: false, error: 'AIの応答を解析できませんでした' };
+  }
+
+  const validated = parseAIResponse(parsed);
+  if (!validated.success || !validated.data) {
+    return {
+      success: false,
+      error: validated.error || 'データ形式が不正です',
+    };
+  }
+
+  return { success: true, data: dedupeWords(validated.data) };
+}
+
+function normalizeEnglish(word: string): string {
+  return word.trim().toLowerCase();
+}
+
+function dedupeWords(data: ValidatedAIResponse): ValidatedAIResponse {
+  const seen = new Set<string>();
+  const uniqueWords: ValidatedAIResponse['words'] = [];
+
+  for (const word of data.words) {
+    const key = `${normalizeEnglish(word.english)}::${word.japanese.trim()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueWords.push(word);
+    }
+  }
+
+  return { words: uniqueWords };
+}
+
+function buildVerificationPrompt(words: ValidatedAIResponse['words']): string {
+  const candidateList = words
+    .map((word, index) => `${index + 1}. english=${JSON.stringify(word.english)}, japanese=${JSON.stringify(word.japanese)}`)
+    .join('\n');
+
+  return `一次抽出の候補リストです。画像を再確認し、手書きの丸（○/楕円）で囲まれている候補だけを残してください。
+
+候補:
+${candidateList}
+
+判定ルール:
+- 丸が明確に確認できない候補は除外する
+- 印刷済みの記号・枠・注釈は除外する
+- 候補リストにない語は追加しない
+
+出力は次のJSONのみ:
+{
+  "words": [
+    {
+      "english": "word",
+      "japanese": "意味"
+    }
+  ]
+}`;
+}
+
+// Extracts only hand-circled words from an image using AI provider (Cloud Run or direct)
 export async function extractCircledWordsFromImage(
   imageBase64: string,
   apiKeys: { gemini?: string; openai?: string },
   options: CircledExtractionOptions = {}
 ): Promise<CircledExtractionResult> {
-  const { eikenLevel = null } = options;
+  const { eikenLevel = null, dependencies = {} } = options;
 
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -60,7 +148,8 @@ export async function extractCircledWordsFromImage(
 
   try {
     const config = AI_CONFIG.extraction.circled;
-    const provider = getProviderFromConfig(config, apiKeys);
+    const resolveProvider = dependencies.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(config, apiKeys);
 
     const result = await provider.generate({
       systemPrompt: `${CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT}${getEikenFilterInstruction(eikenLevel)}`,
@@ -82,48 +171,79 @@ export async function extractCircledWordsFromImage(
       return { success: false, error: '画像を読み取れませんでした' };
     }
 
-    // Extract JSON from response (Gemini may include markdown code blocks)
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
-    } else {
-      // Try to find JSON object directly
-      const jsonStartIndex = content.indexOf('{');
-      const jsonEndIndex = content.lastIndexOf('}');
-      if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-        jsonContent = content.slice(jsonStartIndex, jsonEndIndex + 1);
+    const parsedPrimary = parseValidatedResponse(content);
+    if (!parsedPrimary.success) {
+      return parsedPrimary;
+    }
+
+    let circledWords = parsedPrimary.data.words;
+
+    if (circledWords.length > CIRCLED_VERIFICATION_THRESHOLD) {
+      console.warn('High-volume circled extraction detected. Running verification pass.', {
+        candidateCount: circledWords.length,
+      });
+
+      const verification = await provider.generate({
+        systemPrompt: CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT,
+        prompt: buildVerificationPrompt(circledWords),
+        image: { base64: base64Data, mimeType },
+        config: {
+          ...config,
+          temperature: 0,
+          maxOutputTokens: Math.min(config.maxOutputTokens, 8192),
+          responseFormat: 'json',
+        },
+      });
+
+      if (!verification.success) {
+        console.warn('Circled verification pass failed. Falling back to primary extraction.', {
+          error: verification.error,
+        });
+      } else if (verification.content) {
+        const parsedVerification = parseValidatedResponse(verification.content);
+        if (!parsedVerification.success) {
+          console.warn('Failed to parse circled verification response. Falling back to primary extraction.', {
+            error: parsedVerification.error,
+          });
+        } else {
+          const candidateMap = new Map<string, ValidatedAIResponse['words'][number]>();
+          for (const word of circledWords) {
+            const key = normalizeEnglish(word.english);
+            if (!candidateMap.has(key)) {
+              candidateMap.set(key, word);
+            }
+          }
+
+          const confirmedWords: ValidatedAIResponse['words'] = [];
+          const seenConfirmed = new Set<string>();
+          for (const word of parsedVerification.data.words) {
+            const key = normalizeEnglish(word.english);
+            if (!key || seenConfirmed.has(key)) continue;
+            const matched = candidateMap.get(key);
+            if (matched) {
+              seenConfirmed.add(key);
+              confirmedWords.push(matched);
+            }
+          }
+
+          console.log('Circled verification reduced candidates:', {
+            before: circledWords.length,
+            after: confirmedWords.length,
+          });
+
+          circledWords = confirmedWords;
+        }
       }
     }
 
-    // Parse JSON response
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonContent);
-    } catch {
-      console.error('Failed to parse Gemini response:', content);
-      return { success: false, error: 'AIの応答を解析できませんでした' };
-    }
-
-    // Validate with Zod schema
-    const validated = parseAIResponse(parsed);
-
-    if (!validated.success) {
+    if (circledWords.length === 0) {
       return {
         success: false,
-        error: validated.error || 'データ形式が不正です',
+        error: '手書きの丸で囲まれた単語が見つかりませんでした。丸をつけた単語がある画像を撮影してください。',
       };
     }
 
-    // Check if any words were extracted
-    if (validated.data!.words.length === 0) {
-      return {
-        success: false,
-        error: '丸やマークがついた単語が見つかりませんでした。マークをつけた単語がある画像を撮影してください。',
-      };
-    }
-
-    return { success: true, data: validated.data! };
+    return { success: true, data: { words: circledWords } };
   } catch (error) {
     console.error('Gemini API error:', error);
 

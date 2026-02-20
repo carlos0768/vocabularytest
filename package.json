@@ -18,7 +18,7 @@
     "test:security:secrets": "node --test scripts/check-secrets-guard.test.mjs",
     "test:security:routes": "tsx --test src/app/api/**/*.security.test.ts",
     "test:security": "npm run test:security:sql && npm run test:security:secrets && npm run test:security:routes",
-    "test": "tsx --test src/lib/komoju/client.test.ts src/lib/subscription/status.test.ts src/lib/subscription/reconcile-status.test.ts src/lib/subscription/billing-activation.test.ts src/lib/db/remote-repository.test.ts src/lib/db/hybrid-repository.test.ts src/lib/projects/load-helpers.test.ts src/lib/stats/calendar.test.ts src/lib/ai/extract-eiken-words.test.ts src/lib/ai/extract-wrong-answers.test.ts src/app/api/extract/route.provider.test.ts src/app/api/scan-jobs/process/route.extractor.test.ts"
+    "test": "tsx --test src/lib/komoju/client.test.ts src/lib/subscription/status.test.ts src/lib/subscription/reconcile-status.test.ts src/lib/subscription/billing-activation.test.ts src/lib/db/remote-repository.test.ts src/lib/db/hybrid-repository.test.ts src/lib/projects/load-helpers.test.ts src/lib/stats/calendar.test.ts src/lib/ai/extract-circled-words.test.ts src/lib/ai/extract-eiken-words.test.ts src/lib/ai/extract-wrong-answers.test.ts src/app/api/extract/route.provider.test.ts src/app/api/scan-jobs/process/route.extractor.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
