@@ -8,7 +8,7 @@ import { parseJsonWithSchema } from '@/lib/api/validation';
 
 // Extraction modes
 // - 'all': Extract all words
-// - 'circled': Extract circled/marked words only
+// - 'circled': Extract hand-circled words only
 // - 'highlighted': Extract highlighted/marker words only
 // - 'eiken': Extract words filtered by EIKEN level
 // - 'idiom': Extract idioms and phrases only

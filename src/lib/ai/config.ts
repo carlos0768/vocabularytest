@@ -64,7 +64,7 @@ export const AI_CONFIG: AIConfig = {
     circled: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 0.7,
+      temperature: 0.0,
       maxOutputTokens: 16384,
     },
     grammar: {
