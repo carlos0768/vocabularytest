@@ -3,15 +3,13 @@
  *
  * プロバイダーの一元管理とファクトリー。
  * 直接 OpenAI / Gemini APIを呼ぶ。
- *
- * Cloud Runを使いたい場合は USE_CLOUD_RUN を true にして
- * CLOUD_RUN_URL / CLOUD_RUN_AUTH_TOKEN 環境変数を設定する。
+ * CLOUD_RUN_URL + CLOUD_RUN_AUTH_TOKEN が両方ある場合は Cloud Run 経由で呼び出す。
  */
 
 import type { AIProvider as AIProviderType } from '../config';
 import type { AIProvider } from './types';
-import { GeminiProvider, createGeminiProvider } from './gemini';
-import { OpenAIProvider, createOpenAIProvider } from './openai';
+import { createGeminiProvider } from './gemini';
+import { createOpenAIProvider } from './openai';
 import { CloudRunProvider } from './cloud-run';
 
 // Re-export types and classes
@@ -22,47 +20,57 @@ export { OpenAIProvider, createOpenAIProvider } from './openai';
 export { CloudRunProvider } from './cloud-run';
 
 /**
- * Cloud Run使用フラグ（コード内で明示的に制御）
- * true にすると環境変数の CLOUD_RUN_URL / CLOUD_RUN_AUTH_TOKEN を参照する
- */
-const USE_CLOUD_RUN = false;
-
-const CLOUD_RUN_URL = process.env.CLOUD_RUN_URL;
-const CLOUD_RUN_AUTH_TOKEN = process.env.CLOUD_RUN_AUTH_TOKEN;
-const useCloudRun = USE_CLOUD_RUN && !!(CLOUD_RUN_URL && CLOUD_RUN_AUTH_TOKEN);
-
-/**
  * プロバイダーのキャッシュ
  * 同じAPIキーで何度もインスタンスを作らないようにする
  */
 const providerCache = new Map<string, AIProvider>();
 
+function getCloudRunConfig(): { url?: string; authToken?: string; enabled: boolean } {
+  const url = process.env.CLOUD_RUN_URL?.trim();
+  const authToken = process.env.CLOUD_RUN_AUTH_TOKEN?.trim();
+  return {
+    url,
+    authToken,
+    enabled: Boolean(url && authToken),
+  };
+}
+
+export function isCloudRunConfigured(): boolean {
+  return getCloudRunConfig().enabled;
+}
+
 /**
  * キャッシュキーを生成
  */
 function getCacheKey(provider: AIProviderType, apiKey: string): string {
-  return `${provider}:${apiKey.slice(0, 8)}`;
+  return `${provider}:${(apiKey || 'no-key').slice(0, 8)}`;
 }
 
 /**
  * プロバイダーを取得（キャッシュあり）
  *
- * CLOUD_RUN_URL設定時はCloud Run経由、未設定時は直接API呼び出し。
+ * CLOUD_RUN_URL + CLOUD_RUN_AUTH_TOKEN 設定時は Cloud Run 経由、未設定時は直接API呼び出し。
  *
  * @param provider プロバイダー名 ('gemini' | 'openai')
- * @param apiKey APIキー（Cloud Run使用時は無視される）
+ * @param apiKey APIキー（Cloud Run使用時は不要）
  * @returns AIプロバイダーインスタンス
  */
-export function getProvider(provider: AIProviderType, apiKey: string): AIProvider {
+export function getProvider(provider: AIProviderType, apiKey = ''): AIProvider {
+  const cloudRun = getCloudRunConfig();
+
   // Cloud Run経由モード
-  if (useCloudRun) {
-    const cacheKey = `cloudrun:${provider}`;
+  if (cloudRun.enabled) {
+    const cacheKey = `cloudrun:${provider}:${cloudRun.url}`;
     const cached = providerCache.get(cacheKey);
     if (cached) return cached;
 
-    const instance = new CloudRunProvider(provider, CLOUD_RUN_URL!, CLOUD_RUN_AUTH_TOKEN!);
+    const instance = new CloudRunProvider(provider, cloudRun.url!, cloudRun.authToken!);
     providerCache.set(cacheKey, instance);
     return instance;
+  }
+
+  if (!apiKey) {
+    throw new Error(`API key is required for provider: ${provider}`);
   }
 
   // 直接API呼び出しモード（ローカル開発用）
@@ -109,7 +117,7 @@ export function getProviderFromConfig(
   apiKeys: { gemini?: string; openai?: string }
 ): AIProvider {
   // Cloud Run使用時はAPIキー不要（Cloud Run側で管理）
-  if (useCloudRun) {
+  if (isCloudRunConfigured()) {
     return getProvider(config.provider, 'cloud-run');
   }
 

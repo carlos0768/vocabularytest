@@ -7,7 +7,7 @@ import {
   getEikenFilterInstruction,
 } from './prompts';
 import { AI_CONFIG } from './config';
-import { getProvider, AIError } from './providers';
+import { getProviderFromConfig, AIError } from './providers';
 import { prepareImageForProvider } from './utils/image';
 import { safeParseJSON } from './utils/json';
 
@@ -24,7 +24,7 @@ export interface ExtractionOptions {
 // Returns validated word data or an error message
 export async function extractWordsFromImage(
   imageBase64: string,
-  apiKey: string,
+  apiKeys: { gemini?: string; openai?: string },
   options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
   // Validate input
@@ -47,7 +47,7 @@ export async function extractWordsFromImage(
     startsWithData: imageBase64.startsWith('data:')
   });
 
-  const provider = getProvider(config.provider, apiKey);
+  const provider = getProviderFromConfig(config, apiKeys);
   const { includeExamples = false, eikenLevel = null } = options;
 
   // Select prompts based on whether examples are requested (Pro feature)
