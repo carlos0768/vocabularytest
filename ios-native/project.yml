@@ -1,0 +1,80 @@
+name: MerkenIOS
+options:
+  deploymentTarget:
+    iOS: 26.0
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: 2.39.0
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.merken.iosnative
+    SWIFT_VERSION: "5.10"
+    IPHONEOS_DEPLOYMENT_TARGET: 26.0
+    TARGETED_DEVICE_FAMILY: 1
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.26.0
+targets:
+  MerkenIOS:
+    type: application
+    platform: iOS
+    deploymentTarget: 26.0
+    sources:
+      - path: MerkenIOS
+        excludes:
+          - "**/*.md"
+    resources:
+      - path: MerkenIOS/Resources
+    settings:
+      base:
+        INFOPLIST_FILE: MerkenIOS/Resources/Info.plist
+        PRODUCT_NAME: MerkenIOS
+        SWIFT_EMIT_LOC_STRINGS: YES
+        ENABLE_PREVIEWS: YES
+    dependencies:
+      - package: Supabase
+        product: Supabase
+  MerkenIOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: 26.0
+    sources:
+      - path: MerkenIOSTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: 1
+    dependencies:
+      - target: MerkenIOS
+  MerkenIOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: 26.0
+    sources:
+      - path: MerkenIOSUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: 1
+    dependencies:
+      - target: MerkenIOS
+schemes:
+  MerkenIOS:
+    build:
+      targets:
+        MerkenIOS: all
+        MerkenIOSTests: [test]
+        MerkenIOSUITests: [test]
+    test:
+      gatherCoverageData: true
+      targets:
+        - name: MerkenIOSTests
+        - name: MerkenIOSUITests

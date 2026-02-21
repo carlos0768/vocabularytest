@@ -350,7 +350,9 @@ async function handleSubscriptionCaptured(
   supabaseAdmin: SupabaseClient,
   data: JsonRecord
 ) {
-  const komojuSubscriptionId = extractSubscriptionId(data);
+  const komojuSubscriptionId = extractSubscriptionId(data, {
+    allowDataIdFallback: true,
+  });
   if (!komojuSubscriptionId) {
     throw new WebhookError('Missing subscription id', 400);
   }
@@ -441,7 +443,9 @@ async function handleSubscriptionCanceled(
   supabaseAdmin: SupabaseClient,
   data: JsonRecord
 ) {
-  const komojuSubscriptionId = extractSubscriptionId(data);
+  const komojuSubscriptionId = extractSubscriptionId(data, {
+    allowDataIdFallback: true,
+  });
   if (!komojuSubscriptionId) {
     throw new WebhookError('Missing subscription id', 400);
   }
@@ -634,7 +638,10 @@ function deriveEventId(event: WebhookEvent, eventType: string): string | null {
     return `payment:${eventType || 'unknown'}:${paymentId}`;
   }
 
-  const subscriptionId = data ? extractSubscriptionId(data) : null;
+  const allowDataIdFallback = eventType.startsWith('subscription.');
+  const subscriptionId = data
+    ? extractSubscriptionId(data, { allowDataIdFallback })
+    : null;
   if (subscriptionId) {
     return `subscription:${eventType || 'unknown'}:${subscriptionId}`;
   }
@@ -697,7 +704,10 @@ function extractCustomerId(data: JsonRecord): string | null {
   return getStringField(data, 'customer_id');
 }
 
-function extractSubscriptionId(data: JsonRecord): string | null {
+export function extractSubscriptionId(
+  data: JsonRecord,
+  options?: { allowDataIdFallback?: boolean }
+): string | null {
   const subscription = asRecord(data.subscription);
   if (subscription) {
     const subscriptionId =
@@ -708,10 +718,16 @@ function extractSubscriptionId(data: JsonRecord): string | null {
     }
   }
 
-  return (
-    getStringField(data, 'subscription_id') ??
-    getStringField(data, 'id')
-  );
+  const topLevelSubscriptionId = getStringField(data, 'subscription_id');
+  if (topLevelSubscriptionId) {
+    return topLevelSubscriptionId;
+  }
+
+  if (options?.allowDataIdFallback) {
+    return getStringField(data, 'id');
+  }
+
+  return null;
 }
 
 function extractPeriodStartIso(data: JsonRecord): string | null {
