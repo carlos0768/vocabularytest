@@ -197,6 +197,52 @@ struct SubscriptionState: Codable, Hashable, Sendable {
     }
 }
 
+struct Collection: Identifiable, Hashable, Codable, Sendable {
+    let id: String
+    let userId: String
+    var name: String
+    var description: String?
+    let createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: String = UUID().uuidString,
+        userId: String,
+        name: String,
+        description: String? = nil,
+        createdAt: Date = .now,
+        updatedAt: Date = .now
+    ) {
+        self.id = id
+        self.userId = userId
+        self.name = name
+        self.description = description
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+struct CollectionProject: Identifiable, Hashable, Codable, Sendable {
+    let collectionId: String
+    let projectId: String
+    let sortOrder: Int
+    let addedAt: Date
+
+    var id: String { "\(collectionId)-\(projectId)" }
+
+    init(
+        collectionId: String,
+        projectId: String,
+        sortOrder: Int = 0,
+        addedAt: Date = .now
+    ) {
+        self.collectionId = collectionId
+        self.projectId = projectId
+        self.sortOrder = sortOrder
+        self.addedAt = addedAt
+    }
+}
+
 struct QuizQuestion: Identifiable, Hashable, Sendable {
     let sequenceIndex: Int
     let word: Word

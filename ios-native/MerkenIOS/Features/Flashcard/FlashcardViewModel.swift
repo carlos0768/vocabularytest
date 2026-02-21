@@ -34,6 +34,14 @@ final class FlashcardViewModel: ObservableObject {
         currentIndex > 0
     }
 
+    func setWords(_ preloaded: [Word]) {
+        words = preloaded
+        wordCount = preloaded.count
+        currentIndex = 0
+        isFlipped = false
+        stage = preloaded.isEmpty ? .empty : .viewing
+    }
+
     func load(projectId: String, using state: AppState) async {
         stage = .loading
         errorMessage = nil

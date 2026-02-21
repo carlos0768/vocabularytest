@@ -9,12 +9,28 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
+    // Daily stats for hero section
+    @Published private(set) var streakDays: Int = 0
+    @Published private(set) var todayAnswered: Int = 0
+    @Published private(set) var todayCorrect: Int = 0
+
+    var accuracyPercent: Int {
+        guard todayAnswered > 0 else { return 0 }
+        return Int(Double(todayCorrect) / Double(todayAnswered) * 100)
+    }
+
     private let logger = Logger(subsystem: "MerkenIOS", category: "HomeVM")
     private var wordCountTask: Task<Void, Never>?
 
     func load(using state: AppState) async {
         wordCountTask?.cancel()
         loading = true
+
+        // Load daily stats synchronously (UserDefaults, no async needed)
+        let daily = state.quizStatsStore.todayStats()
+        streakDays = state.quizStatsStore.streakDays()
+        todayAnswered = daily.totalAnswered
+        todayCorrect = daily.correctAnswered
 
         do {
             let repository = state.activeRepository

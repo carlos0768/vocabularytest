@@ -37,6 +37,10 @@ final class SentenceQuizViewModel: ObservableObject {
         return Double(currentIndex + 1) / Double(totalCount)
     }
 
+    func setSourceWords(_ words: [Word]) {
+        sourceWords = words
+    }
+
     // MARK: - Load words
 
     func load(projectId: String, using state: AppState) async {

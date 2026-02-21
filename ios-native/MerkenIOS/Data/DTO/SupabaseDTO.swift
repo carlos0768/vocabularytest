@@ -62,6 +62,39 @@ struct WordUpdateDTO: Codable, Sendable {
     var isFavorite: Bool?
 }
 
+struct CollectionDTO: Codable, Sendable {
+    let id: String
+    let userId: String
+    let name: String
+    let description: String?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct CollectionInsertDTO: Codable, Sendable {
+    let userId: String
+    let name: String
+    let description: String?
+}
+
+struct CollectionUpdateDTO: Codable, Sendable {
+    let name: String
+    let description: String?
+}
+
+struct CollectionProjectDTO: Codable, Sendable {
+    let collectionId: String
+    let projectId: String
+    let sortOrder: Int
+    let addedAt: Date
+}
+
+struct CollectionProjectInsertDTO: Codable, Sendable {
+    let collectionId: String
+    let projectId: String
+    let sortOrder: Int
+}
+
 enum SupabaseMapper {
     static func project(from dto: ProjectDTO) -> Project {
         Project(
@@ -123,6 +156,26 @@ enum SupabaseMapper {
             intervalDays: patch.intervalDays,
             repetition: patch.repetition,
             isFavorite: patch.isFavorite
+        )
+    }
+
+    static func collection(from dto: CollectionDTO) -> Collection {
+        Collection(
+            id: dto.id,
+            userId: dto.userId,
+            name: dto.name,
+            description: dto.description,
+            createdAt: dto.createdAt,
+            updatedAt: dto.updatedAt
+        )
+    }
+
+    static func collectionProject(from dto: CollectionProjectDTO) -> CollectionProject {
+        CollectionProject(
+            collectionId: dto.collectionId,
+            projectId: dto.projectId,
+            sortOrder: dto.sortOrder,
+            addedAt: dto.addedAt
         )
     }
 }
