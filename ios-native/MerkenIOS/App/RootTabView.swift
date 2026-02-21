@@ -24,6 +24,20 @@ struct RootTabView: View {
                 }
 
                 NavigationStack {
+                    StatsView()
+                }
+                .tabItem {
+                    Label("統計", systemImage: "chart.bar.fill")
+                }
+
+                NavigationStack {
+                    FavoritesView()
+                }
+                .tabItem {
+                    Label("お気に入り", systemImage: "heart.fill")
+                }
+
+                NavigationStack {
                     SettingsView()
                 }
                 .tabItem {

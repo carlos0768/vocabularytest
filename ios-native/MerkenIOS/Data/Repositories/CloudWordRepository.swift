@@ -123,6 +123,30 @@ final class CloudWordRepository: WordRepositoryProtocol {
         }
     }
 
+    func fetchAllWords(userId: String) async throws -> [Word] {
+        let token = try await accessTokenProvider()
+        let query = [
+            URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite,projects!inner(user_id)"),
+            URLQueryItem(name: "projects.user_id", value: "eq.\(userId)"),
+            URLQueryItem(name: "order", value: "created_at.desc"),
+            URLQueryItem(name: "limit", value: "3000")
+        ]
+
+        do {
+            let rows: [WordDTO] = try await restClient.get(
+                path: "/rest/v1/words",
+                query: query,
+                bearerToken: token
+            )
+            return rows.map(SupabaseMapper.word(from:))
+        } catch SupabaseClientError.unauthorized {
+            throw RepositoryError.unauthorized
+        } catch {
+            if error.isCancellationError { throw error }
+            throw RepositoryError.underlying(error.localizedDescription)
+        }
+    }
+
     func createWords(_ inputs: [WordInput]) async throws -> [Word] {
         guard !inputs.isEmpty else { return [] }
 

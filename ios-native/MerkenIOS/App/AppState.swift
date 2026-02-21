@@ -18,17 +18,20 @@ final class AppState: ObservableObject {
     private let repositoryRouter: RepositoryRouter
     private let guestSessionStore: GuestSessionStore
     let webAPIClient: WebAPIClient
+    let quizStatsStore: QuizStatsStore
 
     init(
         authService: AuthService,
         repositoryRouter: RepositoryRouter,
         guestSessionStore: GuestSessionStore,
-        webAPIClient: WebAPIClient
+        webAPIClient: WebAPIClient,
+        quizStatsStore: QuizStatsStore
     ) {
         self.authService = authService
         self.repositoryRouter = repositoryRouter
         self.guestSessionStore = guestSessionStore
         self.webAPIClient = webAPIClient
+        self.quizStatsStore = quizStatsStore
         self.session = authService.session
     }
 

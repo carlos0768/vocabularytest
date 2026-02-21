@@ -147,6 +147,10 @@ final class QuizViewModel: ObservableObject {
 
         if currentIndex + 1 >= questions.count {
             stage = .completed
+            state.quizStatsStore.record(
+                totalAnswered: questions.count,
+                correctAnswered: correctCount
+            )
             state.bumpDataVersion()
             Task(priority: .utility) { [weak self] in
                 await self?.flushPendingUpdatesIfNeeded(using: state)

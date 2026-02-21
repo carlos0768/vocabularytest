@@ -46,12 +46,14 @@ struct AppContainer {
         )
 
         let webAPIClient = WebAPIClient(baseURL: config.webAPIBaseURL)
+        let quizStatsStore = QuizStatsStore()
 
         let appState = AppState(
             authService: authService,
             repositoryRouter: router,
             guestSessionStore: GuestSessionStore(),
-            webAPIClient: webAPIClient
+            webAPIClient: webAPIClient,
+            quizStatsStore: quizStatsStore
         )
 
         return AppContainer(appState: appState, modelContainer: modelContainer)
