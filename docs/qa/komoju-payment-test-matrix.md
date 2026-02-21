@@ -1,7 +1,11 @@
 # KOMOJU Payment Test Matrix
 
-Last Updated: 2026-02-09
+Last Updated: 2026-02-21
 Scope: `/api/subscription/create`, `/api/subscription/webhook`, `/api/subscription/reconcile`, `/subscription/success`
+
+Card source:
+- KOMOJU公式FAQ（2025-08-05更新）: https://help.komoju.com/hc/ja/articles/4747504474398-Test%E3%83%A2%E3%83%BC%E3%83%89%E3%81%A7%E4%BD%BF%E7%94%A8%E3%81%A7%E3%81%8D%E3%82%8B%E3%82%AB%E3%83%BC%E3%83%89%E7%95%AA%E5%8F%B7%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6
+- 注記: 旧運用で使われていた `4123111111111026` は上記最新版一覧には含まれない。
 
 ## Pre-check
 
@@ -36,6 +40,14 @@ Expected (all cases):
 - `subscription_sessions.status='failed'`。
 - `subscription_sessions.failure_code` または `failure_message` が保存される。
 - `reconcile` が `state='failed'` / `reason='payment_failed'` を返す。
+
+Observed failure_code examples (2026-02-21, test mode API probe):
+- `4123111111111000` -> `insufficient_funds`
+- `4123111111111018` -> `exceeds_limit`
+- `4123111111111034` -> `bad_verification_value`
+- `4123111111111042` -> `card_expired`
+- `4123111111111059` -> `card_declined`
+- `4123111111111067` -> `invalid_password`
 
 ## SQL checks
 

@@ -1,6 +1,6 @@
 # KOMOJU Billing Specification
 
-Last Updated: 2026-02-09
+Last Updated: 2026-02-21
 Owner: Backend / Subscription
 Applies To: `src/app/api/subscription/*`, `src/lib/subscription/*`, `src/lib/komoju/*`
 
@@ -184,6 +184,8 @@ KOMOJU request requirements:
 入力優先順位:
 
 - `subscriptionIdFromEvent`
+  - 取得元は `subscription.id` / `subscription.subscription_id` / `subscription_id` のみ
+  - `payment.*` payload の `data.id`（payment id）は subscription id として扱わない
 - `session.komoju_subscription_id`
 - `subscriptions.komoju_subscription_id`
 - （未決定なら）`createSubscription`
