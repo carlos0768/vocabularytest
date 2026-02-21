@@ -13,6 +13,14 @@ env:
   SERVICE_NAME: scanvocab-ai-gateway
   ARTIFACT_REPOSITORY: cloud-run-scan
   IMAGE_NAME: scan-gateway
+  OPENAI_SECRET_NAME: scan-openai-api-key
+  FALLBACK_SLACK_WEBHOOK_SECRET_NAME: scan-fallback-slack-webhook-url
+  FALLBACK_OPENAI_MODEL: gpt-4o-mini
+  FALLBACK_CALLS_DAILY_CAP: "1000"
+  FALLBACK_COST_DAILY_CAP_YEN: "3000"
+  FALLBACK_ESTIMATED_YEN_PER_CALL: "3"
+  FALLBACK_BREAKER_OPEN_MS: "300000"
+  APP_ENV: prod
 
 permissions:
   contents: read
@@ -25,6 +33,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install cloud-run-scan dependencies
+        run: npm ci --prefix cloud-run-scan
+
+      - name: Run cloud-run-scan tests
+        run: npm run test --prefix cloud-run-scan
 
       - name: Authenticate to Google Cloud (OIDC)
         id: auth
@@ -61,13 +75,25 @@ jobs:
         env:
           PROJECT_ID: ${{ steps.auth.outputs.project_id }}
         run: |
+          gcloud secrets versions access latest --secret "${{ env.OPENAI_SECRET_NAME }}" >/dev/null 2>&1 || {
+            echo "Missing required secret: ${{ env.OPENAI_SECRET_NAME }}"
+            exit 1
+          }
+
+          SECRET_FLAGS="AUTH_TOKEN=scan-gateway-auth-token:latest,OPENAI_API_KEY=${{ env.OPENAI_SECRET_NAME }}:latest"
+          if gcloud secrets versions access latest --secret "${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }}" >/dev/null 2>&1; then
+            SECRET_FLAGS="${SECRET_FLAGS},FALLBACK_SLACK_WEBHOOK_URL=${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }}:latest"
+          else
+            echo "Optional secret not found: ${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }} (continuing without Slack fallback notifications)"
+          fi
+
           gcloud run deploy "${{ env.SERVICE_NAME }}" \
             --image "${IMAGE_URI}" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=${{ env.GCP_REGION }}" \
-            --set-secrets "AUTH_TOKEN=scan-gateway-auth-token:latest"
+            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=${{ env.GCP_REGION }},APP_ENV=${{ env.APP_ENV }},FALLBACK_OPENAI_MODEL=${{ env.FALLBACK_OPENAI_MODEL }},FALLBACK_CALLS_DAILY_CAP=${{ env.FALLBACK_CALLS_DAILY_CAP }},FALLBACK_COST_DAILY_CAP_YEN=${{ env.FALLBACK_COST_DAILY_CAP_YEN }},FALLBACK_ESTIMATED_YEN_PER_CALL=${{ env.FALLBACK_ESTIMATED_YEN_PER_CALL }},FALLBACK_BREAKER_OPEN_MS=${{ env.FALLBACK_BREAKER_OPEN_MS }}" \
+            --set-secrets "${SECRET_FLAGS}"
 
       - name: Show service URL
         run: |
