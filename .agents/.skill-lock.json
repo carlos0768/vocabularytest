@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "skills": {
+    "liquid-glass": {
+      "source": "rshankras/claude-code-apple-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/rshankras/claude-code-apple-skills.git",
+      "skillPath": "skills/design/liquid-glass/SKILL.md",
+      "skillFolderHash": "e233814ebe458c4b493a666cebbdab91412bb989",
+      "installedAt": "2026-02-21T04:09:25.363Z",
+      "updatedAt": "2026-02-21T04:09:25.363Z"
+    }
+  },
+  "dismissed": {}
+}
