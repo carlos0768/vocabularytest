@@ -13,6 +13,8 @@ export interface Word {
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence
+  pronunciation?: string; // IPA pronunciation e.g. "/ɪˈlæb.ər.ət/"
+  etymology?: string; // AI-generated etymology text (Japanese)
   status: WordStatus;
   createdAt: string; // ISO string
   // Spaced repetition fields (SM-2 algorithm)
