@@ -88,6 +88,8 @@ export interface WordRow {
   distractors: string[];
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
+  pronunciation?: string | null;
+  etymology?: string | null;
   status?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
@@ -108,6 +110,8 @@ export function mapWordFromRow(row: WordRow): Word {
     distractors: row.distractors,
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
+    pronunciation: row.pronunciation ?? undefined,
+    etymology: row.etymology ?? undefined,
     status: (row.status as Word['status']) ?? 'new',
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
@@ -128,6 +132,8 @@ export function mapWordToInsert(word: WordInput): {
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
+  pronunciation?: string;
+  etymology?: string;
   status: string;
   ease_factor: number;
   interval_days: number;
@@ -142,6 +148,8 @@ export function mapWordToInsert(word: WordInput): {
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
+    pronunciation: word.pronunciation,
+    etymology: word.etymology,
     status: 'new',
     ease_factor: defaultSR.easeFactor,
     interval_days: defaultSR.intervalDays,
@@ -158,6 +166,8 @@ export function mapWordToInsertWithId(word: Word): {
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
+  pronunciation?: string;
+  etymology?: string;
   status: string;
   created_at: string;
   last_reviewed_at?: string;
@@ -175,6 +185,8 @@ export function mapWordToInsertWithId(word: Word): {
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
+    pronunciation: word.pronunciation,
+    etymology: word.etymology,
     status: word.status,
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
@@ -195,6 +207,8 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.status !== undefined) updateData.status = updates.status;
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
   if (updates.exampleSentenceJa !== undefined) updateData.example_sentence_ja = updates.exampleSentenceJa;
+  if (updates.pronunciation !== undefined) updateData.pronunciation = updates.pronunciation;
+  if (updates.etymology !== undefined) updateData.etymology = updates.etymology;
 
   // Spaced repetition fields
   if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;
