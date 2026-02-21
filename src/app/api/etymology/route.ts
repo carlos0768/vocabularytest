@@ -65,10 +65,10 @@ export async function POST(request: NextRequest) {
     }
     const { english, japanese } = bodyResult.data;
 
-    // Generate etymology using Gemini
+    // Generate etymology using OpenAI
     const apiKeys = getAPIKeys();
     const config = {
-      ...AI_CONFIG.defaults.gemini,
+      ...AI_CONFIG.defaults.openai,
       maxOutputTokens: 512,
     };
     const provider = getProviderFromConfig(config, { gemini: apiKeys.gemini, openai: apiKeys.openai });
