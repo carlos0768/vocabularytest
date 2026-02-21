@@ -2,9 +2,15 @@ import SwiftUI
 
 struct SentenceQuizView: View {
     let project: Project
+    let preloadedWords: [Word]?
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = SentenceQuizViewModel()
+
+    init(project: Project, preloadedWords: [Word]? = nil) {
+        self.project = project
+        self.preloadedWords = preloadedWords
+    }
 
     var body: some View {
         ZStack {
@@ -26,7 +32,12 @@ struct SentenceQuizView: View {
         .navigationTitle("例文クイズ")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: project.id) {
-            await viewModel.load(projectId: project.id, using: appState)
+            if let preloadedWords, !preloadedWords.isEmpty {
+                viewModel.setSourceWords(preloadedWords)
+                await viewModel.generateQuiz(using: appState)
+            } else {
+                await viewModel.load(projectId: project.id, using: appState)
+            }
         }
         .onDisappear {
             Task {

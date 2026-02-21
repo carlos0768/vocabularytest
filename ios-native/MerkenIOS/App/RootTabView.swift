@@ -20,7 +20,14 @@ struct RootTabView: View {
                     ProjectListView()
                 }
                 .tabItem {
-                    Label("単語帳", systemImage: "books.vertical.fill")
+                    Label("単語帳", systemImage: "text.book.closed.fill")
+                }
+
+                NavigationStack {
+                    BookshelfTabView()
+                }
+                .tabItem {
+                    Label("本棚", systemImage: "books.vertical.fill")
                 }
 
                 NavigationStack {
@@ -28,13 +35,6 @@ struct RootTabView: View {
                 }
                 .tabItem {
                     Label("統計", systemImage: "chart.bar.fill")
-                }
-
-                NavigationStack {
-                    FavoritesView()
-                }
-                .tabItem {
-                    Label("お気に入り", systemImage: "heart.fill")
                 }
 
                 NavigationStack {

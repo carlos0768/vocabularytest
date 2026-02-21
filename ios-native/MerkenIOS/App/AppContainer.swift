@@ -45,6 +45,19 @@ struct AppContainer {
             cloudRepository: cloudRepository
         )
 
+        let collectionRepository = CloudCollectionRepository(
+            restClient: restClient,
+            accessTokenProvider: {
+                guard let session = await MainActor.run(body: { authService.session }) else {
+                    throw AuthServiceError.missingSession
+                }
+                if session.isExpired {
+                    throw AuthServiceError.sessionExpired
+                }
+                return session.accessToken
+            }
+        )
+
         let webAPIClient = WebAPIClient(baseURL: config.webAPIBaseURL)
         let quizStatsStore = QuizStatsStore()
 
@@ -53,7 +66,8 @@ struct AppContainer {
             repositoryRouter: router,
             guestSessionStore: GuestSessionStore(),
             webAPIClient: webAPIClient,
-            quizStatsStore: quizStatsStore
+            quizStatsStore: quizStatsStore,
+            collectionRepository: collectionRepository
         )
 
         return AppContainer(appState: appState, modelContainer: modelContainer)
