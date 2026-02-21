@@ -4,6 +4,7 @@
 - 対象: スキャン抽出API（`/api/extract`, `/api/scan-jobs/*`）
 - モデル: `gemini-2.5-flash`
 - 経路: Next.js -> Cloud Run (`scanvocab-ai-gateway`) -> Vertex AI Gemini
+- フォールバック: Gemini障害時に OpenAI (`gpt-4o-mini`) へ自動切替（Retry + Breaker + 日次cap + Slack通知）
 - 非対象: クイズ生成、埋め込み（既存OpenAI運用のまま）
 
 ## 1. 事前準備（GCP）
@@ -29,6 +30,9 @@ gcloud artifacts repositories create cloud-run-scan \
 ### 1.3 Secret Manager 作成
 ```bash
 echo -n '<RANDOM_LONG_TOKEN>' | gcloud secrets create scan-gateway-auth-token --data-file=-
+echo -n '<OPENAI_API_KEY>' | gcloud secrets create scan-openai-api-key --data-file=-
+# Optional: fallback通知をSlackへ送る場合のみ
+echo -n 'https://hooks.slack.com/services/xxx/yyy/zzz' | gcloud secrets create scan-fallback-slack-webhook-url --data-file=-
 ```
 
 ### 1.4 GitHub Actions 用 Service Account
@@ -55,8 +59,20 @@ echo -n '<RANDOM_LONG_TOKEN>' | gcloud secrets create scan-gateway-auth-token --
 
 ### 2.1 デプロイ時に設定される Cloud Run 環境変数
 - `AUTH_TOKEN` <- Secret Manager `scan-gateway-auth-token:latest`
+- `OPENAI_API_KEY` <- Secret Manager `scan-openai-api-key:latest`（必須）
+- `FALLBACK_SLACK_WEBHOOK_URL` <- Secret Manager `scan-fallback-slack-webhook-url:latest`（任意）
 - `GCP_PROJECT_ID` <- デプロイ先プロジェクトID
 - `GCP_LOCATION` <- `asia-northeast1`
+- `APP_ENV` <- `prod`
+- `FALLBACK_OPENAI_MODEL` <- `gpt-4o-mini`
+- `FALLBACK_CALLS_DAILY_CAP` <- `1000`
+- `FALLBACK_COST_DAILY_CAP_YEN` <- `3000`
+- `FALLBACK_ESTIMATED_YEN_PER_CALL` <- `3`
+- `FALLBACK_BREAKER_OPEN_MS` <- `300000`
+
+### 2.2 CIで実行される検証
+- `cloud-run-scan` の依存インストール (`npm ci --prefix cloud-run-scan`)
+- `cloud-run-scan` 単体テスト (`npm run test --prefix cloud-run-scan`)
 
 ## 3. Vercel 設定（初回は手動）
 Preview -> Production の順で以下を設定する:
@@ -83,9 +99,33 @@ curl -sS "${CLOUD_RUN_URL}/health"
 - APIエラー率
 - レイテンシ
 - Cloud Run ログ（5xx, timeout, auth失敗）
+- fallback通知（Slack）と fallback率
 
-## 5. ロールバック
-### 5.1 Cloud Run側の切戻し
+## 5. フォールバック運用（Gemini -> OpenAI）
+### 5.1 BreakerとRetryの挙動
+- 429(BURST/OVERLOADED/UNKNOWN), 502/503: Geminiを最大2回リトライ後、OpenAIへ切替
+- timeout/network: Geminiを最大1回リトライ後、OpenAIへ切替
+- QUOTA_EXHAUSTED: リトライ無しで即OpenAI切替 + breaker即OPEN
+- 400/404, policy/safety, 401/403(非quota): フォールバックせず失敗返却
+
+### 5.2 日次cap
+- `FALLBACK_CALLS_DAILY_CAP=1000`
+- `FALLBACK_COST_DAILY_CAP_YEN=3000`
+- cap到達後は OpenAI フォールバック停止（Gemini失敗時はそのままエラー）
+
+### 5.3 Slack通知イベント
+- `QUOTA_EXHAUSTED`（Critical, 24hで1回）
+- `BREAKER_OPEN`（Warning, OPEN遷移ごと1回）
+- `FALLBACK_CAP_REACHED`（Critical, 到達時1回）
+- `FALLBACK_RATE_HIGH`（Warning, 10分で1回）
+
+### 5.4 推奨監視観点
+- 直近10分の fallback率（20%超）
+- breaker状態（OPENが連続していないか）
+- fallback日次消費（calls/yen）
+
+## 6. ロールバック
+### 6.1 Cloud Run側の切戻し
 - 直前の安定リビジョンへトラフィックを戻す。
 ```bash
 gcloud run services update-traffic scanvocab-ai-gateway \
@@ -93,22 +133,25 @@ gcloud run services update-traffic scanvocab-ai-gateway \
   --to-revisions <PREVIOUS_REVISION>=100
 ```
 
-### 5.2 アプリ側の切戻し
+### 6.2 アプリ側の切戻し
 - 直前コミットに戻して再デプロイ（Vercel/GitHub Actions）
 
-### 5.3 緊急時（Cloud Run迂回）
+### 6.3 緊急時（Cloud Run迂回）
 - Vercel の `CLOUD_RUN_URL` と `CLOUD_RUN_AUTH_TOKEN` を一時的に外して旧経路へ戻す。
 
-## 6. Secretローテーション
+## 7. Secretローテーション
 1. Secret Manager の `scan-gateway-auth-token` を更新
-2. Cloud Run を再デプロイ（新バージョンを読み込ませる）
-3. Vercel の `CLOUD_RUN_AUTH_TOKEN` を更新
-4. `/health` と `/api/extract` をスモーク
+2. `scan-openai-api-key` を更新（OpenAI keyを更新する場合）
+3. `scan-fallback-slack-webhook-url` を更新（Slack webhookを更新する場合）
+4. Cloud Run を再デプロイ（新バージョンを読み込ませる）
+5. Vercel の `CLOUD_RUN_AUTH_TOKEN` を更新（shared token更新時）
+6. `/health` と `/api/extract` をスモーク
 
-## 7. 運用チェックリスト
+## 8. 運用チェックリスト
 - [ ] `main` へのデプロイ workflow 成功
 - [ ] Cloud Run `/health` が 200
 - [ ] Preview `/api/extract` 代表ケース成功
 - [ ] Production `/api/extract` 代表ケース成功
 - [ ] scan-jobs E2E（完了通知まで）成功
 - [ ] エラー率・レイテンシ閾値内
+- [ ] fallback通知が期待どおり（必要時のみ）発報
