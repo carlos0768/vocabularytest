@@ -154,7 +154,7 @@ struct SentenceQuizQuestionView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(.white.opacity(0.08)))
+                            .glassEffect(.regular, in: .capsule)
                             .onTapGesture {
                                 selectedWords.append(word)
                             }
@@ -182,28 +182,20 @@ struct SentenceQuizQuestionView: View {
                     }
                 }
 
-                Text("次の問題")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                    .onTapGesture { onNext() }
+                Button { onNext() } label: {
+                    Text("次の問題")
+                }
+                .buttonStyle(PrimaryGlassButton())
             } else if selectedWords.count == q.shuffledWords.count {
-                Text("回答する")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                    .onTapGesture {
-                        let correct = selectedWords == q.correctOrder
-                        isWordOrderCorrect = correct
-                        isWordOrderRevealed = true
-                        onAnswer(selectedWords.joined(separator: " "), correct)
-                    }
+                Button {
+                    let correct = selectedWords == q.correctOrder
+                    isWordOrderCorrect = correct
+                    isWordOrderRevealed = true
+                    onAnswer(selectedWords.joined(separator: " "), correct)
+                } label: {
+                    Text("回答する")
+                }
+                .buttonStyle(PrimaryGlassButton())
             }
         }
         .onChange(of: question.id) {
@@ -281,14 +273,10 @@ struct SentenceQuizQuestionView: View {
     @ViewBuilder
     private var nextButton: some View {
         if isRevealed {
-            Text("次の問題")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                .onTapGesture { onNext() }
+            Button { onNext() } label: {
+                Text("次の問題")
+            }
+            .buttonStyle(PrimaryGlassButton())
         }
     }
 

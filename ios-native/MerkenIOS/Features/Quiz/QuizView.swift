@@ -65,14 +65,14 @@ struct QuizView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.06)))
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(MerkenTheme.warning)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.06)))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 24))
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -100,21 +100,18 @@ struct QuizView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.06)))
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
 
-            Text(viewModel.preparingQuiz ? "問題を作成中..." : "クイズ開始")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                .opacity((viewModel.loading || viewModel.preparingQuiz) ? 0.6 : 1)
-                .accessibilityIdentifier("startQuizAction")
-                .onTapGesture {
-                    guard !viewModel.loading, !viewModel.preparingQuiz else { return }
-                    viewModel.startQuiz()
-                }
+            Button {
+                guard !viewModel.loading, !viewModel.preparingQuiz else { return }
+                viewModel.startQuiz()
+            } label: {
+                Text(viewModel.preparingQuiz ? "問題を作成中..." : "クイズ開始")
+            }
+            .buttonStyle(PrimaryGlassButton())
+            .opacity((viewModel.loading || viewModel.preparingQuiz) ? 0.6 : 1)
+            .disabled(viewModel.loading || viewModel.preparingQuiz)
+            .accessibilityIdentifier("startQuizAction")
 
             Spacer(minLength: 0)
         }
@@ -154,7 +151,7 @@ struct QuizView: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.06)))
+                .glassEffect(.regular, in: .rect(cornerRadius: 24))
 
                 // Options
                 VStack(spacing: 10) {
@@ -165,17 +162,13 @@ struct QuizView: View {
 
                 // Next button
                 if viewModel.isRevealed {
-                    Text("次の問題")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .frame(maxWidth: .infinity)
-                        .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                        .accessibilityIdentifier("nextQuestionAction")
-                        .onTapGesture {
-                            viewModel.moveNext(projectId: project.id, using: appState)
-                        }
+                    Button {
+                        viewModel.moveNext(projectId: project.id, using: appState)
+                    } label: {
+                        Text("次の問題")
+                    }
+                    .buttonStyle(PrimaryGlassButton())
+                    .accessibilityIdentifier("nextQuestionAction")
                 }
             }
 
@@ -245,21 +238,17 @@ struct QuizView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.06)))
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
 
-            Text("もう一度")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                .accessibilityIdentifier("restartQuizAction")
-                .onTapGesture {
-                    Task {
-                        await viewModel.restart(projectId: project.id, using: appState)
-                    }
+            Button {
+                Task {
+                    await viewModel.restart(projectId: project.id, using: appState)
                 }
+            } label: {
+                Text("もう一度")
+            }
+            .buttonStyle(PrimaryGlassButton())
+            .accessibilityIdentifier("restartQuizAction")
         }
         .padding(16)
     }

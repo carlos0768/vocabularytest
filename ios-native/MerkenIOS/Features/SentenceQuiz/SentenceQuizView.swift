@@ -101,18 +101,14 @@ struct SentenceQuizView: View {
                 }
             }
 
-            Text("もう一度")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                .onTapGesture {
-                    Task {
-                        await viewModel.restart(projectId: project.id, using: appState)
-                    }
+            Button {
+                Task {
+                    await viewModel.restart(projectId: project.id, using: appState)
                 }
+            } label: {
+                Text("もう一度")
+            }
+            .buttonStyle(PrimaryGlassButton())
         }
         .padding(16)
     }
@@ -135,18 +131,14 @@ struct SentenceQuizView: View {
                 }
             }
 
-            Text("再試行")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 16).fill(MerkenTheme.accentBlue.opacity(0.5)))
-                .onTapGesture {
-                    Task {
-                        await viewModel.load(projectId: project.id, using: appState)
-                    }
+            Button {
+                Task {
+                    await viewModel.load(projectId: project.id, using: appState)
                 }
+            } label: {
+                Text("再試行")
+            }
+            .buttonStyle(PrimaryGlassButton())
         }
         .padding(16)
     }

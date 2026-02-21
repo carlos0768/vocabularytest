@@ -13,7 +13,7 @@ struct GlassCard<Content: View>: View {
         content
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.08)))
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 }
 
@@ -29,7 +29,7 @@ struct GlassPane<Content: View>: View {
     var body: some View {
         content
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: cornerRadius).fill(.white.opacity(0.05)))
+            .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     }
 }
 
@@ -41,12 +41,7 @@ struct PrimaryGlassButton: ButtonStyle {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(configuration.isPressed
-                          ? MerkenTheme.accentBlueStrong.opacity(0.6)
-                          : MerkenTheme.accentBlue.opacity(0.5))
-            )
+            .glassEffect(.regular.tint(MerkenTheme.accentBlue), in: .rect(cornerRadius: 16))
     }
 }
 
@@ -57,9 +52,6 @@ struct GhostGlassButton: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(.white.opacity(configuration.isPressed ? 0.15 : 0.06))
-            )
+            .glassEffect(.regular, in: .capsule)
     }
 }
