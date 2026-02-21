@@ -33,11 +33,11 @@ struct SentenceQuizQuestionView: View {
         VStack(alignment: .leading, spacing: 14) {
             questionHeader
 
-            GlassCard {
+            SolidCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(highlightedSentence(q.sentence))
                         .font(.title3.bold())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
 
                     Text(q.japaneseMeaning)
                         .font(.subheadline)
@@ -62,11 +62,11 @@ struct SentenceQuizQuestionView: View {
         VStack(alignment: .leading, spacing: 14) {
             questionHeader
 
-            GlassCard {
+            SolidCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(highlightedSentence(q.sentence))
                         .font(.title3.bold())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
 
                     Text(q.japaneseMeaning)
                         .font(.subheadline)
@@ -99,11 +99,11 @@ struct SentenceQuizQuestionView: View {
         VStack(alignment: .leading, spacing: 14) {
             questionHeader
 
-            GlassCard {
+            SolidCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("以下の単語を正しい順番に並び替えてください")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
 
                     Text(q.japaneseMeaning)
                         .font(.subheadline)
@@ -113,12 +113,16 @@ struct SentenceQuizQuestionView: View {
 
             // Selected words display
             if !selectedWords.isEmpty {
-                GlassPane {
+                SolidPane {
                     FlowLayout(spacing: 8) {
                         ForEach(Array(selectedWords.enumerated()), id: \.offset) { index, word in
                             Text(word)
                                 .font(.body.bold())
-                                .foregroundStyle(.white)
+                                .foregroundStyle(
+                                    isWordOrderRevealed
+                                        ? .white
+                                        : MerkenTheme.accentBlue
+                                )
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
@@ -127,9 +131,10 @@ struct SentenceQuizQuestionView: View {
                                             ? (isWordOrderCorrect
                                                ? MerkenTheme.success.opacity(0.2)
                                                : MerkenTheme.danger.opacity(0.2))
-                                            : MerkenTheme.accentBlue.opacity(0.3)
+                                            : MerkenTheme.accentBlue.opacity(0.1)
                                     )
                                 )
+                                .overlay(Capsule().stroke(MerkenTheme.accentBlue.opacity(0.3), lineWidth: 1))
                                 .onTapGesture {
                                     guard !isRevealed, !isWordOrderRevealed else { return }
                                     selectedWords.remove(at: index)
@@ -151,10 +156,11 @@ struct SentenceQuizQuestionView: View {
                     ForEach(Array(remaining.enumerated()), id: \.offset) { _, word in
                         Text(word)
                             .font(.body)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(MerkenTheme.primaryText)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .glassEffect(.regular, in: .capsule)
+                            .background(MerkenTheme.surface, in: .capsule)
+                            .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1.5))
                             .onTapGesture {
                                 selectedWords.append(word)
                             }
@@ -164,7 +170,7 @@ struct SentenceQuizQuestionView: View {
 
             // Submit / Result
             if isWordOrderRevealed {
-                GlassCard {
+                SolidCard {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Image(systemName: isWordOrderCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -208,7 +214,7 @@ struct SentenceQuizQuestionView: View {
     // MARK: - Shared Components
 
     private var questionHeader: some View {
-        GlassCard {
+        SolidCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text("問題 \(questionNumber) / \(totalQuestions)")
                     .foregroundStyle(MerkenTheme.secondaryText)
@@ -231,22 +237,22 @@ struct SentenceQuizQuestionView: View {
         let isSelected = selectedAnswer == option
 
         let fillColor: Color = {
-            guard isRevealed else { return .white.opacity(0.06) }
-            if isCorrect { return MerkenTheme.success.opacity(0.15) }
-            if isSelected { return MerkenTheme.danger.opacity(0.15) }
-            return .white.opacity(0.06)
+            guard isRevealed else { return MerkenTheme.surface }
+            if isCorrect { return MerkenTheme.success.opacity(0.12) }
+            if isSelected { return MerkenTheme.danger.opacity(0.12) }
+            return MerkenTheme.surface
         }()
 
         let borderColor: Color = {
-            guard isRevealed else { return .white.opacity(0.10) }
-            if isCorrect { return MerkenTheme.success.opacity(0.9) }
-            if isSelected { return MerkenTheme.danger.opacity(0.9) }
-            return .white.opacity(0.10)
+            guard isRevealed else { return MerkenTheme.border }
+            if isCorrect { return MerkenTheme.success }
+            if isSelected { return MerkenTheme.danger }
+            return MerkenTheme.border
         }()
 
         return HStack(spacing: 10) {
             Text(option)
-                .foregroundStyle(.white)
+                .foregroundStyle(MerkenTheme.primaryText)
                 .lineLimit(3)
                 .truncationMode(.tail)
             Spacer()
@@ -263,7 +269,8 @@ struct SentenceQuizQuestionView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 14).fill(fillColor))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: isRevealed ? 1.5 : 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: isRevealed ? 2 : 1.5))
+        .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
         .onTapGesture {
             guard !isRevealed else { return }
             onAnswer(option, option == correctAnswer)

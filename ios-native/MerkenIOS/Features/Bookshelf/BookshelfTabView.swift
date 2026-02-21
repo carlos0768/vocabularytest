@@ -22,7 +22,7 @@ struct BookshelfTabView: View {
 
                 Text("本棚はPro限定機能です")
                     .font(.title2.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Text("複数の単語帳をまとめて学習できる「本棚」機能は、Proプランでご利用いただけます。")
                     .font(.subheadline)

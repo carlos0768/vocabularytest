@@ -32,10 +32,9 @@ struct BookshelfDetailView: View {
             AppBackground()
 
             ScrollView {
-                GlassEffectContainer(spacing: 10) {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if let errorMessage = viewModel.errorMessage {
-                        GlassCard {
+                        SolidCard {
                             Text(errorMessage)
                                 .foregroundStyle(MerkenTheme.warning)
                         }
@@ -50,7 +49,6 @@ struct BookshelfDetailView: View {
                     projectsSection
                 }
                 .padding(16)
-                } // GlassEffectContainer
             }
             .refreshable {
                 await viewModel.load(collectionId: collection.id, using: appState)
@@ -120,10 +118,11 @@ struct BookshelfDetailView: View {
     // MARK: - Header
 
     private var headerCard: some View {
-        GlassCard {
+        SolidCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text(viewModel.collection?.name ?? collection.name)
                     .font(.title2.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 if let desc = viewModel.collection?.description, !desc.isEmpty {
                     Text(desc)
@@ -137,7 +136,7 @@ struct BookshelfDetailView: View {
     // MARK: - Stats
 
     private var statsCard: some View {
-        GlassCard {
+        SolidCard {
             VStack(alignment: .leading, spacing: 10) {
                 Text("統計")
                     .font(.headline)
@@ -159,10 +158,11 @@ struct BookshelfDetailView: View {
     // MARK: - Study Modes
 
     private var studyModesCard: some View {
-        GlassCard {
+        SolidCard {
             VStack(alignment: .leading, spacing: 10) {
                 Text("学習モード")
                     .font(.headline)
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 if viewModel.allWords.isEmpty {
                     Text("単語がありません。プロジェクトを追加してください。")
@@ -215,18 +215,18 @@ struct BookshelfDetailView: View {
             }
 
             if viewModel.projects.isEmpty {
-                GlassCard {
+                SolidCard {
                     Text("まだ単語帳が追加されていません。")
                         .foregroundStyle(MerkenTheme.mutedText)
                 }
             } else {
                 ForEach(viewModel.projects) { project in
-                    GlassPane {
+                    SolidPane {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(project.title)
                                     .font(.headline)
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(MerkenTheme.primaryText)
                                 let wordCount = viewModel.allWords.filter { $0.projectId == project.id }.count
                                 Text("\(wordCount) 語")
                                     .font(.caption)
@@ -261,18 +261,15 @@ struct BookshelfDetailView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("本棚を編集")
                         .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
 
                     TextField("名前", text: $editedName)
                         .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                        .solidTextField(cornerRadius: 14)
 
                     TextField("説明（任意）", text: $editedDescription)
                         .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                        .solidTextField(cornerRadius: 14)
 
                     Button("保存") {
                         Task {
@@ -297,7 +294,7 @@ struct BookshelfDetailView: View {
 
     // MARK: - Helpers
 
-    private func statItem(title: String, value: String, color: Color = .white) -> some View {
+    private func statItem(title: String, value: String, color: Color = MerkenTheme.primaryText) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
@@ -329,26 +326,25 @@ struct AddProjectsSheet: View {
 
                 if loading && allProjects.isEmpty {
                     ProgressView()
-                        .tint(.white)
+                        .tint(MerkenTheme.accentBlue)
                 } else {
                     ScrollView {
-                        GlassEffectContainer(spacing: 10) {
                         LazyVStack(spacing: 10) {
                             let available = allProjects.filter { !existingProjectIds.contains($0.id) }
 
                             if available.isEmpty {
-                                GlassCard {
+                                SolidCard {
                                     Text("追加できる単語帳がありません。")
                                         .foregroundStyle(MerkenTheme.mutedText)
                                 }
                             } else {
                                 ForEach(available) { project in
-                                    GlassPane {
+                                    SolidPane {
                                         HStack {
                                             Image(systemName: selectedIds.contains(project.id) ? "checkmark.circle.fill" : "circle")
                                                 .foregroundStyle(selectedIds.contains(project.id) ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
                                             Text(project.title)
-                                                .foregroundStyle(.white)
+                                                .foregroundStyle(MerkenTheme.primaryText)
                                             Spacer()
                                         }
                                     }
@@ -364,7 +360,6 @@ struct AddProjectsSheet: View {
                             }
                         }
                         .padding(16)
-                        } // GlassEffectContainer
                     }
                 }
             }

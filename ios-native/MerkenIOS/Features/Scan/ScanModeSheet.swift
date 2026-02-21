@@ -8,13 +8,34 @@ struct ScanModeSheet: View {
     @State private var selectedEikenLevel: EikenLevel = .grade3
     @State private var showEikenPicker = false
 
+    private func iconColor(for mode: ScanMode) -> Color {
+        switch mode {
+        case .all: return MerkenTheme.accentBlue
+        case .circled: return MerkenTheme.warning
+        case .highlighted: return MerkenTheme.accentBlue
+        case .eiken: return MerkenTheme.accentBlue
+        case .idiom: return MerkenTheme.success
+        case .wrong: return MerkenTheme.danger
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 AppBackground()
 
                 ScrollView {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 6) {
+                        Text("抽出モードを選択")
+                            .font(.title2.bold())
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .padding(.bottom, 4)
+
+                        Text("どのように単語を抽出しますか？")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .padding(.bottom, 12)
+
                         ForEach(ScanMode.allCases) { mode in
                             let locked = mode.requiresPro && !isPro
 
@@ -26,18 +47,19 @@ struct ScanModeSheet: View {
                                     onSelect(mode, nil)
                                 }
                             } label: {
-                                GlassPane {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: mode.iconName)
-                                            .font(.title2)
-                                            .foregroundStyle(locked ? MerkenTheme.mutedText : MerkenTheme.accentBlue)
-                                            .frame(width: 36)
+                                SolidPane(cornerRadius: 16) {
+                                    HStack(spacing: 14) {
+                                        IconBadge(
+                                            systemName: mode.iconName,
+                                            color: locked ? MerkenTheme.mutedText : iconColor(for: mode),
+                                            size: 48
+                                        )
 
                                         VStack(alignment: .leading, spacing: 2) {
                                             HStack(spacing: 6) {
                                                 Text(mode.displayName)
                                                     .font(.headline)
-                                                    .foregroundStyle(locked ? MerkenTheme.mutedText : .white)
+                                                    .foregroundStyle(locked ? MerkenTheme.mutedText : MerkenTheme.primaryText)
 
                                                 if locked {
                                                     Image(systemName: "lock.fill")
@@ -52,11 +74,6 @@ struct ScanModeSheet: View {
                                         }
 
                                         Spacer()
-
-                                        if !locked {
-                                            Image(systemName: "chevron.right")
-                                                .foregroundStyle(MerkenTheme.secondaryText)
-                                        }
                                     }
                                 }
                                 .opacity(locked ? 0.6 : 1)
@@ -65,29 +82,33 @@ struct ScanModeSheet: View {
                         }
 
                         if !isPro {
-                            GlassPane {
-                                HStack {
-                                    Image(systemName: "sparkles")
-                                        .foregroundStyle(MerkenTheme.warning)
-                                    Text("Proプランですべてのモードが使えます")
-                                        .font(.caption)
-                                        .foregroundStyle(MerkenTheme.secondaryText)
-                                }
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(MerkenTheme.warning)
+                                Text("Proプランですべてのモードが使えます")
+                                    .font(.caption)
+                                    .foregroundStyle(MerkenTheme.secondaryText)
                             }
                             .padding(.top, 8)
                         }
+
+                        Button {
+                            onCancel()
+                        } label: {
+                            Text("キャンセル")
+                                .font(.headline)
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                                )
+                        }
+                        .padding(.top, 8)
                     }
                     .padding(16)
-                }
-            }
-            .navigationTitle("スキャンモード")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("キャンセル") {
-                        onCancel()
-                    }
-                    .foregroundStyle(MerkenTheme.accentBlue)
                 }
             }
             .sheet(isPresented: $showEikenPicker) {
@@ -104,7 +125,7 @@ struct ScanModeSheet: View {
                 VStack(spacing: 16) {
                     Text("英検レベルを選択")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .padding(.top, 16)
 
                     ForEach(EikenLevel.allCases) { level in
@@ -113,11 +134,11 @@ struct ScanModeSheet: View {
                             showEikenPicker = false
                             onSelect(.eiken, level)
                         } label: {
-                            GlassPane {
+                            SolidPane {
                                 HStack {
                                     Text(level.displayName)
                                         .font(.headline)
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(MerkenTheme.primaryText)
                                     Spacer()
                                     if level == selectedEikenLevel {
                                         Image(systemName: "checkmark.circle.fill")

@@ -30,7 +30,6 @@ struct WordEditorSheet: View {
             ZStack {
                 AppBackground()
                 ScrollView {
-                    GlassEffectContainer(spacing: 10) {
                     VStack(alignment: .leading, spacing: 12) {
                         field(label: "英単語", text: $english)
                             .accessibilityIdentifier("wordEnglishField")
@@ -66,7 +65,6 @@ struct WordEditorSheet: View {
                         .opacity(canSubmit ? 1 : 0.55)
                     }
                     .padding(16)
-                    } // GlassEffectContainer
                 }
             }
             .navigationTitle(mode.title)
@@ -97,9 +95,7 @@ struct WordEditorSheet: View {
                 .foregroundStyle(MerkenTheme.secondaryText)
             TextField(label, text: text)
                 .textFieldStyle(.plain)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                .solidTextField()
         }
     }
 }

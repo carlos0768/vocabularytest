@@ -16,7 +16,7 @@ struct ScanProcessingView: View {
 
                 Text("画像を解析中\(String(repeating: ".", count: dotCount))")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Text("AIが単語を抽出しています。\n10〜30秒ほどかかります。")
                     .font(.subheadline)

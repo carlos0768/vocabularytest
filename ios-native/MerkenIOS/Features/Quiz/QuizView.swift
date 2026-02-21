@@ -6,6 +6,7 @@ struct QuizView: View {
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = QuizViewModel()
+    @Environment(\.dismiss) private var dismiss
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
@@ -24,10 +25,10 @@ struct QuizView: View {
             case .completed:
                 resultView
             }
-
         }
-        .navigationTitle("4択クイズ")
+        .navigationBarBackButtonHidden(true)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .task(id: project.id) {
             if let preloadedWords, !preloadedWords.isEmpty {
                 viewModel.setSourceWords(preloadedWords)
@@ -46,61 +47,64 @@ struct QuizView: View {
 
     private var setupView: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(project.title)
-                    .font(.title3.bold())
-                Text("問題数を選択して開始")
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                if viewModel.loading {
-                    ProgressView("単語を読み込み中...")
-                        .tint(MerkenTheme.accentBlue)
-                } else if viewModel.preparingQuiz {
-                    ProgressView("問題を作成中...")
-                        .tint(MerkenTheme.accentBlue)
-                } else {
-                    Text("利用可能な単語: \(viewModel.sourceWordCount)")
-                        .font(.caption)
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: 24))
-
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(MerkenTheme.warning)
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 24))
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text("問題数")
-                    .font(.headline)
-                HStack(spacing: 8) {
-                    ForEach(viewModel.questionLimitOptions, id: \.self) { option in
-                        Text("\(option)")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule().fill(
-                                    viewModel.selectedQuestionCount == option
-                                        ? MerkenTheme.accentBlue.opacity(0.5)
-                                        : .white.opacity(0.08)
-                                )
-                            )
-                            .onTapGesture {
-                                viewModel.selectedQuestionCount = option
-                            }
+            SolidCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(project.title)
+                        .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("問題数を選択して開始")
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                    if viewModel.loading {
+                        ProgressView("単語を読み込み中...")
+                            .tint(MerkenTheme.accentBlue)
+                    } else if viewModel.preparingQuiz {
+                        ProgressView("問題を作成中...")
+                            .tint(MerkenTheme.accentBlue)
+                    } else {
+                        Text("利用可能な単語: \(viewModel.sourceWordCount)")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: 24))
+
+            if let errorMessage = viewModel.errorMessage {
+                SolidCard {
+                    Text(errorMessage)
+                        .foregroundStyle(MerkenTheme.warning)
+                }
+            }
+
+            SolidCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("問題数")
+                        .font(.headline)
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    HStack(spacing: 8) {
+                        ForEach(viewModel.questionLimitOptions, id: \.self) { option in
+                            let isSelected = viewModel.selectedQuestionCount == option
+                            Text("\(option)")
+                                .font(.headline)
+                                .foregroundStyle(isSelected ? .white : MerkenTheme.primaryText)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(
+                                    isSelected ? MerkenTheme.accentBlue : MerkenTheme.surfaceAlt,
+                                    in: .capsule
+                                )
+                                .overlay(
+                                    Capsule().stroke(
+                                        isSelected ? Color.clear : MerkenTheme.borderLight,
+                                        lineWidth: 1
+                                    )
+                                )
+                                .onTapGesture {
+                                    viewModel.selectedQuestionCount = option
+                                }
+                        }
+                    }
+                }
+            }
 
             Button {
                 guard !viewModel.loading, !viewModel.preparingQuiz else { return }
@@ -123,100 +127,174 @@ struct QuizView: View {
 
     private var playView: some View {
         let current = viewModel.currentQuestion
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(spacing: 0) {
             if let current {
-                // Question header
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("問題 \(viewModel.currentIndex + 1) / \(viewModel.questions.count)")
+                // Top bar: X + Progress
+                HStack(spacing: 12) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.title3)
                             .foregroundStyle(MerkenTheme.secondaryText)
-                        Spacer()
-                        Image(systemName: current.word.isFavorite ? "heart.fill" : "heart")
-                            .foregroundStyle(current.word.isFavorite ? MerkenTheme.danger : MerkenTheme.secondaryText)
-                            .onTapGesture {
-                                Task {
-                                    await viewModel.toggleFavorite(projectId: project.id, using: appState)
-                                }
-                            }
                     }
 
                     ProgressView(value: viewModel.progress)
                         .tint(MerkenTheme.accentBlue)
-
-                    Text("\"\(current.word.english)\" の意味は？")
-                        .font(.title2.bold())
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
+                        .background(MerkenTheme.borderLight, in: .capsule)
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
 
-                // Options
-                VStack(spacing: 10) {
-                    ForEach(current.options.indices, id: \.self) { index in
-                        optionButton(index: index, current: current)
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // 英→日 badge
+                        Text("英→日")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .background(MerkenTheme.accentBlueLight, in: .capsule)
+
+                        // Word
+                        VStack(spacing: 8) {
+                            Text(current.word.english)
+                                .font(.system(size: 32, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .multilineTextAlignment(.center)
+
+                            Button {
+                                Task {
+                                    await viewModel.toggleFavorite(projectId: project.id, using: appState)
+                                }
+                            } label: {
+                                Image(systemName: current.word.isFavorite ? "flag.fill" : "flag")
+                                    .foregroundStyle(current.word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                            }
+                        }
+                        .padding(.bottom, 8)
+
+                        // Options A/B/C/D
+                        VStack(spacing: 10) {
+                            ForEach(current.options.indices, id: \.self) { index in
+                                optionButton(index: index, current: current)
+                            }
+                        }
+
+                        // Example sentence (after reveal)
+                        if viewModel.isRevealed, let example = current.word.exampleSentence, !example.isEmpty {
+                            SolidCard {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 4) {
+                                        Text("99")
+                                            .font(.caption2.bold())
+                                            .foregroundStyle(MerkenTheme.accentBlue)
+                                        Text("例文")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(MerkenTheme.secondaryText)
+                                    }
+                                    Text(example)
+                                        .font(.subheadline)
+                                        .foregroundStyle(MerkenTheme.primaryText)
+                                    if let exJa = current.word.exampleSentenceJa {
+                                        Text(exJa)
+                                            .font(.caption)
+                                            .foregroundStyle(MerkenTheme.mutedText)
+                                    }
+                                }
+                            }
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
                 }
 
-                // Next button
+                // Next button (fixed at bottom)
                 if viewModel.isRevealed {
                     Button {
                         viewModel.moveNext(projectId: project.id, using: appState)
                     } label: {
-                        Text("次の問題")
+                        HStack {
+                            Text("次へ")
+                                .font(.headline)
+                            Image(systemName: "chevron.right")
+                                .font(.headline)
+                        }
                     }
                     .buttonStyle(PrimaryGlassButton())
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                     .accessibilityIdentifier("nextQuestionAction")
                 }
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
+
+    private let optionLabels = ["A", "B", "C", "D"]
 
     private func optionButton(index: Int, current: QuizQuestion) -> some View {
         let isCorrect = index == current.correctIndex
         let isSelected = viewModel.selectedIndex == index
         let revealed = viewModel.isRevealed
 
-        let fillColor: Color = {
-            guard revealed else { return .white.opacity(0.06) }
-            if isCorrect { return MerkenTheme.success.opacity(0.15) }
-            if isSelected { return MerkenTheme.danger.opacity(0.15) }
-            return .white.opacity(0.06)
+        let bgColor: Color = {
+            guard revealed else { return MerkenTheme.surface }
+            if isCorrect { return MerkenTheme.success }
+            if isSelected { return MerkenTheme.danger }
+            return MerkenTheme.surface
         }()
 
-        let borderColor: Color = {
-            guard revealed else { return .white.opacity(0.10) }
-            if isCorrect { return MerkenTheme.success.opacity(0.9) }
-            if isSelected { return MerkenTheme.danger.opacity(0.9) }
-            return .white.opacity(0.10)
+        let textColor: Color = {
+            guard revealed else { return MerkenTheme.primaryText }
+            if isCorrect || isSelected { return .white }
+            return MerkenTheme.mutedText
         }()
 
-        return HStack(spacing: 10) {
+        let borderCol: Color = {
+            guard revealed else { return MerkenTheme.borderLight }
+            if isCorrect { return MerkenTheme.success }
+            if isSelected { return MerkenTheme.danger }
+            return MerkenTheme.borderLight
+        }()
+
+        return HStack(spacing: 12) {
+            // A/B/C/D label
+            Text(optionLabels[index])
+                .font(.subheadline.bold())
+                .foregroundStyle(revealed && (isCorrect || isSelected) ? .white.opacity(0.8) : MerkenTheme.mutedText)
+                .frame(width: 32, height: 32)
+                .background(
+                    (revealed && (isCorrect || isSelected) ? Color.white.opacity(0.2) : MerkenTheme.surfaceAlt),
+                    in: .rect(cornerRadius: 10)
+                )
+
             Text(current.options[index])
-                .foregroundStyle(.white)
+                .foregroundStyle(textColor)
                 .lineLimit(3)
                 .truncationMode(.tail)
+
             Spacer()
+
             if revealed && isCorrect {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(MerkenTheme.success)
+                Image(systemName: "checkmark")
+                    .font(.headline)
+                    .foregroundStyle(.white)
             }
             if revealed && isSelected && !isCorrect {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(MerkenTheme.danger)
+                Image(systemName: "xmark")
+                    .font(.headline)
+                    .foregroundStyle(.white)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 14).fill(fillColor))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: revealed ? 1.5 : 1))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(bgColor, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(borderCol, lineWidth: revealed ? 0 : 1.5)
+        )
+        .shadow(color: MerkenTheme.border.opacity(revealed ? 0 : 0.3), radius: 0, x: 0, y: 1)
         .accessibilityIdentifier("quizOption_\(index)")
         .onTapGesture {
             guard !revealed else { return }
@@ -228,17 +306,17 @@ struct QuizView: View {
 
     private var resultView: some View {
         VStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("完了")
-                    .font(.title2.bold())
-                Text("\(viewModel.correctCount) / \(viewModel.questions.count) 正解")
-                    .font(.title3)
-                    .foregroundStyle(.white)
-                    .accessibilityIdentifier("quizResultScore")
+            SolidCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("完了")
+                        .font(.title2.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("\(viewModel.correctCount) / \(viewModel.questions.count) 正解")
+                        .font(.title3)
+                        .foregroundStyle(MerkenTheme.success)
+                        .accessibilityIdentifier("quizResultScore")
+                }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: 24))
 
             Button {
                 Task {
@@ -249,6 +327,13 @@ struct QuizView: View {
             }
             .buttonStyle(PrimaryGlassButton())
             .accessibilityIdentifier("restartQuizAction")
+
+            Button {
+                dismiss()
+            } label: {
+                Text("終了する")
+            }
+            .buttonStyle(GhostGlassButton())
         }
         .padding(16)
     }
