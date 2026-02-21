@@ -75,13 +75,13 @@ jobs:
         env:
           PROJECT_ID: ${{ steps.auth.outputs.project_id }}
         run: |
-          gcloud secrets versions access latest --secret="${{ env.OPENAI_SECRET_NAME }}" >/dev/null 2>&1 || {
+          gcloud secrets versions access latest --secret "${{ env.OPENAI_SECRET_NAME }}" >/dev/null 2>&1 || {
             echo "Missing required secret: ${{ env.OPENAI_SECRET_NAME }}"
             exit 1
           }
 
           SECRET_FLAGS="AUTH_TOKEN=scan-gateway-auth-token:latest,OPENAI_API_KEY=${{ env.OPENAI_SECRET_NAME }}:latest"
-          if gcloud secrets versions access latest --secret="${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }}" >/dev/null 2>&1; then
+          if gcloud secrets versions access latest --secret "${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }}" >/dev/null 2>&1; then
             SECRET_FLAGS="${SECRET_FLAGS},FALLBACK_SLACK_WEBHOOK_URL=${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }}:latest"
           else
             echo "Optional secret not found: ${{ env.FALLBACK_SLACK_WEBHOOK_SECRET_NAME }} (continuing without Slack fallback notifications)"

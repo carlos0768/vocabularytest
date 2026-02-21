@@ -51,5 +51,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"
+  },
+  "overrides": {
+    "minimatch": "^10.2.1"
   }
 }
