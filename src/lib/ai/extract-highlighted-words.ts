@@ -169,7 +169,7 @@ export async function extractHighlightedWordsFromImage(
       }
       return {
         success: false,
-        error: 'マーカーやアンダーラインが引かれた単語が見つかりませんでした。蛍光ペンやボールペンで線を引いた単語がある画像を撮影してください。',
+        error: 'マーカーやアンダーラインが引かれた単語が見つかりませんでした。手書きのペンやマーカーで線を引いた単語がある画像を撮影してください（印刷された下線は対象外です）。',
       };
     }
 
