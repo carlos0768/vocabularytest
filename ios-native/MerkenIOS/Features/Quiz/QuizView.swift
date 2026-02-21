@@ -157,9 +157,9 @@ struct QuizView: View {
                             .background(MerkenTheme.accentBlueLight, in: .capsule)
 
                         // Word
-                        VStack(spacing: 8) {
+                        VStack(spacing: 10) {
                             Text(current.word.english)
-                                .font(.system(size: 32, weight: .bold))
+                                .font(.system(size: 36, weight: .bold))
                                 .foregroundStyle(MerkenTheme.primaryText)
                                 .multilineTextAlignment(.center)
 
@@ -169,10 +169,11 @@ struct QuizView: View {
                                 }
                             } label: {
                                 Image(systemName: current.word.isFavorite ? "flag.fill" : "flag")
+                                    .font(.title3)
                                     .foregroundStyle(current.word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
                             }
                         }
-                        .padding(.bottom, 8)
+                        .padding(.vertical, 12)
 
                         // Options A/B/C/D
                         VStack(spacing: 10) {
@@ -257,18 +258,26 @@ struct QuizView: View {
             return MerkenTheme.borderLight
         }()
 
-        return HStack(spacing: 12) {
-            // A/B/C/D label
+        return HStack(spacing: 14) {
+            // A/B/C/D circular label badge
             Text(optionLabels[index])
                 .font(.subheadline.bold())
-                .foregroundStyle(revealed && (isCorrect || isSelected) ? .white.opacity(0.8) : MerkenTheme.mutedText)
-                .frame(width: 32, height: 32)
+                .foregroundStyle(revealed && (isCorrect || isSelected) ? .white : MerkenTheme.secondaryText)
+                .frame(width: 36, height: 36)
                 .background(
-                    (revealed && (isCorrect || isSelected) ? Color.white.opacity(0.2) : MerkenTheme.surfaceAlt),
-                    in: .rect(cornerRadius: 10)
+                    (revealed && (isCorrect || isSelected) ? Color.white.opacity(0.25) : MerkenTheme.surfaceAlt),
+                    in: .circle
+                )
+                .overlay(
+                    Circle()
+                        .stroke(
+                            revealed && (isCorrect || isSelected) ? Color.white.opacity(0.3) : MerkenTheme.borderLight,
+                            lineWidth: 1.5
+                        )
                 )
 
             Text(current.options[index])
+                .font(.body)
                 .foregroundStyle(textColor)
                 .lineLimit(3)
                 .truncationMode(.tail)
@@ -277,24 +286,24 @@ struct QuizView: View {
 
             if revealed && isCorrect {
                 Image(systemName: "checkmark")
-                    .font(.headline)
+                    .font(.headline.bold())
                     .foregroundStyle(.white)
             }
             if revealed && isSelected && !isCorrect {
                 Image(systemName: "xmark")
-                    .font(.headline)
+                    .font(.headline.bold())
                     .foregroundStyle(.white)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-        .background(bgColor, in: .rect(cornerRadius: 16))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .background(bgColor, in: .rect(cornerRadius: 18))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 18)
                 .stroke(borderCol, lineWidth: revealed ? 0 : 1.5)
         )
-        .shadow(color: MerkenTheme.border.opacity(revealed ? 0 : 0.3), radius: 0, x: 0, y: 1)
+        .shadow(color: MerkenTheme.border.opacity(revealed ? 0 : 0.4), radius: 0, x: 0, y: 2)
         .accessibilityIdentifier("quizOption_\(index)")
         .onTapGesture {
             guard !revealed else { return }

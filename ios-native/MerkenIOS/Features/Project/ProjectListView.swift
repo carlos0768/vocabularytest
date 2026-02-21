@@ -250,23 +250,24 @@ struct ProjectListView: View {
     private func projectThumbnail(_ project: Project) -> some View {
         VStack(spacing: 6) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(MerkenTheme.surfaceAlt)
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(MerkenTheme.surface)
                     .aspectRatio(0.8, contentMode: .fit)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 14)
                             .stroke(
-                                project.isFavorite ? MerkenTheme.success : MerkenTheme.borderLight,
-                                lineWidth: project.isFavorite ? 2 : 1
+                                project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                                lineWidth: project.isFavorite ? 2.5 : 1.5
                             )
                     )
+                    .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
 
                 if let iconImage = project.iconImage, let data = Data(base64Encoded: iconImage),
                    let uiImage = UIImage(data: data) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
-                        .clipShape(.rect(cornerRadius: 12))
+                        .clipShape(.rect(cornerRadius: 14))
                 } else {
                     Text(String(project.title.prefix(1)))
                         .font(.title.bold())
@@ -280,7 +281,7 @@ struct ProjectListView: View {
                             Image(systemName: "flag.fill")
                                 .font(.caption2)
                                 .foregroundStyle(.white)
-                                .padding(4)
+                                .padding(5)
                                 .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 6))
                             Spacer()
                         }
@@ -295,7 +296,9 @@ struct ProjectListView: View {
                         Spacer()
                         Image(systemName: "ellipsis")
                             .font(.caption)
-                            .foregroundStyle(MerkenTheme.mutedText)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(4)
+                            .background(.black.opacity(0.3), in: .rect(cornerRadius: 6))
                             .padding(6)
                     }
                     Spacer()

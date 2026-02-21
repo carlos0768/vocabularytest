@@ -15,8 +15,8 @@ private struct DotPattern: View {
     var body: some View {
         Canvas { context, size in
             let spacing: CGFloat = 16
-            let dotRadius: CGFloat = 0.8
-            let color = Color(red: 0.78, green: 0.80, blue: 0.84) // subtle gray
+            let dotRadius: CGFloat = 1.0
+            let color = Color(red: 0.80, green: 0.82, blue: 0.86) // subtle gray, slightly more visible
 
             for x in stride(from: CGFloat(0), through: size.width, by: spacing) {
                 for y in stride(from: CGFloat(0), through: size.height, by: spacing) {

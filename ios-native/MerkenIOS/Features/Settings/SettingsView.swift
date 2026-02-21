@@ -70,7 +70,7 @@ struct SettingsView: View {
                 Image(systemName: "envelope.fill")
                     .font(.title2)
                     .foregroundStyle(MerkenTheme.accentBlue)
-                    .frame(width: 52, height: 52)
+                    .frame(width: 56, height: 56)
                     .background(MerkenTheme.accentBlueLight, in: .circle)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -129,9 +129,13 @@ struct SettingsView: View {
         Text(label)
             .font(.subheadline.bold())
             .foregroundStyle(isSelected ? .white : MerkenTheme.secondaryText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(isSelected ? MerkenTheme.accentBlue : Color.clear, in: .capsule)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                isSelected ? MerkenTheme.accentBlue : Color.clear,
+                in: .capsule
+            )
+            .shadow(color: isSelected ? MerkenTheme.accentBlue.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
     }
 
     // MARK: - Plan Section

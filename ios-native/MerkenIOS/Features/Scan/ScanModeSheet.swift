@@ -25,16 +25,16 @@ struct ScanModeSheet: View {
                 AppBackground()
 
                 ScrollView {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 10) {
                         Text("抽出モードを選択")
                             .font(.title2.bold())
                             .foregroundStyle(MerkenTheme.primaryText)
-                            .padding(.bottom, 4)
+                            .padding(.bottom, 2)
 
                         Text("どのように単語を抽出しますか？")
                             .font(.subheadline)
                             .foregroundStyle(MerkenTheme.mutedText)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, 8)
 
                         ForEach(ScanMode.allCases) { mode in
                             let locked = mode.requiresPro && !isPro
@@ -48,14 +48,14 @@ struct ScanModeSheet: View {
                                 }
                             } label: {
                                 SolidPane(cornerRadius: 16) {
-                                    HStack(spacing: 14) {
+                                    HStack(spacing: 16) {
                                         IconBadge(
                                             systemName: mode.iconName,
                                             color: locked ? MerkenTheme.mutedText : iconColor(for: mode),
-                                            size: 48
+                                            size: 52
                                         )
 
-                                        VStack(alignment: .leading, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 4) {
                                             HStack(spacing: 6) {
                                                 Text(mode.displayName)
                                                     .font(.headline)
