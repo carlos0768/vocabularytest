@@ -256,7 +256,7 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
           className="transition-transform duration-200 ease-out"
           style={{
             transform: getCardTransform(),
-            transition: slidePhase ? 'transform 200ms ease-out' : swipeX !== 0 ? 'none' : 'transform 200ms ease-out',
+            transition: slidePhase === 'exit' ? 'transform 200ms ease-out' : slidePhase === 'enter' ? 'none' : swipeX !== 0 ? 'none' : 'transform 200ms ease-out',
           }}
         >
           {currentWord && (
