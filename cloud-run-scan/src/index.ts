@@ -108,6 +108,10 @@ async function runGeminiRequest(body: GenerateRequest): Promise<string> {
   const generateConfig: any = {
     temperature: body.temperature,
     maxOutputTokens: body.maxOutputTokens,
+    // Extraction use-case: prioritize direct output over thought tokens.
+    thinkingConfig: {
+      thinkingBudget: 0,
+    },
   };
 
   if (body.responseFormat === 'json') {
@@ -120,9 +124,20 @@ async function runGeminiRequest(body: GenerateRequest): Promise<string> {
     config: generateConfig,
   });
 
-  const content = response.text;
+  const content = response.text?.trim();
   if (!content) {
-    throw new Error('Gemini returned empty content');
+    const candidate = response.candidates?.[0];
+    const diagnostics = {
+      finishReason: candidate?.finishReason,
+      partCount: candidate?.content?.parts?.length ?? 0,
+      partKeys: candidate?.content?.parts?.map((part) => Object.keys(part)),
+      promptBlockReason: response.promptFeedback?.blockReason,
+      promptSafetyRatings: response.promptFeedback?.safetyRatings,
+      usageMetadata: response.usageMetadata,
+    };
+    console.warn('[gemini-empty-content]', JSON.stringify(diagnostics));
+    const reasonSuffix = diagnostics.finishReason ? `: ${diagnostics.finishReason}` : '';
+    throw new Error(`Gemini returned empty content${reasonSuffix}`);
   }
 
   return content;

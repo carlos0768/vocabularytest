@@ -178,3 +178,31 @@ test('OpenAI fallback failure does not recurse', async () => {
 
   assert.equal(openaiCalls, 1);
 });
+
+test('empty-content errors retry and fallback to OpenAI', async () => {
+  const runner = createRunner();
+
+  let geminiCalls = 0;
+  let openaiCalls = 0;
+
+  const result = await runner.execute(
+    {
+      ctx: { env: 'prod', feature: 'scan_extraction', requestId: 'req-7' },
+    },
+    {
+      runGemini: async () => {
+        geminiCalls += 1;
+        throw new Error('Gemini returned empty content');
+      },
+      runOpenAI: async () => {
+        openaiCalls += 1;
+        return 'fallback-empty-content';
+      },
+    },
+  );
+
+  assert.equal(geminiCalls, 3);
+  assert.equal(openaiCalls, 1);
+  assert.equal(result.provider, 'openai');
+  assert.equal(result.fallbackReason, 'EMPTY_CONTENT');
+});
