@@ -7,7 +7,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, AppShell, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
-import { StudyModeCard, WordList } from '@/components/home';
+import { ProjectTabs, type ProjectTab } from '@/components/project/ProjectTabs';
+import { StudyTab } from '@/components/project/StudyTab';
+import { VocabularyTab } from '@/components/project/VocabularyTab';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -45,13 +47,14 @@ export default function ProjectDetailPage() {
   const [words, setWords] = useState<Word[]>([]);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Track which repository the project was loaded from
   const [activeRepository, setActiveRepository] = useState<typeof defaultRepository>(defaultRepository);
+
+  // Tab state
+  const [selectedTab, setSelectedTab] = useState<ProjectTab>('study');
 
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 
-  const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [deleteWordTargetId, setDeleteWordTargetId] = useState<string | null>(null);
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
   const [deleteWordLoading, setDeleteWordLoading] = useState(false);
@@ -63,17 +66,13 @@ export default function ProjectDetailPage() {
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
-  // Delete project state
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
 
-  // Project name edit state
   const [showEditNameModal, setShowEditNameModal] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [editNameSaving, setEditNameSaving] = useState(false);
 
-  // Scan-to-add state
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
@@ -81,7 +80,6 @@ export default function ProjectDetailPage() {
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const scanFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load from local IndexedDB immediately (no auth needed), then update from remote
   const hasLocalLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -126,9 +124,7 @@ export default function ProjectDetailPage() {
 
     (async () => {
       try {
-        // For non-Pro users, if local already loaded, we're done
         if (!user) {
-          // Still need to handle case where local didn't find anything
           if (!project) {
             const guestUserId = getGuestUserId();
             const localProject = await localRepository.getProject(projectId);
@@ -144,7 +140,6 @@ export default function ProjectDetailPage() {
           return;
         }
 
-        // Pro user: try remote for latest data
         let showedLocalProject = false;
         try {
           const localProject = await localRepository.getProject(projectId);
@@ -190,7 +185,6 @@ export default function ProjectDetailPage() {
             }
           })();
         } else if (!showedLocalProject) {
-          // Remote didn't have it either, try default repository as last resort
           const expectedUserId = user.id;
           const fallback = await defaultRepository.getProject(projectId);
           if (isOwnedBy(fallback, expectedUserId)) {
@@ -217,12 +211,20 @@ export default function ProjectDetailPage() {
     })();
   }, [authLoading, isPro, user, defaultRepository, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mark project as visited so delayed completion notifications can be suppressed.
   useEffect(() => {
     if (project?.id) {
       markProjectVisited(project.id);
     }
   }, [project?.id]);
+
+  // Tab change handler: non-Pro → redirect to subscription
+  const handleTabChange = (tab: ProjectTab) => {
+    if (tab === 'vocabulary' && !isPro) {
+      router.push('/subscription');
+      return;
+    }
+    setSelectedTab(tab);
+  };
 
   // Scan-to-add handlers
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
@@ -253,7 +255,6 @@ export default function ProjectDetailPage() {
       }
     }
 
-    // Set existing project id so /scan/confirm adds to this project
     sessionStorage.setItem('scanvocab_existing_project_id', project.id);
     sessionStorage.removeItem('scanvocab_project_name');
 
@@ -261,7 +262,6 @@ export default function ProjectDetailPage() {
     setProcessing(true);
 
     if (totalFiles === 1) {
-      // Single file flow
       setProcessingSteps([
         { id: 'upload', label: '画像をアップロード中...', status: 'active' },
         { id: 'analyze', label: '文字を解析中...', status: 'pending' },
@@ -311,7 +311,6 @@ export default function ProjectDetailPage() {
         ));
       }
     } else {
-      // Multi-file flow
       const initialSteps: ProgressStep[] = scanFiles.map((_, i) => ({
         id: `file-${i}`,
         label: `画像 ${i + 1}/${totalFiles} を処理中...`,
@@ -429,7 +428,6 @@ export default function ProjectDetailPage() {
 
     await activeRepository.updateWord(wordId, { english, japanese });
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w)));
-    setEditingWordId(null);
 
     if (japaneseChanged) {
       try {
@@ -553,7 +551,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Open edit name modal
   const handleOpenEditNameModal = () => {
     if (project) {
       setEditingName(project.title);
@@ -561,7 +558,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Save edited project name
   const handleSaveProjectName = async () => {
     if (!project || !editingName.trim()) return;
 
@@ -602,53 +598,8 @@ export default function ProjectDetailPage() {
   const stats = useMemo(() => {
     const total = words.length;
     const mastered = words.filter((w) => w.status === 'mastered').length;
-    const review = words.filter((w) => w.status === 'review').length;
-    const newWords = words.filter((w) => w.status === 'new').length;
-    return { total, mastered, review, newWords };
+    return { total, mastered };
   }, [words]);
-
-  const recommendedMode = useMemo(() => {
-    if (words.length === 0) return null;
-    const returnPath = encodeURIComponent(`/project/${project?.id || projectId}`);
-    
-    if (stats.newWords > 0) {
-      return {
-        title: '未学習の単語を覚える',
-        description: 'まずは4択クイズで意味を確認しましょう',
-        icon: 'quiz',
-        href: `/quiz/${project?.id || projectId}?from=${returnPath}`,
-        buttonText: 'クイズを始める',
-        iconBg: 'bg-sky-100',
-        iconColor: 'text-sky-600',
-        bgClasses: 'bg-[var(--color-primary)] text-white shadow-glow hover:opacity-90',
-        btnClasses: 'bg-white/20 text-white hover:bg-white/30'
-      };
-    }
-    if (stats.review > 0) {
-      return {
-        title: '復習して記憶に定着させる',
-        description: isPro ? 'スワイプ式のカードで効率よく復習しましょう' : 'クイズで繰り返し復習しましょう',
-        icon: isPro ? 'style' : 'quiz',
-        href: isPro ? `/flashcard/${project?.id || projectId}?from=${returnPath}` : `/quiz/${project?.id || projectId}?from=${returnPath}`,
-        buttonText: isPro ? 'カード学習を始める' : 'クイズを始める',
-        iconBg: isPro ? 'bg-indigo-100' : 'bg-sky-100',
-        iconColor: isPro ? 'text-indigo-600' : 'text-sky-600',
-        bgClasses: isPro ? 'bg-[#3B82F6] text-white shadow-glow hover:opacity-90' : 'bg-[var(--color-primary)] text-white shadow-glow hover:opacity-90',
-        btnClasses: 'bg-white/20 text-white hover:bg-white/30'
-      };
-    }
-    return {
-      title: '実践力を試す',
-      description: isPro ? '例文クイズで実際の使われ方を確認しましょう' : 'クイズで記憶を確実にしましょう',
-      icon: isPro ? 'auto_awesome' : 'quiz',
-      href: isPro ? `/sentence-quiz/${project?.id || projectId}?from=${returnPath}` : `/quiz/${project?.id || projectId}?from=${returnPath}`,
-      buttonText: isPro ? '例文クイズを始める' : 'クイズを始める',
-      iconBg: isPro ? 'bg-amber-100' : 'bg-sky-100',
-      iconColor: isPro ? 'text-amber-600' : 'text-sky-600',
-      bgClasses: isPro ? 'bg-[#60A5FA] text-white shadow-glow hover:opacity-90' : 'bg-[var(--color-primary)] text-white shadow-glow hover:opacity-90',
-      btnClasses: 'bg-white/20 text-white hover:bg-white/30'
-    };
-  }, [stats.newWords, stats.review, words.length, project?.id, projectId, isPro]);
 
   if (loading) {
     return (
@@ -671,7 +622,6 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const returnToProject = encodeURIComponent(`/project/${project.id}`);
   const safeProjectIcon =
     typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
       ? project.iconImage
@@ -680,8 +630,8 @@ export default function ProjectDetailPage() {
   return (
     <AppShell>
       <div className="pb-28 lg:pb-8">
-        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-          <div className="max-w-lg lg:max-w-xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95">
+          <div className="max-w-lg lg:max-w-xl mx-auto px-6 py-4 flex items-center justify-between gap-3 border-b border-[var(--color-border-light)]">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
@@ -735,169 +685,38 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Tab bar */}
+          <div className="max-w-lg lg:max-w-xl mx-auto px-6">
+            <ProjectTabs
+              selectedTab={selectedTab}
+              onTabChange={handleTabChange}
+              isPro={isPro}
+            />
+          </div>
         </header>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 py-5 lg:py-6 space-y-5 lg:space-y-6">
-          {/* 学習の進捗 & 次のステップ */}
-          <section>
-            {!wordsLoaded ? (
-              <div className="card p-6 border-2 border-[var(--color-border)] border-b-4">
-                <div className="flex items-center gap-3 text-[var(--color-muted)]">
-                  <Icon name="progress_activity" size={18} className="animate-spin" />
-                  <span className="text-sm font-medium">単語データを読み込み中...</span>
-                </div>
-              </div>
-            ) : recommendedMode ? (
-              <div className="card overflow-hidden border-2 border-[var(--color-border)] border-b-4">
-                {/* 上部: メインアクション (CTA) */}
-                <div className={`p-6 lg:p-8 relative overflow-hidden ${recommendedMode.bgClasses}`}>
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${recommendedMode.iconBg}`}>
-                        <Icon name={recommendedMode.icon} size={28} className={recommendedMode.iconColor} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h2 className="text-xl lg:text-2xl font-bold mb-1 tracking-tight">{recommendedMode.title}</h2>
-                        <p className="text-sm font-medium opacity-90">{recommendedMode.description}</p>
-                      </div>
-                    </div>
-                    
-                    <Link 
-                      href={recommendedMode.href}
-                      className={`block w-full py-4 rounded-xl text-center font-bold text-base transition-transform active:scale-[0.98] ${recommendedMode.btnClasses}`}
-                    >
-                      {recommendedMode.buttonText}
-                    </Link>
-                  </div>
-                  
-                  {/* Decorative background icon */}
-                  <Icon 
-                    name={recommendedMode.icon} 
-                    size={160} 
-                    className="absolute -right-6 -bottom-6 opacity-[0.08] transform rotate-12 pointer-events-none" 
-                  />
-                </div>
-
-                {/* 下部: 進捗バー (コンパクト) */}
-                <div className="p-4 bg-[var(--color-surface)] border-t border-[var(--color-border)]">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-bold text-[var(--color-muted)]">現在の進捗</h3>
-                    <span className="text-xs font-bold text-[var(--color-foreground)]">
-                      {stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0}% 習得
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden flex mb-2">
-                    <div className="bg-[var(--color-success)] transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.mastered / stats.total) * 100 : 0}%` }} />
-                    <div className="bg-[var(--color-primary)] transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.review / stats.total) * 100 : 0}%` }} />
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--color-muted)] px-1">
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />習得 {stats.mastered}</span>
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />復習中 {stats.review}</span>
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-border-light)]" />未学習 {stats.newWords}</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 card border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-alt,var(--color-surface))]">
-                <div className="w-16 h-16 mx-auto bg-[var(--color-surface)] rounded-full flex items-center justify-center border-2 border-[var(--color-border)] mb-4">
-                  <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />
-                </div>
-                <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-2">単語を追加して始めましょう</h3>
-                <p className="text-sm text-[var(--color-muted)] mb-8 max-w-[240px] mx-auto">
-                  カメラでノートをスキャンするか、手動で単語を追加できます
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center px-6">
-                  <button onClick={() => setShowScanModeModal(true)} className="flex-1 px-5 py-3.5 rounded-xl bg-[var(--color-primary)] text-white font-bold shadow-glow hover:opacity-90 flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <Icon name="document_scanner" size={20} /> カメラでスキャン
-                  </button>
-                  <button onClick={() => setShowManualWordModal(true)} className="flex-1 px-5 py-3.5 rounded-xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-foreground)] font-bold hover:bg-[var(--color-surface-hover)] flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <Icon name="edit" size={20} /> 手動で追加
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* その他の学習モード */}
-          {words.length > 0 && (
-            <section className="space-y-3">
-              <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">その他の学習モード</h3>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StudyModeCard
-                  title="クイズ"
-                  description="4択で確認"
-                  icon="quiz"
-                  href={`/quiz/${project.id}?from=${returnToProject}`}
-                  variant="primary"
-                  disabled={words.length === 0}
-                  layout="vertical"
-                  styleMode="home"
-                />
-                <StudyModeCard
-                  title="クイズ２"
-                  description="思い出して評価"
-                  icon="psychology"
-                  href={isPro ? `/quiz2/${project.id}?from=${returnToProject}` : '/subscription'}
-                  variant="green"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
-                <StudyModeCard
-                  title="カード"
-                  description="スワイプ復習"
-                  icon="style"
-                  href={isPro ? `/flashcard/${project.id}?from=${returnToProject}` : '/subscription'}
-                  variant="blue"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
-                <StudyModeCard
-                  title="例文"
-                  description="例文で定着"
-                  icon="auto_awesome"
-                  href={isPro ? `/sentence-quiz/${project.id}?from=${returnToProject}` : '/subscription'}
-                  variant="orange"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
-              </div>
-            </section>
+          {selectedTab === 'study' ? (
+            <StudyTab
+              project={project}
+              words={words}
+              wordsLoaded={wordsLoaded}
+              isPro={isPro}
+              onEditWord={handleUpdateWord}
+              onDeleteWord={handleDeleteWord}
+              onToggleFavorite={handleToggleFavorite}
+              onAddClick={() => setShowManualWordModal(true)}
+              onScanClick={() => setShowScanModeModal(true)}
+            />
+          ) : (
+            <VocabularyTab
+              words={words}
+              isPro={isPro}
+              repository={activeRepository}
+              onWordsUpdate={setWords}
+            />
           )}
-
-          {/* 単語リスト */}
-          <section className="space-y-2.5 lg:space-y-3 pt-2.5 lg:pt-3 border-t border-[var(--color-border-light)]">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-base font-bold text-[var(--color-foreground)]">
-                単語一覧 <span className="text-sm font-medium text-[var(--color-muted)] ml-2">{words.length}語</span>
-              </h2>
-            </div>
-            
-            {wordsLoaded ? (
-              <WordList
-                words={words}
-                editingWordId={editingWordId}
-                onEditStart={(wordId) => setEditingWordId(wordId)}
-                onEditCancel={() => setEditingWordId(null)}
-                onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-                onDelete={(wordId) => handleDeleteWord(wordId)}
-                onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-                onAddClick={() => setShowManualWordModal(true)}
-                onScanClick={() => setShowScanModeModal(true)}
-                listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
-              />
-            ) : (
-              <div className="card p-4 text-sm text-[var(--color-muted)] flex items-center gap-2">
-                <Icon name="progress_activity" size={16} className="animate-spin" />
-                単語一覧を読み込み中...
-              </div>
-            )}
-          </section>
         </main>
 
       <ManualWordInputModal
@@ -942,7 +761,6 @@ export default function ProjectDetailPage() {
         currentCount={totalWordCount}
       />
 
-      {/* Edit Project Name Modal */}
       {showEditNameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
@@ -981,7 +799,6 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
-      {/* Hidden file input for scan-to-add */}
       <input
         ref={scanFileInputRef}
         type="file"
@@ -1005,7 +822,6 @@ export default function ProjectDetailPage() {
         isPro={isPro}
       />
 
-      {/* Processing modal */}
       {processing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card p-6 w-full max-w-sm border-2 border-[var(--color-border)] border-b-4">
