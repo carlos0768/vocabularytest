@@ -133,10 +133,13 @@ export async function generateQuizContentForWords(words: QuizContentWordInput[])
 
         distractors = [...new Set(distractors)];
 
-        const fallbacks = ['（該当なし）', '（不明）', '（未定義）'];
+        const fallbacks = ['確認する', '提供する', '参加する', '検討する', '対応する'];
         let fallbackIndex = 0;
         while (distractors.length < 3 && fallbackIndex < fallbacks.length) {
-          distractors.push(fallbacks[fallbackIndex]);
+          const fb = fallbacks[fallbackIndex];
+          if (!distractors.includes(fb) && fb.toLowerCase() !== correctAnswer) {
+            distractors.push(fb);
+          }
           fallbackIndex += 1;
         }
       }
