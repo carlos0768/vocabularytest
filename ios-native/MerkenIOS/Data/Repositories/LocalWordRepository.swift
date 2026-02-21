@@ -73,6 +73,19 @@ actor LocalWordRepository: WordRepositoryProtocol {
         return records.map(mapWord)
     }
 
+    func fetchAllWords(userId: String) async throws -> [Word] {
+        let projectDescriptor = FetchDescriptor<LocalProjectRecord>(
+            predicate: #Predicate { $0.userId == userId }
+        )
+        let projectIds = Set(try modelContext.fetch(projectDescriptor).map(\.id))
+
+        let wordDescriptor = FetchDescriptor<LocalWordRecord>(
+            sortBy: [SortDescriptor(\LocalWordRecord.createdAt, order: .reverse)]
+        )
+        let allRecords = try modelContext.fetch(wordDescriptor)
+        return allRecords.filter { projectIds.contains($0.projectId) }.map(mapWord)
+    }
+
     func createWords(_ inputs: [WordInput]) async throws -> [Word] {
         var created: [Word] = []
 

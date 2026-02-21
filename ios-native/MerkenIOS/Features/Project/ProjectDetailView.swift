@@ -8,6 +8,8 @@ struct ProjectDetailView: View {
 
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var showingQuiz: String?
+    @State private var flashcardDestination: Project?
+    @State private var sentenceQuizDestination: Project?
     @State private var showingScan = false
 
     var body: some View {
@@ -139,6 +141,12 @@ struct ProjectDetailView: View {
         .navigationDestination(item: $showingQuiz) { _ in
             QuizView(project: project, preloadedWords: viewModel.words)
         }
+        .navigationDestination(item: $flashcardDestination) { project in
+            FlashcardView(project: project)
+        }
+        .navigationDestination(item: $sentenceQuizDestination) { project in
+            SentenceQuizView(project: project)
+        }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(projectId: project.id, using: appState)
         }
@@ -157,6 +165,22 @@ struct ProjectDetailView: View {
                 }
                 .buttonStyle(PrimaryGlassButton())
                 .accessibilityIdentifier("startQuizButton")
+
+                Button {
+                    flashcardDestination = project
+                } label: {
+                    Label("フラッシュカード", systemImage: "rectangle.on.rectangle.angled")
+                }
+                .buttonStyle(GhostGlassButton())
+
+                if appState.isPro {
+                    Button {
+                        sentenceQuizDestination = project
+                    } label: {
+                        Label("例文クイズ", systemImage: "text.bubble")
+                    }
+                    .buttonStyle(GhostGlassButton())
+                }
             }
         }
     }

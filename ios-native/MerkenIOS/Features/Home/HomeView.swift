@@ -5,11 +5,21 @@ private struct QuizDestination: Hashable {
     let project: Project
 }
 
+private struct FlashcardDestination: Hashable {
+    let project: Project
+}
+
+private struct SentenceQuizDestination: Hashable {
+    let project: Project
+}
+
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
 
     @State private var quizDestination: QuizDestination?
+    @State private var flashcardDestination: FlashcardDestination?
+    @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
 
     var body: some View {
@@ -58,7 +68,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("クイックスタート")
                                     .font(.headline)
-                                Text("最近の単語帳から4択クイズを開始できます。")
+                                Text("最近の単語帳から学習を開始できます。")
                                     .font(.subheadline)
                                     .foregroundStyle(MerkenTheme.secondaryText)
 
@@ -66,9 +76,25 @@ struct HomeView: View {
                                     Button {
                                         quizDestination = QuizDestination(project: firstProject)
                                     } label: {
-                                        Text("\(firstProject.title) でクイズ")
+                                        Label("4択クイズ", systemImage: "play.fill")
                                     }
                                     .buttonStyle(PrimaryGlassButton())
+
+                                    Button {
+                                        flashcardDestination = FlashcardDestination(project: firstProject)
+                                    } label: {
+                                        Label("フラッシュカード", systemImage: "rectangle.on.rectangle.angled")
+                                    }
+                                    .buttonStyle(GhostGlassButton())
+
+                                    if appState.isPro {
+                                        Button {
+                                            sentenceQuizDestination = SentenceQuizDestination(project: firstProject)
+                                        } label: {
+                                            Label("例文クイズ", systemImage: "text.bubble")
+                                        }
+                                        .buttonStyle(GhostGlassButton())
+                                    }
                                 } else {
                                     Text("まず単語帳を作成してください。")
                                         .font(.subheadline)
@@ -118,6 +144,12 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $quizDestination) { dest in
             QuizView(project: dest.project)
+        }
+        .navigationDestination(item: $flashcardDestination) { dest in
+            FlashcardView(project: dest.project)
+        }
+        .navigationDestination(item: $sentenceQuizDestination) { dest in
+            SentenceQuizView(project: dest.project)
         }
         .navigationDestination(item: $detailProject) { project in
             ProjectDetailView(project: project)

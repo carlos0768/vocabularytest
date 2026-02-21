@@ -18,35 +18,31 @@ final class HomeViewModel: ObservableObject {
 
         do {
             let repository = state.activeRepository
-            let projects = try await repository.fetchProjects(userId: state.activeUserId)
+            let userId = state.activeUserId
+            let projects = try await repository.fetchProjects(userId: userId)
             self.projects = projects
             errorMessage = nil
             loading = false
 
-            // Fetch counts — update once at the end to minimize re-renders
+            // Single fetchAllWords instead of N+1 per-project queries
             wordCountTask = Task { [weak self] in
-                var total = 0
-                var due = 0
-
-                for project in projects {
-                    guard !Task.isCancelled else { return }
-                    do {
-                        let words = try await repository.fetchWords(projectId: project.id)
-                        total += words.count
-                        due += words.filter { word in
-                            if word.status != .mastered { return true }
-                            guard let nextReviewAt = word.nextReviewAt else { return false }
-                            return nextReviewAt <= .now
-                        }.count
-                    } catch {
-                        // skip failed project
-                    }
-                }
-
                 guard !Task.isCancelled else { return }
-                // Single update at the end — only one re-render
-                self?.totalWordCount = total
-                self?.dueWordCount = due
+                do {
+                    let allWords = try await repository.fetchAllWords(userId: userId)
+                    guard !Task.isCancelled else { return }
+
+                    let total = allWords.count
+                    let due = allWords.filter { word in
+                        if word.status != .mastered { return true }
+                        guard let nextReviewAt = word.nextReviewAt else { return false }
+                        return nextReviewAt <= .now
+                    }.count
+
+                    self?.totalWordCount = total
+                    self?.dueWordCount = due
+                } catch {
+                    // skip on failure
+                }
             }
         } catch {
             loading = false

@@ -128,4 +128,74 @@ actor WebAPIClient {
         logger.info("Extracted \(words.count) words")
         return words
     }
+
+    func generateSentenceQuiz(
+        words: [SentenceQuizWordInput],
+        bearerToken: String
+    ) async throws -> [SentenceQuizQuestion] {
+        let url = baseURL.appendingPathComponent("api/sentence-quiz")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 90 // AI processing is heavy
+
+        let body = SentenceQuizRequest(words: words, useVectorSearch: false)
+        request.httpBody = try JSONEncoder().encode(body)
+
+        logger.info("Sending sentence-quiz request: \(words.count) words")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch let error as URLError where error.code == .timedOut {
+            throw WebAPIError.networkTimeout
+        } catch {
+            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw WebAPIError.serverError("不明な通信エラー")
+        }
+
+        logger.info("Sentence-quiz response: status=\(http.statusCode)")
+
+        switch http.statusCode {
+        case 200...299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 403:
+            throw WebAPIError.proRequired
+        case 400:
+            let errorResponse = try? JSONDecoder().decode(SentenceQuizResponse.self, from: data)
+            let message = errorResponse?.error ?? "リクエストが不正です。"
+            throw WebAPIError.badRequest(message)
+        default:
+            let errorResponse = try? JSONDecoder().decode(SentenceQuizResponse.self, from: data)
+            let message = errorResponse?.error ?? "サーバーエラーが発生しました。"
+            throw WebAPIError.serverError(message)
+        }
+
+        let decoded: SentenceQuizResponse
+        do {
+            decoded = try JSONDecoder().decode(SentenceQuizResponse.self, from: data)
+        } catch {
+            logger.error("Sentence-quiz decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+
+        guard decoded.success else {
+            throw WebAPIError.serverError(decoded.error ?? "問題の生成に失敗しました。")
+        }
+
+        guard let questions = decoded.questions, !questions.isEmpty else {
+            throw WebAPIError.serverError("問題を生成できませんでした。もう一度お試しください。")
+        }
+
+        logger.info("Generated \(questions.count) sentence-quiz questions")
+        return questions
+    }
 }
