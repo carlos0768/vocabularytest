@@ -16,7 +16,6 @@ const pronunciationCache = new Map<string, string>();
 
 export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: VocabularyTabProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [etymologyLoading, setEtymologyLoading] = useState(false);
   const [pronunciationLoading, setPronunciationLoading] = useState(false);
 
   // Swipe state
@@ -29,7 +28,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
   const isSwiping = useRef(false);
 
   // Track which words have been fetched this session to avoid duplicate calls
-  const fetchedEtymologyIds = useRef(new Set<string>());
   const fetchedPronunciationIds = useRef(new Set<string>());
 
   const currentWord = words[currentIndex];
@@ -40,44 +38,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
       setCurrentIndex(words.length - 1);
     }
   }, [words.length, currentIndex]);
-
-  // Fetch etymology for current word if missing
-  const fetchEtymology = useCallback(async (word: Word) => {
-    if (!word || word.etymology || fetchedEtymologyIds.current.has(word.id) || !isPro) return;
-
-    fetchedEtymologyIds.current.add(word.id);
-    setEtymologyLoading(true);
-
-    try {
-      const response = await fetch('/api/etymology', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wordId: word.id,
-          english: word.english,
-          japanese: word.japanese,
-        }),
-      });
-
-      if (!response.ok) return;
-
-      const data = await response.json();
-      if (data.success && data.etymology) {
-        // Save to DB
-        await repository.updateWord(word.id, { etymology: data.etymology });
-        // Update local state
-        onWordsUpdate((prev) =>
-          prev.map((w) => (w.id === word.id ? { ...w, etymology: data.etymology } : w))
-        );
-      }
-    } catch (error) {
-      console.error('Failed to fetch etymology:', error);
-      // Remove from fetched set so it can be retried
-      fetchedEtymologyIds.current.delete(word.id);
-    } finally {
-      setEtymologyLoading(false);
-    }
-  }, [isPro, repository, onWordsUpdate]);
 
   // Fetch pronunciation for current word if missing
   const fetchPronunciation = useCallback(async (word: Word) => {
@@ -122,11 +82,10 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
     }
   }, [repository, onWordsUpdate]);
 
-  // Trigger fetches when current word changes
+  // Trigger fetch when current word changes
   useEffect(() => {
     if (!currentWord) return;
     fetchPronunciation(currentWord);
-    fetchEtymology(currentWord);
   }, [currentWord?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Navigation
@@ -352,26 +311,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
                   <p className="text-lg font-semibold text-[var(--color-foreground)]">{currentWord.japanese}</p>
                 </div>
 
-                {/* Etymology */}
-                <div className="border-t border-[var(--color-border-light)] pt-4">
-                  <h3 className="text-xs font-bold text-[var(--color-muted)] mb-2 flex items-center gap-1.5">
-                    <Icon name="history_edu" size={14} />
-                    語源
-                  </h3>
-                  {currentWord.etymology ? (
-                    <p className="text-sm text-[var(--color-foreground)] leading-relaxed">
-                      {currentWord.etymology}
-                    </p>
-                  ) : etymologyLoading ? (
-                    <div className="flex items-center gap-2 text-[var(--color-muted)]">
-                      <Icon name="progress_activity" size={14} className="animate-spin" />
-                      <span className="text-xs">語源を生成中...</span>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[var(--color-muted)] italic">語源情報なし</p>
-                  )}
-                </div>
-
                 {/* Example sentence */}
                 {(currentWord.exampleSentence || currentWord.exampleSentenceJa) && (
                   <div className="border-t border-[var(--color-border-light)] pt-4">
@@ -391,7 +330,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
                     )}
                   </div>
                 )}
-
               </div>
             </div>
           )}
