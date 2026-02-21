@@ -44,3 +44,11 @@ test('classifyGeminiError detects TIMEOUT/network failures', () => {
   assert.equal(classified.retriable, true);
   assert.equal(classified.shouldFallback, true);
 });
+
+test('classifyGeminiError treats empty-content as fallback eligible', () => {
+  const classified = classifyGeminiError(new Error('Gemini returned empty content: STOP'));
+  assert.equal(classified.kind, 'UPSTREAM_5XX');
+  assert.equal(classified.reasonForSlack, 'EMPTY_CONTENT');
+  assert.equal(classified.retriable, true);
+  assert.equal(classified.shouldFallback, true);
+});

@@ -184,6 +184,21 @@ export function classifyGeminiError(error: unknown): ClassifiedGeminiError {
     };
   }
 
+  const isEmptyContent =
+    normalized.includes('gemini returned empty content') ||
+    normalized.includes('returned empty content');
+
+  if (isEmptyContent) {
+    return {
+      kind: 'UPSTREAM_5XX',
+      statusCode,
+      message,
+      reasonForSlack: 'EMPTY_CONTENT',
+      eligibleForBreaker: true,
+      shouldFallback: true,
+      retriable: true,
+    };
+  }
   if (statusCode === 400 || statusCode === 404) {
     return {
       kind: 'INVALID_INPUT',
