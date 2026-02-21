@@ -36,6 +36,7 @@ test('analyzeWordsForEiken returns invalid_json when provider output is malforme
 test('extractEikenWordsFromImage falls back to single-pass extraction on invalid_json', async () => {
   let generateCalls = 0;
   let fallbackCalled = false;
+  let fallbackEikenLevel: string | null | undefined;
 
   const provider = createProvider(async () => {
     generateCalls += 1;
@@ -59,8 +60,9 @@ test('extractEikenWordsFromImage falls back to single-pass extraction on invalid
     '3',
     {
       getProviderFromConfig: () => provider,
-      extractWordsFromImage: async () => {
+      extractWordsFromImage: async (_image, _apiKeys, options) => {
         fallbackCalled = true;
+        fallbackEikenLevel = options?.eikenLevel;
         return {
           success: true,
           data: {
@@ -79,6 +81,7 @@ test('extractEikenWordsFromImage falls back to single-pass extraction on invalid
 
   assert.equal(generateCalls, 2);
   assert.equal(fallbackCalled, true);
+  assert.equal(fallbackEikenLevel, undefined);
   assert.equal(result.success, true);
 
   if (result.success) {

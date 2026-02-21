@@ -107,8 +107,8 @@ export async function extractTextForEiken(
       image: { base64: base64Data, mimeType },
       config: {
         ...config,
-        temperature: 0.3,
-        maxOutputTokens: 4096,
+        temperature: 0.0,
+        maxOutputTokens: config.maxOutputTokens,
       },
     });
 
@@ -286,12 +286,11 @@ export async function extractEikenWordsFromImage(
 
       const extractWords = deps.extractWordsFromImage ?? extractWordsFromImageBase;
       const fallbackResult = await extractWords(imageBase64, apiKeys, {
-        eikenLevel,
         includeExamples: false,
       });
 
       if (fallbackResult.success && fallbackResult.data.words.length > 0) {
-        console.log(`EIKEN fallback success: extracted ${fallbackResult.data.words.length} words`);
+        console.log(`EIKEN fallback success (unfiltered extraction): extracted ${fallbackResult.data.words.length} words`);
         return {
           success: true,
           extractedText: ocrResult.text,
