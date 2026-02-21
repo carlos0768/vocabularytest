@@ -51,7 +51,7 @@ struct FlashcardView: View {
 
     private var emptyView: some View {
         VStack(spacing: 16) {
-            GlassCard {
+            SolidCard {
                 VStack(spacing: 8) {
                     Image(systemName: "rectangle.on.rectangle.slash")
                         .font(.largeTitle)
@@ -66,7 +66,7 @@ struct FlashcardView: View {
             }
 
             if let errorMessage = viewModel.errorMessage {
-                GlassCard {
+                SolidCard {
                     Text(errorMessage)
                         .foregroundStyle(MerkenTheme.warning)
                 }
@@ -150,9 +150,11 @@ struct FlashcardView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(enabled ? .white : MerkenTheme.mutedText)
+                .foregroundStyle(enabled ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
                 .frame(width: 44, height: 44)
-                .glassEffect(.regular, in: .circle)
+                .background(MerkenTheme.surface, in: .circle)
+                .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
+                .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
         }
         .disabled(!enabled)
     }

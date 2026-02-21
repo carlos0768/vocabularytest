@@ -67,7 +67,7 @@ struct SentenceQuizView: View {
 
             Text("AIが問題を生成中...")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(MerkenTheme.primaryText)
 
             Text("30秒〜1分ほどかかる場合があります")
                 .font(.subheadline)
@@ -102,13 +102,14 @@ struct SentenceQuizView: View {
 
     private var resultView: some View {
         VStack(spacing: 16) {
-            GlassCard {
+            SolidCard {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("完了")
                         .font(.title2.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
                     Text("\(viewModel.correctCount) / \(viewModel.totalCount) 正解")
                         .font(.title3)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
 
@@ -128,7 +129,7 @@ struct SentenceQuizView: View {
 
     private var errorView: some View {
         VStack(spacing: 16) {
-            GlassCard {
+            SolidCard {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("エラー", systemImage: "exclamationmark.triangle.fill")
                         .font(.headline)

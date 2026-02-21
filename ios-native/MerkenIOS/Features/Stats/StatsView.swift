@@ -9,86 +9,138 @@ struct StatsView: View {
             AppBackground()
 
             ScrollView {
-                GlassEffectContainer(spacing: 12) {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Today's Learning
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("今日の学習", systemImage: "calendar")
-                                .font(.headline)
-                                .foregroundStyle(MerkenTheme.secondaryText)
+                VStack(alignment: .leading, spacing: 20) {
+                    // MARK: - 今日の学習
+                    sectionHeader(icon: "calendar", title: "今日の学習")
 
-                            HStack(spacing: 0) {
-                                statBox(title: "回答数", value: "\(viewModel.todayAnswered)")
+                    HStack(spacing: 12) {
+                        statCard(
+                            icon: "questionmark.square.fill",
+                            iconColor: MerkenTheme.accentBlue,
+                            value: "\(viewModel.todayAnswered)",
+                            label: "クイズ回答数"
+                        )
+                        statCard(
+                            icon: "checkmark.circle.fill",
+                            iconColor: MerkenTheme.success,
+                            value: viewModel.todayAnswered > 0
+                                ? "\(Int(viewModel.todayAccuracy * 100))%"
+                                : "-",
+                            label: "正答率",
+                            valueColor: MerkenTheme.success
+                        )
+                    }
+
+                    // MARK: - 単語統計
+                    sectionHeader(icon: "text.book.closed.fill", title: "単語統計")
+
+                    // Progress card
+                    SolidCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("習得の進捗")
+                                    .font(.headline)
+                                    .foregroundStyle(MerkenTheme.primaryText)
                                 Spacer()
-                                statBox(title: "正答率", value: viewModel.todayAnswered > 0
-                                    ? "\(Int(viewModel.todayAccuracy * 100))%"
-                                    : "-")
-                                Spacer()
-                                statBox(title: "セッション", value: "\(viewModel.todaySessions)")
+                                Text(viewModel.totalWords > 0
+                                     ? "\(Int(viewModel.masterRate * 100))% 習得"
+                                     : "0% 習得")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(MerkenTheme.success)
+                            }
+
+                            // Progress bar
+                            GeometryReader { geo in
+                                let total = max(CGFloat(viewModel.totalWords), 1)
+                                let masteredW = geo.size.width * CGFloat(viewModel.masteredWords) / total
+                                let reviewW = geo.size.width * CGFloat(viewModel.reviewWords) / total
+
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(MerkenTheme.surfaceAlt)
+                                    HStack(spacing: 0) {
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(MerkenTheme.success)
+                                            .frame(width: max(masteredW, 0))
+                                        RoundedRectangle(cornerRadius: 0)
+                                            .fill(MerkenTheme.accentBlue)
+                                            .frame(width: max(reviewW, 0))
+                                    }
+                                    .clipShape(.rect(cornerRadius: 6))
+                                }
+                            }
+                            .frame(height: 12)
+
+                            // Legend
+                            HStack(spacing: 16) {
+                                legendItem(color: MerkenTheme.success, label: "習得 \(viewModel.masteredWords)")
+                                legendItem(color: MerkenTheme.accentBlue, label: "復習中 \(viewModel.reviewWords)")
+                                legendItem(color: MerkenTheme.surfaceAlt, label: "未学習 \(viewModel.newWords)")
                             }
                         }
                     }
 
-                    // Streak
-                    GlassCard {
-                        HStack(spacing: 12) {
-                            Image(systemName: "flame.fill")
-                                .font(.largeTitle)
-                                .foregroundStyle(viewModel.streakDays > 0
-                                    ? MerkenTheme.warning
-                                    : MerkenTheme.mutedText)
+                    // 2x2 grid
+                    let columns = [
+                        GridItem(.flexible(), spacing: 12),
+                        GridItem(.flexible(), spacing: 12)
+                    ]
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        miniStatCard(
+                            icon: "checkmark.circle",
+                            iconColor: MerkenTheme.success,
+                            value: "\(viewModel.masteredWords)",
+                            label: "習得済み"
+                        )
+                        miniStatCard(
+                            icon: "arrow.triangle.2.circlepath",
+                            iconColor: MerkenTheme.accentBlue,
+                            value: "\(viewModel.reviewWords)",
+                            label: "復習中"
+                        )
+                        miniStatCard(
+                            icon: "clock",
+                            iconColor: MerkenTheme.mutedText,
+                            value: "\(viewModel.newWords)",
+                            label: "未学習"
+                        )
+                        miniStatCard(
+                            icon: "exclamationmark.circle",
+                            iconColor: MerkenTheme.danger,
+                            value: "0",
+                            label: "間違えた単語"
+                        )
+                    }
+
+                    // MARK: - 概要
+                    sectionHeader(icon: "chart.bar.fill", title: "概要")
+
+                    SolidCard {
+                        HStack(spacing: 0) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("学習ストリーク")
-                                    .font(.headline)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                                Text("\(viewModel.streakDays)日連続")
+                                Text("総単語数")
+                                    .font(.caption)
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                                Text("\(viewModel.totalWords)")
                                     .font(.title2.bold())
                                     .foregroundStyle(MerkenTheme.primaryText)
                             }
                             Spacer()
-                        }
-                    }
-
-                    // Word Status Distribution
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("単語ステータス", systemImage: "chart.bar.fill")
-                                .font(.headline)
-                                .foregroundStyle(MerkenTheme.secondaryText)
-
-                            if viewModel.totalWords > 0 {
-                                statusBar(label: "新規", count: viewModel.newWords, color: MerkenTheme.warning)
-                                statusBar(label: "復習中", count: viewModel.reviewWords, color: MerkenTheme.accentBlue)
-                                statusBar(label: "マスター", count: viewModel.masteredWords, color: MerkenTheme.success)
-                            } else {
-                                Text("単語がまだありません")
-                                    .font(.subheadline)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("マスター率")
+                                    .font(.caption)
                                     .foregroundStyle(MerkenTheme.mutedText)
-                            }
-                        }
-                    }
-
-                    // Overall Stats
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("総合統計", systemImage: "chart.pie.fill")
-                                .font(.headline)
-                                .foregroundStyle(MerkenTheme.secondaryText)
-
-                            HStack(spacing: 0) {
-                                statBox(title: "総単語数", value: "\(viewModel.totalWords)")
-                                Spacer()
-                                statBox(title: "マスター率", value: viewModel.totalWords > 0
-                                    ? "\(Int(viewModel.masterRate * 100))%"
-                                    : "-")
+                                Text(viewModel.totalWords > 0
+                                     ? "\(Int(viewModel.masterRate * 100))%"
+                                     : "-")
+                                    .font(.title2.bold())
+                                    .foregroundStyle(MerkenTheme.primaryText)
                             }
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 18)
-                } // GlassEffectContainer
             }
             .scrollIndicators(.hidden)
             .refreshable {
@@ -96,49 +148,62 @@ struct StatsView: View {
             }
         }
         .navigationTitle("統計")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
     }
 
-    private func statBox(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    // MARK: - Components
+
+    private func sectionHeader(icon: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(MerkenTheme.accentBlue)
             Text(title)
-                .font(.caption)
-                .foregroundStyle(MerkenTheme.mutedText)
-            Text(value)
-                .font(.title2.bold())
+                .font(.headline)
                 .foregroundStyle(MerkenTheme.primaryText)
         }
     }
 
-    private func statusBar(label: String, count: Int, color: Color) -> some View {
-        let fraction = viewModel.totalWords > 0
-            ? CGFloat(count) / CGFloat(viewModel.totalWords)
-            : 0
+    private func statCard(icon: String, iconColor: Color, value: String, label: String, valueColor: Color = MerkenTheme.primaryText) -> some View {
+        SolidCard {
+            VStack(alignment: .leading, spacing: 10) {
+                IconBadge(systemName: icon, color: iconColor, size: 44)
+                Text(value)
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(valueColor)
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+        }
+    }
 
-        return HStack(spacing: 10) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .frame(width: 60, alignment: .leading)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(.white.opacity(0.08))
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(color)
-                        .frame(width: max(geo.size.width * fraction, 2))
+    private func miniStatCard(icon: String, iconColor: Color, value: String, label: String) -> some View {
+        SolidCard {
+            HStack(spacing: 10) {
+                IconBadge(systemName: icon, color: iconColor, size: 36)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(value)
+                        .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text(label)
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.mutedText)
                 }
             }
-            .frame(height: 12)
+        }
+    }
 
-            Text("\(count)")
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(MerkenTheme.primaryText)
-                .frame(width: 40, alignment: .trailing)
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(MerkenTheme.secondaryText)
         }
     }
 }

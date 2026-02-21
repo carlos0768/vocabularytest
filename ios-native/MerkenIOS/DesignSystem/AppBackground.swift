@@ -2,30 +2,34 @@ import SwiftUI
 
 struct AppBackground: View {
     var body: some View {
-        MerkenTheme.meshGradient
+        MerkenTheme.background
+            .overlay {
+                DotPattern()
+            }
             .ignoresSafeArea()
     }
 }
 
-extension MerkenTheme {
-    /// Pre-built static mesh gradient – no blur, no overlay, zero per-frame cost.
-    static let meshGradient: some View = MeshGradient(
-        width: 3, height: 3,
-        points: [
-            [0.0, 0.0], [0.5, 0.0], [1.0, 0.0],
-            [0.0, 0.5], [0.5, 0.5], [1.0, 0.5],
-            [0.0, 1.0], [0.5, 1.0], [1.0, 1.0]
-        ],
-        colors: [
-            bgTop,                                          // top-left
-            bgTop,                                          // top-center
-            Color(red: 0.04, green: 0.12, blue: 0.28),     // top-right (subtle blue tint)
-            Color(red: 0.02, green: 0.06, blue: 0.14),     // mid-left
-            Color(red: 0.05, green: 0.15, blue: 0.30),     // center (accent glow)
-            bgBottom,                                       // mid-right
-            Color(red: 0.02, green: 0.08, blue: 0.12),     // bottom-left (subtle green tint)
-            bgBottom,                                       // bottom-center
-            bgBottom                                        // bottom-right
-        ]
-    )
+/// Dot pattern matching Web版 `bg-dot-pattern` (16px grid, small gray dots)
+private struct DotPattern: View {
+    var body: some View {
+        Canvas { context, size in
+            let spacing: CGFloat = 16
+            let dotRadius: CGFloat = 0.8
+            let color = Color(red: 0.78, green: 0.80, blue: 0.84) // subtle gray
+
+            for x in stride(from: CGFloat(0), through: size.width, by: spacing) {
+                for y in stride(from: CGFloat(0), through: size.height, by: spacing) {
+                    let rect = CGRect(
+                        x: x - dotRadius,
+                        y: y - dotRadius,
+                        width: dotRadius * 2,
+                        height: dotRadius * 2
+                    )
+                    context.fill(Circle().path(in: rect), with: .color(color))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
 }

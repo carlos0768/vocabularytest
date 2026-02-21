@@ -68,7 +68,7 @@ struct FlashcardCardView: View {
             Spacer()
             Text(word.english)
                 .font(.largeTitle.bold())
-                .foregroundStyle(.white)
+                .foregroundStyle(MerkenTheme.primaryText)
                 .multilineTextAlignment(.center)
 
             if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
@@ -86,7 +86,9 @@ struct FlashcardCardView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(MerkenTheme.border, lineWidth: 2))
+        .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
     }
 
     // MARK: - Back (Japanese)
@@ -96,7 +98,7 @@ struct FlashcardCardView: View {
             Spacer()
             Text(word.japanese)
                 .font(.title.bold())
-                .foregroundStyle(.white)
+                .foregroundStyle(MerkenTheme.primaryText)
                 .multilineTextAlignment(.center)
 
             if let example = word.exampleSentence, !example.isEmpty {
@@ -125,7 +127,9 @@ struct FlashcardCardView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(MerkenTheme.border, lineWidth: 2))
+        .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
     }
 
     // MARK: - Swipe animation

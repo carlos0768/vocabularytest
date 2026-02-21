@@ -21,18 +21,15 @@ struct CreateBookshelfSheet: View {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("新しい本棚")
                             .font(.title3.bold())
+                            .foregroundStyle(MerkenTheme.primaryText)
 
                         TextField("名前（例: 期末テスト対策）", text: $name)
                             .textFieldStyle(.plain)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 12)
-                            .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                            .solidTextField(cornerRadius: 14)
 
                         TextField("説明（任意）", text: $description)
                             .textFieldStyle(.plain)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 12)
-                            .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                            .solidTextField(cornerRadius: 14)
 
                         if !allProjects.isEmpty {
                             Text("単語帳を選択")
@@ -40,12 +37,12 @@ struct CreateBookshelfSheet: View {
                                 .foregroundStyle(MerkenTheme.secondaryText)
 
                             ForEach(allProjects) { project in
-                                GlassPane {
+                                SolidPane {
                                     HStack {
                                         Image(systemName: selectedProjectIds.contains(project.id) ? "checkmark.circle.fill" : "circle")
                                             .foregroundStyle(selectedProjectIds.contains(project.id) ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
                                         Text(project.title)
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(MerkenTheme.primaryText)
                                         Spacer()
                                     }
                                 }

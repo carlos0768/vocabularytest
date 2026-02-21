@@ -7,7 +7,7 @@ struct ScanConfirmWordRow: View {
     @State private var isEditing = false
 
     var body: some View {
-        GlassPane {
+        SolidPane {
             VStack(alignment: .leading, spacing: 8) {
                 if isEditing {
                     editingContent
@@ -23,7 +23,7 @@ struct ScanConfirmWordRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(word.english)
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Text(word.japanese)
                     .font(.subheadline)
@@ -66,10 +66,8 @@ struct ScanConfirmWordRow: View {
                 TextField("english", text: $word.english)
                     .textFieldStyle(.plain)
                     .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .solidTextField(cornerRadius: 8)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -79,10 +77,8 @@ struct ScanConfirmWordRow: View {
                 TextField("日本語訳", text: $word.japanese)
                     .textFieldStyle(.plain)
                     .font(.subheadline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .solidTextField(cornerRadius: 8)
             }
 
             HStack {

@@ -17,6 +17,7 @@
 		1B05C8B3314E080C773BE2A9 /* WordEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A5D52FEC41B3B9AFB9AD0BB /* WordEditorSheet.swift */; };
 		1D0E00DC0F465DA6B12CD3F3 /* CollectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6EB875610B326E50168275 /* CollectionRepository.swift */; };
 		266B6E8CDFAF1633BAAB2B27 /* CreateBookshelfSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1535FD33287E38DC613A8B /* CreateBookshelfSheet.swift */; };
+		285B1F6A64363279D591E317 /* IconBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2F6658A73DB754E2A1A496 /* IconBadge.swift */; };
 		2A8732D1BC569A3ECAD64CA3 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F0B56826D87C20057FE4A4E /* DomainModels.swift */; };
 		34269B6CA4AAC44BEB00B85B /* SentenceQuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A672E33199F9405E81A439 /* SentenceQuizView.swift */; };
 		38CDE077537991E745B6A502 /* ImageCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EFE8C168B7F3CED6C68ABC1 /* ImageCompressor.swift */; };
@@ -154,6 +155,7 @@
 		B7862EAE231B0CEACC698DEE /* WebAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAPIClient.swift; sourceTree = "<group>"; };
 		B7C0DC218030F292F7112841 /* SupabaseDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseDTO.swift; sourceTree = "<group>"; };
 		BA64C56CCA739186C6EEECF6 /* SentenceQuizViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentenceQuizViewModel.swift; sourceTree = "<group>"; };
+		BB2F6658A73DB754E2A1A496 /* IconBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconBadge.swift; sourceTree = "<group>"; };
 		BB6EB875610B326E50168275 /* CollectionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionRepository.swift; sourceTree = "<group>"; };
 		BFDC4E2FCAA2BD217230AEFF /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
 		C2C8BA8CF643ABB5D618DDB9 /* CloudWordRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudWordRepository.swift; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				A66AD89C96ED3EA46B7F82A7 /* AppBackground.swift */,
 				BFDC4E2FCAA2BD217230AEFF /* Formatters.swift */,
 				5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */,
+				BB2F6658A73DB754E2A1A496 /* IconBadge.swift */,
 				11D9166060F6627FC5271207 /* Theme.swift */,
 			);
 			path = DesignSystem;
@@ -642,6 +645,7 @@
 				62F1E90A617D1E7A791D0047 /* GuestSessionStore.swift in Sources */,
 				F820BACC62EB5186ED27A0A5 /* HomeView.swift in Sources */,
 				5622E481DFE4018505C6294E /* HomeViewModel.swift in Sources */,
+				285B1F6A64363279D591E317 /* IconBadge.swift in Sources */,
 				38CDE077537991E745B6A502 /* ImageCompressor.swift in Sources */,
 				B7E529B7FF94D761C9A5905E /* ImagePreviewView.swift in Sources */,
 				4EBFDB6D125B13FD50C69AD3 /* LocalRecords.swift in Sources */,

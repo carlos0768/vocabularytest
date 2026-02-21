@@ -12,86 +12,79 @@ struct BookshelfListView: View {
             AppBackground()
 
             ScrollView {
-                GlassEffectContainer(spacing: 10) {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("本棚")
-                                .font(.headline)
-                            Text("複数の単語帳をまとめて学習できます。")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            Text("単語帳をまとめて管理")
                                 .font(.subheadline)
-                                .foregroundStyle(MerkenTheme.secondaryText)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                        Spacer()
+                        Button {
+                            showingCreateSheet = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                    .font(.subheadline.bold())
+                                Text("新規作成")
+                                    .font(.subheadline.bold())
+                            }
+                            .foregroundStyle(MerkenTheme.success)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(MerkenTheme.successLight, in: .capsule)
+                            .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
                         }
                     }
 
                     if let errorMessage = viewModel.errorMessage {
-                        GlassCard {
+                        SolidCard {
                             Text(errorMessage)
                                 .foregroundStyle(MerkenTheme.warning)
                         }
                     }
 
                     if viewModel.collections.isEmpty, !viewModel.loading {
-                        GlassCard {
+                        SolidCard {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("本棚がありません")
                                     .font(.headline)
-                                Text("右上の「新規作成」から本棚を追加してください。")
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                                Text("「+ 新規作成」から本棚を追加してください。")
                                     .font(.subheadline)
                                     .foregroundStyle(MerkenTheme.secondaryText)
                             }
                         }
                     } else {
-                        LazyVStack(spacing: 12) {
+                        // 2-column grid
+                        let columns = [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ]
+                        LazyVGrid(columns: columns, spacing: 12) {
                             ForEach(viewModel.collections) { collection in
-                                GlassPane {
-                                    HStack(spacing: 10) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(collection.name)
-                                                .font(.headline)
-                                                .foregroundStyle(.white)
-
-                                            let count = viewModel.projectCounts[collection.id] ?? 0
-                                            Text("\(count) 冊の単語帳")
-                                                .font(.caption)
-                                                .foregroundStyle(MerkenTheme.mutedText)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "trash")
-                                            .foregroundStyle(MerkenTheme.danger)
-                                            .onTapGesture {
-                                                Task {
-                                                    await viewModel.deleteCollection(id: collection.id, using: appState)
-                                                }
-                                            }
+                                collectionCard(collection)
+                                    .onTapGesture {
+                                        selectedCollection = collection
                                     }
-                                }
-                                .contentShape(.rect)
-                                .onTapGesture {
-                                    selectedCollection = collection
-                                }
                             }
                         }
                     }
                 }
                 .padding(16)
-                } // GlassEffectContainer
             }
             .refreshable {
                 await viewModel.load(using: appState)
             }
         }
-        .navigationTitle("本棚")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $selectedCollection) { collection in
             BookshelfDetailView(collection: collection)
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("新規作成") {
-                    showingCreateSheet = true
-                }
-                .foregroundStyle(MerkenTheme.accentBlue)
-            }
         }
         .sheet(isPresented: $showingCreateSheet) {
             CreateBookshelfSheet {
@@ -102,6 +95,43 @@ struct BookshelfListView: View {
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
+        }
+    }
+
+    private func collectionCard(_ collection: Collection) -> some View {
+        SolidCard {
+            VStack(alignment: .leading, spacing: 10) {
+                // Thumbnail collage area
+                let count = viewModel.projectCounts[collection.id] ?? 0
+                HStack(spacing: 4) {
+                    // Placeholder thumbnails
+                    ForEach(0..<min(count, 3), id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(MerkenTheme.surfaceAlt)
+                            .frame(height: 60)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
+                            )
+                    }
+                    if count > 3 {
+                        Text("+\(count - 3)")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 60)
+
+                Text(collection.name)
+                    .font(.headline)
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+
+                Text("\(count)冊")
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
         }
     }
 }

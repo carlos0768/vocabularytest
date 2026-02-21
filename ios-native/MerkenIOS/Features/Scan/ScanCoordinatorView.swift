@@ -84,7 +84,7 @@ struct ScanCoordinatorView: View {
                     .scaleEffect(1.2)
                 Text("保存中...")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
             }
         }
     }
@@ -99,7 +99,7 @@ struct ScanCoordinatorView: View {
 
                 Text("保存しました!")
                     .font(.title2.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Text("\(viewModel.editableWords.count)語を単語帳に追加しました")
                     .font(.subheadline)
@@ -127,7 +127,7 @@ struct ScanCoordinatorView: View {
 
                 Text("エラー")
                     .font(.title2.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Text(message)
                     .font(.subheadline)

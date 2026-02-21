@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum ProjectSortOrder: String, CaseIterable {
+    case newest = "新しい順"
+    case wordCount = "単語が多い順"
+    case recentlyUsed = "最近使った順"
+}
+
 struct ProjectListView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = ProjectListViewModel()
@@ -7,105 +13,304 @@ struct ProjectListView: View {
     @State private var showingCreateSheet = false
     @State private var newProjectTitle = ""
     @State private var selectedProject: Project?
+    @State private var searchText = ""
+    @State private var sortOrder: ProjectSortOrder = .newest
+    @State private var showingScan = false
+
+    private var filteredProjects: [Project] {
+        let filtered = searchText.isEmpty
+            ? viewModel.projects
+            : viewModel.projects.filter {
+                $0.title.localizedCaseInsensitiveContains(searchText)
+            }
+
+        switch sortOrder {
+        case .newest:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .wordCount:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .recentlyUsed:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        }
+    }
+
+    private var pinnedProjects: [Project] {
+        filteredProjects.filter { $0.isFavorite }
+    }
+
+    private var allProjects: [Project] {
+        filteredProjects
+    }
 
     var body: some View {
         ZStack {
             AppBackground()
 
             ScrollView {
-                GlassEffectContainer(spacing: 10) {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    topActions
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    headerSection
 
-                    if let errorMessage = viewModel.errorMessage {
-                        GlassCard {
-                            Text(errorMessage)
-                                .foregroundStyle(MerkenTheme.warning)
-                        }
+                    // Search
+                    searchBar
+
+                    // Sort chips
+                    sortChips
+
+                    // Pinned
+                    if !pinnedProjects.isEmpty {
+                        pinnedSection
                     }
 
-                    if viewModel.projects.isEmpty, !viewModel.loading {
-                        GlassCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("単語帳がありません")
-                                    .font(.headline)
-                                Text("右上の「新規作成」から単語帳を追加してください。")
-                                    .font(.subheadline)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
-                        }
-                    } else {
-                        LazyVStack(spacing: 12) {
-                            ForEach(viewModel.projects) { project in
-                                GlassPane {
-                                    HStack(spacing: 10) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(project.title)
-                                                .font(.headline)
-                                                .foregroundStyle(.white)
-                                            Text("作成: \(Formatters.shortDate.string(from: project.createdAt))")
-                                                .font(.caption)
-                                                .foregroundStyle(MerkenTheme.mutedText)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "trash")
-                                            .foregroundStyle(MerkenTheme.danger)
-                                            .onTapGesture {
-                                                Task {
-                                                    await viewModel.deleteProject(id: project.id, using: appState)
-                                                }
-                                            }
-                                    }
-                                }
-                                .contentShape(.rect)
-                                .onTapGesture {
-                                    selectedProject = project
-                                }
-                            }
-                        }
-                    }
+                    // All
+                    allProjectsSection
                 }
                 .padding(16)
-                } // GlassEffectContainer
             }
             .refreshable {
                 await viewModel.load(using: appState)
             }
         }
-        .navigationTitle("単語帳")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $selectedProject) { project in
             ProjectDetailView(project: project)
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("新規作成") {
-                    showingCreateSheet = true
-                }
-                .foregroundStyle(MerkenTheme.accentBlue)
-                .accessibilityIdentifier("createProjectButton")
-            }
         }
         .sheet(isPresented: $showingCreateSheet) {
             createProjectSheet
                 .presentationDetents([.height(280)])
                 .presentationDragIndicator(.visible)
         }
+        .fullScreenCover(isPresented: $showingScan) {
+            ScanCoordinatorView()
+                .environmentObject(appState)
+        }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
     }
 
-    private var topActions: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("学習モード")
-                    .font(.headline)
-                Text("単語帳を開いて、単語編集や4択クイズを開始できます。")
+    // MARK: - Header
+
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("単語帳")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("学習を続ける単語帳を選択")
                     .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+            Spacer()
+            Button {
+                showingScan = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.subheadline.bold())
+                    Text("新規スキャン")
+                        .font(.subheadline.bold())
+                }
+                .foregroundStyle(MerkenTheme.success)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(MerkenTheme.successLight, in: .capsule)
+                .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
             }
         }
     }
+
+    // MARK: - Search Bar
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(MerkenTheme.mutedText)
+            TextField("単語帳を検索", text: $searchText)
+                .textFieldStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+        )
+    }
+
+    // MARK: - Sort Chips
+
+    private var sortChips: some View {
+        HStack(spacing: 8) {
+            ForEach(ProjectSortOrder.allCases, id: \.self) { order in
+                let isActive = sortOrder == order
+                Button {
+                    sortOrder = order
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: chipIcon(for: order))
+                            .font(.caption2)
+                        Text(order.rawValue)
+                            .font(.subheadline)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
+                    .background(
+                        isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
+                        in: .capsule
+                    )
+                    .overlay(
+                        Capsule().stroke(
+                            isActive ? Color.clear : MerkenTheme.borderLight,
+                            lineWidth: 1
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private func chipIcon(for order: ProjectSortOrder) -> String {
+        switch order {
+        case .newest: return "clock"
+        case .wordCount: return "line.3.horizontal.decrease"
+        case .recentlyUsed: return "clock.arrow.circlepath"
+        }
+    }
+
+    // MARK: - Pinned Section
+
+    private var pinnedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("📌 ピン留め")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("\(pinnedProjects.count)件")
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            projectGrid(pinnedProjects)
+        }
+    }
+
+    // MARK: - All Projects Section
+
+    private var allProjectsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if viewModel.projects.isEmpty && !viewModel.loading {
+                SolidCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("単語帳がありません")
+                            .font(.headline)
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("「+ 新規スキャン」から単語帳を追加してください。")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
+            } else {
+                HStack {
+                    Text("すべての単語帳")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Spacer()
+                    Text("\(allProjects.count)件")
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+
+                projectGrid(allProjects)
+            }
+        }
+    }
+
+    // MARK: - Project Grid
+
+    private func projectGrid(_ projects: [Project]) -> some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12)
+        ]
+        return LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(projects) { project in
+                projectThumbnail(project)
+                    .onTapGesture {
+                        selectedProject = project
+                    }
+            }
+        }
+    }
+
+    private func projectThumbnail(_ project: Project) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(MerkenTheme.surfaceAlt)
+                    .aspectRatio(0.8, contentMode: .fit)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(
+                                project.isFavorite ? MerkenTheme.success : MerkenTheme.borderLight,
+                                lineWidth: project.isFavorite ? 2 : 1
+                            )
+                    )
+
+                if let iconImage = project.iconImage, let data = Data(base64Encoded: iconImage),
+                   let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .clipShape(.rect(cornerRadius: 12))
+                } else {
+                    Text(String(project.title.prefix(1)))
+                        .font(.title.bold())
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+
+                // Flag
+                if project.isFavorite {
+                    VStack {
+                        HStack {
+                            Image(systemName: "flag.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 6))
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .padding(6)
+                }
+
+                // Menu
+                VStack {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "ellipsis")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .padding(6)
+                    }
+                    Spacer()
+                }
+            }
+
+            Text(project.title)
+                .font(.caption)
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    // MARK: - Create Sheet
 
     private var createProjectSheet: some View {
         NavigationStack {
@@ -115,11 +320,10 @@ struct ProjectListView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("新しい単語帳")
                         .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
                     TextField("例: TOEFL Essential", text: $newProjectTitle)
                         .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                        .solidTextField(cornerRadius: 14)
                         .accessibilityIdentifier("projectTitleField")
 
                     Button("作成") {

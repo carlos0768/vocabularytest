@@ -17,7 +17,6 @@ struct ScanConfirmView: View {
                     .padding(.top, 16)
 
                 ScrollView {
-                    GlassEffectContainer(spacing: 8) {
                     VStack(spacing: 10) {
                         projectTitleSection
 
@@ -30,7 +29,6 @@ struct ScanConfirmView: View {
                         }
                     }
                     .padding(16)
-                    } // GlassEffectContainer
                 }
 
                 bottomBar
@@ -43,7 +41,7 @@ struct ScanConfirmView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(words.count)語を抽出しました")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
                 Text("内容を確認して保存してください")
                     .font(.caption)
                     .foregroundStyle(MerkenTheme.secondaryText)
@@ -55,7 +53,7 @@ struct ScanConfirmView: View {
     private var projectTitleSection: some View {
         Group {
             if targetProjectTitle == nil {
-                GlassPane {
+                SolidPane {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("プロジェクト名")
                             .font(.caption)
@@ -64,10 +62,8 @@ struct ScanConfirmView: View {
                         TextField("単語帳の名前を入力", text: $projectTitle)
                             .textFieldStyle(.plain)
                             .font(.headline)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .glassEffect(.regular, in: .rect(cornerRadius: 8))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .solidTextField(cornerRadius: 8)
                     }
                 }
             }
@@ -95,6 +91,6 @@ struct ScanConfirmView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .glassEffect(.regular, in: .rect(cornerRadius: 0))
+        .background(MerkenTheme.surface)
     }
 }

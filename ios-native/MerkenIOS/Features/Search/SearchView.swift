@@ -10,7 +10,7 @@ struct SearchView: View {
 
             if viewModel.loading && viewModel.results.isEmpty && !viewModel.hasSearched {
                 ProgressView()
-                    .tint(.white)
+                    .tint(MerkenTheme.accentBlue)
             } else if !viewModel.hasSearched {
                 placeholder
             } else if viewModel.results.isEmpty {
@@ -20,8 +20,8 @@ struct SearchView: View {
             }
         }
         .navigationTitle("検索")
-        .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $viewModel.searchText, prompt: "英語・日本語で検索")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $viewModel.searchText, prompt: "英語・日本語で検索...")
         .onChange(of: viewModel.searchText) {
             viewModel.search()
         }
@@ -31,14 +31,21 @@ struct SearchView: View {
     }
 
     private var placeholder: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
+        VStack(spacing: 16) {
+            Image(systemName: "sparkles")
                 .font(.system(size: 48))
-                .foregroundStyle(MerkenTheme.mutedText)
-            Text("単語を検索してください")
-                .font(.headline)
-                .foregroundStyle(MerkenTheme.secondaryText)
-            Text("英語・日本語どちらでも検索できます。")
+                .foregroundStyle(MerkenTheme.accentBlue)
+                .frame(width: 80, height: 80)
+                .background(MerkenTheme.accentBlueLight, in: .circle)
+            VStack(spacing: 6) {
+                Text("意味や単語を入力すると")
+                    .font(.headline)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                Text("関連する英単語を見つけます")
+                    .font(.headline)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+            Text("例:「子犬」→ puppy, dog, pet...")
                 .font(.subheadline)
                 .foregroundStyle(MerkenTheme.mutedText)
         }
@@ -57,10 +64,9 @@ struct SearchView: View {
 
     private var resultList: some View {
         ScrollView {
-            GlassEffectContainer(spacing: 6) {
             LazyVStack(spacing: 8) {
                 ForEach(viewModel.results) { word in
-                    GlassPane {
+                    SolidPane {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(word.english)
@@ -83,7 +89,6 @@ struct SearchView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            } // GlassEffectContainer
         }
         .scrollIndicators(.hidden)
     }

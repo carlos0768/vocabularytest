@@ -12,7 +12,7 @@ struct ImagePreviewView: View {
             VStack(spacing: 0) {
                 Text("撮影した画像")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.primaryText)
                     .padding(.top, 20)
                     .padding(.bottom, 12)
 
