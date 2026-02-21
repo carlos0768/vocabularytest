@@ -43,7 +43,7 @@ export function ScanModeModal({
 
   if (showEikenPicker) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 pb-20">
         <div className="card p-6 w-full max-w-sm animate-fade-in-up">
           <h2 className="text-lg font-bold mb-2 text-center text-[var(--color-foreground)]">
             英検レベルを選択
@@ -97,8 +97,8 @@ export function ScanModeModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="card p-6 w-full max-w-sm animate-fade-in-up max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 pb-20">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up max-h-[80vh] overflow-y-auto">
         <h2 className="text-lg font-bold mb-2 text-center text-[var(--color-foreground)]">
           抽出モードを選択
         </h2>
