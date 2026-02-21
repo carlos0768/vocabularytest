@@ -391,6 +391,7 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
                     )}
                   </div>
                 )}
+
               </div>
             </div>
           )}
