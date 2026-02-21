@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Reusable icon badge: colored icon inside a tinted rounded rectangle.
+/// Reusable icon badge: colored icon inside a tinted circle.
 /// Web版のカラー丸アイコンバッジを再現。
 struct IconBadge: View {
     let systemName: String
@@ -9,9 +9,9 @@ struct IconBadge: View {
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: size * 0.45, weight: .medium))
+            .font(.system(size: size * 0.42, weight: .medium))
             .foregroundStyle(color)
             .frame(width: size, height: size)
-            .background(color.opacity(0.12), in: .rect(cornerRadius: size * 0.3))
+            .background(color.opacity(0.12), in: .circle)
     }
 }

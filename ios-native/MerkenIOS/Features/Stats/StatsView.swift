@@ -168,13 +168,13 @@ struct StatsView: View {
 
     private func statCard(icon: String, iconColor: Color, value: String, label: String, valueColor: Color = MerkenTheme.primaryText) -> some View {
         SolidCard {
-            VStack(alignment: .leading, spacing: 10) {
-                IconBadge(systemName: icon, color: iconColor, size: 44)
+            VStack(alignment: .leading, spacing: 12) {
+                IconBadge(systemName: icon, color: iconColor, size: 48)
                 Text(value)
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(valueColor)
                 Text(label)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(MerkenTheme.mutedText)
             }
         }
@@ -182,11 +182,11 @@ struct StatsView: View {
 
     private func miniStatCard(icon: String, iconColor: Color, value: String, label: String) -> some View {
         SolidCard {
-            HStack(spacing: 10) {
-                IconBadge(systemName: icon, color: iconColor, size: 36)
+            HStack(spacing: 12) {
+                IconBadge(systemName: icon, color: iconColor, size: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(value)
-                        .font(.title3.bold())
+                        .font(.title2.bold())
                         .foregroundStyle(MerkenTheme.primaryText)
                     Text(label)
                         .font(.caption)

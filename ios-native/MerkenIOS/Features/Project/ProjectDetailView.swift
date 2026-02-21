@@ -151,11 +151,19 @@ struct ProjectDetailView: View {
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
+                    .font(.subheadline)
                     .foregroundStyle(MerkenTheme.secondaryText)
+                    .frame(width: 36, height: 36)
+                    .background(MerkenTheme.surfaceAlt, in: .circle)
+                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
                 Image(systemName: "trash")
+                    .font(.subheadline)
                     .foregroundStyle(MerkenTheme.danger)
+                    .frame(width: 36, height: 36)
+                    .background(MerkenTheme.surfaceAlt, in: .circle)
+                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
             }
         }
     }
@@ -267,23 +275,23 @@ struct ProjectDetailView: View {
     private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
-                IconBadge(systemName: icon, color: iconColor, size: 44)
+                IconBadge(systemName: icon, color: iconColor, size: 48)
 
                 Text(title)
-                    .font(.headline)
+                    .font(.headline.bold())
                     .foregroundStyle(MerkenTheme.primaryText)
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(MerkenTheme.mutedText)
             }
-            .padding(14)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                    .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
+            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
         }
     }
 

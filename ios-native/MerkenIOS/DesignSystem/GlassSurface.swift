@@ -16,9 +16,9 @@ struct SolidCard<Content: View>: View {
             .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(MerkenTheme.border, lineWidth: 2)
+                    .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 2)
+            .shadow(color: MerkenTheme.border.opacity(0.6), radius: 0, x: 0, y: 3)
     }
 }
 
@@ -39,7 +39,7 @@ struct SolidPane<Content: View>: View {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 1)
+            .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
     }
 }
 

@@ -104,24 +104,31 @@ struct BookshelfListView: View {
                 // Thumbnail collage area
                 let count = viewModel.projectCounts[collection.id] ?? 0
                 HStack(spacing: 4) {
-                    // Placeholder thumbnails
-                    ForEach(0..<min(count, 3), id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(MerkenTheme.surfaceAlt)
-                            .frame(height: 60)
+                    // Placeholder thumbnails with colored gradients
+                    ForEach(0..<min(max(count, 1), 3), id: \.self) { i in
+                        let colors: [Color] = [MerkenTheme.accentBlue, MerkenTheme.success, MerkenTheme.warning]
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                LinearGradient(
+                                    colors: [colors[i % colors.count].opacity(0.3), colors[i % colors.count].opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(height: 70)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 6)
+                                RoundedRectangle(cornerRadius: 8)
                                     .stroke(MerkenTheme.borderLight, lineWidth: 1)
                             )
                     }
                     if count > 3 {
                         Text("+\(count - 3)")
-                            .font(.caption)
+                            .font(.caption.bold())
                             .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 60)
+                .frame(height: 70)
 
                 Text(collection.name)
                     .font(.headline)
