@@ -5,9 +5,15 @@
  * Vercel の API Routes からのみ呼び出される。
  */
 
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
+import {
+  GeminiFallbackRunner,
+  loadFallbackConfigFromEnv,
+} from './fallback/runner.js';
+import type { AppEnv } from './fallback/types.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -39,16 +45,25 @@ const geminiClient = new GoogleGenAI({
   location: process.env.GCP_LOCATION || 'asia-northeast1',
 });
 
-// OpenAI - for 2-step modes (eiken, wrong answers, grammar analysis)
-const openaiClient = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const openaiApiKey = process.env.OPENAI_API_KEY?.trim();
+if (!openaiApiKey) {
+  throw new Error('OPENAI_API_KEY is required for Cloud Run fallback');
+}
+
+const openaiClient = new OpenAI({ apiKey: openaiApiKey });
+
+const fallbackConfig = loadFallbackConfigFromEnv(process.env);
+const fallbackRunner = new GeminiFallbackRunner(fallbackConfig);
 
 // ============================================
 // Health check
 // ============================================
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    fallbackModel: fallbackConfig.fallbackOpenAIModel,
+    breakerOpenMs: fallbackConfig.breakerOpenMs,
+  });
 });
 
 // ============================================
@@ -66,111 +81,151 @@ interface GenerateRequest {
   temperature: number;
   maxOutputTokens: number;
   responseFormat?: 'json' | 'text';
+  requestId?: string;
+  feature?: string;
+  env?: AppEnv;
+}
+
+function normalizeAppEnv(value: string | undefined, fallback: AppEnv): AppEnv {
+  return value === 'stg' || value === 'prod' ? value : fallback;
+}
+
+async function runGeminiRequest(body: GenerateRequest): Promise<string> {
+  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
+  const fullPrompt = body.systemPrompt ? `${body.systemPrompt}\n\n${body.prompt}` : body.prompt;
+  parts.push({ text: fullPrompt });
+
+  if (body.image) {
+    parts.push({
+      inlineData: {
+        mimeType: body.image.mimeType,
+        data: body.image.base64,
+      },
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const generateConfig: any = {
+    temperature: body.temperature,
+    maxOutputTokens: body.maxOutputTokens,
+  };
+
+  if (body.responseFormat === 'json') {
+    generateConfig.responseMimeType = 'application/json';
+  }
+
+  const response = await geminiClient.models.generateContent({
+    model: body.model,
+    contents: [{ role: 'user', parts }],
+    config: generateConfig,
+  });
+
+  const content = response.text;
+  if (!content) {
+    throw new Error('Gemini returned empty content');
+  }
+
+  return content;
+}
+
+async function runOpenAIRequest(body: GenerateRequest, modelOverride?: string): Promise<string> {
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+  if (body.systemPrompt) {
+    messages.push({
+      role: 'system',
+      content: body.systemPrompt,
+    });
+  }
+
+  if (body.image) {
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'text', text: body.prompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${body.image.mimeType};base64,${body.image.base64}`,
+          },
+        },
+      ],
+    });
+  } else {
+    messages.push({ role: 'user', content: body.prompt });
+  }
+
+  const response = await openaiClient.chat.completions.create({
+    model: modelOverride || body.model,
+    messages,
+    temperature: body.temperature,
+    max_tokens: body.maxOutputTokens,
+    ...(body.responseFormat === 'json' && { response_format: { type: 'json_object' } }),
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('OpenAI returned empty content');
+  }
+
+  return content;
 }
 
 app.post('/generate', async (req, res) => {
   const startTime = Date.now();
   const body = req.body as GenerateRequest;
-  const { provider, model, prompt, systemPrompt, image, temperature, maxOutputTokens, responseFormat } = body;
+  const { provider, model, image, responseFormat } = body;
 
-  console.log(`[generate] provider=${provider} model=${model} hasImage=${!!image} format=${responseFormat}`);
+  const requestId =
+    req.headers['x-request-id']?.toString() ||
+    body.requestId ||
+    randomUUID();
+
+  console.log(
+    `[generate] id=${requestId} provider=${provider} model=${model} hasImage=${!!image} format=${responseFormat}`,
+  );
 
   try {
     if (provider === 'gemini') {
-      // --- Vertex AI (Gemini) ---
-      const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
-
-      const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-      parts.push({ text: fullPrompt });
-
-      if (image) {
-        parts.push({
-          inlineData: {
-            mimeType: image.mimeType,
-            data: image.base64,
-          },
-        });
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const generateConfig: any = {
-        temperature,
-        maxOutputTokens,
+      const ctx = {
+        env: normalizeAppEnv(body.env, fallbackConfig.appEnv),
+        feature: body.feature || 'scan_extraction',
+        requestId,
       };
 
-      if (responseFormat === 'json') {
-        generateConfig.responseMimeType = 'application/json';
-      }
+      const result = await fallbackRunner.execute(
+        {
+          ctx,
+        },
+        {
+          runGemini: () => runGeminiRequest(body),
+          runOpenAI: (fallbackModel) => runOpenAIRequest(body, fallbackModel),
+        },
+      );
 
-      const response = await geminiClient.models.generateContent({
-        model,
-        contents: [{ role: 'user', parts }],
-        config: generateConfig,
-      });
-
-      const content = response.text;
       const elapsed = Date.now() - startTime;
-      console.log(`[generate] gemini completed in ${elapsed}ms`);
+      console.log(
+        `[generate] id=${requestId} provider=${result.provider} completed in ${elapsed}ms` +
+          (result.fallbackReason ? ` reason=${result.fallbackReason}` : ''),
+      );
 
-      if (!content) {
-        res.json({ success: false, error: '画像を読み取れませんでした' });
-        return;
-      }
-
-      res.json({ success: true, content });
-
-    } else if (provider === 'openai') {
-      // --- OpenAI ---
-      if (!openaiClient) {
-        res.status(500).json({ success: false, error: 'OpenAI not configured' });
-        return;
-      }
-
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
-
-      if (image) {
-        messages.push({
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${image.mimeType};base64,${image.base64}`,
-              },
-            },
-          ],
-        });
-      } else {
-        messages.push({ role: 'user', content: prompt });
-      }
-
-      const response = await openaiClient.chat.completions.create({
-        model,
-        messages,
-        temperature,
-        max_tokens: maxOutputTokens,
-        ...(responseFormat === 'json' && { response_format: { type: 'json_object' } }),
-      });
-
-      const content = response.choices[0]?.message?.content;
-      const elapsed = Date.now() - startTime;
-      console.log(`[generate] openai completed in ${elapsed}ms`);
-
-      if (!content) {
-        res.json({ success: false, error: '画像を読み取れませんでした' });
-        return;
-      }
-
-      res.json({ success: true, content });
-
-    } else {
-      res.status(400).json({ success: false, error: `Unknown provider: ${provider}` });
+      res.json({ success: true, content: result.content });
+      return;
     }
+
+    if (provider === 'openai') {
+      const content = await runOpenAIRequest(body);
+      const elapsed = Date.now() - startTime;
+      console.log(`[generate] id=${requestId} provider=openai completed in ${elapsed}ms`);
+      res.json({ success: true, content });
+      return;
+    }
+
+    res.status(400).json({ success: false, error: `Unknown provider: ${provider}` });
   } catch (error: unknown) {
     const elapsed = Date.now() - startTime;
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[generate] error after ${elapsed}ms:`, errMsg);
+    console.error(`[generate] id=${requestId} error after ${elapsed}ms:`, errMsg);
 
     // Forward error details so Vercel-side can classify them
     res.status(500).json({
@@ -188,5 +243,8 @@ app.listen(PORT, () => {
   console.log(`ScanVocab AI Gateway listening on port ${PORT}`);
   console.log(`  GCP Project: ${process.env.GCP_PROJECT_ID}`);
   console.log(`  Location: ${process.env.GCP_LOCATION || 'asia-northeast1'}`);
-  console.log(`  OpenAI: ${openaiClient ? 'configured' : 'not configured'}`);
+  console.log(`  OpenAI: configured`);
+  console.log(`  Fallback model: ${fallbackRunner.getConfig().fallbackOpenAIModel}`);
+  console.log(`  Fallback calls cap/day: ${fallbackRunner.getConfig().fallbackCallsDailyCap}`);
+  console.log(`  Fallback cost cap/day: ${fallbackRunner.getConfig().fallbackCostDailyCapYen}`);
 });
