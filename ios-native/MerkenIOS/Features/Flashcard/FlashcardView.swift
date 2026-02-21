@@ -142,7 +142,7 @@ struct FlashcardView: View {
                 .font(.title2)
                 .foregroundStyle(enabled ? .white : MerkenTheme.mutedText)
                 .frame(width: 44, height: 44)
-                .background(Circle().fill(.white.opacity(enabled ? 0.08 : 0.03)))
+                .glassEffect(.regular, in: .circle)
         }
         .disabled(!enabled)
     }

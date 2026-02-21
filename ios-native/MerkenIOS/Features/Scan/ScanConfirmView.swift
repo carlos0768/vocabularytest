@@ -17,6 +17,7 @@ struct ScanConfirmView: View {
                     .padding(.top, 16)
 
                 ScrollView {
+                    GlassEffectContainer(spacing: 8) {
                     VStack(spacing: 10) {
                         projectTitleSection
 
@@ -29,6 +30,7 @@ struct ScanConfirmView: View {
                         }
                     }
                     .padding(16)
+                    } // GlassEffectContainer
                 }
 
                 bottomBar
@@ -65,7 +67,7 @@ struct ScanConfirmView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
+                            .glassEffect(.regular, in: .rect(cornerRadius: 8))
                     }
                 }
             }
@@ -93,6 +95,6 @@ struct ScanConfirmView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial.opacity(0.3))
+        .glassEffect(.regular, in: .rect(cornerRadius: 0))
     }
 }

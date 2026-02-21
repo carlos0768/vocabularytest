@@ -17,6 +17,7 @@ struct ProjectDetailView: View {
             AppBackground()
 
             ScrollView {
+                GlassEffectContainer(spacing: 10) {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     let filteredWords = viewModel.filteredWords
 
@@ -97,6 +98,7 @@ struct ProjectDetailView: View {
                     }
                 }
                 .padding(16)
+                } // GlassEffectContainer
             }
             .refreshable {
                 await viewModel.load(projectId: project.id, using: appState)
@@ -192,7 +194,7 @@ struct ProjectDetailView: View {
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.08)))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
 
                 Toggle(isOn: $viewModel.favoritesOnly) {
                     Text("お気に入りのみ")

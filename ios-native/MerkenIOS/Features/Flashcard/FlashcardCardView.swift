@@ -86,7 +86,7 @@ struct FlashcardCardView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
-        .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.08)))
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 
     // MARK: - Back (Japanese)
@@ -125,7 +125,7 @@ struct FlashcardCardView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
-        .background(RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.08)))
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 
     // MARK: - Swipe animation

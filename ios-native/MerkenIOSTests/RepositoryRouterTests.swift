@@ -8,6 +8,7 @@ final class RepositoryRouterTests: XCTestCase {
         func updateProject(id: String, title: String) async throws {}
         func deleteProject(id: String) async throws {}
         func fetchWords(projectId: String) async throws -> [Word] { [] }
+        func fetchAllWords(userId: String) async throws -> [Word] { [] }
         func createWords(_ inputs: [WordInput]) async throws -> [Word] { [] }
         func updateWord(id: String, patch: WordPatch) async throws {}
         func deleteWord(id: String) async throws {}

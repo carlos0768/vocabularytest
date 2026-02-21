@@ -58,11 +58,7 @@ struct RootTabView: View {
                     .font(.title2)
                     .foregroundStyle(.white)
                     .frame(width: 56, height: 56)
-                    .background(
-                        Circle()
-                            .fill(MerkenTheme.accentBlue)
-                            .shadow(color: MerkenTheme.accentBlue.opacity(0.4), radius: 8, y: 4)
-                    )
+                    .glassEffect(.regular.tint(MerkenTheme.accentBlue), in: .circle)
             }
             .padding(.trailing, 20)
             .padding(.bottom, 64)

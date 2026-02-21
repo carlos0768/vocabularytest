@@ -13,6 +13,7 @@ struct ProjectListView: View {
             AppBackground()
 
             ScrollView {
+                GlassEffectContainer(spacing: 10) {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     topActions
 
@@ -65,6 +66,7 @@ struct ProjectListView: View {
                     }
                 }
                 .padding(16)
+                } // GlassEffectContainer
             }
             .refreshable {
                 await viewModel.load(using: appState)
@@ -117,7 +119,7 @@ struct ProjectListView: View {
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 12)
-                        .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.08)))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
                         .accessibilityIdentifier("projectTitleField")
 
                     Button("作成") {

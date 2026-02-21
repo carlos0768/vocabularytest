@@ -27,6 +27,7 @@ struct HomeView: View {
             AppBackground()
 
             ScrollView {
+                GlassEffectContainer(spacing: 12) {
                 VStack(alignment: .leading, spacing: 16) {
                     header
 
@@ -134,6 +135,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 18)
+                } // GlassEffectContainer
             }
             .scrollIndicators(.hidden)
             .refreshable {

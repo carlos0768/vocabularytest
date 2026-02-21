@@ -11,6 +11,7 @@ struct SettingsView: View {
             AppBackground()
 
             ScrollView {
+                GlassEffectContainer(spacing: 12) {
                 VStack(alignment: .leading, spacing: 14) {
                     modeCard
 
@@ -41,6 +42,7 @@ struct SettingsView: View {
                     }
                 }
                 .padding(16)
+                } // GlassEffectContainer
             }
         }
         .navigationTitle("設定")
@@ -79,13 +81,13 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.08)))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
                     .accessibilityIdentifier("emailField")
 
                 SecureField("パスワード", text: $password)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.08)))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
                     .accessibilityIdentifier("passwordField")
 
                 Button {

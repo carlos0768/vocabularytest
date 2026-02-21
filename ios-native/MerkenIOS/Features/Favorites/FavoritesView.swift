@@ -47,6 +47,7 @@ struct FavoritesView: View {
 
     private var wordList: some View {
         ScrollView {
+            GlassEffectContainer(spacing: 6) {
             LazyVStack(spacing: 8) {
                 ForEach(viewModel.filteredWords) { word in
                     GlassPane {
@@ -75,6 +76,7 @@ struct FavoritesView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            } // GlassEffectContainer
         }
         .scrollIndicators(.hidden)
         .refreshable {

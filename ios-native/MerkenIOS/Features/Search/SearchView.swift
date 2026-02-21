@@ -57,6 +57,7 @@ struct SearchView: View {
 
     private var resultList: some View {
         ScrollView {
+            GlassEffectContainer(spacing: 6) {
             LazyVStack(spacing: 8) {
                 ForEach(viewModel.results) { word in
                     GlassPane {
@@ -82,6 +83,7 @@ struct SearchView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            } // GlassEffectContainer
         }
         .scrollIndicators(.hidden)
     }
