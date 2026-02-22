@@ -170,15 +170,15 @@ struct ProjectListView: View {
                     Button {
                         sortOrder = order
                     } label: {
-                        HStack(spacing: 3) {
+                        HStack(spacing: 4) {
                             Image(systemName: chipIcon(for: order))
-                                .font(.caption2)
+                                .font(.caption)
                             Text(order.rawValue)
                                 .font(.caption)
                                 .lineLimit(1)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
                         .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
                         .background(
                             isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
@@ -187,12 +187,18 @@ struct ProjectListView: View {
                         .overlay(
                             Capsule().stroke(
                                 isActive ? Color.clear : MerkenTheme.borderLight,
-                                lineWidth: 1
+                                lineWidth: isActive ? 1.5 : 1
                             )
+                        )
+                        .background(
+                            Capsule()
+                                .fill(isActive ? MerkenTheme.accentBlueStrong : MerkenTheme.border)
+                                .offset(y: 2)
                         )
                     }
                 }
             }
+            .padding(.bottom, 2)
         }
     }
 
@@ -315,10 +321,7 @@ struct ProjectListView: View {
             .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
-                    .stroke(
-                        project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
-                        lineWidth: project.isFavorite ? 2.5 : 1.5
-                    )
+                    .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
             .background(
                 RoundedRectangle(cornerRadius: 18)
@@ -326,33 +329,24 @@ struct ProjectListView: View {
                     .offset(y: 2)
             )
 
-            // Menu dot — context menu at top-right, slightly outside
-            Menu {
-                Button {
-                    Task {
-                        await viewModel.toggleFavorite(projectId: project.id, using: appState)
-                    }
-                } label: {
-                    Label(
-                        project.isFavorite ? "ピン解除" : "ピン留め",
-                        systemImage: project.isFavorite ? "flag.slash" : "flag"
-                    )
-                }
-
-                Button(role: .destructive) {
-                    projectToDelete = project
-                } label: {
-                    Label("削除", systemImage: "trash")
+        }
+        .contextMenu {
+            Button {
+                Task {
+                    await viewModel.toggleFavorite(projectId: project.id, using: appState)
                 }
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.caption2)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .frame(width: 24, height: 24)
-                    .background(MerkenTheme.surface, in: .circle)
-                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
+                Label(
+                    project.isFavorite ? "ピン解除" : "ピン留め",
+                    systemImage: project.isFavorite ? "flag.slash" : "flag"
+                )
             }
-            .offset(x: 4, y: -4)
+
+            Button(role: .destructive) {
+                projectToDelete = project
+            } label: {
+                Label("削除", systemImage: "trash")
+            }
         }
     }
 

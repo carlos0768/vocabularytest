@@ -153,6 +153,14 @@ final class QuizViewModel: ObservableObject {
 
         if currentIndex + 1 >= questions.count {
             stage = .completed
+
+            // Celebration haptic when 80%+ correct
+            let accuracy = questions.isEmpty ? 0 : Double(correctCount) / Double(questions.count)
+            if accuracy >= 0.8 {
+                let gen = UINotificationFeedbackGenerator()
+                gen.notificationOccurred(.success)
+            }
+
             state.quizStatsStore.record(
                 totalAnswered: questions.count,
                 correctAnswered: correctCount
