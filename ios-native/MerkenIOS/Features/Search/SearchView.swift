@@ -3,25 +3,74 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = SearchViewModel()
+    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
         ZStack {
             AppBackground()
 
-            if viewModel.loading && viewModel.results.isEmpty && !viewModel.hasSearched {
-                ProgressView()
-                    .tint(MerkenTheme.accentBlue)
-            } else if !viewModel.hasSearched {
-                placeholder
-            } else if viewModel.results.isEmpty {
-                noResults
-            } else {
-                resultList
+            VStack(spacing: 0) {
+                // Fixed header
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("検索")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                        }
+                        Spacer()
+                    }
+
+                    // Search bar
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        TextField("英語・日本語で検索...", text: $viewModel.searchText)
+                            .textFieldStyle(.plain)
+                            .focused($isSearchFocused)
+                        if !viewModel.searchText.isEmpty {
+                            Button {
+                                viewModel.searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
+                .stickyHeaderStyle()
+
+                // Content
+                if viewModel.loading && viewModel.results.isEmpty && !viewModel.hasSearched {
+                    Spacer()
+                    ProgressView()
+                        .tint(MerkenTheme.accentBlue)
+                    Spacer()
+                } else if !viewModel.hasSearched {
+                    Spacer()
+                    placeholder
+                    Spacer()
+                } else if viewModel.results.isEmpty {
+                    Spacer()
+                    noResults
+                    Spacer()
+                } else {
+                    resultList
+                }
             }
         }
-        .navigationTitle("検索")
-        .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $viewModel.searchText, prompt: "英語・日本語で検索...")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: viewModel.searchText) {
             viewModel.search()
         }
