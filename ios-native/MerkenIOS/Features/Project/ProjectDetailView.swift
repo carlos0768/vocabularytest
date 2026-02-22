@@ -180,7 +180,7 @@ struct ProjectDetailView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
                 }
-                .frame(height: 176 + headerTopExtension)
+                .frame(height: 230 + headerTopExtension)
                     .overlay(
                         LinearGradient(
                             colors: [.black.opacity(0.5), .black.opacity(0.15)],
@@ -190,7 +190,7 @@ struct ProjectDetailView: View {
                     )
             } else {
                 MerkenTheme.placeholderColor(for: project.id)
-                    .frame(height: 176 + headerTopExtension)
+                    .frame(height: 230 + headerTopExtension)
                     .overlay(
                         LinearGradient(
                             colors: [.black.opacity(0.3), .black.opacity(0.05)],
@@ -247,7 +247,7 @@ struct ProjectDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
-        .frame(height: 176 + headerTopExtension)
+        .frame(height: 230 + headerTopExtension)
         .padding(.top, -headerTopExtension)
     }
 
