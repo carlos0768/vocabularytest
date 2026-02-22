@@ -181,23 +181,9 @@ struct ProjectDetailView: View {
                         .clipped()
                 }
                 .frame(height: 230 + headerTopExtension)
-                    .overlay(
-                        LinearGradient(
-                            colors: [.black.opacity(0.5), .black.opacity(0.15)],
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
-                    )
             } else {
                 MerkenTheme.placeholderColor(for: project.id)
                     .frame(height: 230 + headerTopExtension)
-                    .overlay(
-                        LinearGradient(
-                            colors: [.black.opacity(0.3), .black.opacity(0.05)],
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
-                    )
             }
 
             // Content overlay — title + actions pinned to bottom
