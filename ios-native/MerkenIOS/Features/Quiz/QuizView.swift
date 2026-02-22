@@ -303,7 +303,12 @@ struct QuizView: View {
             RoundedRectangle(cornerRadius: 22)
                 .stroke(borderCol, lineWidth: revealed ? 0 : 1.5)
         )
-        .shadow(color: MerkenTheme.border.opacity(revealed ? 0 : 0.4), radius: 0, x: 0, y: 2)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(MerkenTheme.border)
+                .offset(y: 2)
+                .opacity(revealed ? 0 : 1)
+        )
         .accessibilityIdentifier("quizOption_\(index)")
         .onTapGesture {
             guard !revealed else { return }

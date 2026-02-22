@@ -88,7 +88,11 @@ struct FlashcardCardView: View {
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
         .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(MerkenTheme.border, lineWidth: 2))
-        .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
     }
 
     // MARK: - Back (Japanese)
@@ -129,7 +133,11 @@ struct FlashcardCardView: View {
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
         .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(MerkenTheme.border, lineWidth: 2))
-        .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
     }
 
     // MARK: - Swipe animation

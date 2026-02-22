@@ -129,6 +129,62 @@ actor WebAPIClient {
         return words
     }
 
+    func searchSemantic(
+        query: String,
+        bearerToken: String
+    ) async throws -> [SemanticSearchResult] {
+        let url = baseURL.appendingPathComponent("api/search/semantic")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30
+
+        let body = ["query": query]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        logger.info("Sending semantic search: query=\(query)")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch let error as URLError where error.code == .timedOut {
+            throw WebAPIError.networkTimeout
+        } catch {
+            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw WebAPIError.serverError("不明な通信エラー")
+        }
+
+        logger.info("Semantic search response: status=\(http.statusCode)")
+
+        switch http.statusCode {
+        case 200...299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 403:
+            throw WebAPIError.proRequired
+        default:
+            throw WebAPIError.serverError("検索に失敗しました。")
+        }
+
+        let decoded: SemanticSearchResponse
+        do {
+            decoded = try JSONDecoder().decode(SemanticSearchResponse.self, from: data)
+        } catch {
+            logger.error("Semantic search decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+
+        logger.info("Semantic search returned \(decoded.results.count) results")
+        return decoded.results
+    }
+
     func generateSentenceQuiz(
         words: [SentenceQuizWordInput],
         bearerToken: String

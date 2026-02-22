@@ -293,7 +293,11 @@ struct BookshelfDetailView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 3)
+            )
         }
     }
 

@@ -4,21 +4,27 @@ import SwiftUI
 
 struct SolidCard<Content: View>: View {
     let content: Content
+    let cardPadding: CGFloat
 
-    init(@ViewBuilder content: () -> Content) {
+    init(padding: CGFloat = 16, @ViewBuilder content: () -> Content) {
+        self.cardPadding = padding
         self.content = content()
     }
 
     var body: some View {
         content
-            .padding(16)
+            .padding(cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.6), radius: 0, x: 0, y: 3)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 3)
+            )
     }
 }
 
@@ -39,7 +45,11 @@ struct SolidPane<Content: View>: View {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 2)
+            )
     }
 }
 
@@ -83,7 +93,9 @@ struct GhostGlassButton: ButtonStyle {
             .overlay(
                 Capsule().stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 1)
+            .background(
+                Capsule().fill(MerkenTheme.border).offset(y: 1)
+            )
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

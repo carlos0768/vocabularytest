@@ -11,6 +11,9 @@ final class StatsViewModel: ObservableObject {
     @Published private(set) var todayCorrect = 0
     @Published private(set) var todaySessions = 0
     @Published private(set) var streakDays = 0
+    @Published private(set) var totalProjects = 0
+    @Published private(set) var favoriteWords = 0
+    @Published private(set) var wrongAnswersCount = 0
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
@@ -37,12 +40,17 @@ final class StatsViewModel: ObservableObject {
             newWords = allWords.filter { $0.status == .new }.count
             reviewWords = allWords.filter { $0.status == .review }.count
             masteredWords = allWords.filter { $0.status == .mastered }.count
+            favoriteWords = allWords.filter { $0.isFavorite }.count
+
+            let projects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
+            totalProjects = projects.count
 
             let today = state.quizStatsStore.todayStats()
             todayAnswered = today.totalAnswered
             todayCorrect = today.correctAnswered
             todaySessions = today.quizSessions
             streakDays = state.quizStatsStore.streakDays()
+            wrongAnswersCount = today.totalAnswered - today.correctAnswered
 
             errorMessage = nil
         } catch {

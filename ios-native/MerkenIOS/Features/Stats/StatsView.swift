@@ -11,14 +11,9 @@ struct StatsView: View {
             VStack(spacing: 0) {
                 // Fixed header
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("統計")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text("学習の進み具合を確認")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
+                    Text("統計")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
                     Spacer()
                 }
                 .padding(.horizontal, 16)
@@ -77,10 +72,10 @@ struct StatsView: View {
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(MerkenTheme.surfaceAlt)
                                         HStack(spacing: 0) {
-                                            RoundedRectangle(cornerRadius: 6)
+                                            Rectangle()
                                                 .fill(MerkenTheme.success)
                                                 .frame(width: max(masteredW, 0))
-                                            RoundedRectangle(cornerRadius: 0)
+                                            Rectangle()
                                                 .fill(MerkenTheme.accentBlue)
                                                 .frame(width: max(reviewW, 0))
                                         }
@@ -125,7 +120,7 @@ struct StatsView: View {
                             miniStatCard(
                                 icon: "exclamationmark.circle",
                                 iconColor: MerkenTheme.danger,
-                                value: "0",
+                                value: "\(viewModel.wrongAnswersCount)",
                                 label: "間違えた単語"
                             )
                         }
@@ -133,27 +128,15 @@ struct StatsView: View {
                         // MARK: - 概要
                         sectionHeader(icon: "chart.bar.fill", title: "概要")
 
-                        SolidCard {
-                            HStack(spacing: 0) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("総単語数")
-                                        .font(.caption)
-                                        .foregroundStyle(MerkenTheme.mutedText)
-                                    Text("\(viewModel.totalWords)")
-                                        .font(.title2.bold())
-                                        .foregroundStyle(MerkenTheme.primaryText)
-                                }
-                                Spacer()
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("マスター率")
-                                        .font(.caption)
-                                        .foregroundStyle(MerkenTheme.mutedText)
-                                    Text(viewModel.totalWords > 0
-                                         ? "\(Int(viewModel.masterRate * 100))%"
-                                         : "-")
-                                        .font(.title2.bold())
-                                        .foregroundStyle(MerkenTheme.primaryText)
-                                }
+                        SolidCard(padding: 0) {
+                            VStack(spacing: 0) {
+                                overviewRow(label: "単語帳数", value: "\(viewModel.totalProjects)")
+                                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                                overviewRow(label: "総単語数", value: "\(viewModel.totalWords)")
+                                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                                overviewRow(label: "お気に入り単語", value: "\(viewModel.favoriteWords)")
+                                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                                overviewRow(label: "連続学習日数", value: "\(viewModel.streakDays)日")
                             }
                         }
                     }
@@ -213,6 +196,20 @@ struct StatsView: View {
                 }
             }
         }
+    }
+
+    private func overviewRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(MerkenTheme.mutedText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundStyle(MerkenTheme.primaryText)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private func legendItem(color: Color, label: String) -> some View {
