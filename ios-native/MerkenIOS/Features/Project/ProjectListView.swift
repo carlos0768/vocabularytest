@@ -135,14 +135,14 @@ struct ProjectListView: View {
                     Text("新規スキャン")
                         .font(.subheadline.bold())
                 }
-                .foregroundStyle(MerkenTheme.success)
+                .foregroundStyle(MerkenTheme.accentBlue)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(MerkenTheme.successLight, in: .capsule)
-                .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
+                .background(MerkenTheme.accentBlue.opacity(0.1), in: .capsule)
+                .overlay(Capsule().stroke(MerkenTheme.accentBlue.opacity(0.3), lineWidth: 1))
                 .background(
                     Capsule()
-                        .fill(MerkenTheme.success.opacity(0.3))
+                        .fill(MerkenTheme.accentBlue.opacity(0.3))
                         .offset(y: 2)
                 )
             }
