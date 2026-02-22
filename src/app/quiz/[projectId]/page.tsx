@@ -619,6 +619,11 @@ export default function QuizPage() {
     setIsRevealed(true);
 
     const isCorrect = index === currentQuestion.correctIndex;
+
+    // Haptic feedback: short vibration for correct, longer for wrong
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(isCorrect ? 10 : 100);
+    }
     const word = currentQuestion.word;
 
     // Generate example on-demand if not present
@@ -707,7 +712,7 @@ export default function QuizPage() {
     setIsComplete(false);
   };
 
-  const handleSelectCount = async (count: number) => {
+  const handleSelectCount = useCallback(async (count: number) => {
     setQuestionCount(count);
     if (allWords.length > 0) {
       // Check if any words need distractors
@@ -725,7 +730,17 @@ export default function QuizPage() {
         setQuestions(generated);
       }
     }
-  };
+  }, [allWords, needsDistractors, isOnline, startQuizWithDistractors, generateQuestions, quizDirection]);
+
+  // Auto-start quiz when coming from review mode with count in URL
+  useEffect(() => {
+    if (reviewMode && countFromUrl && allWords.length > 0 && !questionCount && !restoredFromStorage.current) {
+      const parsed = Number.parseInt(countFromUrl, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        handleSelectCount(parsed);
+      }
+    }
+  }, [reviewMode, countFromUrl, allWords.length, questionCount, handleSelectCount]);
 
   // Loading screen (initial load)
   if (loading) {
