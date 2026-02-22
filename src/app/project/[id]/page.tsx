@@ -756,17 +756,6 @@ export default function ProjectDetailPage() {
                   layout="vertical"
                   styleMode="home"
                 />
-                <StudyModeCard
-                  title="例文"
-                  description="例文で定着"
-                  icon="auto_awesome"
-                  href={isPro ? `/sentence-quiz/${project.id}?from=${returnPath}` : '/subscription'}
-                  variant="orange"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
               </div>
             </section>
           )}
