@@ -42,8 +42,9 @@ struct BookshelfListView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
                 .padding(.bottom, 10)
+                .stickyHeaderStyle()
 
-                ScrollView {
+            ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         if let errorMessage = viewModel.errorMessage {
                             SolidCard {

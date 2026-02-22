@@ -33,6 +33,7 @@ struct HomeView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 18)
                     .padding(.bottom, 10)
+                    .stickyHeaderStyle()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {

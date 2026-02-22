@@ -17,33 +17,39 @@ struct ProjectDetailView: View {
         ZStack {
             AppBackground()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if let errorMessage = viewModel.errorMessage {
-                        SolidCard {
-                            Text(errorMessage)
-                                .foregroundStyle(MerkenTheme.warning)
+            VStack(spacing: 0) {
+                // Fixed header
+                headerSection
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 10)
+                    .stickyHeaderStyle()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let errorMessage = viewModel.errorMessage {
+                            SolidCard {
+                                Text(errorMessage)
+                                    .foregroundStyle(MerkenTheme.warning)
+                            }
                         }
+
+                        // Flashcard preview
+                        if let firstWord = viewModel.words.first {
+                            flashcardPreview(firstWord)
+                        }
+
+                        // Learning modes
+                        learningModesSection
+
+                        // Word list
+                        wordListSection
                     }
-
-                    // Header
-                    headerSection
-
-                    // Flashcard preview
-                    if let firstWord = viewModel.words.first {
-                        flashcardPreview(firstWord)
-                    }
-
-                    // Learning modes
-                    learningModesSection
-
-                    // Word list
-                    wordListSection
+                    .padding(16)
                 }
-                .padding(16)
-            }
-            .refreshable {
-                await viewModel.load(projectId: project.id, using: appState)
+                .refreshable {
+                    await viewModel.load(projectId: project.id, using: appState)
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
