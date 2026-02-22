@@ -72,4 +72,41 @@ final class HomeViewModel: ObservableObject {
             logger.error("Home load failed: \(error.localizedDescription)")
         }
     }
+
+    func toggleFavorite(projectId: String, using state: AppState) async {
+        guard let index = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        let newValue = !projects[index].isFavorite
+
+        do {
+            try await state.activeRepository.updateProjectFavorite(id: projectId, isFavorite: newValue)
+            projects[index] = Project(
+                id: projects[index].id,
+                userId: projects[index].userId,
+                title: projects[index].title,
+                iconImage: projects[index].iconImage,
+                createdAt: projects[index].createdAt,
+                shareId: projects[index].shareId,
+                isFavorite: newValue
+            )
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("Toggle favorite failed: \(error.localizedDescription)")
+        }
+    }
+
+    func deleteProject(id: String, using state: AppState) async {
+        do {
+            try await state.activeRepository.deleteProject(id: id)
+            projects.removeAll { $0.id == id }
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("Project delete failed: \(error.localizedDescription)")
+        }
+    }
 }

@@ -35,6 +35,7 @@ struct HomeView: View {
     @State private var detailProject: Project?
     @State private var showingScan = false
     @State private var showingBookshelf = false
+    @State private var projectToDelete: Project?
 
     var body: some View {
         ZStack {
@@ -252,6 +253,26 @@ struct HomeView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .confirmationDialog(
+            "「\(projectToDelete?.title ?? "")」を削除しますか？",
+            isPresented: Binding(
+                get: { projectToDelete != nil },
+                set: { if !$0 { projectToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                if let project = projectToDelete {
+                    Task {
+                        await viewModel.deleteProject(id: project.id, using: appState)
+                    }
+                }
+                projectToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                projectToDelete = nil
+            }
+        }
     }
 
     private func quickLink(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -383,6 +404,24 @@ struct HomeView: View {
                 .fill(MerkenTheme.border)
                 .offset(y: 2)
         )
+        .contextMenu {
+            Button {
+                Task {
+                    await viewModel.toggleFavorite(projectId: project.id, using: appState)
+                }
+            } label: {
+                Label(
+                    project.isFavorite ? "ピン解除" : "ピン留め",
+                    systemImage: project.isFavorite ? "flag.slash" : "flag"
+                )
+            }
+
+            Button(role: .destructive) {
+                projectToDelete = project
+            } label: {
+                Label("削除", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: - Helpers
