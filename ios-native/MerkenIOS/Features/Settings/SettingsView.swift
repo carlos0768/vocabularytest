@@ -5,6 +5,7 @@ struct SettingsView: View {
 
     @State private var email = ""
     @State private var password = ""
+    @State private var showingBookshelf = false
 
     var body: some View {
         ZStack {
@@ -37,6 +38,31 @@ struct SettingsView: View {
 
                     // Login or logged-in section
                     if appState.isLoggedIn && !appState.isSessionExpired {
+                        // Bookshelf link
+                        if appState.isPro {
+                            Button {
+                                showingBookshelf = true
+                            } label: {
+                                SolidPane {
+                                    HStack(spacing: 12) {
+                                        IconBadge(systemName: "books.vertical.fill", color: MerkenTheme.warning, size: 40)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("本棚")
+                                                .font(.headline)
+                                                .foregroundStyle(MerkenTheme.primaryText)
+                                            Text("単語帳をまとめて管理")
+                                                .font(.caption)
+                                                .foregroundStyle(MerkenTheme.mutedText)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundStyle(MerkenTheme.mutedText)
+                                    }
+                                }
+                            }
+                        }
+
                         // Display section
                         displaySection
 
@@ -59,6 +85,9 @@ struct SettingsView: View {
         }
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: $showingBookshelf) {
+            BookshelfTabView()
+        }
     }
 
     // MARK: - Account Card
@@ -183,7 +212,7 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(MerkenTheme.mutedText)
                         .padding(12)
-                        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 12))
+                        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 16))
                 }
             }
         }

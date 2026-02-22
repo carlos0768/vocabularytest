@@ -106,8 +106,8 @@ struct ProjectDetailView: View {
                     .frame(width: 56, height: 56)
                     .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
 
-                if let iconImage = project.iconImage, let data = Data(base64Encoded: iconImage),
-                   let uiImage = UIImage(data: data) {
+                if let iconImage = project.iconImage,
+                   let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
@@ -125,10 +125,14 @@ struct ProjectDetailView: View {
                     Text(project.title)
                         .font(.title3.bold())
                         .foregroundStyle(MerkenTheme.primaryText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(-1)
 
                     Image(systemName: "pencil")
                         .font(.caption)
                         .foregroundStyle(MerkenTheme.mutedText)
+                        .fixedSize()
 
                     if appState.isPro {
                         HStack(spacing: 2) {
@@ -141,6 +145,7 @@ struct ProjectDetailView: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(MerkenTheme.accentBlue, in: .capsule)
+                        .fixedSize()
                     }
                 }
                 let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
@@ -148,8 +153,9 @@ struct ProjectDetailView: View {
                     .font(.caption)
                     .foregroundStyle(MerkenTheme.mutedText)
             }
+            .frame(minWidth: 0)
 
-            Spacer()
+            Spacer(minLength: 0)
 
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
@@ -286,9 +292,9 @@ struct ProjectDetailView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
             .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
@@ -336,9 +342,9 @@ struct ProjectDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
             )
 

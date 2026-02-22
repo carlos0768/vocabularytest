@@ -46,29 +46,35 @@ struct ProjectListView: View {
         ZStack {
             AppBackground()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header
-                    headerSection
+            VStack(spacing: 0) {
+                // Fixed header
+                headerSection
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 10)
 
-                    // Search
-                    searchBar
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Search
+                        searchBar
 
-                    // Sort chips
-                    sortChips
+                        // Sort chips
+                        sortChips
 
-                    // Pinned
-                    if !pinnedProjects.isEmpty {
-                        pinnedSection
+                        // Pinned
+                        if !pinnedProjects.isEmpty {
+                            pinnedSection
+                        }
+
+                        // All
+                        allProjectsSection
                     }
-
-                    // All
-                    allProjectsSection
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
-                .padding(16)
-            }
-            .refreshable {
-                await viewModel.load(using: appState)
+                .refreshable {
+                    await viewModel.load(using: appState)
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -132,9 +138,9 @@ struct ProjectListView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 20)
                 .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
         )
     }
@@ -249,61 +255,63 @@ struct ProjectListView: View {
 
     private func projectThumbnail(_ project: Project) -> some View {
         VStack(spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(MerkenTheme.surface)
-                    .aspectRatio(0.8, contentMode: .fit)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(
-                                project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
-                                lineWidth: project.isFavorite ? 2.5 : 1.5
-                            )
-                    )
-                    .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
+            Color.clear
+                .aspectRatio(0.8, contentMode: .fit)
+                .overlay {
+                    ZStack {
+                        MerkenTheme.surface
 
-                if let iconImage = project.iconImage, let data = Data(base64Encoded: iconImage),
-                   let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .clipShape(.rect(cornerRadius: 14))
-                } else {
-                    Text(String(project.title.prefix(1)))
-                        .font(.title.bold())
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
+                        if let iconImage = project.iconImage,
+                           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Text(String(project.title.prefix(1)))
+                                .font(.title.bold())
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
 
-                // Flag
-                if project.isFavorite {
-                    VStack {
-                        HStack {
-                            Image(systemName: "flag.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.white)
-                                .padding(5)
-                                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 6))
+                        // Flag
+                        if project.isFavorite {
+                            VStack {
+                                HStack {
+                                    Image(systemName: "flag.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white)
+                                        .padding(5)
+                                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 6))
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .padding(6)
+                        }
+
+                        // Menu
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "ellipsis")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .padding(4)
+                                    .background(.black.opacity(0.3), in: .rect(cornerRadius: 6))
+                                    .padding(6)
+                            }
                             Spacer()
                         }
-                        Spacer()
                     }
-                    .padding(6)
                 }
-
-                // Menu
-                VStack {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "ellipsis")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding(4)
-                            .background(.black.opacity(0.3), in: .rect(cornerRadius: 6))
-                            .padding(6)
-                    }
-                    Spacer()
-                }
-            }
+                .clipShape(.rect(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(
+                            project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                            lineWidth: project.isFavorite ? 2.5 : 1.5
+                        )
+                )
+                .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
 
             Text(project.title)
                 .font(.caption)
@@ -326,7 +334,7 @@ struct ProjectListView: View {
                         .foregroundStyle(MerkenTheme.primaryText)
                     TextField("例: TOEFL Essential", text: $newProjectTitle)
                         .textFieldStyle(.plain)
-                        .solidTextField(cornerRadius: 14)
+                        .solidTextField(cornerRadius: 16)
                         .accessibilityIdentifier("projectTitleField")
 
                     Button("作成") {

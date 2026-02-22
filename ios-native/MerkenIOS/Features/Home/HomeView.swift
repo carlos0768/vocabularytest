@@ -27,48 +27,53 @@ struct HomeView: View {
         ZStack {
             AppBackground()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // MARK: - Header
-                    headerSection
+            VStack(spacing: 0) {
+                // Fixed header
+                headerSection
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                    .padding(.bottom, 10)
 
-                    // MARK: - Hero
-                    heroSection
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // MARK: - Hero
+                        heroSection
 
-                    if let errorMessage = viewModel.errorMessage {
-                        SolidCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label("データの取得に失敗しました", systemImage: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(MerkenTheme.warning)
-                                    .font(.headline)
-                                Text(errorMessage)
-                                    .font(.subheadline)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
+                        if let errorMessage = viewModel.errorMessage {
+                            SolidCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Label("データの取得に失敗しました", systemImage: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(MerkenTheme.warning)
+                                        .font(.headline)
+                                    Text(errorMessage)
+                                        .font(.subheadline)
+                                        .foregroundStyle(MerkenTheme.secondaryText)
 
-                                Button("再試行") {
-                                    Task {
-                                        await viewModel.load(using: appState)
+                                    Button("再試行") {
+                                        Task {
+                                            await viewModel.load(using: appState)
+                                        }
                                     }
+                                    .buttonStyle(PrimaryGlassButton())
                                 }
-                                .buttonStyle(PrimaryGlassButton())
                             }
                         }
-                    }
 
-                    // MARK: - Quick Links
-                    quickLinksSection
+                        // MARK: - Quick Links
+                        quickLinksSection
 
-                    // MARK: - Recent Projects
-                    if !viewModel.projects.isEmpty {
-                        recentProjectsSection
+                        // MARK: - Recent Projects
+                        if !viewModel.projects.isEmpty {
+                            recentProjectsSection
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 18)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 18)
-            }
-            .scrollIndicators(.hidden)
-            .refreshable {
-                await viewModel.load(using: appState)
+                .scrollIndicators(.hidden)
+                .refreshable {
+                    await viewModel.load(using: appState)
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -194,7 +199,7 @@ struct HomeView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: .rect(cornerRadius: 20)
+            in: .rect(cornerRadius: 22)
         )
     }
 
@@ -235,9 +240,9 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
             )
             .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
@@ -276,62 +281,63 @@ struct HomeView: View {
 
     private func projectThumbnail(_ project: Project) -> some View {
         VStack(spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(MerkenTheme.surface)
-                    .aspectRatio(0.8, contentMode: .fit)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(
-                                project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
-                                lineWidth: project.isFavorite ? 2.5 : 1.5
-                            )
-                    )
-                    .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
+            Color.clear
+                .aspectRatio(0.8, contentMode: .fit)
+                .overlay {
+                    ZStack {
+                        MerkenTheme.surface
 
-                // Icon image or first character
-                if let iconImage = project.iconImage, let data = Data(base64Encoded: iconImage),
-                   let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .clipShape(.rect(cornerRadius: 14))
-                } else {
-                    Text(String(project.title.prefix(1)))
-                        .font(.title.bold())
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
+                        if let iconImage = project.iconImage,
+                           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Text(String(project.title.prefix(1)))
+                                .font(.title.bold())
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
 
-                // Flag overlay
-                if project.isFavorite {
-                    VStack {
-                        HStack {
-                            Image(systemName: "flag.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.white)
-                                .padding(5)
-                                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 6))
+                        // Flag overlay
+                        if project.isFavorite {
+                            VStack {
+                                HStack {
+                                    Image(systemName: "flag.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white)
+                                        .padding(5)
+                                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 6))
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .padding(6)
+                        }
+
+                        // Menu dots
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "ellipsis")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .padding(4)
+                                    .background(.black.opacity(0.3), in: .rect(cornerRadius: 6))
+                                    .padding(6)
+                            }
                             Spacer()
                         }
-                        Spacer()
                     }
-                    .padding(6)
                 }
-
-                // Menu dots
-                VStack {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "ellipsis")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding(4)
-                            .background(.black.opacity(0.3), in: .rect(cornerRadius: 6))
-                            .padding(6)
-                    }
-                    Spacer()
-                }
-            }
+                .clipShape(.rect(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(
+                            project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                            lineWidth: project.isFavorite ? 2.5 : 1.5
+                        )
+                )
+                .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
 
             Text(project.title)
                 .font(.caption)
@@ -384,7 +390,7 @@ private struct HeroCTAButton: ButtonStyle {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(.white, in: .rect(cornerRadius: 14))
+            .background(.white, in: .rect(cornerRadius: 20))
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

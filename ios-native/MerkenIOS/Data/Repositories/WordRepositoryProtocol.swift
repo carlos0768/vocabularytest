@@ -2,8 +2,9 @@ import Foundation
 
 protocol WordRepositoryProtocol: Sendable {
     func fetchProjects(userId: String) async throws -> [Project]
-    func createProject(title: String, userId: String) async throws -> Project
+    func createProject(title: String, userId: String, iconImage: String?) async throws -> Project
     func updateProject(id: String, title: String) async throws
+    func updateProjectIcon(id: String, iconImage: String) async throws
     func deleteProject(id: String) async throws
 
     func fetchWords(projectId: String) async throws -> [Word]

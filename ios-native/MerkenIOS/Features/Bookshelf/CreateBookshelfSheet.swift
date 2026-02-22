@@ -25,11 +25,11 @@ struct CreateBookshelfSheet: View {
 
                         TextField("名前（例: 期末テスト対策）", text: $name)
                             .textFieldStyle(.plain)
-                            .solidTextField(cornerRadius: 14)
+                            .solidTextField(cornerRadius: 16)
 
                         TextField("説明（任意）", text: $description)
                             .textFieldStyle(.plain)
-                            .solidTextField(cornerRadius: 14)
+                            .solidTextField(cornerRadius: 16)
 
                         if !allProjects.isEmpty {
                             Text("単語帳を選択")

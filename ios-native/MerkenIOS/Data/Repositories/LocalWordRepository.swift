@@ -25,8 +25,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
         }
     }
 
-    func createProject(title: String, userId: String) async throws -> Project {
-        let project = Project(userId: userId, title: title)
+    func createProject(title: String, userId: String, iconImage: String? = nil) async throws -> Project {
+        let project = Project(userId: userId, title: title, iconImage: iconImage)
         let record = LocalProjectRecord(
             id: project.id,
             userId: project.userId,
@@ -47,6 +47,15 @@ actor LocalWordRepository: WordRepositoryProtocol {
         }
 
         record.title = title
+        try modelContext.save()
+    }
+
+    func updateProjectIcon(id: String, iconImage: String) async throws {
+        guard let record = try fetchProjectRecord(id: id) else {
+            throw RepositoryError.notFound
+        }
+
+        record.iconImage = iconImage
         try modelContext.save()
     }
 

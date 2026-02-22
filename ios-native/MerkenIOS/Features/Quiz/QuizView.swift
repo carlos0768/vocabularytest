@@ -298,9 +298,9 @@ struct QuizView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
-        .background(bgColor, in: .rect(cornerRadius: 18))
+        .background(bgColor, in: .rect(cornerRadius: 22))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 22)
                 .stroke(borderCol, lineWidth: revealed ? 0 : 1.5)
         )
         .shadow(color: MerkenTheme.border.opacity(revealed ? 0 : 0.4), radius: 0, x: 0, y: 2)

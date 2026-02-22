@@ -30,7 +30,7 @@ final class ProjectListViewModel: ObservableObject {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         do {
-            let created = try await state.activeRepository.createProject(title: title, userId: state.activeUserId)
+            let created = try await state.activeRepository.createProject(title: title, userId: state.activeUserId, iconImage: nil)
             projects.insert(created, at: 0)
             projects.sort { $0.createdAt > $1.createdAt }
             state.bumpDataVersion()
