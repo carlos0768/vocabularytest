@@ -10,6 +10,7 @@ struct ProjectDetailView: View {
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var showingQuiz: String?
     @State private var flashcardDestination: Project?
+    @State private var quiz2Destination: Project?
     @State private var sentenceQuizDestination: Project?
     @State private var showingScan = false
     @State private var previewIndex = 0
@@ -125,6 +126,9 @@ struct ProjectDetailView: View {
         }
         .navigationDestination(item: $flashcardDestination) { project in
             FlashcardView(project: project)
+        }
+        .navigationDestination(item: $quiz2Destination) { project in
+            Quiz2View(project: project, preloadedWords: viewModel.words)
         }
         .navigationDestination(item: $sentenceQuizDestination) { project in
             SentenceQuizView(project: project)
@@ -391,7 +395,7 @@ struct ProjectDetailView: View {
                     title: "クイズ2",
                     subtitle: "思い出して評価"
                 ) {
-                    // future
+                    quiz2Destination = project
                 }
 
                 learningModeCard(
