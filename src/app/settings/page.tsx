@@ -335,6 +335,22 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Ops */}
+        <section>
+          <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
+            運用
+          </h2>
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 overflow-hidden">
+            <Link
+              href="/ops/api-costs"
+              className="flex items-center justify-between px-4 py-4 hover:bg-[var(--color-primary-light)] transition-colors"
+            >
+              <span className="font-medium text-[var(--color-foreground)]">API料金ダッシュボード</span>
+              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
+            </Link>
+          </div>
+        </section>
+
         {/* Support */}
         <section>
           <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">

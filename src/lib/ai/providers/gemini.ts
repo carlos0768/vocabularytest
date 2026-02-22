@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import type { AIModelConfig } from '../config';
 import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
+import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 
 export class GeminiProvider implements AIProvider {
   readonly name = 'gemini';
@@ -60,6 +61,26 @@ export class GeminiProvider implements AIProvider {
         config: generateConfig,
       });
 
+      const usage = response.usageMetadata as {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      } | undefined;
+      await recordApiCostEvent({
+        provider: 'gemini',
+        model: config.model,
+        operation: 'ai_provider.generate',
+        status: 'succeeded',
+        inputTokens: usage?.promptTokenCount ?? null,
+        outputTokens: usage?.candidatesTokenCount ?? null,
+        totalTokens: usage?.totalTokenCount ?? null,
+        metadata: {
+          response_format: config.responseFormat ?? 'text',
+          image_count: allImages.length,
+          has_system_prompt: Boolean(systemPrompt),
+        },
+      });
+
       const content = response.text;
 
       if (!content) {
@@ -74,6 +95,15 @@ export class GeminiProvider implements AIProvider {
         content,
       };
     } catch (error) {
+      await recordApiCostEvent({
+        provider: 'gemini',
+        model: request.config.model,
+        operation: 'ai_provider.generate',
+        status: 'failed',
+        metadata: {
+          error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+        },
+      });
       return this.handleError(error);
     }
   }

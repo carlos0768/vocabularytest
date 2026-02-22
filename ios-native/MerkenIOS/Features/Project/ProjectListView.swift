@@ -50,7 +50,7 @@ struct ProjectListView: View {
                 // Fixed header
                 headerSection
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 4)
                     .padding(.bottom, 10)
                     .stickyHeaderStyle()
 
@@ -149,31 +149,34 @@ struct ProjectListView: View {
     // MARK: - Sort Chips
 
     private var sortChips: some View {
-        HStack(spacing: 8) {
-            ForEach(ProjectSortOrder.allCases, id: \.self) { order in
-                let isActive = sortOrder == order
-                Button {
-                    sortOrder = order
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: chipIcon(for: order))
-                            .font(.caption2)
-                        Text(order.rawValue)
-                            .font(.subheadline)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
-                    .background(
-                        isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
-                        in: .capsule
-                    )
-                    .overlay(
-                        Capsule().stroke(
-                            isActive ? Color.clear : MerkenTheme.borderLight,
-                            lineWidth: 1
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(ProjectSortOrder.allCases, id: \.self) { order in
+                    let isActive = sortOrder == order
+                    Button {
+                        sortOrder = order
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: chipIcon(for: order))
+                                .font(.caption2)
+                            Text(order.rawValue)
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
+                        .background(
+                            isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
+                            in: .capsule
                         )
-                    )
+                        .overlay(
+                            Capsule().stroke(
+                                isActive ? Color.clear : MerkenTheme.borderLight,
+                                lineWidth: 1
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -268,9 +271,13 @@ struct ProjectListView: View {
                                 .resizable()
                                 .scaledToFill()
                         } else {
-                            Text(String(project.title.prefix(1)))
-                                .font(.title.bold())
-                                .foregroundStyle(MerkenTheme.mutedText)
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id)
+                            bgColor
+                            VStack(spacing: 4) {
+                                Text(String(project.title.prefix(1)))
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
                         }
 
                         // Flag

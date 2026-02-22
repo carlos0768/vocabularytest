@@ -9,6 +9,7 @@
 import type { AIModelConfig } from '../config';
 import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
+import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 
 export class CloudRunProvider implements AIProvider {
   readonly name: string;
@@ -53,11 +54,47 @@ export class CloudRunProvider implements AIProvider {
       const data = await response.json();
 
       if (!data.success) {
+        await recordApiCostEvent({
+          provider: `cloud-run-${this.providerName}`,
+          model: config.model,
+          operation: 'ai_provider.generate',
+          status: 'failed',
+          metadata: {
+            error: typeof data.error === 'string' ? data.error.slice(0, 300) : 'cloud_run_failed',
+          },
+        });
         return { success: false, error: data.error || 'AI processing failed' };
       }
 
+      const usage = data.usage as {
+        inputTokens?: number;
+        outputTokens?: number;
+        totalTokens?: number;
+      } | undefined;
+      await recordApiCostEvent({
+        provider: `cloud-run-${this.providerName}`,
+        model: config.model,
+        operation: 'ai_provider.generate',
+        status: 'succeeded',
+        inputTokens: usage?.inputTokens ?? null,
+        outputTokens: usage?.outputTokens ?? null,
+        totalTokens: usage?.totalTokens ?? null,
+        metadata: {
+          response_format: config.responseFormat ?? 'text',
+        },
+      });
+
       return { success: true, content: data.content };
     } catch (error) {
+      await recordApiCostEvent({
+        provider: `cloud-run-${this.providerName}`,
+        model: request.config.model,
+        operation: 'ai_provider.generate',
+        status: 'failed',
+        metadata: {
+          error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+        },
+      });
       return this.handleError(error);
     }
   }
