@@ -5,6 +5,7 @@ import OSLog
 @main
 struct MerkenIOSApp: App {
     @StateObject private var appState: AppState
+    @StateObject private var themeManager = ThemeManager()
     private let modelContainer: ModelContainer
 
     init() {
@@ -20,8 +21,9 @@ struct MerkenIOSApp: App {
         WindowGroup {
             RootTabView()
                 .environmentObject(appState)
+                .environmentObject(themeManager)
                 .modelContainer(modelContainer)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(themeManager.preferredColorScheme)
                 .task {
                     await appState.bootstrap()
                 }

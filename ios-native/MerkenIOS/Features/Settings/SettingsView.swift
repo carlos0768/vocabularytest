@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var themeManager: ThemeManager
 
     @State private var email = ""
     @State private var password = ""
@@ -157,9 +158,15 @@ struct SettingsView: View {
                     Spacer()
 
                     HStack(spacing: 0) {
-                        themeOption("ライト", isSelected: true)
-                        themeOption("ダーク", isSelected: false)
-                        themeOption("システム", isSelected: false)
+                        ForEach(ThemeMode.allCases, id: \.rawValue) { mode in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    themeManager.mode = mode
+                                }
+                            } label: {
+                                themeOption(mode.label, isSelected: themeManager.mode == mode)
+                            }
+                        }
                     }
                     .padding(3)
                     .background(MerkenTheme.background, in: .capsule)
