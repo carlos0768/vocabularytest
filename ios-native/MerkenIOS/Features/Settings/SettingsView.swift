@@ -167,7 +167,7 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.segmented)
-                        .glassEffect(.regular.interactive)
+                        .glassEffect(.regular.interactive())
                         .frame(maxWidth: 220)
                     } else {
                         HStack(spacing: 0) {

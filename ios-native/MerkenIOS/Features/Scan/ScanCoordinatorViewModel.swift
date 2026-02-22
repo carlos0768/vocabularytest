@@ -86,6 +86,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
     }
 
+    enum ScanCompletionSource {
+        case foregroundManual
+        case backgroundAuto
+    }
+
     // Must match Web FREE_WORD_LIMIT (src/lib/utils.ts)
     static let freeWordLimit = 100
     static let maxPhotoSelection = 10
@@ -110,6 +115,9 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private var selectedEikenLevel: EikenLevel?
     private var selectedSource: ScanSource = .camera
     private var stepBeforeError: FlowStep = .modeSelection
+    private var completionSource: ScanCompletionSource = .foregroundManual
+    private var shouldAutoSaveAfterProcessingDismiss = false
+    private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
 
     // For adding words to an existing project
     let targetProjectId: String?
@@ -219,9 +227,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
             return
         }
 
+        completionSource = .foregroundManual
+        shouldAutoSaveAfterProcessingDismiss = false
         stepBeforeError = .preview
         currentStep = .processing
         processingSummary = nil
+        beginBackgroundTask()
         processingPages = selectedImages.enumerated().map { index, item in
             ScanPageProgress(
                 id: item.id,
@@ -330,117 +341,46 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 if summary.skippedPages > 0, let limitMessage {
                     logger.warning("Scan limit reached in batch flow: \(limitMessage)")
                 }
-                currentStep = .confirm
+                if shouldAutoSaveAfterProcessingDismiss {
+                    logger.info("Scan sheet dismissed during processing. Auto-saving extracted words.")
+                    await performSave(using: appState)
+                } else {
+                    currentStep = .confirm
+                    endBackgroundTask()
+                }
                 return
             }
 
             if let limitMessage {
                 currentStep = .error(limitMessage)
+                if shouldAutoSaveAfterProcessingDismiss {
+                    appState.postScanFailure(message: limitMessage)
+                }
             } else {
-                currentStep = .error("単語を抽出できませんでした。別の画像をお試しください。")
+                let fallback = "単語を抽出できませんでした。別の画像をお試しください。"
+                currentStep = .error(fallback)
+                if shouldAutoSaveAfterProcessingDismiss {
+                    appState.postScanFailure(message: fallback)
+                }
             }
+            endBackgroundTask()
         }
     }
 
     func saveWords(using appState: AppState) {
-        let trimmedTitle = projectTitle.trimmingCharacters(in: .whitespaces)
-        guard !editableWords.isEmpty else {
-            currentStep = .error("保存する単語がありません。")
-            return
-        }
-
+        completionSource = .foregroundManual
         stepBeforeError = .confirm
-
         Task {
-            do {
-                if !appState.isPro {
-                    let latestCount = try await fetchCurrentWordCount(using: appState)
-                    currentWordCount = latestCount
-                    let projectedTotal = latestCount + editableWords.count
-                    if projectedTotal > Self.freeWordLimit {
-                        let available = max(0, Self.freeWordLimit - latestCount)
-                        currentStep = .error("保存できる単語はあと\(available)語までです。単語を減らしてください。")
-                        return
-                    }
-                }
-
-                currentStep = .saving
-
-                let projectId: String
-
-                if let existingId = targetProjectId {
-                    try await ensureProjectOwnership(projectId: existingId, appState: appState)
-                    projectId = existingId
-
-                    if let image = selectedImages.first?.image,
-                       let thumbnail = ImageCompressor.generateThumbnailBase64(image) {
-                        try? await appState.activeRepository.updateProjectIcon(
-                            id: existingId,
-                            iconImage: thumbnail
-                        )
-                    }
-                } else {
-                    guard !trimmedTitle.isEmpty else {
-                        currentStep = .error("プロジェクト名を入力してください。")
-                        return
-                    }
-
-                    let thumbnail: String? = {
-                        guard let image = selectedImages.first?.image else { return nil }
-                        return ImageCompressor.generateThumbnailBase64(image)
-                    }()
-
-                    let project = try await appState.activeRepository.createProject(
-                        title: trimmedTitle,
-                        userId: appState.activeUserId,
-                        iconImage: thumbnail
-                    )
-                    projectId = project.id
-                }
-
-                let inputs = editableWords.map { word in
-                    WordInput(
-                        projectId: projectId,
-                        english: word.english,
-                        japanese: word.japanese,
-                        distractors: word.distractors,
-                        exampleSentence: word.exampleSentence,
-                        exampleSentenceJa: word.exampleSentenceJa,
-                        pronunciation: nil
-                    )
-                }
-
-                let createdWords = try await appState.activeRepository.createWords(inputs)
-                let token = appState.session?.accessToken
-
-                let quizReadyWords = await prefillQuizData(
-                    createdWords: createdWords,
-                    appState: appState,
-                    bearerToken: token
-                )
-
-                await preGenerateSentenceQuiz(
-                    projectId: projectId,
-                    wordsForQuiz: quizReadyWords,
-                    appState: appState,
-                    bearerToken: token
-                )
-
-                await prefillQuiz2Data(
-                    createdWords: quizReadyWords,
-                    appState: appState,
-                    bearerToken: token
-                )
-
-                appState.bumpDataVersion()
-                logger.info("Saved \(inputs.count) words to project \(projectId)")
-
-                currentStep = .complete(projectId: projectId)
-            } catch {
-                logger.error("Save failed: \(error.localizedDescription)")
-                currentStep = .error("保存に失敗しました: \(error.localizedDescription)")
-            }
+            await performSave(using: appState)
         }
+    }
+
+    func continueProcessingAfterDismissIfNeeded() {
+        guard currentStep == .processing else { return }
+        completionSource = .backgroundAuto
+        shouldAutoSaveAfterProcessingDismiss = true
+        beginBackgroundTask()
+        logger.info("Scan view disappeared while processing. Background continuation enabled.")
     }
 
     func retryFromError() {
@@ -745,6 +685,9 @@ final class ScanCoordinatorViewModel: ObservableObject {
         selectedImages = []
         processingPages = []
         processingSummary = nil
+        completionSource = .foregroundManual
+        shouldAutoSaveAfterProcessingDismiss = false
+        endBackgroundTask()
     }
 
     private func updateProgress(
@@ -814,5 +757,153 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private static func firstNonEmpty(_ value: String?) -> String? {
         let normalized = normalizeText(value ?? "")
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func performSave(using appState: AppState) async {
+        let trimmedTitle = projectTitle.trimmingCharacters(in: .whitespaces)
+        guard !editableWords.isEmpty else {
+            let message = "保存する単語がありません。"
+            currentStep = .error(message)
+            if completionSource == .backgroundAuto {
+                appState.postScanFailure(message: message)
+            }
+            endBackgroundTask()
+            return
+        }
+
+        do {
+            if !appState.isPro {
+                let latestCount = try await fetchCurrentWordCount(using: appState)
+                currentWordCount = latestCount
+                let projectedTotal = latestCount + editableWords.count
+                if projectedTotal > Self.freeWordLimit {
+                    let available = max(0, Self.freeWordLimit - latestCount)
+                    let message = "保存できる単語はあと\(available)語までです。単語を減らしてください。"
+                    currentStep = .error(message)
+                    if completionSource == .backgroundAuto {
+                        appState.postScanFailure(message: message)
+                    }
+                    endBackgroundTask()
+                    return
+                }
+            }
+
+            currentStep = .saving
+
+            let projectId: String
+            let projectDisplayTitle: String
+
+            if let existingId = targetProjectId {
+                try await ensureProjectOwnership(projectId: existingId, appState: appState)
+                projectId = existingId
+                projectDisplayTitle = targetProjectTitle ?? "単語帳"
+
+                if let image = selectedImages.first?.image,
+                   let thumbnail = ImageCompressor.generateThumbnailBase64(image) {
+                    try? await appState.activeRepository.updateProjectIcon(
+                        id: existingId,
+                        iconImage: thumbnail
+                    )
+                }
+            } else {
+                guard !trimmedTitle.isEmpty else {
+                    let message = "プロジェクト名を入力してください。"
+                    currentStep = .error(message)
+                    if completionSource == .backgroundAuto {
+                        appState.postScanFailure(message: message)
+                    }
+                    endBackgroundTask()
+                    return
+                }
+
+                let thumbnail: String? = {
+                    guard let image = selectedImages.first?.image else { return nil }
+                    return ImageCompressor.generateThumbnailBase64(image)
+                }()
+
+                let project = try await appState.activeRepository.createProject(
+                    title: trimmedTitle,
+                    userId: appState.activeUserId,
+                    iconImage: thumbnail
+                )
+                projectId = project.id
+                projectDisplayTitle = project.title
+            }
+
+            let inputs = editableWords.map { word in
+                WordInput(
+                    projectId: projectId,
+                    english: word.english,
+                    japanese: word.japanese,
+                    distractors: word.distractors,
+                    exampleSentence: word.exampleSentence,
+                    exampleSentenceJa: word.exampleSentenceJa,
+                    pronunciation: nil
+                )
+            }
+
+            let createdWords = try await appState.activeRepository.createWords(inputs)
+
+            appState.bumpDataVersion()
+            logger.info("Saved \(inputs.count) words to project \(projectId)")
+
+            currentStep = .complete(projectId: projectId)
+            if completionSource == .backgroundAuto {
+                appState.postScanSuccess(projectTitle: projectDisplayTitle, wordCount: inputs.count)
+            }
+            completionSource = .foregroundManual
+            shouldAutoSaveAfterProcessingDismiss = false
+
+            // Run prefill operations in the background (fire-and-forget)
+            let token = appState.session?.accessToken
+            Task { [weak self] in
+                guard let self else { return }
+                let quizReadyWords = await self.prefillQuizData(
+                    createdWords: createdWords,
+                    appState: appState,
+                    bearerToken: token
+                )
+
+                await self.preGenerateSentenceQuiz(
+                    projectId: projectId,
+                    wordsForQuiz: quizReadyWords,
+                    appState: appState,
+                    bearerToken: token
+                )
+
+                await self.prefillQuiz2Data(
+                    createdWords: quizReadyWords,
+                    appState: appState,
+                    bearerToken: token
+                )
+
+                self.endBackgroundTask()
+            }
+        } catch {
+            let message = "保存に失敗しました: \(error.localizedDescription)"
+            logger.error("Save failed: \(error.localizedDescription)")
+            currentStep = .error(message)
+            if completionSource == .backgroundAuto {
+                appState.postScanFailure(message: message)
+            }
+            completionSource = .foregroundManual
+            endBackgroundTask()
+        }
+    }
+
+    private func beginBackgroundTask() {
+        guard backgroundTaskId == .invalid else { return }
+        backgroundTaskId = UIApplication.shared.beginBackgroundTask(withName: "MerkenScanProcessing") { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.logger.warning("Background task expired while scan/save was running.")
+                self?.endBackgroundTask()
+            }
+        }
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTaskId != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTaskId)
+        backgroundTaskId = .invalid
     }
 }
