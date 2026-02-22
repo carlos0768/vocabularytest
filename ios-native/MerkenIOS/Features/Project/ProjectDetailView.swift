@@ -172,7 +172,7 @@ struct ProjectDetailView: View {
         do {
             var shareId = project.shareId
             if shareId == nil || shareId?.isEmpty == true {
-                guard let cloudRepo = appState.repository as? CloudWordRepository else { return }
+                guard let cloudRepo = appState.activeRepository as? CloudWordRepository else { return }
                 shareId = try await cloudRepo.generateShareId(projectId: project.id)
             }
             guard let shareId else { return }
