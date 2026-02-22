@@ -144,6 +144,7 @@ CLOUD_RUN_AUTH_TOKEN=your-cloud-run-shared-token
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+ADMIN_SECRET=your-admin-secret
 
 # KOMOJU決済
 KOMOJU_SECRET_KEY=your-secret
@@ -151,6 +152,9 @@ KOMOJU_WEBHOOK_SECRET=your-webhook-secret
 
 # アプリURL
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# APIコスト推定レート（任意）
+API_COST_USD_TO_JPY=150
 ```
 
 ### データベースセットアップ
@@ -193,6 +197,10 @@ npm run lint     # ESLint実行
 ```bash
 npm run build   # まずローカルでビルド成功を確認
 ```
+
+APIコストダッシュボード（内部運用）:
+- `GET /api/ops/api-costs?days=30` (`x-admin-secret` ヘッダー必須)
+- UI: `/ops/api-costs`（ADMIN_SECRET入力後に表示）
 
 KOMOJUのWebhook URLを本番ドメインに設定：
 ```

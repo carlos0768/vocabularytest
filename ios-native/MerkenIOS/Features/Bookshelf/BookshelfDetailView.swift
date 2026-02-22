@@ -35,7 +35,7 @@ struct BookshelfDetailView: View {
                 // Fixed header
                 headerSection
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.top, 4)
                     .padding(.bottom, 10)
                     .stickyHeaderStyle()
 
@@ -142,13 +142,13 @@ struct BookshelfDetailView: View {
             // Thumbnail circle
             ZStack {
                 Circle()
-                    .fill(MerkenTheme.surfaceAlt)
+                    .fill(MerkenTheme.placeholderColor(for: collection.id))
                     .frame(width: 56, height: 56)
                     .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
 
                 Image(systemName: "books.vertical.fill")
                     .font(.title2)
-                    .foregroundStyle(MerkenTheme.warning)
+                    .foregroundStyle(.white)
             }
 
             VStack(alignment: .leading, spacing: 4) {

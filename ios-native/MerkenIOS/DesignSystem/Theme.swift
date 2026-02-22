@@ -28,6 +28,24 @@ enum MerkenTheme {
     static let secondaryText = Color(red: 0.40, green: 0.43, blue: 0.48)
     static let mutedText = Color(red: 0.55, green: 0.58, blue: 0.63)
 
+    // Placeholder thumbnail colors (deterministic per project)
+    static let thumbnailColors: [Color] = [
+        Color(red: 0.91, green: 0.30, blue: 0.53),  // pink
+        Color(red: 0.25, green: 0.47, blue: 0.85),  // blue
+        Color(red: 0.87, green: 0.28, blue: 0.28),  // red
+        Color(red: 0.58, green: 0.35, blue: 0.83),  // purple
+        Color(red: 0.15, green: 0.68, blue: 0.65),  // teal
+        Color(red: 0.93, green: 0.55, blue: 0.18),  // orange
+        Color(red: 0.20, green: 0.70, blue: 0.40),  // green
+        Color(red: 0.40, green: 0.55, blue: 0.85),  // slate blue
+    ]
+
+    /// Pick a deterministic color from the palette based on project ID
+    static func placeholderColor(for id: String) -> Color {
+        let hash = id.utf8.reduce(0) { $0 &+ Int($1) }
+        return thumbnailColors[abs(hash) % thumbnailColors.count]
+    }
+
     // Legacy compat (dark bg references removed — use background instead)
     static let bgTop = background
     static let bgBottom = background

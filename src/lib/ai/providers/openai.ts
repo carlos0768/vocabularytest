@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import type { AIModelConfig } from '../config';
 import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
+import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 
 export class OpenAIProvider implements AIProvider {
   readonly name = 'openai';
@@ -62,6 +63,21 @@ export class OpenAIProvider implements AIProvider {
         ...(config.responseFormat === 'json' && { response_format: { type: 'json_object' as const } }),
       });
 
+      await recordApiCostEvent({
+        provider: 'openai',
+        model: config.model,
+        operation: 'ai_provider.generate',
+        status: 'succeeded',
+        inputTokens: response.usage?.prompt_tokens ?? null,
+        outputTokens: response.usage?.completion_tokens ?? null,
+        totalTokens: response.usage?.total_tokens ?? null,
+        metadata: {
+          response_format: config.responseFormat ?? 'text',
+          image_count: allImages.length,
+          has_system_prompt: Boolean(systemPrompt),
+        },
+      });
+
       const content = response.choices[0]?.message?.content;
 
       if (!content) {
@@ -76,6 +92,15 @@ export class OpenAIProvider implements AIProvider {
         content,
       };
     } catch (error) {
+      await recordApiCostEvent({
+        provider: 'openai',
+        model: request.config.model,
+        operation: 'ai_provider.generate',
+        status: 'failed',
+        metadata: {
+          error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+        },
+      });
       return this.handleError(error);
     }
   }

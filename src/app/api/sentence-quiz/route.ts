@@ -6,6 +6,7 @@ import { generateWordEmbedding } from '@/lib/embeddings';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { AI_CONFIG } from '@/lib/ai/config';
+import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 import type {
   SentenceQuizQuestion,
   FillInBlankQuestion,
@@ -13,7 +14,6 @@ import type {
   MultiFillInBlankQuestion,
   EnhancedBlankSlot,
   VectorSearchResult,
-  BlankPrediction,
 } from '@/types';
 
 const OPENAI_MODEL = AI_CONFIG.defaults.openai.model;
@@ -167,6 +167,45 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+async function createTrackedChatCompletion(
+  openai: OpenAI,
+  params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+  context: {
+    userId: string;
+    operation: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  try {
+    const response = await openai.chat.completions.create(params);
+    await recordApiCostEvent({
+      provider: 'openai',
+      model: String(params.model),
+      operation: context.operation,
+      status: 'succeeded',
+      userId: context.userId,
+      inputTokens: response.usage?.prompt_tokens ?? null,
+      outputTokens: response.usage?.completion_tokens ?? null,
+      totalTokens: response.usage?.total_tokens ?? null,
+      metadata: context.metadata,
+    });
+    return response;
+  } catch (error) {
+    await recordApiCostEvent({
+      provider: 'openai',
+      model: String(params.model),
+      operation: context.operation,
+      status: 'failed',
+      userId: context.userId,
+      metadata: {
+        ...(context.metadata ?? {}),
+        error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+      },
+    });
+    throw error;
+  }
+}
+
 // VectorDB検索でユーザーの学習済み単語から類似語を探す
 async function findSimilarUserWord(
   supabase: ReturnType<typeof createRouteHandlerClient> extends Promise<infer T> ? T : never,
@@ -216,26 +255,37 @@ async function findSimilarUserWord(
 // Phase 3: 誤答選択肢を生成
 async function generateDistractors(
   openai: OpenAI,
+  userId: string,
   correctAnswer: string,
   context: string,
   blankType: 'target' | 'content' | 'grammar'
 ): Promise<string[]> {
   try {
-    const response = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: DISTRACTORS_SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `文: "${context}"
+    const response = await createTrackedChatCompletion(
+      openai,
+      {
+        model: OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: DISTRACTORS_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `文: "${context}"
 空欄タイプ: ${blankType}
 正解: "${correctAnswer}"
 
 この空欄に対する4択（正解1つ + 誤答3つ）を生成してください。`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+      },
+      {
+        userId,
+        operation: 'sentence_quiz.generate_distractors',
+        metadata: {
+          blank_type: blankType,
         },
-      ],
-      response_format: { type: 'json_object' },
-    });
+      }
+    );
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
@@ -271,14 +321,24 @@ async function generateMultiFillInBlank(
     // ============================================
     // Phase 1: LLMで3空欄の例文を生成（予測付き）
     // ============================================
-    const phase1Response = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: MULTI_BLANK_SYSTEM_PROMPT },
-        { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
-      ],
-      response_format: { type: 'json_object' },
-    });
+    const phase1Response = await createTrackedChatCompletion(
+      openai,
+      {
+        model: OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: MULTI_BLANK_SYSTEM_PROMPT },
+          { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
+        ],
+        response_format: { type: 'json_object' },
+      },
+      {
+        userId,
+        operation: 'sentence_quiz.generate_multi_blank',
+        metadata: {
+          word_id: wordId,
+        },
+      }
+    );
 
     const phase1Content = phase1Response.choices[0]?.message?.content;
     if (!phase1Content) return null;
@@ -338,7 +398,6 @@ async function generateMultiFillInBlank(
           const isMatchedPlural = matchedWord.endsWith('s') || matchedWord.endsWith('es') || ['people', 'children', 'men', 'women'].includes(matchedWord);
 
           // 文の前後の文脈をチェック（"a" や "an" があるかどうか）
-          const sentenceLower = phase1Validated.sentence.toLowerCase();
           const blankIndex = phase1Validated.sentence.split('___').slice(0, blankPrediction.position + 1).join('___').lastIndexOf('___');
           const beforeBlank = phase1Validated.sentence.substring(0, blankIndex).toLowerCase();
           const hasIndefiniteArticle = beforeBlank.endsWith('a ') || beforeBlank.endsWith('an ');
@@ -365,6 +424,7 @@ async function generateMultiFillInBlank(
       // Phase 3: 誤答選択肢を生成
       const options = await generateDistractors(
         openai,
+        userId,
         finalWord,
         phase1Validated.sentence,
         blankPrediction.type
@@ -396,16 +456,26 @@ async function generateMultiFillInBlank(
         .join('');
 
       try {
-        const translationResponse = await openai.chat.completions.create({
-          model: OPENAI_MODEL,
-          messages: [
-            {
-              role: 'system',
-              content: '与えられた英文を自然な日本語に翻訳してください。翻訳のみを出力してください。',
+        const translationResponse = await createTrackedChatCompletion(
+          openai,
+          {
+            model: OPENAI_MODEL,
+            messages: [
+              {
+                role: 'system',
+                content: '与えられた英文を自然な日本語に翻訳してください。翻訳のみを出力してください。',
+              },
+              { role: 'user', content: completedSentence },
+            ],
+          },
+          {
+            userId,
+            operation: 'sentence_quiz.translate_regenerated_sentence',
+            metadata: {
+              word_id: wordId,
             },
-            { role: 'user', content: completedSentence },
-          ],
-        });
+          }
+        );
 
         const translatedText = translationResponse.choices[0]?.message?.content;
         if (translatedText) {
@@ -435,17 +505,20 @@ async function generateMultiFillInBlank(
 // 従来の穴埋め問題を生成（フォールバック用）
 async function generateFillInBlank(
   openai: OpenAI,
+  userId: string,
   wordId: string,
   english: string,
   japanese: string
 ): Promise<FillInBlankQuestion | null> {
   try {
-    const response = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、穴埋め問題を生成してください。
+    const response = await createTrackedChatCompletion(
+      openai,
+      {
+        model: OPENAI_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、穴埋め問題を生成してください。
 
 【ルール】
 1. 与えられた単語を必ず含む、自然で実用的な例文を作成
@@ -469,11 +542,19 @@ async function generateFillInBlank(
   ],
   "japaneseMeaning": "彼女は食べ物を買いにお店に行った。"
 }`,
+          },
+          { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
+        ],
+        response_format: { type: 'json_object' },
+      },
+      {
+        userId,
+        operation: 'sentence_quiz.generate_fill_in_blank',
+        metadata: {
+          word_id: wordId,
         },
-        { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
-      ],
-      response_format: { type: 'json_object' },
-    });
+      }
+    );
 
     const content = response.choices[0]?.message?.content;
     if (!content) return null;
@@ -502,19 +583,30 @@ async function generateFillInBlank(
 // 並び替え問題を生成
 async function generateWordOrder(
   openai: OpenAI,
+  userId: string,
   wordId: string,
   english: string,
   japanese: string
 ): Promise<WordOrderQuestion | null> {
   try {
-    const response = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: WORD_ORDER_SYSTEM_PROMPT },
-        { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
-      ],
-      response_format: { type: 'json_object' },
-    });
+    const response = await createTrackedChatCompletion(
+      openai,
+      {
+        model: OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: WORD_ORDER_SYSTEM_PROMPT },
+          { role: 'user', content: `単語: "${english}" (意味: ${japanese})` },
+        ],
+        response_format: { type: 'json_object' },
+      },
+      {
+        userId,
+        operation: 'sentence_quiz.generate_word_order',
+        metadata: {
+          word_id: wordId,
+        },
+      }
+    );
 
     const content = response.choices[0]?.message?.content;
     if (!content) return null;
@@ -637,9 +729,9 @@ export async function POST(request: NextRequest) {
         }
 
         // フォールバック: 従来の1空欄問題
-        return generateFillInBlank(openai, word.id, word.english, word.japanese);
+        return generateFillInBlank(openai, user.id, word.id, word.english, word.japanese);
       } else {
-        return generateWordOrder(openai, word.id, word.english, word.japanese);
+        return generateWordOrder(openai, user.id, word.id, word.english, word.japanese);
       }
     });
 

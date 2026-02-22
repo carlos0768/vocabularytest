@@ -21,7 +21,7 @@ struct ProjectDetailView: View {
                 // Fixed header
                 headerSection
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.top, 4)
                     .padding(.bottom, 10)
                     .stickyHeaderStyle()
 
@@ -107,11 +107,6 @@ struct ProjectDetailView: View {
         HStack(spacing: 12) {
             // Thumbnail circle
             ZStack {
-                Circle()
-                    .fill(MerkenTheme.surfaceAlt)
-                    .frame(width: 56, height: 56)
-                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
-
                 if let iconImage = project.iconImage,
                    let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
                     Image(uiImage: uiImage)
@@ -120,11 +115,16 @@ struct ProjectDetailView: View {
                         .frame(width: 56, height: 56)
                         .clipShape(.circle)
                 } else {
+                    Circle()
+                        .fill(MerkenTheme.placeholderColor(for: project.id))
+                        .frame(width: 56, height: 56)
                     Text(String(project.title.prefix(1)))
                         .font(.title2.bold())
-                        .foregroundStyle(MerkenTheme.mutedText)
+                        .foregroundStyle(.white)
                 }
             }
+            .frame(width: 56, height: 56)
+            .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {

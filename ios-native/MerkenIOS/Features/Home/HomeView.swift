@@ -31,7 +31,7 @@ struct HomeView: View {
                 // Fixed header
                 headerSection
                     .padding(.horizontal, 16)
-                    .padding(.top, 18)
+                    .padding(.top, 4)
                     .padding(.bottom, 10)
                     .stickyHeaderStyle()
 
@@ -39,6 +39,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // MARK: - Hero
                         heroSection
+                            .padding(.top, 6)
 
                         if let errorMessage = viewModel.errorMessage {
                             SolidCard {
@@ -294,9 +295,13 @@ struct HomeView: View {
                                 .resizable()
                                 .scaledToFill()
                         } else {
-                            Text(String(project.title.prefix(1)))
-                                .font(.title.bold())
-                                .foregroundStyle(MerkenTheme.mutedText)
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id)
+                            bgColor
+                            VStack(spacing: 4) {
+                                Text(String(project.title.prefix(1)))
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
                         }
 
                         // Flag overlay
