@@ -439,7 +439,16 @@ struct ProjectDetailView: View {
                     flashcardDestination = project
                 }
 
-                // Sentence quiz removed from top widget per Carlos
+                if appState.isPro {
+                    learningModeCard(
+                        icon: "text.bubble.fill",
+                        iconColor: .purple,
+                        title: "例文",
+                        subtitle: "文脈で理解"
+                    ) {
+                        sentenceQuizDestination = project
+                    }
+                }
             }
         }
     }
