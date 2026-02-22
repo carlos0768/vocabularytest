@@ -266,11 +266,11 @@ struct HomeView: View {
             }
 
             let columns = [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
+                GridItem(.flexible(), spacing: 18),
+                GridItem(.flexible(), spacing: 18),
+                GridItem(.flexible(), spacing: 18)
             ]
-            LazyVGrid(columns: columns, spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(viewModel.projects.prefix(6)) { project in
                     projectThumbnail(project)
                         .onTapGesture {
@@ -284,7 +284,7 @@ struct HomeView: View {
     private func projectThumbnail(_ project: Project) -> some View {
         VStack(spacing: 6) {
             Color.clear
-                .aspectRatio(0.8, contentMode: .fit)
+                .aspectRatio(0.7, contentMode: .fit)
                 .overlay {
                     ZStack {
                         MerkenTheme.surface

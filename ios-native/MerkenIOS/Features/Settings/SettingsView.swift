@@ -11,80 +11,96 @@ struct SettingsView: View {
         ZStack {
             AppBackground()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Account card
-                    accountCard
-
-                    if appState.isSessionExpired {
-                        SolidCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label("セッション期限切れ", systemImage: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(MerkenTheme.warning)
-                                    .font(.headline)
-                                Text("再ログインしてください。")
-                                    .font(.subheadline)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
-                        }
+            VStack(spacing: 0) {
+                // Fixed header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("設定")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
                     }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
+                .stickyHeaderStyle()
 
-                    if let message = appState.authErrorMessage, !appState.isSessionExpired {
-                        SolidCard {
-                            Text(message)
-                                .foregroundStyle(MerkenTheme.warning)
-                        }
-                    }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Account card
+                        accountCard
 
-                    // Login or logged-in section
-                    if appState.isLoggedIn && !appState.isSessionExpired {
-                        // Bookshelf link
-                        if appState.isPro {
-                            Button {
-                                showingBookshelf = true
-                            } label: {
-                                SolidPane {
-                                    HStack(spacing: 12) {
-                                        IconBadge(systemName: "books.vertical.fill", color: MerkenTheme.warning, size: 40)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("本棚")
-                                                .font(.headline)
-                                                .foregroundStyle(MerkenTheme.primaryText)
-                                            Text("単語帳をまとめて管理")
-                                                .font(.caption)
-                                                .foregroundStyle(MerkenTheme.mutedText)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundStyle(MerkenTheme.mutedText)
-                                    }
+                        if appState.isSessionExpired {
+                            SolidCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Label("セッション期限切れ", systemImage: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(MerkenTheme.warning)
+                                        .font(.headline)
+                                    Text("再ログインしてください。")
+                                        .font(.subheadline)
+                                        .foregroundStyle(MerkenTheme.secondaryText)
                                 }
                             }
                         }
 
-                        // Display section
-                        displaySection
-
-                        // Plan section
-                        planSection
-
-                        // Sign out
-                        Button("サインアウト", role: .destructive) {
-                            Task {
-                                await appState.signOut()
+                        if let message = appState.authErrorMessage, !appState.isSessionExpired {
+                            SolidCard {
+                                Text(message)
+                                    .foregroundStyle(MerkenTheme.warning)
                             }
                         }
-                        .buttonStyle(GhostGlassButton())
-                    } else {
-                        loginSection
+
+                        // Login or logged-in section
+                        if appState.isLoggedIn && !appState.isSessionExpired {
+                            // Bookshelf link
+                            if appState.isPro {
+                                Button {
+                                    showingBookshelf = true
+                                } label: {
+                                    SolidPane {
+                                        HStack(spacing: 12) {
+                                            IconBadge(systemName: "books.vertical.fill", color: MerkenTheme.warning, size: 40)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("本棚")
+                                                    .font(.headline)
+                                                    .foregroundStyle(MerkenTheme.primaryText)
+                                                Text("単語帳をまとめて管理")
+                                                    .font(.caption)
+                                                    .foregroundStyle(MerkenTheme.mutedText)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption)
+                                                .foregroundStyle(MerkenTheme.mutedText)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Display section
+                            displaySection
+
+                            // Plan section
+                            planSection
+
+                            // Sign out
+                            Button("サインアウト", role: .destructive) {
+                                Task {
+                                    await appState.signOut()
+                                }
+                            }
+                            .buttonStyle(GhostGlassButton())
+                        } else {
+                            loginSection
+                        }
                     }
+                    .padding(16)
                 }
-                .padding(16)
             }
         }
-        .navigationTitle("設定")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showingBookshelf) {
             BookshelfTabView()
         }
