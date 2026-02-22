@@ -109,6 +109,34 @@ final class CloudWordRepository: WordRepositoryProtocol {
         }
     }
 
+    func updateProjectFavorite(id: String, isFavorite: Bool) async throws {
+        let token = try await accessTokenProvider()
+        let query = [URLQueryItem(name: "id", value: "eq.\(id)")]
+
+        struct FavoritePatch: Encodable {
+            let isFavorite: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case isFavorite = "is_favorite"
+            }
+        }
+
+        do {
+            let _: [ProjectDTO] = try await restClient.patch(
+                path: "/rest/v1/projects",
+                body: FavoritePatch(isFavorite: isFavorite),
+                query: query,
+                bearerToken: token,
+                preferReturnRepresentation: true
+            )
+        } catch SupabaseClientError.unauthorized {
+            throw RepositoryError.unauthorized
+        } catch {
+            if error.isCancellationError { throw error }
+            throw RepositoryError.underlying(error.localizedDescription)
+        }
+    }
+
     func deleteProject(id: String) async throws {
         let token = try await accessTokenProvider()
         let query = [URLQueryItem(name: "id", value: "eq.\(id)")]

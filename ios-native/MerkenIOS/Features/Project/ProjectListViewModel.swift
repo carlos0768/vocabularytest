@@ -4,6 +4,8 @@ import OSLog
 @MainActor
 final class ProjectListViewModel: ObservableObject {
     @Published private(set) var projects: [Project] = []
+    @Published private(set) var wordCounts: [String: Int] = [:]
+    @Published private(set) var masteredCounts: [String: Int] = [:]
     @Published var errorMessage: String?
     @Published private(set) var loading = false
 
@@ -15,6 +17,20 @@ final class ProjectListViewModel: ObservableObject {
 
         do {
             projects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
+
+            // Fetch all words to compute per-project counts
+            let allWords = try await state.activeRepository.fetchAllWords(userId: state.activeUserId)
+            var counts: [String: Int] = [:]
+            var mastered: [String: Int] = [:]
+            for word in allWords {
+                counts[word.projectId, default: 0] += 1
+                if word.status == .mastered {
+                    mastered[word.projectId, default: 0] += 1
+                }
+            }
+            wordCounts = counts
+            masteredCounts = mastered
+
             errorMessage = nil
         } catch {
             if error.isCancellationError {
@@ -42,6 +58,33 @@ final class ProjectListViewModel: ObservableObject {
             }
             errorMessage = error.localizedDescription
             logger.error("Project create failed: \(error.localizedDescription)")
+        }
+    }
+
+    func toggleFavorite(projectId: String, using state: AppState) async {
+        guard let index = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        let newValue = !projects[index].isFavorite
+
+        do {
+            try await state.activeRepository.updateProjectFavorite(id: projectId, isFavorite: newValue)
+            projects[index] = Project(
+                id: projects[index].id,
+                userId: projects[index].userId,
+                title: projects[index].title,
+                iconImage: projects[index].iconImage,
+                createdAt: projects[index].createdAt,
+                shareId: projects[index].shareId,
+                isFavorite: newValue
+            )
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError {
+                errorMessage = nil
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Toggle favorite failed: \(error.localizedDescription)")
         }
     }
 

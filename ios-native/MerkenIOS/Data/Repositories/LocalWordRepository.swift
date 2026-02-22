@@ -59,6 +59,15 @@ actor LocalWordRepository: WordRepositoryProtocol {
         try modelContext.save()
     }
 
+    func updateProjectFavorite(id: String, isFavorite: Bool) async throws {
+        guard let record = try fetchProjectRecord(id: id) else {
+            throw RepositoryError.notFound
+        }
+
+        record.isFavorite = isFavorite
+        try modelContext.save()
+    }
+
     func deleteProject(id: String) async throws {
         guard let record = try fetchProjectRecord(id: id) else {
             return

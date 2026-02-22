@@ -16,6 +16,7 @@ struct ProjectListView: View {
     @State private var searchText = ""
     @State private var sortOrder: ProjectSortOrder = .newest
     @State private var showingScan = false
+    @State private var projectToDelete: Project?
 
     private var filteredProjects: [Project] {
         let filtered = searchText.isEmpty
@@ -28,7 +29,9 @@ struct ProjectListView: View {
         case .newest:
             return filtered.sorted { $0.createdAt > $1.createdAt }
         case .wordCount:
-            return filtered.sorted { $0.createdAt > $1.createdAt }
+            return filtered.sorted {
+                (viewModel.wordCounts[$0.id] ?? 0) > (viewModel.wordCounts[$1.id] ?? 0)
+            }
         case .recentlyUsed:
             return filtered.sorted { $0.createdAt > $1.createdAt }
         }
@@ -91,6 +94,26 @@ struct ProjectListView: View {
         .fullScreenCover(isPresented: $showingScan) {
             ScanCoordinatorView()
                 .environmentObject(appState)
+        }
+        .alert("この単語帳を削除しますか？", isPresented: Binding(
+            get: { projectToDelete != nil },
+            set: { if !$0 { projectToDelete = nil } }
+        )) {
+            Button("削除", role: .destructive) {
+                if let project = projectToDelete {
+                    Task {
+                        await viewModel.deleteProject(id: project.id, using: appState)
+                    }
+                    projectToDelete = nil
+                }
+            }
+            Button("キャンセル", role: .cancel) {
+                projectToDelete = nil
+            }
+        } message: {
+            if let project = projectToDelete {
+                Text("「\(project.title)」とすべての単語が削除されます。この操作は取り消せません。")
+            }
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
@@ -278,7 +301,7 @@ struct ProjectListView: View {
                                     Text(String(project.title.prefix(1)))
                                         .font(.system(size: 28, weight: .bold))
                                         .foregroundStyle(.white)
-                                    Text("\(project.title.count)語")
+                                    Text("\(viewModel.wordCounts[project.id] ?? 0)語")
                                         .font(.caption2.bold())
                                         .foregroundStyle(.white.opacity(0.8))
                                 }
@@ -330,14 +353,33 @@ struct ProjectListView: View {
                     .offset(y: 2)
             )
 
-            // Menu dot — white circle at top-right, slightly outside
-            Image(systemName: "ellipsis")
-                .font(.caption2)
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .frame(width: 24, height: 24)
-                .background(MerkenTheme.surface, in: .circle)
-                .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
-                .offset(x: 4, y: -4)
+            // Menu dot — context menu at top-right, slightly outside
+            Menu {
+                Button {
+                    Task {
+                        await viewModel.toggleFavorite(projectId: project.id, using: appState)
+                    }
+                } label: {
+                    Label(
+                        project.isFavorite ? "ピン解除" : "ピン留め",
+                        systemImage: project.isFavorite ? "flag.slash" : "flag"
+                    )
+                }
+
+                Button(role: .destructive) {
+                    projectToDelete = project
+                } label: {
+                    Label("削除", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.caption2)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .frame(width: 24, height: 24)
+                    .background(MerkenTheme.surface, in: .circle)
+                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
+            }
+            .offset(x: 4, y: -4)
         }
     }
 
