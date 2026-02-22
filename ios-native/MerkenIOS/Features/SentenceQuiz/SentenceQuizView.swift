@@ -5,6 +5,7 @@ struct SentenceQuizView: View {
     let preloadedWords: [Word]?
 
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = SentenceQuizViewModel()
 
     init(project: Project, preloadedWords: [Word]? = nil) {
@@ -54,6 +55,14 @@ struct SentenceQuizView: View {
                 .tint(MerkenTheme.accentBlue)
             Text(message)
                 .foregroundStyle(MerkenTheme.secondaryText)
+
+            Button {
+                dismiss()
+            } label: {
+                Text("キャンセル")
+            }
+            .buttonStyle(GhostGlassButton())
+            .padding(.top, 8)
         }
     }
 
@@ -69,9 +78,17 @@ struct SentenceQuizView: View {
                 .font(.headline)
                 .foregroundStyle(MerkenTheme.primaryText)
 
-            Text("30秒〜1分ほどかかる場合があります")
+            Text("数秒お待ちください")
                 .font(.subheadline)
                 .foregroundStyle(MerkenTheme.secondaryText)
+
+            Button {
+                dismiss()
+            } label: {
+                Text("キャンセル")
+            }
+            .buttonStyle(GhostGlassButton())
+            .padding(.top, 8)
         }
     }
 

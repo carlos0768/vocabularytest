@@ -311,9 +311,9 @@ actor WebAPIClient {
         logger.info("Sending sentence-quiz request: \(words.count) words")
 
         let (data, http) = try await sendJSONRequest(
-            path: "api/sentence-quiz",
+            path: "api/sentence-quiz/lite",
             bearerToken: bearerToken,
-            timeout: 90,
+            timeout: 30,
             body: SentenceQuizRequest(words: words, useVectorSearch: false)
         )
 
