@@ -621,62 +621,71 @@ export default function ProjectDetailPage() {
   return (
     <AppShell>
       <div className="pb-28 lg:pb-8">
-        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95">
-          <div className="max-w-lg lg:max-w-xl mx-auto px-6 py-4 flex items-center justify-between gap-3 border-b border-[var(--color-border-light)]">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
-                  {safeProjectIcon ? (
-                    <span
-                      className="w-full h-full bg-center bg-cover"
-                      style={{ backgroundImage: `url(${safeProjectIcon})` }}
-                    />
-                  ) : (
-                    <Icon name="menu_book" size={18} className="text-[var(--color-muted)]" />
+        <header className="sticky top-0 z-40">
+          {/* Cover image background (Notion-style) */}
+          <div
+            className="relative h-24 bg-center bg-cover bg-no-repeat"
+            style={safeProjectIcon
+              ? { backgroundImage: `url(${safeProjectIcon})` }
+              : { background: 'linear-gradient(135deg, #e0e7ef 0%, #c4d3e0 100%)' }
+            }
+          >
+            {/* Overlay for readability */}
+            <div className={`absolute inset-0 ${safeProjectIcon ? 'bg-black/30' : 'bg-black/5'}`} />
+
+            {/* Top bar content */}
+            <div className="relative max-w-lg lg:max-w-xl mx-auto px-4 pt-3 pb-2 flex items-start gap-2">
+              <button
+                onClick={() => router.back()}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 ${safeProjectIcon ? 'bg-black/20 hover:bg-black/30 text-white' : 'hover:bg-black/10 text-[var(--color-foreground)]'}`}
+                aria-label="戻る"
+              >
+                <Icon name="arrow_back" size={18} />
+              </button>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <div className="flex items-center gap-1.5">
+                  <h1 className={`text-sm font-bold truncate ${safeProjectIcon ? 'text-white drop-shadow-sm' : 'text-[var(--color-foreground)]'}`}>{project.title}</h1>
+                  <button
+                    onClick={handleOpenEditNameModal}
+                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full transition-colors ${safeProjectIcon ? 'hover:bg-white/20 text-white/70' : 'hover:bg-black/10 text-[var(--color-muted)]'}`}
+                    aria-label="単語帳名を編集"
+                  >
+                    <Icon name="edit" size={12} />
+                  </button>
+                  {isPro && (
+                    <span className="chip chip-pro px-1.5 py-0.5 text-[10px]">
+                      <Icon name="auto_awesome" size={10} />
+                      Pro
+                    </span>
                   )}
                 </div>
-                <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
-                <button
-                  onClick={handleOpenEditNameModal}
-                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
-                  aria-label="単語帳名を編集"
-                >
-                  <Icon name="edit" size={16} />
-                </button>
-                {isPro && (
-                  <span className="chip chip-pro px-2 py-1 text-xs">
-                    <Icon name="auto_awesome" size={12} />
-                    Pro
-                  </span>
-                )}
+                <p className={`text-[11px] ${safeProjectIcon ? 'text-white/70 drop-shadow-sm' : 'text-[var(--color-muted)]'}`}>{stats.total}語 / 習得 {stats.mastered}語</p>
               </div>
-              <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {isPro && (
+              <div className="flex items-center gap-1.5">
+                {isPro && (
+                  <button
+                    onClick={handleShare}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${safeProjectIcon ? 'bg-black/20 hover:bg-black/30 text-white' : 'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'}`}
+                  >
+                    {sharing ? (
+                      <Icon name="progress_activity" size={14} className="animate-spin" />
+                    ) : shareCopied ? (
+                      <Icon name="check" size={16} />
+                    ) : (
+                      <Icon name="share" size={16} />
+                    )}
+                  </button>
+                )}
                 <button
-                  onClick={handleShare}
-                  className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
+                  onClick={() => setDeleteProjectModalOpen(true)}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${safeProjectIcon ? 'bg-black/20 hover:bg-red-500/60 text-white' : 'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-error)] hover:border-[var(--color-error)]'}`}
+                  aria-label="単語帳を削除"
                 >
-                  {sharing ? (
-                    <Icon name="progress_activity" size={16} className="animate-spin text-[var(--color-muted)]" />
-                  ) : shareCopied ? (
-                    <Icon name="check" size={18} className="text-[var(--color-success)]" />
-                  ) : (
-                    <Icon name="share" size={18} />
-                  )}
+                  <Icon name="delete" size={16} />
                 </button>
-              )}
-              <button
-                onClick={() => setDeleteProjectModalOpen(true)}
-                className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-error)] hover:border-[var(--color-error)] transition-colors"
-                aria-label="単語帳を削除"
-              >
-                <Icon name="delete" size={18} />
-              </button>
+              </div>
             </div>
           </div>
-
         </header>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 py-5 lg:py-6 space-y-5 lg:space-y-6">
