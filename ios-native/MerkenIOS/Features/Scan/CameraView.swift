@@ -47,7 +47,13 @@ struct CameraView: UIViewControllerRepresentable {
 // MARK: - Photo Library Picker (PHPicker) — supports multiple selection
 
 struct PhotoPickerView: UIViewControllerRepresentable {
+    let maxSelectionLimit: Int
     let onPick: ([UIImage]) -> Void
+
+    init(maxSelectionLimit: Int = 0, onPick: @escaping ([UIImage]) -> Void) {
+        self.maxSelectionLimit = maxSelectionLimit
+        self.onPick = onPick
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onPick: onPick)
@@ -55,7 +61,7 @@ struct PhotoPickerView: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var config = PHPickerConfiguration()
-        config.selectionLimit = 0  // unlimited
+        config.selectionLimit = max(0, maxSelectionLimit)
         config.filter = .images
         config.selection = .ordered
         let picker = PHPickerViewController(configuration: config)

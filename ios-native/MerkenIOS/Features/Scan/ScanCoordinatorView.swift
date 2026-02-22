@@ -50,16 +50,38 @@ struct ScanCoordinatorView: View {
                 )
 
             case .preview:
-                if let image = viewModel.capturedImage {
+                if viewModel.selectedImages.count > 1 {
+                    MultiImagePreviewView(
+                        images: viewModel.selectedImages,
+                        onDelete: { id in viewModel.removeSelectedImage(id: id) },
+                        onMove: { source, destination in
+                            viewModel.moveSelectedImages(from: source, to: destination)
+                        },
+                        onRepick: { viewModel.selectPhotosAgain() },
+                        onUseImages: { viewModel.processSelectedImages(using: appState) }
+                    )
+                } else if let image = viewModel.capturedImage {
                     ImagePreviewView(
                         image: image,
-                        onRetake: { viewModel.retakePhoto() },
-                        onUseImage: { viewModel.processImage(using: appState) }
+                        retakeButtonTitle: viewModel.isPhotoLibrarySelection ? "選び直し" : "撮り直す",
+                        onRetake: {
+                            if viewModel.isPhotoLibrarySelection {
+                                viewModel.selectPhotosAgain()
+                            } else {
+                                viewModel.retakePhoto()
+                            }
+                        },
+                        onUseImage: { viewModel.processSelectedImages(using: appState) }
                     )
+                } else {
+                    errorView(message: "画像が選択されていません。")
                 }
 
             case .processing:
-                ScanProcessingView()
+                ScanProcessingView(
+                    pages: viewModel.processingPages,
+                    summary: viewModel.processingSummary
+                )
 
             case .confirm:
                 ScanConfirmView(
@@ -69,6 +91,7 @@ struct ScanCoordinatorView: View {
                     isPro: appState.isPro,
                     currentWordCount: viewModel.currentWordCount,
                     freeWordLimit: ScanCoordinatorViewModel.freeWordLimit,
+                    processingSummary: viewModel.processingSummary,
                     onSave: { viewModel.saveWords(using: appState) },
                     onCancel: { dismiss() }
                 )
@@ -94,10 +117,8 @@ struct ScanCoordinatorView: View {
             )
         }
         .sheet(isPresented: showPhotoPicker) {
-            PhotoPickerView { images in
-                if let first = images.first {
-                    viewModel.captureImage(first)
-                }
+            PhotoPickerView(maxSelectionLimit: ScanCoordinatorViewModel.maxPhotoSelection) { images in
+                viewModel.setSelectedImages(images)
             }
         }
     }

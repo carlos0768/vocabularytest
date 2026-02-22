@@ -109,3 +109,128 @@ final class SupabaseMapperTests: XCTestCase {
         XCTAssertNil(word.exampleSentenceJa)
     }
 }
+
+@MainActor
+final class ScanBatchProcessingTests: XCTestCase {
+    func testDedupeWordsUsesEnglishAndJapaneseKeyWithNormalization() {
+        let words = [
+            ExtractedWord(
+                id: "first-id",
+                english: "  RESILIENT ",
+                japanese: " 回復力のある  ",
+                distractors: ["弱い", "遅い"],
+                exampleSentence: nil,
+                exampleSentenceJa: nil
+            ),
+            ExtractedWord(
+                id: "second-id",
+                english: "resilient",
+                japanese: "回復力のある",
+                distractors: ["脆い", "弱い"],
+                exampleSentence: "She is resilient.",
+                exampleSentenceJa: "彼女は回復力がある。"
+            ),
+            ExtractedWord(
+                id: "third-id",
+                english: "fragile",
+                japanese: "壊れやすい",
+                distractors: ["丈夫な"],
+                exampleSentence: nil,
+                exampleSentenceJa: nil
+            )
+        ]
+
+        let deduped = ScanCoordinatorViewModel.dedupeWords(words)
+
+        XCTAssertEqual(deduped.count, 2)
+        XCTAssertEqual(deduped[0].id, "first-id")
+        XCTAssertEqual(deduped[0].english, "RESILIENT")
+        XCTAssertEqual(deduped[0].japanese, "回復力のある")
+        XCTAssertEqual(deduped[0].exampleSentence, "She is resilient.")
+        XCTAssertEqual(deduped[0].exampleSentenceJa, "彼女は回復力がある。")
+    }
+
+    func testDedupeWordsMergesDistractorsUniquelyWithMaxThree() {
+        let words = [
+            ExtractedWord(
+                id: "w1",
+                english: "resilient",
+                japanese: "回復力のある",
+                distractors: ["弱い", "速い", "弱い"],
+                exampleSentence: nil,
+                exampleSentenceJa: nil
+            ),
+            ExtractedWord(
+                id: "w2",
+                english: "resilient",
+                japanese: "回復力のある",
+                distractors: ["遅い", "短い", "弱い"],
+                exampleSentence: nil,
+                exampleSentenceJa: nil
+            )
+        ]
+
+        let deduped = ScanCoordinatorViewModel.dedupeWords(words)
+        XCTAssertEqual(deduped.count, 1)
+        XCTAssertEqual(deduped[0].distractors, ["弱い", "速い", "遅い"])
+    }
+
+    func testDedupeWordsPrefersFirstNonEmptyExampleSentence() {
+        let words = [
+            ExtractedWord(
+                id: "w1",
+                english: "vivid",
+                japanese: "鮮やかな",
+                distractors: [],
+                exampleSentence: nil,
+                exampleSentenceJa: nil
+            ),
+            ExtractedWord(
+                id: "w2",
+                english: "vivid",
+                japanese: "鮮やかな",
+                distractors: [],
+                exampleSentence: "A vivid memory remains.",
+                exampleSentenceJa: "鮮明な記憶が残る。"
+            ),
+            ExtractedWord(
+                id: "w3",
+                english: "vivid",
+                japanese: "鮮やかな",
+                distractors: [],
+                exampleSentence: "This sentence should not override.",
+                exampleSentenceJa: "この訳は上書きされない。"
+            )
+        ]
+
+        let deduped = ScanCoordinatorViewModel.dedupeWords(words)
+        XCTAssertEqual(deduped.count, 1)
+        XCTAssertEqual(deduped[0].exampleSentence, "A vivid memory remains.")
+        XCTAssertEqual(deduped[0].exampleSentenceJa, "鮮明な記憶が残る。")
+    }
+
+    func testMakeProcessingSummaryCountsSuccessFailedSkipped() {
+        let pages = [
+            ScanPageProgress(pageIndex: 1, status: .success, message: nil, extractedCount: 12),
+            ScanPageProgress(pageIndex: 2, status: .failed, message: "通信エラー", extractedCount: 0),
+            ScanPageProgress(pageIndex: 3, status: .skippedLimit, message: "上限到達", extractedCount: 0),
+            ScanPageProgress(pageIndex: 4, status: .pending, message: nil, extractedCount: 0)
+        ]
+
+        let summary = ScanCoordinatorViewModel.makeProcessingSummary(
+            from: pages,
+            warnings: ["ページ2: 通信エラー", "ページ2: 通信エラー"],
+            extractedWordCount: 12,
+            dedupedWordCount: 10
+        )
+
+        XCTAssertEqual(summary.total, 4)
+        XCTAssertEqual(summary.successPages, 1)
+        XCTAssertEqual(summary.failedPages, 1)
+        XCTAssertEqual(summary.skippedPages, 1)
+        XCTAssertEqual(summary.extractedWordCount, 12)
+        XCTAssertEqual(summary.dedupedWordCount, 10)
+        XCTAssertTrue(summary.warnings.contains("ページ2: 通信エラー"))
+        XCTAssertTrue(summary.warnings.contains("上限到達のため1ページをスキップしました。"))
+    }
+}
