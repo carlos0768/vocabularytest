@@ -201,12 +201,15 @@ export default function ProjectsPage() {
     })();
   }, [authLoading, isPro, user, repository]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const favorites = projects.filter((project) => project.isFavorite);
   const filtered = useMemo(() => {
     const base = projects.filter((project) =>
       project.title.toLowerCase().includes(query.toLowerCase())
     );
     return [...base].sort((a, b) => {
+      // Pinned projects always come first
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+
       switch (sortBy) {
         case 'words':
           return b.totalWords - a.totalWords;
@@ -295,30 +298,7 @@ export default function ProjectsPage() {
             </Link>
           </div>
         ) : (
-          <>
-            {favorites.length > 0 && query.trim().length === 0 && (
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
-                  <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {favorites.map((project) => (
-                    <ProjectBookTile
-                      key={project.id}
-                      project={project}
-                      wordCount={project.totalWords}
-                      masteredCount={project.masteredWords}
-                      progress={project.progress}
-                      onDelete={(id) => handleDeleteProject(id)}
-                      onToggleFavorite={handleToggleProjectFavorite}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="space-y-3">
+          <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
@@ -337,7 +317,6 @@ export default function ProjectsPage() {
                 ))}
               </div>
             </section>
-          </>
         )}
       </main>
       <DeleteConfirmModal
