@@ -83,6 +83,8 @@
 		ED496F4B5806EBAB417FE012 /* BookshelfListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 429D7A8177E541BD37304F91 /* BookshelfListView.swift */; };
 		F23A9AA9BC3CDF6120F3E8C5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67DB59E13D16B4142BD57BF1 /* AppState.swift */; };
 		F820BACC62EB5186ED27A0A5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BBF6E46BC57B5A010E2F19 /* HomeView.swift */; };
+		440D0C2A7FE94658AEA160DB /* Quiz2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */; };
+		CEF4C35E116645D5AEC6377D /* Quiz2ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -182,6 +184,8 @@
 		F8D492636999D00FF08665C5 /* LocalRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRecords.swift; sourceTree = "<group>"; };
 		F9615BEF3A9E8F028664EC53 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		F9A3D8C1167D9934DAE1F9D8 /* BookshelfDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfDetailView.swift; sourceTree = "<group>"; };
+		AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2View.swift; sourceTree = "<group>"; };
+		5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2ViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -368,6 +372,7 @@
 		87DC63C51B789BDB89B9DDA2 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				D7C972E501724C20BDFA0BCA /* Quiz2 */,
 				0FE6BCE4912A4A07343446F2 /* Bookshelf */,
 				6307BB58FD016FA703AC920A /* Favorites */,
 				D40620301DAAB53B3BF95330 /* Flashcard */,
@@ -487,6 +492,15 @@
 				E7ED26D3452459533CE74952 /* ScanProcessingView.swift */,
 			);
 			path = Scan;
+			sourceTree = "<group>";
+		};
+		D7C972E501724C20BDFA0BCA /* Quiz2 */ = {
+			isa = PBXGroup;
+			children = (
+				AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */,
+				5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */,
+			);
+			path = Quiz2;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -697,6 +711,8 @@
 				1B05C8B3314E080C773BE2A9 /* WordEditorSheet.swift in Sources */,
 				38E4C70E759B6CF75E34E402 /* WordListView.swift in Sources */,
 				2E43FB64DB0C1E38FE9E55FA /* WordListViewModel.swift in Sources */,
+				440D0C2A7FE94658AEA160DB /* Quiz2View.swift in Sources */,
+				CEF4C35E116645D5AEC6377D /* Quiz2ViewModel.swift in Sources */,
 				968E57F7E9F2E41C175296C7 /* WordRepositoryProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

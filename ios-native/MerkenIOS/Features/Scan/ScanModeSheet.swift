@@ -1,12 +1,22 @@
 import SwiftUI
 
+enum ScanSource {
+    case camera
+    case photoLibrary
+}
+
 struct ScanModeSheet: View {
     let isPro: Bool
-    let onSelect: (ScanMode, EikenLevel?) -> Void
+    let onSelect: (ScanMode, EikenLevel?, ScanSource) -> Void
     let onCancel: () -> Void
 
     @State private var selectedEikenLevel: EikenLevel = .grade3
     @State private var showEikenPicker = false
+
+    // For source selection action sheet
+    @State private var pendingMode: ScanMode?
+    @State private var pendingEikenLevel: EikenLevel?
+    @State private var showSourcePicker = false
 
     private func iconColor(for mode: ScanMode) -> Color {
         switch mode {
@@ -17,6 +27,12 @@ struct ScanModeSheet: View {
         case .idiom: return MerkenTheme.success
         case .wrong: return MerkenTheme.danger
         }
+    }
+
+    private func confirmSource(mode: ScanMode, eikenLevel: EikenLevel?) {
+        pendingMode = mode
+        pendingEikenLevel = eikenLevel
+        showSourcePicker = true
     }
 
     var body: some View {
@@ -44,7 +60,7 @@ struct ScanModeSheet: View {
                                 if mode == .eiken {
                                     showEikenPicker = true
                                 } else {
-                                    onSelect(mode, nil)
+                                    confirmSource(mode: mode, eikenLevel: nil)
                                 }
                             } label: {
                                 SolidPane(cornerRadius: 20) {
@@ -114,6 +130,25 @@ struct ScanModeSheet: View {
             .sheet(isPresented: $showEikenPicker) {
                 eikenPickerSheet
             }
+            .confirmationDialog("画像の取得方法", isPresented: $showSourcePicker, titleVisibility: .visible) {
+                Button {
+                    if let mode = pendingMode {
+                        onSelect(mode, pendingEikenLevel, .camera)
+                    }
+                } label: {
+                    Label("カメラで撮影", systemImage: "camera")
+                }
+
+                Button {
+                    if let mode = pendingMode {
+                        onSelect(mode, pendingEikenLevel, .photoLibrary)
+                    }
+                } label: {
+                    Label("写真から選択", systemImage: "photo.on.rectangle")
+                }
+
+                Button("キャンセル", role: .cancel) {}
+            }
         }
     }
 
@@ -132,7 +167,7 @@ struct ScanModeSheet: View {
                         Button {
                             selectedEikenLevel = level
                             showEikenPicker = false
-                            onSelect(.eiken, level)
+                            confirmSource(mode: .eiken, eikenLevel: level)
                         } label: {
                             SolidPane {
                                 HStack {

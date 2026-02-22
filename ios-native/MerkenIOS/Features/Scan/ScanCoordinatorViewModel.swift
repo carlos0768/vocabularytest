@@ -8,6 +8,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
     enum FlowStep: Equatable {
         case modeSelection
         case camera
+        case photoLibrary
         case preview
         case processing
         case confirm
@@ -19,6 +20,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
             switch (lhs, rhs) {
             case (.modeSelection, .modeSelection),
                  (.camera, .camera),
+                 (.photoLibrary, .photoLibrary),
                  (.preview, .preview),
                  (.processing, .processing),
                  (.confirm, .confirm),
@@ -60,16 +62,22 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
     // MARK: - Flow Actions
 
-    func selectMode(_ mode: ScanMode, eikenLevel: EikenLevel?) {
+    func selectMode(_ mode: ScanMode, eikenLevel: EikenLevel?, source: ScanSource) {
         selectedMode = mode
         selectedEikenLevel = eikenLevel
-        currentStep = .camera
+        switch source {
+        case .camera:
+            currentStep = .camera
+        case .photoLibrary:
+            currentStep = .photoLibrary
+        }
     }
 
     func captureImage(_ image: UIImage) {
         capturedImage = image
         currentStep = .preview
     }
+
 
     func retakePhoto() {
         capturedImage = nil

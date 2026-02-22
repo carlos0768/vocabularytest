@@ -22,18 +22,29 @@ struct ScanCoordinatorView: View {
     private var showCamera: Binding<Bool> {
         Binding(
             get: { viewModel.currentStep == .camera },
-            set: { if !$0 { viewModel.goBackToModeSelection() } }
+            set: { if !$0 && viewModel.currentStep == .camera {
+                viewModel.goBackToModeSelection()
+            }}
+        )
+    }
+
+    private var showPhotoPicker: Binding<Bool> {
+        Binding(
+            get: { viewModel.currentStep == .photoLibrary },
+            set: { if !$0 && viewModel.currentStep == .photoLibrary {
+                viewModel.goBackToModeSelection()
+            }}
         )
     }
 
     var body: some View {
         Group {
             switch viewModel.currentStep {
-            case .modeSelection, .camera:
+            case .modeSelection, .camera, .photoLibrary:
                 ScanModeSheet(
                     isPro: appState.subscription?.isActivePro ?? false,
-                    onSelect: { mode, eikenLevel in
-                        viewModel.selectMode(mode, eikenLevel: eikenLevel)
+                    onSelect: { mode, eikenLevel, source in
+                        viewModel.selectMode(mode, eikenLevel: eikenLevel, source: source)
                     },
                     onCancel: { dismiss() }
                 )
@@ -78,6 +89,13 @@ struct ScanCoordinatorView: View {
                     viewModel.goBackToModeSelection()
                 }
             )
+        }
+        .sheet(isPresented: showPhotoPicker) {
+            PhotoPickerView { images in
+                if let first = images.first {
+                    viewModel.captureImage(first)
+                }
+            }
         }
     }
 
