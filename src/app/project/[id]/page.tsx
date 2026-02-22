@@ -622,6 +622,14 @@ export default function ProjectDetailPage() {
     <AppShell>
       <div className="pb-28 lg:pb-8">
         <header className="sticky top-0 z-40">
+          {/* Overscroll cover — prevents white gap above header when pulling down */}
+          <div
+            className="absolute bottom-full left-0 right-0 h-screen"
+            style={safeProjectIcon
+              ? { backgroundImage: `url(${safeProjectIcon})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : { background: 'linear-gradient(135deg, #e0e7ef 0%, #c4d3e0 100%)' }
+            }
+          />
           {/* Cover image background (Notion-style) */}
           <div
             className="relative h-24 bg-center bg-cover bg-no-repeat"

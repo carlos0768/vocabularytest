@@ -1722,8 +1722,6 @@ export default function HomePage() {
                           wordCount={projectWords.length}
                           masteredCount={mastered}
                           progress={progress}
-                          onDelete={(id) => handleDeleteProject(id)}
-                          onToggleFavorite={handleToggleProjectFavorite}
                         />
                       </div>
                     );
