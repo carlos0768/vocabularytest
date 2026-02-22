@@ -157,20 +157,34 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    HStack(spacing: 0) {
-                        ForEach(ThemeMode.allCases, id: \.rawValue) { mode in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    themeManager.mode = mode
-                                }
-                            } label: {
-                                themeOption(mode.label, isSelected: themeManager.mode == mode)
+                    if #available(iOS 26.0, *) {
+                        Picker("テーマ", selection: Binding(
+                            get: { themeManager.mode },
+                            set: { themeManager.mode = $0 }
+                        )) {
+                            ForEach(ThemeMode.allCases, id: \.rawValue) { mode in
+                                Text(mode.label).tag(mode)
                             }
                         }
+                        .pickerStyle(.segmented)
+                        .glassEffect(.regular.interactive)
+                        .frame(maxWidth: 220)
+                    } else {
+                        HStack(spacing: 0) {
+                            ForEach(ThemeMode.allCases, id: \.rawValue) { mode in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        themeManager.mode = mode
+                                    }
+                                } label: {
+                                    themeOption(mode.label, isSelected: themeManager.mode == mode)
+                                }
+                            }
+                        }
+                        .padding(3)
+                        .background(MerkenTheme.background, in: .capsule)
+                        .overlay(Capsule().stroke(MerkenTheme.borderLight, lineWidth: 1))
                     }
-                    .padding(3)
-                    .background(MerkenTheme.background, in: .capsule)
-                    .overlay(Capsule().stroke(MerkenTheme.borderLight, lineWidth: 1))
                 }
             }
         }
