@@ -334,29 +334,7 @@ struct ProjectDetailView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
 
-                    // Example sentence
-                    if let example = word.exampleSentence, !example.isEmpty {
-                        Divider()
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "quote.opening")
-                                    .font(.caption2)
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                                Text("例文")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                            }
-                            Text(example)
-                                .font(.subheadline)
-                                .foregroundStyle(MerkenTheme.primaryText)
-                            if let exJa = word.exampleSentenceJa {
-                                Text(exJa)
-                                    .font(.caption)
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    // Example sentence removed per Carlos
                 }
             }
 
