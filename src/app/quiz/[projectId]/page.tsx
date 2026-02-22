@@ -55,9 +55,9 @@ export default function QuizPage() {
   const reviewMode = searchParams.get('review') === '1';
   const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
-    if (!countFromUrl) return null;
+    if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
     const parsed = Number.parseInt(countFromUrl, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_QUESTION_COUNT;
   });
 
   const backToProject = useCallback(() => {

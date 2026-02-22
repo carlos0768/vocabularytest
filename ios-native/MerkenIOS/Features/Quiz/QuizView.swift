@@ -35,11 +35,10 @@ struct QuizView: View {
         .task(id: project.id) {
             if let preloadedWords, !preloadedWords.isEmpty {
                 viewModel.setSourceWords(preloadedWords)
-                if skipSetup {
-                    viewModel.startQuiz()
-                }
+                viewModel.startQuiz()
             } else {
                 await viewModel.load(projectId: project.id, using: appState)
+                viewModel.startQuiz()
             }
         }
         .onDisappear {
