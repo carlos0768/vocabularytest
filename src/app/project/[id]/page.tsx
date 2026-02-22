@@ -771,36 +771,19 @@ export default function ProjectDetailPage() {
             </section>
           )}
 
-          {/* 単語リスト */}
-          <section className="space-y-2.5 lg:space-y-3 pt-2.5 lg:pt-3 border-t border-[var(--color-border-light)]">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-base font-bold text-[var(--color-foreground)]">
-                単語一覧 <span className="text-sm font-medium text-[var(--color-muted)] ml-2">{words.length}語</span>
-              </h2>
-            </div>
-
-            {wordsLoaded ? (
-              <WordList
-                words={words}
-                editingWordId={editingWordId}
-                onEditStart={(wordId) => setEditingWordId(wordId)}
-                onEditCancel={() => setEditingWordId(null)}
-                onSave={(wordId, english, japanese) => {
-                  handleUpdateWord(wordId, english, japanese);
-                  setEditingWordId(null);
-                }}
-                onDelete={(wordId) => handleDeleteWord(wordId)}
-                onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-                onAddClick={() => setShowManualWordModal(true)}
-                onScanClick={() => setShowScanModeModal(true)}
-                listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
-              />
-            ) : (
-              <div className="card p-4 text-sm text-[var(--color-muted)] flex items-center gap-2">
-                <Icon name="progress_activity" size={16} className="animate-spin" />
-                単語一覧を読み込み中...
+          {/* 単語一覧リンク */}
+          <section className="pt-2.5 lg:pt-3 border-t border-[var(--color-border-light)]">
+            <Link
+              href={`/project/${projectId}/words`}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:border-[var(--color-border)] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Icon name="list" size={20} className="text-[var(--color-primary)]" />
+                <span className="text-sm font-semibold text-[var(--color-foreground)]">単語一覧</span>
+                <span className="text-sm text-[var(--color-muted)]">{words.length}語</span>
               </div>
-            )}
+              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
+            </Link>
           </section>
         </main>
 
