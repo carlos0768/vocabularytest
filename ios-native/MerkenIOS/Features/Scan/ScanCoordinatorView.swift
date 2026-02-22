@@ -19,26 +19,23 @@ struct ScanCoordinatorView: View {
         self.onComplete = onComplete
     }
 
+    private var showCamera: Binding<Bool> {
+        Binding(
+            get: { viewModel.currentStep == .camera },
+            set: { if !$0 { viewModel.goBackToModeSelection() } }
+        )
+    }
+
     var body: some View {
         Group {
             switch viewModel.currentStep {
-            case .modeSelection:
+            case .modeSelection, .camera:
                 ScanModeSheet(
                     isPro: appState.subscription?.isActivePro ?? false,
                     onSelect: { mode, eikenLevel in
                         viewModel.selectMode(mode, eikenLevel: eikenLevel)
                     },
                     onCancel: { dismiss() }
-                )
-
-            case .camera:
-                CameraView(
-                    onCapture: { image in
-                        viewModel.captureImage(image)
-                    },
-                    onCancel: {
-                        viewModel.goBackToModeSelection()
-                    }
                 )
 
             case .preview:
@@ -71,6 +68,16 @@ struct ScanCoordinatorView: View {
             case .error(let message):
                 errorView(message: message)
             }
+        }
+        .fullScreenCover(isPresented: showCamera) {
+            CameraView(
+                onCapture: { image in
+                    viewModel.captureImage(image)
+                },
+                onCancel: {
+                    viewModel.goBackToModeSelection()
+                }
+            )
         }
     }
 

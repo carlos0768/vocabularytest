@@ -140,6 +140,11 @@ struct ProjectListView: View {
                 .padding(.vertical, 8)
                 .background(MerkenTheme.successLight, in: .capsule)
                 .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
+                .background(
+                    Capsule()
+                        .fill(MerkenTheme.success.opacity(0.3))
+                        .offset(y: 2)
+                )
             }
         }
     }
@@ -267,7 +272,7 @@ struct ProjectListView: View {
             VStack(spacing: 0) {
                 // Image area with padding
                 Color.clear
-                    .aspectRatio(0.9, contentMode: .fit)
+                    .aspectRatio(0.8, contentMode: .fit)
                     .overlay {
                         ZStack {
                             if let iconImage = project.iconImage,

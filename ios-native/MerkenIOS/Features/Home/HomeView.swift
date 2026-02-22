@@ -34,6 +34,7 @@ struct HomeView: View {
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingScan = false
+    @State private var showingBookshelf = false
 
     var body: some View {
         ZStack {
@@ -107,6 +108,9 @@ struct HomeView: View {
         }
         .navigationDestination(item: $detailProject) { project in
             ProjectDetailView(project: project)
+        }
+        .navigationDestination(isPresented: $showingBookshelf) {
+            BookshelfListView()
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
@@ -236,7 +240,7 @@ struct HomeView: View {
                 appState.selectedTab = 2
             }
             quickLink(icon: "books.vertical.fill", label: "コレクション", color: MerkenTheme.warning) {
-                appState.selectedTab = 1
+                showingBookshelf = true
             }
             quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {
                 appState.selectedTab = 1

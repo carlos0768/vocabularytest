@@ -127,7 +127,7 @@ struct BookshelfListView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(height: 70)
+                            .frame(height: 77)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
                                     .stroke(MerkenTheme.borderLight, lineWidth: 1)
@@ -140,7 +140,7 @@ struct BookshelfListView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 70)
+                .frame(height: 77)
 
                 Text(collection.name)
                     .font(.headline)
