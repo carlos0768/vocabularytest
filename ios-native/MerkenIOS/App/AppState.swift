@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
     private let guestSessionStore: GuestSessionStore
     let webAPIClient: WebAPIClient
     let quizStatsStore: QuizStatsStore
+    let sentenceQuizProgressStore: SentenceQuizProgressStore
     let collectionRepository: CollectionRepositoryProtocol
 
     init(
@@ -28,6 +29,7 @@ final class AppState: ObservableObject {
         guestSessionStore: GuestSessionStore,
         webAPIClient: WebAPIClient,
         quizStatsStore: QuizStatsStore,
+        sentenceQuizProgressStore: SentenceQuizProgressStore,
         collectionRepository: CollectionRepositoryProtocol
     ) {
         self.authService = authService
@@ -35,6 +37,7 @@ final class AppState: ObservableObject {
         self.guestSessionStore = guestSessionStore
         self.webAPIClient = webAPIClient
         self.quizStatsStore = quizStatsStore
+        self.sentenceQuizProgressStore = sentenceQuizProgressStore
         self.collectionRepository = collectionRepository
         self.session = authService.session
     }

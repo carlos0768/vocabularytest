@@ -99,9 +99,11 @@ struct ExtractedWord: Decodable, Identifiable {
     let english: String
     let japanese: String
     let distractors: [String]
+    let exampleSentence: String?
+    let exampleSentenceJa: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, english, japanese, distractors
+        case id, english, japanese, distractors, exampleSentence, exampleSentenceJa
     }
 
     init(from decoder: Decoder) throws {
@@ -110,13 +112,24 @@ struct ExtractedWord: Decodable, Identifiable {
         self.english = try container.decode(String.self, forKey: .english)
         self.japanese = try container.decode(String.self, forKey: .japanese)
         self.distractors = (try? container.decode([String].self, forKey: .distractors)) ?? []
+        self.exampleSentence = try? container.decodeIfPresent(String.self, forKey: .exampleSentence)
+        self.exampleSentenceJa = try? container.decodeIfPresent(String.self, forKey: .exampleSentenceJa)
     }
 
-    init(id: String, english: String, japanese: String, distractors: [String]) {
+    init(
+        id: String,
+        english: String,
+        japanese: String,
+        distractors: [String],
+        exampleSentence: String? = nil,
+        exampleSentenceJa: String? = nil
+    ) {
         self.id = id
         self.english = english
         self.japanese = japanese
         self.distractors = distractors
+        self.exampleSentence = exampleSentence
+        self.exampleSentenceJa = exampleSentenceJa
     }
 }
 
@@ -127,18 +140,31 @@ struct EditableExtractedWord: Identifiable {
     var english: String
     var japanese: String
     var distractors: [String]
+    var exampleSentence: String?
+    var exampleSentenceJa: String?
 
     init(from extracted: ExtractedWord) {
         self.id = extracted.id
         self.english = extracted.english
         self.japanese = extracted.japanese
         self.distractors = extracted.distractors
+        self.exampleSentence = extracted.exampleSentence
+        self.exampleSentenceJa = extracted.exampleSentenceJa
     }
 
-    init(id: String = UUID().uuidString, english: String, japanese: String, distractors: [String] = []) {
+    init(
+        id: String = UUID().uuidString,
+        english: String,
+        japanese: String,
+        distractors: [String] = [],
+        exampleSentence: String? = nil,
+        exampleSentenceJa: String? = nil
+    ) {
         self.id = id
         self.english = english
         self.japanese = japanese
         self.distractors = distractors
+        self.exampleSentence = exampleSentence
+        self.exampleSentenceJa = exampleSentenceJa
     }
 }

@@ -4,8 +4,12 @@ import XCTest
 final class RepositoryRouterTests: XCTestCase {
     private struct DummyRepository: WordRepositoryProtocol {
         func fetchProjects(userId: String) async throws -> [Project] { [] }
-        func createProject(title: String, userId: String) async throws -> Project { Project(userId: userId, title: title) }
+        func createProject(title: String, userId: String, iconImage: String?) async throws -> Project {
+            Project(userId: userId, title: title, iconImage: iconImage)
+        }
         func updateProject(id: String, title: String) async throws {}
+        func updateProjectIcon(id: String, iconImage: String) async throws {}
+        func updateProjectFavorite(id: String, isFavorite: Bool) async throws {}
         func deleteProject(id: String) async throws {}
         func fetchWords(projectId: String) async throws -> [Word] { [] }
         func fetchAllWords(userId: String) async throws -> [Word] { [] }
@@ -47,5 +51,97 @@ final class RepositoryRouterTests: XCTestCase {
         )
 
         XCTAssertEqual(router.mode(for: subscription), .proCloud)
+    }
+}
+
+final class SentenceQuizProgressStoreTests: XCTestCase {
+    private let projectId = "project-1"
+
+    private func makeRawResponseData() -> Data {
+        """
+        {
+          "success": true,
+          "questions": [
+            {
+              "type": "fill-in-blank",
+              "wordId": "w1",
+              "targetWord": "resilient",
+              "sentence": "She is resilient.",
+              "blanks": [
+                {
+                  "index": 0,
+                  "correctAnswer": "resilient",
+                  "options": ["resilient", "fragile", "weak", "slow"]
+                }
+              ],
+              "japaneseMeaning": "彼女は回復力がある。"
+            }
+          ]
+        }
+        """.data(using: .utf8) ?? Data()
+    }
+
+    private func makeDefaults(suite: String = UUID().uuidString) -> UserDefaults {
+        let defaults = UserDefaults(suiteName: suite) ?? .standard
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    func testSaveInitialAndRestore() throws {
+        let defaults = makeDefaults()
+        let store = SentenceQuizProgressStore(defaults: defaults)
+
+        store.saveInitial(projectId: projectId, rawResponseData: makeRawResponseData())
+        let restored = try XCTUnwrap(store.restore(projectId: projectId))
+
+        XCTAssertEqual(restored.questions.count, 1)
+        XCTAssertEqual(restored.currentIndex, 0)
+        XCTAssertEqual(restored.correctCount, 0)
+        XCTAssertEqual(restored.totalCount, 0)
+    }
+
+    func testSaveProgressAndHasInProgress() throws {
+        let defaults = makeDefaults()
+        let store = SentenceQuizProgressStore(defaults: defaults)
+
+        store.saveInitial(projectId: projectId, rawResponseData: makeRawResponseData())
+        XCTAssertFalse(store.hasInProgress(projectId: projectId))
+
+        store.saveProgress(projectId: projectId, currentIndex: 3, correct: 2, total: 3)
+        XCTAssertTrue(store.hasInProgress(projectId: projectId))
+
+        let restored = try XCTUnwrap(store.restore(projectId: projectId))
+        XCTAssertEqual(restored.currentIndex, 0)
+        XCTAssertEqual(restored.correctCount, 2)
+        XCTAssertEqual(restored.totalCount, 3)
+    }
+
+    func testRestoreReturnsNilAfterTTLExpired() {
+        let defaults = makeDefaults()
+        var currentTime = Date(timeIntervalSince1970: 1_000)
+        let store = SentenceQuizProgressStore(
+            defaults: defaults,
+            ttl: 60 * 60,
+            nowProvider: { currentTime }
+        )
+
+        store.saveInitial(projectId: projectId, rawResponseData: makeRawResponseData())
+
+        currentTime = currentTime.addingTimeInterval(60 * 60 + 1)
+
+        XCTAssertNil(store.restore(projectId: projectId))
+        XCTAssertFalse(store.hasInProgress(projectId: projectId))
+    }
+
+    func testClearRemovesProgress() {
+        let defaults = makeDefaults()
+        let store = SentenceQuizProgressStore(defaults: defaults)
+
+        store.saveInitial(projectId: projectId, rawResponseData: makeRawResponseData())
+        XCTAssertNotNil(store.restore(projectId: projectId))
+
+        store.clear(projectId: projectId)
+        XCTAssertNil(store.restore(projectId: projectId))
+        XCTAssertFalse(store.hasInProgress(projectId: projectId))
     }
 }

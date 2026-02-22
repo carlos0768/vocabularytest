@@ -62,4 +62,50 @@ final class SupabaseMapperTests: XCTestCase {
         XCTAssertEqual(word.status, .review)
         XCTAssertEqual(word.distractors.count, 3)
     }
+
+    func testExtractedWordDecodesExamplesWhenPresent() throws {
+        let json = """
+        {
+          "success": true,
+          "words": [
+            {
+              "id": "w1",
+              "english": "resilient",
+              "japanese": "回復力のある",
+              "distractors": ["弱い", "脆い", "遅い"],
+              "exampleSentence": "She stayed resilient during the crisis.",
+              "exampleSentenceJa": "彼女は危機の中でも回復力を保った。"
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let response = try JSONDecoder().decode(ExtractResponse.self, from: json)
+        let word = try XCTUnwrap(response.words?.first)
+
+        XCTAssertEqual(word.exampleSentence, "She stayed resilient during the crisis.")
+        XCTAssertEqual(word.exampleSentenceJa, "彼女は危機の中でも回復力を保った。")
+    }
+
+    func testExtractedWordDecodesExamplesAsNilWhenMissing() throws {
+        let json = """
+        {
+          "success": true,
+          "words": [
+            {
+              "id": "w1",
+              "english": "resilient",
+              "japanese": "回復力のある",
+              "distractors": ["弱い", "脆い", "遅い"]
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let response = try JSONDecoder().decode(ExtractResponse.self, from: json)
+        let word = try XCTUnwrap(response.words?.first)
+
+        XCTAssertNil(word.exampleSentence)
+        XCTAssertNil(word.exampleSentenceJa)
+    }
 }

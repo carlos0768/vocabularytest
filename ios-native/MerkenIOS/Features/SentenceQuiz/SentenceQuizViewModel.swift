@@ -11,6 +11,8 @@ final class SentenceQuizViewModel: ObservableObject {
         case error
     }
 
+    private let quizSize = 15
+
     // ── UI-driving state ──
     @Published private(set) var stage: Stage = .loading
     @Published private(set) var currentIndex = 0
@@ -25,6 +27,8 @@ final class SentenceQuizViewModel: ObservableObject {
     private var questions: [SentenceQuizQuestion] = []
     private var pendingWordPatches: [String: WordPatch] = [:]
     private var isFlushingPatches = false
+    private weak var latestState: AppState?
+    private var activeProjectId: String?
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "SentenceQuizVM")
 
@@ -44,6 +48,8 @@ final class SentenceQuizViewModel: ObservableObject {
     // MARK: - Load words
 
     func load(projectId: String, using state: AppState) async {
+        latestState = state
+        activeProjectId = projectId
         stage = .loading
         errorMessage = nil
 
@@ -57,7 +63,7 @@ final class SentenceQuizViewModel: ObservableObject {
                 return
             }
 
-            await generateQuiz(using: state)
+            await generateQuiz(projectId: projectId, using: state)
         } catch {
             if error.isCancellationError { return }
             errorMessage = error.localizedDescription
@@ -68,23 +74,26 @@ final class SentenceQuizViewModel: ObservableObject {
 
     // MARK: - Generate quiz via API
 
-    func generateQuiz(using state: AppState) async {
+    func generateQuiz(projectId: String, using state: AppState) async {
+        latestState = state
+        activeProjectId = projectId
+
         guard let token = state.session?.accessToken else {
             errorMessage = "ログインが必要です。"
             stage = .error
             return
         }
 
+        if let restored = state.sentenceQuizProgressStore.restore(projectId: projectId) {
+            applyRestoredProgress(restored)
+            stage = .playing
+            return
+        }
+
         stage = .generating
         errorMessage = nil
 
-        // Pick up to 10 words, prioritizing non-mastered
-        let prioritized = sourceWords
-            .filter { $0.status != .mastered }
-            .shuffled()
-            + sourceWords.filter { $0.status == .mastered }.shuffled()
-        let selected = Array(prioritized.prefix(10))
-
+        let selected = selectWordsForQuiz(from: sourceWords)
         let wordInputs = selected.map {
             SentenceQuizWordInput(
                 id: $0.id,
@@ -95,13 +104,18 @@ final class SentenceQuizViewModel: ObservableObject {
         }
 
         do {
-            let generated = try await state.webAPIClient.generateSentenceQuiz(
+            let generated = try await state.webAPIClient.generateSentenceQuizWithRawResponse(
                 words: wordInputs,
                 bearerToken: token
             )
 
-            questions = generated
-            totalCount = generated.count
+            state.sentenceQuizProgressStore.saveInitial(
+                projectId: projectId,
+                rawResponseData: generated.rawResponseData
+            )
+
+            questions = generated.questions
+            totalCount = generated.questions.count
             currentIndex = 0
             correctCount = 0
             isRevealed = false
@@ -143,17 +157,24 @@ final class SentenceQuizViewModel: ObservableObject {
         if isCorrect {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 180_000_000)
-                self.moveNext(using: nil)
+                self.moveNext()
             }
         }
     }
 
-    func moveNext(using state: AppState?) {
+    func moveNext(using state: AppState? = nil) {
         guard stage == .playing else { return }
+
+        let resolvedState = state ?? latestState
 
         if currentIndex + 1 >= questions.count {
             stage = .completed
-            if let state {
+
+            if let projectId = activeProjectId {
+                resolvedState?.sentenceQuizProgressStore.clear(projectId: projectId)
+            }
+
+            if let state = resolvedState {
                 state.quizStatsStore.record(
                     totalAnswered: questions.count,
                     correctAnswered: correctCount
@@ -169,11 +190,13 @@ final class SentenceQuizViewModel: ObservableObject {
         currentIndex += 1
         isRevealed = false
         selectedAnswer = nil
+        saveProgressIfNeeded()
     }
 
     // MARK: - Restart
 
     func restart(projectId: String, using state: AppState) async {
+        state.sentenceQuizProgressStore.clear(projectId: projectId)
         Task(priority: .utility) { [weak self] in
             await self?.flushPendingUpdates(using: state)
         }
@@ -212,5 +235,53 @@ final class SentenceQuizViewModel: ObservableObject {
         }
 
         isFlushingPatches = false
+    }
+
+    private func selectWordsForQuiz(from words: [Word]) -> [Word] {
+        let prioritized = words
+            .filter { $0.status != .mastered }
+            .shuffled()
+            + words.filter { $0.status == .mastered }.shuffled()
+
+        guard !prioritized.isEmpty else { return [] }
+
+        if prioritized.count >= quizSize {
+            return Array(prioritized.prefix(quizSize))
+        }
+
+        var selected: [Word] = []
+        while selected.count < quizSize {
+            selected.append(contentsOf: prioritized)
+        }
+        return Array(selected.prefix(quizSize)).shuffled()
+    }
+
+    private func applyRestoredProgress(_ progress: SentenceQuizProgressSnapshot) {
+        questions = progress.questions
+        totalCount = progress.questions.count
+        currentIndex = progress.currentIndex
+        correctCount = progress.correctCount
+        isRevealed = false
+        selectedAnswer = nil
+        pendingWordPatches = [:]
+    }
+
+    private func saveProgressIfNeeded() {
+        guard
+            let projectId = activeProjectId,
+            let state = latestState,
+            stage == .playing,
+            currentIndex > 0,
+            !questions.isEmpty
+        else {
+            return
+        }
+
+        state.sentenceQuizProgressStore.saveProgress(
+            projectId: projectId,
+            currentIndex: currentIndex,
+            correct: correctCount,
+            total: currentIndex
+        )
     }
 }

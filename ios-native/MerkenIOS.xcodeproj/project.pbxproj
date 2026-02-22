@@ -47,6 +47,7 @@
 		6D04CDC167156DF03B926FCB /* SupabaseMapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8FE90AE2328A61EE4BAEBEA /* SupabaseMapperTests.swift */; };
 		6D94DB218DF03851DCC0E86F /* AuthServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814A7CF70D4F3E1DC2EB6770 /* AuthServiceProtocol.swift */; };
 		6F59A518C26A797E08B391FC /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5EE1AEEA14C8A38C67545674 /* Supabase */; };
+		7E6C9D2A4F1B3C5D8E0A1B2C /* SentenceQuizProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B8A2C1E9F0432DB6C7A11E /* SentenceQuizProgressStore.swift */; };
 		75FCBB75BC079EB9D04CC733 /* AnyEncodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBE81CD4C71A909C3EA547BB /* AnyEncodable.swift */; };
 		77BDD39B137C1B1CFD276E75 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69B31214CA9933F460FF4B7 /* SettingsView.swift */; };
 		7CC52CC8E5530FF41FCAD4B4 /* RepositoryRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01625E057EA3FDA1F4B71A30 /* RepositoryRouter.swift */; };
@@ -175,6 +176,7 @@
 		CE1079907B021C4B320F0329 /* MerkenIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerkenIOSApp.swift; sourceTree = "<group>"; };
 		D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanConfirmWordRow.swift; sourceTree = "<group>"; };
 		D2C1B0A9180F6E5D4D3C2B1A /* SemanticSearchDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchDTO.swift; sourceTree = "<group>"; };
+		D4B8A2C1E9F0432DB6C7A11E /* SentenceQuizProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentenceQuizProgressStore.swift; sourceTree = "<group>"; };
 		D8FE90AE2328A61EE4BAEBEA /* SupabaseMapperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseMapperTests.swift; sourceTree = "<group>"; };
 		DBE81CD4C71A909C3EA547BB /* AnyEncodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyEncodable.swift; sourceTree = "<group>"; };
 		DBF4BC78A93EA57FB70B45A7 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
@@ -353,6 +355,7 @@
 				8570BEFEF7F7D0BD044AD165 /* GuestSessionStore.swift */,
 				1EFE8C168B7F3CED6C68ABC1 /* ImageCompressor.swift */,
 				410B28B95A71D3017B943659 /* QuizStatsStore.swift */,
+				D4B8A2C1E9F0432DB6C7A11E /* SentenceQuizProgressStore.swift */,
 				B0F0B2A43384E462C70CF7EB /* SupabaseRESTClient.swift */,
 				B7862EAE231B0CEACC698DEE /* WebAPIClient.swift */,
 			);
@@ -699,6 +702,7 @@
 				182F673E075ACB143251C4D5 /* SearchViewModel.swift in Sources */,
 				590F801E938E63F25CF704A4 /* SentenceQuizDTO.swift in Sources */,
 				96C542270D842D2F09B4E980 /* SentenceQuizQuestionView.swift in Sources */,
+				7E6C9D2A4F1B3C5D8E0A1B2C /* SentenceQuizProgressStore.swift in Sources */,
 				34269B6CA4AAC44BEB00B85B /* SentenceQuizView.swift in Sources */,
 				492D27CB88B80590F8AA2C16 /* SentenceQuizViewModel.swift in Sources */,
 				77BDD39B137C1B1CFD276E75 /* SettingsView.swift in Sources */,

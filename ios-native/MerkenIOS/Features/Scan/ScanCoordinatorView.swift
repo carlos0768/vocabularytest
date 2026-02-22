@@ -66,6 +66,9 @@ struct ScanCoordinatorView: View {
                     words: $viewModel.editableWords,
                     projectTitle: $viewModel.projectTitle,
                     targetProjectTitle: viewModel.targetProjectTitle,
+                    isPro: appState.isPro,
+                    currentWordCount: viewModel.currentWordCount,
+                    freeWordLimit: ScanCoordinatorViewModel.freeWordLimit,
                     onSave: { viewModel.saveWords(using: appState) },
                     onCancel: { dismiss() }
                 )

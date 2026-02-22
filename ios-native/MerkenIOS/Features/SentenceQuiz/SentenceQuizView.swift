@@ -34,7 +34,7 @@ struct SentenceQuizView: View {
         .task(id: project.id) {
             if let preloadedWords, !preloadedWords.isEmpty {
                 viewModel.setSourceWords(preloadedWords)
-                await viewModel.generateQuiz(using: appState)
+                await viewModel.generateQuiz(projectId: project.id, using: appState)
             } else {
                 await viewModel.load(projectId: project.id, using: appState)
             }

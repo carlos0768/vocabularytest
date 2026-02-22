@@ -60,6 +60,7 @@ struct AppContainer {
 
         let webAPIClient = WebAPIClient(baseURL: config.webAPIBaseURL)
         let quizStatsStore = QuizStatsStore()
+        let sentenceQuizProgressStore = SentenceQuizProgressStore()
 
         let appState = AppState(
             authService: authService,
@@ -67,6 +68,7 @@ struct AppContainer {
             guestSessionStore: GuestSessionStore(),
             webAPIClient: webAPIClient,
             quizStatsStore: quizStatsStore,
+            sentenceQuizProgressStore: sentenceQuizProgressStore,
             collectionRepository: collectionRepository
         )
 
