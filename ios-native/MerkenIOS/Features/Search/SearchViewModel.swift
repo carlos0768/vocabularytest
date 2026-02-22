@@ -1,14 +1,25 @@
 import Foundation
 import OSLog
 
+struct SearchResult: Identifiable {
+    let id: String
+    let english: String
+    let japanese: String
+    let projectId: String
+    let projectTitle: String
+    let similarity: Int
+}
+
 @MainActor
 final class SearchViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published private(set) var results: [Word] = []
+    @Published private(set) var results: [SearchResult] = []
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
     private var allWords: [Word] = []
+    private var projectTitleMap: [String: String] = [:]
+    private var debounceTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "MerkenIOS", category: "SearchVM")
 
     var hasSearched: Bool {
@@ -21,8 +32,10 @@ final class SearchViewModel: ObservableObject {
 
         do {
             allWords = try await state.activeRepository.fetchAllWords(userId: state.activeUserId)
+            let projects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
+            projectTitleMap = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.title) })
             if hasSearched {
-                search()
+                search(using: state)
             }
             errorMessage = nil
         } catch {
@@ -32,15 +45,88 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
-    func search() {
+    func search(using state: AppState) {
         guard !searchText.isEmpty else {
             results = []
             return
         }
-        let query = searchText.lowercased()
-        results = allWords.filter {
-            $0.english.lowercased().contains(query) ||
-            $0.japanese.lowercased().contains(query)
+
+        if state.isPro, let token = state.session?.accessToken {
+            searchSemanticDebounced(query: searchText, token: token, client: state.webAPIClient)
+        } else {
+            searchLocal()
+        }
+    }
+
+    // MARK: - Semantic Search (Pro)
+
+    private func searchSemanticDebounced(query: String, token: String, client: WebAPIClient) {
+        debounceTask?.cancel()
+        debounceTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+            guard !Task.isCancelled else { return }
+            await searchSemantic(query: query, token: token, client: client)
+        }
+    }
+
+    private func searchSemantic(query: String, token: String, client: WebAPIClient) async {
+        loading = true
+        defer { loading = false }
+
+        do {
+            let apiResults = try await client.searchSemantic(query: query, bearerToken: token)
+            guard !Task.isCancelled else { return }
+            results = apiResults.map { r in
+                SearchResult(
+                    id: r.id,
+                    english: r.english,
+                    japanese: r.japanese,
+                    projectId: r.projectId,
+                    projectTitle: r.projectTitle,
+                    similarity: r.similarity
+                )
+            }
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError || Task.isCancelled { return }
+            logger.error("Semantic search failed: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Local Keyword Search (Free / Guest)
+
+    private func searchLocal() {
+        let query = searchText.lowercased().trimmingCharacters(in: .whitespaces)
+
+        let scored: [SearchResult] = allWords.compactMap { word in
+            let english = word.english.lowercased()
+            let japanese = word.japanese.lowercased()
+
+            let similarity: Int
+            if english == query || japanese == query {
+                similarity = 100
+            } else if english.hasPrefix(query) || japanese.hasPrefix(query) {
+                similarity = 92
+            } else if english.contains(query) || japanese.contains(query) {
+                similarity = 82
+            } else {
+                return nil
+            }
+
+            return SearchResult(
+                id: word.id,
+                english: word.english,
+                japanese: word.japanese,
+                projectId: word.projectId,
+                projectTitle: projectTitleMap[word.projectId] ?? "",
+                similarity: similarity
+            )
+        }
+
+        results = scored.sorted { $0.similarity > $1.similarity }
+        if results.count > 50 {
+            results = Array(results.prefix(50))
         }
     }
 }

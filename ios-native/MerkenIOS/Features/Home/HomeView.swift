@@ -247,7 +247,11 @@ struct HomeView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 2)
+            )
         }
     }
 
@@ -348,7 +352,11 @@ struct HomeView: View {
                         lineWidth: project.isFavorite ? 2.5 : 1.5
                     )
             )
-            .shadow(color: MerkenTheme.border.opacity(0.4), radius: 0, x: 0, y: 2)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 2)
+            )
 
             // Menu dot — white circle at top-right, slightly outside
             Image(systemName: "ellipsis")
@@ -357,7 +365,6 @@ struct HomeView: View {
                 .frame(width: 24, height: 24)
                 .background(MerkenTheme.surface, in: .circle)
                 .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
-                .shadow(color: MerkenTheme.border.opacity(0.3), radius: 2, x: 0, y: 1)
                 .offset(x: 4, y: -4)
         }
     }

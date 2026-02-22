@@ -13,11 +13,9 @@ struct SearchView: View {
                 // Fixed header
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("検索")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                        }
+                        Text("検索")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
                         Spacer()
                     }
 
@@ -60,6 +58,22 @@ struct SearchView: View {
                     Spacer()
                     placeholder
                     Spacer()
+                } else if viewModel.loading {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(MerkenTheme.accentBlue)
+                        Text("検索中...")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                    Spacer()
+                } else if let error = viewModel.errorMessage {
+                    Spacer()
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundStyle(MerkenTheme.danger)
+                    Spacer()
                 } else if viewModel.results.isEmpty {
                     Spacer()
                     noResults
@@ -72,12 +86,14 @@ struct SearchView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: viewModel.searchText) {
-            viewModel.search()
+            viewModel.search(using: appState)
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
     }
+
+    // MARK: - Placeholder
 
     private var placeholder: some View {
         VStack(spacing: 16) {
@@ -100,37 +116,63 @@ struct SearchView: View {
         }
     }
 
+    // MARK: - No Results
+
     private var noResults: some View {
         VStack(spacing: 12) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 48))
                 .foregroundStyle(MerkenTheme.mutedText)
-            Text("該当する単語がありません")
+            Text("「\(viewModel.searchText)」に関連する単語が見つかりません")
                 .font(.headline)
                 .foregroundStyle(MerkenTheme.secondaryText)
+                .multilineTextAlignment(.center)
         }
+        .padding(.horizontal, 24)
     }
+
+    // MARK: - Result List
 
     private var resultList: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
-                ForEach(viewModel.results) { word in
-                    SolidPane {
+            LazyVStack(alignment: .leading, spacing: 8) {
+                Text("\(viewModel.results.count)件の関連単語")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .padding(.bottom, 4)
+
+                ForEach(viewModel.results) { result in
+                    SolidCard {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(word.english)
+                                Text(result.english)
                                     .font(.headline)
                                     .foregroundStyle(MerkenTheme.primaryText)
-                                Text(word.japanese)
+                                Text(result.japanese)
                                     .font(.subheadline)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
+                                    .foregroundStyle(MerkenTheme.mutedText)
                             }
                             Spacer()
-                            statusBadge(word.status)
-                            if word.isFavorite {
-                                Image(systemName: "heart.fill")
-                                    .foregroundStyle(MerkenTheme.danger)
-                                    .font(.caption)
+                            VStack(alignment: .trailing, spacing: 6) {
+                                Text("\(result.similarity)%")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(MerkenTheme.accentBlue)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        Capsule().fill(MerkenTheme.accentBlue.opacity(0.1))
+                                    )
+                                if !result.projectTitle.isEmpty {
+                                    Text(result.projectTitle)
+                                        .font(.caption2)
+                                        .foregroundStyle(MerkenTheme.mutedText)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(
+                                            Capsule().fill(MerkenTheme.surfaceAlt)
+                                        )
+                                        .lineLimit(1)
+                                }
                             }
                         }
                     }
@@ -140,22 +182,5 @@ struct SearchView: View {
             .padding(.vertical, 12)
         }
         .scrollIndicators(.hidden)
-    }
-
-    private func statusBadge(_ status: WordStatus) -> some View {
-        Text(status.rawValue)
-            .font(.caption2.bold())
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(statusColor(status)))
-    }
-
-    private func statusColor(_ status: WordStatus) -> Color {
-        switch status {
-        case .new: return MerkenTheme.warning
-        case .review: return MerkenTheme.accentBlue
-        case .mastered: return MerkenTheme.success
-        }
     }
 }

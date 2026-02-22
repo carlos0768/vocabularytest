@@ -154,7 +154,11 @@ struct FlashcardView: View {
                 .frame(width: 44, height: 44)
                 .background(MerkenTheme.surface, in: .circle)
                 .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
+                .background(
+                    Circle()
+                        .fill(MerkenTheme.border)
+                        .offset(y: 2)
+                )
         }
         .disabled(!enabled)
     }

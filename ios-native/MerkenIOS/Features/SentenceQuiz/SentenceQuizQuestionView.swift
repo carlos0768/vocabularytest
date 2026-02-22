@@ -270,7 +270,11 @@ struct SentenceQuizQuestionView: View {
         .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 20).fill(fillColor))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(borderColor, lineWidth: isRevealed ? 2 : 1.5))
-        .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 2)
+        )
         .onTapGesture {
             guard !isRevealed else { return }
             onAnswer(option, option == correctAnswer)

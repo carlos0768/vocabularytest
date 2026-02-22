@@ -12,8 +12,9 @@ struct ProjectDetailView: View {
     @State private var flashcardDestination: Project?
     @State private var sentenceQuizDestination: Project?
     @State private var showingScan = false
-    @State private var searchText = ""
     @State private var previewIndex = 0
+    @State private var showingWordList = false
+    @State private var dictionaryURL: URL?
 
     private var hasIconImage: Bool {
         if let iconImage = project.iconImage,
@@ -112,6 +113,13 @@ struct ProjectDetailView: View {
             .environmentObject(appState)
         }
         .sheet(item: $editorMode, content: editorSheet)
+        .sheet(item: $dictionaryURL) { url in
+            SafariView(url: url)
+                .ignoresSafeArea()
+        }
+        .navigationDestination(isPresented: $showingWordList) {
+            WordListView(project: project)
+        }
         .navigationDestination(item: $showingQuiz) { _ in
             QuizView(project: project, preloadedWords: viewModel.words)
         }
@@ -173,19 +181,6 @@ struct ProjectDetailView: View {
                             .layoutPriority(-1)
                             .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
 
-                        if appState.isPro {
-                            HStack(spacing: 2) {
-                                Image(systemName: "sparkles")
-                                    .font(.caption2)
-                                Text("Pro")
-                                    .font(.caption2.bold())
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(.white.opacity(0.25), in: .capsule)
-                            .fixedSize()
-                        }
                     }
 
                     let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
@@ -327,7 +322,7 @@ struct ProjectDetailView: View {
                 Button {
                     let encoded = word.english.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word.english
                     if let url = URL(string: "https://eow.alc.co.jp/search?q=\(encoded)") {
-                        UIApplication.shared.open(url)
+                        dictionaryURL = url
                     }
                 } label: {
                     HStack(spacing: 6) {
@@ -441,108 +436,38 @@ struct ProjectDetailView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 3)
+            )
         }
     }
 
-    // MARK: - Word List
+    // MARK: - Word List (compact summary → navigates to full list)
 
     private var wordListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Section header
-            HStack {
-                IconBadge(systemName: "list.bullet", color: MerkenTheme.accentBlue, size: 32)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("単語一覧")
-                        .font(.headline)
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("\(viewModel.words.count)語")
-                        .font(.caption)
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-                Spacer()
-                Button {
-                    editorMode = .create
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                            .font(.caption.bold())
-                        Text("追加")
-                            .font(.subheadline.bold())
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(MerkenTheme.accentBlue, in: .capsule)
-                }
-            }
-
-            // Search
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(MerkenTheme.mutedText)
-                TextField("単語を検索...", text: $viewModel.searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
-            )
-
-            // Words
-            let filteredWords = viewModel.filteredWords
-            if filteredWords.isEmpty {
+            Button {
+                showingWordList = true
+            } label: {
                 SolidCard {
-                    Text("単語がありません。追加して学習を開始してください。")
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-            }
-
-            ForEach(filteredWords) { word in
-                wordRow(word)
-            }
-        }
-    }
-
-    private func wordRow(_ word: Word) -> some View {
-        SolidPane {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(word.english)
-                        .font(.headline)
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text(word.japanese)
-                        .font(.subheadline)
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-                Spacer()
-                HStack(spacing: 14) {
-                    Button {
-                        Task {
-                            await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
+                    HStack {
+                        IconBadge(systemName: "list.bullet", color: MerkenTheme.accentBlue, size: 32)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("単語一覧")
+                                .font(.headline)
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
+                            let reviewCount = viewModel.words.filter { $0.status == .review }.count
+                            Text("\(viewModel.words.count)語 / 習得 \(masteredCount)語 / 復習 \(reviewCount)語")
+                                .font(.caption)
+                                .foregroundStyle(MerkenTheme.mutedText)
                         }
-                    } label: {
-                        Image(systemName: word.isFavorite ? "flag.fill" : "flag")
-                            .foregroundStyle(word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
-                    }
-
-                    Button {
-                        editorMode = .edit(existing: word)
-                    } label: {
-                        Image(systemName: "pencil")
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-
-                    Button {
-                        Task {
-                            await viewModel.deleteWord(wordId: word.id, projectId: project.id, using: appState)
-                        }
-                    } label: {
-                        Image(systemName: "trash")
-                            .foregroundStyle(MerkenTheme.danger)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
             }
@@ -584,6 +509,10 @@ struct ProjectDetailView: View {
             }
         }
     }
+}
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
 }
 
 extension WordEditorSheet.Mode: Identifiable {
