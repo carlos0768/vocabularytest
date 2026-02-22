@@ -128,7 +128,7 @@ export function ProjectBookTile({
         }`}
       >
         {/* Book cover */}
-        <div className="relative mx-auto w-[76px] h-[108px] rounded-md overflow-hidden shadow-sm">
+        <div className="relative mx-auto w-[64px] h-[90px] rounded-md overflow-hidden shadow-sm">
           {safeIconImage ? (
             <span
               className="block w-full h-full bg-center bg-cover"

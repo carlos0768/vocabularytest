@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 
 const OPENAI_MODEL = 'gpt-4o';
 
@@ -82,52 +81,25 @@ ${questionList}
 回答が読み取れない場合は userAnswer を "(読み取れず)" とし、isCorrect を false としてください。
 JSONのみを出力し、説明は不要です。`;
 
-    let response: Awaited<ReturnType<OpenAI['chat']['completions']['create']>>;
-    try {
-      response = await getOpenAI().chat.completions.create({
-        model: OPENAI_MODEL,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: image,
-                  detail: 'high',
-                },
+    const response = await getOpenAI().chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: image,
+                detail: 'high',
               },
-            ],
-          },
-        ],
-        max_completion_tokens: 1000,
-      });
-
-      await recordApiCostEvent({
-        provider: 'openai',
-        model: OPENAI_MODEL,
-        operation: 'dictation.grade',
-        status: 'succeeded',
-        inputTokens: response.usage?.prompt_tokens ?? null,
-        outputTokens: response.usage?.completion_tokens ?? null,
-        totalTokens: response.usage?.total_tokens ?? null,
-      });
-    } catch (completionError) {
-      await recordApiCostEvent({
-        provider: 'openai',
-        model: OPENAI_MODEL,
-        operation: 'dictation.grade',
-        status: 'failed',
-        metadata: {
-          error:
-            completionError instanceof Error
-              ? completionError.message.slice(0, 300)
-              : String(completionError).slice(0, 300),
+            },
+          ],
         },
-      });
-      throw completionError;
-    }
+      ],
+      max_completion_tokens: 1000,
+    });
 
     const content = response.choices[0]?.message?.content || '';
 

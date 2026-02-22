@@ -53,44 +53,42 @@ export default function StatsPage() {
               <p className="text-[var(--color-muted)]">統計を読み込めませんでした</p>
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-10">
               {/* 今日の学習 */}
-              <section className="card border-2 border-[var(--color-border)] border-b-4 p-5">
-                <h2 className="text-sm font-bold text-[var(--color-foreground)] flex items-center gap-2 mb-4">
+              <section className="space-y-4">
+                <h2 className="text-sm font-bold text-[var(--color-foreground)] px-1 flex items-center gap-2">
                   <Icon name="today" size={18} className="text-[var(--color-primary)]" />
                   今日の学習
                 </h2>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-[var(--color-background)] p-4 flex flex-col gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--color-primary-light)] flex items-center justify-center shrink-0">
-                      <Icon name="quiz" size={20} className="text-[var(--color-primary)]" />
+                  <div className="card p-5 lg:p-6 flex flex-col gap-3 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-12 h-12 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center shrink-0">
+                      <Icon name="quiz" size={24} className="text-[var(--color-primary)]" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.quizStats.todayCount}</p>
-                      <p className="text-xs font-semibold text-[var(--color-muted)] mt-0.5">クイズ回答数</p>
+                      <p className="text-3xl font-bold text-[var(--color-foreground)]">{stats.quizStats.todayCount}</p>
+                      <p className="text-xs font-semibold text-[var(--color-muted)] mt-1">クイズ回答数</p>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-[var(--color-background)] p-4 flex flex-col gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
-                      <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
+                  <div className="card p-5 lg:p-6 flex flex-col gap-3 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-12 h-12 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
+                      <Icon name="check_circle" size={24} className="text-[var(--color-success)]" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-[var(--color-success)]">{accuracyPercentage}%</p>
-                      <p className="text-xs font-semibold text-[var(--color-muted)] mt-0.5">正答率</p>
+                      <p className="text-3xl font-bold text-[var(--color-success)]">{accuracyPercentage}%</p>
+                      <p className="text-xs font-semibold text-[var(--color-muted)] mt-1">正答率</p>
                     </div>
                   </div>
                 </div>
               </section>
 
               {/* 単語統計 */}
-              <section className="card border-2 border-[var(--color-border)] border-b-4 p-5 space-y-4">
-                <h2 className="text-sm font-bold text-[var(--color-foreground)] flex items-center gap-2">
+              <section className="space-y-4">
+                <h2 className="text-sm font-bold text-[var(--color-foreground)] px-1 flex items-center gap-2">
                   <Icon name="menu_book" size={18} className="text-[var(--color-primary)]" />
                   単語統計
                 </h2>
-
-                {/* 習得の進捗 */}
-                <div className="rounded-xl bg-[var(--color-background)] p-4">
+                <div className="card p-5 lg:p-6 border-2 border-[var(--color-border)] border-b-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-[var(--color-foreground)]">習得の進捗</h3>
                     <span className="text-xs font-semibold text-[var(--color-success)]">
@@ -107,48 +105,47 @@ export default function StatsPage() {
                       style={{ width: `${stats.totalWords > 0 ? (stats.reviewWords / stats.totalWords) * 100 : 0}%` }}
                     />
                   </div>
-                  <div className="flex justify-between items-center text-[11px] font-semibold text-[var(--color-muted)] mt-3">
+                  <div className="flex justify-between items-center text-[11px] font-semibold text-[var(--color-muted)] mt-4 px-1">
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />習得 {stats.masteredWords}</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-primary)]" />復習中 {stats.reviewWords}</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-border-light)]" />未学習 {stats.newWords}</span>
                   </div>
                 </div>
 
-                {/* ステータス別カード */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-[var(--color-background)] p-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
-                      <Icon name="check_circle" size={18} className="text-[var(--color-success)]" />
+                  <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center shrink-0">
+                      <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
                     </div>
                     <div>
-                      <p className="text-xl font-bold text-[var(--color-foreground)]">{stats.masteredWords}</p>
+                      <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.masteredWords}</p>
                       <p className="text-xs text-[var(--color-muted)]">習得済み</p>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-[var(--color-background)] p-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[var(--color-primary-light)] flex items-center justify-center shrink-0">
-                      <Icon name="autorenew" size={18} className="text-[var(--color-primary)]" />
+                  <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center shrink-0">
+                      <Icon name="autorenew" size={20} className="text-[var(--color-primary)]" />
                     </div>
                     <div>
-                      <p className="text-xl font-bold text-[var(--color-foreground)]">{stats.reviewWords}</p>
+                      <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.reviewWords}</p>
                       <p className="text-xs text-[var(--color-muted)]">復習中</p>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-[var(--color-background)] p-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[var(--color-background)] flex items-center justify-center shrink-0 border border-[var(--color-border)]">
-                      <Icon name="schedule" size={18} className="text-[var(--color-muted)]" />
+                  <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-surface)] flex items-center justify-center shrink-0 border border-[var(--color-border)]">
+                      <Icon name="schedule" size={20} className="text-[var(--color-muted)]" />
                     </div>
                     <div>
-                      <p className="text-xl font-bold text-[var(--color-foreground)]">{stats.newWords}</p>
+                      <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.newWords}</p>
                       <p className="text-xs text-[var(--color-muted)]">未学習</p>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-[var(--color-background)] p-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[var(--color-error)]/10 flex items-center justify-center shrink-0">
-                      <Icon name="error" size={18} className="text-[var(--color-error)]" />
+                  <div className="card p-4 flex items-center gap-3 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-error)]/10 flex items-center justify-center shrink-0">
+                      <Icon name="error" size={20} className="text-[var(--color-error)]" />
                     </div>
                     <div>
-                      <p className="text-xl font-bold text-[var(--color-foreground)]">{stats.wrongAnswersCount}</p>
+                      <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.wrongAnswersCount}</p>
                       <p className="text-xs text-[var(--color-muted)]">間違えた単語</p>
                     </div>
                   </div>
@@ -156,12 +153,12 @@ export default function StatsPage() {
               </section>
 
               {/* 概要 */}
-              <section className="card border-2 border-[var(--color-border)] border-b-4 p-5 space-y-4">
-                <h2 className="text-sm font-bold text-[var(--color-foreground)] flex items-center gap-2">
+              <section className="space-y-4">
+                <h2 className="text-sm font-bold text-[var(--color-foreground)] px-1 flex items-center gap-2">
                   <Icon name="bar_chart" size={18} className="text-[var(--color-primary)]" />
                   概要
                 </h2>
-                <div className="rounded-xl bg-[var(--color-background)] overflow-hidden">
+                <div className="card p-1 border-2 border-[var(--color-border)] border-b-4">
                   <div className="flex justify-between items-center py-3 px-4 border-b border-[var(--color-border-light)]">
                     <span className="text-sm text-[var(--color-muted)] font-medium">単語帳数</span>
                     <span className="font-bold text-[var(--color-foreground)]">{stats.totalProjects}</span>
