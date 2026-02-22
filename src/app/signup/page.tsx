@@ -110,9 +110,9 @@ function SignupForm() {
         return;
       }
 
-      // Registration + login successful - redirect
+      // Registration + login successful - redirect to language selection
       // ハードナビゲーションでcookieを確実にサーバーへ反映
-      window.location.href = redirect;
+      window.location.href = `/onboarding/language?redirect=${encodeURIComponent(redirect)}`;
     } catch {
       setError('通信エラーが発生しました');
       setLoading(false);

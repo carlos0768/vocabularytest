@@ -9,6 +9,8 @@ import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
 import { KOMOJU_CONFIG } from '@/lib/komoju/config';
 import { FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
+import { createBrowserClient } from '@/lib/supabase';
+import type { NativeLanguage } from '@/types';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -22,6 +24,35 @@ export default function SettingsPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
+  const [savingLanguage, setSavingLanguage] = useState(false);
+
+  const LANGUAGE_OPTIONS: { value: NativeLanguage; flag: string; label: string }[] = [
+    { value: 'ja', flag: '\u{1F1EF}\u{1F1F5}', label: '\u65E5\u672C\u8A9E' },
+    { value: 'en', flag: '\u{1F1FA}\u{1F1F8}', label: 'English' },
+    { value: 'ko', flag: '\u{1F1F0}\u{1F1F7}', label: '\uD55C\uAD6D\uC5B4' },
+    { value: 'zh', flag: '\u{1F1E8}\u{1F1F3}', label: '\u4E2D\u6587' },
+    { value: 'ar', flag: '\u{1F1F8}\u{1F1E6}', label: '\u0627\u0644\u0639\u0631\u0628\u064A\u0629' },
+    { value: 'he', flag: '\u{1F1EE}\u{1F1F1}', label: '\u05E2\u05D1\u05E8\u05D9\u05EA' },
+  ];
+
+  const currentLanguage = subscription?.nativeLanguage ?? 'ja';
+
+  const handleLanguageChange = async (lang: NativeLanguage) => {
+    if (!user || lang === currentLanguage) return;
+    setSavingLanguage(true);
+    try {
+      const supabase = createBrowserClient();
+      await supabase
+        .from('subscriptions')
+        .update({ native_language: lang })
+        .eq('user_id', user.id);
+      await refresh();
+    } catch {
+      // ignore
+    } finally {
+      setSavingLanguage(false);
+    }
+  };
 
   // Save settings
   const updateTheme = (newTheme: Theme) => {
@@ -155,6 +186,37 @@ export default function SettingsPage() {
             </div>
 
           </div>
+
+          {/* Native Language - only for authenticated users */}
+          {isAuthenticated && (
+            <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 overflow-hidden mt-3">
+              <div className="px-4 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-medium text-[var(--color-foreground)]">母語</span>
+                  {savingLanguage && (
+                    <Icon name="progress_activity" size={16} className="text-[var(--color-primary)] animate-spin" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <button
+                      key={lang.value}
+                      onClick={() => handleLanguageChange(lang.value)}
+                      disabled={savingLanguage}
+                      className={`px-3 py-1.5 text-sm rounded-full transition-all flex items-center gap-1.5 ${
+                        currentLanguage === lang.value
+                          ? 'bg-[var(--color-primary)] text-white font-medium'
+                          : 'bg-[var(--color-background)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'
+                      }`}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Plan Section */}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import type { Subscription, SubscriptionPlan } from '@/types';
+import type { Subscription, SubscriptionPlan, NativeLanguage } from '@/types';
 import { hybridRepository, shouldRunFullSync } from '@/lib/db';
 import { invalidateStatsCache } from '@/lib/stats-cache';
 import { clearHomeCache } from '@/lib/home-cache';
@@ -52,6 +52,7 @@ function mapSubscriptionRow(
     userId: row.user_id as string,
     status,
     plan,
+    nativeLanguage: (row.native_language as NativeLanguage | null) ?? 'ja',
     proSource: (row.pro_source as 'none' | 'billing' | 'test' | null) ?? 'none',
     testProExpiresAt: (row.test_pro_expires_at as string | null | undefined) ?? null,
     komojuSubscriptionId: row.komoju_subscription_id as string | undefined,

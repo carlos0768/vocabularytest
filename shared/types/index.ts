@@ -117,6 +117,7 @@ export interface ProgressStep {
 
 // ============ Subscription Types ============
 
+export type NativeLanguage = 'ja' | 'en' | 'ko' | 'zh' | 'ar' | 'he';
 export type SubscriptionStatus = 'free' | 'active' | 'cancelled' | 'past_due';
 export type SubscriptionPlan = 'free' | 'pro';
 
@@ -125,6 +126,7 @@ export interface Subscription {
   userId: string;
   status: SubscriptionStatus;
   plan: SubscriptionPlan;
+  nativeLanguage: NativeLanguage;
   proSource: 'none' | 'billing' | 'test';
   testProExpiresAt: string | null;
   komojuSubscriptionId?: string;

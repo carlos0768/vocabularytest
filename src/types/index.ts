@@ -14,6 +14,7 @@ export type {
   WordRepository,
   ScanProgress,
   ProgressStep,
+  NativeLanguage,
   SubscriptionStatus,
   SubscriptionPlan,
   Subscription,
