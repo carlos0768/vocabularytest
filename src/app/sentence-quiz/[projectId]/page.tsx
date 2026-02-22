@@ -45,6 +45,7 @@ export default function SentenceQuizPage() {
   const returnPath = searchParams.get('from');
   const favoritesOnly = searchParams.get('favorites') === 'true';
   const collectionId = searchParams.get('collectionId');
+  const quizMode = searchParams.get('mode') || 'lite'; // 'lite' | 'normal'
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -121,17 +122,12 @@ export default function SentenceQuizPage() {
         selectedWords = shuffleArray(selectedWords);
       }
 
-      const response = await fetch('/api/sentence-quiz', {
+      const apiPath = quizMode === 'lite' ? '/api/sentence-quiz/lite' : '/api/sentence-quiz';
+
+      const response = await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          words: selectedWords.map((w) => ({
-            id: w.id,
-            english: w.english,
-            japanese: w.japanese,
-            status: w.status,
-          })),
-        }),
+        body: JSON.stringify(body),
         signal: abortControllerRef.current.signal,
       });
 
@@ -158,7 +154,7 @@ export default function SentenceQuizPage() {
       setLoading(false);
       abortControllerRef.current = null;
     }
-  }, []);
+  }, [quizMode]);
 
   // 初期ロード
   useEffect(() => {
