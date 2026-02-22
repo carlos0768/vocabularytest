@@ -108,6 +108,21 @@ final class ProjectDetailViewModel: ObservableObject {
         }
     }
 
+    func deleteProject(id: String, using state: AppState) async {
+        do {
+            try await state.activeRepository.deleteProject(id: id)
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError {
+                errorMessage = nil
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Delete project failed: \(error.localizedDescription)")
+        }
+    }
+
     func toggleFavorite(word: Word, projectId: String, using state: AppState) async {
         await updateWord(
             wordId: word.id,

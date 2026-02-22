@@ -6,6 +6,7 @@ struct ProjectDetailView: View {
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = ProjectDetailViewModel()
+    @Environment(\.dismiss) private var dismiss
 
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var showingQuiz: String?
@@ -16,6 +17,8 @@ struct ProjectDetailView: View {
     @State private var previewIndex = 0
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
+    @State private var showingShareSheet = false
+    @State private var showingDeleteConfirm = false
 
     private var hasIconImage: Bool {
         if let iconImage = project.iconImage,
@@ -102,7 +105,7 @@ struct ProjectDetailView: View {
             }
         }
         .tint(.white)
-        .fullScreenCover(isPresented: $showingScan) {
+        .sheet(isPresented: $showingScan) {
             ScanCoordinatorView(
                 targetProjectId: project.id,
                 targetProjectTitle: project.title
@@ -112,6 +115,8 @@ struct ProjectDetailView: View {
                 }
             }
             .environmentObject(appState)
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(item: $editorMode, content: editorSheet)
         .sheet(item: $dictionaryURL) { url in
@@ -133,9 +138,29 @@ struct ProjectDetailView: View {
         .navigationDestination(item: $sentenceQuizDestination) { project in
             SentenceQuizView(project: project)
         }
+        .sheet(isPresented: $showingShareSheet) {
+            ShareSheet(items: shareItems())
+        }
+        .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm) {
+            Button("削除", role: .destructive) {
+                Task {
+                    await viewModel.deleteProject(id: project.id, using: appState)
+                    dismiss()
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("「\(project.title)」と含まれる単語がすべて削除されます。この操作は取り消せません。")
+        }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(projectId: project.id, using: appState)
         }
+    }
+
+    private func shareItems() -> [Any] {
+        let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
+        let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
+        return [text]
     }
 
     // MARK: - Header (Notion-style cover, extends behind nav bar)
@@ -148,13 +173,14 @@ struct ProjectDetailView: View {
             // Cover image (or placeholder) — extended upward to cover safe area
             if let iconImage = project.iconImage,
                let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .frame(height: 176 + headerTopExtension)
-                    .contentShape(Rectangle())
-                    .clipped()
+                GeometryReader { geo in
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+                .frame(height: 176 + headerTopExtension)
                     .overlay(
                         LinearGradient(
                             colors: [.black.opacity(0.5), .black.opacity(0.15)],
@@ -198,16 +224,24 @@ struct ProjectDetailView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: 10) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.subheadline)
-                        .foregroundStyle(.white)
-                        .frame(width: 36, height: 36)
-                        .background(.white.opacity(0.2), in: .circle)
-                    Image(systemName: "trash")
-                        .font(.subheadline)
-                        .foregroundStyle(.white)
-                        .frame(width: 36, height: 36)
-                        .background(.white.opacity(0.2), in: .circle)
+                    Button {
+                        showingShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.subheadline)
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.white.opacity(0.2), in: .circle)
+                    }
+                    Button {
+                        showingDeleteConfirm = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.subheadline)
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.white.opacity(0.2), in: .circle)
+                    }
                 }
             }
             .padding(.horizontal, 16)

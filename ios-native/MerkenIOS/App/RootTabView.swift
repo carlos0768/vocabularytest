@@ -56,9 +56,11 @@ struct RootTabView: View {
         .background {
             AppBackground()
         }
-        .fullScreenCover(isPresented: $showingScan) {
+        .sheet(isPresented: $showingScan) {
             ScanCoordinatorView()
                 .environmentObject(appState)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .alert("ログインが必要です", isPresented: $showLoginAlert) {
             Button("OK") {}

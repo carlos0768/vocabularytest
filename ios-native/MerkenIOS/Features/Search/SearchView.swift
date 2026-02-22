@@ -83,6 +83,9 @@ struct SearchView: View {
                 }
             }
         }
+        .onTapGesture {
+            isSearchFocused = false
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: viewModel.searchText) {
@@ -181,6 +184,7 @@ struct SearchView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        .scrollDismissesKeyboard(.interactively)
         .scrollIndicators(.hidden)
     }
 }

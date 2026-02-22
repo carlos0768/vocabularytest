@@ -242,9 +242,11 @@ struct HomeView: View {
                 appState.selectedTab = 1
             }
         }
-        .fullScreenCover(isPresented: $showingScan) {
+        .sheet(isPresented: $showingScan) {
             ScanCoordinatorView()
                 .environmentObject(appState)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 

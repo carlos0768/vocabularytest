@@ -82,9 +82,11 @@ struct ProjectListView: View {
                 .presentationDetents([.height(280)])
                 .presentationDragIndicator(.visible)
         }
-        .fullScreenCover(isPresented: $showingScan) {
+        .sheet(isPresented: $showingScan) {
             ScanCoordinatorView()
                 .environmentObject(appState)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .alert("この単語帳を削除しますか？", isPresented: Binding(
             get: { projectToDelete != nil },
