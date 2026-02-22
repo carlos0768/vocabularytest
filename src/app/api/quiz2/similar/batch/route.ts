@@ -54,7 +54,7 @@ type BatchDeps = {
   ) => Promise<SimilarItem[]>;
   triggerSingleWordRebuild: (
     request: NextRequest,
-    args: { userId: string; sourceWordId: string },
+    args: { userId: string; sourceWordIds: string[] },
   ) => void;
 };
 
@@ -155,6 +155,7 @@ const defaultDeps: BatchDeps = {
   triggerSingleWordRebuild(request, args) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) return;
+    if (args.sourceWordIds.length === 0) return;
 
     const rebuildUrl = new URL('/api/similar-cache/rebuild', request.url);
     fetch(rebuildUrl.toString(), {
@@ -165,11 +166,11 @@ const defaultDeps: BatchDeps = {
       },
       body: JSON.stringify({
         userId: args.userId,
-        mode: 'single_word',
-        sourceWordId: args.sourceWordId,
+        mode: 'on_new_words',
+        newWordIds: args.sourceWordIds,
       }),
     }).catch((error) => {
-      console.error('Failed to trigger single-word similar cache rebuild:', error);
+      console.error('Failed to trigger batched similar cache rebuild:', error);
     });
   },
 };
@@ -251,8 +252,9 @@ export async function handleQuiz2SimilarBatchPost(
         }
 
         resultsByWordId[sourceWordId] = fallbackResults.slice(0, limit);
-        deps.triggerSingleWordRebuild(request, { userId, sourceWordId });
       }));
+
+      deps.triggerSingleWordRebuild(request, { userId, sourceWordIds: missingSourceIds });
     }
 
     return NextResponse.json({ resultsByWordId });

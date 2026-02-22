@@ -869,7 +869,7 @@ export default function HomePage() {
 
     setManualWordSaving(true);
     try {
-      await repository.createWords([
+      const createdWords = await repository.createWords([
         {
           projectId: currentProject.id,
           english: manualWordEnglish.trim(),
@@ -896,7 +896,10 @@ export default function HomePage() {
         fetch('/api/embeddings/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id }),
+          body: JSON.stringify({
+            wordIds: createdWords.map((word) => word.id),
+            limit: Math.min(createdWords.length, 50),
+          }),
         }).catch(() => {});
       }
     } catch (error) {

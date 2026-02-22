@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -39,13 +40,14 @@ const requestSchema = z.object({
 // Images are already uploaded directly to Storage by client
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createRouteHandlerClient(request);
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!bearerToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(bearerToken);
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -58,6 +60,34 @@ export async function POST(request: NextRequest) {
       return parsed.response;
     }
     const { projectTitle, projectIcon, scanMode, eikenLevel, imagePath, imagePaths: multiplePaths } = parsed.data;
+
+    const requiresPro = scanMode !== 'all';
+    const { data: scanData, error: scanError } = await supabase
+      .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
+
+    if (scanError || !scanData) {
+      console.error('Scan limit check error:', scanError);
+      return NextResponse.json({ error: 'スキャン制限の確認に失敗しました' }, { status: 500 });
+    }
+
+    if (scanData.requires_pro) {
+      return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
+    }
+
+    if (!scanData.allowed) {
+      return NextResponse.json(
+        {
+          error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。`,
+          limitReached: true,
+          scanInfo: {
+            currentCount: scanData.current_count,
+            limit: scanData.limit,
+            isPro: scanData.is_pro,
+          },
+        },
+        { status: 429 }
+      );
+    }
 
     // Support both single imagePath and multiple imagePaths
     const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);

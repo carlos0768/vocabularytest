@@ -223,9 +223,9 @@ export async function POST(request: NextRequest) {
       result = await extractHighlightedWordsFromImage(image, apiKeys);
     } else {
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
-      // Pro users get example sentences included (determined server-side)
+      // Examples are generated in prefill flow to avoid duplicate AI generation costs.
       result = await extractWordsFromImage(image, apiKeys, {
-        includeExamples: scanData.is_pro === true,
+        includeExamples: false,
       });
     }
 

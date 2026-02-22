@@ -46,7 +46,12 @@ function normalizeProvider(provider: string): 'openai' | 'gemini' | null {
 }
 
 function normalizeModel(model: string): string {
-  return model.trim().toLowerCase();
+  const normalized = model.trim().toLowerCase();
+  if (normalized.includes('gemini-2.5-flash')) return 'gemini-2.5-flash';
+  if (normalized.includes('gpt-4o-mini')) return 'gpt-4o-mini';
+  if (normalized.includes('gpt-4o')) return 'gpt-4o';
+  if (normalized.includes('text-embedding-3-small')) return 'text-embedding-3-small';
+  return normalized;
 }
 
 function sanitizeTokens(value: number | null): number {

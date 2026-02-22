@@ -13,7 +13,7 @@ import {
   GeminiFallbackRunner,
   loadFallbackConfigFromEnv,
 } from './fallback/runner.js';
-import type { AppEnv } from './fallback/types.js';
+import type { AppEnv, ProviderGenerateResult, ProviderUsage } from './fallback/types.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -90,7 +90,19 @@ function normalizeAppEnv(value: string | undefined, fallback: AppEnv): AppEnv {
   return value === 'stg' || value === 'prod' ? value : fallback;
 }
 
-async function runGeminiRequest(body: GenerateRequest): Promise<string> {
+function asProviderUsage(raw: unknown): ProviderUsage | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const value = raw as Record<string, unknown>;
+  const input = typeof value.inputTokens === 'number' ? value.inputTokens : undefined;
+  const output = typeof value.outputTokens === 'number' ? value.outputTokens : undefined;
+  const total = typeof value.totalTokens === 'number' ? value.totalTokens : undefined;
+  if (input === undefined && output === undefined && total === undefined) {
+    return undefined;
+  }
+  return { inputTokens: input, outputTokens: output, totalTokens: total };
+}
+
+async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerateResult> {
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
   const fullPrompt = body.systemPrompt ? `${body.systemPrompt}\n\n${body.prompt}` : body.prompt;
   parts.push({ text: fullPrompt });
@@ -140,10 +152,20 @@ async function runGeminiRequest(body: GenerateRequest): Promise<string> {
     throw new Error(`Gemini returned empty content${reasonSuffix}`);
   }
 
-  return content;
+  const usage = asProviderUsage({
+    inputTokens: response.usageMetadata?.promptTokenCount,
+    outputTokens: response.usageMetadata?.candidatesTokenCount,
+    totalTokens: response.usageMetadata?.totalTokenCount,
+  });
+
+  return {
+    content,
+    modelUsed: response.modelVersion || body.model,
+    usage,
+  };
 }
 
-async function runOpenAIRequest(body: GenerateRequest, modelOverride?: string): Promise<string> {
+async function runOpenAIRequest(body: GenerateRequest, modelOverride?: string): Promise<ProviderGenerateResult> {
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 
   if (body.systemPrompt) {
@@ -183,7 +205,17 @@ async function runOpenAIRequest(body: GenerateRequest, modelOverride?: string): 
     throw new Error('OpenAI returned empty content');
   }
 
-  return content;
+  const usage = asProviderUsage({
+    inputTokens: response.usage?.prompt_tokens,
+    outputTokens: response.usage?.completion_tokens,
+    totalTokens: response.usage?.total_tokens,
+  });
+
+  return {
+    content,
+    modelUsed: response.model || modelOverride || body.model,
+    usage,
+  };
 }
 
 app.post('/generate', async (req, res) => {
@@ -224,15 +256,28 @@ app.post('/generate', async (req, res) => {
           (result.fallbackReason ? ` reason=${result.fallbackReason}` : ''),
       );
 
-      res.json({ success: true, content: result.content });
+      res.json({
+        success: true,
+        content: result.content,
+        providerUsed: result.provider,
+        modelUsed: result.modelUsed,
+        usage: result.usage,
+        fallbackReason: result.fallbackReason,
+      });
       return;
     }
 
     if (provider === 'openai') {
-      const content = await runOpenAIRequest(body);
+      const result = await runOpenAIRequest(body);
       const elapsed = Date.now() - startTime;
       console.log(`[generate] id=${requestId} provider=openai completed in ${elapsed}ms`);
-      res.json({ success: true, content });
+      res.json({
+        success: true,
+        content: result.content,
+        providerUsed: 'openai',
+        modelUsed: result.modelUsed,
+        usage: result.usage,
+      });
       return;
     }
 

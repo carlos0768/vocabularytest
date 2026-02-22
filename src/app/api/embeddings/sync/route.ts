@@ -198,14 +198,17 @@ async function getRemainingCount(
   userId: string
 ): Promise<number> {
   try {
-    const { data, error } = await supabase
+    const projectIds = await getProjectIdsForUser(supabase, userId);
+    if (projectIds.length === 0) return 0;
+
+    const { count, error } = await supabase
       .from('words')
       .select('id', { count: 'exact', head: true })
       .is('embedding', null)
-      .eq('project_id', await getProjectIdsForUser(supabase, userId));
+      .in('project_id', projectIds);
 
     if (error) return 0;
-    return data?.length || 0;
+    return count || 0;
   } catch {
     return 0;
   }

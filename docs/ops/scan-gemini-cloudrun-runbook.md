@@ -155,3 +155,28 @@ gcloud run services update-traffic scanvocab-ai-gateway \
 - [ ] scan-jobs E2E（完了通知まで）成功
 - [ ] エラー率・レイテンシ閾値内
 - [ ] fallback通知が期待どおり（必要時のみ）発報
+
+## 9. APIコスト制御フラグ運用
+### 9.1 認証必須化（AI系API）
+- `REQUIRE_AUTH_TRANSLATE=true`
+- `REQUIRE_AUTH_GENERATE_EXAMPLES=true`
+- `REQUIRE_AUTH_DICTATION_GRADE=true`
+
+### 9.2 日次利用上限
+- `ENABLE_AI_USAGE_LIMITS=true`
+- `AI_LIMIT_TRANSLATE_FREE_DAILY=100`
+- `AI_LIMIT_TRANSLATE_PRO_DAILY=500`
+- `AI_LIMIT_EXAMPLES_FREE_DAILY=15`
+- `AI_LIMIT_EXAMPLES_PRO_DAILY=150`
+- `AI_LIMIT_DICTATION_FREE_DAILY=10`
+- `AI_LIMIT_DICTATION_PRO_DAILY=60`
+
+### 9.3 ロールアウト手順（推奨）
+1. `feature_usage_daily` migrationを本番適用
+2. 先に `ENABLE_AI_USAGE_LIMITS=false` でアプリ反映（認証必須化のみ有効）
+3. 問題がなければ `ENABLE_AI_USAGE_LIMITS=true` へ切替
+4. `/api/ops/api-costs` の `operation`/`byModel` を7日比較し効果確認
+
+### 9.4 sentence-quiz切戻し
+- 通常: `SENTENCE_QUIZ_MAX_CONCURRENCY=3`
+- 緊急切戻し: `SENTENCE_QUIZ_USE_LEGACY=true`

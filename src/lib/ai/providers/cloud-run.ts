@@ -66,14 +66,20 @@ export class CloudRunProvider implements AIProvider {
         return { success: false, error: data.error || 'AI processing failed' };
       }
 
+      const providerUsed = data.providerUsed === 'openai' || data.providerUsed === 'gemini'
+        ? data.providerUsed
+        : this.providerName;
+      const modelUsed = typeof data.modelUsed === 'string'
+        ? data.modelUsed
+        : config.model;
       const usage = data.usage as {
         inputTokens?: number;
         outputTokens?: number;
         totalTokens?: number;
       } | undefined;
       await recordApiCostEvent({
-        provider: `cloud-run-${this.providerName}`,
-        model: config.model,
+        provider: `cloud-run-${providerUsed}`,
+        model: modelUsed,
         operation: 'ai_provider.generate',
         status: 'succeeded',
         inputTokens: usage?.inputTokens ?? null,
@@ -81,6 +87,9 @@ export class CloudRunProvider implements AIProvider {
         totalTokens: usage?.totalTokens ?? null,
         metadata: {
           response_format: config.responseFormat ?? 'text',
+          fallback_reason: typeof data.fallbackReason === 'string' ? data.fallbackReason : undefined,
+          requested_provider: this.providerName,
+          requested_model: config.model,
         },
       });
 

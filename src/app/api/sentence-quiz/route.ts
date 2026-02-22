@@ -13,10 +13,25 @@ import type {
   MultiFillInBlankQuestion,
   EnhancedBlankSlot,
   VectorSearchResult,
-  BlankPrediction,
 } from '@/types';
 
 const OPENAI_MODEL = AI_CONFIG.defaults.openai.model;
+const DEFAULT_MAX_CONCURRENCY = 3;
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function getSentenceQuizMaxConcurrency(): number {
+  return parsePositiveInt(process.env.SENTENCE_QUIZ_MAX_CONCURRENCY, DEFAULT_MAX_CONCURRENCY);
+}
+
+function isLegacySentenceQuizFlow(): boolean {
+  return process.env.SENTENCE_QUIZ_USE_LEGACY === 'true';
+}
 
 // リクエストスキーマ
 const requestSchema = z.object({
@@ -58,6 +73,13 @@ const multiBlankAISchema = z.object({
 // AIレスポンススキーマ（誤答生成 - Phase 3）
 const distractorsAISchema = z.object({
   options: z.array(z.string()).length(4),
+});
+
+const distractorsBatchAISchema = z.object({
+  blanks: z.array(z.object({
+    position: z.number(),
+    options: z.array(z.string()).length(4),
+  })).min(1),
 });
 
 // AIレスポンススキーマ（並び替え問題）
@@ -142,6 +164,21 @@ const DISTRACTORS_SYSTEM_PROMPT = `あなたは英語教師です。穴埋め問
   "options": ["正解", "誤答1", "誤答2", "誤答3"]
 }`;
 
+const DISTRACTORS_BATCH_SYSTEM_PROMPT = `${DISTRACTORS_SYSTEM_PROMPT}
+
+【追加ルール】
+1. 複数空欄を一括で処理し、各空欄ごとに4択を返す
+2. 出力は position ごとの配列として返す
+3. 各空欄の options には必ずその空欄の correctAnswer を含める
+
+【出力形式】JSON
+{
+  "blanks": [
+    { "position": 0, "options": ["正解", "誤答1", "誤答2", "誤答3"] },
+    { "position": 1, "options": ["正解", "誤答1", "誤答2", "誤答3"] }
+  ]
+}`;
+
 // 並び替え問題生成プロンプト
 const WORD_ORDER_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語を使った自然な例文を作成し、並び替え問題を生成してください。
 
@@ -165,6 +202,29 @@ function shuffleArray<T>(array: T[]): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+
+  const safeConcurrency = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  await Promise.all(Array.from({ length: safeConcurrency }, async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index], index);
+    }
+  }));
+
+  return results;
 }
 
 // VectorDB検索でユーザーの学習済み単語から類似語を探す
@@ -257,6 +317,71 @@ async function generateDistractors(
   }
 }
 
+interface ResolvedBlankCandidate {
+  position: number;
+  type: 'target' | 'content' | 'grammar';
+  correctAnswer: string;
+  source: EnhancedBlankSlot['source'];
+  sourceWordId?: string;
+  sourceJapanese?: string;
+}
+
+async function generateDistractorsInBatch(
+  openai: OpenAI,
+  sentence: string,
+  blanks: ResolvedBlankCandidate[],
+): Promise<Map<number, string[]>> {
+  const optionsByPosition = new Map<number, string[]>();
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: DISTRACTORS_BATCH_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `文: "${sentence}"
+空欄一覧:
+${blanks.map((blank) => `- position=${blank.position}, type=${blank.type}, correctAnswer="${blank.correctAnswer}"`).join('\n')}
+
+各空欄の4択（正解1つ + 誤答3つ）を返してください。`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (content) {
+      const parsed = JSON.parse(content);
+      const validated = distractorsBatchAISchema.parse(parsed);
+      const generatedMap = new Map(validated.blanks.map((item) => [item.position, item.options]));
+
+      for (const blank of blanks) {
+        const generated = generatedMap.get(blank.position);
+        if (!generated || generated.length !== 4) continue;
+
+        const normalized = [...generated];
+        if (!normalized.includes(blank.correctAnswer)) {
+          normalized[0] = blank.correctAnswer;
+        }
+        optionsByPosition.set(blank.position, shuffleArray(normalized));
+      }
+    }
+  } catch (error) {
+    console.error('generateDistractorsInBatch error:', error);
+  }
+
+  for (const blank of blanks) {
+    if (optionsByPosition.has(blank.position)) continue;
+    optionsByPosition.set(
+      blank.position,
+      await generateDistractors(openai, blank.correctAnswer, sentence, blank.type),
+    );
+  }
+
+  return optionsByPosition;
+}
+
 // 複数空欄穴埋め問題を生成（VectorDB統合）
 async function generateMultiFillInBlank(
   openai: OpenAI,
@@ -303,8 +428,9 @@ async function generateMultiFillInBlank(
     // ============================================
     // Phase 2: VectorDB検索でcontent空欄の単語を置換
     // ============================================
-    const blanks: EnhancedBlankSlot[] = [];
+    const resolvedBlanks: ResolvedBlankCandidate[] = [];
     const relatedWordIds: string[] = [];
+    const legacyFlow = isLegacySentenceQuizFlow();
 
     for (const blankPrediction of phase1Validated.blanks) {
       let finalWord = blankPrediction.word;
@@ -338,7 +464,6 @@ async function generateMultiFillInBlank(
           const isMatchedPlural = matchedWord.endsWith('s') || matchedWord.endsWith('es') || ['people', 'children', 'men', 'women'].includes(matchedWord);
 
           // 文の前後の文脈をチェック（"a" や "an" があるかどうか）
-          const sentenceLower = phase1Validated.sentence.toLowerCase();
           const blankIndex = phase1Validated.sentence.split('___').slice(0, blankPrediction.position + 1).join('___').lastIndexOf('___');
           const beforeBlank = phase1Validated.sentence.substring(0, blankIndex).toLowerCase();
           const hasIndefiniteArticle = beforeBlank.endsWith('a ') || beforeBlank.endsWith('an ');
@@ -362,23 +487,48 @@ async function generateMultiFillInBlank(
         }
       }
 
-      // Phase 3: 誤答選択肢を生成
-      const options = await generateDistractors(
-        openai,
-        finalWord,
-        phase1Validated.sentence,
-        blankPrediction.type
-      );
-
-      blanks.push({
-        index: blankPrediction.position,
+      resolvedBlanks.push({
+        position: blankPrediction.position,
+        type: blankPrediction.type,
         correctAnswer: finalWord,
-        options,
         source,
         sourceWordId,
         sourceJapanese,
       });
     }
+
+    // ============================================
+    // Phase 3: 誤答選択肢を生成（全空欄を一括）
+    // ============================================
+    let optionsByPosition = new Map<number, string[]>();
+    if (legacyFlow) {
+      for (const blank of resolvedBlanks) {
+        optionsByPosition.set(
+          blank.position,
+          await generateDistractors(openai, blank.correctAnswer, phase1Validated.sentence, blank.type),
+        );
+      }
+    } else {
+      optionsByPosition = await generateDistractorsInBatch(
+        openai,
+        phase1Validated.sentence,
+        resolvedBlanks,
+      );
+    }
+
+    const blanks: EnhancedBlankSlot[] = resolvedBlanks.map((blank) => ({
+      index: blank.position,
+      correctAnswer: blank.correctAnswer,
+      options: optionsByPosition.get(blank.position) || shuffleArray([
+        blank.correctAnswer,
+        'alternative1',
+        'alternative2',
+        'alternative3',
+      ]),
+      source: blank.source,
+      sourceWordId: blank.sourceWordId,
+      sourceJapanese: blank.sourceJapanese,
+    }));
 
     // ============================================
     // Phase 4: VectorDB置換があった場合、日本語訳を再生成
@@ -615,9 +765,10 @@ export async function POST(request: NextRequest) {
     // ============================================
     const questions: (SentenceQuizQuestion | MultiFillInBlankQuestion)[] = [];
     const allWordIds = words.map(w => w.id);
+    const maxConcurrency = getSentenceQuizMaxConcurrency();
+    const legacyFlow = isLegacySentenceQuizFlow();
 
-    // 並列で問題生成（パフォーマンス向上）
-    const generatePromises = words.map(async (word) => {
+    const results = await mapWithConcurrency(words, legacyFlow ? words.length : maxConcurrency, async (word) => {
       // status === 'new' なら穴埋め問題、それ以外は並び替え問題
       const shouldUseFillIn = word.status === 'new';
 
@@ -642,8 +793,6 @@ export async function POST(request: NextRequest) {
         return generateWordOrder(openai, word.id, word.english, word.japanese);
       }
     });
-
-    const results = await Promise.all(generatePromises);
 
     // null を除外
     for (const result of results) {

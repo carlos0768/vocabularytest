@@ -94,9 +94,21 @@ export interface FallbackConfig {
   appEnv: AppEnv;
 }
 
+export interface ProviderUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+}
+
+export interface ProviderGenerateResult {
+  content: string;
+  modelUsed: string;
+  usage?: ProviderUsage;
+}
+
 export interface FallbackRunnerDeps {
-  runGemini: () => Promise<string>;
-  runOpenAI: (model: string) => Promise<string>;
+  runGemini: () => Promise<ProviderGenerateResult>;
+  runOpenAI: (model: string) => Promise<ProviderGenerateResult>;
 }
 
 export interface ExecuteGeminiWithFallbackInput {
@@ -107,5 +119,7 @@ export interface ExecuteGeminiWithFallbackInput {
 export interface ExecuteGeminiWithFallbackResult {
   provider: 'gemini' | 'openai';
   content: string;
+  modelUsed: string;
+  usage?: ProviderUsage;
   fallbackReason?: string;
 }

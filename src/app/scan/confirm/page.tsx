@@ -38,6 +38,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hasValidDistractors(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length < 3) return false;
+  if (value.length === 3 && value[0] === '選択肢1') return false;
+  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
+function hasExampleSentence(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -199,7 +210,11 @@ export default function ConfirmPage() {
     const headers = await getAuthHeaders();
 
     const seedWords = createdWords
-      .filter((word) => word.english.trim().length > 0 && word.japanese.trim().length > 0)
+      .filter((word) =>
+        word.english.trim().length > 0 &&
+        word.japanese.trim().length > 0 &&
+        (!hasValidDistractors(word.distractors) || !hasExampleSentence(word.exampleSentence))
+      )
       .map((word) => ({
         id: word.id,
         english: word.english,

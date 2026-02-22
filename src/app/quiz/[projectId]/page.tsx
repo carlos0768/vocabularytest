@@ -85,10 +85,13 @@ export default function QuizPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
-  const needsDistractors = useCallback((w: Word) =>
-    !w.distractors || w.distractors.length === 0 ||
-    (w.distractors.length === 3 && w.distractors[0] === '選択肢1')
-  , []);
+  const needsDistractors = useCallback((w: Word) => {
+    const missingDistractors =
+      !w.distractors || w.distractors.length === 0 ||
+      (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
+    const missingExample = !w.exampleSentence || w.exampleSentence.trim().length === 0;
+    return missingDistractors || missingExample;
+  }, []);
 
   // Track if state was restored from session storage
   const restoredFromStorage = useRef(false);

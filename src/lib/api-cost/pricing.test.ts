@@ -47,3 +47,24 @@ test('calculateEstimatedApiCost treats cloud-run-openai as openai family', () =>
   assert.equal(result.pricingFound, true);
   assert.equal(result.estimatedCostUsd !== null, true);
 });
+
+test('calculateEstimatedApiCost normalizes versioned Gemini/OpenAI model names', () => {
+  const gemini = calculateEstimatedApiCost({
+    provider: 'cloud-run-gemini',
+    model: 'gemini-2.5-flash-001',
+    inputTokens: 1000,
+    outputTokens: 1000,
+    totalTokens: 2000,
+  });
+
+  const openai = calculateEstimatedApiCost({
+    provider: 'cloud-run-openai',
+    model: 'gpt-4o-mini-2024-07-18',
+    inputTokens: 1000,
+    outputTokens: 1000,
+    totalTokens: 2000,
+  });
+
+  assert.equal(gemini.pricingFound, true);
+  assert.equal(openai.pricingFound, true);
+});

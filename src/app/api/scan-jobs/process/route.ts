@@ -14,6 +14,7 @@ import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
+import { isActiveProSubscription } from '@/lib/subscription/status';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -166,6 +167,17 @@ interface QuizSeedWord {
   japanese: string;
 }
 
+function hasValidDistractors(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length < 3) return false;
+  if (value.length === 3 && value[0] === '選択肢1') return false;
+  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
+function hasExampleSentence(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 async function generateQuizContentWithRetry(words: QuizSeedWord[]): Promise<{
   results: QuizContentResult[];
   failedWordIds: string[];
@@ -239,7 +251,7 @@ async function extractFromImage(
       if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
         console.warn('No idioms found in background scan. Falling back to all-word extraction.');
         return {
-          result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: true }) as ExtractionLikeResult,
+          result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult,
           warningCode: 'grammar_not_found',
         };
       }
@@ -249,7 +261,7 @@ async function extractFromImage(
       return { result: await handlers.extractWrongAnswersFromImage(base64Image, apiKeys) as ExtractionLikeResult };
     }
     default: {
-      return { result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: true }) as ExtractionLikeResult };
+      return { result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult };
     }
   }
 }
@@ -305,6 +317,20 @@ export async function POST(request: NextRequest) {
         const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
         throw new Error(`${providerLabel} APIキーが設定されていません`);
       }
+
+      const { data: subscription } = await getSupabaseAdmin()
+        .from('subscriptions')
+        .select('status, plan, pro_source, test_pro_expires_at, current_period_end')
+        .eq('user_id', job.user_id)
+        .single();
+
+      const isProUser = isActiveProSubscription({
+        status: subscription?.status,
+        plan: subscription?.plan,
+        proSource: subscription?.pro_source,
+        testProExpiresAt: subscription?.test_pro_expires_at,
+        currentPeriodEnd: subscription?.current_period_end,
+      });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allExtractedWords: any[] = [];
@@ -437,7 +463,7 @@ export async function POST(request: NextRequest) {
       const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
         .from('words')
         .insert(wordsToInsert)
-        .select('id, english, japanese');
+        .select('id, english, japanese, distractors, example_sentence, example_sentence_ja');
 
       if (wordsError) {
         await getSupabaseAdmin().from('projects').delete().eq('id', newProject.id);
@@ -459,11 +485,17 @@ export async function POST(request: NextRequest) {
         resultPayload.warnings = Array.from(warningCodes);
       }
 
-      const quizSeedWords: QuizSeedWord[] = insertedWordsArray.map((w: { id: string; english: string; japanese: string }) => ({
-        id: w.id,
-        english: w.english,
-        japanese: w.japanese,
-      }));
+      const quizSeedWords: QuizSeedWord[] = insertedWordsArray
+        .filter((w: {
+          distractors: unknown;
+          example_sentence: string | null;
+          example_sentence_ja: string | null;
+        }) => !hasValidDistractors(w.distractors) || !hasExampleSentence(w.example_sentence))
+        .map((w: { id: string; english: string; japanese: string }) => ({
+          id: w.id,
+          english: w.english,
+          japanese: w.japanese,
+        }));
 
       let quizPrefillSucceeded = 0;
       const quizPrefillFailedWordIds = new Set<string>();
@@ -531,24 +563,26 @@ export async function POST(request: NextRequest) {
         if (insertedWordsArray.length === 0) return;
 
         // Generate embeddings for semantic search (best effort)
-        try {
-          const texts = insertedWordsArray.map((w: { english: string; japanese: string }) =>
-            `${w.english} - ${w.japanese}`
-          );
-          const embeddings = await batchGenerateEmbeddings(texts);
+        if (isProUser) {
+          try {
+            const texts = insertedWordsArray.map((w: { english: string; japanese: string }) =>
+              `${w.english} - ${w.japanese}`
+            );
+            const embeddings = await batchGenerateEmbeddings(texts);
 
-          await Promise.all(
-            insertedWordsArray.map((word: { id: string }, i: number) => {
-              if (!embeddings[i]) return Promise.resolve();
-              return getSupabaseAdmin().rpc('update_word_embedding', {
-                word_id: word.id,
-                new_embedding: embeddings[i],
-              });
-            })
-          );
-          console.log(`Generated embeddings for ${insertedWordsArray.length} words`);
-        } catch (embeddingError) {
-          console.error('Embedding generation failed (non-critical):', embeddingError);
+            await Promise.all(
+              insertedWordsArray.map((word: { id: string }, i: number) => {
+                if (!embeddings[i]) return Promise.resolve();
+                return getSupabaseAdmin().rpc('update_word_embedding', {
+                  word_id: word.id,
+                  new_embedding: embeddings[i],
+                });
+              })
+            );
+            console.log(`Generated embeddings for ${insertedWordsArray.length} words`);
+          } catch (embeddingError) {
+            console.error('Embedding generation failed (non-critical):', embeddingError);
+          }
         }
 
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

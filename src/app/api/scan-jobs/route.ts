@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -38,13 +39,14 @@ function isTimedOutJob(job: {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createRouteHandlerClient(request);
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!bearerToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(bearerToken);
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -58,6 +60,34 @@ export async function POST(request: NextRequest) {
 
     if (!image || !projectTitle) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const requiresPro = scanMode !== 'all';
+    const { data: scanData, error: scanError } = await supabase
+      .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
+
+    if (scanError || !scanData) {
+      console.error('Scan limit check error:', scanError);
+      return NextResponse.json({ error: 'スキャン制限の確認に失敗しました' }, { status: 500 });
+    }
+
+    if (scanData.requires_pro) {
+      return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
+    }
+
+    if (!scanData.allowed) {
+      return NextResponse.json(
+        {
+          error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。`,
+          limitReached: true,
+          scanInfo: {
+            currentCount: scanData.current_count,
+            limit: scanData.limit,
+            isPro: scanData.is_pro,
+          },
+        },
+        { status: 429 }
+      );
     }
 
     // Upload image to Supabase Storage

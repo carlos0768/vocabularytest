@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import {
+  checkAndIncrementFeatureUsage,
+  isAiUsageLimitsEnabled,
+  readBooleanEnv,
+  readNumberEnv,
+} from '@/lib/ai/feature-usage';
 
-const OPENAI_MODEL = 'gpt-4o';
+const DEFAULT_PRIMARY_MODEL = 'gpt-4o-mini';
+const DEFAULT_FALLBACK_MODEL = 'gpt-4o';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -43,6 +51,58 @@ const requestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const requireAuth = readBooleanEnv('REQUIRE_AUTH_DICTATION_GRADE', true);
+    const enableUsageLimits = isAiUsageLimitsEnabled();
+    const primaryModel = process.env.DICTATION_PRIMARY_MODEL?.trim() || DEFAULT_PRIMARY_MODEL;
+    const fallbackModel = process.env.DICTATION_FALLBACK_MODEL?.trim() || DEFAULT_FALLBACK_MODEL;
+
+    const supabase = await createRouteHandlerClient(request);
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const { data: { user }, error: authError } = bearerToken
+      ? await supabase.auth.getUser(bearerToken)
+      : await supabase.auth.getUser();
+
+    if (requireAuth && (authError || !user)) {
+      return NextResponse.json(
+        { success: false, error: '認証が必要です。ログインしてください。' },
+        { status: 401 }
+      );
+    }
+
+    if (enableUsageLimits) {
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: '認証が必要です。ログインしてください。' },
+          { status: 401 }
+        );
+      }
+
+      const usage = await checkAndIncrementFeatureUsage({
+        supabase,
+        featureKey: 'dictation_grade',
+        freeDailyLimit: readNumberEnv('AI_LIMIT_DICTATION_FREE_DAILY', 10),
+        proDailyLimit: readNumberEnv('AI_LIMIT_DICTATION_PRO_DAILY', 60),
+      });
+
+      if (!usage.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `本日のディクテーション採点上限（${usage.limit ?? '∞'}回）に達しました。`,
+            limitReached: true,
+            usage: {
+              currentCount: usage.current_count,
+              limit: usage.limit,
+              isPro: usage.is_pro,
+              requiresPro: usage.requires_pro,
+            },
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: 'Missing required fields',
     });
@@ -81,27 +141,44 @@ ${questionList}
 回答が読み取れない場合は userAnswer を "(読み取れず)" とし、isCorrect を false としてください。
 JSONのみを出力し、説明は不要です。`;
 
-    const response = await getOpenAI().chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            {
-              type: 'image_url',
-              image_url: {
-                url: image,
-                detail: 'high',
+    const runGrade = async (model: string): Promise<string> => {
+      const response = await getOpenAI().chat.completions.create({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: image,
+                  detail: 'high',
+                },
               },
-            },
-          ],
-        },
-      ],
-      max_completion_tokens: 1000,
-    });
+            ],
+          },
+        ],
+        max_completion_tokens: 1000,
+      });
+      return response.choices[0]?.message?.content || '';
+    };
 
-    const content = response.choices[0]?.message?.content || '';
+    let content = '';
+    try {
+      content = await runGrade(primaryModel);
+    } catch (primaryError) {
+      if (fallbackModel !== primaryModel) {
+        console.warn('Dictation grading primary model failed. Retrying with fallback model.', {
+          primaryModel,
+          fallbackModel,
+          error: primaryError instanceof Error ? primaryError.message : String(primaryError),
+        });
+        content = await runGrade(fallbackModel);
+      } else {
+        throw primaryError;
+      }
+    }
 
     // Parse JSON from response
     let result;

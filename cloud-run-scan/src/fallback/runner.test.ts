@@ -39,7 +39,11 @@ test('QUOTA_EXHAUSTED falls back immediately without retries', async () => {
       },
       runOpenAI: async () => {
         openaiCalls += 1;
-        return 'fallback-ok';
+        return {
+          content: 'fallback-ok',
+          modelUsed: 'gpt-4o-mini',
+          usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        };
       },
     },
   );
@@ -68,7 +72,10 @@ test('RATE_LIMIT_BURST retries twice then falls back', async () => {
       },
       runOpenAI: async () => {
         openaiCalls += 1;
-        return 'fallback-after-retry';
+        return {
+          content: 'fallback-after-retry',
+          modelUsed: 'gpt-4o-mini',
+        };
       },
     },
   );
@@ -96,7 +103,10 @@ test('TIMEOUT retries once then falls back', async () => {
       },
       runOpenAI: async () => {
         openaiCalls += 1;
-        return 'fallback-timeout';
+        return {
+          content: 'fallback-timeout',
+          modelUsed: 'gpt-4o-mini',
+        };
       },
     },
   );
@@ -123,7 +133,10 @@ test('INVALID_INPUT does not fallback', async () => {
         },
         runOpenAI: async () => {
           openaiCalls += 1;
-          return 'should-not-run';
+          return {
+            content: 'should-not-run',
+            modelUsed: 'gpt-4o-mini',
+          };
         },
       },
     ),
@@ -196,7 +209,10 @@ test('empty-content errors retry and fallback to OpenAI', async () => {
       },
       runOpenAI: async () => {
         openaiCalls += 1;
-        return 'fallback-empty-content';
+        return {
+          content: 'fallback-empty-content',
+          modelUsed: 'gpt-4o-mini',
+        };
       },
     },
   );

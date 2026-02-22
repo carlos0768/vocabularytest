@@ -147,11 +147,13 @@ export class GeminiFallbackRunner {
 
     while (true) {
       try {
-        const content = await deps.runGemini();
+        const geminiResult = await deps.runGemini();
         this.breaker.recordSuccess(nowMs());
         return {
           provider: 'gemini',
-          content,
+          content: geminiResult.content,
+          modelUsed: geminiResult.modelUsed,
+          usage: geminiResult.usage,
         };
       } catch (error) {
         const classified = classifyGeminiError(error);
@@ -231,7 +233,7 @@ export class GeminiFallbackRunner {
     const summary = this.counters.recordFallback(now);
 
     try {
-      const content = await deps.runOpenAI(modelOverride || this.config.fallbackOpenAIModel);
+      const openaiResult = await deps.runOpenAI(modelOverride || this.config.fallbackOpenAIModel);
 
       const rateWindow = this.counters.getFallbackRateWindow(nowMs());
       if (
@@ -243,7 +245,9 @@ export class GeminiFallbackRunner {
 
       return {
         provider: 'openai',
-        content,
+        content: openaiResult.content,
+        modelUsed: openaiResult.modelUsed,
+        usage: openaiResult.usage,
         fallbackReason: reason,
       };
     } catch (error) {

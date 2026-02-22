@@ -30,17 +30,36 @@ export async function batchGenerateEmbeddings(texts: string[]): Promise<number[]
     return [];
   }
 
+  // Deduplicate identical strings within the same batch to reduce API token costs.
+  const uniqueTexts: string[] = [];
+  const validToUniqueIndex: number[] = [];
+  const uniqueIndexByText = new Map<string, number>();
+
+  for (const text of validTexts) {
+    const existingIndex = uniqueIndexByText.get(text);
+    if (existingIndex !== undefined) {
+      validToUniqueIndex.push(existingIndex);
+      continue;
+    }
+
+    const nextIndex = uniqueTexts.length;
+    uniqueTexts.push(text);
+    uniqueIndexByText.set(text, nextIndex);
+    validToUniqueIndex.push(nextIndex);
+  }
+
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await openai.embeddings.create({
     model: 'text-embedding-3-small',
-    input: validTexts,
+    input: uniqueTexts,
   });
 
-  // Sort by index to ensure correct order
-  return response.data
+  const uniqueEmbeddings = response.data
     .sort((a, b) => a.index - b.index)
     .map(d => d.embedding);
+
+  return validToUniqueIndex.map((uniqueIndex) => uniqueEmbeddings[uniqueIndex]);
 }
 
 /**

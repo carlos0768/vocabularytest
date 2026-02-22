@@ -13,6 +13,17 @@ interface WordInput {
   japanese: string;
 }
 
+function hasValidDistractors(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length < 3) return false;
+  if (value.length === 3 && value[0] === '選択肢1') return false;
+  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
+function hasExampleSentence(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 const requestSchema = z.object({
   words: z.array(
     z.object({
@@ -47,14 +58,37 @@ export async function POST(request: NextRequest) {
     }
 
     const { words } = bodyResult.data as { words: WordInput[] };
+    const wordIds = words.map((word) => word.id);
+    const { data: existingWordRows } = await supabase
+      .from('words')
+      .select('id, distractors, example_sentence')
+      .in('id', wordIds);
+
+    const existingWordMap = new Map(
+      (existingWordRows || []).map((row: { id: string; distractors: unknown; example_sentence: string | null }) => [row.id, row])
+    );
+
+    const wordsToGenerate = words.filter((word) => {
+      const existing = existingWordMap.get(word.id);
+      if (!existing) return true;
+      return !hasValidDistractors(existing.distractors) || !hasExampleSentence(existing.example_sentence);
+    });
+
+    if (wordsToGenerate.length === 0) {
+      return NextResponse.json({
+        success: true,
+        results: [],
+      });
+    }
 
     const results = await generateQuizContentForWords(
-      words as QuizContentWordInput[]
+      wordsToGenerate as QuizContentWordInput[]
     );
 
     const examplesForDb = results.filter((r) => r.exampleSentence);
     if (examplesForDb.length > 0) {
       for (const result of examplesForDb) {
+        if (!existingWordMap.has(result.wordId)) continue;
         await supabase
           .from('words')
           .update({
