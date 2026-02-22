@@ -1693,13 +1693,13 @@ export default function HomePage() {
           </section>
 
           {/* Recent projects */}
-          <section className="space-y-3">
+          <section className="card border-2 border-[var(--color-border)] border-b-4 p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">最近の単語帳</h2>
+              <h2 className="text-sm font-bold text-[var(--color-foreground)] font-display">最近の単語帳</h2>
               <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
             </div>
             {projects.length === 0 ? (
-              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
+              <div className="rounded-xl bg-[var(--color-background)] p-5 text-sm text-[var(--color-muted)] text-center">
                 まだ単語帳がありません。スキャンから始めましょう。
               </div>
             ) : (

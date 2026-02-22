@@ -46,23 +46,7 @@ struct RootTabView: View {
             }
             .tint(MerkenTheme.accentBlue)
 
-            // FAB - Scan Button
-            Button {
-                if appState.isLoggedIn {
-                    showingScan = true
-                } else {
-                    showLoginAlert = true
-                }
-            } label: {
-                Image(systemName: "camera.fill")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .glassEffect(.regular.tint(MerkenTheme.accentBlue), in: .circle)
-            }
-            .padding(.trailing, 20)
-            .padding(.bottom, 64)
-            .accessibilityIdentifier("scanFAB")
+            // FAB removed — scan is accessible from individual pages
         }
         .background {
             AppBackground()

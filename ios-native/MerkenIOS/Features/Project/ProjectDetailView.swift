@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 struct ProjectDetailView: View {
     let project: Project
@@ -12,47 +13,68 @@ struct ProjectDetailView: View {
     @State private var sentenceQuizDestination: Project?
     @State private var showingScan = false
     @State private var searchText = ""
+    @State private var previewIndex = 0
+
+    private var hasIconImage: Bool {
+        if let iconImage = project.iconImage,
+           ImageCompressor.decodeBase64Image(iconImage) != nil {
+            return true
+        }
+        return false
+    }
 
     var body: some View {
         ZStack {
-            AppBackground()
+            // Use plain background when header has image (prevents dots showing behind cover)
+            if hasIconImage {
+                MerkenTheme.background.ignoresSafeArea()
+            } else {
+                AppBackground()
+            }
 
-            VStack(spacing: 0) {
-                // Fixed header
-                headerSection
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                    .stickyHeaderStyle()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Notion-style cover header (scrolls with content)
+                    headerSection
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if let errorMessage = viewModel.errorMessage {
-                            SolidCard {
-                                Text(errorMessage)
-                                    .foregroundStyle(MerkenTheme.warning)
+                    // Content below header — wrap in AppBackground so dots show here
+                    ZStack(alignment: .top) {
+                        if hasIconImage {
+                            AppBackground()
+                        }
+
+                        VStack(alignment: .leading, spacing: 16) {
+                            if let errorMessage = viewModel.errorMessage {
+                                SolidCard {
+                                    Text(errorMessage)
+                                        .foregroundStyle(MerkenTheme.warning)
+                                }
                             }
+
+                            // Flashcard preview with navigation
+                            if !viewModel.words.isEmpty {
+                                flashcardPreview
+                            }
+
+                            // Learning modes
+                            learningModesSection
+
+                            // Word list
+                            wordListSection
                         }
-
-                        // Flashcard preview
-                        if let firstWord = viewModel.words.first {
-                            flashcardPreview(firstWord)
-                        }
-
-                        // Learning modes
-                        learningModesSection
-
-                        // Word list
-                        wordListSection
+                        .padding(16)
                     }
-                    .padding(16)
-                }
-                .refreshable {
-                    await viewModel.load(projectId: project.id, using: appState)
                 }
             }
+            .scrollIndicators(.hidden)
+            .contentMargins(.top, 0, for: .scrollContent)
+            .refreshable {
+                await viewModel.load(projectId: project.id, using: appState)
+            }
         }
+        .ignoresSafeArea(.container, edges: .top)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 16) {
@@ -60,8 +82,9 @@ struct ProjectDetailView: View {
                         showingScan = true
                     } label: {
                         Image(systemName: "camera")
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
                     }
-                    .foregroundStyle(MerkenTheme.accentBlue)
                     .disabled(!appState.isLoggedIn)
                     .accessibilityIdentifier("scanToProjectButton")
 
@@ -69,12 +92,14 @@ struct ProjectDetailView: View {
                         editorMode = .create
                     } label: {
                         Image(systemName: "plus")
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
                     }
-                    .foregroundStyle(MerkenTheme.accentBlue)
                     .accessibilityIdentifier("addWordButton")
                 }
             }
         }
+        .tint(.white)
         .fullScreenCover(isPresented: $showingScan) {
             ScanCoordinatorView(
                 targetProjectId: project.id,
@@ -101,133 +126,246 @@ struct ProjectDetailView: View {
         }
     }
 
-    // MARK: - Header
+    // MARK: - Header (Notion-style cover, extends behind nav bar)
+
+    /// Extra height added above the visible header to cover safe area + nav bar
+    private let headerTopExtension: CGFloat = 100
 
     private var headerSection: some View {
-        HStack(spacing: 12) {
-            // Thumbnail circle
-            ZStack {
-                if let iconImage = project.iconImage,
-                   let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(.circle)
-                } else {
-                    Circle()
-                        .fill(MerkenTheme.placeholderColor(for: project.id))
-                        .frame(width: 56, height: 56)
-                    Text(String(project.title.prefix(1)))
-                        .font(.title2.bold())
+        ZStack(alignment: .bottomLeading) {
+            // Cover image (or placeholder) — extended upward to cover safe area
+            if let iconImage = project.iconImage,
+               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 176 + headerTopExtension)
+                    .clipped()
+                    .overlay(
+                        LinearGradient(
+                            colors: [.black.opacity(0.5), .black.opacity(0.15)],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
+            } else {
+                MerkenTheme.placeholderColor(for: project.id)
+                    .frame(height: 176 + headerTopExtension)
+                    .overlay(
+                        LinearGradient(
+                            colors: [.black.opacity(0.3), .black.opacity(0.05)],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
+            }
+
+            // Content overlay — title + actions pinned to bottom
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Text(project.title)
+                            .font(.title3.bold())
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .layoutPriority(-1)
+                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+
+                        if appState.isPro {
+                            HStack(spacing: 2) {
+                                Image(systemName: "sparkles")
+                                    .font(.caption2)
+                                Text("Pro")
+                                    .font(.caption2.bold())
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.white.opacity(0.25), in: .capsule)
+                            .fixedSize()
+                        }
+                    }
+
+                    let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
+                    Text("\(viewModel.words.count)語 / 習得 \(masteredCount)語")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 10) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.subheadline)
                         .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(.white.opacity(0.2), in: .circle)
+                    Image(systemName: "trash")
+                        .font(.subheadline)
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(.white.opacity(0.2), in: .circle)
                 }
             }
-            .frame(width: 56, height: 56)
-            .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+        }
+        .frame(height: 176 + headerTopExtension)
+        .padding(.top, -headerTopExtension)
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(project.title)
-                        .font(.title3.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .layoutPriority(-1)
+    // MARK: - Flashcard Preview (with navigation, matching Web)
 
-                    Image(systemName: "pencil")
-                        .font(.caption)
-                        .foregroundStyle(MerkenTheme.mutedText)
-                        .fixedSize()
+    private var safePreviewIndex: Int {
+        guard !viewModel.words.isEmpty else { return 0 }
+        return min(previewIndex, viewModel.words.count - 1)
+    }
 
-                    if appState.isPro {
-                        HStack(spacing: 2) {
-                            Image(systemName: "sparkles")
-                                .font(.caption2)
-                            Text("Pro")
-                                .font(.caption2.bold())
+    private var flashcardPreview: some View {
+        let word = viewModel.words[safePreviewIndex]
+
+        return VStack(spacing: 14) {
+            // Card
+            SolidCard {
+                VStack(spacing: 12) {
+                    // Top bar: progress + actions
+                    HStack {
+                        Text("\(safePreviewIndex + 1)/\(viewModel.words.count)")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Button {
+                                speakWord(word.english)
+                            } label: {
+                                Image(systemName: "speaker.wave.2")
+                                    .font(.subheadline)
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                                    .frame(width: 32, height: 32)
+                            }
+                            Button {
+                                Task {
+                                    await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
+                                }
+                            } label: {
+                                Image(systemName: word.isFavorite ? "flag.fill" : "flag")
+                                    .font(.subheadline)
+                                    .foregroundStyle(word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+                                    .frame(width: 32, height: 32)
+                            }
                         }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(MerkenTheme.accentBlue, in: .capsule)
-                        .fixedSize()
+                    }
+
+                    // English word
+                    VStack(spacing: 4) {
+                        Text(word.english)
+                            .font(.title.bold())
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .multilineTextAlignment(.center)
+                        if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
+                            Text(pronunciation)
+                                .font(.subheadline)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+
+                    // Japanese translation
+                    Text(word.japanese)
+                        .font(.title3)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+
+                    // Example sentence
+                    if let example = word.exampleSentence, !example.isEmpty {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "quote.opening")
+                                    .font(.caption2)
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                                Text("例文")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
+                            Text(example)
+                                .font(.subheadline)
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            if let exJa = word.exampleSentenceJa {
+                                Text(exJa)
+                                    .font(.caption)
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
-                Text("\(viewModel.words.count)語 / 習得 \(masteredCount)語")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
             }
-            .frame(minWidth: 0)
 
-            Spacer(minLength: 0)
+            // Navigation: prev / dictionary / next
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        previewIndex = safePreviewIndex > 0
+                            ? safePreviewIndex - 1
+                            : viewModel.words.count - 1
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
+                }
 
-            HStack(spacing: 10) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .frame(width: 36, height: 36)
-                    .background(MerkenTheme.surfaceAlt, in: .circle)
-                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
-                Image(systemName: "trash")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.danger)
-                    .frame(width: 36, height: 36)
-                    .background(MerkenTheme.surfaceAlt, in: .circle)
-                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
+                Button {
+                    let encoded = word.english.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word.english
+                    if let url = URL(string: "https://eow.alc.co.jp/search?q=\(encoded)") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "book")
+                            .font(.subheadline)
+                        Text("辞書")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .padding(.horizontal, 20)
+                    .frame(height: 44)
+                    .background(MerkenTheme.surface, in: .capsule)
+                    .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1.5))
+                }
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        previewIndex = safePreviewIndex < viewModel.words.count - 1
+                            ? safePreviewIndex + 1
+                            : 0
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
+                }
             }
         }
     }
 
-    // MARK: - Flashcard Preview
-
-    private func flashcardPreview(_ word: Word) -> some View {
-        SolidCard {
-            VStack(spacing: 12) {
-                HStack {
-                    Text("1/\(viewModel.words.count)")
-                        .font(.caption)
-                        .foregroundStyle(MerkenTheme.mutedText)
-                    Spacer()
-                    Image(systemName: "speaker.wave.2")
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                    Image(systemName: word.isFavorite ? "flag.fill" : "flag")
-                        .foregroundStyle(word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
-                }
-
-                Text(word.english)
-                    .font(.title.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
-
-                Text(word.japanese)
-                    .font(.title3)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-
-                if let example = word.exampleSentence, !example.isEmpty {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Text("99")
-                                .font(.caption2.bold())
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                            Text("例文")
-                                .font(.caption.bold())
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                        }
-                        Text(example)
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        if let exJa = word.exampleSentenceJa {
-                            Text(exJa)
-                                .font(.caption)
-                                .foregroundStyle(MerkenTheme.mutedText)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
+    private func speakWord(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.45
+        AVSpeechSynthesizer().speak(utterance)
     }
 
     // MARK: - Learning Modes (2-column grid)
