@@ -306,7 +306,7 @@ struct ProjectListView: View {
                                     }
                                     Spacer()
                                 }
-                                .padding(4)
+                                .padding(8)
                             }
                         }
                     }
