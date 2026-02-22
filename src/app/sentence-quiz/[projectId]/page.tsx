@@ -123,6 +123,7 @@ export default function SentenceQuizPage() {
       }
 
       const apiPath = quizMode === 'lite' ? '/api/sentence-quiz/lite' : '/api/sentence-quiz';
+      const body = { words: selectedWords.map(w => ({ id: w.id, english: w.english, japanese: w.japanese, status: w.status })) };
 
       const response = await fetch(apiPath, {
         method: 'POST',
