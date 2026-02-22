@@ -3,6 +3,18 @@ import SwiftUI
 /// Wrapper to distinguish quiz navigation from project detail navigation
 private struct QuizDestination: Hashable {
     let project: Project
+    var preloadedWords: [Word]? = nil
+    var skipSetup: Bool = false
+
+    // Hashable conformance — only hash project to allow navigation dedup
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(project)
+        hasher.combine(skipSetup)
+    }
+
+    static func == (lhs: QuizDestination, rhs: QuizDestination) -> Bool {
+        lhs.project == rhs.project && lhs.skipSetup == rhs.skipSetup
+    }
 }
 
 private struct FlashcardDestination: Hashable {
@@ -81,7 +93,11 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $quizDestination) { dest in
-            QuizView(project: dest.project)
+            QuizView(
+                project: dest.project,
+                preloadedWords: dest.preloadedWords,
+                skipSetup: dest.skipSetup
+            )
         }
         .navigationDestination(item: $flashcardDestination) { dest in
             FlashcardView(project: dest.project)
@@ -174,7 +190,11 @@ struct HomeView: View {
             if let firstProject = viewModel.projects.first {
                 if viewModel.dueWordCount > 0 {
                     Button {
-                        quizDestination = QuizDestination(project: firstProject)
+                        quizDestination = QuizDestination(
+                            project: firstProject,
+                            preloadedWords: viewModel.dueWords,
+                            skipSetup: true
+                        )
                     } label: {
                         Label("復習を始める (\(viewModel.dueWordCount)問)", systemImage: "arrow.trianglehead.2.clockwise")
                     }

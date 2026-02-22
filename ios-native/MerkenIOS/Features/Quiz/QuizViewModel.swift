@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import OSLog
 
 @MainActor
@@ -127,6 +128,11 @@ final class QuizViewModel: ObservableObject {
         isRevealed = true
 
         let isCorrect = index == question.correctIndex
+
+        // Haptic feedback: light for correct, heavy for wrong
+        let generator = UIImpactFeedbackGenerator(style: isCorrect ? .light : .heavy)
+        generator.impactOccurred()
+
         if isCorrect {
             correctCount += 1
         }

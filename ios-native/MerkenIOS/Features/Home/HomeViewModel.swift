@@ -6,6 +6,7 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var projects: [Project] = []
     @Published private(set) var totalWordCount: Int = 0
     @Published private(set) var dueWordCount: Int = 0
+    @Published private(set) var dueWords: [Word] = []
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
@@ -48,14 +49,15 @@ final class HomeViewModel: ObservableObject {
                     guard !Task.isCancelled else { return }
 
                     let total = allWords.count
-                    let due = allWords.filter { word in
+                    let dueList = allWords.filter { word in
                         if word.status != .mastered { return true }
                         guard let nextReviewAt = word.nextReviewAt else { return false }
                         return nextReviewAt <= .now
-                    }.count
+                    }
 
                     self?.totalWordCount = total
-                    self?.dueWordCount = due
+                    self?.dueWordCount = dueList.count
+                    self?.dueWords = dueList
                 } catch {
                     // skip on failure
                 }

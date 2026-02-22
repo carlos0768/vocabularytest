@@ -4,14 +4,16 @@ import UIKit
 struct QuizView: View {
     let project: Project
     let preloadedWords: [Word]?
+    let skipSetup: Bool
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = QuizViewModel()
     @Environment(\.dismiss) private var dismiss
 
-    init(project: Project, preloadedWords: [Word]? = nil) {
+    init(project: Project, preloadedWords: [Word]? = nil, skipSetup: Bool = false) {
         self.project = project
         self.preloadedWords = preloadedWords
+        self.skipSetup = skipSetup
     }
 
     var body: some View {
@@ -33,6 +35,9 @@ struct QuizView: View {
         .task(id: project.id) {
             if let preloadedWords, !preloadedWords.isEmpty {
                 viewModel.setSourceWords(preloadedWords)
+                if skipSetup {
+                    viewModel.startQuiz()
+                }
             } else {
                 await viewModel.load(projectId: project.id, using: appState)
             }

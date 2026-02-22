@@ -25,24 +25,20 @@ struct ProjectListView: View {
                 $0.title.localizedCaseInsensitiveContains(searchText)
             }
 
-        switch sortOrder {
-        case .newest:
-            return filtered.sorted { $0.createdAt > $1.createdAt }
-        case .wordCount:
-            return filtered.sorted {
-                (viewModel.wordCounts[$0.id] ?? 0) > (viewModel.wordCounts[$1.id] ?? 0)
+        return filtered.sorted { a, b in
+            // Pinned projects always come first
+            if a.isFavorite && !b.isFavorite { return true }
+            if !a.isFavorite && b.isFavorite { return false }
+
+            switch sortOrder {
+            case .newest:
+                return a.createdAt > b.createdAt
+            case .wordCount:
+                return (viewModel.wordCounts[a.id] ?? 0) > (viewModel.wordCounts[b.id] ?? 0)
+            case .recentlyUsed:
+                return a.createdAt > b.createdAt
             }
-        case .recentlyUsed:
-            return filtered.sorted { $0.createdAt > $1.createdAt }
         }
-    }
-
-    private var pinnedProjects: [Project] {
-        filteredProjects.filter { $0.isFavorite }
-    }
-
-    private var allProjects: [Project] {
-        filteredProjects
     }
 
     var body: some View {
@@ -65,12 +61,7 @@ struct ProjectListView: View {
                         // Sort chips
                         sortChips
 
-                        // Pinned
-                        if !pinnedProjects.isEmpty {
-                            pinnedSection
-                        }
-
-                        // All
+                        // All projects (pinned sorted to top)
                         allProjectsSection
                     }
                     .padding(.horizontal, 16)
@@ -213,24 +204,6 @@ struct ProjectListView: View {
         }
     }
 
-    // MARK: - Pinned Section
-
-    private var pinnedSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("📌 ピン留め")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Spacer()
-                Text("\(pinnedProjects.count)件")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-
-            projectGrid(pinnedProjects)
-        }
-    }
-
     // MARK: - All Projects Section
 
     private var allProjectsSection: some View {
@@ -252,12 +225,12 @@ struct ProjectListView: View {
                         .font(.subheadline.bold())
                         .foregroundStyle(MerkenTheme.primaryText)
                     Spacer()
-                    Text("\(allProjects.count)件")
+                    Text("\(filteredProjects.count)件")
                         .font(.caption)
                         .foregroundStyle(MerkenTheme.mutedText)
                 }
 
-                projectGrid(allProjects)
+                projectGrid(filteredProjects)
             }
         }
     }
