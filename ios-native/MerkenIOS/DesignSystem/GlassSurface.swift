@@ -109,4 +109,14 @@ extension View {
     func solidTextField(cornerRadius: CGFloat = 16) -> some View {
         modifier(SolidTextField(cornerRadius: cornerRadius))
     }
+
+    /// Web版の sticky header スタイル: 半透明背景 + 下辺ボーダー
+    func stickyHeaderStyle() -> some View {
+        self
+            .background(MerkenTheme.background.opacity(0.95))
+            .overlay(alignment: .bottom) {
+                MerkenTheme.borderLight
+                    .frame(height: 1)
+            }
+    }
 }

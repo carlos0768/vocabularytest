@@ -5,9 +5,7 @@ struct FavoritesView: View {
     @StateObject private var viewModel = FavoritesViewModel()
 
     var body: some View {
-        ZStack {
-            AppBackground()
-
+        Group {
             if viewModel.loading && viewModel.favoriteWords.isEmpty {
                 ProgressView()
                     .tint(MerkenTheme.accentBlue)
