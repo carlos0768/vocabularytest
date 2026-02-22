@@ -293,24 +293,26 @@ struct ProjectListView: View {
                                 }
                             }
 
-                            // Flag overlay
-                            if project.isFavorite {
-                                VStack {
-                                    HStack {
-                                        Image(systemName: "flag.fill")
-                                            .font(.caption2)
-                                            .foregroundStyle(.white)
-                                            .padding(4)
-                                            .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 5))
-                                        Spacer()
-                                    }
-                                    Spacer()
-                                }
-                                .padding(8)
-                            }
                         }
                     }
                     .clipShape(.rect(cornerRadius: 14))
+                    .overlay {
+                        // Flag overlay — outside clipShape so it won't be clipped
+                        if project.isFavorite {
+                            VStack {
+                                HStack {
+                                    Image(systemName: "flag.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white)
+                                        .padding(4)
+                                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 5))
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .padding(6)
+                        }
+                    }
                     .padding(.horizontal, 8)
                     .padding(.top, 8)
 
