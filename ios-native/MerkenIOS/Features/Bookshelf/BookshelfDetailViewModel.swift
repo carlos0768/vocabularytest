@@ -9,12 +9,22 @@ final class BookshelfDetailViewModel: ObservableObject {
     @Published private(set) var allWords: [Word] = []
     @Published private(set) var loading = false
     @Published var errorMessage: String?
+    @Published var searchText = ""
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "BookshelfDetailVM")
 
     var masteredCount: Int { allWords.filter { $0.status == .mastered }.count }
     var reviewCount: Int { allWords.filter { $0.status == .review }.count }
     var newCount: Int { allWords.filter { $0.status == .new }.count }
+
+    var filteredWords: [Word] {
+        guard !searchText.isEmpty else { return allWords }
+        let query = searchText.lowercased()
+        return allWords.filter {
+            $0.english.lowercased().contains(query) ||
+            $0.japanese.contains(query)
+        }
+    }
 
     func load(collectionId: String, using state: AppState) async {
         loading = true

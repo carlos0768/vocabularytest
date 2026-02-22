@@ -35,9 +35,9 @@ final class CloudWordRepository: WordRepositoryProtocol {
         }
     }
 
-    func createProject(title: String, userId: String) async throws -> Project {
+    func createProject(title: String, userId: String, iconImage: String? = nil) async throws -> Project {
         let token = try await accessTokenProvider()
-        let payload = [ProjectInsertDTO(userId: userId, title: title, iconImage: nil, isFavorite: false)]
+        let payload = [ProjectInsertDTO(userId: userId, title: title, iconImage: iconImage, isFavorite: false)]
 
         do {
             let rows: [ProjectDTO] = try await restClient.post(
@@ -69,6 +69,34 @@ final class CloudWordRepository: WordRepositoryProtocol {
             let _: [ProjectDTO] = try await restClient.patch(
                 path: "/rest/v1/projects",
                 body: ProjectPatch(title: title),
+                query: query,
+                bearerToken: token,
+                preferReturnRepresentation: true
+            )
+        } catch SupabaseClientError.unauthorized {
+            throw RepositoryError.unauthorized
+        } catch {
+            if error.isCancellationError { throw error }
+            throw RepositoryError.underlying(error.localizedDescription)
+        }
+    }
+
+    func updateProjectIcon(id: String, iconImage: String) async throws {
+        let token = try await accessTokenProvider()
+        let query = [URLQueryItem(name: "id", value: "eq.\(id)")]
+
+        struct IconPatch: Encodable {
+            let iconImage: String
+
+            enum CodingKeys: String, CodingKey {
+                case iconImage = "icon_image"
+            }
+        }
+
+        do {
+            let _: [ProjectDTO] = try await restClient.patch(
+                path: "/rest/v1/projects",
+                body: IconPatch(iconImage: iconImage),
                 query: query,
                 bearerToken: token,
                 preferReturnRepresentation: true

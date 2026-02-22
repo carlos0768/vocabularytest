@@ -11,74 +11,80 @@ struct BookshelfListView: View {
         ZStack {
             AppBackground()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("本棚")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                            Text("単語帳をまとめて管理")
-                                .font(.subheadline)
-                                .foregroundStyle(MerkenTheme.mutedText)
-                        }
-                        Spacer()
-                        Button {
-                            showingCreateSheet = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus")
-                                    .font(.subheadline.bold())
-                                Text("新規作成")
-                                    .font(.subheadline.bold())
-                            }
-                            .foregroundStyle(MerkenTheme.success)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(MerkenTheme.successLight, in: .capsule)
-                            .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
-                        }
+            VStack(spacing: 0) {
+                // Fixed header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("本棚")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("単語帳をまとめて管理")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.mutedText)
                     }
-
-                    if let errorMessage = viewModel.errorMessage {
-                        SolidCard {
-                            Text(errorMessage)
-                                .foregroundStyle(MerkenTheme.warning)
+                    Spacer()
+                    Button {
+                        showingCreateSheet = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.subheadline.bold())
+                            Text("新規作成")
+                                .font(.subheadline.bold())
                         }
-                    }
-
-                    if viewModel.collections.isEmpty, !viewModel.loading {
-                        SolidCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("本棚がありません")
-                                    .font(.headline)
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                                Text("「+ 新規作成」から本棚を追加してください。")
-                                    .font(.subheadline)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
-                        }
-                    } else {
-                        // 2-column grid
-                        let columns = [
-                            GridItem(.flexible(), spacing: 12),
-                            GridItem(.flexible(), spacing: 12)
-                        ]
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(viewModel.collections) { collection in
-                                collectionCard(collection)
-                                    .onTapGesture {
-                                        selectedCollection = collection
-                                    }
-                            }
-                        }
+                        .foregroundStyle(MerkenTheme.success)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(MerkenTheme.successLight, in: .capsule)
+                        .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
                     }
                 }
-                .padding(16)
-            }
-            .refreshable {
-                await viewModel.load(using: appState)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 10)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let errorMessage = viewModel.errorMessage {
+                            SolidCard {
+                                Text(errorMessage)
+                                    .foregroundStyle(MerkenTheme.warning)
+                            }
+                        }
+
+                        if viewModel.collections.isEmpty, !viewModel.loading {
+                            SolidCard {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("本棚がありません")
+                                        .font(.headline)
+                                        .foregroundStyle(MerkenTheme.primaryText)
+                                    Text("「+ 新規作成」から本棚を追加してください。")
+                                        .font(.subheadline)
+                                        .foregroundStyle(MerkenTheme.secondaryText)
+                                }
+                            }
+                        } else {
+                            // 2-column grid
+                            let columns = [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ]
+                            LazyVGrid(columns: columns, spacing: 12) {
+                                ForEach(viewModel.collections) { collection in
+                                    collectionCard(collection)
+                                        .onTapGesture {
+                                            selectedCollection = collection
+                                        }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                }
+                .refreshable {
+                    await viewModel.load(using: appState)
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)

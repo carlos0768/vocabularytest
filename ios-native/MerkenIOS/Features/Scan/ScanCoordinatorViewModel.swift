@@ -145,17 +145,32 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 let projectId: String
 
                 if let existingId = targetProjectId {
-                    // Adding to existing project
+                    // Adding to existing project — also set thumbnail if missing
                     projectId = existingId
+                    if let image = capturedImage,
+                       let thumbnail = ImageCompressor.generateThumbnailBase64(image) {
+                        try? await appState.activeRepository.updateProjectIcon(
+                            id: existingId,
+                            iconImage: thumbnail
+                        )
+                    }
                 } else {
                     // Create new project
                     guard !trimmedTitle.isEmpty else {
                         currentStep = .error("プロジェクト名を入力してください。")
                         return
                     }
+
+                    // Generate thumbnail from captured image
+                    let thumbnail: String? = {
+                        guard let image = capturedImage else { return nil }
+                        return ImageCompressor.generateThumbnailBase64(image)
+                    }()
+
                     let project = try await appState.activeRepository.createProject(
                         title: trimmedTitle,
-                        userId: appState.activeUserId
+                        userId: appState.activeUserId,
+                        iconImage: thumbnail
                     )
                     projectId = project.id
                 }

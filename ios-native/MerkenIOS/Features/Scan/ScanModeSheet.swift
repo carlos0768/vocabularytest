@@ -47,7 +47,7 @@ struct ScanModeSheet: View {
                                     onSelect(mode, nil)
                                 }
                             } label: {
-                                SolidPane(cornerRadius: 16) {
+                                SolidPane(cornerRadius: 20) {
                                     HStack(spacing: 16) {
                                         IconBadge(
                                             systemName: mode.iconName,
@@ -100,9 +100,9 @@ struct ScanModeSheet: View {
                                 .foregroundStyle(MerkenTheme.secondaryText)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+                                .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
+                                    RoundedRectangle(cornerRadius: 20)
                                         .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
                                 )
                         }

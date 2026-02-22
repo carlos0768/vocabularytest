@@ -24,10 +24,10 @@ struct RootTabView: View {
                 }
 
                 NavigationStack {
-                    BookshelfTabView()
+                    SearchView()
                 }
                 .tabItem {
-                    Label("本棚", systemImage: "books.vertical.fill")
+                    Label("検索", systemImage: "magnifyingglass")
                 }
 
                 NavigationStack {

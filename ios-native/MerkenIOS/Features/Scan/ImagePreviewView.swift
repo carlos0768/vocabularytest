@@ -19,7 +19,7 @@ struct ImagePreviewView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
                     .padding(.horizontal, 16)
 
                 Spacer()

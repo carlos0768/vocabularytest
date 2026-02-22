@@ -32,7 +32,7 @@ struct BookshelfDetailView: View {
             AppBackground()
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 16) {
                     if let errorMessage = viewModel.errorMessage {
                         SolidCard {
                             Text(errorMessage)
@@ -40,13 +40,19 @@ struct BookshelfDetailView: View {
                         }
                     }
 
-                    headerCard
+                    // Header
+                    headerSection
 
-                    statsCard
+                    // Flashcard preview
+                    if let firstWord = viewModel.allWords.first {
+                        flashcardPreview(firstWord)
+                    }
 
-                    studyModesCard
+                    // Learning modes
+                    learningModesSection
 
-                    projectsSection
+                    // Word list
+                    wordListSection
                 }
                 .padding(16)
             }
@@ -54,18 +60,26 @@ struct BookshelfDetailView: View {
                 await viewModel.load(collectionId: collection.id, using: appState)
             }
         }
-        .navigationTitle(viewModel.collection?.name ?? collection.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    editedName = viewModel.collection?.name ?? collection.name
-                    editedDescription = viewModel.collection?.description ?? ""
-                    isEditingName = true
-                } label: {
-                    Image(systemName: "pencil")
+                HStack(spacing: 16) {
+                    Button {
+                        showingAddProjects = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .foregroundStyle(MerkenTheme.accentBlue)
+
+                    Button {
+                        editedName = viewModel.collection?.name ?? collection.name
+                        editedDescription = viewModel.collection?.description ?? ""
+                        isEditingName = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .foregroundStyle(MerkenTheme.accentBlue)
                 }
-                .foregroundStyle(MerkenTheme.accentBlue)
             }
         }
         .sheet(isPresented: $isEditingName) {
@@ -106,7 +120,7 @@ struct BookshelfDetailView: View {
         }
     }
 
-    /// Dummy project used as a container for quiz navigation (actual words come from preloadedWords)
+    /// Dummy project used as a container for quiz navigation
     private var dummyProject: Project {
         Project(
             id: collection.id,
@@ -117,137 +131,262 @@ struct BookshelfDetailView: View {
 
     // MARK: - Header
 
-    private var headerCard: some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(viewModel.collection?.name ?? collection.name)
-                    .font(.title2.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
+    private var headerSection: some View {
+        HStack(spacing: 12) {
+            // Thumbnail circle
+            ZStack {
+                Circle()
+                    .fill(MerkenTheme.surfaceAlt)
+                    .frame(width: 56, height: 56)
+                    .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
 
-                if let desc = viewModel.collection?.description, !desc.isEmpty {
-                    Text(desc)
-                        .font(.subheadline)
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
+                Image(systemName: "books.vertical.fill")
+                    .font(.title2)
+                    .foregroundStyle(MerkenTheme.warning)
             }
-        }
-    }
 
-    // MARK: - Stats
-
-    private var statsCard: some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("統計")
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-
-                HStack {
-                    statItem(title: "総単語数", value: "\(viewModel.allWords.count)")
-                    Spacer()
-                    statItem(title: "mastered", value: "\(viewModel.masteredCount)", color: MerkenTheme.success)
-                    Spacer()
-                    statItem(title: "review", value: "\(viewModel.reviewCount)", color: MerkenTheme.accentBlue)
-                    Spacer()
-                    statItem(title: "new", value: "\(viewModel.newCount)", color: MerkenTheme.warning)
-                }
-            }
-        }
-    }
-
-    // MARK: - Study Modes
-
-    private var studyModesCard: some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("学習モード")
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.primaryText)
-
-                if viewModel.allWords.isEmpty {
-                    Text("単語がありません。プロジェクトを追加してください。")
-                        .font(.subheadline)
-                        .foregroundStyle(MerkenTheme.mutedText)
-                } else {
-                    Button {
-                        quizDestination = QuizDestination(collectionId: collection.id)
-                    } label: {
-                        Label("4択クイズ", systemImage: "play.fill")
-                    }
-                    .buttonStyle(PrimaryGlassButton())
-
-                    Button {
-                        flashcardDestination = FlashcardDestination(collectionId: collection.id)
-                    } label: {
-                        Label("フラッシュカード", systemImage: "rectangle.on.rectangle.angled")
-                    }
-                    .buttonStyle(GhostGlassButton())
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(viewModel.collection?.name ?? collection.name)
+                        .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
 
                     if appState.isPro {
-                        Button {
-                            sentenceQuizDestination = SentenceQuizDestination(collectionId: collection.id)
-                        } label: {
-                            Label("例文クイズ", systemImage: "text.bubble")
+                        HStack(spacing: 2) {
+                            Image(systemName: "sparkles")
+                                .font(.caption2)
+                            Text("Pro")
+                                .font(.caption2.bold())
                         }
-                        .buttonStyle(GhostGlassButton())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(MerkenTheme.accentBlue, in: .capsule)
+                    }
+                }
+                Text("\(viewModel.allWords.count)語 / 習得 \(viewModel.masteredCount)語 / \(viewModel.projects.count)冊")
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Flashcard Preview
+
+    private func flashcardPreview(_ word: Word) -> some View {
+        SolidCard {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("1/\(viewModel.allWords.count)")
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.mutedText)
+                    Spacer()
+                    Image(systemName: "speaker.wave.2")
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                    Image(systemName: word.isFavorite ? "flag.fill" : "flag")
+                        .foregroundStyle(word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+                }
+
+                Text(word.english)
+                    .font(.title.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                Text(word.japanese)
+                    .font(.title3)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+
+                if let example = word.exampleSentence, !example.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text("99")
+                                .font(.caption2.bold())
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                            Text("例文")
+                                .font(.caption.bold())
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                        }
+                        Text(example)
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        if let exJa = word.exampleSentenceJa {
+                            Text(exJa)
+                                .font(.caption)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    // MARK: - Learning Modes (2-column grid)
+
+    private var learningModesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("学習モード")
+                .font(.headline)
+                .foregroundStyle(MerkenTheme.primaryText)
+
+            let columns = [
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12)
+            ]
+            LazyVGrid(columns: columns, spacing: 12) {
+                learningModeCard(
+                    icon: "questionmark.square.fill",
+                    iconColor: MerkenTheme.accentBlue,
+                    title: "クイズ",
+                    subtitle: "4択で確認"
+                ) {
+                    quizDestination = QuizDestination(collectionId: collection.id)
+                }
+
+                learningModeCard(
+                    icon: "rectangle.on.rectangle.angled",
+                    iconColor: MerkenTheme.warning,
+                    title: "フラッシュカード",
+                    subtitle: "めくって学習"
+                ) {
+                    flashcardDestination = FlashcardDestination(collectionId: collection.id)
+                }
+
+                if appState.isPro {
+                    learningModeCard(
+                        icon: "text.bubble.fill",
+                        iconColor: .purple,
+                        title: "例文",
+                        subtitle: "文脈で理解"
+                    ) {
+                        sentenceQuizDestination = SentenceQuizDestination(collectionId: collection.id)
                     }
                 }
             }
         }
     }
 
-    // MARK: - Projects Section
+    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                IconBadge(systemName: icon, color: iconColor, size: 48)
 
-    private var projectsSection: some View {
+                Text(title)
+                    .font(.headline.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(MerkenTheme.border, lineWidth: 1.5)
+            )
+            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, x: 0, y: 3)
+        }
+    }
+
+    // MARK: - Word List
+
+    private var wordListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Section header
             HStack {
-                Text("単語帳")
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
+                IconBadge(systemName: "list.bullet", color: MerkenTheme.accentBlue, size: 32)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("単語一覧")
+                        .font(.headline)
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("\(viewModel.allWords.count)語")
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
                 Spacer()
                 Button {
                     showingAddProjects = true
                 } label: {
-                    Label("追加", systemImage: "plus")
-                        .font(.subheadline)
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.caption.bold())
+                        Text("単語帳を追加")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(MerkenTheme.accentBlue, in: .capsule)
                 }
-                .foregroundStyle(MerkenTheme.accentBlue)
             }
 
-            if viewModel.projects.isEmpty {
+            // Search
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(MerkenTheme.mutedText)
+                TextField("単語を検索...", text: $viewModel.searchText)
+                    .textFieldStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+            )
+
+            // Words
+            let filteredWords = viewModel.filteredWords
+            if filteredWords.isEmpty {
                 SolidCard {
-                    Text("まだ単語帳が追加されていません。")
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-            } else {
-                ForEach(viewModel.projects) { project in
-                    SolidPane {
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(project.title)
-                                    .font(.headline)
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                                let wordCount = viewModel.allWords.filter { $0.projectId == project.id }.count
-                                Text("\(wordCount) 語")
-                                    .font(.caption)
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                            }
-                            Spacer()
-                            Image(systemName: "minus.circle")
-                                .foregroundStyle(MerkenTheme.danger)
-                                .onTapGesture {
-                                    Task {
-                                        await viewModel.removeProject(
-                                            collectionId: collection.id,
-                                            projectId: project.id,
-                                            using: appState
-                                        )
-                                    }
-                                }
-                        }
-                    }
+                    Text("単語がありません。単語帳を追加してください。")
+                        .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
+
+            ForEach(filteredWords) { word in
+                wordRow(word)
+            }
+        }
+    }
+
+    private func wordRow(_ word: Word) -> some View {
+        SolidPane {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(word.english)
+                        .font(.headline)
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text(word.japanese)
+                        .font(.subheadline)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+                Spacer()
+                // Status badge
+                Text(word.status.rawValue)
+                    .font(.caption2.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(statusColor(word.status), in: .capsule)
+
+                if word.isFavorite {
+                    Image(systemName: "flag.fill")
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    private func statusColor(_ status: WordStatus) -> Color {
+        switch status {
+        case .new: return MerkenTheme.warning
+        case .review: return MerkenTheme.accentBlue
+        case .mastered: return MerkenTheme.success
         }
     }
 
@@ -265,11 +404,11 @@ struct BookshelfDetailView: View {
 
                     TextField("名前", text: $editedName)
                         .textFieldStyle(.plain)
-                        .solidTextField(cornerRadius: 14)
+                        .solidTextField(cornerRadius: 16)
 
                     TextField("説明（任意）", text: $editedDescription)
                         .textFieldStyle(.plain)
-                        .solidTextField(cornerRadius: 14)
+                        .solidTextField(cornerRadius: 16)
 
                     Button("保存") {
                         Task {
@@ -289,19 +428,6 @@ struct BookshelfDetailView: View {
                 }
                 .padding(16)
             }
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func statItem(title: String, value: String, color: Color = MerkenTheme.primaryText) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(MerkenTheme.mutedText)
-            Text(value)
-                .font(.title3.bold())
-                .foregroundStyle(color)
         }
     }
 }

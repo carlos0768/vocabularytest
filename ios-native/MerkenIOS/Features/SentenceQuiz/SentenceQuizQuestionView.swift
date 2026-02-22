@@ -268,8 +268,8 @@ struct SentenceQuizQuestionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 14).fill(fillColor))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: isRevealed ? 2 : 1.5))
+        .background(RoundedRectangle(cornerRadius: 20).fill(fillColor))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(borderColor, lineWidth: isRevealed ? 2 : 1.5))
         .shadow(color: MerkenTheme.border.opacity(0.3), radius: 0, x: 0, y: 2)
         .onTapGesture {
             guard !isRevealed else { return }
