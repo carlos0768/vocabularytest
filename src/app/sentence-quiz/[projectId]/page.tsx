@@ -184,12 +184,16 @@ export default function SentenceQuizPage() {
             console.error('Project ownership check failed (local):', error);
           }
 
+          // Skip remote check when offline - trust local data
+          if (!navigator.onLine) return true;
+
           if (user) {
             try {
               const remoteProject = await remoteRepository.getProject(projectId);
               return remoteProject?.userId === ownerUserId;
             } catch (error) {
               console.error('Project ownership check failed (remote):', error);
+              return true;
             }
           }
 
@@ -216,9 +220,8 @@ export default function SentenceQuizPage() {
 
           words = await repository.getWords(projectId);
           
-          // Fallback to remote if local is empty and user is logged in
-          // This handles background scan projects stored in remote
-          if (words.length === 0 && user) {
+          // Fallback to remote if local is empty and user is logged in and online
+          if (words.length === 0 && user && navigator.onLine) {
             try {
               words = await remoteRepository.getWords(projectId);
             } catch (e) {

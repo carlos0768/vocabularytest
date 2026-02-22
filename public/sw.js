@@ -1,8 +1,8 @@
 // ScanVocab Service Worker
 // Cache-first for static assets, Network-first for API
 
-const CACHE_NAME = 'scanvocab-v4';
-const STATIC_CACHE_NAME = 'scanvocab-static-v4';
+const CACHE_NAME = 'scanvocab-v5';
+const STATIC_CACHE_NAME = 'scanvocab-static-v5';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -85,10 +85,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Next.js runtime chunks should be network-first to avoid stale bundles
-  // that can cause hydration mismatch after deployments.
+  // Next.js runtime chunks: stale-while-revalidate (offline-friendly + stays fresh)
   if (url.pathname.startsWith('/_next/static/')) {
-    event.respondWith(networkFirst(request));
+    event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
@@ -98,7 +97,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pages: Network-first (avoid stale HTML causing hydration mismatches)
+  // Pages: stale-while-revalidate (offline-friendly + stays fresh on next visit)
+  if (request.mode === 'navigate') {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
+  // Everything else: Network-first
   event.respondWith(networkFirst(request));
 });
 

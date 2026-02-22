@@ -162,10 +162,12 @@ export default function ProjectDetailPage() {
         }
 
         let remoteProject: Project | undefined;
-        try {
-          remoteProject = await remoteRepository.getProject(projectId);
-        } catch (e) {
-          console.error('Remote lookup failed:', e);
+        if (navigator.onLine) {
+          try {
+            remoteProject = await remoteRepository.getProject(projectId);
+          } catch (e) {
+            console.error('Remote lookup failed:', e);
+          }
         }
 
         if (isOwnedBy(remoteProject, user.id)) {

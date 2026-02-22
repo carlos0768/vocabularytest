@@ -461,12 +461,16 @@ export default function QuizPage() {
             console.error('Project ownership check failed (local):', error);
           }
 
+          // Skip remote check when offline - trust local data
+          if (!navigator.onLine) return true;
+
           if (user) {
             try {
               const remoteProject = await remoteRepository.getProject(projectId);
               return remoteProject?.userId === ownerUserId;
             } catch (error) {
               console.error('Project ownership check failed (remote):', error);
+              return true;
             }
           }
 
@@ -480,9 +484,9 @@ export default function QuizPage() {
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
 
-          // Fallback: If hybrid/local returned empty but user is logged in,
+          // Fallback: If hybrid/local returned empty but user is logged in and online,
           // try remote directly (handles pre-sync state)
-          if (projects.length === 0 && user) {
+          if (projects.length === 0 && user && navigator.onLine) {
             try {
               projects = await remoteRepository.getProjects(user.id);
               if (projects.length > 0) {
@@ -529,8 +533,8 @@ export default function QuizPage() {
 
           let loadedWords = await repository.getWords(projectId);
 
-          // If local is empty and user is logged in, wait for remote
-          if (loadedWords.length === 0 && user) {
+          // If local is empty and user is logged in and online, try remote
+          if (loadedWords.length === 0 && user && navigator.onLine) {
             try {
               loadedWords = await remoteRepository.getWords(projectId);
             } catch (e) {

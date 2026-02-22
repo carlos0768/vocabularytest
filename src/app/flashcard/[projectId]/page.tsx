@@ -110,12 +110,17 @@ export default function FlashcardPage() {
             console.error('Project ownership check failed (local):', error);
           }
 
+          // Skip remote check when offline - trust local data
+          if (!navigator.onLine) return true;
+
           if (user) {
             try {
               const remoteProject = await remoteRepository.getProject(projectId);
               return remoteProject?.userId === ownerUserId;
             } catch (error) {
               console.error('Project ownership check failed (remote):', error);
+              // If remote fails, allow access if we have local words
+              return true;
             }
           }
 
@@ -192,8 +197,8 @@ export default function FlashcardPage() {
 
           let allWords = await repository.getWords(projectId);
 
-          // If local is empty and user is logged in, wait for remote
-          if (allWords.length === 0 && user) {
+          // If local is empty and user is logged in and online, try remote
+          if (allWords.length === 0 && user && navigator.onLine) {
             try {
               allWords = await remoteRepository.getWords(projectId);
             } catch (e) {
