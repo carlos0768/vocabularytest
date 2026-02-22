@@ -126,30 +126,32 @@ export default function WordListPage() {
   const handleSaveManualWord = async () => {
     if (!manualWordEnglish.trim() || !manualWordJapanese.trim() || !project) return;
 
-    if (!canAddWords && !isPro) {
-      setShowManualWordModal(false);
+    const { canAdd, wouldExceed } = canAddWords(1);
+    if (!canAdd || wouldExceed) {
       setShowWordLimitModal(true);
       return;
     }
 
     setManualWordSaving(true);
     try {
-      const newWord = await repository.createWords(projectId, [{
+      const created = await repository.createWords([{
+        projectId,
         english: manualWordEnglish.trim(),
         japanese: manualWordJapanese.trim(),
+        distractors: ['選択肢1', '選択肢2', '選択肢3'],
       }]);
-      if (newWord && newWord.length > 0) {
-        setWords(prev => [...prev, ...newWord]);
+      if (created && created.length > 0) {
+        setWords(prev => [...created, ...prev]);
         invalidateHomeCache();
         refreshWordCount();
-        showToast('単語を追加しました', 'success');
+        showToast({ message: '単語を追加しました', type: 'success' });
       }
       setManualWordEnglish('');
       setManualWordJapanese('');
       setShowManualWordModal(false);
     } catch (error) {
       console.error('Failed to save word:', error);
-      showToast('単語の追加に失敗しました', 'error');
+      showToast({ message: '単語の追加に失敗しました', type: 'error' });
     } finally {
       setManualWordSaving(false);
     }
