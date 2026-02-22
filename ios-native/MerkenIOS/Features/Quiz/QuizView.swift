@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct QuizView: View {
     let project: Project
@@ -350,5 +351,10 @@ struct QuizView: View {
             .buttonStyle(GhostGlassButton())
         }
         .padding(16)
+        .onAppear {
+            if viewModel.correctCount == viewModel.questions.count && !viewModel.questions.isEmpty {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        }
     }
 }

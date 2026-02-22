@@ -113,6 +113,66 @@ enum QuizEngine {
         }
     }
 
+    // MARK: - Quiz2 (quality-based SM-2)
+
+    /// Status transition for Quiz2 grades (matches web `getStatusAfterGrade`)
+    static func statusAfterGrade(current: WordStatus, quality: Int) -> WordStatus {
+        switch quality {
+        case 1: // Again
+            return current == .mastered ? .review : .new
+        case 3: // Hard
+            return .review
+        case 4: // Good
+            return current == .new ? .review : .mastered
+        case 5: // Easy
+            return .mastered
+        default:
+            return current
+        }
+    }
+
+    /// SM-2 quality-based patch (matches web `calculateNextReviewByQuality`)
+    static func statusPatchByQuality(for word: Word, quality: Int) -> WordPatch {
+        let now = Date()
+        let newStatus = statusAfterGrade(current: word.status, quality: quality)
+
+        var easeFactor = word.easeFactor
+        var intervalDays = word.intervalDays
+        var repetition = word.repetition
+
+        if quality >= 3 {
+            // Correct — increase interval
+            if repetition == 0 {
+                intervalDays = 1
+            } else if repetition == 1 {
+                intervalDays = 6
+            } else {
+                intervalDays = Int((Double(intervalDays) * easeFactor).rounded())
+            }
+            repetition += 1
+        } else {
+            // Wrong — reset
+            repetition = 0
+            intervalDays = 1
+        }
+
+        // Update ease factor: EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+        let q = Double(min(max(quality, 0), 5))
+        let efChange = 0.1 - (5.0 - q) * (0.08 + (5.0 - q) * 0.02)
+        easeFactor = max(1.3, easeFactor + efChange)
+
+        let nextReviewAt = Calendar.current.date(byAdding: .day, value: intervalDays, to: now)
+
+        return WordPatch(
+            status: newStatus,
+            lastReviewedAt: .some(now),
+            nextReviewAt: .some(nextReviewAt),
+            easeFactor: easeFactor,
+            intervalDays: intervalDays,
+            repetition: repetition
+        )
+    }
+
     private static func normalizedChoice(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
