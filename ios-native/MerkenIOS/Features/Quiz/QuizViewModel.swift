@@ -102,7 +102,8 @@ final class QuizViewModel: ObservableObject {
                 self.preparingQuiz = false
 
                 guard !generated.isEmpty else {
-                    self.errorMessage = "問題を作成できません。単語を増やすか、誤答候補を設定してください。"
+                    self.errorMessage = "問題を作成できませんでした。"
+                    self.stage = .setup
                     return
                 }
 

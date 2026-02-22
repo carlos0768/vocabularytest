@@ -55,6 +55,14 @@ enum QuizEngine {
                 }
             }
 
+            // Fallback: generate placeholder distractors if pool is too small
+            if distractors.isEmpty {
+                let fallbacks = ["(該当なし)", "(不正解)", "(別の意味)"]
+                for fb in fallbacks where distractors.count < 3 {
+                    appendDistractor(fb)
+                }
+            }
+
             guard !distractors.isEmpty else { return nil }
 
             let maxOtherChoices = min(3, distractors.count)
