@@ -52,6 +52,7 @@
 		77BDD39B137C1B1CFD276E75 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69B31214CA9933F460FF4B7 /* SettingsView.swift */; };
 		7CC52CC8E5530FF41FCAD4B4 /* RepositoryRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01625E057EA3FDA1F4B71A30 /* RepositoryRouter.swift */; };
 		828DE6B743BDB937942A8B4B /* ScanCoordinatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099A240702660CEA14504514 /* ScanCoordinatorViewModel.swift */; };
+		82D2BA134F17C0A6FBB07E9C /* ScanNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E0A1F2B3C4D5E6F708192A3 /* ScanNotificationService.swift */; };
 		82E3842364E5C2F8F66D7F2B /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53062913A0AF81DD487C373B /* AuthService.swift */; };
 		83016F6FAA440810A08E27EA /* ScanConfirmWordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */; };
 		8F170F737F56C68101EACA04 /* BookshelfListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF6E2C0C22EC4D158FFC101 /* BookshelfListViewModel.swift */; };
@@ -152,6 +153,7 @@
 		814A7CF70D4F3E1DC2EB6770 /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		8570BEFEF7F7D0BD044AD165 /* GuestSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestSessionStore.swift; sourceTree = "<group>"; };
 		8A612CAF5636804AF2A4BBD7 /* BookshelfDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfDetailViewModel.swift; sourceTree = "<group>"; };
+		9E0A1F2B3C4D5E6F708192A3 /* ScanNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanNotificationService.swift; sourceTree = "<group>"; };
 		99EE467D962530D980D8B556 /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
 		9D8414867286CF9EEF225162 /* BookshelfTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfTabView.swift; sourceTree = "<group>"; };
 		9F0B56826D87C20057FE4A4E /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModels.swift; sourceTree = "<group>"; };
@@ -355,6 +357,7 @@
 				8570BEFEF7F7D0BD044AD165 /* GuestSessionStore.swift */,
 				1EFE8C168B7F3CED6C68ABC1 /* ImageCompressor.swift */,
 				410B28B95A71D3017B943659 /* QuizStatsStore.swift */,
+				9E0A1F2B3C4D5E6F708192A3 /* ScanNotificationService.swift */,
 				D4B8A2C1E9F0432DB6C7A11E /* SentenceQuizProgressStore.swift */,
 				B0F0B2A43384E462C70CF7EB /* SupabaseRESTClient.swift */,
 				B7862EAE231B0CEACC698DEE /* WebAPIClient.swift */,
@@ -697,6 +700,7 @@
 				828DE6B743BDB937942A8B4B /* ScanCoordinatorViewModel.swift in Sources */,
 				CF004965918E13212A60CBEE /* ScanModeSheet.swift in Sources */,
 				C43D4C56E52E03822790EEC1 /* ScanProcessingView.swift in Sources */,
+				82D2BA134F17C0A6FBB07E9C /* ScanNotificationService.swift in Sources */,
 				A1B2C3D4E5F60718A9B0C1D2 /* SemanticSearchDTO.swift in Sources */,
 				BA024A6E34EB8AE537B3E75F /* SearchView.swift in Sources */,
 				182F673E075ACB143251C4D5 /* SearchViewModel.swift in Sources */,

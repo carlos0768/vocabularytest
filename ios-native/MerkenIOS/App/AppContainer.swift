@@ -61,6 +61,7 @@ struct AppContainer {
         let webAPIClient = WebAPIClient(baseURL: config.webAPIBaseURL)
         let quizStatsStore = QuizStatsStore()
         let sentenceQuizProgressStore = SentenceQuizProgressStore()
+        let scanNotificationService = ScanNotificationService()
 
         let appState = AppState(
             authService: authService,
@@ -69,7 +70,8 @@ struct AppContainer {
             webAPIClient: webAPIClient,
             quizStatsStore: quizStatsStore,
             sentenceQuizProgressStore: sentenceQuizProgressStore,
-            collectionRepository: collectionRepository
+            collectionRepository: collectionRepository,
+            scanNotificationService: scanNotificationService
         )
 
         return AppContainer(appState: appState, modelContainer: modelContainer)

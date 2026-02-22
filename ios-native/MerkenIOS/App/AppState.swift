@@ -1,5 +1,19 @@
 import Foundation
 import OSLog
+import SwiftUI
+import UIKit
+
+struct ScanBannerState: Identifiable, Equatable {
+    enum Level: Equatable {
+        case success
+        case error
+    }
+
+    let id = UUID()
+    let level: Level
+    let title: String
+    let message: String
+}
 
 @MainActor
 final class AppState: ObservableObject {
@@ -12,6 +26,7 @@ final class AppState: ObservableObject {
     @Published private(set) var authErrorMessage: String?
     @Published var dataVersion = 0
     @Published var selectedTab: Int = 0
+    @Published var scanBanner: ScanBannerState?
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "AppState")
 
@@ -22,6 +37,8 @@ final class AppState: ObservableObject {
     let quizStatsStore: QuizStatsStore
     let sentenceQuizProgressStore: SentenceQuizProgressStore
     let collectionRepository: CollectionRepositoryProtocol
+    private let scanNotificationService: ScanNotificationServiceProtocol
+    private var bannerDismissTask: Task<Void, Never>?
 
     init(
         authService: AuthService,
@@ -30,7 +47,8 @@ final class AppState: ObservableObject {
         webAPIClient: WebAPIClient,
         quizStatsStore: QuizStatsStore,
         sentenceQuizProgressStore: SentenceQuizProgressStore,
-        collectionRepository: CollectionRepositoryProtocol
+        collectionRepository: CollectionRepositoryProtocol,
+        scanNotificationService: ScanNotificationServiceProtocol
     ) {
         self.authService = authService
         self.repositoryRouter = repositoryRouter
@@ -39,6 +57,7 @@ final class AppState: ObservableObject {
         self.quizStatsStore = quizStatsStore
         self.sentenceQuizProgressStore = sentenceQuizProgressStore
         self.collectionRepository = collectionRepository
+        self.scanNotificationService = scanNotificationService
         self.session = authService.session
     }
 
@@ -150,5 +169,40 @@ final class AppState: ObservableObject {
 
     func bumpDataVersion() {
         dataVersion += 1
+    }
+
+    func postScanSuccess(projectTitle: String, wordCount: Int) {
+        let title = "スキャン完了"
+        let message = "「\(projectTitle)」に\(wordCount)語を追加しました。"
+        showScanBanner(level: .success, title: title, message: message)
+
+        guard UIApplication.shared.applicationState != .active else { return }
+        Task {
+            await scanNotificationService.notifySuccess(projectTitle: projectTitle, wordCount: wordCount)
+        }
+    }
+
+    func postScanFailure(message: String) {
+        showScanBanner(level: .error, title: "スキャン保存失敗", message: message)
+
+        guard UIApplication.shared.applicationState != .active else { return }
+        Task {
+            await scanNotificationService.notifyFailure(message: message)
+        }
+    }
+
+    private func showScanBanner(level: ScanBannerState.Level, title: String, message: String) {
+        let banner = ScanBannerState(level: level, title: title, message: message)
+        scanBanner = banner
+
+        bannerDismissTask?.cancel()
+        bannerDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard let self else { return }
+            guard self.scanBanner?.id == banner.id else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                self.scanBanner = nil
+            }
+        }
     }
 }

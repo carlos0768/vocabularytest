@@ -121,6 +121,9 @@ struct ScanCoordinatorView: View {
                 viewModel.setSelectedImages(images)
             }
         }
+        .onDisappear {
+            viewModel.continueProcessingAfterDismissIfNeeded()
+        }
     }
 
     private var savingView: some View {

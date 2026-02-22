@@ -7,7 +7,9 @@ struct RootTabView: View {
     @State private var showLoginAlert = false
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
+            AppBackground()
+
             TabView(selection: $appState.selectedTab) {
                 NavigationStack {
                     HomeView()
@@ -50,12 +52,16 @@ struct RootTabView: View {
                 }
             }
             .tint(MerkenTheme.accentBlue)
-
-            // FAB removed — scan is accessible from individual pages
         }
-        .background {
-            AppBackground()
+        .overlay(alignment: .top) {
+            if let banner = appState.scanBanner {
+                ScanBannerView(state: banner)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: appState.scanBanner?.id)
         .sheet(isPresented: $showingScan) {
             ScanCoordinatorView()
                 .environmentObject(appState)
@@ -67,5 +73,60 @@ struct RootTabView: View {
         } message: {
             Text("スキャン機能を利用するにはログインが必要です。設定画面からログインしてください。")
         }
+    }
+}
+
+private struct ScanBannerView: View {
+    let state: ScanBannerState
+
+    private var iconName: String {
+        switch state.level {
+        case .success:
+            return "checkmark.circle.fill"
+        case .error:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var accentColor: Color {
+        switch state.level {
+        case .success:
+            return MerkenTheme.success
+        case .error:
+            return MerkenTheme.warning
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: iconName)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(accentColor)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(state.title)
+                    .font(.headline)
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+
+                Text(state.message)
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(accentColor.opacity(0.20)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(accentColor.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color.black.opacity(0.20), radius: 12, x: 0, y: 6)
     }
 }
