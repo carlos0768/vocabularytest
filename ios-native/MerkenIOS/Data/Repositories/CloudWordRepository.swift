@@ -246,6 +246,38 @@ final class CloudWordRepository: WordRepositoryProtocol {
         }
     }
 
+    func generateShareId(projectId: String) async throws -> String {
+        let token = try await accessTokenProvider()
+        let query = [URLQueryItem(name: "id", value: "eq.\(projectId)")]
+
+        // Generate a random 12-character alphanumeric string (matches web logic)
+        let bytes = (0..<9).map { _ in UInt8.random(in: 0...255) }
+        let shareId = String(bytes.map { String(format: "%02x", $0) }.joined().prefix(12))
+
+        struct SharePatch: Encodable {
+            let shareId: String
+            enum CodingKeys: String, CodingKey {
+                case shareId = "share_id"
+            }
+        }
+
+        do {
+            let _: [ProjectDTO] = try await restClient.patch(
+                path: "/rest/v1/projects",
+                body: SharePatch(shareId: shareId),
+                query: query,
+                bearerToken: token,
+                preferReturnRepresentation: true
+            )
+            return shareId
+        } catch SupabaseClientError.unauthorized {
+            throw RepositoryError.unauthorized
+        } catch {
+            if error.isCancellationError { throw error }
+            throw RepositoryError.underlying(error.localizedDescription)
+        }
+    }
+
     func deleteWord(id: String) async throws {
         let token = try await accessTokenProvider()
         let query = [URLQueryItem(name: "id", value: "eq.\(id)")]
