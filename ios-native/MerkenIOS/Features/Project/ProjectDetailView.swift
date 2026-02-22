@@ -140,8 +140,8 @@ struct ProjectDetailView: View {
 
     // MARK: - Header (Notion-style cover, extends behind nav bar)
 
-    /// Extra height added above the visible header to cover safe area + nav bar
-    private let headerTopExtension: CGFloat = 100
+    /// Extra height added above the visible header to cover safe area + nav bar + overscroll
+    private let headerTopExtension: CGFloat = 300
 
     private var headerSection: some View {
         ZStack(alignment: .bottomLeading) {
@@ -151,8 +151,9 @@ struct ProjectDetailView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .frame(height: 176 + headerTopExtension)
+                    .contentShape(Rectangle())
                     .clipped()
                     .overlay(
                         LinearGradient(

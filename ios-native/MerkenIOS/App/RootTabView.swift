@@ -8,10 +8,11 @@ struct RootTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            TabView {
+            TabView(selection: $appState.selectedTab) {
                 NavigationStack {
                     HomeView()
                 }
+                .tag(0)
                 .tabItem {
                     Label("ホーム", systemImage: "house.fill")
                 }
@@ -19,6 +20,7 @@ struct RootTabView: View {
                 NavigationStack {
                     ProjectListView()
                 }
+                .tag(1)
                 .tabItem {
                     Label("単語帳", systemImage: "text.book.closed.fill")
                 }
@@ -26,6 +28,7 @@ struct RootTabView: View {
                 NavigationStack {
                     SearchView()
                 }
+                .tag(2)
                 .tabItem {
                     Label("検索", systemImage: "magnifyingglass")
                 }
@@ -33,6 +36,7 @@ struct RootTabView: View {
                 NavigationStack {
                     StatsView()
                 }
+                .tag(3)
                 .tabItem {
                     Label("統計", systemImage: "chart.bar.fill")
                 }
@@ -40,6 +44,7 @@ struct RootTabView: View {
                 NavigationStack {
                     SettingsView()
                 }
+                .tag(4)
                 .tabItem {
                     Label("設定", systemImage: "gearshape.fill")
                 }

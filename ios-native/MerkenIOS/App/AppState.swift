@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     @Published private(set) var isSessionExpired = false
     @Published private(set) var authErrorMessage: String?
     @Published var dataVersion = 0
+    @Published var selectedTab: Int = 0
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "AppState")
 

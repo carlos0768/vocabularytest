@@ -233,13 +233,13 @@ struct HomeView: View {
                 showingScan = true
             }
             quickLink(icon: "magnifyingglass", label: "検索", color: MerkenTheme.secondaryText) {
-                // handled by NavigationLink below
+                appState.selectedTab = 2
             }
             quickLink(icon: "books.vertical.fill", label: "コレクション", color: MerkenTheme.warning) {
-                // handled by tab
+                appState.selectedTab = 1
             }
             quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {
-                // handled by tab
+                appState.selectedTab = 1
             }
         }
         .fullScreenCover(isPresented: $showingScan) {
@@ -306,87 +306,75 @@ struct HomeView: View {
     }
 
     private func projectThumbnail(_ project: Project) -> some View {
-        // Card with image inside + title below image, menu dot outside
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-                // Image area with padding
-                Color.clear
-                    .aspectRatio(0.9, contentMode: .fit)
-                    .overlay {
-                        ZStack {
-                            if let iconImage = project.iconImage,
-                               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                            } else {
-                                let bgColor = MerkenTheme.placeholderColor(for: project.id)
-                                bgColor
-                                VStack(spacing: 2) {
-                                    Text(String(project.title.prefix(1)))
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundStyle(.white)
-                                    Text("\(project.title.count)語")
-                                        .font(.caption2.bold())
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
-                            }
-
-                            // Flag overlay
-                            if project.isFavorite {
-                                VStack {
-                                    HStack {
-                                        Image(systemName: "flag.fill")
-                                            .font(.caption2)
-                                            .foregroundStyle(.white)
-                                            .padding(4)
-                                            .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 5))
-                                        Spacer()
-                                    }
-                                    Spacer()
-                                }
-                                .padding(4)
+        VStack(spacing: 0) {
+            // Image area with padding
+            Color.clear
+                .aspectRatio(0.9, contentMode: .fit)
+                .overlay {
+                    ZStack {
+                        if let iconImage = project.iconImage,
+                           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id)
+                            bgColor
+                            VStack(spacing: 2) {
+                                Text(String(project.title.prefix(1)))
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundStyle(.white)
+                                Text("\(project.title.count)語")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.white.opacity(0.8))
                             }
                         }
+
+                        // Flag overlay
+                        if project.isFavorite {
+                            VStack {
+                                HStack {
+                                    Image(systemName: "flag.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white)
+                                        .padding(4)
+                                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 5))
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .padding(4)
+                        }
                     }
-                    .clipShape(.rect(cornerRadius: 14))
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
+                }
+                .clipShape(.rect(cornerRadius: 14))
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
 
-                // Title inside card — fixed height so tiles align regardless of title length
-                Text(project.title)
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .top)
-                    .padding(.horizontal, 6)
-                    .padding(.top, 6)
-                    .padding(.bottom, 8)
-            }
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(
-                        project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
-                        lineWidth: project.isFavorite ? 2.5 : 1.5
-                    )
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 2)
-            )
-
-            // Menu dot — white circle at top-right, slightly outside
-            Image(systemName: "ellipsis")
-                .font(.caption2)
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .frame(width: 24, height: 24)
-                .background(MerkenTheme.surface, in: .circle)
-                .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
-                .offset(x: 4, y: -4)
+            // Title inside card — fixed height so tiles align regardless of title length
+            Text(project.title)
+                .font(.caption)
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .top)
+                .padding(.horizontal, 6)
+                .padding(.top, 6)
+                .padding(.bottom, 8)
         }
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(
+                    project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                    lineWidth: project.isFavorite ? 2.5 : 1.5
+                )
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(MerkenTheme.border)
+                .offset(y: 2)
+        )
     }
 
     // MARK: - Helpers
