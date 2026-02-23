@@ -7,7 +7,7 @@
  */
 
 import { createBrowserClient } from '@/lib/supabase';
-import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId } from '@/lib/utils';
+import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId, getWeeklyStats, type WeeklyStatsEntry } from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
 import type { SubscriptionStatus } from '@/types';
@@ -26,6 +26,7 @@ export interface CachedStats {
     streakDays: number;
     lastQuizDate: string | null;
   };
+  weeklyStats: WeeklyStatsEntry[];
 }
 
 // Module-level cache
@@ -47,6 +48,7 @@ export function getCachedStats(): CachedStats | null {
   return {
     ...cachedStats,
     wrongAnswersCount: wrongAnswers.length,
+    weeklyStats: getWeeklyStats(),
     quizStats: {
       ...cachedStats.quizStats,
       todayCount: dailyStats.todayCount,
@@ -274,6 +276,7 @@ async function fetchStatsData(
     const stats: CachedStats = {
       ...wordStats,
       wrongAnswersCount,
+      weeklyStats: getWeeklyStats(),
       quizStats: {
         todayCount: dailyStats.todayCount,
         correctCount: dailyStats.correctCount,

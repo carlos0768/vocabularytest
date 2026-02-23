@@ -152,6 +152,64 @@ export function recordActivity(): void {
   statsSyncCallback?.('streak', { streakCount: updatedStreak, lastActivityDate: today });
 }
 
+// Weekly stats tracking (past 7 days)
+const WEEKLY_STATS_KEY = 'scanvocab_weekly_stats';
+
+export interface WeeklyStatsEntry {
+  date: string; // YYYY-MM-DD
+  totalCount: number;
+  correctCount: number;
+}
+
+function updateWeeklyStats(isCorrect: boolean): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date().toISOString().split('T')[0];
+  let entries: WeeklyStatsEntry[] = [];
+
+  try {
+    const stored = localStorage.getItem(WEEKLY_STATS_KEY);
+    if (stored) entries = JSON.parse(stored);
+  } catch { /* ignore */ }
+
+  const todayEntry = entries.find(e => e.date === today);
+  if (todayEntry) {
+    todayEntry.totalCount += 1;
+    if (isCorrect) todayEntry.correctCount += 1;
+  } else {
+    entries.push({ date: today, totalCount: 1, correctCount: isCorrect ? 1 : 0 });
+  }
+
+  // Keep only last 14 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  entries = entries.filter(e => e.date >= cutoffStr);
+
+  localStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(entries));
+}
+
+export function getWeeklyStats(): WeeklyStatsEntry[] {
+  if (typeof window === 'undefined') return [];
+
+  let entries: WeeklyStatsEntry[] = [];
+  try {
+    const stored = localStorage.getItem(WEEKLY_STATS_KEY);
+    if (stored) entries = JSON.parse(stored);
+  } catch { /* ignore */ }
+
+  // Build array for past 7 days (today included), fill gaps with zeros
+  const result: WeeklyStatsEntry[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const found = entries.find(e => e.date === dateStr);
+    result.push(found ?? { date: dateStr, totalCount: 0, correctCount: 0 });
+  }
+  return result;
+}
+
 // Daily stats tracking
 const DAILY_STATS_KEY = 'scanvocab_daily_stats';
 
@@ -221,6 +279,7 @@ export function recordCorrectAnswer(becameMastered: boolean = false): void {
   }
 
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+  updateWeeklyStats(true);
 
   // Sync daily stats to remote
   statsSyncCallback?.('daily_stats', {
@@ -279,6 +338,7 @@ export function recordWrongAnswer(
 
   stats.todayCount += 1;
   localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+  updateWeeklyStats(false);
 
   // Also record to activity history for heatmap
   recordDailyActivity(false);

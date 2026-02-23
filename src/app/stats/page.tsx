@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppShell, Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
@@ -80,6 +80,100 @@ export default function StatsPage() {
                     </div>
                   </div>
                 </div>
+              </section>
+
+              {/* 今週の学習 */}
+              <section className="space-y-4">
+                <h2 className="text-sm font-bold text-[var(--color-foreground)] px-1 flex items-center gap-2">
+                  <Icon name="date_range" size={18} className="text-[var(--color-primary)]" />
+                  今週の学習
+                </h2>
+                <div className="card p-5 lg:p-6 border-2 border-[var(--color-border)] border-b-4">
+                  {/* Bar chart */}
+                  <div className="flex items-end justify-between gap-1.5 h-28 mb-3">
+                    {stats.weeklyStats.map((day, i) => {
+                      const maxCount = Math.max(...stats.weeklyStats.map(d => d.totalCount), 1);
+                      const heightPct = day.totalCount > 0 ? Math.max((day.totalCount / maxCount) * 100, 8) : 0;
+                      const isToday = i === stats.weeklyStats.length - 1;
+                      const dayLabel = ['日', '月', '火', '水', '木', '金', '土'][new Date(day.date).getDay()];
+                      return (
+                        <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-[10px] font-bold text-[var(--color-muted)]">
+                            {day.totalCount > 0 ? day.totalCount : ''}
+                          </span>
+                          <div className="w-full flex items-end" style={{ height: '80px' }}>
+                            <div
+                              className={`w-full rounded-t-md transition-all duration-500 ${
+                                isToday
+                                  ? 'bg-[var(--color-primary)]'
+                                  : day.totalCount > 0
+                                    ? 'bg-[var(--color-border)]'
+                                    : 'bg-[var(--color-border-light)]'
+                              }`}
+                              style={{
+                                height: day.totalCount > 0 ? `${heightPct}%` : '4px',
+                                minHeight: day.totalCount > 0 ? '6px' : '4px',
+                              }}
+                            />
+                          </div>
+                          <span className={`text-[10px] font-semibold ${
+                            isToday ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
+                          }`}>
+                            {dayLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Accuracy row */}
+                  <div className="flex justify-between gap-1.5 pt-2 border-t border-[var(--color-border-light)]">
+                    {stats.weeklyStats.map((day, i) => {
+                      const acc = day.totalCount > 0 ? Math.round((day.correctCount / day.totalCount) * 100) : -1;
+                      const isToday = i === stats.weeklyStats.length - 1;
+                      return (
+                        <div key={day.date} className="flex-1 text-center">
+                          <span className={`text-[10px] font-semibold ${
+                            acc < 0
+                              ? 'text-[var(--color-muted)]'
+                              : isToday
+                                ? 'text-[var(--color-primary)]'
+                                : acc >= 80
+                                  ? 'text-[var(--color-success)]'
+                                  : 'text-[var(--color-foreground)]'
+                          }`}>
+                            {acc < 0 ? '-' : `${acc}%`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-[var(--color-muted)] text-right mt-1">正答率</p>
+                </div>
+
+                {/* Weekly summary */}
+                {(() => {
+                  const weekTotal = stats.weeklyStats.reduce((s, d) => s + d.totalCount, 0);
+                  const weekCorrect = stats.weeklyStats.reduce((s, d) => s + d.correctCount, 0);
+                  const weekAcc = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
+                  const activeDays = stats.weeklyStats.filter(d => d.totalCount > 0).length;
+                  return (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="card p-3 text-center border-2 border-[var(--color-border)] border-b-4">
+                        <p className="text-xl font-bold text-[var(--color-foreground)]">{weekTotal}</p>
+                        <p className="text-[10px] font-semibold text-[var(--color-muted)]">週間回答数</p>
+                      </div>
+                      <div className="card p-3 text-center border-2 border-[var(--color-border)] border-b-4">
+                        <p className="text-xl font-bold text-[var(--color-success)]">{weekAcc}%</p>
+                        <p className="text-[10px] font-semibold text-[var(--color-muted)]">週間正答率</p>
+                      </div>
+                      <div className="card p-3 text-center border-2 border-[var(--color-border)] border-b-4">
+                        <p className="text-xl font-bold text-[var(--color-foreground)]">{activeDays}/7</p>
+                        <p className="text-[10px] font-semibold text-[var(--color-muted)]">学習日数</p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </section>
 
               {/* 単語統計 */}
