@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -92,11 +93,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: scanData, error: scanError } = await supabase
-      .rpc('check_and_increment_scan_batch', {
-        p_count: imagePaths.length,
-        p_require_pro: requiresPro,
-      });
+    const { data: scanData, error: scanError } = await checkAndIncrementScanUsage(supabase, {
+      count: imagePaths.length,
+      requirePro: requiresPro,
+    });
 
     if (scanError || !scanData) {
       console.error('Scan limit check error:', scanError);

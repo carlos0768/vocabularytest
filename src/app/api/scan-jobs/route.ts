@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -66,8 +67,10 @@ export async function POST(request: NextRequest) {
     }
 
     const requiresPro = scanMode !== 'all';
-    const { data: scanData, error: scanError } = await supabase
-      .rpc('check_and_increment_scan_batch', { p_count: 1, p_require_pro: requiresPro });
+    const { data: scanData, error: scanError } = await checkAndIncrementScanUsage(supabase, {
+      count: 1,
+      requirePro: requiresPro,
+    });
 
     if (scanError || !scanData) {
       console.error('Scan limit check error:', scanError);
