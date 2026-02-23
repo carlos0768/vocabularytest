@@ -57,7 +57,7 @@ export type HighlightedWord = z.infer<typeof HighlightedWordSchema>;
 export type HighlightedResponse = z.infer<typeof HighlightedResponseSchema>;
 
 // Confidence threshold for filtering
-export const CONFIDENCE_THRESHOLD = 0.65;
+export const CONFIDENCE_THRESHOLD = 0.75;
 
 // Parse and validate highlighted response
 export function parseHighlightedResponse(data: unknown): {
