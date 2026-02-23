@@ -163,6 +163,10 @@ export async function POST(request: NextRequest) {
       console.error('Insert error:', insertError);
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
+    if (!job || !('id' in job) || !job.id) {
+      console.error('Insert error: missing job id in response');
+      return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
+    }
 
     if (usedLegacyColumns) {
       console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
