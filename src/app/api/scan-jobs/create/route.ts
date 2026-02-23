@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
+import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -142,9 +143,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a single scan job with all image paths
-    const { data: job, error: insertError } = await getSupabaseAdmin()
-      .from('scan_jobs')
-      .insert({
+    const { data: job, error: insertError, usedLegacyColumns } = await insertScanJobWithCompat(
+      getSupabaseAdmin(),
+      {
         user_id: user.id,
         project_title: projectTitle,
         project_icon_image: projectIcon ?? null,
@@ -155,13 +156,16 @@ export async function POST(request: NextRequest) {
         save_mode: saveMode,
         target_project_id: validatedTargetProjectId,
         status: 'pending',
-      })
-      .select()
-      .single();
+      },
+    );
 
     if (insertError) {
       console.error('Insert error:', insertError);
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
+    }
+
+    if (usedLegacyColumns) {
+      console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
 
     // Trigger background processing (fire and forget)
@@ -172,12 +176,12 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ jobId: job.id }),
+      body: JSON.stringify({ jobId: String(job.id) }),
     }).catch(err => console.error('Failed to trigger processing:', err));
 
     return NextResponse.json({
       success: true,
-      jobId: job.id,
+      jobId: String(job.id),
       saveMode,
       scanInfo: {
         currentCount: scanData.current_count,
