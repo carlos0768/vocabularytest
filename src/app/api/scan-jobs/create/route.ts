@@ -26,6 +26,8 @@ const requestSchema = z.object({
   eikenLevel: z.string().trim().max(100).nullable().optional(),
   imagePath: z.string().trim().min(1).max(500).optional(),
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
+  targetProjectId: z.string().uuid().optional(),
+  clientPlatform: z.enum(['ios', 'web']).optional().default('web'),
 }).strict().superRefine((value, ctx) => {
   if (!value.imagePath && (!value.imagePaths || value.imagePaths.length === 0)) {
     ctx.addIssue({
@@ -59,11 +61,42 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { projectTitle, projectIcon, scanMode, eikenLevel, imagePath, imagePaths: multiplePaths } = parsed.data;
+    const {
+      projectTitle,
+      projectIcon,
+      scanMode,
+      eikenLevel,
+      imagePath,
+      imagePaths: multiplePaths,
+      targetProjectId,
+      clientPlatform,
+    } = parsed.data;
+
+    // Support both single imagePath and multiple imagePaths
+    const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);
+    if (imagePaths.length === 0) {
+      return NextResponse.json({ error: 'imagePaths is required' }, { status: 400 });
+    }
 
     const requiresPro = scanMode !== 'all';
+
+    // Verify all images exist in storage first.
+    for (const candidatePath of imagePaths) {
+      const fileName = candidatePath.split('/').pop();
+      const { data: fileData } = await getSupabaseAdmin().storage
+        .from('scan-images')
+        .list(user.id, { search: fileName });
+
+      if (!fileData || fileData.length === 0) {
+        return NextResponse.json({ error: `Image not found: ${fileName}` }, { status: 400 });
+      }
+    }
+
     const { data: scanData, error: scanError } = await supabase
-      .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
+      .rpc('check_and_increment_scan_batch', {
+        p_count: imagePaths.length,
+        p_require_pro: requiresPro,
+      });
 
     if (scanError || !scanData) {
       console.error('Scan limit check error:', scanError);
@@ -89,19 +122,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Support both single imagePath and multiple imagePaths
-    const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);
+    const isProUser = Boolean(scanData.is_pro);
+    const saveMode: 'server_cloud' | 'client_local' =
+      clientPlatform === 'ios' && !isProUser ? 'client_local' : 'server_cloud';
 
-    // Verify all images exist in storage
-    for (const imagePath of imagePaths) {
-      const fileName = imagePath.split('/').pop();
-      const { data: fileData } = await getSupabaseAdmin().storage
-        .from('scan-images')
-        .list(user.id, { search: fileName });
+    let validatedTargetProjectId: string | null = null;
+    if (saveMode === 'server_cloud' && targetProjectId) {
+      const { data: project, error: projectError } = await getSupabaseAdmin()
+        .from('projects')
+        .select('id')
+        .eq('id', targetProjectId)
+        .eq('user_id', user.id)
+        .single();
 
-      if (!fileData || fileData.length === 0) {
-        return NextResponse.json({ error: `Image not found: ${fileName}` }, { status: 400 });
+      if (projectError || !project) {
+        return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
       }
+      validatedTargetProjectId = project.id;
     }
 
     // Create a single scan job with all image paths
@@ -115,6 +152,8 @@ export async function POST(request: NextRequest) {
         eiken_level: eikenLevel,
         image_path: imagePaths[0], // Primary image (backward compat)
         image_paths: imagePaths,   // All images
+        save_mode: saveMode,
+        target_project_id: validatedTargetProjectId,
         status: 'pending',
       })
       .select()
@@ -139,6 +178,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       jobId: job.id,
+      saveMode,
+      scanInfo: {
+        currentCount: scanData.current_count,
+        limit: scanData.limit,
+        isPro: scanData.is_pro,
+      },
     });
 
   } catch (error) {

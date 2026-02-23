@@ -15,6 +15,109 @@ struct ScanBannerState: Identifiable, Equatable {
     let message: String
 }
 
+enum PendingScanImportSource: String, Codable, Sendable {
+    case projectDetail
+    case homeOrProjectList
+}
+
+struct PendingScanImportContext: Codable, Sendable {
+    let jobId: String
+    let source: PendingScanImportSource
+    let localTargetProjectId: String?
+    let requestedProjectTitle: String
+    let requestedProjectIconImage: String?
+    let createdAt: Date
+}
+
+private struct ImportedScanJobRecord: Codable, Sendable {
+    let jobId: String
+    let importedAt: Date
+}
+
+private actor ScanJobSyncService {
+    typealias SessionProvider = @Sendable () async -> AuthSession?
+    typealias FetchJobs = @Sendable (String) async throws -> [ScanJobDTO]
+    typealias AcknowledgeJob = @Sendable (String, String) async throws -> Void
+    typealias CompletedHandler = @Sendable (ScanJobDTO) async -> Bool
+    typealias FailedHandler = @Sendable (ScanJobDTO) async -> Void
+    typealias LogHandler = @Sendable (String) async -> Void
+
+    private let sessionProvider: SessionProvider
+    private let fetchJobs: FetchJobs
+    private let acknowledgeJob: AcknowledgeJob
+    private let completedHandler: CompletedHandler
+    private let failedHandler: FailedHandler
+    private let logHandler: LogHandler
+
+    private var pollingTask: Task<Void, Never>?
+
+    init(
+        sessionProvider: @escaping SessionProvider,
+        fetchJobs: @escaping FetchJobs,
+        acknowledgeJob: @escaping AcknowledgeJob,
+        completedHandler: @escaping CompletedHandler,
+        failedHandler: @escaping FailedHandler,
+        logHandler: @escaping LogHandler
+    ) {
+        self.sessionProvider = sessionProvider
+        self.fetchJobs = fetchJobs
+        self.acknowledgeJob = acknowledgeJob
+        self.completedHandler = completedHandler
+        self.failedHandler = failedHandler
+        self.logHandler = logHandler
+    }
+
+    func start() {
+        guard pollingTask == nil else { return }
+        pollingTask = Task {
+            await self.runLoop()
+        }
+    }
+
+    func stop() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
+    private func runLoop() async {
+        while !Task.isCancelled {
+            guard let session = await sessionProvider() else {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                continue
+            }
+
+            var hasActiveJobs = false
+
+            do {
+                let jobs = try await fetchJobs(session.accessToken)
+
+                for job in jobs {
+                    switch job.status {
+                    case .pending, .processing:
+                        hasActiveJobs = true
+                    case .completed:
+                        let handled = await completedHandler(job)
+                        if handled {
+                            do {
+                                try await acknowledgeJob(job.id, session.accessToken)
+                            } catch {
+                                await logHandler("Failed to acknowledge scan job \(job.id): \(error.localizedDescription)")
+                            }
+                        }
+                    case .failed:
+                        await failedHandler(job)
+                    }
+                }
+            } catch {
+                await logHandler("Scan job polling failed: \(error.localizedDescription)")
+            }
+
+            let nextInterval: UInt64 = hasActiveJobs ? 3_000_000_000 : 12_000_000_000
+            try? await Task.sleep(nanoseconds: nextInterval)
+        }
+    }
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published private(set) var session: AuthSession?
@@ -39,6 +142,44 @@ final class AppState: ObservableObject {
     let collectionRepository: CollectionRepositoryProtocol
     private let scanNotificationService: ScanNotificationServiceProtocol
     private var bannerDismissTask: Task<Void, Never>?
+    private let defaults: UserDefaults
+
+    private var pendingScanImportContexts: [String: PendingScanImportContext]
+    private var importedScanJobs: [String: ImportedScanJobRecord]
+    private var reportedScanFailures: Set<String>
+
+    private lazy var scanJobSyncService = ScanJobSyncService(
+        sessionProvider: { [weak self] in
+            guard let self else { return nil }
+            return await self.session
+        },
+        fetchJobs: { [weak self] bearerToken in
+            guard let self else { return [] }
+            return try await self.webAPIClient.fetchScanJobs(bearerToken: bearerToken)
+        },
+        acknowledgeJob: { [weak self] jobId, bearerToken in
+            guard let self else { return }
+            try await self.webAPIClient.acknowledgeScanJob(jobId: jobId, bearerToken: bearerToken)
+        },
+        completedHandler: { [weak self] job in
+            guard let self else { return false }
+            return await self.handleCompletedScanJob(job)
+        },
+        failedHandler: { [weak self] job in
+            guard let self else { return }
+            await self.handleFailedScanJob(job)
+        },
+        logHandler: { [weak self] message in
+            guard let self else { return }
+            self.logger.error("\(message, privacy: .public)")
+        }
+    )
+
+    private enum Keys {
+        static let pendingScanImportContexts = "merken_pending_scan_import_contexts"
+        static let importedScanJobs = "merken_imported_scan_jobs"
+        static let reportedScanFailures = "merken_reported_scan_job_failures"
+    }
 
     init(
         authService: AuthService,
@@ -48,7 +189,8 @@ final class AppState: ObservableObject {
         quizStatsStore: QuizStatsStore,
         sentenceQuizProgressStore: SentenceQuizProgressStore,
         collectionRepository: CollectionRepositoryProtocol,
-        scanNotificationService: ScanNotificationServiceProtocol
+        scanNotificationService: ScanNotificationServiceProtocol,
+        defaults: UserDefaults = .standard
     ) {
         self.authService = authService
         self.repositoryRouter = repositoryRouter
@@ -58,7 +200,11 @@ final class AppState: ObservableObject {
         self.sentenceQuizProgressStore = sentenceQuizProgressStore
         self.collectionRepository = collectionRepository
         self.scanNotificationService = scanNotificationService
+        self.defaults = defaults
         self.session = authService.session
+        self.pendingScanImportContexts = Self.loadPendingScanImportContexts(defaults: defaults)
+        self.importedScanJobs = Self.loadImportedScanJobs(defaults: defaults)
+        self.reportedScanFailures = Self.loadReportedFailures(defaults: defaults)
     }
 
     var isPro: Bool {
@@ -86,6 +232,9 @@ final class AppState: ObservableObject {
 
     func bootstrap() async {
         await refreshAuthState(showLoading: true)
+        Task {
+            await scanNotificationService.requestAuthorizationIfNeeded()
+        }
     }
 
     func refreshAuthState(showLoading: Bool = false) async {
@@ -102,6 +251,7 @@ final class AppState: ObservableObject {
         guard session != nil else {
             subscription = nil
             repositoryMode = .guestLocal
+            await scanJobSyncService.stop()
             logger.info("Auth bootstrap: guest local mode")
             return
         }
@@ -111,6 +261,7 @@ final class AppState: ObservableObject {
             self.subscription = subscription
             repositoryMode = repositoryRouter.mode(for: subscription)
             authErrorMessage = nil
+            await scanJobSyncService.start()
             logger.info("Auth refresh complete. mode=\(self.repositoryMode == .proCloud ? "proCloud" : "guestLocal")")
         } catch {
             if let authError = error as? AuthServiceError,
@@ -118,6 +269,7 @@ final class AppState: ObservableObject {
                 isSessionExpired = true
                 session = nil
                 authErrorMessage = error.localizedDescription
+                await scanJobSyncService.stop()
                 logger.warning("Session expired — keeping current repositoryMode")
             } else {
                 if session == nil {
@@ -171,6 +323,21 @@ final class AppState: ObservableObject {
         dataVersion += 1
     }
 
+    func registerPendingScanImport(_ context: PendingScanImportContext) {
+        pendingScanImportContexts[context.jobId] = context
+        persistPendingScanImportContexts()
+        reportedScanFailures.remove(context.jobId)
+        persistReportedFailures()
+
+        Task {
+            await scanNotificationService.requestAuthorizationIfNeeded()
+        }
+
+        Task {
+            await scanJobSyncService.start()
+        }
+    }
+
     func postScanSuccess(projectTitle: String, wordCount: Int) {
         let title = "スキャン完了"
         let message = "「\(projectTitle)」に\(wordCount)語を追加しました。"
@@ -191,6 +358,149 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func handleCompletedScanJob(_ job: ScanJobDTO) async -> Bool {
+        if importedScanJobs[job.id] != nil {
+            removePendingScanImportContext(jobId: job.id)
+            return true
+        }
+
+        guard let context = pendingScanImportContexts[job.id] else {
+            return false
+        }
+
+        let result = job.decodedResult
+        let saveMode = result?.saveMode ?? job.saveMode
+
+        switch saveMode {
+        case .serverCloud:
+            let count = result?.wordCount ?? 0
+            recordImportedScanJob(jobId: job.id)
+            removePendingScanImportContext(jobId: job.id)
+            reportedScanFailures.remove(job.id)
+            persistReportedFailures()
+            bumpDataVersion()
+            postScanSuccess(projectTitle: job.projectTitle, wordCount: count)
+            return true
+
+        case .clientLocal:
+            return await importClientLocalScanJob(job: job, context: context, result: result)
+        }
+    }
+
+    private func handleFailedScanJob(_ job: ScanJobDTO) async {
+        guard pendingScanImportContexts[job.id] != nil else { return }
+        guard !reportedScanFailures.contains(job.id) else { return }
+        reportedScanFailures.insert(job.id)
+        persistReportedFailures()
+        removePendingScanImportContext(jobId: job.id)
+
+        let message = job.errorMessage ?? "スキャン処理に失敗しました。"
+        postScanFailure(message: message)
+    }
+
+    private func importClientLocalScanJob(
+        job: ScanJobDTO,
+        context: PendingScanImportContext,
+        result: ScanJobResultPayload?
+    ) async -> Bool {
+        guard let extractedWords = result?.extractedWords, !extractedWords.isEmpty else {
+            postScanFailure(message: "スキャン結果の読み込みに失敗しました。")
+            return false
+        }
+
+        let localRepository = repositoryRouter.repository(for: .guestLocal)
+        let localUserId = guestSessionStore.guestUserId
+        let dedupedWords = ScanCoordinatorViewModel.dedupeWords(extractedWords)
+
+        do {
+            let currentWords = try await localRepository.fetchAllWords(userId: localUserId)
+            let projectedCount = currentWords.count + dedupedWords.count
+            if projectedCount > ScanCoordinatorViewModel.freeWordLimit {
+                let available = max(0, ScanCoordinatorViewModel.freeWordLimit - currentWords.count)
+                postScanFailure(message: "保存できる単語はあと\(available)語までです。")
+                return false
+            }
+
+            let projectTitleCandidate = context.requestedProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let fallbackTitle = projectTitleCandidate.isEmpty ? job.projectTitle : projectTitleCandidate
+            let iconImage = context.requestedProjectIconImage
+
+            let projectId: String
+            let projectTitleForMessage: String
+
+            if let targetId = context.localTargetProjectId {
+                let projects = try await localRepository.fetchProjects(userId: localUserId)
+                if let existingProject = projects.first(where: { $0.id == targetId }) {
+                    projectId = existingProject.id
+                    projectTitleForMessage = existingProject.title
+                    if let iconImage {
+                        try? await localRepository.updateProjectIcon(id: existingProject.id, iconImage: iconImage)
+                    }
+                } else {
+                    let created = try await localRepository.createProject(
+                        title: fallbackTitle,
+                        userId: localUserId,
+                        iconImage: iconImage
+                    )
+                    projectId = created.id
+                    projectTitleForMessage = created.title
+                }
+            } else {
+                let created = try await localRepository.createProject(
+                    title: fallbackTitle,
+                    userId: localUserId,
+                    iconImage: iconImage
+                )
+                projectId = created.id
+                projectTitleForMessage = created.title
+            }
+
+            let inputs = dedupedWords.map {
+                WordInput(
+                    projectId: projectId,
+                    english: $0.english,
+                    japanese: $0.japanese,
+                    distractors: $0.distractors,
+                    exampleSentence: $0.exampleSentence,
+                    exampleSentenceJa: $0.exampleSentenceJa,
+                    pronunciation: nil
+                )
+            }
+
+            _ = try await localRepository.createWords(inputs)
+
+            recordImportedScanJob(jobId: job.id)
+            removePendingScanImportContext(jobId: job.id)
+            reportedScanFailures.remove(job.id)
+            persistReportedFailures()
+            bumpDataVersion()
+            postScanSuccess(projectTitle: projectTitleForMessage, wordCount: inputs.count)
+            return true
+        } catch {
+            postScanFailure(message: "ローカル保存に失敗しました: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func recordImportedScanJob(jobId: String) {
+        importedScanJobs[jobId] = ImportedScanJobRecord(jobId: jobId, importedAt: .now)
+
+        // Keep the latest 200 records to avoid unbounded growth.
+        if importedScanJobs.count > 200 {
+            let sorted = importedScanJobs.values.sorted { $0.importedAt > $1.importedAt }
+            importedScanJobs = Dictionary(
+                uniqueKeysWithValues: sorted.prefix(200).map { ($0.jobId, $0) }
+            )
+        }
+
+        persistImportedScanJobs()
+    }
+
+    private func removePendingScanImportContext(jobId: String) {
+        pendingScanImportContexts.removeValue(forKey: jobId)
+        persistPendingScanImportContexts()
+    }
+
     private func showScanBanner(level: ScanBannerState.Level, title: String, message: String) {
         let banner = ScanBannerState(level: level, title: title, message: message)
         scanBanner = banner
@@ -204,5 +514,42 @@ final class AppState: ObservableObject {
                 self.scanBanner = nil
             }
         }
+    }
+
+    private func persistPendingScanImportContexts() {
+        if let encoded = try? JSONEncoder().encode(pendingScanImportContexts) {
+            defaults.set(encoded, forKey: Keys.pendingScanImportContexts)
+        }
+    }
+
+    private func persistImportedScanJobs() {
+        if let encoded = try? JSONEncoder().encode(importedScanJobs) {
+            defaults.set(encoded, forKey: Keys.importedScanJobs)
+        }
+    }
+
+    private func persistReportedFailures() {
+        defaults.set(Array(reportedScanFailures), forKey: Keys.reportedScanFailures)
+    }
+
+    private static func loadPendingScanImportContexts(defaults: UserDefaults) -> [String: PendingScanImportContext] {
+        guard let data = defaults.data(forKey: Keys.pendingScanImportContexts),
+              let decoded = try? JSONDecoder().decode([String: PendingScanImportContext].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
+    private static func loadImportedScanJobs(defaults: UserDefaults) -> [String: ImportedScanJobRecord] {
+        guard let data = defaults.data(forKey: Keys.importedScanJobs),
+              let decoded = try? JSONDecoder().decode([String: ImportedScanJobRecord].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
+    private static func loadReportedFailures(defaults: UserDefaults) -> Set<String> {
+        let values = defaults.stringArray(forKey: Keys.reportedScanFailures) ?? []
+        return Set(values)
     }
 }

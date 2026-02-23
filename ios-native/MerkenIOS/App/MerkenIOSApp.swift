@@ -6,6 +6,7 @@ import OSLog
 struct MerkenIOSApp: App {
     @StateObject private var appState: AppState
     @StateObject private var themeManager = ThemeManager()
+    @Environment(\.scenePhase) private var scenePhase
     private let modelContainer: ModelContainer
 
     init() {
@@ -26,6 +27,12 @@ struct MerkenIOSApp: App {
                 .preferredColorScheme(themeManager.preferredColorScheme)
                 .task {
                     await appState.bootstrap()
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    guard newPhase == .active else { return }
+                    Task {
+                        await appState.refreshAuthState(showLoading: false)
+                    }
                 }
         }
     }

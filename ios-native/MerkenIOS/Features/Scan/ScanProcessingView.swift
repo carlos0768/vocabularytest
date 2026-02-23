@@ -25,11 +25,11 @@ struct ScanProcessingView: View {
                     ProgressView(value: progressValue)
                         .tint(MerkenTheme.accentBlue)
 
-                    Text("画像を解析中\(String(repeating: ".", count: dotCount))")
+                    Text("画像をアップロード中\(String(repeating: ".", count: dotCount))")
                         .font(.headline)
                         .foregroundStyle(MerkenTheme.primaryText)
 
-                    Text("ページごとに順番に解析しています。")
+                    Text("アップロード後にサーバーで解析を実行します。")
                         .font(.caption)
                         .foregroundStyle(MerkenTheme.secondaryText)
                         .multilineTextAlignment(.center)

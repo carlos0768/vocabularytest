@@ -4,6 +4,7 @@ struct AppConfig: Sendable {
     let supabaseURL: URL
     let supabaseAnonKey: String
     let webAPIBaseURL: URL
+    let iosScanJobsAlwaysOn: Bool
 
     init() throws {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -29,5 +30,6 @@ struct AppConfig: Sendable {
         self.supabaseURL = supabaseURL
         self.supabaseAnonKey = supabaseAnonKey
         self.webAPIBaseURL = webAPIBaseURL
+        self.iosScanJobsAlwaysOn = (info["IOS_SCAN_JOBS_ALWAYS_ON"] as? Bool) ?? true
     }
 }

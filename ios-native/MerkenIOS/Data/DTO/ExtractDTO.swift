@@ -94,7 +94,7 @@ struct ExtractResponse: Decodable {
     let error: String?
 }
 
-struct ExtractedWord: Decodable, Identifiable {
+struct ExtractedWord: Decodable, Identifiable, Sendable {
     let id: String
     let english: String
     let japanese: String

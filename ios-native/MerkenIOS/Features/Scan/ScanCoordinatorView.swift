@@ -83,6 +83,9 @@ struct ScanCoordinatorView: View {
                     summary: viewModel.processingSummary
                 )
 
+            case .queued(let jobId):
+                queuedView(jobId: jobId)
+
             case .confirm:
                 ScanConfirmView(
                     words: $viewModel.editableWords,
@@ -123,6 +126,44 @@ struct ScanCoordinatorView: View {
         }
         .onDisappear {
             viewModel.continueProcessingAfterDismissIfNeeded()
+        }
+    }
+
+    private func queuedView(jobId: String) -> some View {
+        ZStack {
+            AppBackground()
+
+            VStack(spacing: 24) {
+                Image(systemName: "clock.badge.checkmark")
+                    .font(.system(size: 56))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+
+                VStack(spacing: 8) {
+                    Text("バックグラウンド解析を開始しました")
+                        .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .multilineTextAlignment(.center)
+
+                    Text("画面を閉じても解析は継続されます。完了後に自動で単語帳へ反映します。")
+                        .font(.subheadline)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+
+                    Text("Job ID: \(jobId)")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+
+                Button {
+                    dismiss()
+                } label: {
+                    Label("閉じる", systemImage: "checkmark")
+                        .frame(maxWidth: 220)
+                }
+                .buttonStyle(PrimaryGlassButton())
+            }
+            .padding(.horizontal, 20)
         }
     }
 

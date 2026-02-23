@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
     const projectTitle = formData.get('projectTitle') as string;
     const scanMode = formData.get('scanMode') as string || 'all';
     const eikenLevel = formData.get('eikenLevel') as string || null;
+    const clientPlatformRaw = (formData.get('clientPlatform') as string | null)?.trim().toLowerCase();
+    const clientPlatform = clientPlatformRaw === 'ios' ? 'ios' : 'web';
+    const targetProjectId = (formData.get('targetProjectId') as string | null)?.trim() || null;
 
     if (!image || !projectTitle) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -64,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const requiresPro = scanMode !== 'all';
     const { data: scanData, error: scanError } = await supabase
-      .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
+      .rpc('check_and_increment_scan_batch', { p_count: 1, p_require_pro: requiresPro });
 
     if (scanError || !scanData) {
       console.error('Scan limit check error:', scanError);
@@ -88,6 +91,26 @@ export async function POST(request: NextRequest) {
         },
         { status: 429 }
       );
+    }
+
+    const isProUser = Boolean(scanData.is_pro);
+    const saveMode: 'server_cloud' | 'client_local' =
+      clientPlatform === 'ios' && !isProUser ? 'client_local' : 'server_cloud';
+
+    let validatedTargetProjectId: string | null = null;
+    if (saveMode === 'server_cloud' && targetProjectId) {
+      const { data: project, error: projectError } = await getSupabaseAdmin()
+        .from('projects')
+        .select('id')
+        .eq('id', targetProjectId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (projectError || !project) {
+        return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
+      }
+
+      validatedTargetProjectId = project.id;
     }
 
     // Upload image to Supabase Storage
@@ -115,6 +138,9 @@ export async function POST(request: NextRequest) {
         scan_mode: scanMode,
         eiken_level: eikenLevel,
         image_path: imagePath,
+        image_paths: [imagePath],
+        save_mode: saveMode,
+        target_project_id: validatedTargetProjectId,
         status: 'pending',
       })
       .select()
@@ -140,6 +166,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       jobId: job.id,
+      saveMode,
       message: 'Scan started',
     });
 
@@ -198,9 +225,12 @@ export async function GET(request: NextRequest) {
       id: string;
       user_id: string;
       project_id: string | null;
+      target_project_id: string | null;
       project_title: string;
       scan_mode: string;
+      save_mode: 'server_cloud' | 'client_local';
       image_path: string;
+      image_paths: string[] | null;
       status: 'pending' | 'processing' | 'completed' | 'failed';
       result: string | null;
       error_message: string | null;

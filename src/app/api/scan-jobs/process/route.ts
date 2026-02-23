@@ -39,10 +39,19 @@ const processSchema = z.object({
 }).strict();
 
 type ExtractionWarningCode = 'grammar_not_found';
+type ScanJobSaveMode = 'server_cloud' | 'client_local';
 
 type ExtractionLikeResult =
   | { success: true; data: { words: unknown[] } }
   | { success: false; error: string; reason?: string };
+
+interface ProcessedExtractedWord {
+  english: string;
+  japanese: string;
+  distractors: string[];
+  exampleSentence: string | null;
+  exampleSentenceJa: string | null;
+}
 
 // Keep internal timeout below platform timeout to fail gracefully.
 const EXTRACTION_TIMEOUT_MS = 4 * 60 * 1000 + 30 * 1000;
@@ -178,6 +187,96 @@ function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function normalizeText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(' ');
+}
+
+function firstNonEmpty(value: unknown): string | null {
+  const normalized = normalizeText(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function mergeDistractors(existing: string[], incoming: unknown): string[] {
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  const incomingList = Array.isArray(incoming) ? incoming : [];
+
+  for (const candidate of [...existing, ...incomingList]) {
+    const normalized = normalizeText(candidate);
+    if (!normalized) continue;
+    const token = normalized.toLowerCase();
+    if (seen.has(token)) continue;
+    seen.add(token);
+    merged.push(normalized);
+    if (merged.length >= 3) break;
+  }
+
+  return merged;
+}
+
+function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
+  const parsed: ProcessedExtractedWord[] = [];
+
+  for (const rawWord of rawWords) {
+    if (!rawWord || typeof rawWord !== 'object') continue;
+
+    const word = rawWord as Record<string, unknown>;
+    const english = normalizeText(word.english);
+    const japanese = normalizeText(word.japanese);
+    if (!english || !japanese) continue;
+
+    parsed.push({
+      english,
+      japanese,
+      distractors: mergeDistractors([], word.distractors),
+      exampleSentence: firstNonEmpty(word.exampleSentence),
+      exampleSentenceJa: firstNonEmpty(word.exampleSentenceJa),
+    });
+  }
+
+  return parsed;
+}
+
+function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtractedWord[] {
+  if (words.length === 0) return [];
+
+  const deduped: ProcessedExtractedWord[] = [];
+  const indexByKey = new Map<string, number>();
+
+  for (const source of words) {
+    const key = `${source.english.toLowerCase()}||${source.japanese}`;
+    const existingIndex = indexByKey.get(key);
+
+    if (existingIndex === undefined) {
+      indexByKey.set(key, deduped.length);
+      deduped.push({
+        english: source.english,
+        japanese: source.japanese,
+        distractors: mergeDistractors([], source.distractors),
+        exampleSentence: firstNonEmpty(source.exampleSentence),
+        exampleSentenceJa: firstNonEmpty(source.exampleSentenceJa),
+      });
+      continue;
+    }
+
+    const existing = deduped[existingIndex];
+    deduped[existingIndex] = {
+      english: existing.english,
+      japanese: existing.japanese,
+      distractors: mergeDistractors(existing.distractors, source.distractors),
+      exampleSentence: existing.exampleSentence ?? firstNonEmpty(source.exampleSentence),
+      exampleSentenceJa: existing.exampleSentenceJa ?? firstNonEmpty(source.exampleSentenceJa),
+    };
+  }
+
+  return deduped;
+}
+
 async function generateQuizContentWithRetry(words: QuizSeedWord[]): Promise<{
   results: QuizContentResult[];
   failedWordIds: string[];
@@ -306,6 +405,11 @@ export async function POST(request: NextRequest) {
     try {
       // Collect all image paths (support both single and multiple)
       const imagePaths: string[] = job.image_paths || (job.image_path ? [job.image_path] : []);
+      const saveMode: ScanJobSaveMode = job.save_mode === 'client_local' ? 'client_local' : 'server_cloud';
+      const targetProjectId: string | null =
+        typeof job.target_project_id === 'string' && job.target_project_id.length > 0
+          ? job.target_project_id
+          : null;
 
       if (imagePaths.length === 0) {
         throw new Error('No images to process');
@@ -332,30 +436,36 @@ export async function POST(request: NextRequest) {
         currentPeriodEnd: subscription?.current_period_end,
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allExtractedWords: any[] = [];
+      const allExtractedWords: ProcessedExtractedWord[] = [];
       let firstExtractionError: string | null = null;
       const warningCodes = new Set<ExtractionWarningCode>();
+      const pageWarnings: string[] = [];
       let grammarWarningNotified = false;
 
       console.log('scan-jobs/process config:', {
         mode,
         imageCount: imagePaths.length,
+        saveMode,
         extractionTimeoutMs: EXTRACTION_TIMEOUT_MS,
         extractionTimeoutMinutes: EXTRACTION_TIMEOUT_MINUTES,
       });
 
       // Process each image and merge results
-      for (const imagePath of imagePaths) {
+      for (let pageIndex = 0; pageIndex < imagePaths.length; pageIndex += 1) {
+        const imagePath = imagePaths[pageIndex];
+        const pageLabel = `ページ${pageIndex + 1}`;
+
         const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
           .from('scan-images')
           .download(imagePath);
 
         if (downloadError || !imageData) {
+          const message = `${pageLabel}: 画像データの取得に失敗しました`;
           console.error(`Failed to download image ${imagePath}:`, downloadError);
           if (!firstExtractionError) {
             firstExtractionError = '画像データの取得に失敗しました';
           }
+          pageWarnings.push(message);
           continue; // Skip failed images, process the rest
         }
 
@@ -365,10 +475,10 @@ export async function POST(request: NextRequest) {
         const mimeType = ext === 'pdf'
           ? 'application/pdf'
           : ext === 'png'
-          ? 'image/png'
-          : ext === 'webp'
-          ? 'image/webp'
-          : 'image/jpeg';
+            ? 'image/png'
+            : ext === 'webp'
+              ? 'image/webp'
+              : 'image/jpeg';
         const base64Image = `data:${mimeType};base64,${base64}`;
 
         let extractionResult: { result: ExtractionLikeResult; warningCode?: ExtractionWarningCode } | null = null;
@@ -379,10 +489,12 @@ export async function POST(request: NextRequest) {
             `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
           );
         } catch (error) {
+          const message = `${pageLabel}: 画像解析に失敗しました`;
           console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
           if (!firstExtractionError) {
             firstExtractionError = error instanceof Error ? error.message : '画像解析に失敗しました';
           }
+          pageWarnings.push(message);
           continue;
         }
 
@@ -403,16 +515,21 @@ export async function POST(request: NextRequest) {
         }
 
         if (result.success && result.data?.words) {
-          allExtractedWords.push(...result.data.words);
+          const parsedWords = parseExtractedWords(result.data.words);
+          allExtractedWords.push(...parsedWords);
         } else if (!result.success) {
+          const message = `${pageLabel}: ${result.error || '画像の解析に失敗しました'}`;
           console.error(`Extraction failed for ${imagePath}:`, result.error);
           if (!firstExtractionError) {
             firstExtractionError = result.error || '画像の解析に失敗しました';
           }
+          pageWarnings.push(message);
         }
       }
 
-      if (allExtractedWords.length === 0) {
+      const dedupedWords = dedupeExtractedWords(allExtractedWords);
+
+      if (dedupedWords.length === 0) {
         const errorMessage = firstExtractionError || 'No words found in any image';
         await getSupabaseAdmin()
           .from('scan_jobs')
@@ -435,27 +552,96 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
 
-      // Create project and save all words at once
-      const { data: newProject, error: projectError } = await getSupabaseAdmin()
-        .from('projects')
-        .insert({
-          user_id: job.user_id,
-          title: job.project_title,
-          icon_image: job.project_icon_image ?? null,
-        })
-        .select()
-        .single();
+      const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
 
-      if (projectError || !newProject) {
-        console.error('Project creation error:', projectError);
-        throw new Error('Failed to create project');
+      if (saveMode === 'client_local') {
+        const resultPayload: {
+          wordCount: number;
+          warnings?: string[];
+          saveMode: ScanJobSaveMode;
+          extractedWords: ProcessedExtractedWord[];
+        } = {
+          wordCount: dedupedWords.length,
+          saveMode,
+          extractedWords: dedupedWords,
+        };
+        if (warnings.length > 0) {
+          resultPayload.warnings = warnings;
+        }
+
+        await getSupabaseAdmin()
+          .from('scan_jobs')
+          .update({
+            status: 'completed',
+            project_id: null,
+            result: JSON.stringify(resultPayload),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+
+        void sendScanJobPushNotifications(getSupabaseAdmin(), {
+          userId: job.user_id,
+          jobId,
+          projectId: null,
+          projectTitle: job.project_title,
+          status: 'completed',
+          wordCount: dedupedWords.length,
+        }).catch((error) => {
+          console.error('Failed to send completed push notification:', error);
+        });
+
+        return NextResponse.json({
+          success: true,
+          saveMode,
+          projectId: null,
+          wordCount: dedupedWords.length,
+        });
       }
 
-      const wordsToInsert = allExtractedWords.map((word) => ({
-        project_id: newProject.id,
+      let projectId: string;
+      let projectTitleForNotification = job.project_title as string;
+      let createdNewProject = false;
+
+      if (targetProjectId) {
+        const { data: existingProject, error: existingProjectError } = await getSupabaseAdmin()
+          .from('projects')
+          .select('id,title')
+          .eq('id', targetProjectId)
+          .eq('user_id', job.user_id)
+          .single();
+
+        if (existingProjectError || !existingProject) {
+          throw new Error('指定した単語帳が見つかりません。');
+        }
+
+        projectId = existingProject.id;
+        projectTitleForNotification = existingProject.title ?? projectTitleForNotification;
+      } else {
+        const { data: newProject, error: projectError } = await getSupabaseAdmin()
+          .from('projects')
+          .insert({
+            user_id: job.user_id,
+            title: job.project_title,
+            icon_image: job.project_icon_image ?? null,
+          })
+          .select()
+          .single();
+
+        if (projectError || !newProject) {
+          console.error('Project creation error:', projectError);
+          throw new Error('Failed to create project');
+        }
+
+        projectId = newProject.id;
+        projectTitleForNotification = newProject.title ?? projectTitleForNotification;
+        createdNewProject = true;
+      }
+
+      const wordsToInsert = dedupedWords.map((word) => ({
+        project_id: projectId,
         english: word.english,
         japanese: word.japanese,
-        distractors: word.distractors || [],
+        distractors: word.distractors,
         example_sentence: word.exampleSentence || null,
         example_sentence_ja: word.exampleSentenceJa || null,
       }));
@@ -466,7 +652,9 @@ export async function POST(request: NextRequest) {
         .select('id, english, japanese, distractors, example_sentence, example_sentence_ja');
 
       if (wordsError) {
-        await getSupabaseAdmin().from('projects').delete().eq('id', newProject.id);
+        if (createdNewProject) {
+          await getSupabaseAdmin().from('projects').delete().eq('id', projectId);
+        }
         throw new Error('Failed to insert words');
       }
 
@@ -474,15 +662,19 @@ export async function POST(request: NextRequest) {
 
       const resultPayload: {
         wordCount: number;
-        warnings?: ExtractionWarningCode[];
+        warnings?: string[];
+        saveMode: ScanJobSaveMode;
+        targetProjectId: string;
         quizPrefillRequested?: number;
         quizPrefillSucceeded?: number;
         quizPrefillFailed?: number;
       } = {
-        wordCount: allExtractedWords.length,
+        wordCount: dedupedWords.length,
+        saveMode,
+        targetProjectId: projectId,
       };
-      if (warningCodes.size > 0) {
-        resultPayload.warnings = Array.from(warningCodes);
+      if (warnings.length > 0) {
+        resultPayload.warnings = warnings;
       }
 
       const quizSeedWords: QuizSeedWord[] = insertedWordsArray
@@ -541,7 +733,7 @@ export async function POST(request: NextRequest) {
         .from('scan_jobs')
         .update({
           status: 'completed',
-          project_id: newProject.id,
+          project_id: projectId,
           result: JSON.stringify(resultPayload),
           updated_at: new Date().toISOString(),
         })
@@ -550,10 +742,10 @@ export async function POST(request: NextRequest) {
       void sendScanJobPushNotifications(getSupabaseAdmin(), {
         userId: job.user_id,
         jobId,
-        projectId: newProject.id,
-        projectTitle: job.project_title,
+        projectId,
+        projectTitle: projectTitleForNotification,
         status: 'completed',
-        wordCount: allExtractedWords.length,
+        wordCount: dedupedWords.length,
       }).catch((error) => {
         console.error('Failed to send completed push notification:', error);
       });
@@ -603,13 +795,13 @@ export async function POST(request: NextRequest) {
             console.error('Failed to trigger similar cache rebuild:', error);
           });
         }
-
       })();
 
       return NextResponse.json({
         success: true,
-        projectId: newProject.id,
-        wordCount: allExtractedWords.length,
+        saveMode,
+        projectId,
+        wordCount: dedupedWords.length,
       });
 
     } catch (processingError) {

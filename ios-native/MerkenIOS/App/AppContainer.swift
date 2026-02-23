@@ -58,7 +58,11 @@ struct AppContainer {
             }
         )
 
-        let webAPIClient = WebAPIClient(baseURL: config.webAPIBaseURL)
+        let webAPIClient = WebAPIClient(
+            baseURL: config.webAPIBaseURL,
+            supabaseURL: config.supabaseURL,
+            supabaseAnonKey: config.supabaseAnonKey
+        )
         let quizStatsStore = QuizStatsStore()
         let sentenceQuizProgressStore = SentenceQuizProgressStore()
         let scanNotificationService = ScanNotificationService()

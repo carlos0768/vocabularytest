@@ -61,6 +61,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
         case photoLibrary
         case preview
         case processing
+        case queued(jobId: String)
         case confirm
         case saving
         case complete(projectId: String)
@@ -76,6 +77,8 @@ final class ScanCoordinatorViewModel: ObservableObject {
                  (.confirm, .confirm),
                  (.saving, .saving):
                 return true
+            case (.queued(let a), .queued(let b)):
+                return a == b
             case (.complete(let a), .complete(let b)):
                 return a == b
             case (.error(let a), .error(let b)):
@@ -227,8 +230,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
             return
         }
 
-        completionSource = .foregroundManual
-        shouldAutoSaveAfterProcessingDismiss = false
         stepBeforeError = .preview
         currentStep = .processing
         processingSummary = nil
@@ -243,26 +244,17 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
         Task {
             let snapshot = selectedImages
-            var allExtractedWords: [ExtractedWord] = []
             var warnings: [String] = []
-            var limitMessage: String?
-            var stopAfterIndex: Int?
+            var uploadPayloads: [ScanUploadImage] = []
+            var uploadIndexMap: [Int] = []
+            uploadPayloads.reserveCapacity(snapshot.count)
+            uploadIndexMap.reserveCapacity(snapshot.count)
 
             for index in snapshot.indices {
-                if let stopAfterIndex, index >= stopAfterIndex {
-                    updateProgress(
-                        at: index,
-                        status: .skippedLimit,
-                        message: "上限到達のためスキップ",
-                        extractedCount: 0
-                    )
-                    continue
-                }
-
                 updateProgress(
                     at: index,
                     status: .processing,
-                    message: "解析中...",
+                    message: "画像を準備中...",
                     extractedCount: 0
                 )
 
@@ -274,96 +266,137 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 }
 
                 logger.info("Prepared page \(index + 1, privacy: .public): \(payload.byteCount, privacy: .public) bytes")
-
-                do {
-                    let words = try await appState.webAPIClient.extractWords(
-                        imageBase64: payload.base64,
-                        mode: selectedMode,
-                        eikenLevel: selectedEikenLevel,
-                        bearerToken: session.accessToken
+                uploadPayloads.append(
+                    ScanUploadImage(
+                        data: payload.data,
+                        contentType: "image/jpeg",
+                        fileExtension: "jpg"
                     )
-
-                    allExtractedWords.append(contentsOf: words)
-                    updateProgress(
-                        at: index,
-                        status: .success,
-                        message: "\(words.count)語を抽出",
-                        extractedCount: words.count
-                    )
-                } catch let error as WebAPIError {
-                    switch error {
-                    case .scanLimitReached(let message):
-                        limitMessage = message
-                        stopAfterIndex = index + 1
-                        updateProgress(at: index, status: .failed, message: message, extractedCount: 0)
-                        warnings.append("ページ\(index + 1): \(message)")
-                    default:
-                        let message = error.localizedDescription
-                        updateProgress(at: index, status: .failed, message: message, extractedCount: 0)
-                        warnings.append("ページ\(index + 1): \(message)")
-                    }
-                } catch {
-                    let message = "予期しないエラー: \(error.localizedDescription)"
-                    updateProgress(at: index, status: .failed, message: message, extractedCount: 0)
-                    warnings.append("ページ\(index + 1): \(message)")
-                }
+                )
+                uploadIndexMap.append(index)
+                updateProgress(
+                    at: index,
+                    status: .pending,
+                    message: "アップロード待機中...",
+                    extractedCount: 0
+                )
             }
 
-            let dedupedWords = Self.dedupeWords(allExtractedWords)
-            editableWords = dedupedWords.map { EditableExtractedWord(from: $0) }
-
-            if !appState.isPro {
-                do {
-                    currentWordCount = try await fetchCurrentWordCount(using: appState)
-                } catch {
-                    currentWordCount = 0
-                    logger.warning("Word count preload failed: \(error.localizedDescription)")
-                }
-            } else {
-                currentWordCount = 0
-            }
-
-            if projectTitle.isEmpty && targetProjectTitle == nil {
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "M/d"
-                projectTitle = "スキャン \(dateFormatter.string(from: .now))"
-            }
-
-            let summary = Self.makeProcessingSummary(
-                from: processingPages,
-                warnings: warnings,
-                extractedWordCount: allExtractedWords.count,
-                dedupedWordCount: dedupedWords.count
-            )
-            processingSummary = summary
-
-            if !editableWords.isEmpty {
-                if summary.skippedPages > 0, let limitMessage {
-                    logger.warning("Scan limit reached in batch flow: \(limitMessage)")
-                }
-                if shouldAutoSaveAfterProcessingDismiss {
-                    logger.info("Scan sheet dismissed during processing. Auto-saving extracted words.")
-                    await performSave(using: appState)
-                } else {
-                    currentStep = .confirm
-                    endBackgroundTask()
-                }
+            guard !uploadPayloads.isEmpty else {
+                let summary = Self.makeProcessingSummary(
+                    from: processingPages,
+                    warnings: warnings,
+                    extractedWordCount: 0,
+                    dedupedWordCount: 0
+                )
+                processingSummary = summary
+                currentStep = .error("アップロードできる画像がありません。")
+                endBackgroundTask()
                 return
             }
 
-            if let limitMessage {
-                currentStep = .error(limitMessage)
-                if shouldAutoSaveAfterProcessingDismiss {
-                    appState.postScanFailure(message: limitMessage)
+            let uploadedPaths: [String]
+            do {
+                for index in uploadIndexMap {
+                    updateProgress(
+                        at: index,
+                        status: .processing,
+                        message: "アップロード中...",
+                        extractedCount: 0
+                    )
                 }
-            } else {
-                let fallback = "単語を抽出できませんでした。別の画像をお試しください。"
-                currentStep = .error(fallback)
-                if shouldAutoSaveAfterProcessingDismiss {
-                    appState.postScanFailure(message: fallback)
+                uploadedPaths = try await appState.webAPIClient.uploadScanImages(
+                    uploadPayloads,
+                    userId: session.userId,
+                    bearerToken: session.accessToken
+                )
+
+                for index in uploadIndexMap {
+                    updateProgress(
+                        at: index,
+                        status: .success,
+                        message: "アップロード完了",
+                        extractedCount: 0
+                    )
                 }
+            } catch {
+                let message = error.localizedDescription
+                for index in uploadIndexMap where processingPages[index].status != .failed {
+                    updateProgress(at: index, status: .failed, message: message, extractedCount: 0)
+                }
+                warnings.append(message)
+
+                let summary = Self.makeProcessingSummary(
+                    from: processingPages,
+                    warnings: warnings,
+                    extractedWordCount: 0,
+                    dedupedWordCount: 0
+                )
+                processingSummary = summary
+                currentStep = .error(message)
+                endBackgroundTask()
+                return
             }
-            endBackgroundTask()
+
+            let resolvedProjectTitle: String = {
+                let raw = projectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !raw.isEmpty { return raw }
+                if let targetProjectTitle, !targetProjectTitle.isEmpty { return targetProjectTitle }
+                return Self.defaultProjectTitle()
+            }()
+            projectTitle = resolvedProjectTitle
+
+            let thumbnail: String? = {
+                guard let image = snapshot.first?.image else { return nil }
+                return ImageCompressor.generateThumbnailBase64(image)
+            }()
+
+            do {
+                let response = try await appState.webAPIClient.createScanJob(
+                    imagePaths: uploadedPaths,
+                    projectTitle: resolvedProjectTitle,
+                    projectIcon: thumbnail,
+                    scanMode: selectedMode,
+                    eikenLevel: selectedEikenLevel,
+                    targetProjectId: appState.canUseCloud ? targetProjectId : nil,
+                    clientPlatform: "ios",
+                    bearerToken: session.accessToken
+                )
+
+                let summary = Self.makeProcessingSummary(
+                    from: processingPages,
+                    warnings: warnings,
+                    extractedWordCount: 0,
+                    dedupedWordCount: 0
+                )
+                processingSummary = summary
+
+                let context = PendingScanImportContext(
+                    jobId: response.jobId,
+                    source: targetProjectId == nil ? .homeOrProjectList : .projectDetail,
+                    localTargetProjectId: response.saveMode == .clientLocal ? targetProjectId : nil,
+                    requestedProjectTitle: resolvedProjectTitle,
+                    requestedProjectIconImage: thumbnail,
+                    createdAt: .now
+                )
+                appState.registerPendingScanImport(context)
+
+                currentStep = .queued(jobId: response.jobId)
+                completionSource = .foregroundManual
+                shouldAutoSaveAfterProcessingDismiss = false
+                endBackgroundTask()
+            } catch {
+                await appState.webAPIClient.removeScanImages(paths: uploadedPaths, bearerToken: session.accessToken)
+                let summary = Self.makeProcessingSummary(
+                    from: processingPages,
+                    warnings: warnings,
+                    extractedWordCount: 0,
+                    dedupedWordCount: 0
+                )
+                processingSummary = summary
+                currentStep = .error(error.localizedDescription)
+                endBackgroundTask()
+            }
         }
     }
 
@@ -377,8 +410,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
     func continueProcessingAfterDismissIfNeeded() {
         guard currentStep == .processing else { return }
-        completionSource = .backgroundAuto
-        shouldAutoSaveAfterProcessingDismiss = true
         beginBackgroundTask()
         logger.info("Scan view disappeared while processing. Background continuation enabled.")
     }
@@ -433,6 +464,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
 
         return deduped
+    }
+
+    static func defaultProjectTitle() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d HH:mm"
+        return "スキャン \(formatter.string(from: .now))"
     }
 
     static func makeProcessingSummary(
@@ -704,15 +741,14 @@ final class ScanCoordinatorViewModel: ObservableObject {
         processingPages[index] = page
     }
 
-    private func preparePayload(for image: UIImage) async -> (base64: String, byteCount: Int)? {
+    private func preparePayload(for image: UIImage) async -> (data: Data, byteCount: Int)? {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 guard let jpegData = ImageCompressor.compress(image) else {
                     continuation.resume(returning: nil)
                     return
                 }
-                let base64 = ImageCompressor.toBase64DataURL(jpegData)
-                continuation.resume(returning: (base64: base64, byteCount: jpegData.count))
+                continuation.resume(returning: (data: jpegData, byteCount: jpegData.count))
             }
         }
     }
