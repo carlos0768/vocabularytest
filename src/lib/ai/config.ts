@@ -30,6 +30,7 @@ export interface AIConfig {
     idioms: AIModelConfig;
     eiken: AIModelConfig;
     circled: AIModelConfig;
+    highlighted: AIModelConfig;
     grammar: {
       ocr: AIModelConfig;
       analysis: AIModelConfig;
@@ -66,6 +67,12 @@ export const AI_CONFIG: AIConfig = {
       model: EXTRACTION_MODEL,
       temperature: 0.0,
       maxOutputTokens: 16384,
+    },
+    highlighted: {
+      provider: 'openai',
+      model: 'gpt-4o',
+      temperature: 0.3,
+      maxOutputTokens: 8192,
     },
     grammar: {
       ocr: {
