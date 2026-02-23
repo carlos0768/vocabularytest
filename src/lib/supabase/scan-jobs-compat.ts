@@ -16,8 +16,8 @@ function isMissingCompatColumn(error: PostgrestError | null): boolean {
   return (
     message.includes('scan_jobs.save_mode') ||
     message.includes('scan_jobs.target_project_id') ||
-    message.includes(\"'save_mode' column of 'scan_jobs'\") ||
-    message.includes(\"'target_project_id' column of 'scan_jobs'\")
+    message.includes("'save_mode' column of 'scan_jobs'") ||
+    message.includes("'target_project_id' column of 'scan_jobs'")
   );
 }
 
