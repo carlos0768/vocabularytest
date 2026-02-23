@@ -38,6 +38,10 @@ interface BoundingBox {
 const UNDERLINE_HORIZONTAL_OVERLAP_THRESHOLD = 0.55;
 const UNDERLINE_TOP_MARGIN_RATIO = 0.15;
 const UNDERLINE_BOTTOM_MARGIN_RATIO = 0.9;
+const HIGHLIGHT_HORIZONTAL_OVERLAP_THRESHOLD = 0.6;
+const HIGHLIGHT_VERTICAL_OVERLAP_THRESHOLD = 0.5;
+const HIGHLIGHT_INTERSECTION_RATIO_THRESHOLD = 0.35;
+const RELAXED_CONFIDENCE_THRESHOLD = 0.65;
 
 function extractJsonContent(content: string): string {
   const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -116,6 +120,27 @@ function horizontalOverlapRatio(wordBox: BoundingBox, markBox: BoundingBox): num
   return overlapWidth / wordWidth;
 }
 
+function verticalOverlapRatio(wordBox: BoundingBox, markBox: BoundingBox): number {
+  const overlapTop = Math.max(wordBox.y_min, markBox.y_min);
+  const overlapBottom = Math.min(wordBox.y_max, markBox.y_max);
+  const overlapHeight = Math.max(0, overlapBottom - overlapTop);
+  const wordHeight = Math.max(1, wordBox.y_max - wordBox.y_min);
+  return overlapHeight / wordHeight;
+}
+
+function intersectionRatioOnWord(wordBox: BoundingBox, markBox: BoundingBox): number {
+  const overlapLeft = Math.max(wordBox.x_min, markBox.x_min);
+  const overlapRight = Math.min(wordBox.x_max, markBox.x_max);
+  const overlapTop = Math.max(wordBox.y_min, markBox.y_min);
+  const overlapBottom = Math.min(wordBox.y_max, markBox.y_max);
+
+  const overlapWidth = Math.max(0, overlapRight - overlapLeft);
+  const overlapHeight = Math.max(0, overlapBottom - overlapTop);
+  const overlapArea = overlapWidth * overlapHeight;
+  const wordArea = Math.max(1, (wordBox.x_max - wordBox.x_min) * (wordBox.y_max - wordBox.y_min));
+  return overlapArea / wordArea;
+}
+
 function isUnderlineAligned(wordBox: BoundingBox, markBox: BoundingBox): boolean {
   const overlap = horizontalOverlapRatio(wordBox, markBox);
   if (overlap < UNDERLINE_HORIZONTAL_OVERLAP_THRESHOLD) {
@@ -137,16 +162,57 @@ function isUnderlineAligned(wordBox: BoundingBox, markBox: BoundingBox): boolean
   return markCenterY >= minY && markCenterY <= maxY;
 }
 
+function isHighlightAligned(wordBox: BoundingBox, markBox: BoundingBox): boolean {
+  const horizontal = horizontalOverlapRatio(wordBox, markBox);
+  if (horizontal < HIGHLIGHT_HORIZONTAL_OVERLAP_THRESHOLD) {
+    return false;
+  }
+
+  const vertical = verticalOverlapRatio(wordBox, markBox);
+  if (vertical < HIGHLIGHT_VERTICAL_OVERLAP_THRESHOLD) {
+    return false;
+  }
+
+  const intersection = intersectionRatioOnWord(wordBox, markBox);
+  if (intersection < HIGHLIGHT_INTERSECTION_RATIO_THRESHOLD) {
+    return false;
+  }
+
+  return true;
+}
+
+function resolveMarkType(word: HighlightedWord): 'underline' | 'highlight' | 'unknown' {
+  const declared = word.markType ?? 'unknown';
+  if (declared !== 'unknown') {
+    return declared;
+  }
+
+  const wordBox = getWordBoundingBox(word);
+  const markBox = getMarkBoundingBox(word);
+  if (!wordBox || !markBox) {
+    return 'unknown';
+  }
+
+  if (isUnderlineAligned(wordBox, markBox)) {
+    return 'underline';
+  }
+  if (isHighlightAligned(wordBox, markBox)) {
+    return 'highlight';
+  }
+
+  return 'unknown';
+}
+
 function passesStrictHighlightRules(word: HighlightedWord): boolean {
   if (word.confidence < CONFIDENCE_THRESHOLD) {
     return false;
   }
 
-  if (word.isHandDrawn !== true) {
+  if (word.isHandDrawn === false) {
     return false;
   }
 
-  const markType = word.markType ?? 'unknown';
+  const markType = resolveMarkType(word);
   if (markType === 'unknown') {
     return false;
   }
@@ -164,7 +230,45 @@ function passesStrictHighlightRules(word: HighlightedWord): boolean {
     }
   }
 
+  if (markType === 'highlight') {
+    const wordBox = getWordBoundingBox(word);
+    const markBox = getMarkBoundingBox(word);
+
+    if (!wordBox || !markBox) {
+      return false;
+    }
+
+    if (!isHighlightAligned(wordBox, markBox)) {
+      return false;
+    }
+  }
+
   return true;
+}
+
+function passesRelaxedHighlightRules(word: HighlightedWord): boolean {
+  if (word.confidence < RELAXED_CONFIDENCE_THRESHOLD) {
+    return false;
+  }
+
+  if (word.isHandDrawn === false) {
+    return false;
+  }
+
+  const wordBox = getWordBoundingBox(word);
+  const markBox = getMarkBoundingBox(word);
+  const markType = resolveMarkType(word);
+
+  if (wordBox && markBox) {
+    return isUnderlineAligned(wordBox, markBox) || isHighlightAligned(wordBox, markBox);
+  }
+
+  // Allow high-confidence candidates when the model omitted bbox fields.
+  if (word.confidence >= 0.9 && markType !== 'unknown') {
+    return true;
+  }
+
+  return false;
 }
 
 function buildVerificationPrompt(words: HighlightedWord[]): string {
@@ -273,16 +377,24 @@ export async function extractHighlightedWordsFromImage(
 
     const firstPassData = firstPassParsed.data;
 
-    const strictCandidates = removeDuplicates(
+    const strictCandidatesRaw = removeDuplicates(
       filterByConfidence(firstPassData.words, CONFIDENCE_THRESHOLD)
         .filter((word) => passesStrictHighlightRules(word))
     );
+    const strictCandidates = strictCandidatesRaw.length > 0
+      ? strictCandidatesRaw
+      : removeDuplicates(
+        filterByConfidence(firstPassData.words, RELAXED_CONFIDENCE_THRESHOLD)
+          .filter((word) => passesRelaxedHighlightRules(word))
+      );
 
     console.log('Highlighted strict filtering result:', {
       beforeFilter: firstPassData.words.length,
-      afterFilter: strictCandidates.length,
+      afterStrictFilter: strictCandidatesRaw.length,
+      afterFinalFilter: strictCandidates.length,
+      usedRelaxedFallback: strictCandidatesRaw.length === 0 && strictCandidates.length > 0,
       threshold: CONFIDENCE_THRESHOLD,
-      filteredOut: firstPassData.words.length - strictCandidates.length,
+      filteredOut: firstPassData.words.length - strictCandidatesRaw.length,
     });
 
     if (strictCandidates.length === 0) {
@@ -331,12 +443,19 @@ export async function extractHighlightedWordsFromImage(
       intersectVerifiedCandidates(strictCandidates, verificationParsed.data.words)
     );
 
+    const minVerified = Math.max(1, Math.floor(strictCandidates.length * 0.4));
+    const verificationTooAggressive = verifiedCandidates.length < minVerified;
+    const finalCandidates = verificationTooAggressive ? strictCandidates : verifiedCandidates;
+
     console.log('Highlighted verification result:', {
       firstPassCandidates: strictCandidates.length,
       verifiedCandidates: verifiedCandidates.length,
+      minVerified,
+      verificationTooAggressive,
+      finalCandidates: finalCandidates.length,
     });
 
-    if (verifiedCandidates.length === 0) {
+    if (finalCandidates.length === 0) {
       return {
         success: false,
         error: '手書きマーカー・下線の条件を満たす単語が見つかりませんでした。',
@@ -345,7 +464,7 @@ export async function extractHighlightedWordsFromImage(
 
     const standardFormat = convertToStandardFormat({
       ...firstPassData,
-      words: verifiedCandidates,
+      words: finalCandidates,
     });
 
     return { success: true, data: standardFormat };
