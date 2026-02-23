@@ -10,12 +10,14 @@ interface InsertScanJobCompatResult {
 
 function isMissingCompatColumn(error: PostgrestError | null): boolean {
   if (!error) return false;
-  if (error.code !== '42703') return false;
+  if (error.code !== '42703' && error.code !== 'PGRST204') return false;
 
-  const message = (error.message || '').toLowerCase();
+  const message = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
   return (
     message.includes('scan_jobs.save_mode') ||
-    message.includes('scan_jobs.target_project_id')
+    message.includes('scan_jobs.target_project_id') ||
+    message.includes(\"'save_mode' column of 'scan_jobs'\") ||
+    message.includes(\"'target_project_id' column of 'scan_jobs'\")
   );
 }
 
