@@ -1,8 +1,8 @@
 // Image utility functions
 // Handles HEIC conversion, compression, PDF pass-through, and other image processing
 
-// Maximum image size in bytes (1MB to reduce OpenAI API processing time and avoid Vercel timeout)
-const MAX_IMAGE_SIZE = 1 * 1024 * 1024;
+// Maximum image size in bytes (default profile)
+const DEFAULT_MAX_IMAGE_SIZE = 1 * 1024 * 1024;
 const PROJECT_ICON_SIZE = 256;
 
 // Maximum PDF size (Gemini supports up to 100MB, but we limit to 20MB for performance)
@@ -156,9 +156,33 @@ async function readFileHeader(file: File): Promise<string> {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Maximum dimension for resizing
-// Reduced to speed up OpenAI API processing
-const MAX_DIMENSION = 1024;
+export type ImageProcessingProfile = 'default' | 'highlighted';
+
+interface ImageCompressionSettings {
+  maxDimension: number;
+  initialQuality: number;
+  minQuality: number;
+  maxImageSize: number;
+}
+
+const IMAGE_COMPRESSION_SETTINGS: Record<ImageProcessingProfile, ImageCompressionSettings> = {
+  default: {
+    maxDimension: 1024,
+    initialQuality: 0.8,
+    minQuality: 0.3,
+    maxImageSize: DEFAULT_MAX_IMAGE_SIZE,
+  },
+  highlighted: {
+    maxDimension: 1600,
+    initialQuality: 0.9,
+    minQuality: 0.7,
+    maxImageSize: 2 * 1024 * 1024,
+  },
+};
+
+export function getImageCompressionSettings(profile: ImageProcessingProfile = 'default'): ImageCompressionSettings {
+  return IMAGE_COMPRESSION_SETTINGS[profile] ?? IMAGE_COMPRESSION_SETTINGS.default;
+}
 
 /**
  * Convert HEIC/HEIF image to JPEG
@@ -211,8 +235,12 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
  * Compress and resize image to reduce file size
  * Uses canvas to resize and compress
  */
-export async function compressImage(file: File): Promise<File> {
-  // Always resize to MAX_DIMENSION to speed up API processing, even if file size is small
+export async function compressImage(
+  file: File,
+  profile: ImageProcessingProfile = 'default'
+): Promise<File> {
+  const settings = getImageCompressionSettings(profile);
+  // Always resize to configured max dimension to keep processing predictable
   // This ensures consistent processing time regardless of original image dimensions
 
   return new Promise((resolve, reject) => {
@@ -230,13 +258,13 @@ export async function compressImage(file: File): Promise<File> {
         let { width, height } = img;
 
         // Calculate new dimensions while maintaining aspect ratio
-        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > settings.maxDimension || height > settings.maxDimension) {
           if (width > height) {
-            height = Math.round((height * MAX_DIMENSION) / width);
-            width = MAX_DIMENSION;
+            height = Math.round((height * settings.maxDimension) / width);
+            width = settings.maxDimension;
           } else {
-            width = Math.round((width * MAX_DIMENSION) / height);
-            height = MAX_DIMENSION;
+            width = Math.round((width * settings.maxDimension) / height);
+            height = settings.maxDimension;
           }
         }
 
@@ -251,8 +279,7 @@ export async function compressImage(file: File): Promise<File> {
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Start with quality 0.8 and reduce if needed
-        let quality = 0.8;
+        let quality = settings.initialQuality;
         const tryCompress = () => {
           canvas.toBlob(
             (blob) => {
@@ -263,8 +290,8 @@ export async function compressImage(file: File): Promise<File> {
               }
 
               // If still too large and quality can be reduced, try again
-              if (blob.size > MAX_IMAGE_SIZE && quality > 0.3) {
-                quality -= 0.1;
+              if (blob.size > settings.maxImageSize && quality > settings.minQuality) {
+                quality = Math.max(settings.minQuality, quality - 0.1);
                 tryCompress();
                 return;
               }
@@ -303,7 +330,10 @@ export async function compressImage(file: File): Promise<File> {
  * - Compresses large images
  * - Returns processed file ready for base64 encoding
  */
-export async function processImageFile(file: File): Promise<File> {
+export async function processImageFile(
+  file: File,
+  profile: ImageProcessingProfile = 'default'
+): Promise<File> {
   if (isPdfFile(file)) {
     const pages = await convertPdfToImageFiles(file);
     return pages[0];
@@ -313,7 +343,7 @@ export async function processImageFile(file: File): Promise<File> {
   let processedFile = await convertHeicToJpeg(file);
 
   // Then compress if too large
-  processedFile = await compressImage(processedFile);
+  processedFile = await compressImage(processedFile, profile);
 
   return processedFile;
 }
@@ -326,7 +356,10 @@ export async function processImageFile(file: File): Promise<File> {
  * - Passes through PDF files without modification
  * - Returns base64 string ready for API
  */
-export async function processImageToBase64(file: File): Promise<string> {
+export async function processImageToBase64(
+  file: File,
+  profile: ImageProcessingProfile = 'default'
+): Promise<string> {
   // PDF files: convert to image (first page fallback) for OpenAI image flow
   if (isPdfFile(file)) {
     const pages = await convertPdfToImageFiles(file);
@@ -337,7 +370,7 @@ export async function processImageToBase64(file: File): Promise<string> {
   let processedFile = await convertHeicToJpeg(file);
 
   // Then compress if too large
-  processedFile = await compressImage(processedFile);
+  processedFile = await compressImage(processedFile, profile);
 
   // Convert to base64 directly
   return fileToDataUrl(processedFile, 'Failed to read image file');

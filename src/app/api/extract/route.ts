@@ -33,7 +33,7 @@ function getProvidersForMode(mode: ExtractMode): AIProvider[] {
     case 'circled':
       return [AI_CONFIG.extraction.circled.provider];
     case 'highlighted':
-      return [AI_CONFIG.extraction.circled.provider];
+      return [AI_CONFIG.extraction.highlighted.provider];
     case 'wrong':
       return [AI_CONFIG.extraction.grammar.ocr.provider, AI_CONFIG.extraction.grammar.analysis.provider];
     case 'all':

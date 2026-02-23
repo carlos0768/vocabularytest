@@ -9,7 +9,7 @@ export const BoundingBoxSchema = z.object({
   x_min: z.number().min(0).max(1000),
   y_max: z.number().min(0).max(1000),
   x_max: z.number().min(0).max(1000),
-}).optional();
+});
 
 // Marker color detection
 export const MarkerColorSchema = z.enum([
@@ -25,6 +25,8 @@ export const MarkerColorSchema = z.enum([
   'unknown',
 ]).default('unknown');
 
+export const MarkTypeSchema = z.enum(['underline', 'highlight', 'unknown']).default('unknown');
+
 // Single highlighted word with detection metadata
 export const HighlightedWordSchema = z.object({
   // Core word data
@@ -38,8 +40,14 @@ export const HighlightedWordSchema = z.object({
 
   // Highlight detection metadata
   markerColor: MarkerColorSchema.optional(),
+  markType: MarkTypeSchema.optional(),
+  isHandDrawn: z.boolean().optional(),
   confidence: z.number().min(0).max(1).default(0.8),
+  // Legacy field (kept for backwards compatibility with older model responses)
   boundingBox: BoundingBoxSchema.optional(),
+  // New fields for stricter underline validation
+  wordBoundingBox: BoundingBoxSchema.optional(),
+  markBoundingBox: BoundingBoxSchema.optional(),
 
   // Context around the word (helps verify detection)
   surroundingText: z.string().optional().nullable(),
@@ -57,7 +65,7 @@ export type HighlightedWord = z.infer<typeof HighlightedWordSchema>;
 export type HighlightedResponse = z.infer<typeof HighlightedResponseSchema>;
 
 // Confidence threshold for filtering
-export const CONFIDENCE_THRESHOLD = 0.75;
+export const CONFIDENCE_THRESHOLD = 0.8;
 
 // Parse and validate highlighted response
 export function parseHighlightedResponse(data: unknown): {
@@ -123,7 +131,7 @@ export function removeDuplicates(words: HighlightedWord[]): HighlightedWord[] {
   const seen = new Map<string, HighlightedWord>();
 
   for (const word of words) {
-    const key = word.english.toLowerCase().trim();
+    const key = `${word.english.toLowerCase().trim()}::${word.japanese.toLowerCase().trim()}`;
     const existing = seen.get(key);
 
     // Keep the one with higher confidence

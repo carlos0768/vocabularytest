@@ -120,10 +120,6 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
   const generateConfig: any = {
     temperature: body.temperature,
     maxOutputTokens: body.maxOutputTokens,
-    // Extraction use-case: prioritize direct output over thought tokens.
-    thinkingConfig: {
-      thinkingBudget: 0,
-    },
   };
 
   if (body.responseFormat === 'json') {

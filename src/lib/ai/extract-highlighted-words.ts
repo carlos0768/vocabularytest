@@ -1,4 +1,4 @@
-import { type ValidatedAIResponse } from '@/lib/schemas/ai-response';
+import { parseAIResponse, type ValidatedAIResponse } from '@/lib/schemas/ai-response';
 import {
   parseHighlightedResponse,
   filterByConfidence,
@@ -6,10 +6,12 @@ import {
   convertToStandardFormat,
   CONFIDENCE_THRESHOLD,
   type HighlightedResponse,
+  type HighlightedWord,
 } from '@/lib/schemas/highlighted-response';
 import {
   HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,
   HIGHLIGHTED_WORD_USER_PROMPT,
+  HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT,
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { getProviderFromConfig } from './providers';
@@ -18,12 +20,185 @@ export type HighlightedExtractionResult =
   | { success: true; data: ValidatedAIResponse }
   | { success: false; error: string };
 
+interface HighlightedExtractionDependencies {
+  getProviderFromConfig: typeof getProviderFromConfig;
+}
+
+export interface HighlightedExtractionOptions {
+  dependencies?: Partial<HighlightedExtractionDependencies>;
+}
+
+interface BoundingBox {
+  y_min: number;
+  x_min: number;
+  y_max: number;
+  x_max: number;
+}
+
+const UNDERLINE_HORIZONTAL_OVERLAP_THRESHOLD = 0.55;
+const UNDERLINE_TOP_MARGIN_RATIO = 0.15;
+const UNDERLINE_BOTTOM_MARGIN_RATIO = 0.9;
+
+function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
+function normalizeText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function parseHighlightedContent(content: string): {
+  success: boolean;
+  data?: HighlightedResponse;
+  error?: string;
+} {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonContent(content));
+  } catch {
+    return { success: false, error: 'AIの応答を解析できませんでした' };
+  }
+
+  return parseHighlightedResponse(parsed);
+}
+
+function parseVerificationContent(content: string): {
+  success: boolean;
+  data?: ValidatedAIResponse;
+  error?: string;
+} {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonContent(content));
+  } catch {
+    return { success: false, error: '検証応答を解析できませんでした' };
+  }
+
+  return parseAIResponse(parsed);
+}
+
+function isValidBoundingBox(box: BoundingBox | undefined): box is BoundingBox {
+  if (!box) return false;
+  return box.x_max > box.x_min && box.y_max > box.y_min;
+}
+
+function getWordBoundingBox(word: HighlightedWord): BoundingBox | undefined {
+  const primary = word.wordBoundingBox;
+  if (isValidBoundingBox(primary)) return primary;
+
+  const legacy = word.boundingBox;
+  if (isValidBoundingBox(legacy)) return legacy;
+
+  return undefined;
+}
+
+function getMarkBoundingBox(word: HighlightedWord): BoundingBox | undefined {
+  const mark = word.markBoundingBox;
+  return isValidBoundingBox(mark) ? mark : undefined;
+}
+
+function horizontalOverlapRatio(wordBox: BoundingBox, markBox: BoundingBox): number {
+  const overlapLeft = Math.max(wordBox.x_min, markBox.x_min);
+  const overlapRight = Math.min(wordBox.x_max, markBox.x_max);
+  const overlapWidth = Math.max(0, overlapRight - overlapLeft);
+  const wordWidth = Math.max(1, wordBox.x_max - wordBox.x_min);
+  return overlapWidth / wordWidth;
+}
+
+function isUnderlineAligned(wordBox: BoundingBox, markBox: BoundingBox): boolean {
+  const overlap = horizontalOverlapRatio(wordBox, markBox);
+  if (overlap < UNDERLINE_HORIZONTAL_OVERLAP_THRESHOLD) {
+    return false;
+  }
+
+  const wordTopY = wordBox.y_min;
+  const wordBottomY = wordBox.y_max;
+  const wordHeight = Math.max(1, wordBottomY - wordTopY);
+  const markCenterY = (markBox.y_min + markBox.y_max) / 2;
+
+  if (markCenterY <= wordTopY) {
+    return false;
+  }
+
+  const minY = wordBottomY - wordHeight * UNDERLINE_TOP_MARGIN_RATIO;
+  const maxY = wordBottomY + wordHeight * UNDERLINE_BOTTOM_MARGIN_RATIO;
+
+  return markCenterY >= minY && markCenterY <= maxY;
+}
+
+function passesStrictHighlightRules(word: HighlightedWord): boolean {
+  if (word.confidence < CONFIDENCE_THRESHOLD) {
+    return false;
+  }
+
+  if (word.isHandDrawn !== true) {
+    return false;
+  }
+
+  const markType = word.markType ?? 'unknown';
+  if (markType === 'unknown') {
+    return false;
+  }
+
+  if (markType === 'underline') {
+    const wordBox = getWordBoundingBox(word);
+    const markBox = getMarkBoundingBox(word);
+
+    if (!wordBox || !markBox) {
+      return false;
+    }
+
+    if (!isUnderlineAligned(wordBox, markBox)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function buildVerificationPrompt(words: HighlightedWord[]): string {
+  const candidates = words
+    .map((word, index) => (
+      `${index + 1}. english=${JSON.stringify(word.english)}, japanese=${JSON.stringify(word.japanese)}, ` +
+      `markType=${JSON.stringify(word.markType ?? 'unknown')}, markerColor=${JSON.stringify(word.markerColor ?? 'unknown')}`
+    ))
+    .join('\n');
+
+  return `一次抽出候補です。画像を再確認し、条件を満たす候補だけを残してください。\n\n候補:\n${candidates}\n\n判定ルール:\n- 手書きのマーカー/下線が明確に確認できる候補のみ残す\n- 下線の場合は、線の真上にある単語のみ残す\n- 印刷赤字・印刷下線・下の行の単語は除外する\n- 候補リストにない単語は追加しない\n\n出力は次のJSONのみ:\n{\n  "words": [\n    {\n      "english": "word",\n      "japanese": "意味"\n    }\n  ]\n}`;
+}
+
+function intersectVerifiedCandidates(
+  candidates: HighlightedWord[],
+  verifiedWords: ValidatedAIResponse['words']
+): HighlightedWord[] {
+  const verifiedSet = new Set(
+    verifiedWords
+      .map((word) => normalizeText(word.english))
+      .filter((english) => english.length > 0)
+  );
+
+  return candidates.filter((word) => verifiedSet.has(normalizeText(word.english)));
+}
+
 // Extracts only highlighted/marker words from an image using AI provider (Cloud Run or direct)
-// Features: color detection, confidence scoring, bounding box coordinates
 export async function extractHighlightedWordsFromImage(
   imageBase64: string,
-  apiKeys: { gemini?: string; openai?: string }
+  apiKeys: { gemini?: string; openai?: string },
+  options: HighlightedExtractionOptions = {}
 ): Promise<HighlightedExtractionResult> {
+  const { dependencies = {} } = options;
+
   // Validate input
   if (!imageBase64 || typeof imageBase64 !== 'string') {
     console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
@@ -64,119 +239,113 @@ export async function extractHighlightedWordsFromImage(
   });
 
   try {
-    const config = AI_CONFIG.extraction.highlighted; // Gemini 2.5 Pro for better spatial understanding
-    const provider = getProviderFromConfig(config, apiKeys);
+    const config = AI_CONFIG.extraction.highlighted;
+    const resolveProvider = dependencies.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(config, apiKeys);
 
-    const result = await provider.generate({
+    const firstPassResult = await provider.generate({
       systemPrompt: HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,
       prompt: HIGHLIGHTED_WORD_USER_PROMPT,
       image: { base64: base64Data, mimeType },
       config: {
         ...config,
-        temperature: 0.0,
+        temperature: 0,
         maxOutputTokens: 8192,
         responseFormat: 'json',
       },
     });
 
-    if (!result.success) {
-      return { success: false, error: result.error };
+    if (!firstPassResult.success) {
+      return { success: false, error: firstPassResult.error };
     }
 
-    const content = result.content;
-
-    if (!content) {
+    if (!firstPassResult.content) {
       return { success: false, error: '画像を読み取れませんでした' };
     }
 
-    console.log('Gemini raw response (highlighted mode):', content.slice(0, 500) + '...');
-
-    // Extract JSON from response (Gemini may include markdown code blocks)
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
-    } else {
-      // Try to find JSON object directly
-      const jsonStartIndex = content.indexOf('{');
-      const jsonEndIndex = content.lastIndexOf('}');
-      if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-        jsonContent = content.slice(jsonStartIndex, jsonEndIndex + 1);
-      }
-    }
-
-    // Parse JSON response
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonContent);
-    } catch {
-      console.error('Failed to parse Gemini response:', content);
-      return { success: false, error: 'AIの応答を解析できませんでした' };
-    }
-
-    // Validate with enhanced highlighted response schema
-    const validated = parseHighlightedResponse(parsed);
-
-    if (!validated.success) {
-      console.error('Schema validation failed:', validated.error);
+    const firstPassParsed = parseHighlightedContent(firstPassResult.content);
+    if (!firstPassParsed.success || !firstPassParsed.data) {
       return {
         success: false,
-        error: validated.error || 'データ形式が不正です',
+        error: firstPassParsed.error || 'データ形式が不正です',
       };
     }
 
-    const highlightedData = validated.data as HighlightedResponse;
+    const firstPassData = firstPassParsed.data;
 
-    // Log detection metadata
-    console.log('Highlighted word detection metadata:', {
-      totalWordsDetected: highlightedData.words.length,
-      detectedColors: highlightedData.detectedColors,
-      totalHighlightedRegions: highlightedData.totalHighlightedRegions,
-    });
+    const strictCandidates = removeDuplicates(
+      filterByConfidence(firstPassData.words, CONFIDENCE_THRESHOLD)
+        .filter((word) => passesStrictHighlightRules(word))
+    );
 
-    // Apply confidence filtering
-    const filteredWords = filterByConfidence(highlightedData.words, CONFIDENCE_THRESHOLD);
-
-    console.log('Confidence filtering result:', {
-      beforeFilter: highlightedData.words.length,
-      afterFilter: filteredWords.length,
+    console.log('Highlighted strict filtering result:', {
+      beforeFilter: firstPassData.words.length,
+      afterFilter: strictCandidates.length,
       threshold: CONFIDENCE_THRESHOLD,
-      filteredOut: highlightedData.words.length - filteredWords.length,
+      filteredOut: firstPassData.words.length - strictCandidates.length,
     });
 
-    // Remove duplicate words (keep highest confidence)
-    const uniqueWords = removeDuplicates(filteredWords);
-
-    console.log('Duplicate removal result:', {
-      beforeDedup: filteredWords.length,
-      afterDedup: uniqueWords.length,
-      duplicatesRemoved: filteredWords.length - uniqueWords.length,
-    });
-
-    // Log individual word confidence scores for debugging
-    uniqueWords.forEach((word, index) => {
-      console.log(`Word ${index + 1}: "${word.english}" - confidence: ${word.confidence}, color: ${word.markerColor}`);
-    });
-
-    // Check if any words were extracted after filtering
-    if (uniqueWords.length === 0) {
-      // Check if there were words before filtering
-      if (highlightedData.words.length > 0) {
+    if (strictCandidates.length === 0) {
+      if (firstPassData.words.length > 0) {
         return {
           success: false,
-          error: `検出された単語（${highlightedData.words.length}語）の確信度が低すぎました（閾値: ${CONFIDENCE_THRESHOLD * 100}%）。より鮮明なマーカーで再度お試しください。`,
+          error: `検出候補（${firstPassData.words.length}語）はありましたが、厳密判定を満たしませんでした。より鮮明に撮影して再度お試しください。`,
         };
       }
+
       return {
         success: false,
         error: 'マーカーやアンダーラインが引かれた単語が見つかりませんでした。蛍光マーカーで塗った単語、または手書きのペンで下線を引いた単語がある画像を撮影してください（印刷された下線は対象外です）。',
       };
     }
 
-    // Convert to standard format for compatibility with existing app infrastructure
+    const verificationResult = await provider.generate({
+      systemPrompt: HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT,
+      prompt: buildVerificationPrompt(strictCandidates),
+      image: { base64: base64Data, mimeType },
+      config: {
+        ...config,
+        temperature: 0,
+        maxOutputTokens: Math.min(config.maxOutputTokens, 4096),
+        responseFormat: 'json',
+      },
+    });
+
+    if (!verificationResult.success) {
+      return { success: false, error: verificationResult.error || '抽出候補の検証に失敗しました' };
+    }
+
+    if (!verificationResult.content) {
+      return { success: false, error: '抽出候補の検証結果が空でした' };
+    }
+
+    const verificationParsed = parseVerificationContent(verificationResult.content);
+    if (!verificationParsed.success || !verificationParsed.data) {
+      return {
+        success: false,
+        error: verificationParsed.error || '抽出候補の検証に失敗しました',
+      };
+    }
+
+    const verifiedCandidates = removeDuplicates(
+      intersectVerifiedCandidates(strictCandidates, verificationParsed.data.words)
+    );
+
+    console.log('Highlighted verification result:', {
+      firstPassCandidates: strictCandidates.length,
+      verifiedCandidates: verifiedCandidates.length,
+    });
+
+    if (verifiedCandidates.length === 0) {
+      return {
+        success: false,
+        error: '手書きマーカー・下線の条件を満たす単語が見つかりませんでした。',
+      };
+    }
+
     const standardFormat = convertToStandardFormat({
-      ...highlightedData,
-      words: uniqueWords,
+      ...firstPassData,
+      words: verifiedCandidates,
     });
 
     return { success: true, data: standardFormat };

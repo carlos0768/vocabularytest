@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { __internal } from '@/app/api/extract/route';
+import { AI_CONFIG } from '@/lib/ai/config';
 
 function withCloudRunEnv<T>(url: string | undefined, token: string | undefined, run: () => T): T {
   const originalUrl = process.env.CLOUD_RUN_URL;
@@ -35,5 +36,12 @@ test('Without Cloud Run, missing gemini key is reported for all mode', () => {
   withCloudRunEnv(undefined, undefined, () => {
     const missing = __internal.getMissingProviderKey('all', { gemini: undefined, openai: undefined });
     assert.equal(missing, 'gemini');
+  });
+});
+
+test('highlighted mode resolves provider from highlighted config', () => {
+  withCloudRunEnv(undefined, undefined, () => {
+    const providers = __internal.getProvidersForMode('highlighted');
+    assert.deepEqual(providers, [AI_CONFIG.extraction.highlighted.provider]);
   });
 });

@@ -67,7 +67,7 @@ function getProvidersForMode(mode: ExtractMode): AIProvider[] {
     case 'circled':
       return [AI_CONFIG.extraction.circled.provider];
     case 'highlighted':
-      return [AI_CONFIG.extraction.circled.provider];
+      return [AI_CONFIG.extraction.highlighted.provider];
     case 'eiken':
       return [AI_CONFIG.extraction.eiken.provider];
     case 'idiom':

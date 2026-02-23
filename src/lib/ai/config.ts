@@ -71,7 +71,7 @@ export const AI_CONFIG: AIConfig = {
     },
     highlighted: {
       provider: 'gemini',
-      model: 'gemini-2.5-pro' as GeminiModel,
+      model: EXTRACTION_MODEL,
       temperature: 0.3,
       maxOutputTokens: 8192,
     },
@@ -133,6 +133,9 @@ export function setGlobalProvider(provider: AIProvider, model?: string): void {
 
   AI_CONFIG.extraction.circled.provider = provider;
   AI_CONFIG.extraction.circled.model = targetModel;
+
+  AI_CONFIG.extraction.highlighted.provider = provider;
+  AI_CONFIG.extraction.highlighted.model = targetModel;
 
   AI_CONFIG.extraction.grammar.ocr.provider = provider;
   AI_CONFIG.extraction.grammar.ocr.model = targetModel;

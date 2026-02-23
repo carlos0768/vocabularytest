@@ -17,7 +17,7 @@ import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { markProjectVisited } from '@/lib/project-visit';
-import { expandFilesForScan, isPdfFile, processImageFile } from '@/lib/image-utils';
+import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -252,6 +252,10 @@ export default function ProjectDetailPage() {
     const totalFiles = scanFiles.length;
     setProcessing(true);
 
+    const extractionProfile: ImageProcessingProfile = selectedScanMode === 'highlighted'
+      ? 'highlighted'
+      : 'default';
+
     if (totalFiles === 1) {
       setProcessingSteps([
         { id: 'upload', label: '画像をアップロード中...', status: 'active' },
@@ -259,7 +263,7 @@ export default function ProjectDetailPage() {
       ]);
 
       try {
-        const processedFile = await processImageFile(scanFiles[0]);
+        const processedFile = await processImageFile(scanFiles[0], extractionProfile);
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
@@ -322,7 +326,7 @@ export default function ProjectDetailPage() {
 
           let processedFile: File;
           try {
-            processedFile = await processImageFile(scanFiles[i]);
+            processedFile = await processImageFile(scanFiles[i], extractionProfile);
           } catch {
             setProcessingSteps(prev => prev.map((s, idx) => ({
               ...s,

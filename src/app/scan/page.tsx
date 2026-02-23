@@ -9,7 +9,14 @@ import { ProgressSteps, type ProgressStep, useToast, Icon, AppShell } from '@/co
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
-import { expandFilesForScan, isPdfFile, processImageToBase64, processProjectIconFile } from '@/lib/image-utils';
+import {
+  expandFilesForScan,
+  isPdfFile,
+  processImageFile,
+  processImageToBase64,
+  processProjectIconFile,
+  type ImageProcessingProfile,
+} from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 
@@ -109,64 +116,25 @@ function ScanPageContent() {
     }
   }, [selectedMode]);
 
-  // Compress image for fast upload (always compress, target 500KB)
+  const getImageProfile = useCallback((): ImageProcessingProfile => (
+    selectedMode === 'highlighted' ? 'highlighted' : 'default'
+  ), [selectedMode]);
+
+  // Compress image for fast upload (profile-driven)
   const compressForUpload = useCallback(async (file: File): Promise<{ blob: Blob; contentType: string; ext: string }> => {
     const isPdf = isPdfFile(file);
     if (isPdf) {
       return { blob: file, contentType: 'application/pdf', ext: '.pdf' };
     }
 
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const objectUrl = URL.createObjectURL(file);
-
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-
-        // Target max dimension 1600px (good enough for OCR, much smaller file)
-        const MAX_DIM = 1600;
-        let { width, height } = img;
-
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        // Compress to JPEG with quality 0.7
-        canvas.toBlob(
-          (b) => {
-            if (b) {
-              console.log(`Compressed: ${file.size} -> ${b.size} (${Math.round(b.size / file.size * 100)}%)`);
-              resolve(b);
-            } else {
-              reject(new Error('Compression failed'));
-            }
-          },
-          'image/jpeg',
-          0.7
-        );
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error('Failed to load image'));
-      };
-
-      img.src = objectUrl;
-    });
-    return { blob, contentType: 'image/jpeg', ext: '.jpg' };
-  }, []);
+    const profile = getImageProfile();
+    const processed = await processImageFile(file, profile);
+    return {
+      blob: processed,
+      contentType: processed.type || 'image/jpeg',
+      ext: '.jpg',
+    };
+  }, [getImageProfile]);
 
   // Background upload for Pro users - Direct to Supabase Storage
   // Uploads ALL images first, then creates a single scan job with all image paths
@@ -379,7 +347,7 @@ function ScanPageContent() {
           label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
         })));
 
-        const base64 = await processImageToBase64(file);
+        const base64 = await processImageToBase64(file, getImageProfile());
 
         const response = await fetch('/api/extract', {
           method: 'POST',
@@ -465,7 +433,7 @@ function ScanPageContent() {
         )
       );
     }
-  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken]);
+  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, getImageProfile]);
 
   const handleProjectIconChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

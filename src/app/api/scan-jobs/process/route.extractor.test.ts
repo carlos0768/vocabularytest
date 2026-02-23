@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { __internal } from '@/app/api/scan-jobs/process/route';
 import type { ExtractMode } from '@/app/api/extract/route';
+import { AI_CONFIG } from '@/lib/ai/config';
 
 const successWords = {
   success: true as const,
@@ -62,4 +63,9 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
 
     assert.equal(result.success, true, `mode=${mode}`);
   }
+});
+
+test('scan-jobs highlighted mode resolves provider from highlighted config', () => {
+  const providers = __internal.getProvidersForMode('highlighted');
+  assert.deepEqual(providers, [AI_CONFIG.extraction.highlighted.provider]);
 });
