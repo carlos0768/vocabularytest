@@ -157,49 +157,13 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    if #available(iOS 26.0, *) {
-                        Picker("テーマ", selection: Binding(
-                            get: { themeManager.mode },
-                            set: { themeManager.mode = $0 }
-                        )) {
-                            ForEach(ThemeMode.allCases, id: \.rawValue) { mode in
-                                Text(mode.label).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .glassEffect(.regular.interactive())
-                        .frame(maxWidth: 220)
-                    } else {
-                        HStack(spacing: 0) {
-                            ForEach(ThemeMode.allCases, id: \.rawValue) { mode in
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        themeManager.mode = mode
-                                    }
-                                } label: {
-                                    themeOption(mode.label, isSelected: themeManager.mode == mode)
-                                }
-                            }
-                        }
-                        .padding(3)
-                        .background(MerkenTheme.background, in: .capsule)
-                        .overlay(Capsule().stroke(MerkenTheme.borderLight, lineWidth: 1))
-                    }
+                    ThemeCubeSelector(mode: Binding(
+                        get: { themeManager.mode },
+                        set: { themeManager.mode = $0 }
+                    ))
                 }
             }
         }
-    }
-
-    private func themeOption(_ label: String, isSelected: Bool) -> some View {
-        Text(label)
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(isSelected ? .white : MerkenTheme.mutedText)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                isSelected ? MerkenTheme.accentBlue : Color.clear,
-                in: .capsule
-            )
     }
 
     // MARK: - 3. Plan Section
