@@ -64,7 +64,7 @@ export async function extractHighlightedWordsFromImage(
   });
 
   try {
-    const config = AI_CONFIG.extraction.circled; // Same config as circled mode (Gemini)
+    const config = AI_CONFIG.extraction.highlighted; // Gemini 2.5 Pro for better spatial understanding
     const provider = getProviderFromConfig(config, apiKeys);
 
     const result = await provider.generate({

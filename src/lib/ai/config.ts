@@ -10,7 +10,8 @@ export type GeminiModel =
   | 'gemini-1.5-flash-002'
   | 'gemini-1.5-pro-002'
   | 'gemini-2.0-flash-001'
-  | 'gemini-2.5-flash';
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-pro';
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
 const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
@@ -69,8 +70,8 @@ export const AI_CONFIG: AIConfig = {
       maxOutputTokens: 16384,
     },
     highlighted: {
-      provider: 'openai',
-      model: 'gpt-4o',
+      provider: 'gemini',
+      model: 'gemini-2.5-pro' as GeminiModel,
       temperature: 0.3,
       maxOutputTokens: 8192,
     },
