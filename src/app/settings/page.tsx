@@ -30,6 +30,7 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
+    if (!window.confirm('ログアウトしますか？')) return;
     await signOut();
     router.push('/');
   };
