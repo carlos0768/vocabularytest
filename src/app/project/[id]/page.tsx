@@ -760,6 +760,17 @@ export default function ProjectDetailPage() {
                   layout="vertical"
                   styleMode="home"
                 />
+                <StudyModeCard
+                  title="例文クイズ"
+                  description="穴埋め&並び替え"
+                  icon="menu_book"
+                  href={isPro ? `/sentence-quiz/${project.id}?from=${returnPath}` : '/subscription'}
+                  variant="orange"
+                  disabled={words.length < 10}
+                  badge={!isPro ? 'Pro' : undefined}
+                  layout="vertical"
+                  styleMode="home"
+                />
               </div>
             </section>
           )}

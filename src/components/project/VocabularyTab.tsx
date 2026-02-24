@@ -311,25 +311,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
                   <p className="text-lg font-semibold text-[var(--color-foreground)]">{currentWord.japanese}</p>
                 </div>
 
-                {/* Example sentence */}
-                {(currentWord.exampleSentence || currentWord.exampleSentenceJa) && (
-                  <div className="border-t border-[var(--color-border-light)] pt-4">
-                    <h3 className="text-xs font-bold text-[var(--color-muted)] mb-2 flex items-center gap-1.5">
-                      <Icon name="format_quote" size={14} />
-                      例文
-                    </h3>
-                    {currentWord.exampleSentence && (
-                      <p className="text-sm text-[var(--color-foreground)] leading-relaxed mb-1">
-                        {currentWord.exampleSentence}
-                      </p>
-                    )}
-                    {currentWord.exampleSentenceJa && (
-                      <p className="text-xs text-[var(--color-muted)] leading-relaxed">
-                        {currentWord.exampleSentenceJa}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           )}
