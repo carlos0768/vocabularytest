@@ -93,6 +93,9 @@
 		CEF4C35E116645D5AEC6377D /* Quiz2ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */; };
 		1A2B3C4D5E6F7A8B9C0D1E2F /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1D4E5F6072839C4B5A6D7 /* SignUpView.swift */; };
 		3F4E5D6C7B8A9012E3F4A5B6 /* SignUpOTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F2C8D9A0B13456D8E9F0A1 /* SignUpOTPView.swift */; };
+		A1C2D3E4F5061728394A5B6C /* ContactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D3E4F5A6172839C4B5A6D7 /* ContactView.swift */; };
+		C3D4E5F6A7182930B4C5D6E7 /* TermsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8293041C5D6E7F8 /* TermsView.swift */; };
+		E5F6A7B8C9304152D6E7F8A9 /* PrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A7B8C9D0415263E7F8A9B0 /* PrivacyView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -202,6 +205,9 @@
 		5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2ViewModel.swift; sourceTree = "<group>"; };
 		B3A1D4E5F6072839C4B5A6D7 /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
 		E7F2C8D9A0B13456D8E9F0A1 /* SignUpOTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpOTPView.swift; sourceTree = "<group>"; };
+		B2D3E4F5A6172839C4B5A6D7 /* ContactView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactView.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8293041C5D6E7F8 /* TermsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsView.swift; sourceTree = "<group>"; };
+		F6A7B8C9D0415263E7F8A9B0 /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -406,6 +412,7 @@
 				6A666D88C133A0F76FBD22EA /* SentenceQuiz */,
 				A065FE48D063F0C1694E01F5 /* Settings */,
 				2C5666108B9E976A5297325C /* Stats */,
+				B1C2D3E4F5061728A9B0C1D2 /* Support */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -433,6 +440,16 @@
 				A69B31214CA9933F460FF4B7 /* SettingsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		B1C2D3E4F5061728A9B0C1D2 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				B2D3E4F5A6172839C4B5A6D7 /* ContactView.swift */,
+				D4E5F6A7B8293041C5D6E7F8 /* TermsView.swift */,
+				F6A7B8C9D0415263E7F8A9B0 /* PrivacyView.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 		A4E47FFFF4BBB84C6CBFA7D8 /* Products */ = {
@@ -739,6 +756,9 @@
 				34269B6CA4AAC44BEB00B85B /* SentenceQuizView.swift in Sources */,
 				492D27CB88B80590F8AA2C16 /* SentenceQuizViewModel.swift in Sources */,
 				77BDD39B137C1B1CFD276E75 /* SettingsView.swift in Sources */,
+				A1C2D3E4F5061728394A5B6C /* ContactView.swift in Sources */,
+				C3D4E5F6A7182930B4C5D6E7 /* TermsView.swift in Sources */,
+				E5F6A7B8C9304152D6E7F8A9 /* PrivacyView.swift in Sources */,
 				1A2B3C4D5E6F7A8B9C0D1E2F /* SignUpView.swift in Sources */,
 				3F4E5D6C7B8A9012E3F4A5B6 /* SignUpOTPView.swift in Sources */,
 				919064F5426502F3316FFA98 /* StatsView.swift in Sources */,

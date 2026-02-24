@@ -1,9 +1,9 @@
 import SwiftUI
 
 enum ProjectSortOrder: String, CaseIterable {
-    case newest = "新しい順"
-    case wordCount = "単語が多い順"
-    case recentlyUsed = "最近使った順"
+    case newest = "新しい"
+    case wordCount = "単語数"
+    case recentlyUsed = "最近"
 }
 
 struct ProjectListView: View {
@@ -151,14 +151,14 @@ struct ProjectListView: View {
                     Text("新規スキャン")
                         .font(.subheadline.bold())
                 }
-                .foregroundStyle(MerkenTheme.accentBlue)
+                .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(MerkenTheme.accentBlue.opacity(0.1), in: .capsule)
-                .overlay(Capsule().stroke(MerkenTheme.accentBlue.opacity(0.3), lineWidth: 1))
+                .background(MerkenTheme.accentBlue, in: .capsule)
+                .overlay(Capsule().stroke(Color.clear, lineWidth: 1))
                 .background(
                     Capsule()
-                        .fill(MerkenTheme.accentBlue.opacity(0.3))
+                        .fill(MerkenTheme.accentBlueStrong)
                         .offset(y: 2)
                 )
             }

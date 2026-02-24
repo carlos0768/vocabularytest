@@ -116,7 +116,7 @@ struct HomeView: View {
             ProjectDetailView(project: project)
         }
         .navigationDestination(isPresented: $showingBookshelf) {
-            BookshelfListView()
+            BookshelfTabView()
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)

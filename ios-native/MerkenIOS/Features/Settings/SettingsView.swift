@@ -9,7 +9,9 @@ struct SettingsView: View {
     @State private var password = ""
     @State private var showingSignUp = false
     @State private var showingBookshelf = false
-    @State private var supportURL: URL?
+    @State private var showingContact = false
+    @State private var showingTerms = false
+    @State private var showingPrivacy = false
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var purchaseErrorMessage: String?
@@ -93,9 +95,14 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showingBookshelf) {
             BookshelfTabView()
         }
-        .sheet(item: $supportURL) { url in
-            SafariView(url: url)
-                .ignoresSafeArea()
+        .navigationDestination(isPresented: $showingContact) {
+            ContactView()
+        }
+        .navigationDestination(isPresented: $showingTerms) {
+            TermsView()
+        }
+        .navigationDestination(isPresented: $showingPrivacy) {
+            PrivacyView()
         }
     }
 
@@ -429,15 +436,15 @@ struct SettingsView: View {
             SolidCard {
                 VStack(spacing: 0) {
                     supportRow("お問い合わせ") {
-                        supportURL = URL(string: "https://merken.jp/contact")
+                        showingContact = true
                     }
                     Divider().padding(.horizontal, 4)
                     supportRow("利用規約") {
-                        supportURL = URL(string: "https://merken.jp/terms")
+                        showingTerms = true
                     }
                     Divider().padding(.horizontal, 4)
                     supportRow("プライバシーポリシー") {
-                        supportURL = URL(string: "https://merken.jp/privacy")
+                        showingPrivacy = true
                     }
                 }
             }
