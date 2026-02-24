@@ -15,6 +15,7 @@ struct CameraView: UIViewControllerRepresentable {
         picker.sourceType = .camera
         picker.delegate = context.coordinator
         picker.allowsEditing = false
+        picker.view.backgroundColor = .black
         return picker
     }
 

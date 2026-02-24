@@ -54,6 +54,7 @@ struct ScanCoordinatorView: View {
                     viewModel.goBackToModeSelection()
                 }
             )
+            .ignoresSafeArea()
         }
         .sheet(isPresented: showPhotoPicker) {
             PhotoPickerView(maxSelectionLimit: ScanCoordinatorViewModel.maxPhotoSelection) { images in
