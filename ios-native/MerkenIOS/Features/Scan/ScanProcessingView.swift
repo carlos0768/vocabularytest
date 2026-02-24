@@ -33,6 +33,19 @@ struct ScanProcessingView: View {
                         .font(.caption)
                         .foregroundStyle(MerkenTheme.secondaryText)
                         .multilineTextAlignment(.center)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(MerkenTheme.warning)
+                        Text("アップロード中はこの画面を閉じないでください")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(MerkenTheme.warning)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(MerkenTheme.warning.opacity(0.1), in: .rect(cornerRadius: 10))
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
