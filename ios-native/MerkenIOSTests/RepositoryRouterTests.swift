@@ -52,6 +52,21 @@ final class RepositoryRouterTests: XCTestCase {
 
         XCTAssertEqual(router.mode(for: subscription), .proCloud)
     }
+
+    func testModeReturnsReadonlyCloudForCancelledPro() {
+        let router = RepositoryRouter(localRepository: DummyRepository(), cloudRepository: DummyRepository())
+        let subscription = SubscriptionState(
+            id: "s1",
+            userId: "u1",
+            status: .cancelled,
+            plan: .pro,
+            proSource: "billing",
+            testProExpiresAt: nil,
+            currentPeriodEnd: Date().addingTimeInterval(-3600)
+        )
+
+        XCTAssertEqual(router.mode(for: subscription), .readonlyCloud)
+    }
 }
 
 final class SentenceQuizProgressStoreTests: XCTestCase {

@@ -18,6 +18,7 @@ protocol WordRepositoryProtocol: Sendable {
 enum RepositoryMode: Equatable, Sendable {
     case guestLocal
     case proCloud
+    case readonlyCloud
 }
 
 enum RepositoryError: LocalizedError {

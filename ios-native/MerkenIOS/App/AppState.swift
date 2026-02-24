@@ -217,10 +217,15 @@ final class AppState: ObservableObject {
     }
 
     var activeUserId: String {
-        if repositoryMode == .proCloud, let userId = session?.userId {
+        if (repositoryMode == .proCloud || repositoryMode == .readonlyCloud),
+           let userId = session?.userId {
             return userId
         }
         return guestSessionStore.guestUserId
+    }
+
+    var wasPro: Bool {
+        subscription?.wasPro ?? false
     }
 
     var activeRepository: WordRepositoryProtocol {
@@ -277,7 +282,12 @@ final class AppState: ObservableObject {
                 }
             }
 
-            logger.info("Auth refresh complete. mode=\(self.repositoryMode == .proCloud ? "proCloud" : "guestLocal")")
+            let modeLabel: String = switch self.repositoryMode {
+            case .proCloud: "proCloud"
+            case .readonlyCloud: "readonlyCloud"
+            case .guestLocal: "guestLocal"
+            }
+            logger.info("Auth refresh complete. mode=\(modeLabel)")
         } catch {
             if let authError = error as? AuthServiceError,
                case .sessionExpired = authError {

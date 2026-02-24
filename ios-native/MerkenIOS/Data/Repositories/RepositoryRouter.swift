@@ -5,17 +5,17 @@ struct RepositoryRouter {
     let cloudRepository: WordRepositoryProtocol
 
     func mode(for subscription: SubscriptionState?) -> RepositoryMode {
-        guard let subscription, subscription.isActivePro else {
-            return .guestLocal
-        }
-        return .proCloud
+        guard let subscription else { return .guestLocal }
+        if subscription.isActivePro { return .proCloud }
+        if subscription.wasPro { return .readonlyCloud }
+        return .guestLocal
     }
 
     func repository(for mode: RepositoryMode) -> WordRepositoryProtocol {
         switch mode {
         case .guestLocal:
             return localRepository
-        case .proCloud:
+        case .proCloud, .readonlyCloud:
             return cloudRepository
         }
     }

@@ -206,6 +206,10 @@ struct SubscriptionState: Codable, Hashable, Sendable {
 
         return true
     }
+
+    var wasPro: Bool {
+        plan == .pro && !isActivePro
+    }
 }
 
 struct Collection: Identifiable, Hashable, Codable, Sendable {
