@@ -508,7 +508,7 @@ struct HomeView: View {
     }
 }
 
-// White CTA button for hero card
+// White CTA button for hero card (Web-matching border-bottom 3D style)
 private struct HeroCTAButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -517,12 +517,17 @@ private struct HeroCTAButton: ButtonStyle {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(.white, in: .rect(cornerRadius: 20))
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.white.opacity(0.4))
-                    .offset(y: 3)
+            .background(.white, in: .rect(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(white: 0.82), lineWidth: configuration.isPressed ? 0 : 1)
             )
-            .opacity(configuration.isPressed ? 0.85 : 1)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(red: 0.82, green: 0.84, blue: 0.86))
+                    .offset(y: configuration.isPressed ? 0 : 3)
+            )
+            .offset(y: configuration.isPressed ? 3 : 0)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
