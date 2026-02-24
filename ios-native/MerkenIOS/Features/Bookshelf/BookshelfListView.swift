@@ -121,12 +121,12 @@ struct BookshelfListView: View {
 
         return VStack(spacing: 0) {
             // Bookshelf area — mini books
-            HStack(spacing: -6) {
+            HStack(spacing: 0) {
                 if previews.isEmpty {
                     // Empty state — dashed placeholder
                     RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                        .frame(height: 64)
+                        .frame(height: 56)
                         .frame(maxWidth: .infinity)
                         .overlay(
                             Image(systemName: "books.vertical")
@@ -137,14 +137,14 @@ struct BookshelfListView: View {
                     Spacer(minLength: 0)
                     ForEach(Array(previews.enumerated()), id: \.element.id) { index, preview in
                         miniBook(preview)
-                            .zIndex(Double(previews.count - index))
+                            .padding(.leading, index > 0 ? -4 : 0)
                     }
 
                     let extraCount = projectCount - previews.count
                     if extraCount > 0 {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(MerkenTheme.surfaceAlt)
-                            .frame(width: 36, height: 52)
+                            .frame(width: 40, height: 56)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 3)
                                     .stroke(MerkenTheme.border, lineWidth: 1)
@@ -154,21 +154,21 @@ struct BookshelfListView: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundStyle(MerkenTheme.mutedText)
                             )
-                            .zIndex(0)
+                            .padding(.leading, -4)
                     }
                     Spacer(minLength: 0)
                 }
             }
             .frame(minHeight: 68)
             .padding(.horizontal, 8)
-            .padding(.top, 10)
+            .padding(.top, 8)
 
             // Shelf line
             Rectangle()
                 .fill(MerkenTheme.border)
                 .frame(height: 2)
-                .padding(.horizontal, 6)
-                .padding(.top, 6)
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
 
             // Title
             Text(collection.name)
@@ -240,7 +240,7 @@ struct BookshelfListView: View {
                     .foregroundStyle(.white.opacity(0.9))
             }
         }
-        .frame(width: 36, height: 52)
+        .frame(width: 40, height: 56)
         .clipShape(.rect(cornerRadius: 3))
         .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
     }
