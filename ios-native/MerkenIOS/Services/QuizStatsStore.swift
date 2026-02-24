@@ -45,6 +45,17 @@ final class QuizStatsStore: @unchecked Sendable {
         }
     }
 
+    func clearAll() {
+        let keysToRemove = defaults.dictionaryRepresentation().keys.filter {
+            $0.hasPrefix("merken_quiz_stats_") ||
+            $0 == "merken_quiz_streak" ||
+            $0 == "merken_quiz_last_active"
+        }
+        for key in keysToRemove {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     // MARK: - Private
 
     private func todayKey() -> String {

@@ -43,7 +43,9 @@ struct SettingsView: View {
                             signOutButton
                             versionLabel
                         }
-                        .padding(16)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 4)
                     }
                     .scrollIndicators(.hidden)
                 } else {

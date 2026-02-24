@@ -93,6 +93,15 @@ final class SentenceQuizProgressStore {
         defaults.removeObject(forKey: key(for: projectId))
     }
 
+    func clearAll() {
+        let keysToRemove = defaults.dictionaryRepresentation().keys.filter {
+            $0.hasPrefix(keyPrefix)
+        }
+        for key in keysToRemove {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     func hasInProgress(projectId: String) -> Bool {
         guard let record = load(for: projectId) else { return false }
         if isExpired(savedAt: record.savedAt) {

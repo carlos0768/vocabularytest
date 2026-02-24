@@ -12,11 +12,16 @@ struct AppBackground: View {
 
 /// Dot pattern matching Web版 `bg-dot-pattern` (16px grid, small gray dots)
 private struct DotPattern: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Canvas { context, size in
             let spacing: CGFloat = 16
             let dotRadius: CGFloat = 1.0
-            let color = Color(red: 0.80, green: 0.82, blue: 0.86) // subtle gray, slightly more visible
+            // Web: light #6b7280, dark #1a1e23
+            let color: Color = colorScheme == .dark
+                ? Color(red: 0.10, green: 0.12, blue: 0.14)
+                : Color(red: 0.42, green: 0.45, blue: 0.50)
 
             for x in stride(from: CGFloat(0), through: size.width, by: spacing) {
                 for y in stride(from: CGFloat(0), through: size.height, by: spacing) {

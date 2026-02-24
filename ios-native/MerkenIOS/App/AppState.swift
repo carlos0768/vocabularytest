@@ -384,6 +384,8 @@ final class AppState: ObservableObject {
     func signOut() async {
         do {
             try await authService.signOut()
+            quizStatsStore.clearAll()
+            sentenceQuizProgressStore.clearAll()
             isSessionExpired = false
             await refreshAuthState(showLoading: true)
             bumpDataVersion()

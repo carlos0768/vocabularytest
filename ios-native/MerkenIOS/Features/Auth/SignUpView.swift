@@ -79,6 +79,7 @@ struct SignUpView: View {
                                 .foregroundStyle(MerkenTheme.mutedText)
                             Button("ログイン") {
                                 dismiss()
+                                appState.selectedTab = 4
                             }
                             .font(.subheadline.bold())
                             .foregroundStyle(MerkenTheme.accentBlue)
