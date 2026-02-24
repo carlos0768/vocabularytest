@@ -185,8 +185,11 @@ struct SubscriptionState: Codable, Hashable, Sendable {
     var isActivePro: Bool {
         guard status == .active, plan == .pro else { return false }
 
-        if proSource == "test", let testProExpiresAt {
-            return testProExpiresAt > .now
+        if proSource == "test" {
+            if let testProExpiresAt {
+                return testProExpiresAt > .now
+            }
+            return true
         }
 
         if proSource == "none" {

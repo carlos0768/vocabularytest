@@ -5,6 +5,7 @@ protocol AuthServiceProtocol: AnyObject {
     var session: AuthSession? { get }
     func signIn(email: String, password: String) async throws
     func signOut() async throws
+    func refreshSessionIfNeeded(forceRefresh: Bool) async throws -> AuthSession
     func refreshSubscription() async throws -> SubscriptionState
     func sendSignUpOTP(email: String) async throws
     func verifySignUpOTP(email: String, code: String, password: String) async throws

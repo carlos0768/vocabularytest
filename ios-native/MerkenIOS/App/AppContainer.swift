@@ -30,12 +30,7 @@ struct AppContainer {
         let cloudRepository = CloudWordRepository(
             restClient: restClient,
             accessTokenProvider: {
-                guard let session = await MainActor.run(body: { authService.session }) else {
-                    throw AuthServiceError.missingSession
-                }
-                if session.isExpired {
-                    throw AuthServiceError.sessionExpired
-                }
+                let session = try await authService.refreshSessionIfNeeded(forceRefresh: false)
                 return session.accessToken
             }
         )
@@ -48,12 +43,7 @@ struct AppContainer {
         let collectionRepository = CloudCollectionRepository(
             restClient: restClient,
             accessTokenProvider: {
-                guard let session = await MainActor.run(body: { authService.session }) else {
-                    throw AuthServiceError.missingSession
-                }
-                if session.isExpired {
-                    throw AuthServiceError.sessionExpired
-                }
+                let session = try await authService.refreshSessionIfNeeded(forceRefresh: false)
                 return session.accessToken
             }
         )

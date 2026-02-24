@@ -55,8 +55,8 @@ final class SearchViewModel: ObservableObject {
             return
         }
 
-        if state.isPro, let token = state.session?.accessToken {
-            searchSemanticDebounced(query: searchText, token: token, client: state.webAPIClient)
+        if state.isPro {
+            searchSemanticDebounced(query: searchText, state: state)
         } else {
             searchLocal()
         }
@@ -64,21 +64,24 @@ final class SearchViewModel: ObservableObject {
 
     // MARK: - Semantic Search (Pro)
 
-    private func searchSemanticDebounced(query: String, token: String, client: WebAPIClient) {
+    private func searchSemanticDebounced(query: String, state: AppState) {
         debounceTask?.cancel()
         debounceTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
             guard !Task.isCancelled else { return }
-            await searchSemantic(query: query, token: token, client: client)
+            await searchSemantic(query: query, state: state)
         }
     }
 
-    private func searchSemantic(query: String, token: String, client: WebAPIClient) async {
+    private func searchSemantic(query: String, state: AppState) async {
         loading = true
         defer { loading = false }
 
         do {
-            let apiResults = try await client.searchSemantic(query: query, bearerToken: token)
+            let apiResults = try await state.performWebAPIRequest { token in
+                try await state.webAPIClient.searchSemantic(query: query, bearerToken: token)
+            }
+
             guard !Task.isCancelled else { return }
             results = apiResults.map { r in
                 SearchResult(

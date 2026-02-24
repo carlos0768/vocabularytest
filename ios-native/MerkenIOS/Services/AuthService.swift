@@ -43,6 +43,18 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
         self.session = Self.loadSession(from: defaults)
     }
 
+    private func clearLocalSession() {
+        self.session = nil
+        defaults.removeObject(forKey: Keys.session)
+    }
+
+    private static func isInvalidRefreshTokenMessage(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        return lower.contains("refresh_token_not_found")
+            || lower.contains("invalid refresh token")
+            || lower.contains("invalid_refresh_token")
+    }
+
     func signIn(email: String, password: String) async throws {
         struct SignInBody: Encodable {
             let email: String
@@ -99,14 +111,85 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
         defaults.removeObject(forKey: Keys.session)
     }
 
-    func refreshSubscription() async throws -> SubscriptionState {
+    func refreshSessionIfNeeded(forceRefresh: Bool) async throws -> AuthSession {
         guard let session else {
             throw AuthServiceError.missingSession
         }
 
-        if session.isExpired {
-            throw AuthServiceError.sessionExpired
+        let refreshThreshold: TimeInterval = 120
+        let shouldRefreshByExpiry: Bool = {
+            guard let expiresAt = session.expiresAt else {
+                return false
+            }
+            return expiresAt.timeIntervalSinceNow <= refreshThreshold
+        }()
+        let shouldRefresh = forceRefresh || shouldRefreshByExpiry
+
+        guard shouldRefresh else {
+            return session
         }
+
+        guard let refreshToken = session.refreshToken, !refreshToken.isEmpty else {
+            if forceRefresh {
+                self.session = nil
+                defaults.removeObject(forKey: Keys.session)
+                throw AuthServiceError.sessionExpired
+            }
+            if session.isExpired {
+                throw AuthServiceError.sessionExpired
+            }
+            return session
+        }
+
+        struct RefreshBody: Encodable {
+            let refreshToken: String
+        }
+
+        let query = [URLQueryItem(name: "grant_type", value: "refresh_token")]
+
+        do {
+            let response: SupabaseTokenResponse = try await restClient.authPost(
+                path: "/auth/v1/token",
+                body: RefreshBody(refreshToken: refreshToken),
+                query: query,
+                bearerToken: nil
+            )
+
+            let expiresAtDate: Date?
+            if let unix = response.expiresAt {
+                expiresAtDate = Date(timeIntervalSince1970: TimeInterval(unix))
+            } else if let expiresIn = response.expiresIn {
+                expiresAtDate = Date().addingTimeInterval(TimeInterval(expiresIn))
+            } else {
+                expiresAtDate = nil
+            }
+
+            let refreshed = AuthSession(
+                userId: response.user.id,
+                email: response.user.email,
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken ?? session.refreshToken,
+                expiresAt: expiresAtDate,
+                tokenType: response.tokenType
+            )
+
+            self.session = refreshed
+            persist(session: refreshed)
+            return refreshed
+        } catch SupabaseClientError.unauthorized {
+            clearLocalSession()
+            throw AuthServiceError.sessionExpired
+        } catch SupabaseClientError.requestFailed(let code, let message)
+            where code == 400 && Self.isInvalidRefreshTokenMessage(message) {
+            clearLocalSession()
+            throw AuthServiceError.sessionExpired
+        } catch {
+            throw AuthServiceError.network(error.localizedDescription)
+        }
+    }
+
+    func refreshSubscription() async throws -> SubscriptionState {
+        let session = try await refreshSessionIfNeeded(forceRefresh: false)
 
         let query = [
             URLQueryItem(name: "user_id", value: "eq.\(session.userId)"),

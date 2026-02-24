@@ -78,12 +78,6 @@ final class SentenceQuizViewModel: ObservableObject {
         latestState = state
         activeProjectId = projectId
 
-        guard let token = state.session?.accessToken else {
-            errorMessage = "ログインが必要です。"
-            stage = .error
-            return
-        }
-
         if let restored = state.sentenceQuizProgressStore.restore(projectId: projectId) {
             applyRestoredProgress(restored)
             stage = .playing
@@ -104,10 +98,12 @@ final class SentenceQuizViewModel: ObservableObject {
         }
 
         do {
-            let generated = try await state.webAPIClient.generateSentenceQuizWithRawResponse(
-                words: wordInputs,
-                bearerToken: token
-            )
+            let generated = try await state.performWebAPIRequest { token in
+                try await state.webAPIClient.generateSentenceQuizWithRawResponse(
+                    words: wordInputs,
+                    bearerToken: token
+                )
+            }
 
             state.sentenceQuizProgressStore.saveInitial(
                 projectId: projectId,
