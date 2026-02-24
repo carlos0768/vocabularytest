@@ -16,6 +16,7 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'distractors',
     'example_sentence',
     'example_sentence_ja',
+    'pronunciation',
     'status',
     'created_at',
     'last_reviewed_at',
