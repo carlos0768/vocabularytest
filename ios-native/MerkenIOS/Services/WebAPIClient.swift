@@ -6,6 +6,8 @@ enum WebAPIError: LocalizedError {
     case proRequired
     case scanLimitReached(String)
     case badRequest(String)
+    case conflict(String)
+    case unprocessable(String)
     case serverError(String)
     case networkTimeout
     case noWordsExtracted
@@ -20,6 +22,10 @@ enum WebAPIError: LocalizedError {
         case .scanLimitReached(let message):
             return message
         case .badRequest(let message):
+            return message
+        case .conflict(let message):
+            return message
+        case .unprocessable(let message):
             return message
         case .serverError(let message):
             return message
@@ -175,6 +181,33 @@ private struct ScanJobErrorResponse: Decodable {
 
 private struct ScanImagesRemoveRequest: Encodable {
     let prefixes: [String]
+}
+
+private struct AppStoreVerifyRequest: Encodable {
+    let transactionId: String
+    let source: String
+}
+
+struct AppStoreVerifiedSubscription: Decodable, Sendable {
+    let status: String
+    let plan: String
+    let proSource: String
+    let currentPeriodEnd: String?
+    let isActivePro: Bool
+}
+
+struct AppStoreVerifiedMeta: Decodable, Sendable {
+    let productId: String
+    let originalTransactionId: String
+    let latestTransactionId: String
+    let environment: String
+}
+
+struct AppStoreVerifyResponse: Decodable, Sendable {
+    let success: Bool
+    let subscription: AppStoreVerifiedSubscription?
+    let verified: AppStoreVerifiedMeta?
+    let error: String?
 }
 
 actor WebAPIClient {
@@ -566,6 +599,60 @@ actor WebAPIClient {
             }
             throw WebAPIError.serverError("類似語キャッシュのウォームアップに失敗しました。")
         }
+    }
+
+    func verifyAppStoreTransaction(
+        transactionId: String,
+        source: String,
+        bearerToken: String
+    ) async throws -> AppStoreVerifyResponse {
+        let (data, http) = try await sendJSONRequest(
+            path: "api/subscription/appstore/verify",
+            bearerToken: bearerToken,
+            timeout: 45,
+            body: AppStoreVerifyRequest(transactionId: transactionId, source: source)
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 400:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "購入情報の検証に失敗しました。")
+            )
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 409:
+            throw WebAPIError.conflict(
+                decodeErrorMessage(from: data, fallback: "既存の契約情報と競合しました。")
+            )
+        case 422:
+            throw WebAPIError.unprocessable(
+                decodeErrorMessage(from: data, fallback: "購入情報の署名検証に失敗しました。")
+            )
+        case 502:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "Appleサーバーとの通信に失敗しました。")
+            )
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "購入情報の検証に失敗しました。")
+            )
+        }
+
+        let decoded: AppStoreVerifyResponse
+        do {
+            decoded = try JSONDecoder().decode(AppStoreVerifyResponse.self, from: data)
+        } catch {
+            logger.error("App Store verify decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+
+        guard decoded.success else {
+            throw WebAPIError.serverError(decoded.error ?? "購入情報の検証に失敗しました。")
+        }
+
+        return decoded
     }
 
     func uploadScanImages(

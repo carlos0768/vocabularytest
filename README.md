@@ -157,6 +157,7 @@ APPLE_IAP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY---
 APPLE_IAP_BUNDLE_ID=com.example.app
 APPLE_IAP_ENV=production
 APPLE_IAP_APP_APPLE_ID=1234567890
+IAP_PRO_PRODUCT_IDS=com.example.merken.pro.monthly
 
 # アプリURL
 NEXT_PUBLIC_APP_URL=http://localhost:3000

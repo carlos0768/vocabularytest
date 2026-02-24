@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const { count: wordCount, loading: wordCountLoading } = useWordCount();
   const hasCancellationScheduled = !!subscription?.cancelAtPeriodEnd;
   const isBillingPro = isPro && subscription?.proSource === 'billing';
+  const isAppStorePro = isPro && subscription?.proSource === 'appstore';
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
@@ -254,6 +255,21 @@ export default function SettingsPage() {
                     >
                       {isCancelling ? '処理中...' : '期間末で解約する'}
                     </Button>
+                  </div>
+                ) : isAppStorePro ? (
+                  <div className="bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)] space-y-3">
+                    <p className="text-sm text-[var(--color-muted)]">
+                      App Store経由のサブスクリプションです。変更や解約はApp Storeで管理してください。
+                    </p>
+                    <a
+                      href="https://apps.apple.com/account/subscriptions"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      App Storeで管理する
+                      <Icon name="arrow_outward" size={16} />
+                    </a>
                   </div>
                 ) : (
                   <div className="bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)]">

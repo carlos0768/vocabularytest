@@ -3,11 +3,16 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var themeManager: ThemeManager
+    @Environment(\.openURL) private var openURL
 
     @State private var email = ""
     @State private var password = ""
     @State private var showingBookshelf = false
     @State private var supportURL: URL?
+    @State private var isPurchasing = false
+    @State private var isRestoring = false
+    @State private var purchaseErrorMessage: String?
+    @State private var purchaseSuccessMessage: String?
 
     var body: some View {
         ZStack {
@@ -232,13 +237,35 @@ struct SettingsView: View {
                         .foregroundStyle(MerkenTheme.mutedText)
                 }
 
-                // Non-billing note
-                Text("現在のProは課金サブスクリプションではないため、解約操作は不要です。")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
+                if appState.subscription?.proSource == "appstore" {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("このサブスクリプションはApp Storeで管理されます。")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+
+                        Button {
+                            guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else {
+                                return
+                            }
+                            openURL(url)
+                        } label: {
+                            Label("App Storeで管理", systemImage: "arrow.up.right")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(GhostGlassButton())
+                    }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 16))
+                } else {
+                    Text("現在のProは課金サブスクリプションではないため、解約操作は不要です。")
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 16))
+                }
             }
         }
     }
@@ -307,11 +334,38 @@ struct SettingsView: View {
             }
 
             Button {
-                // TODO: Navigate to subscription
+                purchaseProSubscription()
             } label: {
-                Text("¥500/月で始める")
+                Text(isPurchasing ? "購入処理中..." : "¥500/月で始める")
             }
             .buttonStyle(PrimaryGlassButton())
+            .disabled(isPurchasing || isRestoring)
+
+            Button {
+                restoreProSubscription()
+            } label: {
+                Text(isRestoring ? "復元中..." : "購入を復元")
+            }
+            .buttonStyle(GhostGlassButton())
+            .disabled(isPurchasing || isRestoring)
+
+            if let purchaseErrorMessage {
+                Text(purchaseErrorMessage)
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.warning)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 12))
+            }
+
+            if let purchaseSuccessMessage {
+                Text(purchaseSuccessMessage)
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.success)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(MerkenTheme.success.opacity(0.08), in: .rect(cornerRadius: 12))
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -467,6 +521,48 @@ struct SettingsView: View {
                 .opacity(appState.isSigningIn ? 0.7 : 1)
                 .buttonStyle(PrimaryGlassButton())
                 .accessibilityIdentifier("signInButton")
+            }
+        }
+    }
+
+    private func purchaseProSubscription() {
+        guard appState.isLoggedIn else {
+            purchaseErrorMessage = "購入にはログインが必要です。"
+            return
+        }
+
+        isPurchasing = true
+        purchaseErrorMessage = nil
+        purchaseSuccessMessage = nil
+
+        Task {
+            defer { isPurchasing = false }
+            do {
+                try await appState.purchaseProWithAppStore()
+                purchaseSuccessMessage = "Proプランを有効化しました。"
+            } catch {
+                purchaseErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func restoreProSubscription() {
+        guard appState.isLoggedIn else {
+            purchaseErrorMessage = "復元にはログインが必要です。"
+            return
+        }
+
+        isRestoring = true
+        purchaseErrorMessage = nil
+        purchaseSuccessMessage = nil
+
+        Task {
+            defer { isRestoring = false }
+            do {
+                try await appState.restoreProWithAppStore()
+                purchaseSuccessMessage = "購入情報を復元しました。"
+            } catch {
+                purchaseErrorMessage = error.localizedDescription
             }
         }
     }

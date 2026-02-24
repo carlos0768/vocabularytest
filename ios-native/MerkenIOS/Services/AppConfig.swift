@@ -5,6 +5,22 @@ struct AppConfig: Sendable {
     let supabaseAnonKey: String
     let webAPIBaseURL: URL
     let iosScanJobsAlwaysOn: Bool
+    let iapProProductIds: [String]
+
+    static func parseCSVList(_ raw: String?) -> [String] {
+        guard let raw, !raw.isEmpty else { return [] }
+
+        var seen = Set<String>()
+        var values: [String] = []
+        for token in raw.split(separator: ",", omittingEmptySubsequences: true) {
+            let normalized = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalized.isEmpty else { continue }
+            guard !seen.contains(normalized) else { continue }
+            seen.insert(normalized)
+            values.append(normalized)
+        }
+        return values
+    }
 
     init() throws {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -31,5 +47,6 @@ struct AppConfig: Sendable {
         self.supabaseAnonKey = supabaseAnonKey
         self.webAPIBaseURL = webAPIBaseURL
         self.iosScanJobsAlwaysOn = (info["IOS_SCAN_JOBS_ALWAYS_ON"] as? Bool) ?? true
+        self.iapProProductIds = Self.parseCSVList(info["IAP_PRO_PRODUCT_IDS"] as? String)
     }
 }

@@ -137,6 +137,7 @@ final class AppState: ObservableObject {
     private let repositoryRouter: RepositoryRouter
     private let guestSessionStore: GuestSessionStore
     let webAPIClient: WebAPIClient
+    private let appStoreSubscriptionService: AppStoreSubscriptionService
     let quizStatsStore: QuizStatsStore
     let sentenceQuizProgressStore: SentenceQuizProgressStore
     let collectionRepository: CollectionRepositoryProtocol
@@ -147,6 +148,7 @@ final class AppState: ObservableObject {
     private var pendingScanImportContexts: [String: PendingScanImportContext]
     private var importedScanJobs: [String: ImportedScanJobRecord]
     private var reportedScanFailures: Set<String>
+    private var appStoreLaunchSyncUserId: String?
 
     private lazy var scanJobSyncService = ScanJobSyncService(
         sessionProvider: { [weak self] in
@@ -186,6 +188,7 @@ final class AppState: ObservableObject {
         repositoryRouter: RepositoryRouter,
         guestSessionStore: GuestSessionStore,
         webAPIClient: WebAPIClient,
+        appStoreSubscriptionService: AppStoreSubscriptionService,
         quizStatsStore: QuizStatsStore,
         sentenceQuizProgressStore: SentenceQuizProgressStore,
         collectionRepository: CollectionRepositoryProtocol,
@@ -196,6 +199,7 @@ final class AppState: ObservableObject {
         self.repositoryRouter = repositoryRouter
         self.guestSessionStore = guestSessionStore
         self.webAPIClient = webAPIClient
+        self.appStoreSubscriptionService = appStoreSubscriptionService
         self.quizStatsStore = quizStatsStore
         self.sentenceQuizProgressStore = sentenceQuizProgressStore
         self.collectionRepository = collectionRepository
@@ -205,6 +209,7 @@ final class AppState: ObservableObject {
         self.pendingScanImportContexts = Self.loadPendingScanImportContexts(defaults: defaults)
         self.importedScanJobs = Self.loadImportedScanJobs(defaults: defaults)
         self.reportedScanFailures = Self.loadReportedFailures(defaults: defaults)
+        self.appStoreLaunchSyncUserId = nil
     }
 
     var isPro: Bool {
@@ -251,6 +256,7 @@ final class AppState: ObservableObject {
         guard session != nil else {
             subscription = nil
             repositoryMode = .guestLocal
+            appStoreLaunchSyncUserId = nil
             await scanJobSyncService.stop()
             logger.info("Auth bootstrap: guest local mode")
             return
@@ -262,6 +268,15 @@ final class AppState: ObservableObject {
             repositoryMode = repositoryRouter.mode(for: subscription)
             authErrorMessage = nil
             await scanJobSyncService.start()
+
+            if let currentSession = session,
+               appStoreLaunchSyncUserId != currentSession.userId {
+                appStoreLaunchSyncUserId = currentSession.userId
+                Task { [weak self] in
+                    await self?.syncAppStoreSubscriptionOnLaunch()
+                }
+            }
+
             logger.info("Auth refresh complete. mode=\(self.repositoryMode == .proCloud ? "proCloud" : "guestLocal")")
         } catch {
             if let authError = error as? AuthServiceError,
@@ -278,6 +293,53 @@ final class AppState: ObservableObject {
                 authErrorMessage = error.localizedDescription
                 logger.error("Auth refresh failed: \(error.localizedDescription)")
             }
+        }
+    }
+
+    func purchaseProWithAppStore() async throws {
+        guard let session else {
+            throw AuthServiceError.missingSession
+        }
+        if session.isExpired {
+            throw AuthServiceError.sessionExpired
+        }
+
+        try await appStoreSubscriptionService.purchaseProSubscription(
+            bearerToken: session.accessToken
+        )
+        await refreshAuthState(showLoading: false)
+        bumpDataVersion()
+    }
+
+    func restoreProWithAppStore() async throws {
+        guard let session else {
+            throw AuthServiceError.missingSession
+        }
+        if session.isExpired {
+            throw AuthServiceError.sessionExpired
+        }
+
+        try await appStoreSubscriptionService.restorePurchases(
+            bearerToken: session.accessToken
+        )
+        await refreshAuthState(showLoading: false)
+        bumpDataVersion()
+    }
+
+    private func syncAppStoreSubscriptionOnLaunch() async {
+        guard let session else { return }
+        if session.isExpired { return }
+
+        do {
+            let synced = try await appStoreSubscriptionService.syncOnLaunchIfNeeded(
+                bearerToken: session.accessToken
+            )
+            if synced {
+                await refreshAuthState(showLoading: false)
+                bumpDataVersion()
+            }
+        } catch {
+            logger.warning("App Store launch sync failed: \(error.localizedDescription)")
         }
     }
 

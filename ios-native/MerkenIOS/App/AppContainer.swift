@@ -63,6 +63,10 @@ struct AppContainer {
             supabaseURL: config.supabaseURL,
             supabaseAnonKey: config.supabaseAnonKey
         )
+        let appStoreSubscriptionService = AppStoreSubscriptionService(
+            productIds: config.iapProProductIds,
+            webAPIClient: webAPIClient
+        )
         let quizStatsStore = QuizStatsStore()
         let sentenceQuizProgressStore = SentenceQuizProgressStore()
         let scanNotificationService = ScanNotificationService()
@@ -72,6 +76,7 @@ struct AppContainer {
             repositoryRouter: router,
             guestSessionStore: GuestSessionStore(),
             webAPIClient: webAPIClient,
+            appStoreSubscriptionService: appStoreSubscriptionService,
             quizStatsStore: quizStatsStore,
             sentenceQuizProgressStore: sentenceQuizProgressStore,
             collectionRepository: collectionRepository,
