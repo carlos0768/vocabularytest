@@ -18,10 +18,10 @@ private struct DotPattern: View {
         Canvas { context, size in
             let spacing: CGFloat = 16
             let dotRadius: CGFloat = 1.0
-            // Web: light #6b7280, dark #1a1e23
+            // Light: original iOS color, Dark: Web版 #1a1e23
             let color: Color = colorScheme == .dark
                 ? Color(red: 0.10, green: 0.12, blue: 0.14)
-                : Color(red: 0.42, green: 0.45, blue: 0.50)
+                : Color(red: 0.80, green: 0.82, blue: 0.86)
 
             for x in stride(from: CGFloat(0), through: size.width, by: spacing) {
                 for y in stride(from: CGFloat(0), through: size.height, by: spacing) {

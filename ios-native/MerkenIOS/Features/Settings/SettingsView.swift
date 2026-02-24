@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var showingContact = false
     @State private var showingTerms = false
     @State private var showingPrivacy = false
+    @State private var showingSignOutAlert = false
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var purchaseErrorMessage: String?
@@ -471,9 +472,7 @@ struct SettingsView: View {
 
     private var signOutButton: some View {
         Button {
-            Task {
-                await appState.signOut()
-            }
+            showingSignOutAlert = true
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -484,6 +483,14 @@ struct SettingsView: View {
             .foregroundStyle(MerkenTheme.mutedText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
+        }
+        .alert("ログアウトしますか？", isPresented: $showingSignOutAlert) {
+            Button("ログアウト", role: .destructive) {
+                Task {
+                    await appState.signOut()
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
         }
     }
 
