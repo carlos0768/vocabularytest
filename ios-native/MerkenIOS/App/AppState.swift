@@ -2,6 +2,7 @@ import Foundation
 import OSLog
 import SwiftUI
 import UIKit
+import UserNotifications
 
 struct ScanBannerState: Identifiable, Equatable {
     enum Level: Equatable {
@@ -263,10 +264,88 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Stored device token for APNs, set when the system returns it
+    private var apnsDeviceToken: String?
+    /// Whether we've already registered this token with our server for the current session
+    private var hasRegisteredDeviceToken = false
+
     func bootstrap() async {
         await refreshAuthState(showLoading: true)
         Task {
             await scanNotificationService.requestAuthorizationIfNeeded()
+        }
+        observeAPNsDeviceToken()
+        requestRemoteNotificationPermission()
+    }
+
+    /// Listen for the APNs device token posted by AppDelegate
+    private func observeAPNsDeviceToken() {
+        NotificationCenter.default.addObserver(
+            forName: .didReceiveAPNsDeviceToken,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let token = notification.userInfo?["token"] as? String else { return }
+            self.apnsDeviceToken = token
+            Task { await self.registerDeviceTokenIfNeeded() }
+        }
+    }
+
+    /// Request notification permission and register for remote notifications
+    private func requestRemoteNotificationPermission() {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+
+            if settings.authorizationStatus == .notDetermined {
+                do {
+                    let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                    if granted {
+                        await MainActor.run {
+                            UIApplication.shared.registerForRemoteNotifications()
+                        }
+                    }
+                } catch {
+                    logger.error("Notification authorization failed: \(error.localizedDescription)")
+                }
+            } else if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+    }
+
+    /// Register the APNs device token with our server (if logged in and have a token)
+    func registerDeviceTokenIfNeeded() async {
+        guard let token = apnsDeviceToken, !token.isEmpty else { return }
+        guard isLoggedIn else { return }
+        guard !hasRegisteredDeviceToken else { return }
+
+        do {
+            try await performWebAPIRequest { bearerToken in
+                try await self.webAPIClient.registerDeviceToken(token, bearerToken: bearerToken)
+            }
+            hasRegisteredDeviceToken = true
+            logger.info("APNs device token registered with server.")
+        } catch {
+            logger.error("Failed to register APNs device token: \(error.localizedDescription)")
+        }
+    }
+
+    /// Unregister device token on logout
+    func unregisterDeviceToken() async {
+        guard let token = apnsDeviceToken, !token.isEmpty else { return }
+
+        do {
+            try await performWebAPIRequest { bearerToken in
+                try await self.webAPIClient.unregisterDeviceToken(token, bearerToken: bearerToken)
+            }
+            hasRegisteredDeviceToken = false
+            logger.info("APNs device token unregistered from server.")
+        } catch {
+            logger.error("Failed to unregister APNs device token: \(error.localizedDescription)")
         }
     }
 
@@ -311,6 +390,11 @@ final class AppState: ObservableObject {
             case .guestLocal: "guestLocal"
             }
             logger.info("Auth refresh complete. mode=\(modeLabel)")
+
+            // Register APNs token with server after successful auth
+            Task { [weak self] in
+                await self?.registerDeviceTokenIfNeeded()
+            }
         } catch {
             if let authError = error as? AuthServiceError,
                case .sessionExpired = authError {
@@ -403,6 +487,9 @@ final class AppState: ObservableObject {
     }
 
     func signOut() async {
+        // Unregister device token before signing out
+        await unregisterDeviceToken()
+
         do {
             try await authService.signOut()
             quizStatsStore.clearAll()

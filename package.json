@@ -26,6 +26,7 @@
     "@google/genai": "^1.38.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.0",
+    "apns2": "^12.2.0",
     "clsx": "^2.1.1",
     "critters": "^0.0.23",
     "dexie": "^4.2.1",

@@ -11,6 +11,7 @@ import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
+import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
@@ -505,13 +506,15 @@ export async function POST(request: NextRequest) {
         }
         if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
           grammarWarningNotified = true;
-          await sendScanJobPushNotifications(getSupabaseAdmin(), {
+          const warningParams = {
             userId: job.user_id,
             jobId,
             projectId: null,
             projectTitle: job.project_title,
-            status: 'warning',
-          });
+            status: 'warning' as const,
+          };
+          await sendScanJobPushNotifications(getSupabaseAdmin(), warningParams);
+          void sendScanJobApnsNotifications(getSupabaseAdmin(), warningParams).catch(e => console.error('[APNs] warning push failed:', e));
         }
 
         if (result.success && result.data?.words) {
@@ -540,14 +543,16 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', jobId);
 
-        await sendScanJobPushNotifications(getSupabaseAdmin(), {
+        const failParams1 = {
           userId: job.user_id,
           jobId,
           projectId: null,
           projectTitle: job.project_title,
-          status: 'failed',
+          status: 'failed' as const,
           wordCount: 0,
-        });
+        };
+        await sendScanJobPushNotifications(getSupabaseAdmin(), failParams1);
+        void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams1).catch(e => console.error('[APNs] fail push failed:', e));
 
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
@@ -579,16 +584,16 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', jobId);
 
-        void sendScanJobPushNotifications(getSupabaseAdmin(), {
+        const completedParams1 = {
           userId: job.user_id,
           jobId,
           projectId: null,
           projectTitle: job.project_title,
-          status: 'completed',
+          status: 'completed' as const,
           wordCount: dedupedWords.length,
-        }).catch((error) => {
-          console.error('Failed to send completed push notification:', error);
-        });
+        };
+        void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
+        void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
 
         return NextResponse.json({
           success: true,
@@ -739,16 +744,16 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', jobId);
 
-      void sendScanJobPushNotifications(getSupabaseAdmin(), {
+      const completedParams2 = {
         userId: job.user_id,
         jobId,
         projectId,
         projectTitle: projectTitleForNotification,
-        status: 'completed',
+        status: 'completed' as const,
         wordCount: dedupedWords.length,
-      }).catch((error) => {
-        console.error('Failed to send completed push notification:', error);
-      });
+      };
+      void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
+      void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
       // Heavy/non-critical tasks run after completion update.
       void (async () => {
@@ -816,14 +821,16 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', jobId);
 
-      await sendScanJobPushNotifications(getSupabaseAdmin(), {
+      const failParams2 = {
         userId: job.user_id,
         jobId,
         projectId: null,
         projectTitle: job.project_title,
-        status: 'failed',
+        status: 'failed' as const,
         wordCount: 0,
-      });
+      };
+      await sendScanJobPushNotifications(getSupabaseAdmin(), failParams2);
+      void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams2).catch(e => console.error('[APNs] fail push failed:', e));
 
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
     }

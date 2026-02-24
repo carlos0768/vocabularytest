@@ -33,12 +33,15 @@ targets:
           - "**/*.md"
     resources:
       - path: MerkenIOS/Resources
+    entitlements:
+      path: MerkenIOS/MerkenIOS.entitlements
     settings:
       base:
         INFOPLIST_FILE: MerkenIOS/Resources/Info.plist
         PRODUCT_NAME: MerkenIOS
         SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_PREVIEWS: YES
+        CODE_SIGN_ENTITLEMENTS: MerkenIOS/MerkenIOS.entitlements
     dependencies:
       - package: Supabase
         product: Supabase

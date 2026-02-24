@@ -4,6 +4,7 @@ import OSLog
 
 @main
 struct MerkenIOSApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState: AppState
     @StateObject private var themeManager = ThemeManager()
     @Environment(\.scenePhase) private var scenePhase

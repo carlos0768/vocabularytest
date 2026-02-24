@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import UIKit
 
 enum WebAPIError: LocalizedError {
     case notAuthenticated
@@ -964,6 +965,76 @@ actor WebAPIClient {
             )
         }
     }
+
+    // MARK: - iOS Push Notification Device Token
+
+    struct RegisterDeviceTokenBody: Encodable {
+        let deviceToken: String
+        let bundleId: String
+        let appVersion: String?
+        let osVersion: String?
+    }
+
+    struct UnregisterDeviceTokenBody: Encodable {
+        let deviceToken: String
+    }
+
+    func registerDeviceToken(
+        _ token: String,
+        bearerToken: String
+    ) async throws {
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.merken.iosnative"
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        let osVersion = UIDevice.current.systemVersion
+
+        let body = RegisterDeviceTokenBody(
+            deviceToken: token,
+            bundleId: bundleId,
+            appVersion: appVersion,
+            osVersion: osVersion
+        )
+
+        let (data, http) = try await sendJSONRequest(
+            path: "/api/notifications/ios-device-token",
+            bearerToken: bearerToken,
+            timeout: 15,
+            body: body
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            return
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "デバイストークンの登録に失敗しました。")
+            )
+        }
+    }
+
+    func unregisterDeviceToken(
+        _ token: String,
+        bearerToken: String
+    ) async throws {
+        let url = baseURL.appendingPathComponent("/api/notifications/ios-device-token")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 15
+        request.httpBody = try JSONEncoder().encode(UnregisterDeviceTokenBody(deviceToken: token))
+
+        let (_, response) = try await urlSession.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else { return }
+        if http.statusCode == 401 {
+            throw WebAPIError.notAuthenticated
+        }
+    }
+
+    // MARK: - Scan Image Upload
 
     private func uploadScanImage(
         imageData: Data,
