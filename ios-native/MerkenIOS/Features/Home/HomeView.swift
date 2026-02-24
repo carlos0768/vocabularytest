@@ -239,46 +239,45 @@ struct HomeView: View {
     // MARK: - Empty State
 
     private var emptyStateSection: some View {
-        VStack(spacing: 16) {
-            Spacer()
+        GeometryReader { geo in
+            VStack(spacing: 16) {
+                Image(systemName: "text.book.closed.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                    .frame(width: 96, height: 96)
+                    .background(MerkenTheme.accentBlue.opacity(0.1), in: .circle)
 
-            Image(systemName: "text.book.closed.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(MerkenTheme.accentBlue)
-                .frame(width: 96, height: 96)
-                .background(MerkenTheme.accentBlue.opacity(0.1), in: .circle)
+                Text("単語帳がありません")
+                    .font(.title2.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
 
-            Text("単語帳がありません")
-                .font(.title2.bold())
-                .foregroundStyle(MerkenTheme.primaryText)
+                Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .multilineTextAlignment(.center)
 
-            Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
-                .font(.subheadline)
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .multilineTextAlignment(.center)
-
-            if !appState.isLoggedIn {
-                HStack(spacing: 0) {
-                    Text("アカウント登録")
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .bold()
-                    Text("でクラウド保存")
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-                .font(.subheadline)
-                .onTapGesture {
-                    showingSignUp = true
-                }
-                .sheet(isPresented: $showingSignUp) {
-                    SignUpView()
-                        .environmentObject(appState)
+                if !appState.isLoggedIn {
+                    HStack(spacing: 0) {
+                        Text("アカウント登録")
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .bold()
+                        Text("でクラウド保存")
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    .font(.subheadline)
+                    .onTapGesture {
+                        showingSignUp = true
+                    }
+                    .sheet(isPresented: $showingSignUp) {
+                        SignUpView()
+                            .environmentObject(appState)
+                    }
                 }
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: geo.size.height)
+            .padding(.horizontal, 16)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 16)
     }
 
     // MARK: - Quick Links (4 icons)
