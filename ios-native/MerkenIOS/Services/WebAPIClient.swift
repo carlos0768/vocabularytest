@@ -116,7 +116,80 @@ struct ScanJobResultPayload: Decodable, Sendable {
     }
 }
 
-struct ScanJobDTO: Codable, Identifiable, Sendable {
+private enum ScanJobResultContainer: Decodable {
+    case string(String)
+    case object([String: AnyDecodableValue])
+    case array([AnyDecodableValue])
+    case number(Double)
+    case bool(Bool)
+    case null
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([String: AnyDecodableValue].self) {
+            self = .object(value)
+        } else if let value = try? container.decode([AnyDecodableValue].self) {
+            self = .array(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else {
+            self = .null
+        }
+    }
+}
+
+private enum AnyDecodableValue: Decodable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case object([String: AnyDecodableValue])
+    case array([AnyDecodableValue])
+    case null
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode([String: AnyDecodableValue].self) {
+            self = .object(value)
+        } else if let value = try? container.decode([AnyDecodableValue].self) {
+            self = .array(value)
+        } else {
+            self = .null
+        }
+    }
+
+    fileprivate func toJSONCompatible() -> Any {
+        switch self {
+        case .string(let value):
+            return value
+        case .number(let value):
+            return value
+        case .bool(let value):
+            return value
+        case .object(let value):
+            return value.mapValues { $0.toJSONCompatible() }
+        case .array(let value):
+            return value.map { $0.toJSONCompatible() }
+        case .null:
+            return NSNull()
+        }
+    }
+}
+
+struct ScanJobDTO: Decodable, Identifiable, Sendable {
     let id: String
     let userId: String
     let projectId: String?
@@ -147,6 +220,58 @@ struct ScanJobDTO: Codable, Identifiable, Sendable {
         case errorMessage = "error_message"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        userId = (try? container.decode(String.self, forKey: .userId)) ?? ""
+        projectId = try? container.decodeIfPresent(String.self, forKey: .projectId)
+        targetProjectId = try? container.decodeIfPresent(String.self, forKey: .targetProjectId)
+        projectTitle = (try? container.decode(String.self, forKey: .projectTitle)) ?? "スキャン"
+        scanMode = (try? container.decode(String.self, forKey: .scanMode)) ?? "all"
+        saveMode = (try? container.decode(ScanJobSaveMode.self, forKey: .saveMode)) ?? .serverCloud
+        imagePath = try? container.decodeIfPresent(String.self, forKey: .imagePath)
+        imagePaths = try? container.decodeIfPresent([String].self, forKey: .imagePaths)
+        status = (try? container.decode(ScanJobStatus.self, forKey: .status)) ?? .pending
+        errorMessage = try? container.decodeIfPresent(String.self, forKey: .errorMessage)
+        createdAt = try? container.decodeIfPresent(Date.self, forKey: .createdAt)
+        updatedAt = try? container.decodeIfPresent(Date.self, forKey: .updatedAt)
+
+        if let raw = try? container.decodeIfPresent(String.self, forKey: .result) {
+            result = raw
+        } else if let decoded = try? container.decodeIfPresent(ScanJobResultContainer.self, forKey: .result) {
+            switch decoded {
+            case .string(let value):
+                result = value
+            case .object(let map):
+                if JSONSerialization.isValidJSONObject(map.mapValues({ $0.toJSONCompatible() })),
+                   let data = try? JSONSerialization.data(withJSONObject: map.mapValues({ $0.toJSONCompatible() })),
+                   let json = String(data: data, encoding: .utf8) {
+                    result = json
+                } else {
+                    result = nil
+                }
+            case .array(let array):
+                let jsonCompatible = array.map { $0.toJSONCompatible() }
+                if JSONSerialization.isValidJSONObject(jsonCompatible),
+                   let data = try? JSONSerialization.data(withJSONObject: jsonCompatible),
+                   let json = String(data: data, encoding: .utf8) {
+                    result = json
+                } else {
+                    result = nil
+                }
+            case .number(let value):
+                result = String(value)
+            case .bool(let value):
+                result = value ? "true" : "false"
+            case .null:
+                result = nil
+            }
+        } else {
+            result = nil
+        }
     }
 
     var decodedResult: ScanJobResultPayload? {
