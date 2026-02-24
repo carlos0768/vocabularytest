@@ -155,12 +155,10 @@ struct SettingsView: View {
             sectionHeader("表示")
 
             SolidCard {
-                HStack {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("テーマ")
                         .font(.body.weight(.medium))
                         .foregroundStyle(MerkenTheme.primaryText)
-
-                    Spacer()
 
                     ThemeCubeSelector(mode: Binding(
                         get: { themeManager.mode },
@@ -345,6 +343,7 @@ struct SettingsView: View {
                 restoreProSubscription()
             } label: {
                 Text(isRestoring ? "復元中..." : "購入を復元")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(GhostGlassButton())
             .disabled(isPurchasing || isRestoring)
