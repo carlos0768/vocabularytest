@@ -125,7 +125,7 @@ export interface Subscription {
   userId: string;
   status: SubscriptionStatus;
   plan: SubscriptionPlan;
-  proSource: 'none' | 'billing' | 'test';
+  proSource: 'none' | 'billing' | 'test' | 'appstore';
   testProExpiresAt: string | null;
   komojuSubscriptionId?: string;
   komojuCustomerId?: string;

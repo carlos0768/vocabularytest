@@ -52,7 +52,7 @@ function mapSubscriptionRow(
     userId: row.user_id as string,
     status,
     plan,
-    proSource: (row.pro_source as 'none' | 'billing' | 'test' | null) ?? 'none',
+    proSource: (row.pro_source as 'none' | 'billing' | 'test' | 'appstore' | null) ?? 'none',
     testProExpiresAt: (row.test_pro_expires_at as string | null | undefined) ?? null,
     komojuSubscriptionId: row.komoju_subscription_id as string | undefined,
     komojuCustomerId: row.komoju_customer_id as string | undefined,

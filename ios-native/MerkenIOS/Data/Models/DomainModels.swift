@@ -189,6 +189,17 @@ struct SubscriptionState: Codable, Hashable, Sendable {
             return testProExpiresAt > .now
         }
 
+        if proSource == "none" {
+            return false
+        }
+
+        if proSource == "billing" || proSource == "appstore" {
+            if let currentPeriodEnd {
+                return currentPeriodEnd > .now
+            }
+            return true
+        }
+
         if let currentPeriodEnd {
             return currentPeriodEnd > .now
         }

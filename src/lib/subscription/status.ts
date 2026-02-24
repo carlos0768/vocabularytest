@@ -3,13 +3,13 @@ import type { SubscriptionStatus } from '@/types';
 type SubscriptionShape = {
   status?: string | null;
   plan?: string | null;
-  proSource?: 'none' | 'billing' | 'test' | string | null;
+  proSource?: 'none' | 'billing' | 'test' | 'appstore' | string | null;
   testProExpiresAt?: string | null;
   currentPeriodEnd?: string | null;
 };
 
-function resolveProSource(source?: string | null): 'none' | 'billing' | 'test' | null {
-  if (source === 'none' || source === 'billing' || source === 'test') {
+function resolveProSource(source?: string | null): 'none' | 'billing' | 'test' | 'appstore' | null {
+  if (source === 'none' || source === 'billing' || source === 'test' || source === 'appstore') {
     return source;
   }
   return null;
@@ -40,7 +40,7 @@ export function isActiveProSubscription(
     return !hasSubscriptionPeriodEnded(subscription.testProExpiresAt ?? null, now);
   }
 
-  if (source === 'billing') {
+  if (source === 'billing' || source === 'appstore') {
     return !hasSubscriptionPeriodEnded(subscription.currentPeriodEnd ?? null, now);
   }
 
@@ -66,7 +66,7 @@ export function getEffectiveSubscriptionStatus(
       if (hasSubscriptionPeriodEnded(testProExpiresAt, now)) {
         return 'cancelled';
       }
-    } else if (source === 'billing') {
+    } else if (source === 'billing' || source === 'appstore') {
       if (hasSubscriptionPeriodEnded(currentPeriodEnd, now)) {
         return 'cancelled';
       }

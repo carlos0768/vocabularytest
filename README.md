@@ -150,6 +150,14 @@ ADMIN_SECRET=your-admin-secret
 KOMOJU_SECRET_KEY=your-secret
 KOMOJU_WEBHOOK_SECRET=your-webhook-secret
 
+# Apple IAP（iOS向け / Phase 2-3で使用）
+APPLE_IAP_ISSUER_ID=99b16628-15e4-4668-972b-eeff55eeff55
+APPLE_IAP_KEY_ID=ABCDEFGHIJ
+APPLE_IAP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+APPLE_IAP_BUNDLE_ID=com.example.app
+APPLE_IAP_ENV=production
+APPLE_IAP_APP_APPLE_ID=1234567890
+
 # アプリURL
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
@@ -162,6 +170,9 @@ REQUIRE_AUTH_GENERATE_EXAMPLES=true
 REQUIRE_AUTH_DICTATION_GRADE=true
 ENABLE_AI_USAGE_LIMITS=true
 ```
+
+iOS側の将来用キー枠（Phase 2で利用）:
+- `ios-native/MerkenIOS/Resources/Info.plist` に `IAP_PRO_PRODUCT_IDS`（CSV）を配置
 
 ### データベースセットアップ
 

@@ -91,6 +91,48 @@ test('billing source with null period stays active', () => {
   assert.equal(active, true);
 });
 
+test('appstore source with future period is active', () => {
+  const active = isActiveProSubscription(
+    {
+      status: 'active',
+      plan: 'pro',
+      proSource: 'appstore',
+      testProExpiresAt: null,
+      currentPeriodEnd: '2026-03-01T00:00:00.000Z',
+    },
+    FIXED_NOW
+  );
+  assert.equal(active, true);
+});
+
+test('appstore source with past period is inactive', () => {
+  const active = isActiveProSubscription(
+    {
+      status: 'active',
+      plan: 'pro',
+      proSource: 'appstore',
+      testProExpiresAt: null,
+      currentPeriodEnd: '2026-01-01T00:00:00.000Z',
+    },
+    FIXED_NOW
+  );
+  assert.equal(active, false);
+});
+
+test('appstore source with null period stays active', () => {
+  const active = isActiveProSubscription(
+    {
+      status: 'active',
+      plan: 'pro',
+      proSource: 'appstore',
+      testProExpiresAt: null,
+      currentPeriodEnd: null,
+    },
+    FIXED_NOW
+  );
+  assert.equal(active, true);
+});
+
 test('effective status cancels expired test subscription', () => {
   const status = getEffectiveSubscriptionStatus(
     'active',
@@ -98,6 +140,18 @@ test('effective status cancels expired test subscription', () => {
     'test',
     '2026-01-01T00:00:00.000Z',
     null,
+    FIXED_NOW
+  );
+  assert.equal(status, 'cancelled');
+});
+
+test('effective status cancels expired appstore subscription', () => {
+  const status = getEffectiveSubscriptionStatus(
+    'active',
+    'pro',
+    'appstore',
+    null,
+    '2026-01-01T00:00:00.000Z',
     FIXED_NOW
   );
   assert.equal(status, 'cancelled');
