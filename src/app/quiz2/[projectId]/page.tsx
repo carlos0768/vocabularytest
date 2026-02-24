@@ -127,7 +127,8 @@ export default function Quiz2Page() {
 
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const [loading, setLoading] = useState(true);
   const [words, setWords] = useState<Word[]>([]);

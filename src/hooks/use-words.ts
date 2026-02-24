@@ -14,7 +14,8 @@ export function useWords(projectId: string | null) {
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   // Load words for project
   const loadWords = useCallback(async () => {

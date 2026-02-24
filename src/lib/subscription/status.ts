@@ -88,3 +88,17 @@ export function getEffectiveSubscriptionStatus(
 
   return 'free';
 }
+
+/**
+ * Detect whether a user was previously a Pro subscriber whose subscription
+ * has since expired or been cancelled. These users still have data in
+ * Supabase that should remain accessible in read-only mode.
+ */
+export function wasProUser(
+  subscription?: SubscriptionShape | null,
+): boolean {
+  if (!subscription) return false;
+  // The subscription record has plan='pro' but the user is no longer active.
+  // This covers: period expired, cancelled, past_due, test expired, etc.
+  return subscription.plan === 'pro' && !isActiveProSubscription(subscription);
+}

@@ -30,7 +30,8 @@ export default function FavoritesPage() {
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const loadFavorites = useCallback(async () => {
     if (authLoading) return;

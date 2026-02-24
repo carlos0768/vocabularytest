@@ -40,7 +40,8 @@ export default function ProjectDetailPage() {
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const defaultRepository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const defaultRepository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);

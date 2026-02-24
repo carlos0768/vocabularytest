@@ -84,7 +84,8 @@ export default function QuizPage() {
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
   const needsDistractors = useCallback((w: Word) => {
     const missingDistractors =
       !w.distractors || w.distractors.length === 0 ||

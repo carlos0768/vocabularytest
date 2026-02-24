@@ -106,7 +106,7 @@ function ensureCacheRestored(): boolean {
 
 export default function HomePage() {
   const router = useRouter();
-  const { user, subscription, isAuthenticated, isPro, loading: authLoading, sessionExpired } = useAuth();
+  const { user, subscription, isAuthenticated, isPro, wasPro, loading: authLoading, sessionExpired } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,7 +210,7 @@ export default function HomePage() {
 
   // Get repository
   const subscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   // Current project
   const currentProject = projects[currentProjectIndex] || null;
@@ -427,9 +427,9 @@ export default function HomePage() {
       }
       // Skip reload on tab return when nothing changed
 
-      prefetchStats(subscriptionStatus, user?.id ?? null, isPro);
+      prefetchStats(subscriptionStatus, user?.id ?? null, isPro, wasPro);
     }
-  }, [authLoading, isPro, loadProjects, subscriptionStatus, user?.id]);
+  }, [authLoading, isPro, wasPro, loadProjects, subscriptionStatus, user?.id]);
 
   // Keep push subscription ownership aligned with the currently logged-in user.
   useEffect(() => {

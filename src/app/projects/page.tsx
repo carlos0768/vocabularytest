@@ -52,7 +52,8 @@ export default function ProjectsPage() {
   const { refresh: refreshWordCount } = useWordCount();
 
   const subscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   // Delete state
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);

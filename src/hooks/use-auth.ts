@@ -8,7 +8,7 @@ import { hybridRepository, shouldRunFullSync } from '@/lib/db';
 import { invalidateStatsCache } from '@/lib/stats-cache';
 import { clearHomeCache } from '@/lib/home-cache';
 import { clearAllUserStats } from '@/lib/utils';
-import { getEffectiveSubscriptionStatus, isActiveProSubscription } from '@/lib/subscription/status';
+import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
 
 interface AuthState {
   user: User | null;
@@ -582,11 +582,13 @@ export function useAuth() {
   // Computed properties
   const isAuthenticated = !!state.user;
   const isPro = isActiveProSubscription(state.subscription);
+  const wasPro = wasProUser(state.subscription);
 
   return {
     ...state,
     isAuthenticated,
     isPro,
+    wasPro,
     signUp,
     signIn,
     signOut,

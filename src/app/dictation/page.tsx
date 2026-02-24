@@ -26,7 +26,8 @@ function DictationContent() {
   const { user, subscription, loading: authLoading } = useAuth();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   // Quiz state
   const [phase, setPhase] = useState<QuizPhase>('setup');

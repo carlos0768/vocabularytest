@@ -56,7 +56,8 @@ export default function FlashcardPage() {
   const isSwiping = useRef(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   // Track if words have been loaded to prevent re-fetching
   const hasLoadedRef = useRef(false);

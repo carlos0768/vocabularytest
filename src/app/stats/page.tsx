@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
 
 export default function StatsPage() {
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, wasPro, loading: authLoading } = useAuth();
 
   const [stats, setStats] = useState<CachedStats | null>(() => getCachedStats());
   const [loading, setLoading] = useState(!stats);
@@ -15,7 +15,7 @@ export default function StatsPage() {
     if (authLoading) return;
 
     const subscriptionStatus = subscription?.status ?? 'free';
-    getStats(subscriptionStatus, user?.id ?? null, isPro)
+    getStats(subscriptionStatus, user?.id ?? null, isPro, wasPro)
       .then((freshStats) => {
         setStats(freshStats);
         setLoading(false);

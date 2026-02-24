@@ -19,7 +19,8 @@ export default function SearchPage() {
   const { user, subscription, loading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
   const isSemanticSearchEnabled = subscriptionStatus === 'active';
 
   // Semantic search state

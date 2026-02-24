@@ -86,7 +86,8 @@ export default function SentenceQuizPage() {
   };
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   // 生成をキャンセルしてホームに戻る
   const handleCancelGeneration = useCallback(() => {

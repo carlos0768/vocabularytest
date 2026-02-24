@@ -74,6 +74,7 @@ export function prefetchStats(
   subscriptionStatus: SubscriptionStatus,
   userId: string | null,
   isPro: boolean,
+  wasPro: boolean = false,
 ): void {
   const resolvedUserId = userId ?? getGuestUserId();
 
@@ -83,7 +84,7 @@ export function prefetchStats(
   // 既にフェッチ中ならスキップ
   if (fetchPromise) return;
 
-  fetchPromise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro)
+  fetchPromise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro)
     .finally(() => {
       fetchPromise = null;
     });
@@ -96,6 +97,7 @@ export async function getStats(
   subscriptionStatus: SubscriptionStatus,
   userId: string | null,
   isPro: boolean,
+  wasPro: boolean = false,
 ): Promise<CachedStats> {
   const resolvedUserId = userId ?? getGuestUserId();
 
@@ -111,7 +113,7 @@ export async function getStats(
   }
 
   // フェッチ実行
-  const stats = await fetchStatsData(subscriptionStatus, resolvedUserId, isPro);
+  const stats = await fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
   return stats || getCachedStats()!;
 }
 
@@ -189,11 +191,14 @@ async function fetchStatsData(
   subscriptionStatus: SubscriptionStatus,
   userId: string,
   isPro?: boolean,
+  wasPro?: boolean,
 ): Promise<CachedStats | null> {
   try {
     const isProUser = isPro ?? subscriptionStatus === 'active';
+    // Downgraded users still have data in Supabase, use RPC to fetch stats
+    const hasRemoteData = isProUser || (wasPro ?? false);
 
-    // Free: home-cache から即座に集計 / Pro: RPC 1クエリ
+    // Free: home-cache から即座に集計 / Pro/wasPro: RPC 1クエリ
     let wordStats: {
       totalProjects: number;
       totalWords: number;
@@ -203,7 +208,7 @@ async function fetchStatsData(
       favoriteWords: number;
     };
 
-    if (isProUser) {
+    if (hasRemoteData) {
       wordStats = await fetchStatsViaRpc(userId);
     } else {
       // Try home-cache first (no DB query)
@@ -248,7 +253,7 @@ async function fetchStatsData(
     let wrongAnswersCount = wrongAnswers.length;
     let finalStreakDays = streakDays;
 
-    if (isProUser && isRemoteStatsSyncEnabled()) {
+    if (hasRemoteData && isRemoteStatsSyncEnabled()) {
       try {
         const supabase = createBrowserClient();
         const [wrongCountResult, streakResult] = await Promise.all([
