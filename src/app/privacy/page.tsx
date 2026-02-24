@@ -17,7 +17,7 @@ export default function PrivacyPage() {
 
       <main className="max-w-lg mx-auto px-6 py-8">
         <div className="card p-6 space-y-8 text-[var(--color-foreground)] leading-relaxed">
-          <p className="text-sm text-[var(--color-muted)]">最終更新日: 2025年1月29日</p>
+          <p className="text-sm text-[var(--color-muted)]">最終更新日: 2026年2月24日</p>
 
           <section className="space-y-3">
             <h2 className="text-lg font-bold">1. はじめに</h2>

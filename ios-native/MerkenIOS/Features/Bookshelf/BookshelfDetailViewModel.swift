@@ -99,4 +99,15 @@ final class BookshelfDetailViewModel: ObservableObject {
             logger.error("BookshelfDetail updateCollection failed: \(error.localizedDescription)")
         }
     }
+
+    func deleteCollection(id: String, using state: AppState) async {
+        do {
+            try await state.collectionRepository.deleteCollection(id: id)
+            state.bumpDataVersion()
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("BookshelfDetail deleteCollection failed: \(error.localizedDescription)")
+        }
+    }
 }

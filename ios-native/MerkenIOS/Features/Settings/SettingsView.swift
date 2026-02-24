@@ -434,16 +434,16 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("サポート")
 
-            SolidCard {
+            SolidCard(padding: 0) {
                 VStack(spacing: 0) {
                     supportRow("お問い合わせ") {
                         showingContact = true
                     }
-                    Divider().padding(.horizontal, 4)
+                    Divider().overlay(MerkenTheme.border.opacity(0.3))
                     supportRow("利用規約") {
                         showingTerms = true
                     }
-                    Divider().padding(.horizontal, 4)
+                    Divider().overlay(MerkenTheme.border.opacity(0.3))
                     supportRow("プライバシーポリシー") {
                         showingPrivacy = true
                     }
@@ -463,7 +463,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(MerkenTheme.mutedText)
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
     }

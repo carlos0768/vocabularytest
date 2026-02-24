@@ -290,7 +290,7 @@ struct HomeView: View {
             quickLink(icon: "magnifyingglass", label: "検索", color: MerkenTheme.secondaryText) {
                 appState.selectedTab = 2
             }
-            quickLink(icon: "books.vertical.fill", label: "コレクション", color: MerkenTheme.warning) {
+            quickLink(icon: "books.vertical.fill", label: "本棚", color: MerkenTheme.warning) {
                 showingBookshelf = true
             }
             quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {

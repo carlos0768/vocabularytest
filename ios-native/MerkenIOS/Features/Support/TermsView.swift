@@ -32,7 +32,7 @@ struct TermsView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         SolidCard {
                             VStack(alignment: .leading, spacing: 24) {
-                                Text("最終更新日: 2025年1月29日")
+                                Text("最終更新日: 2026年2月24日")
                                     .font(.caption)
                                     .foregroundStyle(MerkenTheme.mutedText)
 
@@ -78,7 +78,7 @@ struct TermsView: View {
                                     "運営者は、事前の通知なくサービス内容の変更または終了を行うことがあります。")
 
                                 termsSection("第9条（準拠法・管轄）",
-                                    "本規約は日本法に準拠し、紛争が生じた場合は東京地方裁判所を第一審の専属的合意管轄裁判所とします。")
+                                    "本規約は日本法に準拠し、紛争が生じた場合は福岡地方裁判所を第一審の専属的合意管轄裁判所とします。")
 
                                 termsSection("第10条（お問い合わせ）",
                                     "本規約に関するお問い合わせは、support@merken.jp までご連絡ください。")

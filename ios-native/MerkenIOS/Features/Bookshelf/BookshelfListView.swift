@@ -32,14 +32,14 @@ struct BookshelfListView: View {
                             Text("新規作成")
                                 .font(.subheadline.bold())
                         }
-                        .foregroundStyle(MerkenTheme.success)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(MerkenTheme.successLight, in: .capsule)
-                        .overlay(Capsule().stroke(MerkenTheme.success.opacity(0.3), lineWidth: 1))
+                        .background(MerkenTheme.accentBlue, in: .capsule)
+                        .overlay(Capsule().stroke(Color.clear, lineWidth: 1))
                         .background(
                             Capsule()
-                                .fill(MerkenTheme.success.opacity(0.3))
+                                .fill(MerkenTheme.accentBlueStrong)
                                 .offset(y: 2)
                         )
                     }
@@ -49,7 +49,7 @@ struct BookshelfListView: View {
                 .padding(.bottom, 10)
                 .stickyHeaderStyle()
 
-            ScrollView {
+                ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         if let errorMessage = viewModel.errorMessage {
                             SolidCard {
@@ -110,47 +110,138 @@ struct BookshelfListView: View {
         }
     }
 
+    // MARK: - Collection Card (Web-matching bookshelf style)
+
     private func collectionCard(_ collection: Collection) -> some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: 10) {
-                // Thumbnail collage area
-                let count = viewModel.projectCounts[collection.id] ?? 0
-                HStack(spacing: 4) {
-                    // Placeholder thumbnails with colored gradients
-                    ForEach(0..<min(max(count, 1), 3), id: \.self) { i in
-                        let colors: [Color] = [MerkenTheme.accentBlue, MerkenTheme.success, MerkenTheme.warning]
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(
-                                LinearGradient(
-                                    colors: [colors[i % colors.count].opacity(0.3), colors[i % colors.count].opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(height: 77)
+        let stat = viewModel.stats[collection.id]
+        let projectCount = stat?.projectCount ?? 0
+        let wordCount = stat?.wordCount ?? 0
+        let progress = stat?.progress ?? 0
+        let previews = stat?.previews ?? []
+
+        return VStack(spacing: 0) {
+            // Bookshelf area — mini books
+            HStack(spacing: -6) {
+                if previews.isEmpty {
+                    // Empty state — dashed placeholder
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                        .frame(height: 64)
+                        .frame(maxWidth: .infinity)
+                        .overlay(
+                            Image(systemName: "books.vertical")
+                                .font(.title3)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        )
+                } else {
+                    Spacer(minLength: 0)
+                    ForEach(Array(previews.enumerated()), id: \.element.id) { index, preview in
+                        miniBook(preview)
+                            .zIndex(Double(previews.count - index))
+                    }
+
+                    let extraCount = projectCount - previews.count
+                    if extraCount > 0 {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(MerkenTheme.surfaceAlt)
+                            .frame(width: 36, height: 52)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 3)
+                                    .stroke(MerkenTheme.border, lineWidth: 1)
                             )
+                            .overlay(
+                                Text("+\(extraCount)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            )
+                            .zIndex(0)
                     }
-                    if count > 3 {
-                        Text("+\(count - 3)")
-                            .font(.caption.bold())
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 77)
+            }
+            .frame(minHeight: 68)
+            .padding(.horizontal, 8)
+            .padding(.top, 10)
 
-                Text(collection.name)
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
+            // Shelf line
+            Rectangle()
+                .fill(MerkenTheme.border)
+                .frame(height: 2)
+                .padding(.horizontal, 6)
+                .padding(.top, 6)
 
-                Text("\(count)冊")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
+            // Title
+            Text(collection.name)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(minHeight: 32)
+                .padding(.horizontal, 4)
+                .padding(.top, 8)
+
+            // Stats
+            HStack(spacing: 0) {
+                Text("\(projectCount)冊")
+                if wordCount > 0 {
+                    Text(" · \(wordCount)語")
+                }
+                if progress > 0 {
+                    Text(" · \(progress)%")
+                }
+            }
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(MerkenTheme.mutedText)
+            .padding(.bottom, 10)
+        }
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    // MARK: - Mini Book (matching Web MiniBook component)
+
+    private func miniBook(_ preview: CollectionProjectPreview) -> some View {
+        let color = MerkenTheme.placeholderColor(for: preview.id)
+        let initial = String(preview.title.prefix(1)).uppercased()
+
+        return ZStack {
+            if let iconImage = preview.iconImage,
+               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                // Project has a cover image
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                // Gradient + initial letter
+                LinearGradient(
+                    colors: [color, color.opacity(0.7)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                // Spine shadow (left edge)
+                HStack(spacing: 0) {
+                    Color.black.opacity(0.15)
+                        .frame(width: 2)
+                    Spacer()
+                }
+
+                // Initial letter
+                Text(initial)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
             }
         }
+        .frame(width: 36, height: 52)
+        .clipShape(.rect(cornerRadius: 3))
+        .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
     }
 }

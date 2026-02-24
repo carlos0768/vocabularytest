@@ -32,7 +32,7 @@ struct PrivacyView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         SolidCard {
                             VStack(alignment: .leading, spacing: 24) {
-                                Text("最終更新日: 2025年1月29日")
+                                Text("最終更新日: 2026年2月24日")
                                     .font(.caption)
                                     .foregroundStyle(MerkenTheme.mutedText)
 

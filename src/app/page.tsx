@@ -1681,7 +1681,7 @@ export default function HomePage() {
                 <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
                   <Icon name="shelves" size={22} className="text-amber-600" />
                 </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">コレクション</span>
+                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">本棚</span>
               </Link>
               <Link
                 href="/projects"

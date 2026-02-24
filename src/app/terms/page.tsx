@@ -17,7 +17,7 @@ export default function TermsPage() {
 
       <main className="max-w-lg mx-auto px-6 py-8">
         <div className="card p-6 space-y-8 text-[var(--color-foreground)] leading-relaxed">
-          <p className="text-sm text-[var(--color-muted)]">最終更新日: 2025年1月29日</p>
+          <p className="text-sm text-[var(--color-muted)]">最終更新日: 2026年2月24日</p>
 
           <section className="space-y-3">
             <h2 className="text-lg font-bold">第1条（適用）</h2>
@@ -90,7 +90,7 @@ export default function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold">第9条（準拠法・管轄）</h2>
             <p>
-              本規約は日本法に準拠し、紛争が生じた場合は東京地方裁判所を第一審の専属的合意管轄裁判所とします。
+              本規約は日本法に準拠し、紛争が生じた場合は福岡地方裁判所を第一審の専属的合意管轄裁判所とします。
             </p>
           </section>
 
