@@ -42,6 +42,24 @@ struct ProjectListView: View {
     }
 
     var body: some View {
+        Group {
+            if !appState.isLoggedIn {
+                LoginGateView(
+                    icon: "text.book.closed.fill",
+                    title: "単語帳を管理しよう",
+                    message: "ログインすると、単語帳の作成・管理ができるようになります。"
+                ) {
+                    appState.selectedTab = 4
+                }
+            } else {
+                projectListContent
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var projectListContent: some View {
         ZStack {
             AppBackground()
 
@@ -72,8 +90,6 @@ struct ProjectListView: View {
                 }
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $selectedProject) { project in
             ProjectDetailView(project: project)
         }

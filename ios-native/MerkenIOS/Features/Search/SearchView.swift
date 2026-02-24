@@ -6,6 +6,24 @@ struct SearchView: View {
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
+        Group {
+            if !appState.isLoggedIn {
+                LoginGateView(
+                    icon: "magnifyingglass",
+                    title: "単語を検索しよう",
+                    message: "ログインすると、保存した単語を意味や英語で横断検索できます。"
+                ) {
+                    appState.selectedTab = 4
+                }
+            } else {
+                searchContent
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var searchContent: some View {
         ZStack {
             AppBackground()
 
@@ -85,8 +103,6 @@ struct SearchView: View {
         .onTapGesture {
             isSearchFocused = false
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: viewModel.searchText) {
             viewModel.search(using: appState)
         }

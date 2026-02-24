@@ -5,6 +5,24 @@ struct StatsView: View {
     @StateObject private var viewModel = StatsViewModel()
 
     var body: some View {
+        Group {
+            if !appState.isLoggedIn {
+                LoginGateView(
+                    icon: "chart.bar.fill",
+                    title: "学習の記録を確認しよう",
+                    message: "ログインすると、クイズの正答率や単語の習得状況を確認できます。"
+                ) {
+                    appState.selectedTab = 4
+                }
+            } else {
+                statsContent
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var statsContent: some View {
         ZStack {
             AppBackground()
 
@@ -149,8 +167,6 @@ struct StatsView: View {
                 }
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
