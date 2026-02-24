@@ -17,7 +17,7 @@ struct ThemeCubeSelector: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(mode == themeMode ? .white : MerkenTheme.mutedText)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 10)
                         .background(
                             mode == themeMode
                                 ? MerkenTheme.accentBlue
