@@ -229,6 +229,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
             currentStep = .error("ログインが必要です。設定画面からログインしてください。")
             return
         }
+        let userId = session.userId
 
         stepBeforeError = .preview
         currentStep = .processing
@@ -243,6 +244,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
 
         Task {
+            func callWebAPIWithAuthRetry<T>(
+                _ operation: @escaping (String) async throws -> T
+            ) async throws -> T {
+                try await appState.performWebAPIRequest(operation)
+            }
+
             let snapshot = selectedImages
             var warnings: [String] = []
             var uploadPayloads: [ScanUploadImage] = []
@@ -305,11 +312,13 @@ final class ScanCoordinatorViewModel: ObservableObject {
                         extractedCount: 0
                     )
                 }
-                uploadedPaths = try await appState.webAPIClient.uploadScanImages(
-                    uploadPayloads,
-                    userId: session.userId,
-                    bearerToken: session.accessToken
-                )
+                uploadedPaths = try await callWebAPIWithAuthRetry { token in
+                    try await appState.webAPIClient.uploadScanImages(
+                        uploadPayloads,
+                        userId: userId,
+                        bearerToken: token
+                    )
+                }
 
                 for index in uploadIndexMap {
                     updateProgress(
@@ -352,16 +361,18 @@ final class ScanCoordinatorViewModel: ObservableObject {
             }()
 
             do {
-                let response = try await appState.webAPIClient.createScanJob(
-                    imagePaths: uploadedPaths,
-                    projectTitle: resolvedProjectTitle,
-                    projectIcon: thumbnail,
-                    scanMode: selectedMode,
-                    eikenLevel: selectedEikenLevel,
-                    targetProjectId: appState.canUseCloud ? targetProjectId : nil,
-                    clientPlatform: "ios",
-                    bearerToken: session.accessToken
-                )
+                let response = try await callWebAPIWithAuthRetry { token in
+                    try await appState.webAPIClient.createScanJob(
+                        imagePaths: uploadedPaths,
+                        projectTitle: resolvedProjectTitle,
+                        projectIcon: thumbnail,
+                        scanMode: self.selectedMode,
+                        eikenLevel: self.selectedEikenLevel,
+                        targetProjectId: appState.canUseCloud ? self.targetProjectId : nil,
+                        clientPlatform: "ios",
+                        bearerToken: token
+                    )
+                }
 
                 let summary = Self.makeProcessingSummary(
                     from: processingPages,
@@ -386,7 +397,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 shouldAutoSaveAfterProcessingDismiss = false
                 endBackgroundTask()
             } catch {
-                await appState.webAPIClient.removeScanImages(paths: uploadedPaths, bearerToken: session.accessToken)
+                do {
+                    let cleanupToken = try await appState.accessTokenForWebAPI(forceRefresh: false)
+                    await appState.webAPIClient.removeScanImages(paths: uploadedPaths, bearerToken: cleanupToken)
+                } catch {
+                    logger.warning("Failed to cleanup uploaded scan images: \(error.localizedDescription)")
+                }
                 let summary = Self.makeProcessingSummary(
                     from: processingPages,
                     warnings: warnings,
@@ -891,9 +907,9 @@ final class ScanCoordinatorViewModel: ObservableObject {
             shouldAutoSaveAfterProcessingDismiss = false
 
             // Run prefill operations in the background (fire-and-forget)
-            let token = appState.session?.accessToken
             Task { [weak self] in
                 guard let self else { return }
+                let token = try? await appState.accessTokenForWebAPI(forceRefresh: false)
                 let quizReadyWords = await self.prefillQuizData(
                     createdWords: createdWords,
                     appState: appState,

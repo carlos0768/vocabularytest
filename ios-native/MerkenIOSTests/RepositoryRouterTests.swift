@@ -67,6 +67,34 @@ final class RepositoryRouterTests: XCTestCase {
 
         XCTAssertEqual(router.mode(for: subscription), .readonlyCloud)
     }
+
+    func testTestSourceWithoutExpiryStaysActiveEvenWhenCurrentPeriodEndIsPast() {
+        let subscription = SubscriptionState(
+            id: "s1",
+            userId: "u1",
+            status: .active,
+            plan: .pro,
+            proSource: "test",
+            testProExpiresAt: nil,
+            currentPeriodEnd: Date().addingTimeInterval(-3600)
+        )
+
+        XCTAssertTrue(subscription.isActivePro)
+    }
+
+    func testTestSourceWithPastExpiryIsInactive() {
+        let subscription = SubscriptionState(
+            id: "s1",
+            userId: "u1",
+            status: .active,
+            plan: .pro,
+            proSource: "test",
+            testProExpiresAt: Date().addingTimeInterval(-60),
+            currentPeriodEnd: Date().addingTimeInterval(3600)
+        )
+
+        XCTAssertFalse(subscription.isActivePro)
+    }
 }
 
 final class SentenceQuizProgressStoreTests: XCTestCase {

@@ -35,14 +35,12 @@ private struct ImportedScanJobRecord: Codable, Sendable {
 }
 
 private actor ScanJobSyncService {
-    typealias SessionProvider = @Sendable () async -> AuthSession?
-    typealias FetchJobs = @Sendable (String) async throws -> [ScanJobDTO]
-    typealias AcknowledgeJob = @Sendable (String, String) async throws -> Void
+    typealias FetchJobs = @Sendable () async throws -> [ScanJobDTO]
+    typealias AcknowledgeJob = @Sendable (String) async throws -> Void
     typealias CompletedHandler = @Sendable (ScanJobDTO) async -> Bool
     typealias FailedHandler = @Sendable (ScanJobDTO) async -> Void
     typealias LogHandler = @Sendable (String) async -> Void
 
-    private let sessionProvider: SessionProvider
     private let fetchJobs: FetchJobs
     private let acknowledgeJob: AcknowledgeJob
     private let completedHandler: CompletedHandler
@@ -52,14 +50,12 @@ private actor ScanJobSyncService {
     private var pollingTask: Task<Void, Never>?
 
     init(
-        sessionProvider: @escaping SessionProvider,
         fetchJobs: @escaping FetchJobs,
         acknowledgeJob: @escaping AcknowledgeJob,
         completedHandler: @escaping CompletedHandler,
         failedHandler: @escaping FailedHandler,
         logHandler: @escaping LogHandler
     ) {
-        self.sessionProvider = sessionProvider
         self.fetchJobs = fetchJobs
         self.acknowledgeJob = acknowledgeJob
         self.completedHandler = completedHandler
@@ -81,15 +77,10 @@ private actor ScanJobSyncService {
 
     private func runLoop() async {
         while !Task.isCancelled {
-            guard let session = await sessionProvider() else {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                continue
-            }
-
             var hasActiveJobs = false
 
             do {
-                let jobs = try await fetchJobs(session.accessToken)
+                let jobs = try await fetchJobs()
 
                 for job in jobs {
                     switch job.status {
@@ -99,7 +90,7 @@ private actor ScanJobSyncService {
                         let handled = await completedHandler(job)
                         if handled {
                             do {
-                                try await acknowledgeJob(job.id, session.accessToken)
+                                try await acknowledgeJob(job.id)
                             } catch {
                                 await logHandler("Failed to acknowledge scan job \(job.id): \(error.localizedDescription)")
                             }
@@ -153,17 +144,17 @@ final class AppState: ObservableObject {
     private var appStoreLaunchSyncUserId: String?
 
     private lazy var scanJobSyncService = ScanJobSyncService(
-        sessionProvider: { [weak self] in
-            guard let self else { return nil }
-            return await self.session
-        },
-        fetchJobs: { [weak self] bearerToken in
+        fetchJobs: { [weak self] in
             guard let self else { return [] }
-            return try await self.webAPIClient.fetchScanJobs(bearerToken: bearerToken)
+            return try await self.performWebAPIRequest { token in
+                try await self.webAPIClient.fetchScanJobs(bearerToken: token)
+            }
         },
-        acknowledgeJob: { [weak self] jobId, bearerToken in
+        acknowledgeJob: { [weak self] jobId in
             guard let self else { return }
-            try await self.webAPIClient.acknowledgeScanJob(jobId: jobId, bearerToken: bearerToken)
+            _ = try await self.performWebAPIRequest { token in
+                try await self.webAPIClient.acknowledgeScanJob(jobId: jobId, bearerToken: token)
+            }
         },
         completedHandler: { [weak self] job in
             guard let self else { return false }
@@ -240,6 +231,36 @@ final class AppState: ObservableObject {
 
     var canUseCloud: Bool {
         repositoryMode == .proCloud
+    }
+
+    func accessTokenForWebAPI(forceRefresh: Bool = false) async throws -> String {
+        do {
+            let refreshedSession = try await authService.refreshSessionIfNeeded(forceRefresh: forceRefresh)
+            session = refreshedSession
+            isSessionExpired = false
+            authErrorMessage = nil
+            return refreshedSession.accessToken
+        } catch {
+            if let authError = error as? AuthServiceError, case .sessionExpired = authError {
+                isSessionExpired = true
+                session = nil
+                authErrorMessage = error.localizedDescription
+            }
+            throw error
+        }
+    }
+
+    func performWebAPIRequest<T>(
+        _ operation: @escaping (String) async throws -> T
+    ) async throws -> T {
+        do {
+            let token = try await accessTokenForWebAPI(forceRefresh: false)
+            return try await operation(token)
+        } catch WebAPIError.notAuthenticated {
+            logger.warning("Web API returned 401. Refreshing token and retrying once.")
+            let refreshedToken = try await accessTokenForWebAPI(forceRefresh: true)
+            return try await operation(refreshedToken)
+        }
     }
 
     func bootstrap() async {
