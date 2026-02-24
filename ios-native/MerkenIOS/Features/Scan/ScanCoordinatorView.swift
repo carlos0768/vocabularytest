@@ -39,74 +39,10 @@ struct ScanCoordinatorView: View {
 
     var body: some View {
         Group {
-            switch viewModel.currentStep {
-            case .modeSelection, .camera, .photoLibrary:
-                ScanModeSheet(
-                    isPro: appState.subscription?.isActivePro ?? false,
-                    onSelect: { mode, eikenLevel, source in
-                        viewModel.selectMode(mode, eikenLevel: eikenLevel, source: source)
-                    },
-                    onCancel: { dismiss() }
-                )
-
-            case .preview:
-                if viewModel.selectedImages.count > 1 {
-                    MultiImagePreviewView(
-                        images: viewModel.selectedImages,
-                        onDelete: { id in viewModel.removeSelectedImage(id: id) },
-                        onMove: { source, destination in
-                            viewModel.moveSelectedImages(from: source, to: destination)
-                        },
-                        onRepick: { viewModel.selectPhotosAgain() },
-                        onUseImages: { viewModel.processSelectedImages(using: appState) }
-                    )
-                } else if let image = viewModel.capturedImage {
-                    ImagePreviewView(
-                        image: image,
-                        retakeButtonTitle: viewModel.isPhotoLibrarySelection ? "選び直し" : "撮り直す",
-                        onRetake: {
-                            if viewModel.isPhotoLibrarySelection {
-                                viewModel.selectPhotosAgain()
-                            } else {
-                                viewModel.retakePhoto()
-                            }
-                        },
-                        onUseImage: { viewModel.processSelectedImages(using: appState) }
-                    )
-                } else {
-                    errorView(message: "画像が選択されていません。")
-                }
-
-            case .processing:
-                ScanProcessingView(
-                    pages: viewModel.processingPages,
-                    summary: viewModel.processingSummary
-                )
-
-            case .queued(let jobId):
-                queuedView(jobId: jobId)
-
-            case .confirm:
-                ScanConfirmView(
-                    words: $viewModel.editableWords,
-                    projectTitle: $viewModel.projectTitle,
-                    targetProjectTitle: viewModel.targetProjectTitle,
-                    isPro: appState.isPro,
-                    currentWordCount: viewModel.currentWordCount,
-                    freeWordLimit: ScanCoordinatorViewModel.freeWordLimit,
-                    processingSummary: viewModel.processingSummary,
-                    onSave: { viewModel.saveWords(using: appState) },
-                    onCancel: { dismiss() }
-                )
-
-            case .saving:
-                savingView
-
-            case .complete(let projectId):
-                completeView(projectId: projectId)
-
-            case .error(let message):
-                errorView(message: message)
+            if !appState.isLoggedIn {
+                loginRequiredView
+            } else {
+                scanContent
             }
         }
         .fullScreenCover(isPresented: showCamera) {
@@ -126,6 +62,119 @@ struct ScanCoordinatorView: View {
         }
         .onDisappear {
             viewModel.continueProcessingAfterDismissIfNeeded()
+        }
+    }
+
+    @ViewBuilder
+    private var scanContent: some View {
+        switch viewModel.currentStep {
+        case .modeSelection, .camera, .photoLibrary:
+            ScanModeSheet(
+                isPro: appState.subscription?.isActivePro ?? false,
+                onSelect: { mode, eikenLevel, source in
+                    viewModel.selectMode(mode, eikenLevel: eikenLevel, source: source)
+                },
+                onCancel: { dismiss() }
+            )
+
+        case .preview:
+            if viewModel.selectedImages.count > 1 {
+                MultiImagePreviewView(
+                    images: viewModel.selectedImages,
+                    onDelete: { id in viewModel.removeSelectedImage(id: id) },
+                    onMove: { source, destination in
+                        viewModel.moveSelectedImages(from: source, to: destination)
+                    },
+                    onRepick: { viewModel.selectPhotosAgain() },
+                    onUseImages: { viewModel.processSelectedImages(using: appState) }
+                )
+            } else if let image = viewModel.capturedImage {
+                ImagePreviewView(
+                    image: image,
+                    retakeButtonTitle: viewModel.isPhotoLibrarySelection ? "選び直し" : "撮り直す",
+                    onRetake: {
+                        if viewModel.isPhotoLibrarySelection {
+                            viewModel.selectPhotosAgain()
+                        } else {
+                            viewModel.retakePhoto()
+                        }
+                    },
+                    onUseImage: { viewModel.processSelectedImages(using: appState) }
+                )
+            } else {
+                errorView(message: "画像が選択されていません。")
+            }
+
+        case .processing:
+            ScanProcessingView(
+                pages: viewModel.processingPages,
+                summary: viewModel.processingSummary
+            )
+
+        case .queued(let jobId):
+            queuedView(jobId: jobId)
+
+        case .confirm:
+            ScanConfirmView(
+                words: $viewModel.editableWords,
+                projectTitle: $viewModel.projectTitle,
+                targetProjectTitle: viewModel.targetProjectTitle,
+                isPro: appState.isPro,
+                currentWordCount: viewModel.currentWordCount,
+                freeWordLimit: ScanCoordinatorViewModel.freeWordLimit,
+                processingSummary: viewModel.processingSummary,
+                onSave: { viewModel.saveWords(using: appState) },
+                onCancel: { dismiss() }
+            )
+
+        case .saving:
+            savingView
+
+        case .complete(let projectId):
+            completeView(projectId: projectId)
+
+        case .error(let message):
+            errorView(message: message)
+        }
+    }
+
+    private var loginRequiredView: some View {
+        ZStack {
+            AppBackground()
+            VStack(spacing: 20) {
+                Image(systemName: "person.crop.circle.badge.exclamationmark")
+                    .font(.system(size: 56))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+
+                Text("ログインが必要です")
+                    .font(.title3.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                Text("スキャン機能を利用するには\nアカウントにログインしてください。")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+
+                Button {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        appState.selectedTab = 4
+                    }
+                } label: {
+                    Label("設定画面へ", systemImage: "gearshape")
+                        .frame(maxWidth: 200)
+                }
+                .buttonStyle(PrimaryGlassButton())
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text("閉じる")
+                        .frame(maxWidth: 200)
+                }
+                .buttonStyle(GhostGlassButton())
+            }
+            .padding(.horizontal, 20)
         }
     }
 

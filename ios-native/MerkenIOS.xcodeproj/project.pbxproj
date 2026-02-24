@@ -90,6 +90,8 @@
 		F820BACC62EB5186ED27A0A5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BBF6E46BC57B5A010E2F19 /* HomeView.swift */; };
 		440D0C2A7FE94658AEA160DB /* Quiz2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */; };
 		CEF4C35E116645D5AEC6377D /* Quiz2ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */; };
+		1A2B3C4D5E6F7A8B9C0D1E2F /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1D4E5F6072839C4B5A6D7 /* SignUpView.swift */; };
+		3F4E5D6C7B8A9012E3F4A5B6 /* SignUpOTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F2C8D9A0B13456D8E9F0A1 /* SignUpOTPView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -196,6 +198,8 @@
 		F9A3D8C1167D9934DAE1F9D8 /* BookshelfDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfDetailView.swift; sourceTree = "<group>"; };
 		AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2View.swift; sourceTree = "<group>"; };
 		5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2ViewModel.swift; sourceTree = "<group>"; };
+		B3A1D4E5F6072839C4B5A6D7 /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
+		E7F2C8D9A0B13456D8E9F0A1 /* SignUpOTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpOTPView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -386,6 +390,7 @@
 		87DC63C51B789BDB89B9DDA2 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F607180A9B0C1D /* Auth */,
 				D7C972E501724C20BDFA0BCA /* Quiz2 */,
 				0FE6BCE4912A4A07343446F2 /* Bookshelf */,
 				6307BB58FD016FA703AC920A /* Favorites */,
@@ -516,6 +521,15 @@
 				5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */,
 			);
 			path = Quiz2;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F607180A9B0C1D /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				B3A1D4E5F6072839C4B5A6D7 /* SignUpView.swift */,
+				E7F2C8D9A0B13456D8E9F0A1 /* SignUpOTPView.swift */,
+			);
+			path = Auth;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -721,6 +735,8 @@
 				34269B6CA4AAC44BEB00B85B /* SentenceQuizView.swift in Sources */,
 				492D27CB88B80590F8AA2C16 /* SentenceQuizViewModel.swift in Sources */,
 				77BDD39B137C1B1CFD276E75 /* SettingsView.swift in Sources */,
+				1A2B3C4D5E6F7A8B9C0D1E2F /* SignUpView.swift in Sources */,
+				3F4E5D6C7B8A9012E3F4A5B6 /* SignUpOTPView.swift in Sources */,
 				919064F5426502F3316FFA98 /* StatsView.swift in Sources */,
 				0467C68EF7AB529E9FEDB44C /* StatsViewModel.swift in Sources */,
 				D19A2892F506FD1D2E3ED45A /* SupabaseDTO.swift in Sources */,

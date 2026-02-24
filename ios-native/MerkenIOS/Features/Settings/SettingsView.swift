@@ -7,6 +7,7 @@ struct SettingsView: View {
 
     @State private var email = ""
     @State private var password = ""
+    @State private var showingSignUp = false
     @State private var showingBookshelf = false
     @State private var supportURL: URL?
     @State private var isPurchasing = false
@@ -31,12 +32,26 @@ struct SettingsView: View {
                 .padding(.bottom, 10)
                 .stickyHeaderStyle()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // 1. Account card
+                if appState.isLoggedIn && !appState.isSessionExpired {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            accountCard
+
+                            displaySection
+                            planSection
+                            supportSection
+                            signOutButton
+                            versionLabel
+                        }
+                        .padding(16)
+                    }
+                    .scrollIndicators(.hidden)
+                } else {
+                    VStack(spacing: 20) {
+                        Spacer()
+
                         accountCard
 
-                        // Error / session expired messages
                         if appState.isSessionExpired {
                             SolidCard {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -57,27 +72,17 @@ struct SettingsView: View {
                             }
                         }
 
-                        if appState.isLoggedIn && !appState.isSessionExpired {
-                            // 2. Display section
-                            displaySection
+                        loginSection
 
-                            // 3. Plan section
-                            planSection
+                        signUpSection
 
-                            // 4. Support section
-                            supportSection
-
-                            // 5. Sign out
-                            signOutButton
-
-                            // 6. Version
-                            versionLabel
-                        } else {
-                            // Login form
-                            loginSection
-                        }
+                        Spacer()
                     }
                     .padding(16)
+                    .sheet(isPresented: $showingSignUp) {
+                        SignUpView()
+                            .environmentObject(appState)
+                    }
                 }
             }
         }
@@ -523,6 +528,25 @@ struct SettingsView: View {
                 .accessibilityIdentifier("signInButton")
             }
         }
+    }
+
+    // MARK: - Sign Up Section (Guest)
+
+    private var signUpSection: some View {
+        VStack(spacing: 8) {
+            Text("アカウントをお持ちでない方")
+                .font(.subheadline)
+                .foregroundStyle(MerkenTheme.mutedText)
+
+            Button {
+                showingSignUp = true
+            } label: {
+                Text("新規登録")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(MerkenTheme.accentBlue)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func purchaseProSubscription() {

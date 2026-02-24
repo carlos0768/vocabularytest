@@ -25,7 +25,7 @@ struct AppContainer {
         }
 
         let restClient = SupabaseRESTClient(config: config)
-        let authService = AuthService(restClient: restClient)
+        let authService = AuthService(restClient: restClient, webAPIBaseURL: config.webAPIBaseURL)
         let localRepository = LocalWordRepository(modelContainer: modelContainer)
         let cloudRepository = CloudWordRepository(
             restClient: restClient,
