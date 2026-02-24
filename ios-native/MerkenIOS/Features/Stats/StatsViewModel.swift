@@ -45,12 +45,20 @@ final class StatsViewModel: ObservableObject {
             let projects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
             totalProjects = projects.count
 
-            let today = state.quizStatsStore.todayStats()
-            todayAnswered = today.totalAnswered
-            todayCorrect = today.correctAnswered
-            todaySessions = today.quizSessions
-            streakDays = state.quizStatsStore.streakDays()
-            wrongAnswersCount = today.totalAnswered - today.correctAnswered
+            if state.isLoggedIn {
+                let today = state.quizStatsStore.todayStats()
+                todayAnswered = today.totalAnswered
+                todayCorrect = today.correctAnswered
+                todaySessions = today.quizSessions
+                streakDays = state.quizStatsStore.streakDays()
+                wrongAnswersCount = today.totalAnswered - today.correctAnswered
+            } else {
+                todayAnswered = 0
+                todayCorrect = 0
+                todaySessions = 0
+                streakDays = 0
+                wrongAnswersCount = 0
+            }
 
             errorMessage = nil
         } catch {

@@ -29,14 +29,16 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
     @Published private(set) var session: AuthSession?
 
     private let restClient: SupabaseRESTClient
+    private let webAPIBaseURL: URL
     private let defaults: UserDefaults
 
     private enum Keys {
         static let session = "merken_auth_session"
     }
 
-    init(restClient: SupabaseRESTClient, defaults: UserDefaults = .standard) {
+    init(restClient: SupabaseRESTClient, webAPIBaseURL: URL, defaults: UserDefaults = .standard) {
         self.restClient = restClient
+        self.webAPIBaseURL = webAPIBaseURL
         self.defaults = defaults
         self.session = Self.loadSession(from: defaults)
     }
@@ -145,6 +147,76 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
         } catch {
             throw AuthServiceError.network(error.localizedDescription)
         }
+    }
+
+    // MARK: - Sign Up
+
+    func sendSignUpOTP(email: String) async throws {
+        struct RequestBody: Encodable {
+            let email: String
+        }
+
+        let url = webAPIBaseURL.appendingPathComponent("api/auth/send-otp")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(RequestBody(email: email))
+        request.timeoutInterval = 30
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AuthServiceError.network("サーバーに接続できませんでした。")
+        }
+
+        if http.statusCode == 409 {
+            throw AuthServiceError.emailAlreadyExists
+        }
+
+        guard (200...299).contains(http.statusCode) else {
+            let errorMessage = Self.extractErrorMessage(from: data)
+                ?? "認証コードの送信に失敗しました。"
+            throw AuthServiceError.network(errorMessage)
+        }
+    }
+
+    func verifySignUpOTP(email: String, code: String, password: String) async throws {
+        struct RequestBody: Encodable {
+            let email: String
+            let code: String
+            let password: String
+        }
+
+        let url = webAPIBaseURL.appendingPathComponent("api/auth/signup-verify")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(RequestBody(email: email, code: code, password: password))
+        request.timeoutInterval = 30
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AuthServiceError.network("サーバーに接続できませんでした。")
+        }
+
+        if http.statusCode == 409 {
+            throw AuthServiceError.emailAlreadyExists
+        }
+
+        guard (200...299).contains(http.statusCode) else {
+            let errorMessage = Self.extractErrorMessage(from: data)
+                ?? "アカウントの作成に失敗しました。"
+            throw AuthServiceError.invalidOTP(errorMessage)
+        }
+
+        // Account created — sign in with Supabase to get a local session
+        try await signIn(email: email, password: password)
+    }
+
+    private static func extractErrorMessage(from data: Data) -> String? {
+        struct ErrorResponse: Decodable {
+            let error: String?
+        }
+        return (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
     }
 
     private static func loadSession(from defaults: UserDefaults) -> AuthSession? {

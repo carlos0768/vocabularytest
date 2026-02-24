@@ -34,6 +34,7 @@ struct HomeView: View {
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingScan = false
+    @State private var showingSignUp = false
     @State private var showingBookshelf = false
     @State private var projectToDelete: Project?
 
@@ -50,41 +51,46 @@ struct HomeView: View {
                     .stickyHeaderStyle()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // MARK: - Hero
-                        heroSection
-                            .padding(.top, 6)
+                    if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
+                        // Empty state — matches Web design
+                        emptyStateSection
+                    } else {
+                        VStack(alignment: .leading, spacing: 16) {
+                            // MARK: - Hero
+                            heroSection
+                                .padding(.top, 6)
 
-                        if let errorMessage = viewModel.errorMessage {
-                            SolidCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Label("データの取得に失敗しました", systemImage: "exclamationmark.triangle.fill")
-                                        .foregroundStyle(MerkenTheme.warning)
-                                        .font(.headline)
-                                    Text(errorMessage)
-                                        .font(.subheadline)
-                                        .foregroundStyle(MerkenTheme.secondaryText)
+                            if let errorMessage = viewModel.errorMessage {
+                                SolidCard {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Label("データの取得に失敗しました", systemImage: "exclamationmark.triangle.fill")
+                                            .foregroundStyle(MerkenTheme.warning)
+                                            .font(.headline)
+                                        Text(errorMessage)
+                                            .font(.subheadline)
+                                            .foregroundStyle(MerkenTheme.secondaryText)
 
-                                    Button("再試行") {
-                                        Task {
-                                            await viewModel.load(using: appState)
+                                        Button("再試行") {
+                                            Task {
+                                                await viewModel.load(using: appState)
+                                            }
                                         }
+                                        .buttonStyle(PrimaryGlassButton())
                                     }
-                                    .buttonStyle(PrimaryGlassButton())
                                 }
                             }
-                        }
 
-                        // MARK: - Quick Links
-                        quickLinksSection
+                            // MARK: - Quick Links
+                            quickLinksSection
 
-                        // MARK: - Recent Projects
-                        if !viewModel.projects.isEmpty {
-                            recentProjectsSection
+                            // MARK: - Recent Projects
+                            if !viewModel.projects.isEmpty {
+                                recentProjectsSection
+                            }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 18)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 18)
                 }
                 .scrollIndicators(.hidden)
                 .refreshable {
@@ -228,6 +234,51 @@ struct HomeView: View {
             ),
             in: .rect(cornerRadius: 22)
         )
+    }
+
+    // MARK: - Empty State
+
+    private var emptyStateSection: some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            Image(systemName: "text.book.closed.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(MerkenTheme.accentBlue)
+                .frame(width: 96, height: 96)
+                .background(MerkenTheme.accentBlue.opacity(0.1), in: .circle)
+
+            Text("単語帳がありません")
+                .font(.title2.bold())
+                .foregroundStyle(MerkenTheme.primaryText)
+
+            Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
+                .font(.subheadline)
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .multilineTextAlignment(.center)
+
+            if !appState.isLoggedIn {
+                HStack(spacing: 0) {
+                    Text("アカウント登録")
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .bold()
+                    Text("でクラウド保存")
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+                .font(.subheadline)
+                .onTapGesture {
+                    showingSignUp = true
+                }
+                .sheet(isPresented: $showingSignUp) {
+                    SignUpView()
+                        .environmentObject(appState)
+                }
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Quick Links (4 icons)

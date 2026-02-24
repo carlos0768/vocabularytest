@@ -27,11 +27,17 @@ final class HomeViewModel: ObservableObject {
         wordCountTask?.cancel()
         loading = true
 
-        // Load daily stats synchronously (UserDefaults, no async needed)
-        let daily = state.quizStatsStore.todayStats()
-        streakDays = state.quizStatsStore.streakDays()
-        todayAnswered = daily.totalAnswered
-        todayCorrect = daily.correctAnswered
+        // Only show quiz stats when logged in (stats are from the cloud user)
+        if state.isLoggedIn {
+            let daily = state.quizStatsStore.todayStats()
+            streakDays = state.quizStatsStore.streakDays()
+            todayAnswered = daily.totalAnswered
+            todayCorrect = daily.correctAnswered
+        } else {
+            streakDays = 0
+            todayAnswered = 0
+            todayCorrect = 0
+        }
 
         do {
             let repository = state.activeRepository

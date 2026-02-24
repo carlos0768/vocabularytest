@@ -125,8 +125,10 @@ final class AppState: ObservableObject {
     @Published private(set) var repositoryMode: RepositoryMode = .guestLocal
     @Published private(set) var isRefreshingAuthState = false
     @Published private(set) var isSigningIn = false
+    @Published private(set) var isSigningUp = false
     @Published private(set) var isSessionExpired = false
     @Published private(set) var authErrorMessage: String?
+    @Published var signUpErrorMessage: String?
     @Published var dataVersion = 0
     @Published var selectedTab: Int = 0
     @Published var scanBanner: ScanBannerState?
@@ -388,6 +390,58 @@ final class AppState: ObservableObject {
         } catch {
             authErrorMessage = error.localizedDescription
             logger.error("Sign out failed: \(error.localizedDescription)")
+        }
+    }
+
+    @discardableResult
+    func sendSignUpOTP(email: String) async -> Bool {
+        guard !isSigningUp else { return false }
+
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedEmail.isEmpty else {
+            signUpErrorMessage = "メールアドレスを入力してください。"
+            return false
+        }
+
+        isSigningUp = true
+        signUpErrorMessage = nil
+        defer { isSigningUp = false }
+
+        do {
+            try await authService.sendSignUpOTP(email: normalizedEmail)
+            return true
+        } catch {
+            signUpErrorMessage = error.localizedDescription
+            logger.error("Send sign-up OTP failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    @discardableResult
+    func verifySignUpOTP(email: String, code: String, password: String) async -> Bool {
+        guard !isSigningUp else { return false }
+
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        isSigningUp = true
+        signUpErrorMessage = nil
+        defer { isSigningUp = false }
+
+        do {
+            try await authService.verifySignUpOTP(
+                email: normalizedEmail,
+                code: normalizedCode,
+                password: password
+            )
+            isSessionExpired = false
+            await refreshAuthState(showLoading: true)
+            bumpDataVersion()
+            return true
+        } catch {
+            signUpErrorMessage = error.localizedDescription
+            logger.error("Verify sign-up OTP failed: \(error.localizedDescription)")
+            return false
         }
     }
 
