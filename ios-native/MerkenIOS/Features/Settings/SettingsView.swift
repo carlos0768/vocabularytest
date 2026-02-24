@@ -160,10 +160,12 @@ struct SettingsView: View {
             sectionHeader("表示")
 
             SolidCard {
-                VStack(alignment: .leading, spacing: 10) {
+                HStack {
                     Text("テーマ")
                         .font(.body.weight(.medium))
                         .foregroundStyle(MerkenTheme.primaryText)
+
+                    Spacer()
 
                     ThemeCubeSelector(mode: Binding(
                         get: { themeManager.mode },
@@ -274,54 +276,51 @@ struct SettingsView: View {
     }
 
     private var freePlanCard: some View {
-        VStack(spacing: 14) {
-            // Current plan
-            SolidCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    // Header
-                    Text("Free")
-                        .font(.headline.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
+        SolidCard {
+            VStack(alignment: .leading, spacing: 14) {
+                // Header
+                Text("Free")
+                    .font(.headline.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
 
-                    Divider()
+                Divider()
 
-                    // Scan
-                    planRow(
-                        label: "スキャン",
-                        valueText: "3回/日",
-                        valueColor: MerkenTheme.primaryText,
-                        icon: nil,
-                        showCheckmark: false
-                    )
-                    Divider()
+                // Scan
+                planRow(
+                    label: "スキャン",
+                    valueText: "3回/日",
+                    valueColor: MerkenTheme.primaryText,
+                    icon: nil,
+                    showCheckmark: false
+                )
+                Divider()
 
-                    // Word count
-                    planRow(
-                        label: "単語数",
-                        valueText: "50語まで",
-                        valueColor: MerkenTheme.primaryText,
-                        icon: nil,
-                        showCheckmark: false
-                    )
-                    Divider()
+                // Word count
+                planRow(
+                    label: "単語数",
+                    valueText: "50語まで",
+                    valueColor: MerkenTheme.primaryText,
+                    icon: nil,
+                    showCheckmark: false
+                )
+                Divider()
 
-                    // Storage
-                    planRow(
-                        label: "保存",
-                        valueText: "このデバイスのみ",
-                        valueColor: MerkenTheme.mutedText,
-                        icon: "iphone",
-                        showCheckmark: false
-                    )
-                }
+                // Storage
+                planRow(
+                    label: "保存",
+                    valueText: "このデバイスのみ",
+                    valueColor: MerkenTheme.mutedText,
+                    icon: "iphone",
+                    showCheckmark: false
+                )
+
+                // Upgrade section (inside same card)
+                upgradeSection
             }
-
-            // Upgrade card
-            upgradeCard
         }
     }
 
-    private var upgradeCard: some View {
+    private var upgradeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 proChip
@@ -371,7 +370,7 @@ struct SettingsView: View {
                     .background(MerkenTheme.success.opacity(0.08), in: .rect(cornerRadius: 12))
             }
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
@@ -379,7 +378,7 @@ struct SettingsView: View {
                 startPoint: .leading,
                 endPoint: .trailing
             ),
-            in: .rect(cornerRadius: 20)
+            in: .rect(cornerRadius: 16)
         )
     }
 
