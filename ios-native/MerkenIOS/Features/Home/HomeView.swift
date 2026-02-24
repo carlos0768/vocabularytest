@@ -241,6 +241,8 @@ struct HomeView: View {
     private var emptyStateSection: some View {
         GeometryReader { geo in
             VStack(spacing: 16) {
+                Spacer()
+
                 Image(systemName: "text.book.closed.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(MerkenTheme.accentBlue)
@@ -273,9 +275,10 @@ struct HomeView: View {
                             .environmentObject(appState)
                     }
                 }
+
+                Spacer()
             }
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: geo.size.height)
+            .frame(maxWidth: .infinity, minHeight: geo.size.height)
             .padding(.horizontal, 16)
         }
     }

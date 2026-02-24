@@ -35,6 +35,7 @@
 		4EBFDB6D125B13FD50C69AD3 /* LocalRecords.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8D492636999D00FF08665C5 /* LocalRecords.swift */; };
 		5622E481DFE4018505C6294E /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4B1F5C32E6E783B32304EE /* HomeViewModel.swift */; };
 		5819BA1E558A83EA4D4952BF /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */; };
+		C7D8E9F0A1B23456C7D8E9F0 /* LoginGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E9F0A1B2345678D8E9F0A1 /* LoginGateView.swift */; };
 		590F801E938E63F25CF704A4 /* SentenceQuizDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30935187DFB30E1359223B86 /* SentenceQuizDTO.swift */; };
 		59FC9E3327998707F9D38AAD /* ProjectListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */; };
 		5F2888977D3C580930B7A405 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE12646C56BDB1E53A54D5B /* RootTabView.swift */; };
@@ -144,6 +145,7 @@
 		528A9430116E2D659E74D431 /* QuizViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizViewModel.swift; sourceTree = "<group>"; };
 		53062913A0AF81DD487C373B /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
+		D8E9F0A1B2345678D8E9F0A1 /* LoginGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginGateView.swift; sourceTree = "<group>"; };
 		5C4B1F5C32E6E783B32304EE /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		605CB38C73485BE8EED7F11B /* ImagePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreviewView.swift; sourceTree = "<group>"; };
 		613544935B00012992714B3E /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
@@ -303,6 +305,7 @@
 				BFDC4E2FCAA2BD217230AEFF /* Formatters.swift */,
 				5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */,
 				BB2F6658A73DB754E2A1A496 /* IconBadge.swift */,
+				D8E9F0A1B2345678D8E9F0A1 /* LoginGateView.swift */,
 				42B964C51CAEF1A9D4EDD742 /* SafariView.swift */,
 				11D9166060F6627FC5271207 /* Theme.swift */,
 				F1E8B3A72C0D94E56F8A1B3D /* ThemeCubeSelector.swift */,
@@ -699,6 +702,7 @@
 				05F3446C0866B4D578EA912E /* FlashcardViewModel.swift in Sources */,
 				E2CEB7BD87A413D98979F166 /* Formatters.swift in Sources */,
 				5819BA1E558A83EA4D4952BF /* GlassSurface.swift in Sources */,
+				C7D8E9F0A1B23456C7D8E9F0 /* LoginGateView.swift in Sources */,
 				62F1E90A617D1E7A791D0047 /* GuestSessionStore.swift in Sources */,
 				F820BACC62EB5186ED27A0A5 /* HomeView.swift in Sources */,
 				5622E481DFE4018505C6294E /* HomeViewModel.swift in Sources */,
