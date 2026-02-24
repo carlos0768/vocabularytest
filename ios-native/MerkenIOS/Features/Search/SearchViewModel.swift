@@ -15,6 +15,7 @@ final class SearchViewModel: ObservableObject {
     @Published var searchText = ""
     @Published private(set) var results: [SearchResult] = []
     @Published private(set) var loading = false
+    @Published private(set) var initialLoadComplete = false
     @Published var errorMessage: String?
 
     private var allWords: [Word] = []
@@ -28,7 +29,10 @@ final class SearchViewModel: ObservableObject {
 
     func load(using state: AppState) async {
         loading = true
-        defer { loading = false }
+        defer {
+            loading = false
+            initialLoadComplete = true
+        }
 
         do {
             allWords = try await state.activeRepository.fetchAllWords(userId: state.activeUserId)

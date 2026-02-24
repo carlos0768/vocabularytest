@@ -336,7 +336,7 @@ struct HomeView: View {
         VStack(spacing: 0) {
             // Image area with padding
             Color.clear
-                .aspectRatio(0.9, contentMode: .fit)
+                .aspectRatio(1.0, contentMode: .fit)
                 .overlay {
                     ZStack {
                         if let iconImage = project.iconImage,
@@ -468,6 +468,11 @@ private struct HeroCTAButton: ButtonStyle {
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
             .background(.white, in: .rect(cornerRadius: 20))
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.white.opacity(0.4))
+                    .offset(y: 3)
+            )
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

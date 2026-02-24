@@ -18,8 +18,8 @@ struct ProjectDetailView: View {
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
     @State private var showingShareSheet = false
+    @State private var shareItems: [Any] = []
     @State private var showingDeleteConfirm = false
-    @State private var shareCopied = false
 
     private var hasIconImage: Bool {
         if let iconImage = project.iconImage,
@@ -140,9 +140,7 @@ struct ProjectDetailView: View {
             SentenceQuizView(project: project)
         }
         .sheet(isPresented: $showingShareSheet) {
-            let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
-            let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
-            ShareSheet(items: [text])
+            ShareSheet(items: shareItems)
         }
         .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm) {
             Button("削除", role: .destructive) {
@@ -162,9 +160,10 @@ struct ProjectDetailView: View {
 
     private func handleShare() async {
         guard case .proCloud = appState.repositoryMode else {
-            // Guest users: fall back to text share
+            // Guest users: text share via share sheet
             let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
             let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
+            shareItems = [text]
             showingShareSheet = true
             return
         }
@@ -178,21 +177,14 @@ struct ProjectDetailView: View {
             guard let shareId else { return }
 
             let shareUrl = "https://www.merken.jp/share/\(shareId)"
-            UIPasteboard.general.string = shareUrl
-            shareCopied = true
-            // Haptic feedback
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            shareCopied = false
+            shareItems = [shareUrl]
+            showingShareSheet = true
         } catch {
             // Fallback to text share on error
             let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
             let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
-            UIPasteboard.general.string = text
-            shareCopied = true
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            shareCopied = false
+            shareItems = [text]
+            showingShareSheet = true
         }
     }
 
@@ -246,11 +238,11 @@ struct ProjectDetailView: View {
                     Button {
                         Task { await handleShare() }
                     } label: {
-                        Image(systemName: shareCopied ? "checkmark" : "square.and.arrow.up")
+                        Image(systemName: "square.and.arrow.up")
                             .font(.subheadline)
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
-                            .background(shareCopied ? .green.opacity(0.5) : .white.opacity(0.2), in: .circle)
+                            .background(.white.opacity(0.2), in: .circle)
                     }
                     Button {
                         showingDeleteConfirm = true

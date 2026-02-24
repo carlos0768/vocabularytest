@@ -49,10 +49,9 @@ struct SearchView: View {
                 .stickyHeaderStyle()
 
                 // Content
-                if viewModel.loading && viewModel.results.isEmpty && !viewModel.hasSearched {
+                if !viewModel.initialLoadComplete && !viewModel.hasSearched {
                     Spacer()
-                    ProgressView()
-                        .tint(MerkenTheme.accentBlue)
+                    placeholder
                     Spacer()
                 } else if !viewModel.hasSearched {
                     Spacer()

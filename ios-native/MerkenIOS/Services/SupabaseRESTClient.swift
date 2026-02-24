@@ -54,7 +54,8 @@ actor SupabaseRESTClient {
         path: String,
         query: [URLQueryItem] = [],
         bearerToken: String? = nil,
-        preferReturnRepresentation: Bool = false
+        preferReturnRepresentation: Bool = false,
+        rangeHeader: String? = nil
     ) async throws -> Response {
         let data = try await request(
             method: .get,
@@ -62,7 +63,8 @@ actor SupabaseRESTClient {
             query: query,
             body: nil,
             bearerToken: bearerToken,
-            preferReturnRepresentation: preferReturnRepresentation
+            preferReturnRepresentation: preferReturnRepresentation,
+            rangeHeader: rangeHeader
         )
 
         do {
@@ -185,7 +187,8 @@ actor SupabaseRESTClient {
         body: Data?,
         bearerToken: String?,
         preferReturnRepresentation: Bool,
-        acceptProfileHeaders: Bool = true
+        acceptProfileHeaders: Bool = true,
+        rangeHeader: String? = nil
     ) async throws -> Data {
         guard var components = URLComponents(url: config.supabaseURL, resolvingAgainstBaseURL: false) else {
             throw SupabaseClientError.invalidURL
@@ -216,6 +219,10 @@ actor SupabaseRESTClient {
 
         if let bearerToken {
             request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let rangeHeader {
+            request.setValue(rangeHeader, forHTTPHeaderField: "Range")
         }
 
         request.httpBody = body

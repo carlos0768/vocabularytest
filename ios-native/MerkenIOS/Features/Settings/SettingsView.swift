@@ -424,15 +424,15 @@ struct SettingsView: View {
             SolidCard {
                 VStack(spacing: 0) {
                     supportRow("お問い合わせ") {
-                        supportURL = URL(string: "https://merken.app/contact")
+                        supportURL = URL(string: "https://merken.jp/contact")
                     }
                     Divider().padding(.horizontal, 4)
                     supportRow("利用規約") {
-                        supportURL = URL(string: "https://merken.app/terms")
+                        supportURL = URL(string: "https://merken.jp/terms")
                     }
                     Divider().padding(.horizontal, 4)
                     supportRow("プライバシーポリシー") {
-                        supportURL = URL(string: "https://merken.app/privacy")
+                        supportURL = URL(string: "https://merken.jp/privacy")
                     }
                 }
             }

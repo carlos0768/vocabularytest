@@ -179,13 +179,13 @@ struct ProjectListView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: chipIcon(for: order))
-                                .font(.caption)
+                                .font(.subheadline)
                             Text(order.rawValue)
-                                .font(.caption)
+                                .font(.subheadline)
                                 .lineLimit(1)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
                         .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
                         .background(
                             isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
@@ -272,7 +272,7 @@ struct ProjectListView: View {
             VStack(spacing: 0) {
                 // Image area with padding
                 Color.clear
-                    .aspectRatio(0.8, contentMode: .fit)
+                    .aspectRatio(0.89, contentMode: .fit)
                     .overlay {
                         ZStack {
                             if let iconImage = project.iconImage,
