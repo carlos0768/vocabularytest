@@ -50,11 +50,10 @@ struct HomeView: View {
                     .padding(.bottom, 10)
                     .stickyHeaderStyle()
 
-                ScrollView {
-                    if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
-                        // Empty state — matches Web design
-                        emptyStateSection
-                    } else {
+                if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
+                    emptyStateSection
+                } else {
+                    ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             // MARK: - Hero
                             heroSection
@@ -91,10 +90,10 @@ struct HomeView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 18)
                     }
-                }
-                .scrollIndicators(.hidden)
-                .refreshable {
-                    await viewModel.load(using: appState)
+                    .scrollIndicators(.hidden)
+                    .refreshable {
+                        await viewModel.load(using: appState)
+                    }
                 }
             }
         }
@@ -239,45 +238,46 @@ struct HomeView: View {
     // MARK: - Empty State
 
     private var emptyStateSection: some View {
-        GeometryReader { geo in
-            VStack(spacing: 16) {
-                Image(systemName: "text.book.closed.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                    .frame(width: 96, height: 96)
-                    .background(MerkenTheme.accentBlue.opacity(0.1), in: .circle)
+        VStack(spacing: 16) {
+            Spacer()
 
-                Text("単語帳がありません")
-                    .font(.title2.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
+            Image(systemName: "text.book.closed.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(MerkenTheme.accentBlue)
+                .frame(width: 96, height: 96)
+                .background(MerkenTheme.accentBlue.opacity(0.1), in: .circle)
 
-                Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .multilineTextAlignment(.center)
+            Text("単語帳がありません")
+                .font(.title2.bold())
+                .foregroundStyle(MerkenTheme.primaryText)
 
-                if !appState.isLoggedIn {
-                    HStack(spacing: 0) {
-                        Text("アカウント登録")
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                            .bold()
-                        Text("でクラウド保存")
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    .font(.subheadline)
-                    .onTapGesture {
-                        showingSignUp = true
-                    }
-                    .sheet(isPresented: $showingSignUp) {
-                        SignUpView()
-                            .environmentObject(appState)
-                    }
+            Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
+                .font(.subheadline)
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .multilineTextAlignment(.center)
+
+            if !appState.isLoggedIn {
+                HStack(spacing: 0) {
+                    Text("アカウント登録")
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .bold()
+                    Text("でクラウド保存")
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+                .font(.subheadline)
+                .onTapGesture {
+                    showingSignUp = true
+                }
+                .sheet(isPresented: $showingSignUp) {
+                    SignUpView()
+                        .environmentObject(appState)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: geo.size.height)
-            .padding(.horizontal, 16)
+
+            Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Quick Links (4 icons)
