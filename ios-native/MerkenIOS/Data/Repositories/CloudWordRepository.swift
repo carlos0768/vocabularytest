@@ -158,19 +158,14 @@ final class CloudWordRepository: WordRepositoryProtocol {
 
     func fetchWords(projectId: String) async throws -> [Word] {
         let token = try await accessTokenProvider()
-        let query = [
+        let baseQuery = [
             URLQueryItem(name: "project_id", value: "eq.\(projectId)"),
             URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite"),
             URLQueryItem(name: "order", value: "created_at.asc")
         ]
 
         do {
-            let rows: [WordDTO] = try await restClient.get(
-                path: "/rest/v1/words",
-                query: query,
-                bearerToken: token
-            )
-            return rows.map(SupabaseMapper.word(from:))
+            return try await fetchAllPagedWords(query: baseQuery, token: token)
         } catch SupabaseClientError.unauthorized {
             throw RepositoryError.unauthorized
         } catch {
@@ -181,26 +176,45 @@ final class CloudWordRepository: WordRepositoryProtocol {
 
     func fetchAllWords(userId: String) async throws -> [Word] {
         let token = try await accessTokenProvider()
-        let query = [
+        let baseQuery = [
             URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite,projects!inner(user_id)"),
             URLQueryItem(name: "projects.user_id", value: "eq.\(userId)"),
-            URLQueryItem(name: "order", value: "created_at.desc"),
-            URLQueryItem(name: "limit", value: "3000")
+            URLQueryItem(name: "order", value: "created_at.desc")
         ]
 
         do {
-            let rows: [WordDTO] = try await restClient.get(
-                path: "/rest/v1/words",
-                query: query,
-                bearerToken: token
-            )
-            return rows.map(SupabaseMapper.word(from:))
+            return try await fetchAllPagedWords(query: baseQuery, token: token)
         } catch SupabaseClientError.unauthorized {
             throw RepositoryError.unauthorized
         } catch {
             if error.isCancellationError { throw error }
             throw RepositoryError.underlying(error.localizedDescription)
         }
+    }
+
+    /// Fetches all words using pagination with Range header (1000 rows per page).
+    private func fetchAllPagedWords(query: [URLQueryItem], token: String) async throws -> [Word] {
+        let pageSize = 1000
+        var allRows: [WordDTO] = []
+        var offset = 0
+
+        while true {
+            let rangeEnd = offset + pageSize - 1
+            let rows: [WordDTO] = try await restClient.get(
+                path: "/rest/v1/words",
+                query: query,
+                bearerToken: token,
+                rangeHeader: "\(offset)-\(rangeEnd)"
+            )
+            allRows.append(contentsOf: rows)
+
+            if rows.count < pageSize {
+                break
+            }
+            offset += pageSize
+        }
+
+        return allRows.map(SupabaseMapper.word(from:))
     }
 
     func createWords(_ inputs: [WordInput]) async throws -> [Word] {
