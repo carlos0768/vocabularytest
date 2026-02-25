@@ -659,7 +659,6 @@ final class AppState: ObservableObject {
 
             let projectTitleCandidate = context.requestedProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let fallbackTitle = projectTitleCandidate.isEmpty ? job.projectTitle : projectTitleCandidate
-            let iconImage = context.requestedProjectIconImage
 
             let projectId: String
             let projectTitleForMessage: String
@@ -669,14 +668,11 @@ final class AppState: ObservableObject {
                 if let existingProject = projects.first(where: { $0.id == targetId }) {
                     projectId = existingProject.id
                     projectTitleForMessage = existingProject.title
-                    if let iconImage {
-                        try? await localRepository.updateProjectIcon(id: existingProject.id, iconImage: iconImage)
-                    }
                 } else {
                     let created = try await localRepository.createProject(
                         title: fallbackTitle,
                         userId: localUserId,
-                        iconImage: iconImage
+                        iconImage: nil
                     )
                     projectId = created.id
                     projectTitleForMessage = created.title
@@ -685,7 +681,7 @@ final class AppState: ObservableObject {
                 let created = try await localRepository.createProject(
                     title: fallbackTitle,
                     userId: localUserId,
-                    iconImage: iconImage
+                    iconImage: nil
                 )
                 projectId = created.id
                 projectTitleForMessage = created.title

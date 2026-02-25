@@ -355,17 +355,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
             }()
             projectTitle = resolvedProjectTitle
 
-            let thumbnail: String? = {
-                guard let image = snapshot.first?.image else { return nil }
-                return ImageCompressor.generateThumbnailBase64(image)
-            }()
-
             do {
                 let response = try await callWebAPIWithAuthRetry { token in
                     try await appState.webAPIClient.createScanJob(
                         imagePaths: uploadedPaths,
                         projectTitle: resolvedProjectTitle,
-                        projectIcon: thumbnail,
+                        projectIcon: nil,
                         scanMode: self.selectedMode,
                         eikenLevel: self.selectedEikenLevel,
                         targetProjectId: appState.canUseCloud ? self.targetProjectId : nil,
@@ -387,7 +382,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     source: targetProjectId == nil ? .homeOrProjectList : .projectDetail,
                     localTargetProjectId: response.saveMode == .clientLocal ? targetProjectId : nil,
                     requestedProjectTitle: resolvedProjectTitle,
-                    requestedProjectIconImage: thumbnail,
+                    requestedProjectIconImage: nil,
                     createdAt: .now
                 )
                 appState.registerPendingScanImport(context)
@@ -854,14 +849,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 try await ensureProjectOwnership(projectId: existingId, appState: appState)
                 projectId = existingId
                 projectDisplayTitle = targetProjectTitle ?? "単語帳"
-
-                if let image = selectedImages.first?.image,
-                   let thumbnail = ImageCompressor.generateThumbnailBase64(image) {
-                    try? await appState.activeRepository.updateProjectIcon(
-                        id: existingId,
-                        iconImage: thumbnail
-                    )
-                }
             } else {
                 guard !trimmedTitle.isEmpty else {
                     let message = "プロジェクト名を入力してください。"
@@ -873,15 +860,10 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     return
                 }
 
-                let thumbnail: String? = {
-                    guard let image = selectedImages.first?.image else { return nil }
-                    return ImageCompressor.generateThumbnailBase64(image)
-                }()
-
                 let project = try await appState.activeRepository.createProject(
                     title: trimmedTitle,
                     userId: appState.activeUserId,
-                    iconImage: thumbnail
+                    iconImage: nil
                 )
                 projectId = project.id
                 projectDisplayTitle = project.title
