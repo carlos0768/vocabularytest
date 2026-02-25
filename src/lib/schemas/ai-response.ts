@@ -10,15 +10,21 @@ export const AIWordSchema = z.object({
   // Optional example sentence fields (Pro feature)
   exampleSentence: z.string().optional().nullable(),
   exampleSentenceJa: z.string().optional().nullable(),
-}).transform((word) => ({
+}).transform((word) => {
+  // Sanitize japanese: treat "unknown", "不明", empty as missing
+  const INVALID_JAPANESE = ['unknown', '不明', 'n/a', 'N/A', '-', '---', ''];
+  const sanitizedJapanese = INVALID_JAPANESE.includes(word.japanese?.trim() ?? '')
+    ? ''
+    : word.japanese;
+  return {
   ...word,
   english: word.english || '---',
-  japanese: word.japanese || '---',
+  japanese: sanitizedJapanese || '---',
   // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
   distractors: word.distractors,
   exampleSentence: word.exampleSentence || undefined,
   exampleSentenceJa: word.exampleSentenceJa || undefined,
-}));
+};});
 
 export const AIResponseSchema = z.object({
   words: z.array(AIWordSchema).default([]),

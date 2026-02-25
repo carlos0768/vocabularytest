@@ -231,6 +231,9 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
     const english = normalizeText(word.english);
     const japanese = normalizeText(word.japanese);
     if (!english || !japanese) continue;
+    // Filter out placeholder/invalid Japanese translations
+    const INVALID_JAPANESE = ['unknown', '不明', 'n/a', '-', '---'];
+    if (INVALID_JAPANESE.includes(japanese.toLowerCase())) continue;
 
     parsed.push({
       english,
