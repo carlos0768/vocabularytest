@@ -18,6 +18,10 @@ struct ScanModeSheet: View {
     @State private var pendingEikenLevel: EikenLevel?
     @State private var showSourcePicker = false
 
+    private func iconName(for mode: ScanMode) -> String {
+        mode.iconName
+    }
+
     private func iconColor(for mode: ScanMode) -> Color {
         switch mode {
         case .all: return MerkenTheme.accentBlue
@@ -36,78 +40,46 @@ struct ScanModeSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppBackground()
+        ZStack {
+            // Semi-transparent background overlay
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { onCancel() }
 
+            // Centered card modal (matching web design)
+            VStack(spacing: 0) {
                 ScrollView {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 12) {
+                        // Header
                         Text("抽出モードを選択")
-                            .font(.title2.bold())
+                            .font(.title3.bold())
                             .foregroundStyle(MerkenTheme.primaryText)
-                            .padding(.bottom, 2)
+                            .padding(.top, 4)
 
                         Text("どのように単語を抽出しますか？")
                             .font(.subheadline)
                             .foregroundStyle(MerkenTheme.mutedText)
-                            .padding(.bottom, 8)
+                            .padding(.bottom, 4)
 
+                        // Mode buttons
                         ForEach(ScanMode.allCases) { mode in
                             let locked = mode.requiresPro && !isPro
-
-                            Button {
-                                if locked { return }
-                                if mode == .eiken {
-                                    showEikenPicker = true
-                                } else {
-                                    confirmSource(mode: mode, eikenLevel: nil)
-                                }
-                            } label: {
-                                SolidPane(cornerRadius: 20) {
-                                    HStack(spacing: 16) {
-                                        IconBadge(
-                                            systemName: mode.iconName,
-                                            color: locked ? MerkenTheme.mutedText : iconColor(for: mode),
-                                            size: 52
-                                        )
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            HStack(spacing: 6) {
-                                                Text(mode.displayName)
-                                                    .font(.headline)
-                                                    .foregroundStyle(locked ? MerkenTheme.mutedText : MerkenTheme.primaryText)
-
-                                                if locked {
-                                                    Image(systemName: "lock.fill")
-                                                        .font(.caption)
-                                                        .foregroundStyle(MerkenTheme.mutedText)
-                                                }
-                                            }
-
-                                            Text(mode.subtitle)
-                                                .font(.caption)
-                                                .foregroundStyle(locked ? MerkenTheme.mutedText.opacity(0.6) : MerkenTheme.secondaryText)
-                                        }
-
-                                        Spacer()
-                                    }
-                                }
-                                .opacity(locked ? 0.6 : 1)
-                            }
-                            .disabled(locked)
+                            modeButton(mode: mode, locked: locked)
                         }
 
                         if !isPro {
-                            HStack {
+                            HStack(spacing: 4) {
                                 Image(systemName: "sparkles")
+                                    .font(.caption)
                                     .foregroundStyle(MerkenTheme.warning)
                                 Text("Proプランですべてのモードが使えます")
                                     .font(.caption)
                                     .foregroundStyle(MerkenTheme.secondaryText)
                             }
-                            .padding(.top, 8)
+                            .padding(.top, 4)
                         }
 
+                        // Cancel button
                         Button {
                             onCancel()
                         } label: {
@@ -115,41 +87,110 @@ struct ScanModeSheet: View {
                                 .font(.headline)
                                 .foregroundStyle(MerkenTheme.secondaryText)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+                                .padding(.vertical, 14)
+                                .background(MerkenTheme.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(MerkenTheme.borderLight, lineWidth: 1)
                                 )
                         }
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                     }
-                    .padding(16)
+                    .padding(20)
                 }
+                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
             }
-            .sheet(isPresented: $showEikenPicker) {
-                eikenPickerSheet
-            }
-            .confirmationDialog("画像の取得方法", isPresented: $showSourcePicker, titleVisibility: .visible) {
-                Button {
-                    if let mode = pendingMode {
-                        onSelect(mode, pendingEikenLevel, .camera)
-                    }
-                } label: {
-                    Label("カメラで撮影", systemImage: "camera")
-                }
-
-                Button {
-                    if let mode = pendingMode {
-                        onSelect(mode, pendingEikenLevel, .photoLibrary)
-                    }
-                } label: {
-                    Label("写真から選択", systemImage: "photo.on.rectangle")
-                }
-
-                Button("キャンセル", role: .cancel) {}
-            }
+            .background(MerkenTheme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+            .padding(.horizontal, 24)
         }
+        .sheet(isPresented: $showEikenPicker) {
+            eikenPickerSheet
+        }
+        .confirmationDialog("画像の取得方法", isPresented: $showSourcePicker, titleVisibility: .visible) {
+            Button {
+                if let mode = pendingMode {
+                    onSelect(mode, pendingEikenLevel, .camera)
+                }
+            } label: {
+                Label("カメラで撮影", systemImage: "camera")
+            }
+
+            Button {
+                if let mode = pendingMode {
+                    onSelect(mode, pendingEikenLevel, .photoLibrary)
+                }
+            } label: {
+                Label("写真から選択", systemImage: "photo.on.rectangle")
+            }
+
+            Button("キャンセル", role: .cancel) {}
+        }
+    }
+
+    private func modeButton(mode: ScanMode, locked: Bool) -> some View {
+        Button {
+            if locked { return }
+            if mode == .eiken {
+                showEikenPicker = true
+            } else {
+                confirmSource(mode: mode, eikenLevel: nil)
+            }
+        } label: {
+            HStack(spacing: 16) {
+                // Circle icon (matching web's rounded-full icon container)
+                ZStack {
+                    Circle()
+                        .fill((locked ? MerkenTheme.mutedText : iconColor(for: mode)).opacity(0.1))
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: iconName(for: mode))
+                        .font(.system(size: 22))
+                        .foregroundStyle(locked ? MerkenTheme.mutedText : iconColor(for: mode))
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(mode.displayName)
+                            .font(.headline)
+                            .foregroundStyle(locked ? MerkenTheme.mutedText : MerkenTheme.primaryText)
+
+                        if locked {
+                            HStack(spacing: 2) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 10))
+                                Text("Pro")
+                                    .font(.caption2.bold())
+                            }
+                            .foregroundStyle(MerkenTheme.warning)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(MerkenTheme.warning.opacity(0.15))
+                            .clipShape(Capsule())
+                        }
+                    }
+
+                    Text(mode.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(locked ? MerkenTheme.mutedText.opacity(0.6) : MerkenTheme.secondaryText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+            }
+            .padding(14)
+            .background(MerkenTheme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
+            )
+            .opacity(locked ? 0.6 : 1)
+        }
+        .disabled(locked)
     }
 
     private var eikenPickerSheet: some View {
