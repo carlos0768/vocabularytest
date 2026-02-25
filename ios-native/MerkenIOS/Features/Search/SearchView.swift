@@ -28,43 +28,48 @@ struct SearchView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top) {
-                        Text("検索")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Spacer()
-                    }
-
-                    // Search bar
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        TextField("英語・日本語で検索...", text: $viewModel.searchText)
-                            .textFieldStyle(.plain)
-                            .focused($isSearchFocused)
-                        if !viewModel.searchText.isEmpty {
-                            Button {
-                                viewModel.searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
-                    )
+                // Fixed header (title only)
+                HStack(alignment: .top) {
+                    Text("検索")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Spacer()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
                 .padding(.bottom, 10)
                 .stickyHeaderStyle()
+
+                // Search bar in body (#11) with 3D effect (#6)
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(MerkenTheme.mutedText)
+                    TextField("英語・日本語で検索...", text: $viewModel.searchText)
+                        .textFieldStyle(.plain)
+                        .focused($isSearchFocused)
+                    if !viewModel.searchText.isEmpty {
+                        Button {
+                            viewModel.searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(MerkenTheme.border)
+                        .offset(y: 2)
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
 
                 // Content
                 if !viewModel.initialLoadComplete && !viewModel.hasSearched {

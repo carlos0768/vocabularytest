@@ -141,12 +141,7 @@ final class QuizViewModel: ObservableObject {
         let patch = QuizEngine.statusPatch(for: question.word, isCorrect: isCorrect)
         pendingWordPatches[question.word.id] = patch
 
-        if isCorrect {
-            Task(priority: .userInitiated) { @MainActor in
-                try? await Task.sleep(nanoseconds: 180_000_000)
-                self.moveNext(projectId: projectId, using: state)
-            }
-        }
+        // Don't auto-advance — always wait for user to tap "次へ"
     }
 
     func moveNext(projectId: String, using state: AppState) {

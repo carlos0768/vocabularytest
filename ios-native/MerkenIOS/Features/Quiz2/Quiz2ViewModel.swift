@@ -52,6 +52,9 @@ final class Quiz2ViewModel: ObservableObject {
         .again: 0, .hard: 0, .good: 0, .easy: 0
     ]
 
+    /// Tracks the grade each word received (for retry reordering)
+    private var gradeHistory: [String: Quiz2Grade] = [:]
+
     private let logger = Logger(subsystem: "MerkenIOS", category: "Quiz2VM")
 
     var currentWord: Word? {
@@ -82,6 +85,7 @@ final class Quiz2ViewModel: ObservableObject {
             selectedGrade = nil
             isSubmittingGrade = false
             gradeCounts = [.again: 0, .hard: 0, .good: 0, .easy: 0]
+            gradeHistory = [:]
             errorMessage = nil
             stage = words.isEmpty ? .completed : .playing
         } catch {
@@ -99,6 +103,7 @@ final class Quiz2ViewModel: ObservableObject {
         selectedGrade = nil
         isSubmittingGrade = false
         gradeCounts = [.again: 0, .hard: 0, .good: 0, .easy: 0]
+        gradeHistory = [:]
         errorMessage = nil
         stage = self.words.isEmpty ? .completed : .playing
     }
@@ -129,11 +134,22 @@ final class Quiz2ViewModel: ObservableObject {
             }
 
             gradeCounts[grade, default: 0] += 1
+            gradeHistory[word.id] = grade
 
             // Brief pause then advance
             try? await Task.sleep(nanoseconds: 220_000_000)
             goToNext(using: state)
         }
+    }
+
+    /// Sort words for retry: Hard first, then Again, Good, Easy (each group shuffled)
+    private func sortWordsForRetry() -> [Word] {
+        let hard = words.filter { gradeHistory[$0.id] == .hard }.shuffled()
+        let again = words.filter { gradeHistory[$0.id] == .again }.shuffled()
+        let good = words.filter { gradeHistory[$0.id] == .good }.shuffled()
+        let easy = words.filter { gradeHistory[$0.id] == .easy }.shuffled()
+        let ungraded = words.filter { gradeHistory[$0.id] == nil }.shuffled()
+        return hard + again + good + easy + ungraded
     }
 
     // MARK: - Navigation
@@ -156,6 +172,16 @@ final class Quiz2ViewModel: ObservableObject {
     }
 
     func restart(projectId: String, using state: AppState) async {
-        await load(projectId: projectId, using: state)
+        // Reorder: Hard first, then Again, Good, Easy (each group shuffled)
+        let sorted = sortWordsForRetry()
+        self.words = sorted
+        currentIndex = 0
+        showAnswer = false
+        selectedGrade = nil
+        isSubmittingGrade = false
+        gradeCounts = [.again: 0, .hard: 0, .good: 0, .easy: 0]
+        gradeHistory = [:]
+        errorMessage = nil
+        stage = words.isEmpty ? .completed : .playing
     }
 }

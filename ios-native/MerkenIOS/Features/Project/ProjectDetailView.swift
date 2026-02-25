@@ -198,14 +198,24 @@ struct ProjectDetailView: View {
             // Cover image (or placeholder) — extended upward to cover safe area
             if let iconImage = project.iconImage,
                let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                // Twitter-style center-crop: show the middle of the image
                 GeometryReader { geo in
+                    let imageSize = uiImage.size
+                    let containerWidth = geo.size.width
+                    let containerHeight = geo.size.height
+                    let scale = max(containerWidth / imageSize.width, containerHeight / imageSize.height)
+                    let scaledWidth = imageSize.width * scale
+                    let scaledHeight = imageSize.height * scale
+                    let offsetX = (containerWidth - scaledWidth) / 2
+                    let offsetY = (containerHeight - scaledHeight) / 2
+
                     Image(uiImage: uiImage)
                         .resizable()
-                        .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .clipped()
+                        .frame(width: scaledWidth, height: scaledHeight)
+                        .offset(x: offsetX, y: offsetY)
                 }
                 .frame(height: 230 + headerTopExtension)
+                .clipped()
             } else {
                 MerkenTheme.placeholderColor(for: project.id)
                     .frame(height: 230 + headerTopExtension)

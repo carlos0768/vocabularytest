@@ -73,6 +73,8 @@ struct ProjectListView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        Spacer().frame(height: 4)
+
                         // Search
                         searchBar
 

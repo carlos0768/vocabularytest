@@ -12,7 +12,7 @@ struct BookshelfListView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
+                // Fixed header (matching ProjectListView layout)
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("本棚")
@@ -51,6 +51,8 @@ struct BookshelfListView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        // Extra spacing between header and content (#7)
+                        Spacer().frame(height: 4)
                         if let errorMessage = viewModel.errorMessage {
                             SolidCard {
                                 Text(errorMessage)
@@ -70,12 +72,23 @@ struct BookshelfListView: View {
                                 }
                             }
                         } else {
-                            // 2-column grid
+                            HStack {
+                                Text("すべての本棚")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                                Spacer()
+                                Text("\(viewModel.collections.count)件")
+                                    .font(.caption)
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
+
+                            // 3-column grid (matching ProjectListView)
                             let columns = [
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12)
+                                GridItem(.flexible(), spacing: 18),
+                                GridItem(.flexible(), spacing: 18),
+                                GridItem(.flexible(), spacing: 18)
                             ]
-                            LazyVGrid(columns: columns, spacing: 12) {
+                            LazyVGrid(columns: columns, spacing: 14) {
                                 ForEach(viewModel.collections) { collection in
                                     collectionCard(collection)
                                         .onTapGesture {
@@ -114,6 +127,7 @@ struct BookshelfListView: View {
 
     private func collectionCard(_ collection: Collection) -> some View {
         let stat = viewModel.stats[collection.id]
+        let statsLoaded = stat != nil
         let projectCount = stat?.projectCount ?? 0
         let wordCount = stat?.wordCount ?? 0
         let progress = stat?.progress ?? 0
@@ -122,7 +136,18 @@ struct BookshelfListView: View {
         return VStack(spacing: 0) {
             // Bookshelf area — mini books
             HStack(spacing: 0) {
-                if previews.isEmpty {
+                if !statsLoaded {
+                    // Loading state — show shimmer placeholder
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(MerkenTheme.surfaceAlt)
+                        .frame(height: 56)
+                        .frame(maxWidth: .infinity)
+                        .overlay(
+                            ProgressView()
+                                .tint(MerkenTheme.mutedText)
+                                .scaleEffect(0.7)
+                        )
+                } else if previews.isEmpty {
                     // Empty state — dashed placeholder
                     RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
