@@ -28,7 +28,7 @@ struct SearchView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header (title only)
+                // Fixed header
                 HStack(alignment: .top) {
                     Text("検索")
                         .font(.system(size: 28, weight: .bold))
@@ -40,10 +40,10 @@ struct SearchView: View {
                 .padding(.bottom, 10)
                 .stickyHeaderStyle()
 
-                // Search bar in body (#11) with 3D effect (#6)
+                // Search bar (matching Web: clean border, blue on focus)
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(MerkenTheme.mutedText)
+                        .foregroundStyle(isSearchFocused ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
                     TextField("英語・日本語で検索...", text: $viewModel.searchText)
                         .textFieldStyle(.plain)
                         .focused($isSearchFocused)
@@ -56,31 +56,22 @@ struct SearchView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            isSearchFocused ? MerkenTheme.accentBlue : MerkenTheme.border,
+                            lineWidth: isSearchFocused ? 2 : 1.5
+                        )
                 )
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(MerkenTheme.border)
-                        .offset(y: 2)
-                )
+                .animation(.easeInOut(duration: 0.15), value: isSearchFocused)
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
 
                 // Content
-                if !viewModel.initialLoadComplete && !viewModel.hasSearched {
-                    Spacer()
-                    placeholder
-                    Spacer()
-                } else if !viewModel.hasSearched {
-                    Spacer()
-                    placeholder
-                    Spacer()
-                } else if viewModel.loading {
+                if viewModel.loading {
                     Spacer()
                     VStack(spacing: 12) {
                         ProgressView()
@@ -96,12 +87,19 @@ struct SearchView: View {
                         .font(.subheadline)
                         .foregroundStyle(MerkenTheme.danger)
                     Spacer()
-                } else if viewModel.results.isEmpty {
+                } else if viewModel.hasSearched && viewModel.results.isEmpty {
                     Spacer()
                     noResults
                     Spacer()
-                } else {
+                } else if !viewModel.results.isEmpty {
                     resultList
+                } else {
+                    // Empty state / placeholder
+                    ScrollView {
+                        emptyState
+                            .padding(.top, 40)
+                    }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
@@ -116,26 +114,99 @@ struct SearchView: View {
         }
     }
 
-    // MARK: - Placeholder
+    // MARK: - Empty State (richer placeholder matching Web)
 
-    private var placeholder: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 48))
-                .foregroundStyle(MerkenTheme.accentBlue)
-                .frame(width: 80, height: 80)
-                .background(MerkenTheme.accentBlueLight, in: .circle)
-            VStack(spacing: 6) {
-                Text("意味や単語を入力すると")
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                Text("関連する英単語を見つけます")
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
+    private var emptyState: some View {
+        VStack(spacing: 24) {
+            // Main placeholder
+            VStack(spacing: 16) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 48))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                    .frame(width: 80, height: 80)
+                    .background(MerkenTheme.accentBlueLight, in: .circle)
+
+                VStack(spacing: 6) {
+                    Text("意味や単語を入力すると")
+                        .font(.headline)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                    Text("関連する英単語を見つけます")
+                        .font(.headline)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+
+                Text("例:「子犬」→ puppy, dog, pet...")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.mutedText)
             }
-            Text("例:「子犬」→ puppy, dog, pet...")
-                .font(.subheadline)
-                .foregroundStyle(MerkenTheme.mutedText)
+
+            // Search tips section
+            VStack(alignment: .leading, spacing: 12) {
+                Text("検索のヒント")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .padding(.horizontal, 4)
+
+                searchTipRow(
+                    icon: "character.book.closed",
+                    iconColor: MerkenTheme.accentBlue,
+                    title: "日本語で意味を検索",
+                    example: "「走る」「食べ物」「嬉しい」"
+                )
+
+                searchTipRow(
+                    icon: "textformat.abc",
+                    iconColor: MerkenTheme.success,
+                    title: "英単語を直接検索",
+                    example: "\"happy\" \"run\" \"beautiful\""
+                )
+
+                searchTipRow(
+                    icon: "text.magnifyingglass",
+                    iconColor: MerkenTheme.warning,
+                    title: "フレーズ・概念で検索",
+                    example: "「天気に関する表現」「感情」"
+                )
+
+                if appState.isPro {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                        Text("Pro: AI意味検索でより関連性の高い結果を表示")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
+                }
+            }
+            .padding(16)
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func searchTipRow(icon: String, iconColor: Color, title: String, example: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(iconColor)
+                .frame(width: 36, height: 36)
+                .background(iconColor.opacity(0.1), in: .rect(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(example)
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
         }
     }
 

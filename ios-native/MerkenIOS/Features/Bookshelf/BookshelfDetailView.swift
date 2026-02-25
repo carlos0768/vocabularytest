@@ -80,6 +80,7 @@ struct BookshelfDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.none, for: .top)
             .contentMargins(.top, 0, for: .scrollContent)
             .refreshable {
                 await viewModel.load(collectionId: collection.id, using: appState)

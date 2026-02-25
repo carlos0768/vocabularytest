@@ -73,6 +73,7 @@ struct ProjectDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.none, for: .top)
             .contentMargins(.top, 0, for: .scrollContent)
             .refreshable {
                 await viewModel.load(projectId: project.id, using: appState)

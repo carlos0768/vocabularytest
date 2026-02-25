@@ -41,70 +41,60 @@ struct ScanModeSheet: View {
 
     var body: some View {
         ZStack {
-            // Semi-transparent background overlay
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .onTapGesture { onCancel() }
+            AppBackground()
 
-            // Centered card modal (matching web design)
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 12) {
-                        // Header
-                        Text("抽出モードを選択")
-                            .font(.title3.bold())
-                            .foregroundStyle(MerkenTheme.primaryText)
-                            .padding(.top, 4)
+            ScrollView {
+                VStack(spacing: 12) {
+                    // Header
+                    Text("抽出モードを選択")
+                        .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .padding(.top, 4)
 
-                        Text("どのように単語を抽出しますか？")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.mutedText)
-                            .padding(.bottom, 4)
+                    Text("どのように単語を抽出しますか？")
+                        .font(.subheadline)
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .padding(.bottom, 4)
 
-                        // Mode buttons
-                        ForEach(ScanMode.allCases) { mode in
-                            let locked = mode.requiresPro && !isPro
-                            modeButton(mode: mode, locked: locked)
-                        }
+                    // Mode buttons
+                    ForEach(ScanMode.allCases) { mode in
+                        let locked = mode.requiresPro && !isPro
+                        modeButton(mode: mode, locked: locked)
+                    }
 
-                        if !isPro {
-                            HStack(spacing: 4) {
-                                Image(systemName: "sparkles")
-                                    .font(.caption)
-                                    .foregroundStyle(MerkenTheme.warning)
-                                Text("Proプランですべてのモードが使えます")
-                                    .font(.caption)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
-                            .padding(.top, 4)
-                        }
-
-                        // Cancel button
-                        Button {
-                            onCancel()
-                        } label: {
-                            Text("キャンセル")
-                                .font(.headline)
+                    if !isPro {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.caption)
+                                .foregroundStyle(MerkenTheme.warning)
+                            Text("Proプランですべてのモードが使えます")
+                                .font(.caption)
                                 .foregroundStyle(MerkenTheme.secondaryText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(MerkenTheme.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(MerkenTheme.borderLight, lineWidth: 1)
-                                )
                         }
                         .padding(.top, 4)
                     }
-                    .padding(20)
+
+                    // Cancel button
+                    Button {
+                        onCancel()
+                    } label: {
+                        Text("キャンセル")
+                            .font(.headline)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(MerkenTheme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
+                            )
+                    }
+                    .padding(.top, 4)
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
+                .padding(20)
             }
-            .background(MerkenTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-            .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
-            .padding(.horizontal, 24)
+            .scrollIndicators(.hidden)
         }
         .sheet(isPresented: $showEikenPicker) {
             eikenPickerSheet
