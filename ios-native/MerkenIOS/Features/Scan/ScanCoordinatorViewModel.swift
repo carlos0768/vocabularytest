@@ -757,10 +757,15 @@ final class ScanCoordinatorViewModel: ObservableObject {
         processingPages[index] = page
     }
 
+    private var compressionProfile: ImageCompressor.Profile {
+        selectedMode == .highlighted ? .highlighted : .default
+    }
+
     private func preparePayload(for image: UIImage) async -> (data: Data, byteCount: Int)? {
-        await withCheckedContinuation { continuation in
+        let profile = compressionProfile
+        return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                guard let jpegData = ImageCompressor.compress(image) else {
+                guard let jpegData = ImageCompressor.compress(image, profile: profile) else {
                     continuation.resume(returning: nil)
                     return
                 }
