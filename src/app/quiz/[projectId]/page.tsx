@@ -90,8 +90,7 @@ export default function QuizPage() {
     const missingDistractors =
       !w.distractors || w.distractors.length === 0 ||
       (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
-    const missingExample = !w.exampleSentence || w.exampleSentence.trim().length === 0;
-    return missingDistractors || missingExample;
+    return missingDistractors;
   }, []);
 
   // Track if state was restored from session storage
@@ -236,7 +235,17 @@ export default function QuizPage() {
         };
       } else {
         // English → Japanese: use pre-generated Japanese distractors
-        const allOptions = [word.japanese, ...word.distractors];
+        let distractors = word.distractors || [];
+        
+        // Fallback: if no distractors, pick from other words' Japanese translations
+        if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
+          const otherWords = words.filter(w => w.id !== word.id);
+          distractors = shuffleArray(otherWords)
+            .slice(0, 3)
+            .map(w => w.japanese);
+        }
+        
+        const allOptions = [word.japanese, ...distractors];
         const shuffled = shuffleArray(allOptions);
         const correctIndex = shuffled.indexOf(word.japanese);
 
