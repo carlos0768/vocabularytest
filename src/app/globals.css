@@ -610,16 +610,22 @@ body {
 }
 
 .notebook-lined {
+  --nb-line: 1.75rem;
   background-image:
     repeating-linear-gradient(
       to bottom,
       transparent,
-      transparent 1.875rem,
-      #e8e0d0 1.875rem,
-      #e8e0d0 calc(1.875rem + 1px)
+      transparent calc(var(--nb-line) - 1px),
+      #e8e0d0 calc(var(--nb-line) - 1px),
+      #e8e0d0 var(--nb-line)
     );
-  background-size: 100% calc(1.875rem + 1px);
-  background-position: 0 0.5rem;
+  background-size: 100% var(--nb-line);
+  background-position: 0 -0.375rem;
+}
+
+.notebook-lined,
+.notebook-lined * {
+  line-height: var(--nb-line);
 }
 
 .notebook-section-divider {
@@ -667,9 +673,9 @@ body {
     repeating-linear-gradient(
       to bottom,
       transparent,
-      transparent 1.875rem,
-      rgba(255, 255, 255, 0.04) 1.875rem,
-      rgba(255, 255, 255, 0.04) calc(1.875rem + 1px)
+      transparent calc(var(--nb-line) - 1px),
+      rgba(255, 255, 255, 0.04) calc(var(--nb-line) - 1px),
+      rgba(255, 255, 255, 0.04) var(--nb-line)
     );
 }
 

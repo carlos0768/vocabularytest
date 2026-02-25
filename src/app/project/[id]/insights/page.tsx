@@ -333,112 +333,115 @@ export default function WordInsightsPage() {
               </div>
 
               {/* ── Notebook content with lined background ── */}
-              <div className="notebook-lined px-5 pb-6 space-y-0 relative z-10">
-                {/* ── Main word ── */}
-                <div className="pl-8 py-3">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-foreground)] tracking-tight font-display leading-tight">
+              <div className="notebook-lined px-5 relative z-10" style={{ paddingBottom: '1.75rem' }}>
+                {/* ── Main word (2 grid rows) ── */}
+                <div className="pl-8" style={{ lineHeight: '3.5rem' }}>
+                  <h2 className="font-bold text-[var(--color-foreground)] tracking-tight font-display" style={{ fontSize: '1.625rem', lineHeight: '3.5rem' }}>
                     {currentWord.english}
                   </h2>
-                  {currentWord.pronunciation && (
-                    <p className="text-sm text-[var(--color-muted)] mt-0.5 font-mono">{currentWord.pronunciation}</p>
-                  )}
                 </div>
 
-                {/* ── Japanese + POS badges ── */}
-                <div className="pl-8 py-2">
-                  <p className="text-base font-semibold text-[var(--color-foreground)]">{currentWord.japanese}</p>
-                  {(currentWord.partOfSpeechTags?.length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {currentWord.partOfSpeechTags?.map((tag) => {
-                        const c = getPosColor(tag);
-                        return (
-                          <span
-                            key={tag}
-                            className="notebook-pos-badge"
-                            style={{ backgroundColor: c.bg, color: c.text }}
-                          >
-                            {tag}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                {/* ── Pronunciation ── */}
+                {currentWord.pronunciation && (
+                  <p className="pl-8 text-sm text-[var(--color-muted)] font-mono">{currentWord.pronunciation}</p>
+                )}
+
+                {/* ── Japanese ── */}
+                <p className="pl-8 font-semibold text-[var(--color-foreground)]" style={{ fontSize: '0.9375rem' }}>{currentWord.japanese}</p>
+
+                {/* ── POS badges ── */}
+                {(currentWord.partOfSpeechTags?.length ?? 0) > 0 && (
+                  <div className="pl-8 flex flex-wrap gap-1.5 items-center" style={{ minHeight: '1.75rem' }}>
+                    {currentWord.partOfSpeechTags?.map((tag) => {
+                      const c = getPosColor(tag);
+                      return (
+                        <span
+                          key={tag}
+                          className="notebook-pos-badge"
+                          style={{ backgroundColor: c.bg, color: c.text }}
+                        >
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* ── Example sentence ── */}
                 {currentWord.exampleSentence && (
                   <>
-                    <hr className="notebook-section-divider my-3 ml-8" />
-                    <div className="pl-8 py-2">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Icon name="format_quote" size={14} className="text-[var(--color-primary)]" />
-                        <span className="text-[0.6875rem] font-bold text-[var(--color-primary)] uppercase tracking-wider">例文</span>
-                      </div>
-                      <p className="text-sm text-[var(--color-foreground)] leading-relaxed italic">
-                        {currentWord.exampleSentence}
-                      </p>
-                      {currentWord.exampleSentenceJa && (
-                        <p className="text-xs text-[var(--color-muted)] mt-1 leading-relaxed">
-                          {currentWord.exampleSentenceJa}
-                        </p>
-                      )}
+                    <div className="ml-8 flex items-center" style={{ height: '1.75rem' }}>
+                      <hr className="notebook-section-divider flex-1" />
                     </div>
+                    <div className="pl-8 flex items-center gap-1.5" style={{ height: '1.75rem' }}>
+                      <Icon name="format_quote" size={14} className="text-[var(--color-primary)]" />
+                      <span className="text-[0.6875rem] font-bold text-[var(--color-primary)] uppercase tracking-wider">例文</span>
+                    </div>
+                    <p className="pl-8 text-sm text-[var(--color-foreground)] italic">
+                      {currentWord.exampleSentence}
+                    </p>
+                    {currentWord.exampleSentenceJa && (
+                      <p className="pl-8 text-xs text-[var(--color-muted)]">
+                        {currentWord.exampleSentenceJa}
+                      </p>
+                    )}
                   </>
                 )}
 
                 {!hasInsights ? (
-                  <div className="pl-8 py-6 text-center">
-                    <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-muted)] mx-auto mb-2" />
-                    <p className="text-xs text-[var(--color-muted)]">解説データを生成中...</p>
+                  <div className="pl-8 text-center" style={{ paddingTop: '3.5rem', paddingBottom: '1.75rem' }}>
+                    <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-muted)] mx-auto" />
+                    <p className="text-xs text-[var(--color-muted)]" style={{ marginTop: '1.75rem' }}>解説データを生成中...</p>
                   </div>
                 ) : (
                   <>
                     {/* ── Related words ── */}
                     {(currentWord.relatedWords?.length ?? 0) > 0 && (
                       <>
-                        <hr className="notebook-section-divider my-3 ml-8" />
-                        <div className="pl-8 py-2">
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <Icon name="hub" size={14} className="text-[var(--color-success)]" />
-                            <span className="text-[0.6875rem] font-bold text-[var(--color-success)] uppercase tracking-wider">関連語・語形</span>
-                          </div>
-                          <div className="space-y-1.5">
-                            {currentWord.relatedWords?.slice(0, 8).map((item, i) => (
-                              <div key={i} className="flex items-baseline gap-2">
-                                <span className="text-sm font-semibold text-[var(--color-foreground)] shrink-0">
-                                  {item.term}
-                                </span>
-                                <span className="text-[0.6875rem] text-[var(--color-muted)] shrink-0">
-                                  ({item.relation})
-                                </span>
-                                {item.noteJa && (
-                                  <span className="text-[0.6875rem] text-[var(--color-muted)] truncate">
-                                    — {item.noteJa}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                        <div className="ml-8 flex items-center" style={{ height: '1.75rem' }}>
+                          <hr className="notebook-section-divider flex-1" />
                         </div>
+                        <div className="pl-8 flex items-center gap-1.5" style={{ height: '1.75rem' }}>
+                          <Icon name="hub" size={14} className="text-[var(--color-success)]" />
+                          <span className="text-[0.6875rem] font-bold text-[var(--color-success)] uppercase tracking-wider">関連語・語形</span>
+                        </div>
+                        {currentWord.relatedWords?.slice(0, 8).map((item, i) => (
+                          <div key={i} className="pl-8 flex items-baseline gap-2">
+                            <span className="text-sm font-semibold text-[var(--color-foreground)] shrink-0">
+                              {item.term}
+                            </span>
+                            <span className="text-[0.6875rem] text-[var(--color-muted)] shrink-0">
+                              ({item.relation})
+                            </span>
+                            {item.noteJa && (
+                              <span className="text-[0.6875rem] text-[var(--color-muted)] truncate">
+                                — {item.noteJa}
+                              </span>
+                            )}
+                          </div>
+                        ))}
                       </>
                     )}
 
                     {/* ── Usage patterns ── */}
                     {(currentWord.usagePatterns?.length ?? 0) > 0 && (
                       <>
-                        <hr className="notebook-section-divider my-3 ml-8" />
-                        <div className="pl-8 py-2">
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <Icon name="edit_note" size={14} className="text-[var(--color-warning)]" />
-                            <span className="text-[0.6875rem] font-bold text-[var(--color-warning)] uppercase tracking-wider">語法パターン</span>
-                          </div>
-                          <div className="space-y-2.5">
+                        <div className="ml-8 flex items-center" style={{ height: '1.75rem' }}>
+                          <hr className="notebook-section-divider flex-1" />
+                        </div>
+                        <div className="pl-8 flex items-center gap-1.5" style={{ height: '1.75rem' }}>
+                          <Icon name="edit_note" size={14} className="text-[var(--color-warning)]" />
+                          <span className="text-[0.6875rem] font-bold text-[var(--color-warning)] uppercase tracking-wider">語法パターン</span>
+                        </div>
+                        <div className="pl-8" style={{ paddingTop: '0.875rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
                             {currentWord.usagePatterns?.slice(0, 6).map((pattern, i) => {
                               const regStyle = getRegisterStyle(pattern.register);
                               return (
                                 <div
                                   key={i}
-                                  className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-background)]/60 dark:bg-[var(--color-surface)]/40 px-3 py-2.5"
+                                  className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-background)]/60 dark:bg-[var(--color-surface)]/40 px-3"
+                                  style={{ paddingTop: '0.4375rem', paddingBottom: '0.4375rem' }}
                                 >
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <p className="text-sm font-bold text-[var(--color-foreground)]">{pattern.pattern}</p>
@@ -451,14 +454,14 @@ export default function WordInsightsPage() {
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-xs text-[var(--color-muted)] mt-0.5">{pattern.meaningJa}</p>
+                                  <p className="text-xs text-[var(--color-muted)]">{pattern.meaningJa}</p>
                                   {pattern.example && (
-                                    <p className="text-xs text-[var(--color-foreground)] mt-1.5 italic leading-relaxed">
+                                    <p className="text-xs text-[var(--color-foreground)] italic">
                                       {pattern.example}
                                     </p>
                                   )}
                                   {pattern.exampleJa && (
-                                    <p className="text-[0.6875rem] text-[var(--color-muted)] leading-relaxed">
+                                    <p className="text-[0.6875rem] text-[var(--color-muted)]">
                                       {pattern.exampleJa}
                                     </p>
                                   )}
