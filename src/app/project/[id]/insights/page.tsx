@@ -334,9 +334,9 @@ export default function WordInsightsPage() {
 
               {/* ── Notebook content with lined background ── */}
               <div className="notebook-lined px-5 relative z-10" style={{ paddingBottom: '1.75rem' }}>
-                {/* ── Main word (2 grid rows) ── */}
-                <div className="pl-8" style={{ lineHeight: '3.5rem' }}>
-                  <h2 className="font-bold text-[var(--color-foreground)] tracking-tight font-display" style={{ fontSize: '1.625rem', lineHeight: '3.5rem' }}>
+                {/* ── Main word ── */}
+                <div className="pl-8">
+                  <h2 className="font-bold text-[var(--color-foreground)] tracking-tight font-display" style={{ fontSize: '1.5rem' }}>
                     {currentWord.english}
                   </h2>
                 </div>
@@ -433,7 +433,7 @@ export default function WordInsightsPage() {
                           <Icon name="edit_note" size={14} className="text-[var(--color-warning)]" />
                           <span className="text-[0.6875rem] font-bold text-[var(--color-warning)] uppercase tracking-wider">語法パターン</span>
                         </div>
-                        <div className="pl-8" style={{ paddingTop: '0.875rem' }}>
+                        <div className="pl-8">
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
                             {currentWord.usagePatterns?.slice(0, 6).map((pattern, i) => {
                               const regStyle = getRegisterStyle(pattern.register);
@@ -441,7 +441,7 @@ export default function WordInsightsPage() {
                                 <div
                                   key={i}
                                   className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-background)]/60 dark:bg-[var(--color-surface)]/40 px-3"
-                                  style={{ paddingTop: '0.4375rem', paddingBottom: '0.4375rem' }}
+                                  style={{ paddingTop: '0.875rem', paddingBottom: '0.875rem' }}
                                 >
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <p className="text-sm font-bold text-[var(--color-foreground)]">{pattern.pattern}</p>

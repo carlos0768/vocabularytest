@@ -620,12 +620,17 @@ body {
       #e8e0d0 var(--nb-line)
     );
   background-size: 100% var(--nb-line);
-  background-position: 0 -0.375rem;
 }
 
 .notebook-lined,
 .notebook-lined * {
-  line-height: var(--nb-line);
+  line-height: var(--nb-line) !important;
+}
+
+/* Keep inline badges compact so they don't blow out the grid row */
+.notebook-pos-badge,
+.notebook-register-tag {
+  line-height: 1 !important;
 }
 
 .notebook-section-divider {
