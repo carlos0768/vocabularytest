@@ -374,7 +374,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                         projectIcon: nil,
                         scanMode: self.selectedMode,
                         eikenLevel: self.selectedEikenLevel,
-                        targetProjectId: appState.canUseCloud ? self.targetProjectId : nil,
+                        targetProjectId: self.targetProjectId,
                         clientPlatform: "ios",
                         bearerToken: token
                     )
