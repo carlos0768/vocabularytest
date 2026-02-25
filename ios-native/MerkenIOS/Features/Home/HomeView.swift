@@ -200,6 +200,7 @@ struct HomeView: View {
             if let firstProject = viewModel.projects.first {
                 if viewModel.dueWordCount > 0 {
                     Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         quizDestination = QuizDestination(
                             project: firstProject,
                             preloadedWords: viewModel.dueWords,
@@ -211,6 +212,7 @@ struct HomeView: View {
                     .buttonStyle(HeroCTAButton())
                 } else {
                     Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         quizDestination = QuizDestination(project: firstProject)
                     } label: {
                         Label("クイズに挑戦", systemImage: "play.fill")
