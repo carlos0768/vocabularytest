@@ -19,6 +19,11 @@ struct WordDTO: Codable, Sendable {
     let exampleSentence: String?
     let exampleSentenceJa: String?
     let pronunciation: String?
+    let partOfSpeechTags: [String]?
+    let relatedWords: [RelatedWord]?
+    let usagePatterns: [UsagePattern]?
+    let insightsGeneratedAt: Date?
+    let insightsVersion: Int?
     let status: String
     let createdAt: Date
     let lastReviewedAt: Date?
@@ -44,6 +49,11 @@ struct WordInsertDTO: Codable, Sendable {
     let exampleSentence: String?
     let exampleSentenceJa: String?
     let pronunciation: String?
+    let partOfSpeechTags: [String]?
+    let relatedWords: [RelatedWord]?
+    let usagePatterns: [UsagePattern]?
+    let insightsGeneratedAt: Date?
+    let insightsVersion: Int?
 }
 
 struct WordUpdateDTO: Codable, Sendable {
@@ -53,6 +63,11 @@ struct WordUpdateDTO: Codable, Sendable {
     var exampleSentence: String??
     var exampleSentenceJa: String??
     var pronunciation: String??
+    var partOfSpeechTags: [String]??
+    var relatedWords: [RelatedWord]??
+    var usagePatterns: [UsagePattern]??
+    var insightsGeneratedAt: Date??
+    var insightsVersion: Int?
     var status: String?
     var lastReviewedAt: Date??
     var nextReviewAt: Date??
@@ -118,6 +133,11 @@ enum SupabaseMapper {
             exampleSentence: dto.exampleSentence,
             exampleSentenceJa: dto.exampleSentenceJa,
             pronunciation: dto.pronunciation,
+            partOfSpeechTags: dto.partOfSpeechTags,
+            relatedWords: dto.relatedWords,
+            usagePatterns: dto.usagePatterns,
+            insightsGeneratedAt: dto.insightsGeneratedAt,
+            insightsVersion: dto.insightsVersion,
             status: WordStatus(rawValue: dto.status) ?? .new,
             createdAt: dto.createdAt,
             lastReviewedAt: dto.lastReviewedAt,
@@ -137,7 +157,12 @@ enum SupabaseMapper {
             distractors: input.distractors,
             exampleSentence: input.exampleSentence,
             exampleSentenceJa: input.exampleSentenceJa,
-            pronunciation: input.pronunciation
+            pronunciation: input.pronunciation,
+            partOfSpeechTags: input.partOfSpeechTags,
+            relatedWords: input.relatedWords,
+            usagePatterns: input.usagePatterns,
+            insightsGeneratedAt: input.insightsGeneratedAt,
+            insightsVersion: input.insightsVersion
         )
     }
 
@@ -149,6 +174,11 @@ enum SupabaseMapper {
             exampleSentence: patch.exampleSentence,
             exampleSentenceJa: patch.exampleSentenceJa,
             pronunciation: patch.pronunciation,
+            partOfSpeechTags: patch.partOfSpeechTags,
+            relatedWords: patch.relatedWords,
+            usagePatterns: patch.usagePatterns,
+            insightsGeneratedAt: patch.insightsGeneratedAt,
+            insightsVersion: patch.insightsVersion,
             status: patch.status?.rawValue,
             lastReviewedAt: patch.lastReviewedAt,
             nextReviewAt: patch.nextReviewAt,

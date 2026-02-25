@@ -10,6 +10,16 @@ final class ProjectDetailViewModel: ObservableObject {
     @Published private(set) var loading = false
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "ProjectDetailVM")
+    private static let insightsDateFormatterWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    private static let insightsDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 
     var filteredWords: [Word] {
         words.filter { word in
@@ -54,6 +64,13 @@ final class ProjectDetailViewModel: ObservableObject {
             }
             state.bumpDataVersion()
             errorMessage = nil
+
+            if state.isPro, !created.isEmpty {
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.generateWordInsights(for: created, force: false, using: state)
+                }
+            }
         } catch {
             if error.isCancellationError {
                 errorMessage = nil
@@ -72,16 +89,37 @@ final class ProjectDetailViewModel: ObservableObject {
         using state: AppState
     ) async {
         do {
-            try await state.activeRepository.updateWord(id: wordId, patch: patch)
+            let previousEnglish = words.first(where: { $0.id == wordId })?.english
+            let englishChanged = patch.english != nil && patch.english != previousEnglish
+
+            var effectivePatch = patch
+            if englishChanged {
+                effectivePatch.partOfSpeechTags = .some([])
+                effectivePatch.relatedWords = .some([])
+                effectivePatch.usagePatterns = .some([])
+                effectivePatch.insightsGeneratedAt = .some(nil)
+                effectivePatch.insightsVersion = 0
+            }
+
+            try await state.activeRepository.updateWord(id: wordId, patch: effectivePatch)
             if let index = words.firstIndex(where: { $0.id == wordId }) {
                 var updated = words[index]
-                apply(patch, to: &updated)
+                apply(effectivePatch, to: &updated)
                 words[index] = updated
             }
             if broadcastChanges {
                 state.bumpDataVersion()
             }
             errorMessage = nil
+
+            if state.isPro,
+               englishChanged,
+               let word = words.first(where: { $0.id == wordId }) {
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.generateWordInsights(for: [word], force: true, using: state)
+                }
+            }
         } catch {
             if error.isCancellationError {
                 errorMessage = nil
@@ -152,6 +190,21 @@ final class ProjectDetailViewModel: ObservableObject {
         if let pronunciation = patch.pronunciation {
             word.pronunciation = pronunciation
         }
+        if let partOfSpeechTags = patch.partOfSpeechTags {
+            word.partOfSpeechTags = partOfSpeechTags
+        }
+        if let relatedWords = patch.relatedWords {
+            word.relatedWords = relatedWords
+        }
+        if let usagePatterns = patch.usagePatterns {
+            word.usagePatterns = usagePatterns
+        }
+        if let insightsGeneratedAt = patch.insightsGeneratedAt {
+            word.insightsGeneratedAt = insightsGeneratedAt
+        }
+        if let insightsVersion = patch.insightsVersion {
+            word.insightsVersion = insightsVersion
+        }
         if let status = patch.status {
             word.status = status
         }
@@ -172,6 +225,61 @@ final class ProjectDetailViewModel: ObservableObject {
         }
         if let isFavorite = patch.isFavorite {
             word.isFavorite = isFavorite
+        }
+    }
+
+    private func parseInsightsDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        if let date = Self.insightsDateFormatterWithFractional.date(from: value) {
+            return date
+        }
+        return Self.insightsDateFormatter.date(from: value)
+    }
+
+    private func generateWordInsights(for words: [Word], force: Bool, using state: AppState) async {
+        guard state.isPro else { return }
+        guard !words.isEmpty else { return }
+
+        do {
+            let token = try await state.accessTokenForWebAPI(forceRefresh: false)
+            let results = try await state.webAPIClient.generateWordInsights(
+                words: words.map { WordInsightRequestWordInput(id: $0.id, english: $0.english, japanese: $0.japanese) },
+                force: force,
+                bearerToken: token
+            )
+
+            guard !results.isEmpty else { return }
+
+            for result in results {
+                var patch = WordPatch.empty
+                if let tags = result.partOfSpeechTags {
+                    patch.partOfSpeechTags = .some(tags)
+                }
+                if let relatedWords = result.relatedWords {
+                    patch.relatedWords = .some(relatedWords)
+                }
+                if let usagePatterns = result.usagePatterns {
+                    patch.usagePatterns = .some(usagePatterns)
+                }
+                if let generatedAt = parseInsightsDate(result.insightsGeneratedAt) {
+                    patch.insightsGeneratedAt = .some(generatedAt)
+                }
+                if let version = result.insightsVersion {
+                    patch.insightsVersion = version
+                }
+
+                try? await state.activeRepository.updateWord(id: result.wordId, patch: patch)
+
+                if let index = self.words.firstIndex(where: { $0.id == result.wordId }) {
+                    var updated = self.words[index]
+                    apply(patch, to: &updated)
+                    self.words[index] = updated
+                }
+            }
+
+            state.bumpDataVersion()
+        } catch {
+            logger.warning("Word insight generation failed: \(error.localizedDescription)")
         }
     }
 }

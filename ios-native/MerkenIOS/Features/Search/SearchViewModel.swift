@@ -20,6 +20,7 @@ final class SearchViewModel: ObservableObject {
 
     private var allWords: [Word] = []
     private var projectTitleMap: [String: String] = [:]
+    private var lastLoadToken: String?
     private var debounceTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "MerkenIOS", category: "SearchVM")
 
@@ -27,11 +28,20 @@ final class SearchViewModel: ObservableObject {
         !searchText.isEmpty
     }
 
-    func load(using state: AppState) async {
-        loading = true
+    func load(using state: AppState, token: String) async {
+        // Avoid refetch + spinner when reopening the tab with unchanged data.
+        guard token != lastLoadToken || errorMessage != nil || !initialLoadComplete else { return }
+
+        let shouldShowLoading = !initialLoadComplete
+        if shouldShowLoading {
+            loading = true
+        }
         defer {
-            loading = false
+            if shouldShowLoading {
+                loading = false
+            }
             initialLoadComplete = true
+            lastLoadToken = token
         }
 
         do {

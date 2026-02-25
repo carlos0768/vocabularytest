@@ -4,6 +4,9 @@ struct SearchView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = SearchViewModel()
     @FocusState private var isSearchFocused: Bool
+    private var loadToken: String {
+        "\(appState.repositoryMode)-\(appState.activeUserId)-\(appState.dataVersion)"
+    }
 
     var body: some View {
         Group {
@@ -109,8 +112,8 @@ struct SearchView: View {
         .onChange(of: viewModel.searchText) {
             viewModel.search(using: appState)
         }
-        .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
-            await viewModel.load(using: appState)
+        .task(id: loadToken) {
+            await viewModel.load(using: appState, token: loadToken)
         }
     }
 

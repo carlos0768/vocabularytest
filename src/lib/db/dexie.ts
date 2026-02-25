@@ -54,7 +54,7 @@ export class WordSnapDB extends Dexie {
       syncQueue: '++id, table, entityId, createdAt',
     });
 
-    // Version 6: Add pronunciation & etymology fields (no new indexes needed)
+    // Version 6: Add pronunciation & lexical insight fields (no new indexes needed)
     this.version(6).stores({
       projects: 'id, userId, createdAt, isFavorite',
       words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite',

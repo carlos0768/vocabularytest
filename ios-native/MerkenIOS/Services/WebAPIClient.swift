@@ -53,13 +53,39 @@ struct QuizPrefillResult: Decodable, Sendable {
     let exampleSentenceJa: String?
 }
 
+struct WordInsightRequestWordInput: Encodable, Sendable {
+    let id: String
+    let english: String
+    let japanese: String
+}
+
+struct WordInsightResult: Decodable, Sendable {
+    let wordId: String
+    let partOfSpeechTags: [String]?
+    let relatedWords: [RelatedWord]?
+    let usagePatterns: [UsagePattern]?
+    let insightsGeneratedAt: String?
+    let insightsVersion: Int?
+}
+
 private struct QuizPrefillRequest: Encodable {
     let words: [QuizPrefillWordInput]
+}
+
+private struct WordInsightRequest: Encodable {
+    let words: [WordInsightRequestWordInput]
+    let force: Bool
 }
 
 private struct QuizPrefillResponse: Decodable {
     let success: Bool
     let results: [QuizPrefillResult]?
+    let error: String?
+}
+
+private struct WordInsightResponse: Decodable {
+    let success: Bool
+    let results: [WordInsightResult]?
     let error: String?
 }
 
@@ -590,6 +616,51 @@ actor WebAPIClient {
 
         guard decoded.success else {
             throw WebAPIError.serverError(decoded.error ?? "補完データの生成に失敗しました。")
+        }
+
+        return decoded.results ?? []
+    }
+
+    func generateWordInsights(
+        words: [WordInsightRequestWordInput],
+        force: Bool = false,
+        bearerToken: String
+    ) async throws -> [WordInsightResult] {
+        guard !words.isEmpty else { return [] }
+        logger.info("Sending word insights request: \(words.count) words")
+
+        let (data, http) = try await sendJSONRequest(
+            path: "api/generate-word-insights",
+            bearerToken: bearerToken,
+            timeout: 120,
+            body: WordInsightRequest(words: words, force: force)
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 403:
+            throw WebAPIError.proRequired
+        case 400:
+            let errorResponse = try? JSONDecoder().decode(WordInsightResponse.self, from: data)
+            throw WebAPIError.badRequest(errorResponse?.error ?? "語法/関連語リクエストが不正です。")
+        default:
+            let errorResponse = try? JSONDecoder().decode(WordInsightResponse.self, from: data)
+            throw WebAPIError.serverError(errorResponse?.error ?? "語法/関連語の生成に失敗しました。")
+        }
+
+        let decoded: WordInsightResponse
+        do {
+            decoded = try JSONDecoder().decode(WordInsightResponse.self, from: data)
+        } catch {
+            logger.error("Word insights decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+
+        guard decoded.success else {
+            throw WebAPIError.serverError(decoded.error ?? "語法/関連語の生成に失敗しました。")
         }
 
         return decoded.results ?? []

@@ -40,6 +40,11 @@ final class LocalWordRecord {
     var exampleSentence: String?
     var exampleSentenceJa: String?
     var pronunciation: String?
+    var partOfSpeechTagsBlob: Data?
+    var relatedWordsBlob: Data?
+    var usagePatternsBlob: Data?
+    var insightsGeneratedAt: Date?
+    var insightsVersion: Int?
     var statusRaw: String
     var createdAt: Date
     var lastReviewedAt: Date?
@@ -58,6 +63,11 @@ final class LocalWordRecord {
         exampleSentence: String? = nil,
         exampleSentenceJa: String? = nil,
         pronunciation: String? = nil,
+        partOfSpeechTagsBlob: Data? = nil,
+        relatedWordsBlob: Data? = nil,
+        usagePatternsBlob: Data? = nil,
+        insightsGeneratedAt: Date? = nil,
+        insightsVersion: Int? = nil,
         statusRaw: String,
         createdAt: Date,
         lastReviewedAt: Date? = nil,
@@ -75,6 +85,11 @@ final class LocalWordRecord {
         self.exampleSentence = exampleSentence
         self.exampleSentenceJa = exampleSentenceJa
         self.pronunciation = pronunciation
+        self.partOfSpeechTagsBlob = partOfSpeechTagsBlob
+        self.relatedWordsBlob = relatedWordsBlob
+        self.usagePatternsBlob = usagePatternsBlob
+        self.insightsGeneratedAt = insightsGeneratedAt
+        self.insightsVersion = insightsVersion
         self.statusRaw = statusRaw
         self.createdAt = createdAt
         self.lastReviewedAt = lastReviewedAt

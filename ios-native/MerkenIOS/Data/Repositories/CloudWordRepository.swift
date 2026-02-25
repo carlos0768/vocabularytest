@@ -160,7 +160,7 @@ final class CloudWordRepository: WordRepositoryProtocol {
         let token = try await accessTokenProvider()
         let baseQuery = [
             URLQueryItem(name: "project_id", value: "eq.\(projectId)"),
-            URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite"),
+            URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,part_of_speech_tags,related_words,usage_patterns,insights_generated_at,insights_version,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite"),
             URLQueryItem(name: "order", value: "created_at.asc")
         ]
 
@@ -177,7 +177,7 @@ final class CloudWordRepository: WordRepositoryProtocol {
     func fetchAllWords(userId: String) async throws -> [Word] {
         let token = try await accessTokenProvider()
         let baseQuery = [
-            URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite,projects!inner(user_id)"),
+            URLQueryItem(name: "select", value: "id,project_id,english,japanese,distractors,example_sentence,example_sentence_ja,pronunciation,part_of_speech_tags,related_words,usage_patterns,insights_generated_at,insights_version,status,created_at,last_reviewed_at,next_review_at,ease_factor,interval_days,repetition,is_favorite,projects!inner(user_id)"),
             URLQueryItem(name: "projects.user_id", value: "eq.\(userId)"),
             URLQueryItem(name: "order", value: "created_at.desc")
         ]

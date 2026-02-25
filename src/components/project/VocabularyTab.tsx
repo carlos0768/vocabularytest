@@ -311,6 +311,77 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
                   <p className="text-lg font-semibold text-[var(--color-foreground)]">{currentWord.japanese}</p>
                 </div>
 
+                {/* Related words / usage patterns */}
+                <div className="space-y-3">
+                  {isPro ? (
+                    <>
+                      {Array.isArray(currentWord.partOfSpeechTags) && currentWord.partOfSpeechTags.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-[var(--color-muted)] mb-1">品詞</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {currentWord.partOfSpeechTags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(currentWord.relatedWords) && currentWord.relatedWords.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-[var(--color-muted)] mb-1">関連語・語形</p>
+                          <div className="space-y-1.5">
+                            {currentWord.relatedWords.slice(0, 6).map((item, index) => (
+                              <div key={`${item.term}-${item.relation}-${index}`} className="text-sm">
+                                <span className="font-semibold text-[var(--color-foreground)]">{item.term}</span>
+                                <span className="text-[var(--color-muted)] ml-1">({item.relation})</span>
+                                {item.noteJa && <span className="text-[var(--color-muted)] ml-1">- {item.noteJa}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(currentWord.usagePatterns) && currentWord.usagePatterns.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-[var(--color-muted)] mb-1">使い方（語法）</p>
+                          <div className="space-y-2">
+                            {currentWord.usagePatterns.slice(0, 4).map((item, index) => (
+                              <div key={`${item.pattern}-${index}`} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                                <p className="text-sm font-semibold text-[var(--color-foreground)]">{item.pattern}</p>
+                                <p className="text-xs text-[var(--color-muted)]">{item.meaningJa}</p>
+                                {item.example && (
+                                  <p className="text-xs text-[var(--color-foreground)] mt-1">{item.example}</p>
+                                )}
+                                {item.exampleJa && (
+                                  <p className="text-xs text-[var(--color-muted)]">{item.exampleJa}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(!currentWord.partOfSpeechTags?.length
+                        && !currentWord.relatedWords?.length
+                        && !currentWord.usagePatterns?.length) && (
+                        <p className="text-xs text-[var(--color-muted)]">語法情報を準備中...</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                      <p className="text-xs font-semibold text-[var(--color-foreground)] flex items-center gap-1">
+                        <Icon name="lock" size={12} />
+                        関連語・語法はPro機能です
+                      </p>
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
           )}

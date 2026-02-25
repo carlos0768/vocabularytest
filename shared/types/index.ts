@@ -5,6 +5,20 @@
 
 export type WordStatus = 'new' | 'review' | 'mastered';
 
+export interface RelatedWord {
+  term: string;
+  relation: string;
+  noteJa?: string;
+}
+
+export interface UsagePattern {
+  pattern: string;
+  meaningJa: string;
+  example?: string;
+  exampleJa?: string;
+  register?: string;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -24,6 +38,12 @@ export interface Word {
   repetition: number; // Number of successful repetitions (default 0)
   // Favorite marking
   isFavorite: boolean; // User marked as difficult/important
+  // Lexical insights (Pro feature)
+  partOfSpeechTags?: string[];
+  relatedWords?: RelatedWord[];
+  usagePatterns?: UsagePattern[];
+  insightsGeneratedAt?: string; // ISO string
+  insightsVersion?: number; // Schema version
 }
 
 export interface Project {

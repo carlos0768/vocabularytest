@@ -34,6 +34,20 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
+struct RelatedWord: Hashable, Codable, Sendable {
+    var term: String
+    var relation: String
+    var noteJa: String?
+}
+
+struct UsagePattern: Hashable, Codable, Sendable {
+    var pattern: String
+    var meaningJa: String
+    var example: String?
+    var exampleJa: String?
+    var register: String?
+}
+
 struct Word: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let projectId: String
@@ -43,6 +57,11 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
     var exampleSentence: String?
     var exampleSentenceJa: String?
     var pronunciation: String?
+    var partOfSpeechTags: [String]?
+    var relatedWords: [RelatedWord]?
+    var usagePatterns: [UsagePattern]?
+    var insightsGeneratedAt: Date?
+    var insightsVersion: Int?
     var status: WordStatus
     let createdAt: Date
     var lastReviewedAt: Date?
@@ -61,6 +80,11 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
         exampleSentence: String? = nil,
         exampleSentenceJa: String? = nil,
         pronunciation: String? = nil,
+        partOfSpeechTags: [String]? = nil,
+        relatedWords: [RelatedWord]? = nil,
+        usagePatterns: [UsagePattern]? = nil,
+        insightsGeneratedAt: Date? = nil,
+        insightsVersion: Int? = nil,
         status: WordStatus = .new,
         createdAt: Date = .now,
         lastReviewedAt: Date? = nil,
@@ -78,6 +102,11 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
         self.exampleSentence = exampleSentence
         self.exampleSentenceJa = exampleSentenceJa
         self.pronunciation = pronunciation
+        self.partOfSpeechTags = partOfSpeechTags
+        self.relatedWords = relatedWords
+        self.usagePatterns = usagePatterns
+        self.insightsGeneratedAt = insightsGeneratedAt
+        self.insightsVersion = insightsVersion
         self.status = status
         self.createdAt = createdAt
         self.lastReviewedAt = lastReviewedAt
@@ -97,6 +126,11 @@ struct WordInput: Hashable, Sendable {
     var exampleSentence: String?
     var exampleSentenceJa: String?
     var pronunciation: String?
+    var partOfSpeechTags: [String]? = nil
+    var relatedWords: [RelatedWord]? = nil
+    var usagePatterns: [UsagePattern]? = nil
+    var insightsGeneratedAt: Date? = nil
+    var insightsVersion: Int? = nil
 }
 
 struct WordPatch: Hashable, Sendable {
@@ -106,6 +140,11 @@ struct WordPatch: Hashable, Sendable {
     var exampleSentence: String??
     var exampleSentenceJa: String??
     var pronunciation: String??
+    var partOfSpeechTags: [String]??
+    var relatedWords: [RelatedWord]??
+    var usagePatterns: [UsagePattern]??
+    var insightsGeneratedAt: Date??
+    var insightsVersion: Int?
     var status: WordStatus?
     var lastReviewedAt: Date??
     var nextReviewAt: Date??
@@ -123,6 +162,11 @@ struct WordPatch: Hashable, Sendable {
         exampleSentence: String?? = nil,
         exampleSentenceJa: String?? = nil,
         pronunciation: String?? = nil,
+        partOfSpeechTags: [String]?? = nil,
+        relatedWords: [RelatedWord]?? = nil,
+        usagePatterns: [UsagePattern]?? = nil,
+        insightsGeneratedAt: Date?? = nil,
+        insightsVersion: Int? = nil,
         status: WordStatus? = nil,
         lastReviewedAt: Date?? = nil,
         nextReviewAt: Date?? = nil,
@@ -137,6 +181,11 @@ struct WordPatch: Hashable, Sendable {
         self.exampleSentence = exampleSentence
         self.exampleSentenceJa = exampleSentenceJa
         self.pronunciation = pronunciation
+        self.partOfSpeechTags = partOfSpeechTags
+        self.relatedWords = relatedWords
+        self.usagePatterns = usagePatterns
+        self.insightsGeneratedAt = insightsGeneratedAt
+        self.insightsVersion = insightsVersion
         self.status = status
         self.lastReviewedAt = lastReviewedAt
         self.nextReviewAt = nextReviewAt

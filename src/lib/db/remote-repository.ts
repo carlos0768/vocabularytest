@@ -26,7 +26,7 @@ import {
 // Used for Pro tier users - data synced across devices
 
 export const WORDS_SELECT_COLUMNS =
-  'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, pronunciation, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
+  'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
 
 export class RemoteWordRepository implements WordRepository {
   private _supabase: SupabaseClient | null = null;

@@ -97,11 +97,22 @@ final class ScanCoordinatorViewModel: ObservableObject {
     // Must match Web FREE_WORD_LIMIT (src/lib/utils.ts)
     static let freeWordLimit = 100
     static let maxPhotoSelection = 10
+    private static let insightsDateFormatterWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    private static let insightsDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 
     private let quizPrefillBatchSize = 30
     private let quizPrefillMaxAttempts = 3
     private let sentenceQuizSize = 15
     private let quiz2PrefillBatchSize = 200
+    private let wordInsightsBatchSize = 40
 
     @Published private(set) var currentStep: FlowStep = .modeSelection
     @Published var editableWords: [EditableExtractedWord] = []
@@ -699,6 +710,103 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
     }
 
+    private func parseInsightsDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        if let date = Self.insightsDateFormatterWithFractional.date(from: value) {
+            return date
+        }
+        return Self.insightsDateFormatter.date(from: value)
+    }
+
+    private func prefillWordInsights(
+        createdWords: [Word],
+        appState: AppState,
+        bearerToken: String?
+    ) async -> [Word] {
+        guard appState.isPro else { return createdWords }
+        guard !createdWords.isEmpty else { return createdWords }
+        guard let bearerToken else {
+            logger.warning("Skipping word insights prefill: missing access token")
+            return createdWords
+        }
+
+        let seedWords = createdWords
+            .filter {
+                !$0.english.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !$0.japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            .map {
+                WordInsightRequestWordInput(id: $0.id, english: $0.english, japanese: $0.japanese)
+            }
+
+        guard !seedWords.isEmpty else { return createdWords }
+
+        var resultMap: [String: WordInsightResult] = [:]
+
+        for batch in chunkArray(seedWords, size: wordInsightsBatchSize) {
+            do {
+                let results = try await appState.webAPIClient.generateWordInsights(
+                    words: batch,
+                    force: false,
+                    bearerToken: bearerToken
+                )
+                for result in results {
+                    resultMap[result.wordId] = result
+                }
+            } catch {
+                logger.warning("Word insights prefill batch failed: \(error.localizedDescription)")
+            }
+        }
+
+        for word in createdWords {
+            guard let generated = resultMap[word.id] else { continue }
+
+            var patch = WordPatch.empty
+            if let tags = generated.partOfSpeechTags {
+                patch.partOfSpeechTags = .some(tags)
+            }
+            if let relatedWords = generated.relatedWords {
+                patch.relatedWords = .some(relatedWords)
+            }
+            if let usagePatterns = generated.usagePatterns {
+                patch.usagePatterns = .some(usagePatterns)
+            }
+            if let generatedAt = parseInsightsDate(generated.insightsGeneratedAt) {
+                patch.insightsGeneratedAt = .some(generatedAt)
+            }
+            if let version = generated.insightsVersion {
+                patch.insightsVersion = version
+            }
+
+            do {
+                try await appState.activeRepository.updateWord(id: word.id, patch: patch)
+            } catch {
+                logger.warning("Failed to apply word insights for \(word.id): \(error.localizedDescription)")
+            }
+        }
+
+        return createdWords.map { word in
+            guard let generated = resultMap[word.id] else { return word }
+            var updated = word
+            if let tags = generated.partOfSpeechTags {
+                updated.partOfSpeechTags = tags
+            }
+            if let relatedWords = generated.relatedWords {
+                updated.relatedWords = relatedWords
+            }
+            if let usagePatterns = generated.usagePatterns {
+                updated.usagePatterns = usagePatterns
+            }
+            if let generatedAt = parseInsightsDate(generated.insightsGeneratedAt) {
+                updated.insightsGeneratedAt = generatedAt
+            }
+            if let version = generated.insightsVersion {
+                updated.insightsVersion = version
+            }
+            return updated
+        }
+    }
+
     private func selectWordsForSentenceQuiz(_ words: [Word]) -> [Word] {
         let shuffled = words.shuffled()
         if shuffled.count >= sentenceQuizSize {
@@ -903,15 +1011,21 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     bearerToken: token
                 )
 
+                let insightsReadyWords = await self.prefillWordInsights(
+                    createdWords: quizReadyWords,
+                    appState: appState,
+                    bearerToken: token
+                )
+
                 await self.preGenerateSentenceQuiz(
                     projectId: projectId,
-                    wordsForQuiz: quizReadyWords,
+                    wordsForQuiz: insightsReadyWords,
                     appState: appState,
                     bearerToken: token
                 )
 
                 await self.prefillQuiz2Data(
-                    createdWords: quizReadyWords,
+                    createdWords: insightsReadyWords,
                     appState: appState,
                     bearerToken: token
                 )

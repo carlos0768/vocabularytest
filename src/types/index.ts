@@ -5,6 +5,8 @@
 
 export type {
   WordStatus,
+  RelatedWord,
+  UsagePattern,
   Word,
   Project,
   AIWordExtraction,
@@ -57,4 +59,3 @@ export interface KomojuPaymentSession {
   sessionId: string;
   paymentUrl: string;
 }
-

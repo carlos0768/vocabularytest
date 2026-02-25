@@ -24,6 +24,7 @@ const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 const SENTENCE_QUIZ_SIZE = 15;
 const QUIZ2_PREFILL_BATCH_SIZE = 200;
+const WORD_INSIGHT_BATCH_SIZE = 40;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   if (items.length === 0) return [];
@@ -48,6 +49,15 @@ function hasValidDistractors(value: unknown): boolean {
 function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
+
+type WordInsightResult = {
+  wordId: string;
+  partOfSpeechTags?: string[];
+  relatedWords?: Word['relatedWords'];
+  usagePatterns?: Word['usagePatterns'];
+  insightsGeneratedAt?: string;
+  insightsVersion?: number;
+};
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
@@ -420,6 +430,49 @@ export default function ConfirmPage() {
     }
   };
 
+  const prefillWordInsights = async (createdWords: Word[], updateWord: (wordId: string, patch: Partial<Word>) => Promise<void>) => {
+    if (!isPro || createdWords.length === 0) return;
+
+    const headers = await getAuthHeaders();
+    const targets = createdWords
+      .filter((word) => word.english.trim().length > 0 && word.japanese.trim().length > 0)
+      .map((word) => ({
+        id: word.id,
+        english: word.english,
+        japanese: word.japanese,
+      }));
+
+    if (targets.length === 0) return;
+
+    for (const batch of chunkArray(targets, WORD_INSIGHT_BATCH_SIZE)) {
+      try {
+        const response = await fetch('/api/generate-word-insights', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ words: batch }),
+        });
+
+        if (!response.ok) continue;
+        const data = await response.json() as { success?: boolean; results?: WordInsightResult[] };
+        if (!data.success || !Array.isArray(data.results) || data.results.length === 0) continue;
+
+        await Promise.all(
+          data.results.map((result) =>
+            updateWord(result.wordId, {
+              partOfSpeechTags: result.partOfSpeechTags,
+              relatedWords: result.relatedWords,
+              usagePatterns: result.usagePatterns,
+              insightsGeneratedAt: result.insightsGeneratedAt,
+              insightsVersion: result.insightsVersion,
+            })
+          )
+        );
+      } catch {
+        // Non-critical: skip failed batch and continue.
+      }
+    }
+  };
+
   const handleSaveProject = async () => {
     const selectedWords = words.filter(w => w.isSelected);
 
@@ -486,6 +539,9 @@ export default function ConfirmPage() {
 
       // Pro users: warm quiz2 similarity data during save.
       await prefillQuiz2Data(quizReadyWords);
+
+      // Pro users: generate related words / usage patterns in the background.
+      void prefillWordInsights(quizReadyWords, repository.updateWord.bind(repository));
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');

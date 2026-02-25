@@ -115,7 +115,12 @@ actor LocalWordRepository: WordRepositoryProtocol {
                 distractors: input.distractors,
                 exampleSentence: input.exampleSentence,
                 exampleSentenceJa: input.exampleSentenceJa,
-                pronunciation: input.pronunciation
+                pronunciation: input.pronunciation,
+                partOfSpeechTags: input.partOfSpeechTags,
+                relatedWords: input.relatedWords,
+                usagePatterns: input.usagePatterns,
+                insightsGeneratedAt: input.insightsGeneratedAt,
+                insightsVersion: input.insightsVersion
             )
 
             let record = LocalWordRecord(
@@ -127,6 +132,11 @@ actor LocalWordRepository: WordRepositoryProtocol {
                 exampleSentence: word.exampleSentence,
                 exampleSentenceJa: word.exampleSentenceJa,
                 pronunciation: word.pronunciation,
+                partOfSpeechTagsBlob: try encodeOptional(word.partOfSpeechTags),
+                relatedWordsBlob: try encodeOptional(word.relatedWords),
+                usagePatternsBlob: try encodeOptional(word.usagePatterns),
+                insightsGeneratedAt: word.insightsGeneratedAt,
+                insightsVersion: word.insightsVersion,
                 statusRaw: word.status.rawValue,
                 createdAt: word.createdAt,
                 lastReviewedAt: word.lastReviewedAt,
@@ -166,6 +176,26 @@ actor LocalWordRepository: WordRepositoryProtocol {
 
         if let pronunciation = patch.pronunciation {
             record.pronunciation = pronunciation
+        }
+
+        if let partOfSpeechTags = patch.partOfSpeechTags {
+            record.partOfSpeechTagsBlob = try encodeOptional(partOfSpeechTags)
+        }
+
+        if let relatedWords = patch.relatedWords {
+            record.relatedWordsBlob = try encodeOptional(relatedWords)
+        }
+
+        if let usagePatterns = patch.usagePatterns {
+            record.usagePatternsBlob = try encodeOptional(usagePatterns)
+        }
+
+        if let insightsGeneratedAt = patch.insightsGeneratedAt {
+            record.insightsGeneratedAt = insightsGeneratedAt
+        }
+
+        if let insightsVersion = patch.insightsVersion {
+            record.insightsVersion = insightsVersion
         }
 
         if let status = patch.status {
@@ -228,6 +258,11 @@ actor LocalWordRepository: WordRepositoryProtocol {
             exampleSentence: record.exampleSentence,
             exampleSentenceJa: record.exampleSentenceJa,
             pronunciation: record.pronunciation,
+            partOfSpeechTags: decodeOptional(record.partOfSpeechTagsBlob, as: [String].self),
+            relatedWords: decodeOptional(record.relatedWordsBlob, as: [RelatedWord].self),
+            usagePatterns: decodeOptional(record.usagePatternsBlob, as: [UsagePattern].self),
+            insightsGeneratedAt: record.insightsGeneratedAt,
+            insightsVersion: record.insightsVersion,
             status: WordStatus(rawValue: record.statusRaw) ?? .new,
             createdAt: record.createdAt,
             lastReviewedAt: record.lastReviewedAt,
@@ -245,5 +280,15 @@ actor LocalWordRepository: WordRepositoryProtocol {
 
     private func decodeDistractors(_ data: Data) -> [String] {
         (try? JSONDecoder().decode([String].self, from: data)) ?? []
+    }
+
+    private func encodeOptional<T: Encodable>(_ value: T?) throws -> Data? {
+        guard let value else { return nil }
+        return try JSONEncoder().encode(value)
+    }
+
+    private func decodeOptional<T: Decodable>(_ data: Data?, as _: T.Type) -> T? {
+        guard let data else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 }

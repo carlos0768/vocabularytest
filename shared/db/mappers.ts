@@ -1,7 +1,14 @@
 // Shared database mapping functions for WordSnap (Web & Mobile)
 // Converts between Supabase snake_case and TypeScript camelCase
 
-import type { Project, Word, Collection, CollectionProject } from '../types';
+import type {
+  Project,
+  Word,
+  Collection,
+  CollectionProject,
+  RelatedWord,
+  UsagePattern,
+} from '../types';
 
 // ============ Default Values ============
 
@@ -89,6 +96,11 @@ export interface WordRow {
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
   pronunciation?: string | null;
+  part_of_speech_tags?: unknown | null;
+  related_words?: unknown | null;
+  usage_patterns?: unknown | null;
+  insights_generated_at?: string | null;
+  insights_version?: number | null;
   status?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
@@ -97,6 +109,70 @@ export interface WordRow {
   interval_days?: number | null;
   repetition?: number | null;
   is_favorite?: boolean | null;
+}
+
+function toNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizePartOfSpeechTags(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const deduped = new Set<string>();
+  for (const item of value) {
+    const normalized = toNonEmptyString(item);
+    if (!normalized) continue;
+    deduped.add(normalized);
+  }
+  return deduped.size > 0 ? Array.from(deduped) : undefined;
+}
+
+function normalizeRelatedWords(value: unknown): RelatedWord[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: RelatedWord[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    const term = toNonEmptyString(record.term);
+    const relation = toNonEmptyString(record.relation);
+    const noteJa = toNonEmptyString(record.noteJa ?? record.note_ja);
+    if (!term || !relation) continue;
+    const key = `${term.toLowerCase()}::${relation.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({ term, relation, noteJa: noteJa ?? undefined });
+  }
+
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeUsagePatterns(value: unknown): UsagePattern[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: UsagePattern[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    const pattern = toNonEmptyString(record.pattern);
+    const meaningJa = toNonEmptyString(record.meaningJa ?? record.meaning_ja);
+    if (!pattern || !meaningJa) continue;
+    const key = pattern.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      pattern,
+      meaningJa,
+      example: toNonEmptyString(record.example) ?? undefined,
+      exampleJa: toNonEmptyString(record.exampleJa ?? record.example_ja) ?? undefined,
+      register: toNonEmptyString(record.register) ?? undefined,
+    });
+  }
+
+  return result.length > 0 ? result : undefined;
 }
 
 export function mapWordFromRow(row: WordRow): Word {
@@ -110,6 +186,11 @@ export function mapWordFromRow(row: WordRow): Word {
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
     pronunciation: row.pronunciation ?? undefined,
+    partOfSpeechTags: normalizePartOfSpeechTags(row.part_of_speech_tags),
+    relatedWords: normalizeRelatedWords(row.related_words),
+    usagePatterns: normalizeUsagePatterns(row.usage_patterns),
+    insightsGeneratedAt: row.insights_generated_at ?? undefined,
+    insightsVersion: row.insights_version ?? undefined,
     status: (row.status as Word['status']) ?? 'new',
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
@@ -131,6 +212,11 @@ export function mapWordToInsert(word: WordInput): {
   example_sentence?: string;
   example_sentence_ja?: string;
   pronunciation?: string;
+  part_of_speech_tags?: string[];
+  related_words?: RelatedWord[];
+  usage_patterns?: UsagePattern[];
+  insights_generated_at?: string;
+  insights_version?: number;
   status: string;
   ease_factor: number;
   interval_days: number;
@@ -146,6 +232,11 @@ export function mapWordToInsert(word: WordInput): {
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
     pronunciation: word.pronunciation,
+    part_of_speech_tags: word.partOfSpeechTags,
+    related_words: word.relatedWords,
+    usage_patterns: word.usagePatterns,
+    insights_generated_at: word.insightsGeneratedAt,
+    insights_version: word.insightsVersion,
     status: 'new',
     ease_factor: defaultSR.easeFactor,
     interval_days: defaultSR.intervalDays,
@@ -163,6 +254,11 @@ export function mapWordToInsertWithId(word: Word): {
   example_sentence?: string;
   example_sentence_ja?: string;
   pronunciation?: string;
+  part_of_speech_tags?: string[];
+  related_words?: RelatedWord[];
+  usage_patterns?: UsagePattern[];
+  insights_generated_at?: string;
+  insights_version?: number;
   status: string;
   created_at: string;
   last_reviewed_at?: string;
@@ -181,6 +277,11 @@ export function mapWordToInsertWithId(word: Word): {
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
     pronunciation: word.pronunciation,
+    part_of_speech_tags: word.partOfSpeechTags,
+    related_words: word.relatedWords,
+    usage_patterns: word.usagePatterns,
+    insights_generated_at: word.insightsGeneratedAt,
+    insights_version: word.insightsVersion,
     status: word.status,
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
@@ -202,6 +303,11 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
   if (updates.exampleSentenceJa !== undefined) updateData.example_sentence_ja = updates.exampleSentenceJa;
   if (updates.pronunciation !== undefined) updateData.pronunciation = updates.pronunciation;
+  if (updates.partOfSpeechTags !== undefined) updateData.part_of_speech_tags = updates.partOfSpeechTags;
+  if (updates.relatedWords !== undefined) updateData.related_words = updates.relatedWords;
+  if (updates.usagePatterns !== undefined) updateData.usage_patterns = updates.usagePatterns;
+  if (updates.insightsGeneratedAt !== undefined) updateData.insights_generated_at = updates.insightsGeneratedAt;
+  if (updates.insightsVersion !== undefined) updateData.insights_version = updates.insightsVersion;
 
   // Spaced repetition fields
   if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;

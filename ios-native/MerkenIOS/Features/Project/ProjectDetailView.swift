@@ -338,7 +338,7 @@ struct ProjectDetailView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
 
-                    // Example sentence removed per Carlos
+                    wordInsightsSection(word)
                 }
             }
 
@@ -482,6 +482,67 @@ struct ProjectDetailView: View {
                     .offset(y: 3)
             )
         }
+    }
+
+    @ViewBuilder
+    private func wordInsightsSection(_ word: Word) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !appState.isPro {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                    Text("関連語・語法はPro機能です")
+                        .font(.caption.bold())
+                }
+                .foregroundStyle(MerkenTheme.mutedText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
+            } else {
+                if let tags = word.partOfSpeechTags, !tags.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("品詞")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Text(tags.joined(separator: " / "))
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
+
+                if let relatedWords = word.relatedWords, !relatedWords.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("関連語・語形")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        ForEach(Array(relatedWords.prefix(4).enumerated()), id: \.offset) { _, item in
+                            Text("\(item.term) (\(item.relation))")
+                                .font(.caption)
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                        }
+                    }
+                }
+
+                if let usagePatterns = word.usagePatterns, !usagePatterns.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("使い方（語法）")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        ForEach(Array(usagePatterns.prefix(2).enumerated()), id: \.offset) { _, item in
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(item.pattern)
+                                    .font(.caption.bold())
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                                Text(item.meaningJa)
+                                    .font(.caption2)
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Word List (compact summary → navigates to full list)
