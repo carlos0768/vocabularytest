@@ -12,7 +12,6 @@ struct ProjectDetailView: View {
     @State private var showingQuiz: String?
     @State private var flashcardDestination: Project?
     @State private var quiz2Destination: Project?
-    @State private var sentenceQuizDestination: Project?
     @State private var showingScan = false
     @State private var previewIndex = 0
     @State private var showingWordList = false
@@ -137,9 +136,6 @@ struct ProjectDetailView: View {
         }
         .navigationDestination(item: $quiz2Destination) { project in
             Quiz2View(project: project, preloadedWords: viewModel.words)
-        }
-        .navigationDestination(item: $sentenceQuizDestination) { project in
-            SentenceQuizView(project: project)
         }
         .sheet(isPresented: $showingShareSheet) {
             ShareSheet(items: shareItems)
@@ -322,11 +318,6 @@ struct ProjectDetailView: View {
                             .font(.title.bold())
                             .foregroundStyle(MerkenTheme.primaryText)
                             .multilineTextAlignment(.center)
-                        if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
-                            Text(pronunciation)
-                                .font(.subheadline)
-                                .foregroundStyle(MerkenTheme.mutedText)
-                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -337,8 +328,6 @@ struct ProjectDetailView: View {
                         .foregroundStyle(MerkenTheme.secondaryText)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
-
-                    wordInsightsSection(word)
                 }
             }
 
@@ -443,15 +432,13 @@ struct ProjectDetailView: View {
                     flashcardDestination = project
                 }
 
-                if appState.isPro {
-                    learningModeCard(
-                        icon: "text.bubble.fill",
-                        iconColor: .purple,
-                        title: "例文",
-                        subtitle: "文脈で理解"
-                    ) {
-                        sentenceQuizDestination = project
-                    }
+                learningModeCard(
+                    icon: "text.book.closed.fill",
+                    iconColor: MerkenTheme.accentBlue,
+                    title: "単語解説",
+                    subtitle: "関連語と語法"
+                ) {
+                    showingWordList = true
                 }
             }
         }

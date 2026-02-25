@@ -839,7 +839,6 @@ export default function ProjectDetailPage() {
             ) : words.length > 0 ? (
               <VocabularyTab
                 words={words}
-                isPro={isPro}
                 repository={activeRepository}
                 onWordsUpdate={setWords}
               />
@@ -902,12 +901,12 @@ export default function ProjectDetailPage() {
                   styleMode="home"
                 />
                 <StudyModeCard
-                  title="例文クイズ"
-                  description="穴埋め&並び替え"
+                  title="単語解説"
+                  description="関連語と語法"
                   icon="menu_book"
-                  href={isPro ? `/sentence-quiz/${project.id}?from=${returnPath}` : '/subscription'}
+                  href={isPro ? `/project/${project.id}/insights` : '/subscription'}
                   variant="orange"
-                  disabled={words.length < 10}
+                  disabled={words.length === 0}
                   badge={!isPro ? 'Pro' : undefined}
                   layout="vertical"
                   styleMode="home"

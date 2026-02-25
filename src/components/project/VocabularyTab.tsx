@@ -6,17 +6,12 @@ import type { Word, WordRepository } from '@/types';
 
 interface VocabularyTabProps {
   words: Word[];
-  isPro: boolean;
   repository: WordRepository;
   onWordsUpdate: (updater: (prev: Word[]) => Word[]) => void;
 }
 
-// Cache for pronunciation lookups to avoid repeated API calls in same session
-const pronunciationCache = new Map<string, string>();
-
-export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: VocabularyTabProps) {
+export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTabProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [pronunciationLoading, setPronunciationLoading] = useState(false);
 
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -27,9 +22,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
 
-  // Track which words have been fetched this session to avoid duplicate calls
-  const fetchedPronunciationIds = useRef(new Set<string>());
-
   const currentWord = words[currentIndex];
 
   // Ensure currentIndex is valid when words change
@@ -38,55 +30,6 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
       setCurrentIndex(words.length - 1);
     }
   }, [words.length, currentIndex]);
-
-  // Fetch pronunciation for current word if missing
-  const fetchPronunciation = useCallback(async (word: Word) => {
-    if (!word || word.pronunciation || fetchedPronunciationIds.current.has(word.id)) return;
-
-    // Check session cache
-    const cached = pronunciationCache.get(word.english.toLowerCase());
-    if (cached) {
-      await repository.updateWord(word.id, { pronunciation: cached });
-      onWordsUpdate((prev) =>
-        prev.map((w) => (w.id === word.id ? { ...w, pronunciation: cached } : w))
-      );
-      return;
-    }
-
-    fetchedPronunciationIds.current.add(word.id);
-    setPronunciationLoading(true);
-
-    try {
-      const response = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.english.toLowerCase())}`
-      );
-
-      if (!response.ok) return;
-
-      const data = await response.json();
-      const phonetic = data?.[0]?.phonetic ||
-        data?.[0]?.phonetics?.find((p: { text?: string }) => p.text)?.text;
-
-      if (phonetic) {
-        pronunciationCache.set(word.english.toLowerCase(), phonetic);
-        await repository.updateWord(word.id, { pronunciation: phonetic });
-        onWordsUpdate((prev) =>
-          prev.map((w) => (w.id === word.id ? { ...w, pronunciation: phonetic } : w))
-        );
-      }
-    } catch (error) {
-      console.error('Failed to fetch pronunciation:', error);
-      fetchedPronunciationIds.current.delete(word.id);
-    } finally {
-      setPronunciationLoading(false);
-    }
-  }, [repository, onWordsUpdate]);
-
-  // Trigger fetch when current word changes
-  useEffect(() => {
-    if (!currentWord) return;
-    fetchPronunciation(currentWord);
-  }, [currentWord?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Navigation
   const handleNext = useCallback((withAnimation = false) => {
@@ -296,92 +239,12 @@ export function VocabularyTab({ words, isPro, repository, onWordsUpdate }: Vocab
                   <h2 className="text-3xl font-bold text-[var(--color-foreground)] tracking-tight">
                     {currentWord.english}
                   </h2>
-                  {/* Pronunciation */}
-                  <div className="mt-1 h-5">
-                    {currentWord.pronunciation ? (
-                      <span className="text-sm text-[var(--color-muted)]">{currentWord.pronunciation}</span>
-                    ) : pronunciationLoading ? (
-                      <span className="text-xs text-[var(--color-muted)] opacity-50">...</span>
-                    ) : null}
-                  </div>
                 </div>
 
                 {/* Japanese translation */}
                 <div className="text-center">
                   <p className="text-lg font-semibold text-[var(--color-foreground)]">{currentWord.japanese}</p>
                 </div>
-
-                {/* Related words / usage patterns */}
-                <div className="space-y-3">
-                  {isPro ? (
-                    <>
-                      {Array.isArray(currentWord.partOfSpeechTags) && currentWord.partOfSpeechTags.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-[var(--color-muted)] mb-1">品詞</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {currentWord.partOfSpeechTags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)]"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {Array.isArray(currentWord.relatedWords) && currentWord.relatedWords.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-[var(--color-muted)] mb-1">関連語・語形</p>
-                          <div className="space-y-1.5">
-                            {currentWord.relatedWords.slice(0, 6).map((item, index) => (
-                              <div key={`${item.term}-${item.relation}-${index}`} className="text-sm">
-                                <span className="font-semibold text-[var(--color-foreground)]">{item.term}</span>
-                                <span className="text-[var(--color-muted)] ml-1">({item.relation})</span>
-                                {item.noteJa && <span className="text-[var(--color-muted)] ml-1">- {item.noteJa}</span>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {Array.isArray(currentWord.usagePatterns) && currentWord.usagePatterns.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-[var(--color-muted)] mb-1">使い方（語法）</p>
-                          <div className="space-y-2">
-                            {currentWord.usagePatterns.slice(0, 4).map((item, index) => (
-                              <div key={`${item.pattern}-${index}`} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-                                <p className="text-sm font-semibold text-[var(--color-foreground)]">{item.pattern}</p>
-                                <p className="text-xs text-[var(--color-muted)]">{item.meaningJa}</p>
-                                {item.example && (
-                                  <p className="text-xs text-[var(--color-foreground)] mt-1">{item.example}</p>
-                                )}
-                                {item.exampleJa && (
-                                  <p className="text-xs text-[var(--color-muted)]">{item.exampleJa}</p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {(!currentWord.partOfSpeechTags?.length
-                        && !currentWord.relatedWords?.length
-                        && !currentWord.usagePatterns?.length) && (
-                        <p className="text-xs text-[var(--color-muted)]">語法情報を準備中...</p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-                      <p className="text-xs font-semibold text-[var(--color-foreground)] flex items-center gap-1">
-                        <Icon name="lock" size={12} />
-                        関連語・語法はPro機能です
-                      </p>
-                    </div>
-                  )}
-                </div>
-
               </div>
             </div>
           )}
