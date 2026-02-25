@@ -80,6 +80,7 @@ struct ProjectDetailView: View {
             }
         }
         .ignoresSafeArea(.container, edges: .top)
+        .background(TransparentNavBarSetter())
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
