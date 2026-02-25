@@ -216,11 +216,11 @@ struct ProjectDetailView: View {
                         .frame(width: scaledWidth, height: scaledHeight)
                         .offset(x: offsetX, y: offsetY)
                 }
-                .frame(height: 230 + headerTopExtension)
+                .frame(height: 184 + headerTopExtension)
                 .clipped()
             } else {
                 MerkenTheme.placeholderColor(for: project.id)
-                    .frame(height: 230 + headerTopExtension)
+                    .frame(height: 184 + headerTopExtension)
             }
 
             // Content overlay — title + actions pinned to bottom
@@ -270,7 +270,7 @@ struct ProjectDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
-        .frame(height: 230 + headerTopExtension)
+        .frame(height: 184 + headerTopExtension)
         .padding(.top, -headerTopExtension)
     }
 

@@ -194,7 +194,7 @@ struct BookshelfDetailView: View {
         ZStack(alignment: .bottomLeading) {
             // Cover placeholder color — extended upward to cover safe area
             MerkenTheme.placeholderColor(for: collection.id)
-                .frame(height: 230 + headerTopExtension)
+                .frame(height: 184 + headerTopExtension)
 
             // Content overlay — title + actions pinned to bottom
             HStack(alignment: .bottom) {
@@ -250,7 +250,7 @@ struct BookshelfDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
-        .frame(height: 230 + headerTopExtension)
+        .frame(height: 184 + headerTopExtension)
         .padding(.top, -headerTopExtension)
     }
 
