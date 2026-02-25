@@ -451,8 +451,15 @@ export async function POST(request: NextRequest) {
         extractionTimeoutMinutes: EXTRACTION_TIMEOUT_MINUTES,
       });
 
-      // Process each image and merge results
-      for (let pageIndex = 0; pageIndex < imagePaths.length; pageIndex += 1) {
+      // Process each image in parallel (concurrency limit: 5)
+      const PARALLEL_CONCURRENCY = 5;
+
+      async function processOneImage(pageIndex: number): Promise<{
+        words: ProcessedExtractedWord[];
+        warningCode?: ExtractionWarningCode;
+        error?: string;
+        pageWarning?: string;
+      }> {
         const imagePath = imagePaths[pageIndex];
         const pageLabel = `ページ${pageIndex + 1}`;
 
@@ -461,13 +468,8 @@ export async function POST(request: NextRequest) {
           .download(imagePath);
 
         if (downloadError || !imageData) {
-          const message = `${pageLabel}: 画像データの取得に失敗しました`;
           console.error(`Failed to download image ${imagePath}:`, downloadError);
-          if (!firstExtractionError) {
-            firstExtractionError = '画像データの取得に失敗しました';
-          }
-          pageWarnings.push(message);
-          continue; // Skip failed images, process the rest
+          return { words: [], error: '画像データの取得に失敗しました', pageWarning: `${pageLabel}: 画像データの取得に失敗しました` };
         }
 
         const buffer = await imageData.arrayBuffer();
@@ -482,51 +484,72 @@ export async function POST(request: NextRequest) {
               : 'image/jpeg';
         const base64Image = `data:${mimeType};base64,${base64}`;
 
-        let extractionResult: { result: ExtractionLikeResult; warningCode?: ExtractionWarningCode } | null = null;
         try {
-          extractionResult = await withTimeout(
+          const extractionResult = await withTimeout(
             extractFromImage(base64Image, mode, job.eiken_level, apiKeys),
             EXTRACTION_TIMEOUT_MS,
             `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
           );
+
+          const { result, warningCode } = extractionResult;
+
+          if (result.success && result.data?.words) {
+            return { words: parseExtractedWords(result.data.words), warningCode };
+          } else if (!result.success) {
+            const errMsg = result.error || '画像の解析に失敗しました';
+            return { words: [], warningCode, error: errMsg, pageWarning: `${pageLabel}: ${errMsg}` };
+          }
+          return { words: [], warningCode };
         } catch (error) {
-          const message = `${pageLabel}: 画像解析に失敗しました`;
           console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
-          if (!firstExtractionError) {
-            firstExtractionError = error instanceof Error ? error.message : '画像解析に失敗しました';
+          const errMsg = error instanceof Error ? error.message : '画像解析に失敗しました';
+          return { words: [], error: errMsg, pageWarning: `${pageLabel}: 画像解析に失敗しました` };
+        }
+      }
+
+      // Run in batches of PARALLEL_CONCURRENCY
+      for (let batchStart = 0; batchStart < imagePaths.length; batchStart += PARALLEL_CONCURRENCY) {
+        const batchEnd = Math.min(batchStart + PARALLEL_CONCURRENCY, imagePaths.length);
+        const batchIndices = Array.from({ length: batchEnd - batchStart }, (_, i) => batchStart + i);
+
+        console.log(`Processing batch: pages ${batchStart + 1}-${batchEnd} of ${imagePaths.length} (parallel=${batchIndices.length})`);
+
+        const batchResults = await Promise.allSettled(batchIndices.map(i => processOneImage(i)));
+
+        for (const settledResult of batchResults) {
+          if (settledResult.status === 'rejected') {
+            console.error('Unexpected batch rejection:', settledResult.reason);
+            if (!firstExtractionError) {
+              firstExtractionError = '画像解析中に予期しないエラーが発生しました';
+            }
+            continue;
           }
-          pageWarnings.push(message);
-          continue;
-        }
 
-        const { result, warningCode } = extractionResult;
+          const { words, warningCode, error, pageWarning } = settledResult.value;
 
-        if (warningCode) {
-          warningCodes.add(warningCode);
-        }
-        if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
-          grammarWarningNotified = true;
-          const warningParams = {
-            userId: job.user_id,
-            jobId,
-            projectId: null,
-            projectTitle: job.project_title,
-            status: 'warning' as const,
-          };
-          await sendScanJobPushNotifications(getSupabaseAdmin(), warningParams);
-          void sendScanJobApnsNotifications(getSupabaseAdmin(), warningParams).catch(e => console.error('[APNs] warning push failed:', e));
-        }
-
-        if (result.success && result.data?.words) {
-          const parsedWords = parseExtractedWords(result.data.words);
-          allExtractedWords.push(...parsedWords);
-        } else if (!result.success) {
-          const message = `${pageLabel}: ${result.error || '画像の解析に失敗しました'}`;
-          console.error(`Extraction failed for ${imagePath}:`, result.error);
-          if (!firstExtractionError) {
-            firstExtractionError = result.error || '画像の解析に失敗しました';
+          if (error && !firstExtractionError) {
+            firstExtractionError = error;
           }
-          pageWarnings.push(message);
+          if (pageWarning) {
+            pageWarnings.push(pageWarning);
+          }
+          if (warningCode) {
+            warningCodes.add(warningCode);
+          }
+          if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
+            grammarWarningNotified = true;
+            const warningParams = {
+              userId: job.user_id,
+              jobId,
+              projectId: null,
+              projectTitle: job.project_title,
+              status: 'warning' as const,
+            };
+            await sendScanJobPushNotifications(getSupabaseAdmin(), warningParams);
+            void sendScanJobApnsNotifications(getSupabaseAdmin(), warningParams).catch(e => console.error('[APNs] warning push failed:', e));
+          }
+
+          allExtractedWords.push(...words);
         }
       }
 
