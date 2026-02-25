@@ -788,26 +788,40 @@ actor WebAPIClient {
     ) async throws -> [String] {
         guard !images.isEmpty else { return [] }
 
-        var uploadedPaths: [String] = []
-        uploadedPaths.reserveCapacity(images.count)
+        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
 
+        // Build paths upfront so order is deterministic
+        let indexedImages: [(index: Int, image: ScanUploadImage, path: String)] = images.enumerated().map { index, image in
+            let ext = image.fileExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let safeExt = ext.isEmpty ? "jpg" : ext
+            let path = "\(userId)/\(timestamp)-\(index)-\(UUID().uuidString).\(safeExt)"
+            return (index, image, path)
+        }
+
+        // Upload all images in parallel
         do {
-            for (index, image) in images.enumerated() {
-                let ext = image.fileExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let safeExt = ext.isEmpty ? "jpg" : ext
-                let path = "\(userId)/\(Int(Date().timeIntervalSince1970 * 1000))-\(index)-\(UUID().uuidString).\(safeExt)"
-                try await uploadScanImage(
-                    imageData: image.data,
-                    path: path,
-                    contentType: image.contentType,
-                    bearerToken: bearerToken
-                )
-                uploadedPaths.append(path)
+            try await withThrowingTaskGroup(of: (Int, String).self) { group in
+                for item in indexedImages {
+                    group.addTask {
+                        try await self.uploadScanImage(
+                            imageData: item.image.data,
+                            path: item.path,
+                            contentType: item.image.contentType,
+                            bearerToken: bearerToken
+                        )
+                        return (item.index, item.path)
+                    }
+                }
+
+                // Wait for all to complete (throws on first failure)
+                for try await _ in group {}
             }
 
-            return uploadedPaths
+            // Return paths in original order
+            return indexedImages.map(\.path)
         } catch {
-            await removeScanImages(paths: uploadedPaths, bearerToken: bearerToken)
+            let allPaths = indexedImages.map(\.path)
+            await removeScanImages(paths: allPaths, bearerToken: bearerToken)
             throw error
         }
     }
