@@ -121,6 +121,10 @@ final class AppState: ObservableObject {
     @Published private(set) var isSessionExpired = false
     @Published private(set) var authErrorMessage: String?
     @Published var signUpErrorMessage: String?
+    @Published private(set) var aiPreference: Bool?
+    @Published private(set) var isLoadingAIPreference = false
+    @Published private(set) var isSavingAIPreference = false
+    @Published private(set) var aiPreferenceErrorMessage: String?
     @Published var dataVersion = 0
     @Published var selectedTab: Int = 0
     @Published var scanBanner: ScanBannerState?
@@ -208,6 +212,10 @@ final class AppState: ObservableObject {
 
     var isPro: Bool {
         subscription?.isActivePro ?? false
+    }
+
+    var isAIEnabled: Bool {
+        aiPreference != false
     }
 
     var activeUserId: String {
@@ -363,6 +371,8 @@ final class AppState: ObservableObject {
         guard session != nil else {
             subscription = nil
             repositoryMode = .guestLocal
+            aiPreference = nil
+            aiPreferenceErrorMessage = nil
             appStoreLaunchSyncUserId = nil
             await scanJobSyncService.stop()
             logger.info("Auth bootstrap: guest local mode")
@@ -375,6 +385,7 @@ final class AppState: ObservableObject {
             repositoryMode = repositoryRouter.mode(for: subscription)
             authErrorMessage = nil
             await scanJobSyncService.start()
+            await refreshUserPreferences()
 
             if let currentSession = session,
                appStoreLaunchSyncUserId != currentSession.userId {
@@ -557,6 +568,62 @@ final class AppState: ObservableObject {
 
     func bumpDataVersion() {
         dataVersion += 1
+    }
+
+    func refreshUserPreferences() async {
+        guard isLoggedIn else {
+            aiPreference = nil
+            aiPreferenceErrorMessage = nil
+            isLoadingAIPreference = false
+            isSavingAIPreference = false
+            return
+        }
+
+        isLoadingAIPreference = true
+        defer { isLoadingAIPreference = false }
+
+        do {
+            let preference = try await performWebAPIRequest { token in
+                try await self.webAPIClient.fetchUserPreferences(bearerToken: token)
+            }
+            // Keep the current toggle choice when backend returns nil (unset/legacy fallback).
+            if let preference {
+                aiPreference = preference
+            } else if aiPreference == nil {
+                aiPreference = nil
+            }
+            aiPreferenceErrorMessage = nil
+        } catch {
+            aiPreferenceErrorMessage = error.localizedDescription
+            logger.error("Failed to fetch user preferences: \(error.localizedDescription)")
+        }
+    }
+
+    func setAIPreference(_ enabled: Bool) async {
+        guard isLoggedIn else {
+            aiPreference = enabled
+            aiPreferenceErrorMessage = nil
+            return
+        }
+        guard !isSavingAIPreference else { return }
+
+        aiPreference = enabled
+        isSavingAIPreference = true
+        defer { isSavingAIPreference = false }
+
+        do {
+            let updated = try await performWebAPIRequest { token in
+                try await self.webAPIClient.updateUserPreferences(
+                    aiEnabled: enabled,
+                    bearerToken: token
+                )
+            }
+            aiPreference = updated ?? enabled
+            aiPreferenceErrorMessage = nil
+        } catch {
+            aiPreferenceErrorMessage = error.localizedDescription
+            logger.error("Failed to update user preferences: \(error.localizedDescription)")
+        }
     }
 
     func registerPendingScanImport(_ context: PendingScanImportContext) {

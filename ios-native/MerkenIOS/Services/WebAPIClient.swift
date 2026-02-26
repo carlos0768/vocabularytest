@@ -321,6 +321,7 @@ private struct ScanJobCreateRequest: Encodable {
     let eikenLevel: String?
     let targetProjectId: String?
     let clientPlatform: String
+    let aiEnabled: Bool?
 }
 
 private struct ScanJobsResponse: Decodable {
@@ -329,6 +330,14 @@ private struct ScanJobsResponse: Decodable {
 
 private struct ScanJobErrorResponse: Decodable {
     let error: String?
+}
+
+private struct UserPreferencesResponse: Decodable {
+    let aiEnabled: Bool?
+}
+
+private struct UserPreferencesUpdateRequest: Encodable {
+    let aiEnabled: Bool
 }
 
 private struct ScanImagesRemoveRequest: Encodable {
@@ -386,7 +395,7 @@ actor WebAPIClient {
         timeout: TimeInterval,
         body: Body
     ) async throws -> (data: Data, http: HTTPURLResponse) {
-        let url = baseURL.appendingPathComponent(path)
+        let url = try makeWebAPIURL(path: path)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -412,6 +421,62 @@ actor WebAPIClient {
         return (data, http)
     }
 
+    private func sendRequest(
+        method: String,
+        path: String,
+        bearerToken: String,
+        timeout: TimeInterval,
+        body: Data? = nil
+    ) async throws -> (data: Data, http: HTTPURLResponse) {
+        let url = try makeWebAPIURL(path: path)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = timeout
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+        }
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch let error as URLError where error.code == .timedOut {
+            throw WebAPIError.networkTimeout
+        } catch {
+            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw WebAPIError.serverError("不明な通信エラー")
+        }
+
+        return (data, http)
+    }
+
+    private func makeWebAPIURL(path: String) throws -> URL {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw WebAPIError.serverError("API URL の生成に失敗しました。")
+        }
+
+        if let absolute = URL(string: trimmed), absolute.scheme != nil {
+            return absolute
+        }
+
+        guard let origin = URL(string: "/", relativeTo: baseURL)?.absoluteURL else {
+            throw WebAPIError.serverError("API URL の生成に失敗しました。")
+        }
+
+        let normalized = trimmed.hasPrefix("/") ? String(trimmed.dropFirst()) : trimmed
+        guard let url = URL(string: normalized, relativeTo: origin)?.absoluteURL else {
+            throw WebAPIError.serverError("API URL の生成に失敗しました。")
+        }
+        return url
+    }
+
     private func makeSupabaseStorageURL(path: String) throws -> URL {
         let raw = "storage/v1/\(path)"
         guard let url = URL(string: raw, relativeTo: supabaseURL)?.absoluteURL else {
@@ -428,9 +493,19 @@ actor WebAPIClient {
         }
         if let message = String(data: data, encoding: .utf8),
            !message.isEmpty {
+            if message.contains("<!DOCTYPE html") || message.contains("<html") {
+                return fallback
+            }
             return message
         }
         return fallback
+    }
+
+    private func isLikelyHTML(_ data: Data) -> Bool {
+        guard let message = String(data: data, encoding: .utf8), !message.isEmpty else {
+            return false
+        }
+        return message.contains("<!DOCTYPE html") || message.contains("<html")
     }
 
     private func makeScanJobsDecoder() -> JSONDecoder {
@@ -445,7 +520,7 @@ actor WebAPIClient {
         eikenLevel: EikenLevel?,
         bearerToken: String
     ) async throws -> [ExtractedWord] {
-        let url = baseURL.appendingPathComponent("api/extract")
+        let url = try makeWebAPIURL(path: "api/extract")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -525,7 +600,7 @@ actor WebAPIClient {
         query: String,
         bearerToken: String
     ) async throws -> [SemanticSearchResult] {
-        let url = baseURL.appendingPathComponent("api/search/semantic")
+        let url = try makeWebAPIURL(path: "api/search/semantic")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -922,25 +997,54 @@ actor WebAPIClient {
         scanMode: ScanMode,
         eikenLevel: EikenLevel?,
         targetProjectId: String?,
+        aiEnabled: Bool?,
         clientPlatform: String = "ios",
         bearerToken: String
     ) async throws -> ScanJobCreateResponse {
-        let body = ScanJobCreateRequest(
+        let bodyWithPreference = ScanJobCreateRequest(
             imagePaths: imagePaths,
             projectTitle: projectTitle,
             projectIcon: projectIcon,
             scanMode: scanMode.rawValue,
             eikenLevel: scanMode == .eiken ? eikenLevel?.rawValue : nil,
             targetProjectId: targetProjectId,
-            clientPlatform: clientPlatform
+            clientPlatform: clientPlatform,
+            aiEnabled: aiEnabled
         )
 
-        let (data, http) = try await sendJSONRequest(
-            path: "api/scan-jobs/create",
-            bearerToken: bearerToken,
-            timeout: 60,
-            body: body
-        )
+        func sendCreateRequest(_ body: ScanJobCreateRequest) async throws -> (Data, HTTPURLResponse) {
+            try await sendJSONRequest(
+                path: "api/scan-jobs/create",
+                bearerToken: bearerToken,
+                timeout: 60,
+                body: body
+            )
+        }
+
+        var (data, http) = try await sendCreateRequest(bodyWithPreference)
+
+        // Backward compatibility: older backend schemas may reject unknown "aiEnabled".
+        if http.statusCode == 400, aiEnabled != nil {
+            let message = decodeErrorMessage(from: data, fallback: "")
+            let shouldRetryWithoutPreference =
+                message == "Missing required fields"
+                || message.contains("required fields")
+                || message.contains("Invalid request body")
+            if shouldRetryWithoutPreference {
+                logger.warning("scan-jobs/create rejected aiEnabled field; retrying without aiEnabled for compatibility.")
+                let fallbackBody = ScanJobCreateRequest(
+                    imagePaths: imagePaths,
+                    projectTitle: projectTitle,
+                    projectIcon: projectIcon,
+                    scanMode: scanMode.rawValue,
+                    eikenLevel: scanMode == .eiken ? eikenLevel?.rawValue : nil,
+                    targetProjectId: targetProjectId,
+                    clientPlatform: clientPlatform,
+                    aiEnabled: nil
+                )
+                (data, http) = try await sendCreateRequest(fallbackBody)
+            }
+        }
 
         switch http.statusCode {
         case 200 ... 299:
@@ -971,8 +1075,85 @@ actor WebAPIClient {
         }
     }
 
+    func fetchUserPreferences(bearerToken: String) async throws -> Bool? {
+        let (data, http) = try await sendRequest(
+            method: "GET",
+            path: "api/user-preferences",
+            bearerToken: bearerToken,
+            timeout: 15
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            if isLikelyHTML(data) {
+                // Fallback for environments where the endpoint is not deployed yet.
+                return nil
+            }
+            break
+        case 404, 405:
+            // Backward compatibility when running against an older backend.
+            return nil
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "設定の取得に失敗しました。")
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(UserPreferencesResponse.self, from: data).aiEnabled
+        } catch {
+            logger.error("User preferences decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func updateUserPreferences(
+        aiEnabled: Bool,
+        bearerToken: String
+    ) async throws -> Bool? {
+        let requestBody = try JSONEncoder().encode(UserPreferencesUpdateRequest(aiEnabled: aiEnabled))
+        let (data, http) = try await sendRequest(
+            method: "PUT",
+            path: "api/user-preferences",
+            bearerToken: bearerToken,
+            timeout: 15,
+            body: requestBody
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            if isLikelyHTML(data) {
+                // Fallback for environments where the endpoint is not deployed yet.
+                return nil
+            }
+            break
+        case 404, 405:
+            // Backward compatibility when running against an older backend.
+            return nil
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 400:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "設定の更新リクエストが不正です。")
+            )
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "設定の更新に失敗しました。")
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(UserPreferencesResponse.self, from: data).aiEnabled
+        } catch {
+            logger.error("User preferences update decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
     func fetchScanJobs(bearerToken: String) async throws -> [ScanJobDTO] {
-        let url = baseURL.appendingPathComponent("api/scan-jobs")
+        let url = try makeWebAPIURL(path: "api/scan-jobs")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -1014,7 +1195,7 @@ actor WebAPIClient {
     }
 
     func acknowledgeScanJob(jobId: String, bearerToken: String) async throws {
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/scan-jobs"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(url: try makeWebAPIURL(path: "api/scan-jobs"), resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "jobId", value: jobId)]
         guard let url = components?.url else {
             throw WebAPIError.serverError("ジョブ確認URLの生成に失敗しました。")
@@ -1102,7 +1283,7 @@ actor WebAPIClient {
         _ token: String,
         bearerToken: String
     ) async throws {
-        let url = baseURL.appendingPathComponent("/api/notifications/ios-device-token")
+        let url = try makeWebAPIURL(path: "api/notifications/ios-device-token")
 
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"

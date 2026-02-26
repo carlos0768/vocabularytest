@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell, Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
@@ -66,6 +67,7 @@ export default function WordInsightsPage() {
   const params = useParams();
   const projectId = params.id as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -87,7 +89,11 @@ export default function WordInsightsPage() {
 
   // ── Load data ──
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || userPreferencesLoading) return;
+    if (aiEnabled === false) {
+      setLoading(false);
+      return;
+    }
     const load = async () => {
       try {
         const userId = user ? user.id : getGuestUserId();
@@ -104,7 +110,7 @@ export default function WordInsightsPage() {
       } catch { router.push('/'); } finally { setLoading(false); }
     };
     void load();
-  }, [authLoading, projectId, repository, router, user]);
+  }, [authLoading, userPreferencesLoading, aiEnabled, projectId, repository, router, user]);
 
   // ── Ensure index valid ──
   useEffect(() => {
@@ -200,11 +206,40 @@ export default function WordInsightsPage() {
 
   // ═══ Render ═══
 
-  if (loading || authLoading) {
+  if (loading || authLoading || userPreferencesLoading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (aiEnabled === false) {
+    return (
+      <AppShell>
+        <div className="max-w-lg mx-auto px-4 py-8 space-y-4">
+          <Link
+            href={`/project/${projectId}`}
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+          >
+            <Icon name="arrow_back" size={18} />
+            単語帳へ戻る
+          </Link>
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
+            <Icon name="toggle_off" size={32} className="text-[var(--color-muted)] mx-auto mb-3" />
+            <p className="font-semibold text-[var(--color-foreground)]">単語解説は現在OFFです</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">
+              設定の「単語帳生成設定」でAI機能をONにすると利用できます。
+            </p>
+            <Link
+              href="/settings"
+              className="inline-flex mt-4 px-4 py-2.5 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold"
+            >
+              設定を開く
+            </Link>
+          </div>
         </div>
       </AppShell>
     );

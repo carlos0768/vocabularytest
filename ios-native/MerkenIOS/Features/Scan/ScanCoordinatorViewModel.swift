@@ -375,6 +375,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                         scanMode: self.selectedMode,
                         eikenLevel: self.selectedEikenLevel,
                         targetProjectId: self.targetProjectId,
+                        aiEnabled: appState.aiPreference,
                         clientPlatform: "ios",
                         bearerToken: token
                     )
@@ -1004,6 +1005,10 @@ final class ScanCoordinatorViewModel: ObservableObject {
             // Run prefill operations in the background (fire-and-forget)
             Task { [weak self] in
                 guard let self else { return }
+                guard appState.isAIEnabled else {
+                    self.endBackgroundTask()
+                    return
+                }
                 let token = try? await appState.accessTokenForWebAPI(forceRefresh: false)
                 let quizReadyWords = await self.prefillQuizData(
                     createdWords: createdWords,

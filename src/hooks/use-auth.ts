@@ -9,6 +9,7 @@ import { invalidateStatsCache } from '@/lib/stats-cache';
 import { clearHomeCache } from '@/lib/home-cache';
 import { clearAllUserStats } from '@/lib/utils';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
+import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-offline';
 
 interface AuthState {
   user: User | null;
@@ -438,6 +439,11 @@ export function useAuth() {
               console.error('[Auth] Sync queue processing failed:', error);
             });
           }
+
+          // Warm offline cache for recently visited projects.
+          prefetchRecentProjectsForOffline(result.user.id).catch((error) => {
+            console.error('[Auth] Recent project offline prefetch failed:', error);
+          });
         }
       }
     } catch (error) {

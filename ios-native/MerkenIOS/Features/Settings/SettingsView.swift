@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var isRestoring = false
     @State private var purchaseErrorMessage: String?
     @State private var purchaseSuccessMessage: String?
+    @State private var localAIEnabled = true
 
     var body: some View {
         ZStack {
@@ -41,6 +42,7 @@ struct SettingsView: View {
                             accountCard
 
                             displaySection
+                            vocabularyGenerationSection
                             planSection
                             supportSection
                             signOutButton
@@ -104,6 +106,15 @@ struct SettingsView: View {
         }
         .navigationDestination(isPresented: $showingPrivacy) {
             PrivacyView()
+        }
+        .task(id: appState.isLoggedIn) {
+            localAIEnabled = appState.isAIEnabled
+            guard appState.isLoggedIn else { return }
+            await appState.refreshUserPreferences()
+            localAIEnabled = appState.isAIEnabled
+        }
+        .onChange(of: appState.isAIEnabled) { _ in
+            localAIEnabled = appState.isAIEnabled
         }
     }
 
@@ -187,6 +198,47 @@ struct SettingsView: View {
     }
 
     // MARK: - 3. Plan Section
+
+    private var vocabularyGenerationSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("単語帳生成設定")
+
+            SolidCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle(isOn: Binding(
+                        get: { localAIEnabled },
+                        set: { newValue in
+                            localAIEnabled = newValue
+                            Task {
+                                await appState.setAIPreference(newValue)
+                            }
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("AI機能を使う")
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            Text("OFFにすると4択クイズ・単語解説を非表示にします")
+                                .font(.caption)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                    }
+                    .disabled(!appState.isLoggedIn || appState.isLoadingAIPreference || appState.isSavingAIPreference)
+
+                    if appState.isLoadingAIPreference || appState.isSavingAIPreference {
+                        ProgressView(appState.isSavingAIPreference ? "保存中..." : "読み込み中...")
+                            .tint(MerkenTheme.accentBlue)
+                    }
+
+                    if let preferenceError = appState.aiPreferenceErrorMessage, !preferenceError.isEmpty {
+                        Text(preferenceError)
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.warning)
+                    }
+                }
+            }
+        }
+    }
 
     private var planSection: some View {
         VStack(alignment: .leading, spacing: 10) {

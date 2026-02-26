@@ -202,7 +202,7 @@ struct WordListView: View {
                         .font(.subheadline)
                         .foregroundStyle(MerkenTheme.secondaryText)
 
-                    if appState.isPro {
+                    if appState.isPro && appState.isAIEnabled {
                         if let relatedWords = word.relatedWords, !relatedWords.isEmpty {
                             Text("関連語: \(relatedWords.prefix(3).map(\.term).joined(separator: ", "))")
                                 .font(.caption2)
@@ -215,7 +215,7 @@ struct WordListView: View {
                                 .foregroundStyle(MerkenTheme.mutedText)
                                 .lineLimit(1)
                         }
-                    } else {
+                    } else if !appState.isPro {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
                                 .font(.caption2)

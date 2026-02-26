@@ -18,6 +18,7 @@ final class QuizViewModel: ObservableObject {
 
     // Setup screen
     @Published private(set) var sourceWordCount = 0
+    @Published private(set) var hasPreparedQuizContent = false
     @Published var selectedQuestionCount = 10
     @Published private(set) var questionLimitOptions: [Int] = [10]
 
@@ -51,10 +52,12 @@ final class QuizViewModel: ObservableObject {
     }
 
     func setSourceWords(_ words: [Word]) {
-        sourceWords = words
-        sourceWordCount = words.count
+        let prioritized = QuizEngine.sortByStudyPriority(words)
+        sourceWords = prioritized
+        sourceWordCount = prioritized.count
+        hasPreparedQuizContent = prioritized.contains { $0.distractors.count >= 3 }
         if selectedQuestionCount > words.count {
-            selectedQuestionCount = max(1, words.count)
+            selectedQuestionCount = max(1, prioritized.count)
         }
         recomputeLimitOptions()
         errorMessage = nil

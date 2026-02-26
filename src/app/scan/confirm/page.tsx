@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getRepository } from '@/lib/db';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
@@ -78,30 +79,35 @@ function getInitialData(): {
   projectName: string | null;
   projectIcon: string | null;
   existingProjectId: string | null;
+  scanAiEnabled: boolean | null;
 } {
   if (typeof window === 'undefined') {
-    return { words: null, projectName: null, projectIcon: null, existingProjectId: null };
+    return { words: null, projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
   }
   try {
     const stored = sessionStorage.getItem('scanvocab_extracted_words');
     const projectName = sessionStorage.getItem('scanvocab_project_name');
     const projectIcon = sessionStorage.getItem('scanvocab_project_icon');
     const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
+    const aiEnabledRaw = sessionStorage.getItem('scanvocab_ai_enabled');
+    const scanAiEnabled =
+      aiEnabledRaw === '1' ? true : aiEnabledRaw === '0' ? false : null;
 
     if (stored) {
       const words = JSON.parse(stored) as AIWordExtraction[];
-      return { words, projectName, projectIcon, existingProjectId };
+      return { words, projectName, projectIcon, existingProjectId, scanAiEnabled };
     }
   } catch {
     // Parse error - will redirect
   }
-  return { words: null, projectName: null, projectIcon: null, existingProjectId: null };
+  return { words: null, projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
 }
 
 export default function ConfirmPage() {
   const router = useRouter();
   const { count: currentWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
   const { isPro, subscription, user } = useAuth();
+  const { aiEnabled: accountAiEnabled } = useUserPreferences();
   const { showToast } = useToast();
 
   // Initialize state synchronously with sessionStorage data
@@ -130,6 +136,7 @@ export default function ConfirmPage() {
 
   const [existingProjectId, setExistingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
+  const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
 
   // Check if adding these words would exceed limit
   const { wouldExceed, excessCount, availableSlots } = canAddWords(words.filter(w => w.isSelected).length);
@@ -531,8 +538,9 @@ export default function ConfirmPage() {
         }))
       );
 
-      // Pre-generate quiz distractors and examples at scan-time.
-      const quizReadyWords = await prefillQuizData(createdWords, repository.updateWord.bind(repository));
+      const quizReadyWords = aiEnabledForGeneration
+        ? await prefillQuizData(createdWords, repository.updateWord.bind(repository))
+        : createdWords;
 
       // Pro users: pre-generate sentence quiz questions so the first launch is instant.
       await preGenerateSentenceQuiz(targetProjectId, quizReadyWords);
@@ -541,13 +549,16 @@ export default function ConfirmPage() {
       await prefillQuiz2Data(quizReadyWords);
 
       // Pro users: generate related words / usage patterns in the background.
-      void prefillWordInsights(quizReadyWords, repository.updateWord.bind(repository));
+      if (aiEnabledForGeneration) {
+        void prefillWordInsights(quizReadyWords, repository.updateWord.bind(repository));
+      }
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
       sessionStorage.removeItem('scanvocab_project_name');
       sessionStorage.removeItem('scanvocab_project_icon');
       sessionStorage.removeItem('scanvocab_existing_project_id');
+      sessionStorage.removeItem('scanvocab_ai_enabled');
 
       // Refresh word count
       refreshWordCount();

@@ -98,7 +98,8 @@ private struct ScanBannerView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        let baseContent = HStack(alignment: .top, spacing: 12) {
             Image(systemName: iconName)
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(accentColor)
@@ -121,12 +122,17 @@ private struct ScanBannerView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(accentColor.opacity(0.20)))
+        Group {
+            if #available(iOS 26.0, *) {
+                baseContent.glassEffect(.regular.tint(accentColor.opacity(0.20)))
+            } else {
+                baseContent.background(.ultraThinMaterial, in: shape)
+            }
+        }
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(accentColor.opacity(0.35), lineWidth: 1)
+            shape.stroke(accentColor.opacity(0.35), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(shape)
         .shadow(color: Color.black.opacity(0.20), radius: 12, x: 0, y: 6)
     }
 }

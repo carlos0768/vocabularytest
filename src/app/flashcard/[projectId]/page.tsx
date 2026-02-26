@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
+import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
@@ -246,7 +247,7 @@ export default function FlashcardPage() {
           }
         }
 
-        setWords(shuffleArray(wordsData));
+        setWords(sortWordsByPriority(wordsData));
         hasLoadedRef.current = true;
       } catch (error) {
         console.error('Failed to load words:', error);
@@ -281,7 +282,7 @@ export default function FlashcardPage() {
           const updated = prev.map(w => remoteMap.get(w.id) ?? w);
           // Append new words not in local
           const newWords = remoteWords.filter(w => !existingIds.has(w.id));
-          return [...updated, ...shuffleArray(newWords)];
+          return sortWordsByPriority([...updated, ...newWords]);
         });
       } catch {
         // Silent fail - local data is already displayed

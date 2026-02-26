@@ -65,7 +65,7 @@ final class ProjectDetailViewModel: ObservableObject {
             state.bumpDataVersion()
             errorMessage = nil
 
-            if state.isPro, !created.isEmpty {
+            if state.isPro, state.isAIEnabled, !created.isEmpty {
                 Task { [weak self] in
                     guard let self else { return }
                     await self.generateWordInsights(for: created, force: false, using: state)
@@ -113,6 +113,7 @@ final class ProjectDetailViewModel: ObservableObject {
             errorMessage = nil
 
             if state.isPro,
+               state.isAIEnabled,
                englishChanged,
                let word = words.first(where: { $0.id == wordId }) {
                 Task { [weak self] in
@@ -238,6 +239,7 @@ final class ProjectDetailViewModel: ObservableObject {
 
     private func generateWordInsights(for words: [Word], force: Bool, using state: AppState) async {
         guard state.isPro else { return }
+        guard state.isAIEnabled else { return }
         guard !words.isEmpty else { return }
 
         do {

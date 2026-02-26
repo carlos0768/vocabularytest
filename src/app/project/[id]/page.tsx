@@ -10,6 +10,7 @@ import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { VocabularyTab } from '@/components/project/VocabularyTab';
 import { StudyModeCard, WordList } from '@/components/home';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
@@ -17,6 +18,7 @@ import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { markProjectVisited } from '@/lib/project-visit';
+import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
@@ -58,6 +60,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { aiEnabled } = useUserPreferences();
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
 
@@ -237,8 +240,13 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (project?.id) {
       markProjectVisited(project.id);
+      if (user?.id) {
+        cacheProjectForOffline(user.id, project.id).catch((error) => {
+          console.error('Failed to cache recent project for offline use:', error);
+        });
+      }
     }
-  }, [project?.id]);
+  }, [project?.id, user?.id]);
 
   // Scan-to-add handlers
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
@@ -473,7 +481,7 @@ export default function ProjectDetailPage() {
         : w
     )));
 
-    if (japaneseChanged) {
+    if (japaneseChanged && canUseAiFeatures) {
       try {
         const response = await fetch('/api/regenerate-distractors', {
           method: 'POST',
@@ -495,7 +503,7 @@ export default function ProjectDetailPage() {
       }
     }
 
-    if (englishChanged && isPro) {
+    if (englishChanged && isPro && canUseAiFeatures) {
       void (async () => {
         try {
           const headers = await getAuthHeaders();
@@ -578,7 +586,7 @@ export default function ProjectDetailPage() {
       invalidateHomeCache();
       refreshWordCount();
 
-      if (isPro && created.length > 0) {
+      if (isPro && canUseAiFeatures && created.length > 0) {
         void (async () => {
           try {
             const headers = await getAuthHeaders();
@@ -738,6 +746,7 @@ export default function ProjectDetailPage() {
   }, [words]);
 
   const returnPath = project ? encodeURIComponent(`/project/${project.id}`) : '';
+  const canUseAiFeatures = aiEnabled !== false;
 
   if (loading) {
     return (
@@ -868,16 +877,18 @@ export default function ProjectDetailPage() {
             <section className="space-y-3">
               <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">学習モード</h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StudyModeCard
-                  title="クイズ"
-                  description="4択で確認"
-                  icon="quiz"
-                  href={`/quiz/${project.id}?from=${returnPath}`}
-                  variant="primary"
-                  disabled={words.length === 0}
-                  layout="vertical"
-                  styleMode="home"
-                />
+                {canUseAiFeatures && (
+                  <StudyModeCard
+                    title="クイズ"
+                    description="4択で確認"
+                    icon="quiz"
+                    href={`/quiz/${project.id}?from=${returnPath}`}
+                    variant="primary"
+                    disabled={words.length === 0}
+                    layout="vertical"
+                    styleMode="home"
+                  />
+                )}
                 <StudyModeCard
                   title="クイズ２"
                   description="思い出して評価"
@@ -900,17 +911,19 @@ export default function ProjectDetailPage() {
                   layout="vertical"
                   styleMode="home"
                 />
-                <StudyModeCard
-                  title="単語解説"
-                  description="関連語と語法"
-                  icon="menu_book"
-                  href={isPro ? `/project/${project.id}/insights` : '/subscription'}
-                  variant="orange"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
+                {canUseAiFeatures && (
+                  <StudyModeCard
+                    title="単語解説"
+                    description="関連語と語法"
+                    icon="menu_book"
+                    href={isPro ? `/project/${project.id}/insights` : '/subscription'}
+                    variant="orange"
+                    disabled={words.length === 0}
+                    badge={!isPro ? 'Pro' : undefined}
+                    layout="vertical"
+                    styleMode="home"
+                  />
+                )}
               </div>
             </section>
           )}

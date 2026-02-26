@@ -145,3 +145,42 @@ export function getWordsDueForReview(words: Word[]): Word[] {
 export function getReviewCount(words: Word[]): number {
   return getWordsDueForReview(words).length;
 }
+
+const STATUS_PRIORITY: Record<Word['status'], number> = {
+  new: 0,
+  review: 1,
+  mastered: 2,
+};
+
+function getReviewBucket(word: Word, nowMs: number): number {
+  if (!word.nextReviewAt) return 1;
+  const nextMs = Date.parse(word.nextReviewAt);
+  if (Number.isNaN(nextMs)) return 1;
+  return nextMs <= nowMs ? 0 : 2;
+}
+
+/**
+ * Compare words by study priority.
+ * Lower return value means higher priority.
+ */
+export function compareWordsByPriority(a: Word, b: Word, now: Date = new Date()): number {
+  const nowMs = now.getTime();
+
+  const reviewBucketDiff = getReviewBucket(a, nowMs) - getReviewBucket(b, nowMs);
+  if (reviewBucketDiff !== 0) return reviewBucketDiff;
+
+  const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+  if (statusDiff !== 0) return statusDiff;
+
+  const createdDiff = Date.parse(a.createdAt) - Date.parse(b.createdAt);
+  if (!Number.isNaN(createdDiff) && createdDiff !== 0) return createdDiff;
+
+  return a.id.localeCompare(b.id);
+}
+
+/**
+ * Returns a new array sorted by study priority.
+ */
+export function sortWordsByPriority(words: Word[], now: Date = new Date()): Word[] {
+  return [...words].sort((a, b) => compareWordsByPriority(a, b, now));
+}

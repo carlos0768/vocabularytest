@@ -79,7 +79,7 @@ final class Quiz2ViewModel: ObservableObject {
         stage = .loading
         do {
             let fetched = try await state.activeRepository.fetchWords(projectId: projectId)
-            words = fetched.shuffled()
+            words = QuizEngine.sortByStudyPriority(fetched)
             currentIndex = 0
             showAnswer = false
             selectedGrade = nil
@@ -97,7 +97,7 @@ final class Quiz2ViewModel: ObservableObject {
     }
 
     func setSourceWords(_ words: [Word]) {
-        self.words = words.shuffled()
+        self.words = QuizEngine.sortByStudyPriority(words)
         currentIndex = 0
         showAnswer = false
         selectedGrade = nil
@@ -131,6 +131,29 @@ final class Quiz2ViewModel: ObservableObject {
                 if !error.isCancellationError {
                     logger.error("Quiz2 grade persist failed: \(error.localizedDescription)")
                 }
+            }
+
+            if self.words.indices.contains(self.currentIndex) {
+                var updated = self.words[self.currentIndex]
+                if let status = patch.status {
+                    updated.status = status
+                }
+                if let lastReviewedAt = patch.lastReviewedAt {
+                    updated.lastReviewedAt = lastReviewedAt
+                }
+                if let nextReviewAt = patch.nextReviewAt {
+                    updated.nextReviewAt = nextReviewAt
+                }
+                if let easeFactor = patch.easeFactor {
+                    updated.easeFactor = easeFactor
+                }
+                if let intervalDays = patch.intervalDays {
+                    updated.intervalDays = intervalDays
+                }
+                if let repetition = patch.repetition {
+                    updated.repetition = repetition
+                }
+                self.words[self.currentIndex] = updated
             }
 
             gradeCounts[grade, default: 0] += 1

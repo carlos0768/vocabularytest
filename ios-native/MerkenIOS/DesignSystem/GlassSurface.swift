@@ -122,6 +122,15 @@ extension View {
         modifier(SolidTextField(cornerRadius: cornerRadius))
     }
 
+    @ViewBuilder
+    func disableTopScrollEdgeEffectIfAvailable() -> some View {
+        if #available(iOS 26.0, *) {
+            self.scrollEdgeEffectStyle(.none, for: .top)
+        } else {
+            self
+        }
+    }
+
     /// Web版の sticky header スタイル: 半透明背景 + 下辺ボーダー
     func stickyHeaderStyle() -> some View {
         self

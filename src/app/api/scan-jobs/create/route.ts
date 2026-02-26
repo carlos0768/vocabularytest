@@ -28,6 +28,7 @@ const requestSchema = z.object({
   eikenLevel: z.string().trim().max(100).nullable().optional(),
   imagePath: z.string().trim().min(1).max(500).optional(),
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
+  aiEnabled: z.boolean().nullable().optional(),
   targetProjectId: z.string().uuid().optional(),
   clientPlatform: z.enum(['ios', 'web']).optional().default('web'),
 }).strict().superRefine((value, ctx) => {

@@ -7,6 +7,7 @@ import { Icon, Button, AppShell } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { KOMOJU_CONFIG } from '@/lib/komoju/config';
 import { FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 
@@ -17,6 +18,13 @@ export default function SettingsPage() {
   const { user, subscription, isPro, signOut, refresh, loading: authLoading, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
   const { count: wordCount, loading: wordCountLoading } = useWordCount();
+  const {
+    aiEnabled,
+    loading: userPreferencesLoading,
+    saving: userPreferencesSaving,
+    error: userPreferencesError,
+    setAiEnabled,
+  } = useUserPreferences();
   const hasCancellationScheduled = !!subscription?.cancelAtPeriodEnd;
   const isBillingPro = isPro && subscription?.proSource === 'billing';
   const isAppStorePro = isPro && subscription?.proSource === 'appstore';
@@ -156,6 +164,67 @@ export default function SettingsPage() {
               </div>
             </div>
 
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
+            単語帳生成設定
+          </h2>
+          <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 space-y-3">
+            {isAuthenticated ? (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-[var(--color-foreground)]">AI機能</p>
+                    <p className="text-sm text-[var(--color-muted)] mt-1">
+                      OFFにすると、4択クイズと単語解説の生成・表示を停止します。
+                    </p>
+                  </div>
+                  {(userPreferencesLoading || userPreferencesSaving) && (
+                    <div className="w-5 h-5 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 bg-[var(--color-background)] rounded-full p-1 border border-[var(--color-border)]">
+                  <button
+                    onClick={() => setAiEnabled(true)}
+                    disabled={userPreferencesLoading || userPreferencesSaving}
+                    className={`flex-1 px-3 py-2 text-sm rounded-full transition-all ${
+                      aiEnabled === true
+                        ? 'bg-[var(--color-primary)] text-white font-medium'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                    }`}
+                  >
+                    ON
+                  </button>
+                  <button
+                    onClick={() => setAiEnabled(false)}
+                    disabled={userPreferencesLoading || userPreferencesSaving}
+                    className={`flex-1 px-3 py-2 text-sm rounded-full transition-all ${
+                      aiEnabled === false
+                        ? 'bg-[var(--color-primary)] text-white font-medium'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                    }`}
+                  >
+                    OFF
+                  </button>
+                </div>
+
+                {userPreferencesError && (
+                  <p className="text-xs text-[var(--color-error)]">{userPreferencesError}</p>
+                )}
+                {aiEnabled === null && !userPreferencesLoading && (
+                  <p className="text-xs text-[var(--color-muted)]">
+                    まだ未設定です。最初のスキャン時にも確認できます。
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-[var(--color-muted)]">
+                ログインすると、AI機能の利用設定をアカウント単位で保存できます。
+              </p>
+            )}
           </div>
         </section>
 

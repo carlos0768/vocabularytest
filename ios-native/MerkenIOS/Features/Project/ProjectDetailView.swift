@@ -72,7 +72,7 @@ struct ProjectDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.none, for: .top)
+            .disableTopScrollEdgeEffectIfAvailable()
             .contentMargins(.top, 0, for: .scrollContent)
             .refreshable {
                 await viewModel.load(projectId: project.id, using: appState)
@@ -395,7 +395,10 @@ struct ProjectDetailView: View {
     // MARK: - Learning Modes (2-column grid)
 
     private var learningModesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let aiEnabled = appState.isAIEnabled
+        let hasPreparedQuizData = viewModel.words.contains { $0.distractors.count >= 3 }
+
+        return VStack(alignment: .leading, spacing: 10) {
             Text("学習モード")
                 .font(.headline)
                 .foregroundStyle(MerkenTheme.primaryText)
@@ -405,15 +408,6 @@ struct ProjectDetailView: View {
                 GridItem(.flexible(), spacing: 12)
             ]
             LazyVGrid(columns: columns, spacing: 12) {
-                learningModeCard(
-                    icon: "questionmark.square.fill",
-                    iconColor: MerkenTheme.accentBlue,
-                    title: "クイズ",
-                    subtitle: "4択で確認"
-                ) {
-                    showingQuiz = project.id
-                }
-
                 learningModeCard(
                     icon: "scope",
                     iconColor: MerkenTheme.success,
@@ -432,13 +426,24 @@ struct ProjectDetailView: View {
                     flashcardDestination = project
                 }
 
-                learningModeCard(
-                    icon: "text.book.closed.fill",
-                    iconColor: MerkenTheme.accentBlue,
-                    title: "単語解説",
-                    subtitle: "関連語と語法"
-                ) {
-                    showingWordList = true
+                if aiEnabled || hasPreparedQuizData {
+                    learningModeCard(
+                        icon: "questionmark.square.fill",
+                        iconColor: MerkenTheme.accentBlue,
+                        title: "クイズ",
+                        subtitle: "4択で確認"
+                    ) {
+                        showingQuiz = project.id
+                    }
+
+                    learningModeCard(
+                        icon: "text.book.closed.fill",
+                        iconColor: MerkenTheme.accentBlue,
+                        title: "単語解説",
+                        subtitle: "関連語と語法"
+                    ) {
+                        showingWordList = true
+                    }
                 }
             }
         }

@@ -13,11 +13,11 @@ import { findLocalSimilarWords } from '@/lib/similarity/local-similar-words';
 import { calculateNextReviewByQuality } from '@/lib/spaced-repetition';
 import {
   getGuestUserId,
-  shuffleArray,
   recordActivity,
   recordCorrectAnswer,
   recordWrongAnswer,
 } from '@/lib/utils';
+import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import type { SubscriptionStatus, Word, WordStatus } from '@/types';
 
 type Quiz2Grade = 'again' | 'hard' | 'good' | 'easy';
@@ -285,8 +285,8 @@ export default function Quiz2Page() {
         }
         if (isFrozenByTabLeaveRef.current) return;
 
-        const shuffledWords = shuffleArray(sourceWords);
-        setWords(shuffledWords);
+        const prioritizedWords = sortWordsByPriority(sourceWords);
+        setWords(prioritizedWords);
         setCurrentIndex(0);
         setShowAnswer(false);
         setSimilarByWordId({});
@@ -299,19 +299,19 @@ export default function Quiz2Page() {
         setLoading(false);
 
         const allWords = await loadAllUserWords();
-        const userWordPool = allWords.length > 0 ? allWords : shuffledWords;
+        const userWordPool = allWords.length > 0 ? allWords : prioritizedWords;
         if (isFrozenByTabLeaveRef.current) return;
 
         let batchSimilar: Record<string, SimilarWordItem[]> = {};
         try {
-          batchSimilar = await fetchSimilarBatch(shuffledWords.map((word) => word.id));
+          batchSimilar = await fetchSimilarBatch(prioritizedWords.map((word) => word.id));
         } catch (error) {
           console.error('Failed to fetch similar words batch:', error);
         }
         if (isFrozenByTabLeaveRef.current) return;
 
         const mergedSimilarByWordId: Record<string, SimilarWordItem[]> = {};
-        for (const sourceWord of shuffledWords) {
+        for (const sourceWord of prioritizedWords) {
           const vectorResults = batchSimilar[sourceWord.id] || [];
           const neededCount = Math.max(0, 3 - vectorResults.length);
           const localResults = neededCount > 0
@@ -436,7 +436,7 @@ export default function Quiz2Page() {
 
   const handleRestart = useCallback(() => {
     if (words.length === 0 || isFrozenByTabLeaveRef.current) return;
-    setWords(shuffleArray([...words]));
+    setWords(sortWordsByPriority(words));
     setCurrentIndex(0);
     setShowAnswer(false);
     setSelectedGrade(null);

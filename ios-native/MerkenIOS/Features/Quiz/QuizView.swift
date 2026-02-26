@@ -16,17 +16,31 @@ struct QuizView: View {
         self.skipSetup = skipSetup
     }
 
+    private var canAccessQuizWhenAIOff: Bool {
+        if appState.isAIEnabled {
+            return true
+        }
+        if let preloadedWords {
+            return preloadedWords.contains { $0.distractors.count >= 3 }
+        }
+        return viewModel.hasPreparedQuizContent
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
 
-            switch viewModel.stage {
-            case .setup:
-                setupView
-            case .playing:
-                playView
-            case .completed:
-                resultView
+            if !canAccessQuizWhenAIOff {
+                aiDisabledView
+            } else {
+                switch viewModel.stage {
+                case .setup:
+                    setupView
+                case .playing:
+                    playView
+                case .completed:
+                    resultView
+                }
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -35,10 +49,14 @@ struct QuizView: View {
         .task(id: project.id) {
             if let preloadedWords, !preloadedWords.isEmpty {
                 viewModel.setSourceWords(preloadedWords)
-                viewModel.startQuiz()
+                if canAccessQuizWhenAIOff {
+                    viewModel.startQuiz()
+                }
             } else {
                 await viewModel.load(projectId: project.id, using: appState)
-                viewModel.startQuiz()
+                if canAccessQuizWhenAIOff {
+                    viewModel.startQuiz()
+                }
             }
         }
         .onDisappear {
@@ -46,6 +64,30 @@ struct QuizView: View {
                 await viewModel.flushPendingUpdatesIfNeeded(using: appState)
             }
         }
+    }
+
+    private var aiDisabledView: some View {
+        VStack(spacing: 16) {
+            SolidCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("AI機能がOFFです")
+                        .font(.headline.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("4択クイズを利用するには設定でAI機能をONにしてください。")
+                        .font(.subheadline)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Text("戻る")
+            }
+            .buttonStyle(PrimaryGlassButton())
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: - Setup

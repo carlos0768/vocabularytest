@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useWordCount } from '@/hooks/use-word-count';
 import { ProgressSteps, type ProgressStep, useToast, Icon, AppShell } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
@@ -26,6 +27,12 @@ function ScanPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
   const { isPro, isAuthenticated } = useAuth();
+  const {
+    aiEnabled,
+    loading: userPreferencesLoading,
+    saving: userPreferencesSaving,
+    setAiEnabled: saveAiEnabledPreference,
+  } = useUserPreferences();
   const { isAtLimit } = useWordCount();
   const { showToast } = useToast();
 
@@ -49,6 +56,8 @@ function ScanPageContent() {
   const [projectIconError, setProjectIconError] = useState<string | null>(null);
   const [projectIconProcessing, setProjectIconProcessing] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingAiConsentFiles, setPendingAiConsentFiles] = useState<File[]>([]);
+  const [showAiConsentModal, setShowAiConsentModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const projectIconInputRef = useRef<HTMLInputElement>(null);
 
@@ -138,7 +147,7 @@ function ScanPageContent() {
 
   // Background upload for Pro users - Direct to Supabase Storage
   // Uploads ALL images first, then creates a single scan job with all image paths
-  const handleBackgroundUpload = useCallback(async (files: File[], name: string, iconImage?: string) => {
+  const handleBackgroundUpload = useCallback(async (files: File[], name: string, iconImage?: string, aiPreference?: boolean) => {
     setUploading(true);
 
     try {
@@ -197,6 +206,7 @@ function ScanPageContent() {
           projectIcon: iconImage ?? null,
           scanMode: selectedMode,
           eikenLevel: selectedMode === 'eiken' ? selectedEiken : null,
+          aiEnabled: typeof aiPreference === 'boolean' ? aiPreference : null,
         }),
       });
 
@@ -233,7 +243,27 @@ function ScanPageContent() {
     }
   }, [selectedMode, selectedEiken, router, showToast, compressForUpload]);
 
-  const handleMultipleImages = useCallback(async (files: File[]) => {
+  const handleMultipleImages = useCallback(async (files: File[], aiPreferenceOverride?: boolean) => {
+    const effectiveAiPreference =
+      typeof aiPreferenceOverride === 'boolean' ? aiPreferenceOverride : aiEnabled;
+
+    if (userPreferencesLoading && typeof aiPreferenceOverride !== 'boolean') {
+      showToast({
+        message: '設定を読み込み中です。少し待ってから再試行してください。',
+        type: 'warning',
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (effectiveAiPreference === null) {
+      setPendingAiConsentFiles(files);
+      setShowAiConsentModal(true);
+      return;
+    }
+
+    sessionStorage.setItem('scanvocab_ai_enabled', effectiveAiPreference ? '1' : '0');
+
     const requiresPro = ['circled', 'highlighted', 'eiken', 'idiom', 'wrong'].includes(selectedMode);
     if (requiresPro && !isPro) {
       showToast({
@@ -433,7 +463,40 @@ function ScanPageContent() {
         )
       );
     }
-  }, [isPro, isAuthenticated, isAtLimit, projectId, router, showToast, selectedMode, selectedEiken, getImageProfile]);
+  }, [
+    aiEnabled,
+    userPreferencesLoading,
+    isPro,
+    isAuthenticated,
+    isAtLimit,
+    projectId,
+    router,
+    showToast,
+    selectedMode,
+    selectedEiken,
+    getImageProfile,
+  ]);
+
+  const handleAiConsent = useCallback(async (enabled: boolean) => {
+    if (pendingAiConsentFiles.length === 0) {
+      setShowAiConsentModal(false);
+      return;
+    }
+
+    const ok = await saveAiEnabledPreference(enabled);
+    if (!ok) {
+      showToast({
+        message: '設定の保存に失敗しました。通信状態を確認してください。',
+        type: 'error',
+      });
+      return;
+    }
+
+    const filesToScan = [...pendingAiConsentFiles];
+    setShowAiConsentModal(false);
+    setPendingAiConsentFiles([]);
+    await handleMultipleImages(filesToScan, enabled);
+  }, [pendingAiConsentFiles, saveAiEnabledPreference, showToast, handleMultipleImages]);
 
   const handleProjectIconChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -771,7 +834,7 @@ function ScanPageContent() {
                 <button
                   onClick={() => {
                     if (projectName.trim() && pendingFiles.length > 0) {
-                      handleBackgroundUpload(pendingFiles, projectName.trim(), projectIcon ?? undefined);
+                      handleBackgroundUpload(pendingFiles, projectName.trim(), projectIcon ?? undefined, aiEnabled ?? true);
                     }
                   }}
                   disabled={!projectName.trim() || uploading || projectIconProcessing}
@@ -785,6 +848,46 @@ function ScanPageContent() {
                   ) : (
                     'スキャン開始'
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAiConsentModal && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="card p-6 w-full max-w-sm animate-fade-in-up">
+              <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-2">
+                AI機能を使いますか？
+              </h2>
+              <p className="text-sm text-[var(--color-muted)] mb-4">
+                4択クイズと単語解説の自動生成に使います。あとで設定からいつでも変更できます。
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => handleAiConsent(true)}
+                  disabled={userPreferencesSaving}
+                  className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold disabled:opacity-60"
+                >
+                  {userPreferencesSaving ? '保存中...' : '使う'}
+                </button>
+                <button
+                  onClick={() => handleAiConsent(false)}
+                  disabled={userPreferencesSaving}
+                  className="w-full py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] font-semibold hover:bg-[var(--color-border-light)] disabled:opacity-60"
+                >
+                  使わない
+                </button>
+                <button
+                  onClick={() => {
+                    if (userPreferencesSaving) return;
+                    setShowAiConsentModal(false);
+                    setPendingAiConsentFiles([]);
+                  }}
+                  disabled={userPreferencesSaving}
+                  className="w-full py-2 rounded-xl text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                >
+                  キャンセル
                 </button>
               </div>
             </div>

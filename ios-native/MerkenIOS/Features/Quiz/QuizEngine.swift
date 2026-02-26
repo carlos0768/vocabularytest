@@ -2,6 +2,11 @@ import Foundation
 
 enum QuizEngine {
     private static let maxChoiceLength = 96
+    private static let statusPriority: [WordStatus: Int] = [
+        .new: 0,
+        .review: 1,
+        .mastered: 2
+    ]
 
     static func generateQuestions(words: [Word], count: Int) -> [QuizQuestion] {
         guard !words.isEmpty, count > 0 else { return [] }
@@ -9,11 +14,7 @@ enum QuizEngine {
         let normalizedWords = words.filter { !normalizedChoice($0.japanese).isEmpty }
         guard !normalizedWords.isEmpty else { return [] }
 
-        let prioritized = normalizedWords
-            .filter { $0.status != .mastered }
-            .shuffled()
-            + normalizedWords.filter { $0.status == .mastered }.shuffled()
-
+        let prioritized = sortByStudyPriority(normalizedWords)
         let selected = Array(prioritized.prefix(min(count, prioritized.count)))
         let pool = deduplicatedChoices(normalizedWords.map { normalizedChoice($0.japanese) })
 
@@ -179,6 +180,35 @@ enum QuizEngine {
             intervalDays: intervalDays,
             repetition: repetition
         )
+    }
+
+    static func compareByStudyPriority(_ lhs: Word, _ rhs: Word, now: Date = .now) -> Bool {
+        let lhsBucket = reviewBucket(for: lhs, now: now)
+        let rhsBucket = reviewBucket(for: rhs, now: now)
+        if lhsBucket != rhsBucket {
+            return lhsBucket < rhsBucket
+        }
+
+        let lhsStatus = statusPriority[lhs.status] ?? 99
+        let rhsStatus = statusPriority[rhs.status] ?? 99
+        if lhsStatus != rhsStatus {
+            return lhsStatus < rhsStatus
+        }
+
+        if lhs.createdAt != rhs.createdAt {
+            return lhs.createdAt < rhs.createdAt
+        }
+
+        return lhs.id < rhs.id
+    }
+
+    static func sortByStudyPriority(_ words: [Word], now: Date = .now) -> [Word] {
+        words.sorted { compareByStudyPriority($0, $1, now: now) }
+    }
+
+    private static func reviewBucket(for word: Word, now: Date) -> Int {
+        guard let nextReviewAt = word.nextReviewAt else { return 1 }
+        return nextReviewAt <= now ? 0 : 2
     }
 
     private static func normalizedChoice(_ value: String) -> String {

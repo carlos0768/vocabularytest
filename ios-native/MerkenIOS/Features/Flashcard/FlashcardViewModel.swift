@@ -35,11 +35,12 @@ final class FlashcardViewModel: ObservableObject {
     }
 
     func setWords(_ preloaded: [Word]) {
-        words = preloaded
-        wordCount = preloaded.count
+        let prioritized = QuizEngine.sortByStudyPriority(preloaded)
+        words = prioritized
+        wordCount = prioritized.count
         currentIndex = 0
         isFlipped = false
-        stage = preloaded.isEmpty ? .empty : .viewing
+        stage = prioritized.isEmpty ? .empty : .viewing
     }
 
     func load(projectId: String, using state: AppState) async {
@@ -48,11 +49,12 @@ final class FlashcardViewModel: ObservableObject {
 
         do {
             let fetched = try await state.activeRepository.fetchWords(projectId: projectId)
-            words = fetched
-            wordCount = fetched.count
+            let prioritized = QuizEngine.sortByStudyPriority(fetched)
+            words = prioritized
+            wordCount = prioritized.count
             currentIndex = 0
             isFlipped = false
-            stage = fetched.isEmpty ? .empty : .viewing
+            stage = prioritized.isEmpty ? .empty : .viewing
         } catch {
             if error.isCancellationError {
                 return

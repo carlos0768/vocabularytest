@@ -80,7 +80,7 @@ struct BookshelfDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.none, for: .top)
+            .disableTopScrollEdgeEffectIfAvailable()
             .contentMargins(.top, 0, for: .scrollContent)
             .refreshable {
                 await viewModel.load(collectionId: collection.id, using: appState)
@@ -382,7 +382,10 @@ struct BookshelfDetailView: View {
     // MARK: - Learning Modes (2-column grid, matching ProjectDetailView)
 
     private var learningModesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let aiEnabled = appState.isAIEnabled
+        let hasPreparedQuizData = viewModel.allWords.contains { $0.distractors.count >= 3 }
+
+        return VStack(alignment: .leading, spacing: 10) {
             Text("学習モード")
                 .font(.headline)
                 .foregroundStyle(MerkenTheme.primaryText)
@@ -392,15 +395,6 @@ struct BookshelfDetailView: View {
                 GridItem(.flexible(), spacing: 12)
             ]
             LazyVGrid(columns: columns, spacing: 12) {
-                learningModeCard(
-                    icon: "questionmark.square.fill",
-                    iconColor: MerkenTheme.accentBlue,
-                    title: "クイズ",
-                    subtitle: "4択で確認"
-                ) {
-                    quizDestination = QuizDestination(collectionId: collection.id)
-                }
-
                 learningModeCard(
                     icon: "scope",
                     iconColor: MerkenTheme.success,
@@ -419,7 +413,18 @@ struct BookshelfDetailView: View {
                     flashcardDestination = FlashcardDestination(collectionId: collection.id)
                 }
 
-                if appState.isPro {
+                if aiEnabled || hasPreparedQuizData {
+                    learningModeCard(
+                        icon: "questionmark.square.fill",
+                        iconColor: MerkenTheme.accentBlue,
+                        title: "クイズ",
+                        subtitle: "4択で確認"
+                    ) {
+                        quizDestination = QuizDestination(collectionId: collection.id)
+                    }
+                }
+
+                if appState.isPro && aiEnabled {
                     learningModeCard(
                         icon: "text.bubble.fill",
                         iconColor: .purple,

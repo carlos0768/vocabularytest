@@ -188,38 +188,36 @@ struct ScanModeSheet: View {
             ZStack {
                 AppBackground()
 
-                VStack(spacing: 16) {
-                    Text("英検レベルを選択")
-                        .font(.headline)
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .padding(.top, 16)
-
-                    ForEach(EikenLevel.allCases) { level in
-                        Button {
-                            selectedEikenLevel = level
-                            showEikenPicker = false
-                            confirmSource(mode: .eiken, eikenLevel: level)
-                        } label: {
-                            SolidPane {
-                                HStack {
-                                    Text(level.displayName)
-                                        .font(.headline)
-                                        .foregroundStyle(MerkenTheme.primaryText)
-                                    Spacer()
-                                    if level == selectedEikenLevel {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(MerkenTheme.accentBlue)
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(EikenLevel.allCases) { level in
+                            Button {
+                                selectedEikenLevel = level
+                                showEikenPicker = false
+                                confirmSource(mode: .eiken, eikenLevel: level)
+                            } label: {
+                                SolidPane {
+                                    HStack {
+                                        Text(level.displayName)
+                                            .font(.headline)
+                                            .foregroundStyle(MerkenTheme.primaryText)
+                                        Spacer()
+                                        if level == selectedEikenLevel {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(MerkenTheme.accentBlue)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-
-                    Spacer()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
                 }
-                .padding(16)
+                .scrollIndicators(.hidden)
             }
-            .navigationTitle("英検レベル")
+            .navigationTitle("英検レベルを選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -230,6 +228,6 @@ struct ScanModeSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 }

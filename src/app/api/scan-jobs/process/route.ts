@@ -441,6 +441,13 @@ export async function POST(request: NextRequest) {
         currentPeriodEnd: subscription?.current_period_end,
       });
 
+      const { data: preference } = await getSupabaseAdmin()
+        .from('user_preferences')
+        .select('ai_enabled')
+        .eq('user_id', job.user_id)
+        .maybeSingle<{ ai_enabled: boolean | null }>();
+      const aiEnabled = preference?.ai_enabled !== false;
+
       const allExtractedWords: ProcessedExtractedWord[] = [];
       let firstExtractionError: string | null = null;
       const warningCodes = new Set<ExtractionWarningCode>();
@@ -713,59 +720,61 @@ export async function POST(request: NextRequest) {
         resultPayload.warnings = warnings;
       }
 
-      const quizSeedWords: QuizSeedWord[] = insertedWordsArray
-        .filter((w: {
-          distractors: unknown;
-          example_sentence: string | null;
-          example_sentence_ja: string | null;
-        }) => !hasValidDistractors(w.distractors) || !hasExampleSentence(w.example_sentence))
-        .map((w: { id: string; english: string; japanese: string }) => ({
-          id: w.id,
-          english: w.english,
-          japanese: w.japanese,
-        }));
+      if (aiEnabled) {
+        const quizSeedWords: QuizSeedWord[] = insertedWordsArray
+          .filter((w: {
+            distractors: unknown;
+            example_sentence: string | null;
+            example_sentence_ja: string | null;
+          }) => !hasValidDistractors(w.distractors) || !hasExampleSentence(w.example_sentence))
+          .map((w: { id: string; english: string; japanese: string }) => ({
+            id: w.id,
+            english: w.english,
+            japanese: w.japanese,
+          }));
 
-      let quizPrefillSucceeded = 0;
-      const quizPrefillFailedWordIds = new Set<string>();
+        let quizPrefillSucceeded = 0;
+        const quizPrefillFailedWordIds = new Set<string>();
 
-      for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
-        const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
+        for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
+          const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
 
-        if (results.length > 0) {
-          try {
-            await Promise.all(
-              results.map((item) =>
-                getSupabaseAdmin()
-                  .from('words')
-                  .update({
-                    distractors: item.distractors,
-                    example_sentence: item.exampleSentence || null,
-                    example_sentence_ja: item.exampleSentenceJa || null,
-                  })
-                  .eq('id', item.wordId)
-              )
-            );
-            quizPrefillSucceeded += results.length;
-          } catch (persistError) {
-            console.error('Failed to persist quiz prefill batch:', persistError);
-            for (const item of results) {
-              quizPrefillFailedWordIds.add(item.wordId);
+          if (results.length > 0) {
+            try {
+              await Promise.all(
+                results.map((item) =>
+                  getSupabaseAdmin()
+                    .from('words')
+                    .update({
+                      distractors: item.distractors,
+                      example_sentence: item.exampleSentence || null,
+                      example_sentence_ja: item.exampleSentenceJa || null,
+                    })
+                    .eq('id', item.wordId)
+                )
+              );
+              quizPrefillSucceeded += results.length;
+            } catch (persistError) {
+              console.error('Failed to persist quiz prefill batch:', persistError);
+              for (const item of results) {
+                quizPrefillFailedWordIds.add(item.wordId);
+              }
             }
+          }
+
+          for (const failedWordId of failedWordIds) {
+            quizPrefillFailedWordIds.add(failedWordId);
           }
         }
 
-        for (const failedWordId of failedWordIds) {
-          quizPrefillFailedWordIds.add(failedWordId);
+        if (quizSeedWords.length > 0) {
+          resultPayload.quizPrefillRequested = quizSeedWords.length;
+          resultPayload.quizPrefillSucceeded = quizPrefillSucceeded;
+          resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
         }
       }
 
-      if (quizSeedWords.length > 0) {
-        resultPayload.quizPrefillRequested = quizSeedWords.length;
-        resultPayload.quizPrefillSucceeded = quizPrefillSucceeded;
-        resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
-      }
-
-      if (isProUser && insertedWordsArray.length > 0) {
+      if (aiEnabled && isProUser && insertedWordsArray.length > 0) {
         const insightInputs = insertedWordsArray.map((word: { id: string; english: string; japanese: string }) => ({
           id: word.id,
           english: word.english,

@@ -7,6 +7,7 @@ import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { WordList } from '@/components/home';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
@@ -42,6 +43,7 @@ export default function WordListPage() {
   const params = useParams();
   const projectId = params.id as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { aiEnabled } = useUserPreferences();
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
 
@@ -64,6 +66,7 @@ export default function WordListPage() {
   const [manualWordSaving, setManualWordSaving] = useState(false);
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+  const canUseAiFeatures = aiEnabled !== false;
 
   // Load project and words
   useEffect(() => {
@@ -159,7 +162,7 @@ export default function WordListPage() {
           : w
       )));
 
-      if (englishChanged && isPro) {
+      if (englishChanged && isPro && canUseAiFeatures) {
         void (async () => {
           try {
             const headers = await getAuthHeaders();
@@ -243,7 +246,7 @@ export default function WordListPage() {
         refreshWordCount();
         showToast({ message: '単語を追加しました', type: 'success' });
 
-        if (isPro) {
+        if (isPro && canUseAiFeatures) {
           void (async () => {
             try {
               const headers = await getAuthHeaders();

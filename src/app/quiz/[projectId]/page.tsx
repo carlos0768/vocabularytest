@@ -8,12 +8,12 @@ import { QuizOption } from '@/components/quiz';
 import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
-import { calculateNextReview, getWordsDueForReview } from '@/lib/spaced-repetition';
+import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
+import { calculateNextReview, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { getGuestUserId } from '@/lib/utils';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
@@ -47,6 +47,7 @@ export default function QuizPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
+  const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const isOnline = useOnlineStatus();
 
   // Get question count from URL or show selection screen
@@ -215,7 +216,7 @@ export default function QuizPage() {
 
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
-    const selected = shuffleArray(words).slice(0, count);
+    const selected = sortWordsByPriority(words).slice(0, count);
 
     return selected.map((word) => {
       if (direction === 'ja-to-en') {
@@ -260,7 +261,7 @@ export default function QuizPage() {
 
   // Generate distractors for words that don't have them, then start quiz
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
-    const selected = shuffleArray(words).slice(0, count);
+    const selected = sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
 
     if (quizDirection === 'ja-to-en') {
@@ -401,7 +402,11 @@ export default function QuizPage() {
   }, [generateQuestions, needsDistractors, quizDirection, repository]);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || userPreferencesLoading) return;
+    if (aiEnabled === false) {
+      setLoading(false);
+      return;
+    }
 
     // Try to restore state from sessionStorage first
     const tryRestoreState = (): boolean => {
@@ -567,13 +572,14 @@ export default function QuizPage() {
           return;
         }
 
-        setAllWords(sourceWords);
+        const prioritizedSourceWords = sortWordsByPriority(sourceWords);
+        setAllWords(prioritizedSourceWords);
 
         const resolvedCount = Math.max(
           1,
           Math.min(
-            questionCount ?? sourceWords.length,
-            sourceWords.length,
+            questionCount ?? prioritizedSourceWords.length,
+            prioritizedSourceWords.length,
             MAX_NORMAL_QUIZ_QUESTION_COUNT,
           ),
         );
@@ -583,12 +589,12 @@ export default function QuizPage() {
 
         if (resolvedCount) {
           // Check if any words need distractors
-          const needsGeneration = sourceWords.some((w) => needsDistractors(w));
+          const needsGeneration = prioritizedSourceWords.some((w) => needsDistractors(w));
 
           if (needsGeneration) {
-            await startQuizWithDistractors(sourceWords, resolvedCount);
+            await startQuizWithDistractors(prioritizedSourceWords, resolvedCount);
           } else {
-            const generated = generateQuestions(sourceWords, resolvedCount, quizDirection);
+            const generated = generateQuestions(prioritizedSourceWords, resolvedCount, quizDirection);
             setQuestions(generated);
           }
         }
@@ -601,7 +607,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors]);
 
   // Phase 2: Fetch latest from remote in background (Pro users)
   // Updates allWords if remote has more words than local
@@ -615,7 +621,7 @@ export default function QuizPage() {
         if (pendingRemoteWords.length > 0) {
           setAllWords(prev => {
             // Only update if remote has more words
-            if (pendingRemoteWords.length > prev.length) return pendingRemoteWords;
+            if (pendingRemoteWords.length > prev.length) return sortWordsByPriority(pendingRemoteWords);
             return prev;
           });
         }
@@ -752,6 +758,32 @@ export default function QuizPage() {
           <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--color-muted)]">クイズを準備中...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (aiEnabled === false) {
+    return (
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        <header className="sticky top-0 flex-shrink-0 p-4">
+          <button
+            onClick={backToProject}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={24} />
+          </button>
+        </header>
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center max-w-sm">
+            <p className="text-[var(--color-foreground)] font-semibold mb-2">この機能は現在OFFです</p>
+            <p className="text-sm text-[var(--color-muted)] mb-6">
+              設定の「単語帳生成設定」でAI機能をONにすると4択クイズを使えます。
+            </p>
+            <Button onClick={backToProject} className="w-full" size="lg">
+              単語帳に戻る
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }

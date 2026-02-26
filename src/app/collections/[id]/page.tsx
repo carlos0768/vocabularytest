@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { StudyModeCard, WordList } from '@/components/home';
 import { ProjectBookTile } from '@/components/project';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import type { Collection, Project, Word } from '@/types';
@@ -24,6 +25,7 @@ export default function CollectionDetailPage() {
   const collectionId = params.id as string;
 
   const { user, isPro, loading: authLoading } = useAuth();
+  const { aiEnabled } = useUserPreferences();
   const { deleteCollection, updateCollection, getCollectionProjects, removeProjectFromCollection, addProjectsToCollection } = useCollections();
   const { showToast } = useToast();
 
@@ -49,6 +51,7 @@ export default function CollectionDetailPage() {
   const [allUserProjects, setAllUserProjects] = useState<Project[]>([]);
   const [addSelectedIds, setAddSelectedIds] = useState<Set<string>>(new Set());
   const [addLoading, setAddLoading] = useState(false);
+  const canUseAiFeatures = aiEnabled !== false;
 
   const loadData = useCallback(async () => {
     if (!user || !isPro) return;
@@ -134,6 +137,20 @@ export default function CollectionDetailPage() {
     if (allWords.length === 0) return null;
     const returnPath = encodeURIComponent(`/collections/${collectionId}`);
 
+    if (!canUseAiFeatures) {
+      return {
+        title: 'まずはカードで復習する',
+        description: 'スワイプ式カードで全体を見直しましょう',
+        icon: 'style',
+        href: `/flashcard/collection?collectionId=${collectionId}&from=${returnPath}`,
+        buttonText: 'カード学習を始める',
+        iconBg: 'bg-indigo-100',
+        iconColor: 'text-indigo-600',
+        bgClasses: 'bg-[#3B82F6] text-white shadow-glow hover:opacity-90',
+        btnClasses: 'bg-white/20 text-white hover:bg-white/30',
+      };
+    }
+
     if (stats.newWords > 0) {
       return {
         title: '未学習の単語を覚える',
@@ -171,7 +188,7 @@ export default function CollectionDetailPage() {
       bgClasses: 'bg-[#60A5FA] text-white shadow-glow hover:opacity-90',
       btnClasses: 'bg-white/20 text-white hover:bg-white/30',
     };
-  }, [allWords.length, collectionId, stats.newWords, stats.review]);
+  }, [allWords.length, canUseAiFeatures, collectionId, stats.newWords, stats.review]);
 
   const handleDelete = async () => {
     setDeleteLoading(true);
@@ -392,16 +409,18 @@ export default function CollectionDetailPage() {
             <section className="space-y-3">
               <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">その他の学習モード</h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StudyModeCard
-                  title="クイズ"
-                  description="4択で確認"
-                  icon="quiz"
-                  href={`/quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
-                  variant="primary"
-                  disabled={allWords.length === 0}
-                  layout="vertical"
-                  styleMode="home"
-                />
+                {canUseAiFeatures && (
+                  <StudyModeCard
+                    title="クイズ"
+                    description="4択で確認"
+                    icon="quiz"
+                    href={`/quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
+                    variant="primary"
+                    disabled={allWords.length === 0}
+                    layout="vertical"
+                    styleMode="home"
+                  />
+                )}
                 <StudyModeCard
                   title="クイズ２"
                   description="思い出して評価"
@@ -422,16 +441,18 @@ export default function CollectionDetailPage() {
                   layout="vertical"
                   styleMode="home"
                 />
-                <StudyModeCard
-                  title="例文"
-                  description="例文で定着"
-                  icon="auto_awesome"
-                  href={`/sentence-quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
-                  variant="orange"
-                  disabled={allWords.length === 0}
-                  layout="vertical"
-                  styleMode="home"
-                />
+                {canUseAiFeatures && (
+                  <StudyModeCard
+                    title="例文"
+                    description="例文で定着"
+                    icon="auto_awesome"
+                    href={`/sentence-quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
+                    variant="orange"
+                    disabled={allWords.length === 0}
+                    layout="vertical"
+                    styleMode="home"
+                  />
+                )}
               </div>
             </section>
           )}

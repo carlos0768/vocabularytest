@@ -198,7 +198,7 @@ struct HomeView: View {
 
             // CTA
             if let firstProject = viewModel.projects.first {
-                if viewModel.dueWordCount > 0 {
+                if appState.isAIEnabled, viewModel.dueWordCount > 0 {
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         quizDestination = QuizDestination(
@@ -210,12 +210,20 @@ struct HomeView: View {
                         Label("復習を始める (\(viewModel.dueWordCount)問)", systemImage: "arrow.trianglehead.2.clockwise")
                     }
                     .buttonStyle(HeroCTAButton())
-                } else {
+                } else if appState.isAIEnabled {
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         quizDestination = QuizDestination(project: firstProject)
                     } label: {
                         Label("クイズに挑戦", systemImage: "play.fill")
+                    }
+                    .buttonStyle(HeroCTAButton())
+                } else {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        flashcardDestination = FlashcardDestination(project: firstProject)
+                    } label: {
+                        Label("フラッシュカードで学習", systemImage: "rectangle.on.rectangle.angled")
                     }
                     .buttonStyle(HeroCTAButton())
                 }
