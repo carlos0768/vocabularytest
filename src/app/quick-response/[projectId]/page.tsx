@@ -14,6 +14,19 @@ const TIMER_DURATION_MS = 2000;
 const TIMER_TICK_MS = 50;
 const DEFAULT_COUNT = 10;
 
+interface SpeechRecognitionInstance {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  continuous: boolean;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
 interface SpeechRecognitionEvent {
   results: SpeechRecognitionResultList;
   resultIndex: number;
@@ -23,7 +36,7 @@ interface SpeechRecognitionErrorEvent {
   error: string;
 }
 
-function getSpeechRecognition(): (new () => SpeechRecognition) | null {
+function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
   if (typeof window === 'undefined') return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any;
@@ -63,7 +76,7 @@ export default function QuickResponsePage() {
   const [speechError, setSpeechError] = useState<string | null>(null);
 
   const timerStartRef = useRef<number | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const answeredRef = useRef(false);
   const bestTranscriptRef = useRef('');
 
