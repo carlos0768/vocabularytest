@@ -10,7 +10,7 @@ import { calculateNextReview, sortWordsByPriority } from '@/lib/spaced-repetitio
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
-const TIMER_DURATION_MS = 2000;
+const TIMER_DURATION_MS = 3000;
 const TIMER_TICK_MS = 50;
 const DEFAULT_COUNT = 10;
 
@@ -43,6 +43,60 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
+/**
+ * Brave等のブラウザではWeb Speech APIオブジェクトは存在するが、
+ * Googleの音声認識サーバーへの接続がブロックされるため実際には動作しない。
+ * 短い認識テストを実行して、本当に使えるか確認する。
+ */
+function testSpeechRecognition(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const SpeechRecognitionClass = getSpeechRecognition();
+    if (!SpeechRecognitionClass) {
+      resolve(false);
+      return;
+    }
+
+    let resolved = false;
+    const done = (result: boolean) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(result);
+    };
+
+    const timeout = setTimeout(() => {
+      try { recognition.abort(); } catch {}
+      done(true);
+    }, 2000);
+
+    const recognition = new SpeechRecognitionClass();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      clearTimeout(timeout);
+      try { recognition.abort(); } catch {}
+      if (event.error === 'network' || event.error === 'service-not-allowed' || event.error === 'not-allowed') {
+        done(false);
+      } else {
+        done(true);
+      }
+    };
+
+    recognition.onend = () => {
+      clearTimeout(timeout);
+      done(true);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      clearTimeout(timeout);
+      done(false);
+    }
+  });
+}
+
 export default function QuickResponsePage() {
   const router = useRouter();
   const params = useParams();
@@ -72,15 +126,27 @@ export default function QuickResponsePage() {
   const [recognizedText, setRecognizedText] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [isTimedOut, setIsTimedOut] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(true);
-  const [speechError, setSpeechError] = useState<string | null>(null);
+
+  // Speech support: null = testing, true = supported, false = not supported
+  const [speechSupported, setSpeechSupported] = useState<boolean | null>(null);
 
   const timerStartRef = useRef<number | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const answeredRef = useRef(false);
   const bestTranscriptRef = useRef('');
+  const timedOutRef = useRef(false);
+  const graceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentWord = words[currentIndex] ?? null;
+
+  // Test speech recognition on mount
+  useEffect(() => {
+    let cancelled = false;
+    testSpeechRecognition().then((supported) => {
+      if (!cancelled) setSpeechSupported(supported);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Load words
   useEffect(() => {
@@ -96,7 +162,10 @@ export default function QuickResponsePage() {
         }
 
         let loaded = await repository.getWords(projectId);
-        loaded = loaded.filter((w) => w.status !== 'mastered');
+        const unmastered = loaded.filter((w) => w.status !== 'mastered');
+        if (unmastered.length > 0) {
+          loaded = unmastered;
+        }
 
         if (loaded.length === 0) {
           backToProject();
@@ -115,65 +184,78 @@ export default function QuickResponsePage() {
     load();
   }, [authLoading, projectId, repository, user, backToProject]);
 
-  // Check speech API support
-  useEffect(() => {
-    if (!getSpeechRecognition()) {
-      setSpeechSupported(false);
-    }
-  }, []);
-
-  // Normalize for comparison: lowercase, trim, strip punctuation
+  // Normalize for comparison
   const normalize = (s: string) =>
-    s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '');
+    s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
 
-  // Handle answer (called by timer or recognition)
+  const currentWordRef = useRef(currentWord);
+  currentWordRef.current = currentWord;
+
+  // Handle answer
   const handleAnswer = useCallback(
     async (transcript: string, timedOut: boolean) => {
-      if (answeredRef.current || !currentWord) return;
+      if (answeredRef.current) return;
+      const word = currentWordRef.current;
+      if (!word) return;
       answeredRef.current = true;
 
-      // Stop recognition
-      try {
-        recognitionRef.current?.stop();
-      } catch {}
+      try { recognitionRef.current?.stop(); } catch {}
       recognitionRef.current = null;
       timerStartRef.current = null;
+      if (graceTimeoutRef.current) {
+        clearTimeout(graceTimeoutRef.current);
+        graceTimeoutRef.current = null;
+      }
 
-      const correct = !timedOut && normalize(transcript) === normalize(currentWord.english);
+      // transcript自体と、bestTranscriptRef（直近のinterim/final含む）の両方で判定
+      const bestAvailable = transcript || bestTranscriptRef.current;
+      const normalizedAnswer = normalize(bestAvailable);
+      const normalizedExpected = normalize(word.english);
+      const correct = !!bestAvailable && normalizedAnswer === normalizedExpected;
 
-      setRecognizedText(transcript);
+      setRecognizedText(bestAvailable);
       setIsCorrect(correct);
-      setIsTimedOut(timedOut && !transcript);
+      setIsTimedOut(timedOut && !bestAvailable);
       setPhase('answered');
 
       setResults((prev) => ({
         correct: prev.correct + (correct ? 1 : 0),
         total: prev.total + 1,
-        timeouts: prev.timeouts + (timedOut && !transcript ? 1 : 0),
+        timeouts: prev.timeouts + (timedOut && !bestAvailable ? 1 : 0),
       }));
 
       if (correct) {
         recordCorrectAnswer(false);
       } else {
-        recordWrongAnswer(currentWord.id, currentWord.english, currentWord.japanese, projectId, currentWord.distractors);
+        recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
       }
       recordActivity();
 
       try {
-        const srUpdate = calculateNextReview(correct, currentWord);
-        await repository.updateWord(currentWord.id, srUpdate);
+        const srUpdate = calculateNextReview(correct, word);
+        await repository.updateWord(word.id, srUpdate);
         setWords((prev) =>
-          prev.map((w) => (w.id === currentWord.id ? { ...w, ...srUpdate } : w))
+          prev.map((w) => (w.id === word.id ? { ...w, ...srUpdate } : w))
         );
       } catch {}
     },
-    [currentWord, projectId, repository]
+    [projectId, repository]
   );
 
-  // Start recognition + timer for current question
+  // Start recognition + timer
   const startQuestion = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+
     answeredRef.current = false;
     bestTranscriptRef.current = '';
+    timedOutRef.current = false;
+    if (graceTimeoutRef.current) {
+      clearTimeout(graceTimeoutRef.current);
+      graceTimeoutRef.current = null;
+    }
     setPhase('listening');
     setTimeLeft(TIMER_DURATION_MS);
     setRecognizedText('');
@@ -218,19 +300,19 @@ export default function QuickResponsePage() {
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         if (event.error === 'no-speech' || event.error === 'aborted') return;
-
-        if (event.error === 'network' || event.error === 'service-not-allowed' || event.error === 'not-allowed') {
-          setSpeechError(event.error);
-        }
       };
 
       recognition.onend = () => {
-        // If ended without final result and not yet answered, use best transcript
-        if (!answeredRef.current && timerStartRef.current) {
-          const elapsed = Date.now() - timerStartRef.current;
-          if (elapsed >= TIMER_DURATION_MS) {
-            handleAnswer(bestTranscriptRef.current, true);
-          }
+        if (!answeredRef.current) {
+          // 認識が終了したがfinalTranscriptが来なかった場合、
+          // bestTranscriptRef（interim結果）で判定する
+          if (graceTimeoutRef.current) clearTimeout(graceTimeoutRef.current);
+          const isTimeout = !timerStartRef.current || (Date.now() - timerStartRef.current) >= TIMER_DURATION_MS;
+          graceTimeoutRef.current = setTimeout(() => {
+            if (!answeredRef.current) {
+              handleAnswer(bestTranscriptRef.current, isTimeout);
+            }
+          }, 150);
         }
       };
 
@@ -241,11 +323,9 @@ export default function QuickResponsePage() {
     }
   }, [handleAnswer]);
 
-  // Timer countdown (paused when speech error occurs to allow keyboard input)
+  // Timer countdown
   useEffect(() => {
-    if (phase !== 'listening' || words.length === 0 || speechError) {
-      return;
-    }
+    if (phase !== 'listening' || words.length === 0) return;
 
     const tick = () => {
       if (!timerStartRef.current || answeredRef.current) return;
@@ -253,8 +333,14 @@ export default function QuickResponsePage() {
       const remaining = Math.max(0, TIMER_DURATION_MS - elapsed);
       setTimeLeft(remaining);
 
-      if (remaining <= 0) {
-        handleAnswer(bestTranscriptRef.current, true);
+      if (remaining <= 0 && !timedOutRef.current) {
+        timedOutRef.current = true;
+        // finalTranscriptがまだ届いていない可能性があるため、少し待ってから判定する
+        graceTimeoutRef.current = setTimeout(() => {
+          if (!answeredRef.current) {
+            handleAnswer(bestTranscriptRef.current, true);
+          }
+        }, 300);
       }
     };
 
@@ -262,17 +348,16 @@ export default function QuickResponsePage() {
     return () => clearInterval(intervalId);
   }, [phase, words.length, handleAnswer]);
 
-  // Start first question when words are loaded
+  // Start first question when words loaded and speech test passed
   useEffect(() => {
-    if (!loading && words.length > 0 && phase === 'listening' && currentIndex === 0 && !answeredRef.current) {
+    if (!loading && words.length > 0 && speechSupported === true && phase === 'listening' && currentIndex === 0 && !answeredRef.current) {
       startQuestion();
     }
-  }, [loading, words.length, phase, currentIndex, startQuestion]);
+  }, [loading, words.length, speechSupported, phase, currentIndex, startQuestion]);
 
   const moveToNext = () => {
     if (currentIndex + 1 >= words.length) {
       setIsComplete(true);
-      // Cleanup
       try { recognitionRef.current?.stop(); } catch {}
       recognitionRef.current = null;
     } else {
@@ -286,17 +371,20 @@ export default function QuickResponsePage() {
     return () => {
       try { recognitionRef.current?.stop(); } catch {}
       recognitionRef.current = null;
+      if (graceTimeoutRef.current) clearTimeout(graceTimeoutRef.current);
     };
   }, []);
 
   // --- Render ---
 
-  if (loading) {
+  if (loading || speechSupported === null) {
     return (
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">準備中...</p>
+          <p className="text-[var(--color-muted)]">
+            {speechSupported === null ? '音声認識を確認中...' : '準備中...'}
+          </p>
         </div>
       </div>
     );
@@ -318,9 +406,11 @@ export default function QuickResponsePage() {
             <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <Icon name="mic_off" size={32} className="text-orange-500" />
             </div>
-            <p className="text-[var(--color-foreground)] font-semibold mb-2">音声認識に対応していません</p>
+            <p className="text-[var(--color-foreground)] font-semibold mb-2">このブラウザでは音声認識がサポートされていません</p>
             <p className="text-sm text-[var(--color-muted)] mb-6">
-              この機能はChrome、Edge、Safariの最新版で利用できます。
+              Google Chrome または Microsoft Edge で開き直してください。
+              <br />
+              Brave などの一部ブラウザでは音声認識が動作しません。
             </p>
             <Button onClick={backToProject} className="w-full" size="lg">
               戻る
@@ -435,8 +525,8 @@ export default function QuickResponsePage() {
         </span>
       </header>
 
-      {/* Timer bar (hidden when using keyboard fallback) */}
-      {phase === 'listening' && !speechError && (
+      {/* Timer bar */}
+      {phase === 'listening' && (
         <div className="px-6 mb-2 flex-shrink-0">
           <div className="h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden">
             <div
@@ -459,51 +549,23 @@ export default function QuickResponsePage() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 min-h-0">
         {currentWord && (
           <div className="w-full max-w-sm text-center animate-fade-in-up">
-            {/* Japanese word */}
             <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] mb-8 tracking-tight">
               {currentWord.japanese}
             </h1>
 
-            {/* Mic indicator / text input fallback */}
             {phase === 'listening' && (
               <div className="flex flex-col items-center gap-4">
-                {speechError ? (
-                  <>
-                    <div className="w-20 h-20 rounded-full bg-orange-500 flex items-center justify-center">
-                      <Icon name="keyboard" size={36} className="text-white" />
-                    </div>
-                    <input
-                      type="text"
-                      autoFocus
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      placeholder="英語を入力..."
-                      className="w-full text-center text-lg font-medium px-4 py-2 border-2 border-[var(--color-border)] rounded-xl bg-[var(--color-surface)] focus:border-[var(--color-primary)] focus:outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAnswer((e.target as HTMLInputElement).value, false);
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-[var(--color-muted)]">音声認識が利用できないため、キーボード入力に切り替えました</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center animate-pulse shadow-lg">
-                      <Icon name="mic" size={36} className="text-white" />
-                    </div>
-                    <p className="text-lg font-medium text-[var(--color-foreground)] min-h-[1.75rem]">
-                      {recognizedText || (
-                        <span className="text-[var(--color-muted)]">英語で答えてください...</span>
-                      )}
-                    </p>
-                  </>
-                )}
+                <div className="w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center animate-pulse shadow-lg">
+                  <Icon name="mic" size={36} className="text-white" />
+                </div>
+                <p className="text-lg font-medium text-[var(--color-foreground)] min-h-[1.75rem]">
+                  {recognizedText || (
+                    <span className="text-[var(--color-muted)]">英語で答えてください...</span>
+                  )}
+                </p>
               </div>
             )}
 
-            {/* Answer result */}
             {phase === 'answered' && (
               <div className="flex flex-col items-center gap-4">
                 {isCorrect ? (
