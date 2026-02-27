@@ -890,6 +890,16 @@ export default function ProjectDetailPage() {
                   />
                 )}
                 <StudyModeCard
+                  title="即答"
+                  description="音声で即答"
+                  icon="mic"
+                  href={`/quick-response/${project.id}?from=${returnPath}`}
+                  variant="red"
+                  disabled={words.length === 0}
+                  layout="vertical"
+                  styleMode="home"
+                />
+                <StudyModeCard
                   title="クイズ２"
                   description="思い出して評価"
                   icon="psychology"
