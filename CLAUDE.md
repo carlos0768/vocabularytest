@@ -1,201 +1,184 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. For detailed documentation, see:
+- `docs/architecture.md` -- System architecture and data flows
+- `docs/boundaries.md` -- What can be modified and what must not be touched
+- `docs/invariants.md` -- Rules that must never be violated
+- `docs/runbooks.md` -- Step-by-step procedures for common tasks
+- `docs/commands.md` -- Command reference with safety ratings
 
 ## Project Overview
 
-ScanVocab is a vocabulary learning web app where users photograph handwritten notes or printed materials, and OpenAI API extracts English words with Japanese translations and generates quiz distractors automatically.
+MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for Japanese English learners. Users photograph handwritten notes or printed materials, Gemini 2.5 Flash extracts English words with Japanese translations, and GPT-4o-mini generates quiz distractors and example sentences. Production domain: `https://www.merken.jp`.
 
 ## Commands
 
 ```bash
 npm run dev      # Start development server (localhost:3000)
 npm run build    # Production build
-npm run lint     # Run ESLint
+npm run lint     # ESLint + SQL injection guard
+npm test         # Unit tests (Node.js built-in test runner + tsx)
+npm run security:all  # Full security suite (SQL + secrets + deps audit)
 ```
+
+See `docs/commands.md` for full command reference.
 
 ## Environment Setup
 
 Copy `.env.example` to `.env.local` and set:
 ```bash
-# OpenAI API Key
-OPENAI_API_KEY=sk-your-api-key
+# AI APIs
+GOOGLE_AI_API_KEY=your-gemini-api-key       # Primary: image OCR extraction
+OPENAI_API_KEY=sk-your-api-key              # Secondary: quiz gen, embeddings, sentence quiz
 
-# Supabase (for Pro tier cloud sync)
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # Server-side only, bypasses RLS
 
 # KOMOJU Payment (for subscription)
 KOMOJU_SECRET_KEY=your-komoju-secret-key
 KOMOJU_WEBHOOK_SECRET=your-webhook-secret
 
+# Email OTP
+RESEND_API_KEY=your-resend-api-key
+
 # App URL (for OAuth callbacks)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+Additional optional env vars documented in `docs/_discovery_notes.md` section 11 (Apple IAP, Cloud Run, push notifications, feature flags).
+
 ## Tech Stack
 
-- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS
+- **Framework**: Next.js 16 (App Router), TypeScript, Tailwind CSS v4
 - **Local Database**: Dexie.js (IndexedDB wrapper) - Free tier
-- **Cloud Database**: Supabase (PostgreSQL) - Pro tier
-- **Authentication**: Supabase Auth (Email/Password)
-- **Payment**: KOMOJU (PayPay monthly subscription)
-- **AI**: OpenAI API (gpt-4o) with vision for OCR + translation + distractor generation
+- **Cloud Database**: Supabase (PostgreSQL + Auth + Storage) - Pro tier
+- **Authentication**: Supabase Auth with custom OTP flow via Resend
+- **Payment (Web)**: KOMOJU (PayPay + credit card, 500 JPY/month)
+- **Payment (iOS)**: Apple IAP via `@apple/app-store-server-library`
+- **AI - OCR**: Google Gemini 2.5 Flash (`src/lib/ai/config.ts`)
+- **AI - Quiz/Sentences**: OpenAI GPT-4o-mini (`src/lib/ai/config.ts`)
+- **AI - Embeddings**: OpenAI text-embedding-3-small
 - **Validation**: Zod for API response validation
+- **Animations**: Framer Motion
 
 ## Architecture
 
-### Directory Structure
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── api/
-│   │   ├── extract/        # POST /api/extract - OpenAI image analysis
-│   │   └── subscription/   # KOMOJU subscription endpoints
-│   │       ├── create/     # Create checkout session
-│   │       ├── cancel/     # Cancel subscription
-│   │       └── webhook/    # Handle KOMOJU webhooks
-│   ├── auth/callback/      # Supabase auth callback handler
-│   ├── login/              # Login page
-│   ├── signup/             # Signup page
-│   ├── settings/           # User settings & subscription management
-│   ├── subscription/       # Plan selection & upgrade
-│   │   ├── success/        # Post-payment success
-│   │   └── cancel/         # Cancellation confirmation
-│   ├── project/[id]/       # Project detail & word list
-│   ├── quiz/[projectId]/   # Quiz mode (4-choice)
-│   └── scan/confirm/       # Edit extracted words before saving
-├── components/
-│   ├── ui/                 # Button, Card, ProgressSteps
-│   ├── project/            # ProjectCard, ScanButton
-│   └── quiz/               # QuizOption
-├── hooks/
-│   ├── use-auth.ts         # Auth state & subscription hook
-│   ├── use-projects.ts     # Project CRUD operations
-│   └── use-words.ts        # Word CRUD operations
-├── lib/
-│   ├── ai/                 # OpenAI integration, prompts
-│   ├── db/
-│   │   ├── dexie.ts        # IndexedDB setup
-│   │   ├── local-repository.ts   # LocalWordRepository (IndexedDB)
-│   │   ├── remote-repository.ts  # RemoteWordRepository (Supabase)
-│   │   └── index.ts        # Repository factory
-│   ├── komoju/
-│   │   ├── config.ts       # Plan configuration (¥500/month Pro)
-│   │   └── client.ts       # KOMOJU API client
-│   ├── supabase/
-│   │   ├── client.ts       # Browser-side client (singleton)
-│   │   ├── server.ts       # Server-side client (request-scoped)
-│   │   └── index.ts        # Exports
-│   ├── schemas/            # Zod validation schemas
-│   └── utils.ts            # cn(), shuffleArray, scan limit tracking
-├── types/                  # TypeScript interfaces
-└── middleware.ts           # Auth protection for routes
-supabase/
-└── migrations/
-    └── 001_initial_schema.sql  # Database schema with RLS
-```
+### Key Directory Map
+
+| Directory | Responsibility |
+|-----------|---------------|
+| `src/app/` | Next.js App Router pages and API routes |
+| `src/app/api/extract/` | Image OCR + word extraction (core scan flow) |
+| `src/app/api/subscription/` | KOMOJU + AppStore subscription + webhooks |
+| `src/components/` | React components split by feature domain |
+| `src/hooks/` | Custom React hooks (state management layer) |
+| `src/lib/ai/` | AI integrations: config, prompts, provider abstraction |
+| `src/lib/db/` | Repository layer: local, remote, hybrid, readonly, sync queue |
+| `src/lib/komoju/` | KOMOJU payment client (server-side only) |
+| `src/lib/supabase/` | Supabase clients: browser singleton, server, middleware |
+| `src/lib/subscription/` | Subscription status computation, billing activation |
+| `src/lib/schemas/` | Zod validation schemas for AI responses |
+| `src/types/` | Re-exports from `shared/types/` + web-specific types |
+| `shared/types/` | **Source of truth** for domain types (Word, Project, Subscription) |
+| `shared/db/` | DB row to domain object mappers |
+| `supabase/migrations/` | ~43 SQL migration files |
+| `scripts/` | Security check scripts (SQL injection, secrets, deps audit) |
+
+Full directory map: `docs/architecture.md`
 
 ### Repository Pattern
-Data storage abstracted via `WordRepository` interface (`src/lib/db/index.ts`):
-- `LocalWordRepository` - Dexie.js/IndexedDB (Free tier)
-- `RemoteWordRepository` - Supabase PostgreSQL (Pro tier)
 
-Factory function `getRepository(subscriptionStatus)` switches implementations:
+Data storage abstracted via `WordRepository` interface. Factory in `src/lib/db/index.ts`:
+
 ```typescript
-// Free users → LocalWordRepository (IndexedDB)
-// Pro users (active subscription) → RemoteWordRepository (Supabase)
-const repository = getRepository(subscription.status);
+getRepository(subscriptionStatus, wasPro)
+// 'active'  -> HybridWordRepository (IndexedDB + Supabase sync)
+// wasPro    -> ReadonlyRemoteRepository (Supabase read-only, writes throw)
+// otherwise -> LocalWordRepository (IndexedDB only)
 ```
 
 ### Subscription Tiers
 
-| Feature | Free | Pro (¥500/month) |
-|---------|------|------------------|
-| Scans per day | 3 | Unlimited |
-| Data storage | Local (IndexedDB) | Cloud (Supabase) |
+| Feature | Free | Pro (500 JPY/month) |
+|---------|------|---------------------|
+| Scans per day | 3 (server-enforced) | Unlimited |
+| Words total | 100 (client-enforced) | Unlimited |
+| Scan modes | `all` only | all, circled, highlighted, eiken, idiom, wrong |
+| Data storage | IndexedDB (browser-local) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | No | Yes |
-| Data persistence | Browser only | Cloud backup |
 
 ### Data Flow
-1. User uploads image → `/api/extract` → OpenAI gpt-4o vision
+1. User uploads image -> `/api/extract` -> Gemini 2.5 Flash (or Cloud Run proxy)
 2. Response validated with Zod schema (`src/lib/schemas/ai-response.ts`)
-3. Words stored temporarily in sessionStorage → `/scan/confirm` for editing
-4. On save: Project + Words created via repository (Local or Remote)
-5. Quiz pulls words, shuffles options, updates word status on answer
+3. Words stored in sessionStorage -> `/scan/confirm` for user editing
+4. On save: Project + Words created via repository (Local or Hybrid)
+5. Background: GPT-4o-mini generates distractors + example sentences
+6. Quiz pulls words, shuffles options, updates word status with SM-2 spaced repetition
 
 ### Authentication Flow
-1. User signs up → Supabase creates user → Email confirmation sent
-2. User confirms email → Redirects to `/auth/callback` → Sets session
-3. Free subscription record created automatically via database trigger
-4. User upgrades → KOMOJU hosted payment page → Webhook updates subscription
+1. User signs up -> OTP email sent via Resend (`/api/auth/send-otp`)
+2. User verifies OTP -> Account created, session set
+3. Free subscription record auto-created via database trigger (`on_auth_user_created`)
+4. User upgrades -> KOMOJU payment page -> Webhook activates Pro
 
 ### Payment Flow (KOMOJU)
-1. User clicks upgrade → `/api/subscription/create` → Creates KOMOJU session
-2. User redirected to KOMOJU hosted page (PayPay, credit card, etc.)
-3. Payment complete → KOMOJU webhook → `/api/subscription/webhook`
-4. Webhook handler updates `subscriptions` table → User becomes Pro
+1. User clicks upgrade -> `/api/subscription/create` -> Creates KOMOJU session
+2. User redirected to KOMOJU hosted page (PayPay, credit card)
+3. Payment complete -> KOMOJU webhook -> `/api/subscription/webhook`
+4. HMAC signature verified -> Idempotency check via `claim_webhook_event` RPC
+5. `activateBillingFromSession()` updates `subscriptions` table
 
-### Key Files
-- `src/lib/ai/prompts.ts` - System prompt for word extraction
-- `src/lib/db/local-repository.ts` - IndexedDB CRUD operations
-- `src/lib/db/remote-repository.ts` - Supabase CRUD operations
-- `src/lib/komoju/client.ts` - KOMOJU API integration
-- `src/hooks/use-auth.ts` - Authentication & subscription state
-- `src/lib/utils.ts` - Daily scan limit tracking (localStorage)
-- `src/types/index.ts` - All TypeScript interfaces
+## Critical Safety Rules
 
-## Database Schema (Supabase)
+These rules must never be violated. See `docs/invariants.md` for full list.
 
-```sql
--- Subscriptions (linked to auth.users)
-subscriptions (
-  id uuid PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id),
-  status text,           -- 'free', 'active', 'cancelled', 'past_due'
-  plan text,             -- 'free', 'pro'
-  komoju_subscription_id text,
-  komoju_customer_id text,
-  current_period_start timestamptz,
-  current_period_end timestamptz
-)
+1. **Never use `SUPABASE_SERVICE_ROLE_KEY` in client-side code** -- it bypasses all RLS
+2. **Never modify applied migration files** -- create a new migration instead
+3. **Always validate AI responses with Zod** -- AI output is unreliable
+4. **Always enable RLS on new tables** with user-scoped policies
+5. **Never break the `fullSync()` safety guard** in `src/lib/db/hybrid-repository.ts` (skip sync when remote is empty but local has data)
+6. **`pro_source='none'` must resolve to `'cancelled'`** in subscription status logic
+7. **KOMOJU webhook signature must be verified before any processing**
+8. **Pro-only modes must be gated by `requiresPro` flag** in `/api/extract`
 
--- Projects (vocabulary books)
-projects (
-  id uuid PRIMARY KEY,
-  user_id uuid,
-  title text,
-  created_at timestamptz
-)
+## Danger Zones
 
--- Words (with distractors for quiz)
-words (
-  id uuid PRIMARY KEY,
-  project_id uuid REFERENCES projects(id) ON DELETE CASCADE,
-  english text,
-  japanese text,
-  distractors text[],    -- Array of 3 wrong options
-  status text            -- 'new', 'review', 'mastered'
-)
-```
+Areas where small changes cause cascading failures. See `docs/boundaries.md` for full details.
 
-Row Level Security (RLS) ensures users can only access their own data.
+- `src/app/api/subscription/webhook/route.ts` -- Payment activation path. Uses service role key.
+- `src/lib/subscription/status.ts` -- Called in 4+ locations. Affects all Pro/Free gating.
+- `src/lib/db/hybrid-repository.ts:fullSync()` -- Can delete all local data.
+- `src/hooks/use-auth.ts` -- Global singleton state. All components share one instance.
+- `src/app/api/extract/route.ts` -- Server-side scan limit enforcement.
 
 ## Implementation Notes
 
 1. **AI Response Handling**: Always validate with Zod - AI output can be malformed
 2. **Progress UX**: Show step-by-step progress during AI processing to prevent user drop-off
 3. **Quiz Logic**:
-   - Both correct and wrong answers show "次へ" button - user taps to proceed
-   - Correct → green highlight, Wrong → red highlight with correct answer shown
-   - Status progression: new → review → mastered (regresses on wrong answer)
+   - Both correct and wrong answers show "Next" button - user taps to proceed
+   - Correct -> green highlight, Wrong -> red highlight with correct answer shown
+   - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
-4. **Free Plan**: 3 scans/day tracked in localStorage (reset daily)
-5. **SSR Compatibility**: Supabase clients use lazy initialization to avoid build-time errors
+4. **Free Plan**: 3 scans/day tracked server-side via `check_and_increment_scan` RPC; also tracked client-side in localStorage
+5. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
 7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
 8. **Favorites Mode**: Shows all favorite words across all projects, not just current project
+
+## Testing
+
+Tests use Node.js built-in test runner with `tsx`. Test files are co-located with source (`.test.ts` suffix).
+
+```bash
+npm test                    # Unit tests (fixed file list in package.json)
+npm run test:security       # SQL injection + secrets + route security tests
+npm run security:all        # Full security suite
+```
+
+New test files must be manually added to the `test` script in `package.json` -- they are not auto-discovered.
 
 ## Testing KOMOJU Webhooks Locally
 
@@ -207,47 +190,21 @@ ngrok http 3000
 
 ## Deployment Checklist
 
-1. Set all environment variables in hosting platform
+1. Set all required environment variables in hosting platform
 2. Run Supabase migrations
 3. Configure KOMOJU webhook URL to production domain
-4. Enable email confirmation in Supabase Auth settings
+4. Verify `npm run lint && npm test && npm run build` passes
 
 ## Future Features (TODO)
 
-以下は将来実装予定の機能です。別セッションでも認識できるよう記録しています。
+### 1. Circled word extraction -- Done
+- ScanModeModal mode: `circled`
 
-### 1. 丸をつけた単語だけを抽出する機能 ✅ 完了
-- **概要**: ユーザーが手書きで丸をつけた単語のみをOCRで認識・抽出する
-- **実装**: ScanModeModalで「丸をつけた単語のみ」モードを選択可能
-- **ステータス**: 完了
+### 2. EIKEN level filtering -- Done
+- ScanModeModal mode: `eiken` with level selection (5-1)
 
-### 2. 英検の級を絞って単語を抽出する機能 ✅ 完了
-- **概要**: 英検5級〜1級の範囲を指定して、その級に該当する単語のみを抽出
-- **実装**: ScanModeModalでEIKENレベル（5級〜1級）を選択してフィルタリング可能
-- **ステータス**: 完了
-
-### 3. 文法学習機能 🚧 進行中
-- **ビジョン**: 「自分のノートの内容だけで実現するDuolingo」
-  - ユーザーが自分のノートや教材を撮影
-  - AIが文法パターンを解析し、Duolingoのようなインタラクティブな問題を自動生成
-  - 穴埋め、並び替え、選択問題など多様な形式
-  - 自分だけのパーソナライズされた文法学習体験
-
-- **現在の実装状況**:
-  - `/grammar/[projectId]/scan` - 文法スキャンページ（画像から文法抽出）
-  - `/grammar/[projectId]` - 文法クイズページ（保存された文法で出題）
-  - sessionStorageで文法パターンを一時保存
-  - 基本的なクイズ機能（選択式、穴埋め式）
-
-- **今後の改善点**:
-  - [ ] 永続的なデータ保存（IndexedDB/Supabase）
-  - [ ] より多様な問題形式（並び替え、翻訳など）
-  - [ ] 学習進捗の追跡
-  - [ ] 間違えた問題の復習機能
-  - [ ] Duolingoライクなゲーミフィケーション（ストリーク、XPなど）
-  - [ ] スペースドリピティション（間隔反復）アルゴリズム
-
-- **技術的メモ**:
-  - OCR: Gemini Flash → 文法解析: GPT-4oの2段階処理
-  - 型定義: `AIGrammarExtraction`, `GrammarPattern`, `GrammarQuizQuestion`
-  - API: `/api/grammar`
+### 3. Grammar learning feature -- Not implemented
+- Routes (`/grammar/`, `/api/grammar/`) do not currently exist in the codebase
+- `vercel.json` references `src/app/api/grammar/route.ts` (stale config)
+- AI config has grammar extraction settings in `src/lib/ai/config.ts`
+- Feature was planned but routes were removed or never created

@@ -161,13 +161,13 @@ export default function CollectionDetailPage() {
       };
     }
     return {
-      title: '実践力を試す',
-      description: '例文クイズで実際の使われ方を確認しましょう',
-      icon: 'auto_awesome',
-      href: `/sentence-quiz/collection?collectionId=${collectionId}&from=${returnPath}`,
-      buttonText: '例文クイズを始める',
-      iconBg: 'bg-amber-100',
-      iconColor: 'text-amber-600',
+      title: '復習して記憶を定着させる',
+      description: 'カードで繰り返し確認しましょう',
+      icon: 'style',
+      href: `/flashcard/collection?collectionId=${collectionId}&from=${returnPath}`,
+      buttonText: 'カード学習を始める',
+      iconBg: 'bg-indigo-100',
+      iconColor: 'text-indigo-600',
       bgClasses: 'bg-[#60A5FA] text-white shadow-glow hover:opacity-90',
       btnClasses: 'bg-white/20 text-white hover:bg-white/30',
     };
@@ -418,16 +418,6 @@ export default function CollectionDetailPage() {
                   icon="style"
                   href={`/flashcard/collection?collectionId=${collectionId}&from=${returnTo}`}
                   variant="blue"
-                  disabled={allWords.length === 0}
-                  layout="vertical"
-                  styleMode="home"
-                />
-                <StudyModeCard
-                  title="例文"
-                  description="例文で定着"
-                  icon="auto_awesome"
-                  href={`/sentence-quiz/collection?collectionId=${collectionId}&from=${returnTo}`}
-                  variant="orange"
                   disabled={allWords.length === 0}
                   layout="vertical"
                   styleMode="home"

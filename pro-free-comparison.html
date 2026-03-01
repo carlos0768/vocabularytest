@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MERKEN Free vs Pro 商業仕様比較</title>
+<style>
+  :root {
+    --primary: #137fec;
+    --primary-light: #e8f2fd;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --surface: #f9fafb;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif;
+    color: var(--text);
+    line-height: 1.7;
+    padding: 40px;
+    max-width: 900px;
+    margin: 0 auto;
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 32px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--primary);
+    color: var(--primary);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .price-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .price-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    background: var(--surface);
+  }
+
+  .price-card.pro {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+
+  .price-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .price-card .price {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .price-card .price span {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .price-card ul {
+    list-style: none;
+    font-size: 13px;
+  }
+
+  .price-card ul li {
+    padding: 3px 0;
+  }
+
+  .price-card ul li::before {
+    content: '✓ ';
+    color: var(--success);
+    font-weight: 700;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: var(--surface);
+    font-weight: 700;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  thead th:nth-child(2),
+  thead th:nth-child(3) {
+    text-align: center;
+    min-width: 140px;
+  }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tbody td:nth-child(2),
+  tbody td:nth-child(3) {
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-ok {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .badge-no {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .badge-limit {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .badge-unlimited {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .note {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+    margin-top: 12px;
+    margin-bottom: 8px;
+  }
+
+  .section-note {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .cancellation-box {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    background: var(--surface);
+    margin-top: 12px;
+  }
+
+  .cancellation-box h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .cancellation-box ul {
+    list-style: none;
+    font-size: 13px;
+  }
+
+  .cancellation-box ul li {
+    padding: 4px 0;
+    padding-left: 20px;
+    position: relative;
+  }
+
+  .cancellation-box ul li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--muted);
+  }
+
+  .payment-methods {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .payment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    background: white;
+  }
+
+  footer {
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  @media print {
+    body { padding: 20px; }
+    h2 { break-after: avoid; }
+    table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>MERKEN Free vs Pro 商業仕様比較</h1>
+<p class="subtitle">生成日: 2026-03-01 | 対象: ユーザー向け商業仕様（システム実装の詳細は別途）</p>
+
+<h2>1. 料金プラン</h2>
+
+<div class="price-cards">
+  <div class="price-card">
+    <h3>無料プラン</h3>
+    <div class="price">¥0</div>
+    <ul>
+      <li>アカウント登録不要で利用開始</li>
+      <li>基本的なスキャン＆学習機能</li>
+      <li>ブラウザ内にデータ保存</li>
+    </ul>
+  </div>
+  <div class="price-card pro">
+    <h3>Proプラン</h3>
+    <div class="price">¥500<span> /月（税込）</span></div>
+    <ul>
+      <li>スキャン無制限</li>
+      <li>クラウド同期</li>
+      <li>マルチデバイス対応</li>
+      <li>データ永続化</li>
+    </ul>
+  </div>
+</div>
+
+<h3 style="font-size:14px; margin-top:16px; margin-bottom:8px;">決済手段</h3>
+<div class="payment-methods">
+  <div class="payment-chip">💳 クレジットカード</div>
+  <div class="payment-chip">📱 PayPay</div>
+  <div class="payment-chip">🍎 Apple IAP（iOS）</div>
+</div>
+<p class="section-note">※ Web決済はKOMOJU経由。iOS版はApple In-App Purchase。</p>
+
+<h2>2. スキャン（単語抽出）</h2>
+
+<table>
+  <thead>
+    <tr><th>項目</th><th>Free</th><th>Pro</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1日のスキャン回数</td>
+      <td><span class="badge badge-limit">3回/日</span></td>
+      <td><span class="badge badge-unlimited">無制限</span></td>
+    </tr>
+    <tr>
+      <td>保存可能な単語数</td>
+      <td><span class="badge badge-limit">100語</span></td>
+      <td><span class="badge badge-unlimited">無制限</span></td>
+    </tr>
+    <tr>
+      <td>スキャン処理方式</td>
+      <td>同期（待機あり）</td>
+      <td>バックグラウンド（即座に操作可能）</td>
+    </tr>
+    <tr>
+      <td>複数画像の一括スキャン</td>
+      <td><span class="badge badge-no">不可</span></td>
+      <td><span class="badge badge-ok">可（最大20枚）</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. スキャンモード</h2>
+
+<table>
+  <thead>
+    <tr><th>モード</th><th>Free</th><th>Pro</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>すべての単語（全抽出）</td>
+      <td><span class="badge badge-ok">利用可</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>丸で囲んだ単語</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>ハイライト（蛍光ペン）単語</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>英検レベル指定抽出</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>熟語・イディオム抽出</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>間違えた単語の抽出</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="section-note">※ Freeユーザーは「すべての単語」モードのみ利用可能。その他5モードはPro限定。</p>
+
+<h2>4. 学習モード</h2>
+
+<table>
+  <thead>
+    <tr><th>モード</th><th>Free</th><th>Pro</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>クイズ（4択 英→日 / 日→英）</td>
+      <td><span class="badge badge-ok">利用可</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>クイズ2（自己想起 + SM-2復習間隔）</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>フラッシュカード</td>
+      <td><span class="badge badge-no">Pro限定</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. AI補助機能</h2>
+
+<table>
+  <thead>
+    <tr><th>機能</th><th>Free</th><th>Pro</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>例文生成（単語の使い方を例文で提示）</td>
+      <td><span class="badge badge-limit">15回/日</span></td>
+      <td><span class="badge badge-limit">150回/日</span></td>
+    </tr>
+    <tr>
+      <td>翻訳（英→日）</td>
+      <td><span class="badge badge-limit">100回/日</span></td>
+      <td><span class="badge badge-limit">500回/日</span></td>
+    </tr>
+    <tr>
+      <td>単語インサイト（品詞・関連語・語法）</td>
+      <td><span class="badge badge-no">利用不可</span></td>
+      <td><span class="badge badge-limit">120回/日</span></td>
+    </tr>
+    <tr>
+      <td>セマンティック検索（意味で単語を検索）</td>
+      <td><span class="badge badge-no">利用不可</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>6. データ管理</h2>
+
+<table>
+  <thead>
+    <tr><th>項目</th><th>Free</th><th>Pro</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>データ保存場所</td>
+      <td>ブラウザ内（IndexedDB）</td>
+      <td>クラウド（Supabase）+ ローカルキャッシュ</td>
+    </tr>
+    <tr>
+      <td>マルチデバイス同期</td>
+      <td><span class="badge badge-no">非対応</span></td>
+      <td><span class="badge badge-ok">対応</span></td>
+    </tr>
+    <tr>
+      <td>データ永続性</td>
+      <td>ブラウザデータ削除で消失</td>
+      <td>クラウドに永続保存</td>
+    </tr>
+    <tr>
+      <td>お気に入り（単語帳横断）</td>
+      <td><span class="badge badge-ok">利用可</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+    <tr>
+      <td>コレクション（単語帳グループ化）</td>
+      <td><span class="badge badge-ok">利用可</span></td>
+      <td><span class="badge badge-ok">利用可</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>7. Pro解約時の挙動</h2>
+
+<div class="cancellation-box">
+  <h3>解約後の変化</h3>
+  <ul>
+    <li>現在の請求期間の終了までPro機能を引き続き利用可能</li>
+    <li>期間終了後、クラウドデータは<strong>読み取り専用</strong>に移行（閲覧・クイズは可、編集・追加は不可）</li>
+    <li>新規スキャンはFree制限に戻る（3回/日、「すべての単語」モードのみ）</li>
+    <li>再登録すれば、クラウドデータへの完全アクセスが即時復活</li>
+  </ul>
+</div>
+
+<div class="note">
+  <strong>補足:</strong> Freeプランのデータはブラウザ内にのみ保存されるため、ブラウザのデータ消去・端末変更でデータが失われるリスクがあります。Proプランではクラウドにデータが同期されるため、端末を問わず学習を継続できます。
+</div>
+
+<footer>
+  MERKEN Free vs Pro 商業仕様比較 v1 — Generated 2026-03-01
+</footer>
+
+</body>
+</html>

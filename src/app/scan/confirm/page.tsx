@@ -22,7 +22,6 @@ interface EditableWord extends AIWordExtraction {
 
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
-const SENTENCE_QUIZ_SIZE = 15;
 const QUIZ2_PREFILL_BATCH_SIZE = 200;
 const WORD_INSIGHT_BATCH_SIZE = 40;
 
@@ -364,72 +363,6 @@ export default function ConfirmPage() {
     }
   };
 
-  const preGenerateSentenceQuiz = async (projectId: string, wordsForQuiz: Word[]) => {
-    if (!isPro || wordsForQuiz.length < 10) return;
-
-    const progressKey = `sentence_quiz_progress_${projectId}`;
-    const existingProgress = sessionStorage.getItem(progressKey);
-    if (existingProgress) {
-      try {
-        const parsed = JSON.parse(existingProgress) as { questions?: unknown[]; currentIndex?: number };
-        if (Array.isArray(parsed.questions) && parsed.questions.length > 0 && (parsed.currentIndex ?? 0) > 0) {
-          return;
-        }
-      } catch {
-        // ignore invalid cache and overwrite below
-      }
-    }
-
-    const shuffled = [...wordsForQuiz].sort(() => Math.random() - 0.5);
-    let selectedWords: Word[] = [];
-    if (shuffled.length >= SENTENCE_QUIZ_SIZE) {
-      selectedWords = shuffled.slice(0, SENTENCE_QUIZ_SIZE);
-    } else {
-      while (selectedWords.length < SENTENCE_QUIZ_SIZE) {
-        selectedWords.push(...shuffled);
-      }
-      selectedWords = selectedWords.slice(0, SENTENCE_QUIZ_SIZE);
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    try {
-      const response = await fetch('/api/sentence-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          words: selectedWords.map((w) => ({
-            id: w.id,
-            english: w.english,
-            japanese: w.japanese,
-            status: w.status,
-          })),
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) return;
-
-      const data = await response.json();
-      if (!data.success || !Array.isArray(data.questions) || data.questions.length === 0) return;
-
-      sessionStorage.setItem(
-        progressKey,
-        JSON.stringify({
-          questions: data.questions,
-          currentIndex: 0,
-          results: { correct: 0, total: 0 },
-          savedAt: Date.now(),
-        })
-      );
-    } catch {
-      // Non-critical: skip sentence quiz pre-generation on timeout/network errors.
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  };
-
   const prefillWordInsights = async (createdWords: Word[], updateWord: (wordId: string, patch: Partial<Word>) => Promise<void>) => {
     if (!isPro || createdWords.length === 0) return;
 
@@ -533,9 +466,6 @@ export default function ConfirmPage() {
 
       // Pre-generate quiz distractors and examples at scan-time.
       const quizReadyWords = await prefillQuizData(createdWords, repository.updateWord.bind(repository));
-
-      // Pro users: pre-generate sentence quiz questions so the first launch is instant.
-      await preGenerateSentenceQuiz(targetProjectId, quizReadyWords);
 
       // Pro users: warm quiz2 similarity data during save.
       await prefillQuiz2Data(quizReadyWords);

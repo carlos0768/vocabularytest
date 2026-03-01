@@ -138,7 +138,7 @@ function ScanPageContent() {
 
   // Background upload for Pro users - Direct to Supabase Storage
   // Uploads ALL images first, then creates a single scan job with all image paths
-  const handleBackgroundUpload = useCallback(async (files: File[], name: string, iconImage?: string) => {
+  const handleBackgroundUpload = useCallback(async (files: File[], name: string, iconImage?: string, targetProjectId?: string) => {
     setUploading(true);
 
     try {
@@ -197,6 +197,7 @@ function ScanPageContent() {
           projectIcon: iconImage ?? null,
           scanMode: selectedMode,
           eikenLevel: selectedMode === 'eiken' ? selectedEiken : null,
+          ...(targetProjectId ? { targetProjectId } : {}),
         }),
       });
 
@@ -278,41 +279,32 @@ function ScanPageContent() {
       }
     }
 
-    const hasPdf = scanFiles.some((file) => isPdfFile(file));
-    const canUseBackground = scanFiles.length <= 20;
-
-    // Pro users: prefer background processing.
-    // When PDF is included, it is converted to image pages before this branch.
+    // Pro users: always use background processing.
     if (isPro) {
-      // If adding to existing project, use traditional flow
-      if (projectId) {
-        // Fall through to traditional flow
-      } else {
-        if (hasPdf) {
-          showToast({
-            message: 'PDFは画像化して通常解析モードで処理します',
-            type: 'warning',
-            duration: 3500,
-          });
-        } else if (!canUseBackground) {
-          showToast({
-            message: '画像が20枚を超えるため通常解析モードで処理します',
-            type: 'warning',
-            duration: 3500,
-          });
-        } else {
-          // New project: show project name modal and use background upload
-          const now = new Date();
-          const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-          setProjectName(defaultName);
-          setProjectIcon(null);
-          setProjectIconError(null);
-          setProjectIconProcessing(false);
-          setPendingFiles(scanFiles);
-          setShowProjectNameModal(true);
-          return;
-        }
+      if (scanFiles.length > 20) {
+        showToast({
+          message: '画像は20枚以下にしてください',
+          type: 'error',
+          duration: 4000,
+        });
+        return;
       }
+
+      if (projectId) {
+        // Adding to existing project: skip project name modal, start background upload directly
+        handleBackgroundUpload(scanFiles, '', undefined, projectId);
+        return;
+      }
+
+      const now = new Date();
+      const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setProjectName(defaultName);
+      setProjectIcon(null);
+      setProjectIconError(null);
+      setProjectIconProcessing(false);
+      setPendingFiles(scanFiles);
+      setShowProjectNameModal(true);
+      return;
     }
 
     // Free users or adding to existing project: use traditional flow
