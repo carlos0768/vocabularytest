@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { isActiveProSubscription } from '@/lib/subscription/status';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { z } from 'zod';
@@ -56,6 +57,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: '認証が必要です' },
         { status: 401 }
+      );
+    }
+
+    // Pro subscription check
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('status, plan, pro_source, test_pro_expires_at, current_period_end')
+      .eq('user_id', user.id)
+      .single();
+
+    const isPro = isActiveProSubscription({
+      status: subscription?.status,
+      plan: subscription?.plan,
+      proSource: subscription?.pro_source,
+      testProExpiresAt: subscription?.test_pro_expires_at,
+      currentPeriodEnd: subscription?.current_period_end,
+    });
+
+    if (!isPro) {
+      return NextResponse.json(
+        { success: false, error: 'この機能はPro限定です。' },
+        { status: 403 }
       );
     }
 

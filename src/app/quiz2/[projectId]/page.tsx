@@ -8,8 +8,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { loadCollectionWords } from '@/lib/collection-words';
-import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
-import { findLocalSimilarWords } from '@/lib/similarity/local-similar-words';
 import { calculateNextReviewByQuality } from '@/lib/spaced-repetition';
 import {
   getGuestUserId,
@@ -21,14 +19,6 @@ import {
 import type { SubscriptionStatus, Word, WordStatus } from '@/types';
 
 type Quiz2Grade = 'again' | 'hard' | 'good' | 'easy';
-
-interface SimilarWordItem {
-  id: string;
-  english: string;
-  japanese: string;
-  similarity: number;
-  source: 'vector' | 'local';
-}
 
 const QUALITY_BY_GRADE: Record<Quiz2Grade, 1 | 3 | 4 | 5> = {
   again: 1,
@@ -70,52 +60,6 @@ function getStatusAfterGrade(currentStatus: WordStatus, grade: Quiz2Grade): Word
   return 'mastered';
 }
 
-async function fetchSimilarBatch(sourceWordIds: string[]): Promise<Record<string, SimilarWordItem[]>> {
-  if (sourceWordIds.length === 0) return {};
-
-  const response = await fetch('/api/quiz2/similar/batch', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ sourceWordIds, limit: 3 }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch similar words');
-  }
-
-  const payload = await response.json();
-  const rawResults = payload?.resultsByWordId;
-  if (!rawResults || typeof rawResults !== 'object') return {};
-
-  const parsedResults: Record<string, SimilarWordItem[]> = {};
-  for (const [sourceWordId, value] of Object.entries(rawResults as Record<string, unknown>)) {
-    if (!Array.isArray(value)) continue;
-    parsedResults[sourceWordId] = value
-      .map((row) => {
-        const typed = row as {
-          id?: unknown;
-          english?: unknown;
-          japanese?: unknown;
-          similarity?: unknown;
-          source?: unknown;
-        };
-
-        if (typeof typed.id !== 'string') return null;
-        return {
-          id: typed.id,
-          english: typeof typed.english === 'string' ? typed.english : '',
-          japanese: typeof typed.japanese === 'string' ? typed.japanese : '',
-          similarity: typeof typed.similarity === 'number' ? typed.similarity : Number(typed.similarity) || 0,
-          source: typed.source === 'local' ? 'local' as const : 'vector' as const,
-        };
-      })
-      .filter((item): item is SimilarWordItem => item !== null)
-      .slice(0, 3);
-  }
-
-  return parsedResults;
-}
-
 export default function Quiz2Page() {
   const router = useRouter();
   const params = useParams();
@@ -132,8 +76,6 @@ export default function Quiz2Page() {
 
   const [loading, setLoading] = useState(true);
   const [words, setWords] = useState<Word[]>([]);
-  const [similarByWordId, setSimilarByWordId] = useState<Record<string, SimilarWordItem[]>>({});
-  const [isPreparingSimilar, setIsPreparingSimilar] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [isSubmittingGrade, setIsSubmittingGrade] = useState(false);
@@ -149,7 +91,6 @@ export default function Quiz2Page() {
   const isFrozenByTabLeaveRef = useRef(false);
 
   const currentWord = words[currentIndex];
-  const currentSimilarWords = currentWord ? (similarByWordId[currentWord.id] || []) : [];
 
   const speakCurrentWord = useCallback(() => {
     if (!currentWord?.english || typeof window === 'undefined') return;
@@ -179,29 +120,6 @@ export default function Quiz2Page() {
 
     router.push(`/project/${projectId}`);
   }, [returnPath, isCollectionMode, collectionId, router, projectId]);
-
-  const loadAllUserWords = useCallback(async (): Promise<Word[]> => {
-    const userId = user ? user.id : getGuestUserId();
-    let projects = await repository.getProjects(userId);
-    let wordRepo: typeof repository = repository;
-
-    if (projects.length === 0 && user) {
-      try {
-        projects = await remoteRepository.getProjects(user.id);
-        if (projects.length > 0) {
-          wordRepo = remoteRepository;
-        }
-      } catch (error) {
-        console.error('Failed to fetch projects from remote repository:', error);
-      }
-    }
-
-    const projectIds = projects.map((project) => project.id);
-    if (projectIds.length === 0) return [];
-
-    const wordsByProject = await getWordsByProjectMap(wordRepo, projectIds);
-    return projectIds.flatMap((id) => wordsByProject[id] ?? []);
-  }, [repository, user]);
 
   useEffect(() => {
     isFrozenByTabLeaveRef.current = isFrozenByTabLeave;
@@ -289,54 +207,16 @@ export default function Quiz2Page() {
         setWords(shuffledWords);
         setCurrentIndex(0);
         setShowAnswer(false);
-        setSimilarByWordId({});
-        setIsPreparingSimilar(true);
         setIsComplete(false);
         setSelectedGrade(null);
         setIsSubmittingGrade(false);
         setGradeCounts({ again: 0, hard: 0, good: 0, easy: 0 });
-        // Show first question immediately; keep similar-word prep in background.
         setLoading(false);
-
-        const allWords = await loadAllUserWords();
-        const userWordPool = allWords.length > 0 ? allWords : shuffledWords;
-        if (isFrozenByTabLeaveRef.current) return;
-
-        let batchSimilar: Record<string, SimilarWordItem[]> = {};
-        try {
-          batchSimilar = await fetchSimilarBatch(shuffledWords.map((word) => word.id));
-        } catch (error) {
-          console.error('Failed to fetch similar words batch:', error);
-        }
-        if (isFrozenByTabLeaveRef.current) return;
-
-        const mergedSimilarByWordId: Record<string, SimilarWordItem[]> = {};
-        for (const sourceWord of shuffledWords) {
-          const vectorResults = batchSimilar[sourceWord.id] || [];
-          const neededCount = Math.max(0, 3 - vectorResults.length);
-          const localResults = neededCount > 0
-            ? findLocalSimilarWords(sourceWord, userWordPool, {
-                limit: neededCount,
-                excludeIds: [sourceWord.id, ...vectorResults.map((item) => item.id)],
-              }).map((item) => ({
-                id: item.id,
-                english: item.english,
-                japanese: item.japanese,
-                similarity: item.score,
-                source: 'local' as const,
-              }))
-            : [];
-
-          mergedSimilarByWordId[sourceWord.id] = [...vectorResults, ...localResults].slice(0, 3);
-        }
-
-        setSimilarByWordId(mergedSimilarByWordId);
       } catch (error) {
         console.error('Failed to load quiz2 words:', error);
         backToOrigin();
       } finally {
         if (!isFrozenByTabLeaveRef.current) {
-          setIsPreparingSimilar(false);
           setLoading(false);
         }
       }
@@ -353,7 +233,6 @@ export default function Quiz2Page() {
     collectionId,
     isCollectionMode,
     backToOrigin,
-    loadAllUserWords,
     isFrozenByTabLeave,
   ]);
 
@@ -579,53 +458,6 @@ export default function Quiz2Page() {
             )}
           </section>
 
-          {showAnswer && (
-            <section className="card p-5 border border-[var(--color-border)]">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-[var(--color-foreground)]">類義語ペア</h2>
-                <span className="text-xs text-[var(--color-muted)]">最大3件</span>
-              </div>
-
-              {isPreparingSimilar ? (
-                <div className="py-3 text-sm text-[var(--color-muted)] flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                  類似語を準備中...
-                </div>
-              ) : currentSimilarWords.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)] py-2">類似語がまだ十分にありません。</p>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    {currentSimilarWords.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex items-start justify-between gap-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-bold text-[var(--color-foreground)] truncate">{item.english}</p>
-                          <p className="text-sm text-[var(--color-muted)] truncate">{item.japanese}</p>
-                        </div>
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-1 rounded-full ${
-                            item.source === 'vector'
-                              ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                              : 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-                          }`}
-                        >
-                          {item.source === 'vector' ? 'vector' : 'local'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {currentSimilarWords.length < 3 && (
-                    <p className="text-xs text-[var(--color-muted)] mt-3">
-                      類似語データが不足しているため、{currentSimilarWords.length}件のみ表示しています。
-                    </p>
-                  )}
-                </>
-              )}
-            </section>
-          )}
         </div>
       </main>
 
