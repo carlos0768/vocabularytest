@@ -13,11 +13,12 @@ import type { SubscriptionStatus } from '@/types';
 
 /**
  * Parse shared text from Google Translate.
+ * Only supports Google Translate share format (English + Japanese pair).
  *
  * Supported formats:
- *  - "apple\nりんご"      → newline-separated
+ *  - "apple\nりんご"      → newline-separated (Google Translate default)
  *  - "apple - りんご"     → dash-separated
- *  - "apple"              → English only (needs translation)
+ *  - "apple"              → English only (user enters Japanese manually)
  */
 function parseSharedText(text: string): { english: string; japanese: string } {
   const trimmed = text.trim();
@@ -37,12 +38,8 @@ function parseSharedText(text: string): { english: string; japanese: string } {
     return { english: dashMatch[1].trim(), japanese: dashMatch[2].trim() };
   }
 
-  // Single word/phrase — needs translation
+  // Single word/phrase — user enters Japanese manually
   return { english: trimmed, japanese: '' };
-}
-
-function hasJapanese(text: string): boolean {
-  return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(text);
 }
 
 function ShareTargetContent() {
@@ -62,29 +59,6 @@ function ShareTargetContent() {
   const [newProjectName, setNewProjectName] = useState('');
   const [showNewProject, setShowNewProject] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [translating, setTranslating] = useState(false);
-
-  // Auto-translate if only English is provided
-  useEffect(() => {
-    if (parsed.english && !parsed.japanese && !hasJapanese(parsed.english)) {
-      setTranslating(true);
-      fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: parsed.english }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.japanese) {
-            setJapanese(data.japanese);
-          }
-        })
-        .catch(() => {
-          // Translation failed — user can type manually
-        })
-        .finally(() => setTranslating(false));
-    }
-  }, [parsed.english, parsed.japanese]);
 
   // Auto-select first project once loaded
   useEffect(() => {
@@ -148,8 +122,10 @@ function ShareTargetContent() {
         targetProjectId = project.id;
       }
 
-      // Generate distractors (best-effort)
+      // Generate distractors + example sentence (best-effort)
       let distractors: string[] = [];
+      let exampleSentence = '';
+      let exampleSentenceJa = '';
       try {
         const res = await fetch('/api/generate-quiz-distractors', {
           method: 'POST',
@@ -159,8 +135,17 @@ function ShareTargetContent() {
           }),
         });
         const data = await res.json();
-        if (data.success && data.results?.[0]?.distractors) {
-          distractors = data.results[0].distractors;
+        if (data.success && data.results?.[0]) {
+          const result = data.results[0];
+          if (result.distractors) {
+            distractors = result.distractors;
+          }
+          if (result.exampleSentence) {
+            exampleSentence = result.exampleSentence;
+          }
+          if (result.exampleSentenceJa) {
+            exampleSentenceJa = result.exampleSentenceJa;
+          }
         }
       } catch {
         // Distractors generation failed — save with empty array
@@ -173,6 +158,8 @@ function ShareTargetContent() {
           english: english.trim(),
           japanese: japanese.trim(),
           distractors,
+          ...(exampleSentence ? { exampleSentence } : {}),
+          ...(exampleSentenceJa ? { exampleSentenceJa } : {}),
         },
       ]);
 
@@ -234,21 +221,13 @@ function ShareTargetContent() {
             <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">
               日本語訳
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={japanese}
-                onChange={(e) => setJapanese(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
-                placeholder={translating ? '翻訳中...' : 'りんご'}
-                disabled={translating}
-              />
-              {translating && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-primary)]" />
-                </div>
-              )}
-            </div>
+            <input
+              type="text"
+              value={japanese}
+              onChange={(e) => setJapanese(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
+              placeholder="りんご"
+            />
           </div>
 
           {/* Project selector */}
@@ -314,7 +293,7 @@ function ShareTargetContent() {
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleSave}
-            disabled={saving || !english.trim() || !japanese.trim() || translating || isLoading}
+            disabled={saving || !english.trim() || !japanese.trim() || isLoading}
             className="w-full"
             size="lg"
           >

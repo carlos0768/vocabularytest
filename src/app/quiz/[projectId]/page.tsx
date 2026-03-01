@@ -81,7 +81,6 @@ export default function QuizPage() {
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
   const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
-  const [generatingExample, setGeneratingExample] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
@@ -154,66 +153,6 @@ export default function QuizPage() {
       clearQuizState();
     }
   }, [isComplete, clearQuizState]);
-
-  // Helper: apply generated examples to local state
-  const applyExamples = useCallback((examples: { wordId: string; exampleSentence: string; exampleSentenceJa: string }[]) => {
-    if (examples.length === 0) return;
-    const exampleMap = new Map(examples.map(e => [e.wordId, e]));
-
-    setQuestions(prev => prev.map(q => {
-      const ex = exampleMap.get(q.word.id);
-      return ex ? { ...q, word: { ...q.word, exampleSentence: ex.exampleSentence, exampleSentenceJa: ex.exampleSentenceJa } } : q;
-    }));
-    setAllWords(prev => prev.map(w => {
-      const ex = exampleMap.get(w.id);
-      return ex ? { ...w, exampleSentence: ex.exampleSentence, exampleSentenceJa: ex.exampleSentenceJa } : w;
-    }));
-
-    // Also save to local IndexedDB for free users
-    if (!isPro) {
-      examples.forEach(ex => {
-        repository.updateWord(ex.wordId, {
-          exampleSentence: ex.exampleSentence,
-          exampleSentenceJa: ex.exampleSentenceJa,
-        }).catch(() => {}); // silently ignore save errors
-      });
-    }
-  }, [isPro, repository]);
-
-  // Generate example sentence for a single word on-demand
-  const generateExampleOnDemand = useCallback(async (word: Word) => {
-    if (word.exampleSentence && word.exampleSentence.trim().length > 0) return;
-
-    setGeneratingExample(true);
-    try {
-      const response = await fetch('/api/generate-examples', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          words: [{
-            id: word.id,
-            english: word.english,
-            japanese: word.japanese,
-          }],
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('Failed to generate example:', response.status);
-        return;
-      }
-
-      const data = await response.json();
-      if (data.examples && data.examples.length > 0) {
-        applyExamples(data.examples);
-      }
-    } catch (error) {
-      console.error('Failed to generate example:', error);
-    } finally {
-      setGeneratingExample(false);
-    }
-  }, [applyExamples]);
-
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
     const selected = sortWordsByPriority(words).slice(0, count);
@@ -643,11 +582,6 @@ export default function QuizPage() {
 
     const isCorrect = index === currentQuestion.correctIndex;
     const word = currentQuestion.word;
-
-    // Generate example on-demand if not present
-    if (!word.exampleSentence || word.exampleSentence.trim().length === 0) {
-      generateExampleOnDemand(word);
-    }
 
     setResults((prev) => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
@@ -1134,11 +1068,6 @@ export default function QuizPage() {
                 {currentQuestion.word.exampleSentenceJa && (
                   <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
                 )}
-              </div>
-            ) : generatingExample ? (
-              <div className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 flex items-center gap-2 text-[var(--color-muted)]">
-                <Icon name="progress_activity" size={16} className="animate-spin" />
-                <span className="text-xs">例文を生成中...</span>
               </div>
             ) : null}
           </div>
