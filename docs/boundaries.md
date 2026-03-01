@@ -78,7 +78,7 @@ These areas require extra caution. Small changes can cause cascading failures.
 
 ### 2. Subscription Status Computation (`src/lib/subscription/status.ts`)
 
-- `getEffectiveSubscriptionStatus()` is called in: `use-auth.ts`, middleware, webhook handler, AppStore verify route.
+- `getEffectiveSubscriptionStatus()` is called in: `use-auth.ts` (via `mapSubscriptionRow`), AppStore verify route, `/api/subscription/me`, `/api/subscription/reconcile`.
 - **Impact of breakage**: Pro users lose access, or free users gain unauthorized Pro access.
 - **Before modifying**: Run `npm test` which includes `src/lib/subscription/status.test.ts`.
 - **Rule**: `pro_source='none'` must always resolve to `'cancelled'`. This is a security invariant (see `docs/invariants.md`).
@@ -106,17 +106,52 @@ These areas require extra caution. Small changes can cause cascading failures.
 
 ### 6. Service Role Key Usage
 
-`SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security. It is used in these server-side routes:
+`SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security. It is used in these server-side locations:
 
+**Subscription / Payment**:
 - `src/app/api/subscription/webhook/route.ts`
-- `src/app/api/scan-jobs/process/route.ts`
-- `src/app/api/auth/send-otp/` (OTP routes)
-- `src/app/api/ops/api-costs/` (admin dashboard)
 - `src/app/api/subscription/appstore/verify/route.ts`
+- `src/app/api/subscription/cancel/route.ts`
+- `src/app/api/subscription/reconcile/route.ts`
+
+**Auth (OTP)**:
+- `src/app/api/auth/send-otp/route.ts`
+- `src/app/api/auth/signup-verify/route.ts`
+- `src/app/api/auth/verify-otp/route.ts`
+- `src/app/api/auth/reset-password/route.ts`
+
+**Scan Jobs**:
+- `src/app/api/scan-jobs/create/route.ts`
+- `src/app/api/scan-jobs/process/route.ts`
+- `src/app/api/scan-jobs/route.ts` (list)
+
+**Embeddings / Similarity**:
+- `src/app/api/embeddings/rebuild/route.ts`
+- `src/app/api/similar-cache/rebuild/route.ts`
+- `src/app/api/quiz2/similar/batch/route.ts`
+
+**Notifications**:
+- `src/app/api/notifications/push-subscription/route.ts`
+- `src/app/api/notifications/ios-device-token/route.ts`
+
+**Admin / Internal**:
+- `src/app/api/ops/api-costs/` (admin dashboard, via `src/lib/api-cost/dashboard.ts`)
+- `src/lib/api-cost/recorder.ts` (called from API routes)
 
 **Rule**: Never use the service role key in client-side code or pass it to the browser.
 
-### 7. Cloud Run AI Proxy
+### 7. Billing Activation (`src/lib/subscription/billing-activation.ts`)
+
+- Called by both the KOMOJU webhook handler and the AppStore verify route.
+- **Impact of breakage**: Both web (KOMOJU) and iOS (Apple IAP) payment activation fail simultaneously.
+- **Before modifying**: Run `npm test` which includes `src/lib/subscription/billing-activation.test.ts`.
+
+### 8. Sync Queue (`src/lib/db/sync-queue.ts`)
+
+- Mediates all offline writes for Pro users (HybridWordRepository).
+- **Impact of breakage**: Offline writes are silently lost when the user comes back online.
+
+### 9. Cloud Run AI Proxy
 
 When `CLOUD_RUN_URL` and `CLOUD_RUN_AUTH_TOKEN` are both set, all AI extraction routes through `src/lib/ai/providers/cloud-run.ts` instead of direct API calls. There is no per-request fallback within the web app. If Cloud Run is down, extraction fails entirely.
 
@@ -129,7 +164,7 @@ When you change X, you must also check Y.
 | Changed (X) | Must Check (Y) |
 |-------------|----------------|
 | `shared/types/index.ts` | All repository implementations (`local-repository.ts`, `remote-repository.ts`, `hybrid-repository.ts`, `readonly-remote-repository.ts`), `shared/db/mappers.ts`, all hooks |
-| `src/lib/subscription/status.ts` | `src/hooks/use-auth.ts`, `src/app/api/subscription/webhook/route.ts`, `src/app/api/subscription/appstore/verify/route.ts`, middleware auth flow |
+| `src/lib/subscription/status.ts` | `src/hooks/use-auth.ts`, `src/app/api/subscription/appstore/verify/route.ts`, `src/app/api/subscription/me/route.ts`, `src/app/api/subscription/reconcile/route.ts` |
 | `src/lib/db/index.ts` (getRepository) | All callers: `use-projects.ts`, `use-words.ts`, `src/app/scan/confirm/page.tsx` |
 | `src/lib/ai/config.ts` | All extraction modes in `/api/extract`, `/api/scan-jobs/process`, `/api/grammar` (if restored) |
 | `src/lib/komoju/config.ts` | Subscription create, webhook, free plan limit display |

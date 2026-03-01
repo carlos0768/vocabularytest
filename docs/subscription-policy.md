@@ -7,9 +7,10 @@
 - 実際の最終状態はKOMOJU webhook（`subscription.canceled|cancelled`）で確定します。
 
 ## Pro Source Rule
-- `pro_source='billing'`: 実KOMOJU契約ID (`komoju_subscription_id` が `NULL` でなく `manual_%` ではない) のみ。
-- `pro_source='test'`: テスト付与ユーザー（手動付与・期限付き付与）。
-- `pro_source='none'`: 非Proユーザー。
+- `pro_source='billing'`: 実KOMOJU契約ID (`komoju_subscription_id` が `NULL` でなく `manual_%` ではない) のみ。`current_period_end` 経過で期限切れ。
+- `pro_source='appstore'`: Apple IAP 経由の購入。`current_period_end` 経過で期限切れ（`billing` と同一ロジック）。
+- `pro_source='test'`: テスト付与ユーザー（手動付与・期限付き付与）。`test_pro_expires_at` 経過で期限切れ。
+- `pro_source='none'`: 非Proユーザー。常に `'cancelled'` として扱われる。
 
 ## Test Pro Grants
 - 新規のテスト付与は `grant_test_pro` RPC 経由で実行し、既定で90日有効。

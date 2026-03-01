@@ -137,7 +137,19 @@ localStorage keys use `scanvocab_` prefix (stats, scan tracking, sync) or `merke
 
 These items need human verification.
 
-1. **RLS coverage on tables added after migration 001**: Do `scan_jobs`, `webhook_events`, `subscription_sessions`, `word_embeddings`, `web_push_subscriptions`, `ios_device_tokens`, `collections`, `api_cost_events`, `feature_usage_daily`, `otp_requests`, `user_activity_logs`, `word_similar_cache` all have RLS enabled? Migration `20260209000500_explicit_rls_for_internal_tables.sql` likely covers some but a full audit is needed.
+1. **RLS coverage on tables added after migration 001** (Audited 2026-03-01):
+   All tables have RLS enabled. Status:
+   - `daily_scan_usage`: RLS enabled. SELECT only; INSERT/UPDATE via SECURITY DEFINER RPC.
+   - `scan_jobs`: RLS enabled. **Issue**: UPDATE policy uses `USING (true)` without `TO service_role` -- any authenticated user can update any row. See `docs/TODO-rls-fix-scan-jobs.md`.
+   - `otp_requests`: RLS enabled. Service-role-only access (fixed in migration `20260209000500`).
+   - `user_activity_logs`: RLS enabled. SELECT + INSERT.
+   - `collections` / `collection_projects`: RLS enabled. Full CRUD.
+   - `web_push_subscriptions`: RLS enabled. Full CRUD.
+   - `word_similar_cache`: RLS enabled. Full CRUD.
+   - `api_cost_events`: RLS enabled. Service-role full access + authenticated SELECT own.
+   - `feature_usage_daily`: RLS enabled. SELECT only; INSERT/UPDATE dropped intentionally (writes via SECURITY DEFINER RPC).
+   - `ios_device_tokens`: RLS enabled. Full CRUD.
+   - `webhook_events` / `subscription_sessions`: RLS enabled. Service-role only (migration `20260209000500`).
 
 2. **Scan limit RPC atomicity**: Is `check_and_increment_scan` atomic? If two concurrent requests arrive, can they both pass the limit check?
 

@@ -57,7 +57,7 @@ Applies To: `src/app/api/subscription/*`, `src/lib/subscription/*`, `src/lib/kom
 ## 5.1 `subscriptions`
 
 - `status`, `plan`
-- `pro_source`: `billing | test | none`
+- `pro_source`: `billing | appstore | test | none`
 - `komoju_customer_id`
 - `komoju_subscription_id`
 - `current_period_start`, `current_period_end`

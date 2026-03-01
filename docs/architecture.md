@@ -20,6 +20,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | Styling | Tailwind CSS | v4 | `postcss.config.mjs` |
 | Local DB | Dexie.js (IndexedDB) | ^4.2.1 | `src/lib/db/dexie.ts` |
 | Cloud DB | Supabase (PostgreSQL + Auth + Storage) | ^2.91.0 | `src/lib/supabase/` |
+| Supabase SSR | `@supabase/ssr` | ^0.8.0 | `src/lib/supabase/`, `middleware.ts` |
 | AI - Image OCR | Google Gemini 2.5 Flash | `@google/genai` ^1.38.0 | `src/lib/ai/config.ts:L17` |
 | AI - Quiz Gen | OpenAI GPT-4o-mini | `openai` ^6.16.0 | `src/lib/ai/config.ts:L18` |
 | AI - Embeddings | OpenAI text-embedding-3-small | `openai` ^6.16.0 | `src/lib/embeddings/` |
@@ -51,6 +52,13 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/app/api/dictation/grade/` | Dictation answer grading |
 | `src/app/api/notifications/` | Push subscription registration (web + iOS) |
 | `src/app/api/ops/api-costs/` | Admin-only AI cost dashboard |
+| `src/app/api/generate-word-insights/` | GPT-4o-mini word insights (POS tags, related words) |
+| `src/app/api/regenerate-distractors/` | Regenerate quiz distractors on demand |
+| `src/app/api/generate-examples/` | AI example sentence generation |
+| `src/app/api/activity/` | User activity logging |
+| `src/app/api/translate/` | AI-powered translation |
+| `src/app/api/search/semantic/` | Semantic search via embeddings |
+| `src/app/api/similar-cache/rebuild/` | Rebuild similar word cache |
 | `src/components/` | React components split by feature domain |
 | `src/components/ui/` | Reusable UI primitives (Button, Icon, AppShell) |
 | `src/components/home/` | Home page modals (ScanModeModal, ProcessingModal) |
@@ -67,6 +75,11 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/lib/stats/` | Activity calendar / heatmap computation |
 | `src/lib/similarity/` | Similar word lookup for Quiz2 |
 | `src/lib/api-cost/` | API cost tracking and recording |
+| `src/lib/appstore/` | Apple IAP client, config, transaction verification |
+| `src/lib/projects/` | Project loading helpers |
+| `src/lib/resend/` | Resend email client for OTP |
+| `src/lib/pwa/` | PWA service worker registration |
+| `src/lib/marketing/` | Marketing page content |
 | `src/types/` | TypeScript type re-exports from `shared/types/` + web-specific types |
 
 ### Shared Code (`shared/`)
@@ -88,7 +101,8 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 
 | Directory | Purpose |
 |-----------|---------|
-| `mobile/` | iOS native app |
+| `mobile/` | Capacitor-based iOS app |
+| `ios-native/` | Native Xcode project (MerkenIOS) |
 | `cloud-run-scan/` | Cloud Run AI gateway service |
 | `vocabularytest/`, `vocabularytest-clone/`, `stitch/` | Legacy/experimental |
 

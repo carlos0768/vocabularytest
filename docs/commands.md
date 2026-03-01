@@ -122,6 +122,18 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 - **What it does**: Logs security events to an observation file
 - **Danger level**: Safe
 
+### `npm run security:observe:ci`
+
+- **What it does**: Runs the security observation script in CI mode
+- **Command**: `node scripts/security-observe.mjs --ci`
+- **Danger level**: Safe
+
+### `npm run security:observe:summary`
+
+- **What it does**: Generates a summary of security observation results
+- **Command**: `node scripts/security-observe-summary.mjs`
+- **Danger level**: Safe
+
 ---
 
 ## QA / E2E
