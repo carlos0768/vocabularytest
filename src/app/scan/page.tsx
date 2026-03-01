@@ -322,7 +322,7 @@ function ScanPageContent() {
 
       if (projectId) {
         // Adding to existing project: skip project name modal, start background upload directly
-        handleBackgroundUpload(scanFiles, '', undefined, projectId);
+        handleBackgroundUpload(scanFiles, '', undefined, effectiveAiPreference, projectId);
         return;
       }
 
