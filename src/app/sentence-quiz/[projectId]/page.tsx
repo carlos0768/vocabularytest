@@ -13,7 +13,7 @@ import {
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
-import { calculateNextReview } from '@/lib/spaced-repetition';
+import { calculateNextReview, getStatusAfterAnswer } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SentenceQuizQuestion, MultiFillInBlankQuestion as MultiFillInBlankQuestionType, SubscriptionStatus } from '@/types';
@@ -303,23 +303,11 @@ export default function SentenceQuizPage() {
     try {
       const word = allWords.find((w) => w.id === currentQuestion.wordId);
       if (word) {
-        let newStatus = word.status;
-        if (isCorrect) {
-          if (word.status === 'new') newStatus = 'review';
-          else if (word.status === 'review') newStatus = 'mastered';
-        } else {
-          if (word.status === 'mastered') newStatus = 'review';
-          else if (word.status === 'review') newStatus = 'new';
-        }
-
-        // Calculate spaced repetition update using SM-2 algorithm
+        const newStatus = getStatusAfterAnswer(word.status, isCorrect);
         const srUpdate = calculateNextReview(isCorrect, word);
-
-        // Combine status and spaced repetition updates
         const updates = { status: newStatus, ...srUpdate };
         await repository.updateWord(word.id, updates);
 
-        // ローカル状態も更新
         setAllWords((prev) =>
           prev.map((w) =>
             w.id === word.id ? { ...w, ...updates } : w

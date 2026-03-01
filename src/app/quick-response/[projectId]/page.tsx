@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
 import { getRepository } from '@/lib/db';
 import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
-import { calculateNextReview, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -129,6 +129,10 @@ export default function QuickResponsePage() {
 
   // Speech support: null = testing, true = supported, false = not supported
   const [speechSupported, setSpeechSupported] = useState<boolean | null>(null);
+  // #region agent log
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const addDebug = useCallback((msg: string) => { setDebugLog(prev => [...prev.slice(-10), `${new Date().toISOString().slice(11,23)} ${msg}`]); }, []);
+  // #endregion
 
   const timerStartRef = useRef<number | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -142,11 +146,13 @@ export default function QuickResponsePage() {
   // Test speech recognition on mount
   useEffect(() => {
     let cancelled = false;
+    addDebug('test:start');
     testSpeechRecognition().then((supported) => {
+      addDebug(`test:done supported=${supported}`);
       if (!cancelled) setSpeechSupported(supported);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [addDebug]);
 
   // Load words
   useEffect(() => {
@@ -232,10 +238,12 @@ export default function QuickResponsePage() {
       recordActivity();
 
       try {
+        const newStatus = getStatusAfterAnswer(word.status, correct);
         const srUpdate = calculateNextReview(correct, word);
-        await repository.updateWord(word.id, srUpdate);
+        const updates = { status: newStatus, ...srUpdate };
+        await repository.updateWord(word.id, updates);
         setWords((prev) =>
-          prev.map((w) => (w.id === word.id ? { ...w, ...srUpdate } : w))
+          prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w))
         );
       } catch {}
     },
@@ -265,6 +273,9 @@ export default function QuickResponsePage() {
     timerStartRef.current = Date.now();
 
     const SpeechRecognitionClass = getSpeechRecognition();
+    // #region agent log
+    addDebug(`startQ hasClass=${!!SpeechRecognitionClass}`);
+    // #endregion
     if (!SpeechRecognitionClass) return;
 
     try {
@@ -288,6 +299,9 @@ export default function QuickResponsePage() {
         }
 
         const display = finalTranscript || interimTranscript;
+        // #region agent log
+        addDebug(`result: "${display}" final="${finalTranscript}"`);
+        // #endregion
         if (display) {
           bestTranscriptRef.current = display;
           setRecognizedText(display);
@@ -299,10 +313,16 @@ export default function QuickResponsePage() {
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        // #region agent log
+        addDebug(`onerror: ${event.error}`);
+        // #endregion
         if (event.error === 'no-speech' || event.error === 'aborted') return;
       };
 
       recognition.onend = () => {
+        // #region agent log
+        addDebug(`onend answered=${answeredRef.current} best="${bestTranscriptRef.current}" elapsed=${timerStartRef.current ? Date.now() - timerStartRef.current : 'n/a'}`);
+        // #endregion
         if (!answeredRef.current) {
           // 認識が終了したがfinalTranscriptが来なかった場合、
           // bestTranscriptRef（interim結果）で判定する
@@ -321,7 +341,7 @@ export default function QuickResponsePage() {
     } catch (e) {
       console.error('Failed to start speech recognition:', e);
     }
-  }, [handleAnswer]);
+  }, [handleAnswer, addDebug]);
 
   // Timer countdown
   useEffect(() => {
@@ -524,6 +544,14 @@ export default function QuickResponsePage() {
           {currentIndex + 1}/{words.length}
         </span>
       </header>
+
+      {/* #region agent log */}
+      {debugLog.length > 0 && (
+        <div className="px-4 py-2 text-[10px] font-mono bg-black/80 text-green-400 max-h-24 overflow-y-auto flex-shrink-0">
+          {debugLog.map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+      )}
+      {/* #endregion */}
 
       {/* Timer bar */}
       {phase === 'listening' && (

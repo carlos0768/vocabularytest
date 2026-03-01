@@ -9,7 +9,7 @@ import { InlineFlashcard } from '@/components/home/InlineFlashcard';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
-import { calculateNextReview, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { calculateNextReview, getStatusAfterAnswer, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -663,22 +663,24 @@ export default function QuizPage() {
 
     recordActivity();
 
-    // Update spaced repetition fields using SM-2 algorithm
+    // Update status and spaced repetition fields using SM-2 algorithm
     try {
+      const newStatus = getStatusAfterAnswer(word.status, isCorrect);
       const srUpdate = calculateNextReview(isCorrect, word);
-      await repository.updateWord(word.id, srUpdate);
+      const updates = { status: newStatus, ...srUpdate };
+      await repository.updateWord(word.id, updates);
 
       // Update local state
       setQuestions((prev) =>
         prev.map((q, i) =>
           i === currentIndex
-            ? { ...q, word: { ...q.word, ...srUpdate } }
+            ? { ...q, word: { ...q.word, ...updates } }
             : q
         )
       );
       setAllWords((prev) =>
         prev.map((w) =>
-          w.id === word.id ? { ...w, ...srUpdate } : w
+          w.id === word.id ? { ...w, ...updates } : w
         )
       );
     } catch (error) {

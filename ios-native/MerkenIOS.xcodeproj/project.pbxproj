@@ -30,6 +30,8 @@
 		40EE2EAED93CC20EAF2C8456 /* BookshelfTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D8414867286CF9EEF225162 /* BookshelfTabView.swift */; };
 		43C6C458CE58EA3A9C3F6E85 /* ScanConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF9C5352AB1173D35DBB46B /* ScanConfirmView.swift */; };
 		440D0C2A7FE94658AEA160DB /* Quiz2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */; };
+		QR0001VIEWBUILD000000001 /* QuickResponseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = QR0001VIEWFILE0000000001 /* QuickResponseView.swift */; };
+		QR0002VMBUILD00000000001 /* QuickResponseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = QR0002VMFILE000000000001 /* QuickResponseViewModel.swift */; };
 		46240C42F098431A0C66CA94 /* QuizViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 528A9430116E2D659E74D431 /* QuizViewModel.swift */; };
 		466006A97601CF4125018595 /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B964C51CAEF1A9D4EDD742 /* SafariView.swift */; };
 		492D27CB88B80590F8AA2C16 /* SentenceQuizViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64C56CCA739186C6EEECF6 /* SentenceQuizViewModel.swift */; };
@@ -175,6 +177,8 @@
 		A66AD89C96ED3EA46B7F82A7 /* AppBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBackground.swift; sourceTree = "<group>"; };
 		A69B31214CA9933F460FF4B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AA049BB658E5472EA4BA19B8 /* Quiz2View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2View.swift; sourceTree = "<group>"; };
+		QR0001VIEWFILE0000000001 /* QuickResponseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickResponseView.swift; sourceTree = "<group>"; };
+		QR0002VMFILE000000000001 /* QuickResponseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickResponseViewModel.swift; sourceTree = "<group>"; };
 		AA1122B2BE665D409786757D /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		B0F0B2A43384E462C70CF7EB /* SupabaseRESTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseRESTClient.swift; sourceTree = "<group>"; };
 		B2D3E4F5A6172839C4B5A6D7 /* ContactView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactView.swift; sourceTree = "<group>"; };
@@ -406,6 +410,7 @@
 			children = (
 				A1B2C3D4E5F607180A9B0C1D /* Auth */,
 				D7C972E501724C20BDFA0BCA /* Quiz2 */,
+				QR0003GROUP00000000000001 /* QuickResponse */,
 				0FE6BCE4912A4A07343446F2 /* Bookshelf */,
 				6307BB58FD016FA703AC920A /* Favorites */,
 				D40620301DAAB53B3BF95330 /* Flashcard */,
@@ -530,6 +535,15 @@
 				5D76E90B00D6498C8346AC27 /* Quiz2ViewModel.swift */,
 			);
 			path = Quiz2;
+			sourceTree = "<group>";
+		};
+		QR0003GROUP00000000000001 /* QuickResponse */ = {
+			isa = PBXGroup;
+			children = (
+				QR0001VIEWFILE0000000001 /* QuickResponseView.swift */,
+				QR0002VMFILE000000000001 /* QuickResponseViewModel.swift */,
+			);
+			path = QuickResponse;
 			sourceTree = "<group>";
 		};
 		ED8B40E6DEEC3AE8DD639F9B /* DTO */ = {
@@ -780,6 +794,8 @@
 				2E43FB64DB0C1E38FE9E55FA /* WordListViewModel.swift in Sources */,
 				440D0C2A7FE94658AEA160DB /* Quiz2View.swift in Sources */,
 				CEF4C35E116645D5AEC6377D /* Quiz2ViewModel.swift in Sources */,
+				QR0001VIEWBUILD000000001 /* QuickResponseView.swift in Sources */,
+				QR0002VMBUILD00000000001 /* QuickResponseViewModel.swift in Sources */,
 				968E57F7E9F2E41C175296C7 /* WordRepositoryProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

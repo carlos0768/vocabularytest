@@ -9,7 +9,7 @@
  * - Wrong answer: quality = 1 (complete blackout)
  */
 
-import type { Word } from '@/types';
+import type { Word, WordStatus } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '../../shared/db';
 
 // Re-export from shared for backwards compatibility
@@ -111,6 +111,23 @@ export function calculateNextReviewByQuality(
     nextReviewAt,
     lastReviewedAt,
   };
+}
+
+/**
+ * Determine the next word status based on whether the answer was correct.
+ *
+ * Correct: new -> review -> mastered (stays mastered)
+ * Wrong:   mastered -> review -> new (stays new)
+ */
+export function getStatusAfterAnswer(currentStatus: WordStatus, isCorrect: boolean): WordStatus {
+  if (isCorrect) {
+    if (currentStatus === 'new') return 'review';
+    if (currentStatus === 'review') return 'mastered';
+    return 'mastered';
+  }
+  if (currentStatus === 'mastered') return 'review';
+  if (currentStatus === 'review') return 'new';
+  return 'new';
 }
 
 /**

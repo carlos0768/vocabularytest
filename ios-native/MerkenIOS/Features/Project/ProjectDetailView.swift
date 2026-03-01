@@ -12,6 +12,7 @@ struct ProjectDetailView: View {
     @State private var showingQuiz: String?
     @State private var flashcardDestination: Project?
     @State private var quiz2Destination: Project?
+    @State private var quickResponseDestination: Project?
     @State private var showingScan = false
     @State private var previewIndex = 0
     @State private var showingWordList = false
@@ -136,6 +137,9 @@ struct ProjectDetailView: View {
         }
         .navigationDestination(item: $quiz2Destination) { project in
             Quiz2View(project: project, preloadedWords: viewModel.words)
+        }
+        .navigationDestination(item: $quickResponseDestination) { project in
+            QuickResponseView(project: project, preloadedWords: viewModel.words)
         }
         .sheet(isPresented: $showingShareSheet) {
             ShareSheet(items: shareItems)
@@ -424,6 +428,15 @@ struct ProjectDetailView: View {
                     subtitle: "めくって学習"
                 ) {
                     flashcardDestination = project
+                }
+
+                learningModeCard(
+                    icon: "mic.fill",
+                    iconColor: MerkenTheme.danger,
+                    title: "即答チャレンジ",
+                    subtitle: "声で即答"
+                ) {
+                    quickResponseDestination = project
                 }
 
                 if aiEnabled || hasPreparedQuizData {
