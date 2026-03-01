@@ -210,14 +210,6 @@ export default function FavoritesPage() {
                     badge={!isPro ? 'Pro' : undefined}
                   />
                 </div>
-                <StudyModeCard
-                  title="苦手例文クイズ"
-                  description="例文で記憶を定着"
-                  icon="auto_awesome"
-                  href={isPro ? `/sentence-quiz/all?favorites=true&from=${returnPath}` : '/subscription'}
-                  variant="orange"
-                  badge={!isPro ? 'Pro' : undefined}
-                />
               </section>
             )}
 
