@@ -137,10 +137,10 @@ localStorage keys use `scanvocab_` prefix (stats, scan tracking, sync) or `merke
 
 These items need human verification.
 
-1. **RLS coverage on tables added after migration 001** (Audited 2026-03-01):
+1. **RLS coverage on tables added after migration 001** (Audited 2026-03-02):
    All tables have RLS enabled. Status:
    - `daily_scan_usage`: RLS enabled. SELECT only; INSERT/UPDATE via SECURITY DEFINER RPC.
-   - `scan_jobs`: RLS enabled. **Issue**: UPDATE policy uses `USING (true)` without `TO service_role` -- any authenticated user can update any row. See `docs/TODO-rls-fix-scan-jobs.md`.
+   - `scan_jobs`: RLS enabled. UPDATE policy fixed to `service_role` only (migration `20260302090000`).
    - `otp_requests`: RLS enabled. Service-role-only access (fixed in migration `20260209000500`).
    - `user_activity_logs`: RLS enabled. SELECT + INSERT.
    - `collections` / `collection_projects`: RLS enabled. Full CRUD.

@@ -1,56 +1,59 @@
-# TODO: scan_jobs UPDATE RLS ポリシー修正
+# DONE: scan_jobs UPDATE RLS ポリシー修正
 
-## 問題
+## 対応概要
 
-`supabase/migrations/20260207000000_create_scan_jobs.sql` (lines 51-55) の UPDATE ポリシーが `TO service_role` を指定していないため、任意の認証済みユーザーが他人の `scan_jobs` 行を更新可能。
+`scan_jobs` の UPDATE RLS を `service_role` のみに固定し、環境間のRLSドリフトを解消した。
 
-```sql
--- 現状 (脆弱)
-CREATE POLICY "Service role can update scan jobs"
-  ON scan_jobs FOR UPDATE
-  USING (true)
-  WITH CHECK (true);
-```
+- 追加 migration:
+  - `supabase/migrations/20260302090000_fix_scan_jobs_update_rls_drift.sql`
+- 実施内容:
+  - `Service role can update scan jobs` を再作成して `TO service_role` を付与
+  - ドリフト吸収のため `Users can update own scan jobs` も明示的に削除
 
-Supabase では `TO` 句がない場合、全ロール (`authenticated` 含む) に適用される。
-
-## 影響
-
-- 認証済みユーザーが他人のスキャンジョブの `status`、`error_message`、`result` を上書き可能
-- DoS: 他人のジョブを `failed` に設定可能
-- データ改ざん: `result` を差し替えて不正な単語データを注入可能
-
-## 修正方針
-
-新しいマイグレーションで既存ポリシーを DROP し、`TO service_role` 付きで再作成する。
-
-## 修正用マイグレーション SQL
+## 適用した migration SQL
 
 ```sql
--- Drop the overly permissive UPDATE policy
-DROP POLICY IF EXISTS "Service role can update scan jobs" ON scan_jobs;
+BEGIN;
 
--- Recreate with service_role restriction only
+ALTER TABLE public.scan_jobs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Service role can update scan jobs" ON public.scan_jobs;
+DROP POLICY IF EXISTS "Users can update own scan jobs" ON public.scan_jobs;
+
 CREATE POLICY "Service role can update scan jobs"
-  ON scan_jobs FOR UPDATE
+  ON public.scan_jobs
+  FOR UPDATE
   TO service_role
   USING (true)
   WITH CHECK (true);
+
+COMMIT;
 ```
 
-## 適用手順
+## 運用メモ
 
-1. 上記 SQL を `supabase/migrations/YYYYMMDDHHMMSS_fix_scan_jobs_update_rls.sql` として作成
-2. `npm run lint && npm test` で既存テストが通ることを確認
-3. Supabase ダッシュボードまたは CLI でマイグレーション適用
-4. 適用後、認証済みユーザー (anon key) で scan_jobs UPDATE が拒否されることを確認
+- `scan_jobs` の UPDATE はサーバー側の `service_role` クライアント経由で行われる想定。
+- クライアント（`authenticated`）からの `scan_jobs` 直接UPDATEはサポートしない。
 
-## 検証方法
-
-Supabase SQL Editor で以下を実行:
+## 検証SQL
 
 ```sql
--- anon/authenticated ユーザーとして (anon key 経由)
-UPDATE scan_jobs SET status = 'failed' WHERE id = '<other-users-job-id>';
--- 期待結果: 0 rows affected (RLS によりブロック)
+SELECT schemaname, tablename, policyname, cmd, roles, qual, with_check
+FROM pg_policies
+WHERE schemaname='public' AND tablename='scan_jobs'
+ORDER BY policyname;
 ```
+
+期待:
+- UPDATEポリシーは `Service role can update scan jobs` のみ
+- `roles` に `service_role` のみが含まれる
+
+```sql
+SELECT grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema='public' AND table_name='scan_jobs'
+ORDER BY grantee, privilege_type;
+```
+
+期待:
+- `anon` / `authenticated` に不要な `UPDATE` 権限がない（またはRLSで実効不可）
