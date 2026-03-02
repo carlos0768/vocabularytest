@@ -20,16 +20,16 @@ const navItems: NavItem[] = [
     matchPaths: ['/'],
   },
   {
-    href: '/projects',
-    icon: 'folder',
-    label: '単語帳',
-    matchPaths: ['/projects', '/project'],
-  },
-  {
     href: '/collections',
     icon: 'shelves',
     label: '本棚',
     matchPaths: ['/collections'],
+  },
+  {
+    href: '/search',
+    icon: 'search',
+    label: '検索',
+    matchPaths: ['/search'],
   },
   {
     href: '/stats',

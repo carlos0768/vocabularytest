@@ -1674,15 +1674,18 @@ export default function HomePage() {
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">検索</span>
               </Link>
-              <Link
-                href="/collections"
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                }}
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
-                  <Icon name="shelves" size={22} className="text-amber-600 dark:text-amber-400" />
+                  <Icon name="flag" size={22} className="text-amber-600 dark:text-amber-400" />
                 </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">本棚</span>
-              </Link>
+                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">苦手な単語一覧</span>
+              </button>
               <Link
                 href="/projects"
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
