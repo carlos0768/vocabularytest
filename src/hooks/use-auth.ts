@@ -10,6 +10,7 @@ import { clearHomeCache } from '@/lib/home-cache';
 import { clearAllUserStats } from '@/lib/utils';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
 import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-offline';
+import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
 
 interface AuthState {
   user: User | null;
@@ -64,65 +65,6 @@ function mapSubscriptionRow(
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
-}
-
-// ---- Fast session detection ----
-// Synchronously check if Supabase session exists in localStorage
-// This allows instant UI without waiting for async getSession()
-function hasSupabaseSession(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    // Supabase stores session in localStorage with key pattern: sb-{project_ref}-auth-token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) return false;
-    
-    // Extract project ref from URL (e.g., https://ryoyvpayoacgeqgoehgk.supabase.co -> ryoyvpayoacgeqgoehgk)
-    const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
-    if (!match) return false;
-    
-    const projectRef = match[1];
-    const sessionKey = `sb-${projectRef}-auth-token`;
-    const sessionData = localStorage.getItem(sessionKey);
-    
-    if (!sessionData) return false;
-    
-    // Parse and check if token exists and isn't expired
-    const parsed = JSON.parse(sessionData);
-    if (!parsed?.access_token) return false;
-    
-    // Check expiry with 5-minute buffer (expires_at is Unix timestamp in seconds)
-    // The buffer prevents false negatives during token refresh
-    if (parsed.expires_at && Date.now() / 1000 > parsed.expires_at + 300) {
-      return false; // Token expired (with 5-min grace)
-    }
-    
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Get cached user from Supabase localStorage (for instant UI)
-function getCachedSupabaseUser(): User | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) return null;
-    
-    const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
-    if (!match) return null;
-    
-    const projectRef = match[1];
-    const sessionKey = `sb-${projectRef}-auth-token`;
-    const sessionData = localStorage.getItem(sessionKey);
-    
-    if (!sessionData) return null;
-    
-    const parsed = JSON.parse(sessionData);
-    return parsed?.user ?? null;
-  } catch {
-    return null;
-  }
 }
 
 // ---- Strategy 3: localStorage subscription cache ----
@@ -228,9 +170,9 @@ function tryOptimisticLoad(): boolean {
   
   hasOptimisticLoad = true;
   
-  // Check if we have a valid session in localStorage
-  if (hasSupabaseSession()) {
-    const cachedUser = getCachedSupabaseUser();
+  const snapshot = getCachedSupabaseSessionSnapshot();
+  if (isCachedSupabaseSessionValid(snapshot)) {
+    const cachedUser = snapshot?.user ?? null;
     const cachedSub = cachedUser ? getCachedSubscription(cachedUser.id) : null;
     
     // If we have cached user data, instantly update state

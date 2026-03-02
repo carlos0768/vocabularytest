@@ -22,6 +22,7 @@ import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
 import { expandFilesForScan, isPdfFile, processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
+import { getCachedSupabaseUserId } from '@/lib/supabase/session-cache';
 import { hasVisitedProject } from '@/lib/project-visit';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 import {
@@ -68,23 +69,6 @@ const ProjectSelectionSheet = dynamic(
 // Scan mode types
 type ScanMode = ExtractMode;
 
-function getCachedSessionUserId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) return null;
-    const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
-    if (!match) return null;
-    const sessionKey = `sb-${match[1]}-auth-token`;
-    const sessionData = localStorage.getItem(sessionKey);
-    if (!sessionData) return null;
-    const parsed = JSON.parse(sessionData);
-    return parsed?.user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Synchronously attempt to restore home cache from sessionStorage or in-memory.
  * Called once during module init (before any React render) so the very first
@@ -93,7 +77,7 @@ function getCachedSessionUserId(): string | null {
 function ensureCacheRestored(): boolean {
   if (getHasLoaded()) return true;
   if (typeof window !== 'undefined') {
-    const userId = getCachedSessionUserId() ?? getGuestUserId();
+    const userId = getCachedSupabaseUserId() ?? getGuestUserId();
     const snapshot = restoreFromSessionStorage(userId);
     if (snapshot) {
       setHomeCache(snapshot);
