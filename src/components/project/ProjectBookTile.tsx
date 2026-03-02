@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { getBookCoverColors } from '@/lib/book-cover-utils';
 import type { Project } from '@/types';
@@ -32,13 +32,24 @@ export function ProjectBookTile({
   extraMenuItems,
 }: ProjectBookTileProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    setIsDark(html.classList.contains('dark'));
+    const observer = new MutationObserver(() => {
+      setIsDark(html.classList.contains('dark'));
+    });
+    observer.observe(html, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const safeIconImage =
     typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
       ? project.iconImage
       : null;
 
-  const [colorFrom, colorTo] = getBookCoverColors(project.id);
+  const [colorFrom, colorTo] = getBookCoverColors(project.id, isDark);
   const clampedProgress = Math.max(0, Math.min(progress, 100));
   const hasProgress = clampedProgress > 0 && wordCount > 0;
 

@@ -28,6 +28,7 @@ private struct SentenceQuizDestination: Hashable {
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var quizDestination: QuizDestination?
     @State private var flashcardDestination: FlashcardDestination?
@@ -237,7 +238,9 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [MerkenTheme.accentBlue, MerkenTheme.accentBlueStrong],
+                colors: colorScheme == .dark
+                    ? [MerkenTheme.heroPrimary, MerkenTheme.heroSecondary]
+                    : [MerkenTheme.accentBlue, MerkenTheme.accentBlueStrong],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -340,9 +343,9 @@ struct HomeView: View {
             VStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.title3)
-                    .foregroundStyle(color)
+                    .foregroundStyle(colorScheme == .dark ? color.opacity(0.85) : color)
                     .frame(width: 48, height: 48)
-                    .background(color.opacity(0.10), in: .circle)
+                    .background(color.opacity(colorScheme == .dark ? 0.15 : 0.10), in: .circle)
                 Text(label)
                     .font(.caption)
                     .foregroundStyle(MerkenTheme.secondaryText)
@@ -405,7 +408,7 @@ struct HomeView: View {
                                 .resizable()
                                 .scaledToFill()
                         } else {
-                            let bgColor = MerkenTheme.placeholderColor(for: project.id)
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                             bgColor
                             VStack(spacing: 2) {
                                 Text(String(project.title.prefix(1)))
@@ -520,21 +523,30 @@ struct HomeView: View {
 
 // White CTA button for hero card (Web-matching border-bottom 3D style)
 private struct HeroCTAButton: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
     func makeBody(configuration: Configuration) -> some View {
+        let isDark = colorScheme == .dark
         configuration.label
             .font(.headline)
-            .foregroundStyle(MerkenTheme.accentBlue)
+            .foregroundStyle(isDark ? MerkenTheme.heroPrimary : MerkenTheme.accentBlue)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(.white, in: .rect(cornerRadius: 14))
+            .background(
+                isDark ? Color.white.opacity(0.95) : .white,
+                in: .rect(cornerRadius: 14)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color(white: 0.82), lineWidth: configuration.isPressed ? 0 : 1)
+                    .stroke(
+                        isDark ? Color.white.opacity(0.2) : Color(white: 0.82),
+                        lineWidth: configuration.isPressed ? 0 : 1
+                    )
             )
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.82, green: 0.84, blue: 0.86))
+                    .fill(isDark ? Color.white.opacity(0.15) : Color(red: 0.82, green: 0.84, blue: 0.86))
                     .offset(y: configuration.isPressed ? 0 : 3)
             )
             .offset(y: configuration.isPressed ? 3 : 0)

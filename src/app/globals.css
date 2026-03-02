@@ -37,23 +37,23 @@
 }
 
 .dark {
-  --color-background: #111418;
-  --color-surface: #1e242b;
-  --color-foreground: #f1f3f5;
-  --color-muted: #9dabb9;
-  --color-border: #283039;
-  --color-border-light: #1e242b;
-  --color-primary-light: #1a2e45;
-  --color-success-light: #14291e;
-  --color-error-light: #2e1a1a;
-  --color-warning-light: #2e2a1a;
-  --color-dot: #1a1e23;
+  --color-background: #101318;
+  --color-surface: #1a2029;
+  --color-foreground: #e8edf2;
+  --color-muted: #8a99a8;
+  --color-border: #252d38;
+  --color-border-light: #1a2029;
+  --color-primary-light: #162640;
+  --color-success-light: #122418;
+  --color-error-light: #281818;
+  --color-warning-light: #282418;
+  --color-dot: #181c22;
 
   /* Hero (dashboard) */
-  --color-hero: #1a3a5c;
-  --color-hero-btn: rgba(255, 255, 255, 0.15);
-  --color-hero-btn-text: #ffffff;
-  --color-hero-btn-border: rgba(255, 255, 255, 0.1);
+  --color-hero: #1b4270;
+  --color-hero-btn: rgba(255, 255, 255, 0.95);
+  --color-hero-btn-text: #1b4270;
+  --color-hero-btn-border: rgba(255, 255, 255, 0.2);
 }
 
 @theme inline {
