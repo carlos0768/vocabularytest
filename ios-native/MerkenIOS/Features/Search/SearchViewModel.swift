@@ -61,15 +61,22 @@ final class SearchViewModel: ObservableObject {
 
     func search(using state: AppState) {
         guard !searchText.isEmpty else {
+            debounceTask?.cancel()
             results = []
+            errorMessage = nil
             return
         }
 
-        if state.isPro {
-            searchSemanticDebounced(query: searchText, state: state)
-        } else {
-            searchLocal()
+        // Always return local results first so search works instantly and offline.
+        searchLocal()
+        errorMessage = nil
+
+        guard state.isPro else {
+            debounceTask?.cancel()
+            return
         }
+
+        searchSemanticDebounced(query: searchText, state: state)
     }
 
     // MARK: - Semantic Search (Pro)
@@ -84,8 +91,15 @@ final class SearchViewModel: ObservableObject {
     }
 
     private func searchSemantic(query: String, state: AppState) async {
-        loading = true
-        defer { loading = false }
+        let shouldShowLoading = results.isEmpty
+        if shouldShowLoading {
+            loading = true
+        }
+        defer {
+            if shouldShowLoading {
+                loading = false
+            }
+        }
 
         do {
             let apiResults = try await state.performWebAPIRequest { token in
@@ -93,7 +107,9 @@ final class SearchViewModel: ObservableObject {
             }
 
             guard !Task.isCancelled else { return }
-            results = apiResults.map { r in
+            guard query == searchText else { return }
+
+            let semanticResults = apiResults.map { r in
                 SearchResult(
                     id: r.id,
                     english: r.english,
@@ -103,11 +119,12 @@ final class SearchViewModel: ObservableObject {
                     similarity: r.similarity
                 )
             }
+            mergeSemanticResults(semanticResults)
             errorMessage = nil
         } catch {
             if error.isCancellationError || Task.isCancelled { return }
             logger.error("Semantic search failed: \(error.localizedDescription)")
-            errorMessage = error.localizedDescription
+            // Keep local results visible when semantic/API auth fails.
         }
     }
 
@@ -142,6 +159,36 @@ final class SearchViewModel: ObservableObject {
         }
 
         results = scored.sorted { $0.similarity > $1.similarity }
+        if results.count > 50 {
+            results = Array(results.prefix(50))
+        }
+    }
+
+    private func mergeSemanticResults(_ semanticResults: [SearchResult]) {
+        var merged = Dictionary(uniqueKeysWithValues: results.map { ($0.id, $0) })
+
+        for semantic in semanticResults {
+            if let current = merged[semantic.id] {
+                let combined = SearchResult(
+                    id: semantic.id,
+                    english: semantic.english,
+                    japanese: semantic.japanese,
+                    projectId: semantic.projectId,
+                    projectTitle: semantic.projectTitle.isEmpty ? current.projectTitle : semantic.projectTitle,
+                    similarity: max(current.similarity, semantic.similarity)
+                )
+                merged[semantic.id] = combined
+            } else {
+                merged[semantic.id] = semantic
+            }
+        }
+
+        results = merged.values.sorted { lhs, rhs in
+            if lhs.similarity == rhs.similarity {
+                return lhs.english.localizedCaseInsensitiveCompare(rhs.english) == .orderedAscending
+            }
+            return lhs.similarity > rhs.similarity
+        }
         if results.count > 50 {
             results = Array(results.prefix(50))
         }

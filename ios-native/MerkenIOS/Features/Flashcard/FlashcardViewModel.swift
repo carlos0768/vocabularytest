@@ -22,6 +22,14 @@ final class FlashcardViewModel: ObservableObject {
     private let logger = Logger(subsystem: "MerkenIOS", category: "FlashcardVM")
     private let synthesizer = AVSpeechSynthesizer()
 
+    init(initialWords: [Word]? = nil) {
+        if let initialWords, !initialWords.isEmpty {
+            setWords(initialWords)
+        } else {
+            stage = .loading
+        }
+    }
+
     var currentWord: Word? {
         words.indices.contains(currentIndex) ? words[currentIndex] : nil
     }
@@ -44,7 +52,9 @@ final class FlashcardViewModel: ObservableObject {
     }
 
     func load(projectId: String, using state: AppState) async {
-        stage = .loading
+        if words.isEmpty {
+            stage = .loading
+        }
         errorMessage = nil
 
         do {
@@ -60,7 +70,7 @@ final class FlashcardViewModel: ObservableObject {
                 return
             }
             errorMessage = error.localizedDescription
-            stage = .empty
+            stage = words.isEmpty ? .empty : .viewing
             logger.error("Flashcard load failed: \(error.localizedDescription)")
         }
     }

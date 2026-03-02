@@ -5,11 +5,12 @@ struct FlashcardView: View {
     let preloadedWords: [Word]?
 
     @EnvironmentObject private var appState: AppState
-    @StateObject private var viewModel = FlashcardViewModel()
+    @StateObject private var viewModel: FlashcardViewModel
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
         self.preloadedWords = preloadedWords
+        _viewModel = StateObject(wrappedValue: FlashcardViewModel(initialWords: preloadedWords))
     }
 
     var body: some View {
@@ -28,11 +29,8 @@ struct FlashcardView: View {
         .navigationTitle("フラッシュカード")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: project.id) {
-            if let preloadedWords, !preloadedWords.isEmpty {
-                viewModel.setWords(preloadedWords)
-            } else {
-                await viewModel.load(projectId: project.id, using: appState)
-            }
+            guard preloadedWords == nil || preloadedWords?.isEmpty == true else { return }
+            await viewModel.load(projectId: project.id, using: appState)
         }
     }
 

@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>IOS_SCAN_JOBS_ALWAYS_ON</key>
 	<true/>
+	<key>IOS_OFFLINE_CACHE_ENABLED</key>
+	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>

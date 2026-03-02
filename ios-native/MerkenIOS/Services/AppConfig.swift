@@ -5,6 +5,7 @@ struct AppConfig: Sendable {
     let supabaseAnonKey: String
     let webAPIBaseURL: URL
     let iosScanJobsAlwaysOn: Bool
+    let iosOfflineCacheEnabled: Bool
     let iapProProductIds: [String]
 
     static func parseCSVList(_ raw: String?) -> [String] {
@@ -47,6 +48,7 @@ struct AppConfig: Sendable {
         self.supabaseAnonKey = supabaseAnonKey
         self.webAPIBaseURL = webAPIBaseURL
         self.iosScanJobsAlwaysOn = (info["IOS_SCAN_JOBS_ALWAYS_ON"] as? Bool) ?? true
+        self.iosOfflineCacheEnabled = (info["IOS_OFFLINE_CACHE_ENABLED"] as? Bool) ?? true
         self.iapProProductIds = Self.parseCSVList(info["IAP_PRO_PRODUCT_IDS"] as? String)
     }
 }

@@ -19,6 +19,15 @@ private struct QuizDestination: Hashable {
 
 private struct FlashcardDestination: Hashable {
     let project: Project
+    let preloadedWords: [Word]?
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(project)
+    }
+
+    static func == (lhs: FlashcardDestination, rhs: FlashcardDestination) -> Bool {
+        lhs.project == rhs.project
+    }
 }
 
 private struct SentenceQuizDestination: Hashable {
@@ -108,7 +117,7 @@ struct HomeView: View {
             )
         }
         .navigationDestination(item: $flashcardDestination) { dest in
-            FlashcardView(project: dest.project)
+            FlashcardView(project: dest.project, preloadedWords: dest.preloadedWords)
         }
         .navigationDestination(item: $sentenceQuizDestination) { dest in
             SentenceQuizView(project: dest.project)
@@ -224,7 +233,10 @@ struct HomeView: View {
                 } else {
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        flashcardDestination = FlashcardDestination(project: firstProject)
+                        flashcardDestination = FlashcardDestination(
+                            project: firstProject,
+                            preloadedWords: viewModel.preloadedWords(for: firstProject.id)
+                        )
                     } label: {
                         Label("フラッシュカードで学習", systemImage: "rectangle.on.rectangle.angled")
                     }

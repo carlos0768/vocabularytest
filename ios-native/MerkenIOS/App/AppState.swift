@@ -140,6 +140,8 @@ final class AppState: ObservableObject {
     let sentenceQuizProgressStore: SentenceQuizProgressStore
     let collectionRepository: CollectionRepositoryProtocol
     private let scanNotificationService: ScanNotificationServiceProtocol
+    private let projectShareService: ProjectShareServiceProtocol
+    private let offlinePrefetchRepository: OfflinePrefetchingRepository?
     private var bannerDismissTask: Task<Void, Never>?
     private let defaults: UserDefaults
 
@@ -191,6 +193,8 @@ final class AppState: ObservableObject {
         sentenceQuizProgressStore: SentenceQuizProgressStore,
         collectionRepository: CollectionRepositoryProtocol,
         scanNotificationService: ScanNotificationServiceProtocol,
+        projectShareService: ProjectShareServiceProtocol,
+        offlinePrefetchRepository: OfflinePrefetchingRepository?,
         defaults: UserDefaults = .standard
     ) {
         self.authService = authService
@@ -202,6 +206,8 @@ final class AppState: ObservableObject {
         self.sentenceQuizProgressStore = sentenceQuizProgressStore
         self.collectionRepository = collectionRepository
         self.scanNotificationService = scanNotificationService
+        self.projectShareService = projectShareService
+        self.offlinePrefetchRepository = offlinePrefetchRepository
         self.defaults = defaults
         self.session = authService.session
         self.pendingScanImportContexts = Self.loadPendingScanImportContexts(defaults: defaults)
@@ -402,6 +408,10 @@ final class AppState: ObservableObject {
             }
             logger.info("Auth refresh complete. mode=\(modeLabel)")
 
+            Task { [weak self] in
+                await self?.triggerOfflinePrefetchIfNeeded()
+            }
+
             // Register APNs token with server after successful auth
             Task { [weak self] in
                 await self?.registerDeviceTokenIfNeeded()
@@ -568,6 +578,10 @@ final class AppState: ObservableObject {
 
     func bumpDataVersion() {
         dataVersion += 1
+    }
+
+    func generateProjectShareId(projectId: String) async throws -> String {
+        try await projectShareService.generateShareId(projectId: projectId)
     }
 
     func refreshUserPreferences() async {
@@ -850,5 +864,11 @@ final class AppState: ObservableObject {
     private static func loadReportedFailures(defaults: UserDefaults) -> Set<String> {
         let values = defaults.stringArray(forKey: Keys.reportedScanFailures) ?? []
         return Set(values)
+    }
+
+    private func triggerOfflinePrefetchIfNeeded() async {
+        guard repositoryMode == .proCloud || repositoryMode == .readonlyCloud else { return }
+        guard let offlinePrefetchRepository else { return }
+        await offlinePrefetchRepository.prefetchRecentProjects(userId: activeUserId, limit: 10)
     }
 }

@@ -7,6 +7,7 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var totalWordCount: Int = 0
     @Published private(set) var dueWordCount: Int = 0
     @Published private(set) var dueWords: [Word] = []
+    @Published private(set) var wordsByProject: [String: [Word]] = [:]
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
@@ -64,6 +65,8 @@ final class HomeViewModel: ObservableObject {
                     self?.totalWordCount = total
                     self?.dueWordCount = dueList.count
                     self?.dueWords = dueList
+                    self?.wordsByProject = Dictionary(grouping: allWords, by: \.projectId)
+                        .mapValues { $0.sorted { $0.createdAt < $1.createdAt } }
                 } catch {
                     // skip on failure
                 }
@@ -77,6 +80,10 @@ final class HomeViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             logger.error("Home load failed: \(error.localizedDescription)")
         }
+    }
+
+    func preloadedWords(for projectId: String) -> [Word]? {
+        wordsByProject[projectId]
     }
 
     func toggleFavorite(projectId: String, using state: AppState) async {

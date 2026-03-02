@@ -134,7 +134,7 @@ struct ProjectDetailView: View {
             QuizView(project: project, preloadedWords: viewModel.words)
         }
         .navigationDestination(item: $flashcardDestination) { project in
-            FlashcardView(project: project)
+            FlashcardView(project: project, preloadedWords: viewModel.words)
         }
         .navigationDestination(item: $quiz2Destination) { project in
             Quiz2View(project: project, preloadedWords: viewModel.words)
@@ -174,8 +174,7 @@ struct ProjectDetailView: View {
         do {
             var shareId = project.shareId
             if shareId == nil || shareId?.isEmpty == true {
-                guard let cloudRepo = appState.activeRepository as? CloudWordRepository else { return }
-                shareId = try await cloudRepo.generateShareId(projectId: project.id)
+                shareId = try await appState.generateProjectShareId(projectId: project.id)
             }
             guard let shareId else { return }
 

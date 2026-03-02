@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		039FC85290FB5D2856C5C06B /* CloudWordRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8BA8CF643ABB5D618DDB9 /* CloudWordRepository.swift */; };
+		A9F0C3B1D4E56F7890AB1236 /* CloudOfflineCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F0C3B1D4E56F7890AB1237 /* CloudOfflineCacheStore.swift */; };
 		03F6B6B362CFA4BB86388559 /* QuizStatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410B28B95A71D3017B943659 /* QuizStatsStore.swift */; };
 		0467C68EF7AB529E9FEDB44C /* StatsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E44F74E37E59F174779E99 /* StatsViewModel.swift */; };
 		05F3446C0866B4D578EA912E /* FlashcardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA3A85E385350CCF73A4EBE /* FlashcardViewModel.swift */; };
@@ -37,6 +38,7 @@
 		492D27CB88B80590F8AA2C16 /* SentenceQuizViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64C56CCA739186C6EEECF6 /* SentenceQuizViewModel.swift */; };
 		497DD811DD4A5BA806F9FD4A /* AppBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66AD89C96ED3EA46B7F82A7 /* AppBackground.swift */; };
 		4EBFDB6D125B13FD50C69AD3 /* LocalRecords.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8D492636999D00FF08665C5 /* LocalRecords.swift */; };
+		A9F0C3B1D4E56F7890AB1234 /* CachedCloudRecords.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F0C3B1D4E56F7890AB1235 /* CachedCloudRecords.swift */; };
 		5622E481DFE4018505C6294E /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4B1F5C32E6E783B32304EE /* HomeViewModel.swift */; };
 		5819BA1E558A83EA4D4952BF /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */; };
 		590F801E938E63F25CF704A4 /* SentenceQuizDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30935187DFB30E1359223B86 /* SentenceQuizDTO.swift */; };
@@ -62,6 +64,7 @@
 		82E3842364E5C2F8F66D7F2B /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53062913A0AF81DD487C373B /* AuthService.swift */; };
 		83016F6FAA440810A08E27EA /* ScanConfirmWordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */; };
 		8F170F737F56C68101EACA04 /* BookshelfListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF6E2C0C22EC4D158FFC101 /* BookshelfListViewModel.swift */; };
+		A9F0C3B1D4E56F7890AB1238 /* OfflineFirstCloudRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F0C3B1D4E56F7890AB1239 /* OfflineFirstCloudRepository.swift */; };
 		919064F5426502F3316FFA98 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1122B2BE665D409786757D /* StatsView.swift */; };
 		968E57F7E9F2E41C175296C7 /* WordRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677116D076DAC6DBA21BD9F6 /* WordRepositoryProtocol.swift */; };
 		96C542270D842D2F09B4E980 /* SentenceQuizQuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9414B6AA1ACC54165036B75 /* SentenceQuizQuestionView.swift */; };
@@ -191,6 +194,7 @@
 		BB2F6658A73DB754E2A1A496 /* IconBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconBadge.swift; sourceTree = "<group>"; };
 		BB6EB875610B326E50168275 /* CollectionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionRepository.swift; sourceTree = "<group>"; };
 		BFDC4E2FCAA2BD217230AEFF /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
+		A9F0C3B1D4E56F7890AB1237 /* CloudOfflineCacheStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudOfflineCacheStore.swift; sourceTree = "<group>"; };
 		C2C8BA8CF643ABB5D618DDB9 /* CloudWordRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudWordRepository.swift; sourceTree = "<group>"; };
 		C76F9E4A1B2C3D4E5F607182 /* AppConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigTests.swift; sourceTree = "<group>"; };
 		C8A672E33199F9405E81A439 /* SentenceQuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentenceQuizView.swift; sourceTree = "<group>"; };
@@ -213,6 +217,8 @@
 		F14A8B92C4D34A8FB6D0E123 /* AppStoreSubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreSubscriptionService.swift; sourceTree = "<group>"; };
 		F1E8B3A72C0D94E56F8A1B3D /* ThemeCubeSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCubeSelector.swift; sourceTree = "<group>"; };
 		F6A7B8C9D0415263E7F8A9B0 /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
+		A9F0C3B1D4E56F7890AB1235 /* CachedCloudRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedCloudRecords.swift; sourceTree = "<group>"; };
+		A9F0C3B1D4E56F7890AB1239 /* OfflineFirstCloudRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineFirstCloudRepository.swift; sourceTree = "<group>"; };
 		F8D492636999D00FF08665C5 /* LocalRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRecords.swift; sourceTree = "<group>"; };
 		F9615BEF3A9E8F028664EC53 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		F9A3D8C1167D9934DAE1F9D8 /* BookshelfDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfDetailView.swift; sourceTree = "<group>"; };
@@ -255,9 +261,11 @@
 		205C9D44E63FCA7951BABC98 /* Repositories */ = {
 			isa = PBXGroup;
 			children = (
+				A9F0C3B1D4E56F7890AB1237 /* CloudOfflineCacheStore.swift */,
 				C2C8BA8CF643ABB5D618DDB9 /* CloudWordRepository.swift */,
 				BB6EB875610B326E50168275 /* CollectionRepository.swift */,
 				7D5B5CDD6320AE25693335B1 /* LocalWordRepository.swift */,
+				A9F0C3B1D4E56F7890AB1239 /* OfflineFirstCloudRepository.swift */,
 				01625E057EA3FDA1F4B71A30 /* RepositoryRouter.swift */,
 				677116D076DAC6DBA21BD9F6 /* WordRepositoryProtocol.swift */,
 			);
@@ -430,6 +438,7 @@
 		8A731313BD0D2AB25C50CF04 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				A9F0C3B1D4E56F7890AB1235 /* CachedCloudRecords.swift */,
 				F8D492636999D00FF08665C5 /* LocalRecords.swift */,
 			);
 			path = Storage;
@@ -726,6 +735,8 @@
 				8F170F737F56C68101EACA04 /* BookshelfListViewModel.swift in Sources */,
 				40EE2EAED93CC20EAF2C8456 /* BookshelfTabView.swift in Sources */,
 				0B27CA4836C5936A0A782BAD /* CameraView.swift in Sources */,
+				A9F0C3B1D4E56F7890AB1234 /* CachedCloudRecords.swift in Sources */,
+				A9F0C3B1D4E56F7890AB1236 /* CloudOfflineCacheStore.swift in Sources */,
 				039FC85290FB5D2856C5C06B /* CloudWordRepository.swift in Sources */,
 				1D0E00DC0F465DA6B12CD3F3 /* CollectionRepository.swift in Sources */,
 				266B6E8CDFAF1633BAAB2B27 /* CreateBookshelfSheet.swift in Sources */,
@@ -748,6 +759,7 @@
 				B7E529B7FF94D761C9A5905E /* ImagePreviewView.swift in Sources */,
 				4EBFDB6D125B13FD50C69AD3 /* LocalRecords.swift in Sources */,
 				DF5C281FC16649431FC0AD17 /* LocalWordRepository.swift in Sources */,
+				A9F0C3B1D4E56F7890AB1238 /* OfflineFirstCloudRepository.swift in Sources */,
 				EAF60A35EAA71B9346277668 /* MerkenIOSApp.swift in Sources */,
 				C2CC9E2D77F1F0DE9240BC85 /* ProjectDetailView.swift in Sources */,
 				D963FD784830B6369DC2D54C /* ProjectDetailViewModel.swift in Sources */,

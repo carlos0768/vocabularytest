@@ -11,7 +11,9 @@ struct AppContainer {
         do {
             modelContainer = try ModelContainer(
                 for: LocalProjectRecord.self,
-                LocalWordRecord.self
+                LocalWordRecord.self,
+                CachedCloudProjectRecord.self,
+                CachedCloudWordRecord.self
             )
         } catch {
             fatalError("Failed to initialize SwiftData container: \(error)")
@@ -26,6 +28,7 @@ struct AppContainer {
 
         let restClient = SupabaseRESTClient(config: config)
         let authService = AuthService(restClient: restClient, webAPIBaseURL: config.webAPIBaseURL)
+        let guestSessionStore = GuestSessionStore()
         let localRepository = LocalWordRepository(modelContainer: modelContainer)
         let cloudRepository = CloudWordRepository(
             restClient: restClient,
@@ -34,10 +37,32 @@ struct AppContainer {
                 return session.accessToken
             }
         )
+        let cacheStore = CloudOfflineCacheStore(modelContainer: modelContainer)
+
+        let offlineCloudRepository: OfflineFirstCloudRepository?
+        if config.iosOfflineCacheEnabled {
+            offlineCloudRepository = OfflineFirstCloudRepository(
+                cloudRepository: cloudRepository,
+                cacheStore: cacheStore,
+                userIdProvider: {
+                    await MainActor.run {
+                        authService.session?.userId
+                    }
+                },
+                forceAuthRefresh: {
+                    _ = try? await authService.refreshSessionIfNeeded(forceRefresh: true)
+                }
+            )
+        } else {
+            offlineCloudRepository = nil
+        }
+
+        let routedCloudRepository: WordRepositoryProtocol = offlineCloudRepository ?? cloudRepository
+        let projectShareService: ProjectShareServiceProtocol = offlineCloudRepository ?? cloudRepository
 
         let router = RepositoryRouter(
             localRepository: localRepository,
-            cloudRepository: cloudRepository
+            cloudRepository: routedCloudRepository
         )
 
         let collectionRepository = CloudCollectionRepository(
@@ -64,13 +89,15 @@ struct AppContainer {
         let appState = AppState(
             authService: authService,
             repositoryRouter: router,
-            guestSessionStore: GuestSessionStore(),
+            guestSessionStore: guestSessionStore,
             webAPIClient: webAPIClient,
             appStoreSubscriptionService: appStoreSubscriptionService,
             quizStatsStore: quizStatsStore,
             sentenceQuizProgressStore: sentenceQuizProgressStore,
             collectionRepository: collectionRepository,
-            scanNotificationService: scanNotificationService
+            scanNotificationService: scanNotificationService,
+            projectShareService: projectShareService,
+            offlinePrefetchRepository: offlineCloudRepository
         )
 
         return AppContainer(appState: appState, modelContainer: modelContainer)

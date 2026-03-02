@@ -1,6 +1,6 @@
 import Foundation
 
-final class CloudWordRepository: WordRepositoryProtocol {
+final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProtocol {
     private let restClient: SupabaseRESTClient
     private let accessTokenProvider: @Sendable () async throws -> String
 

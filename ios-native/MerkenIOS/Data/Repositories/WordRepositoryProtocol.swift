@@ -15,6 +15,14 @@ protocol WordRepositoryProtocol: Sendable {
     func deleteWord(id: String) async throws
 }
 
+protocol ProjectShareServiceProtocol: Sendable {
+    func generateShareId(projectId: String) async throws -> String
+}
+
+protocol OfflinePrefetchingRepository: Sendable {
+    func prefetchRecentProjects(userId: String, limit: Int) async
+}
+
 enum RepositoryMode: Equatable, Sendable {
     case guestLocal
     case proCloud
