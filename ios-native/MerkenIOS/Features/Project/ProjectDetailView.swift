@@ -21,6 +21,8 @@ struct ProjectDetailView: View {
     @State private var showingShareSheet = false
     @State private var shareItems: [Any] = []
     @State private var showingDeleteConfirm = false
+    @State private var isStreamPlaying = false
+    @State private var streamTask: Task<Void, Never>?
 
     private var hasIconImage: Bool {
         if let iconImage = project.iconImage,
@@ -158,6 +160,21 @@ struct ProjectDetailView: View {
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(projectId: project.id, using: appState)
+        }
+        .onChange(of: viewModel.words.count) { _ in
+            if viewModel.words.isEmpty {
+                stopWordStream()
+                previewIndex = 0
+                return
+            }
+
+            if previewIndex >= viewModel.words.count {
+                stopWordStream()
+                previewIndex = viewModel.words.count - 1
+            }
+        }
+        .onDisappear {
+            stopWordStream()
         }
     }
 
@@ -305,6 +322,14 @@ struct ProjectDetailView: View {
                                     .frame(width: 32, height: 32)
                             }
                             Button {
+                                toggleWordStream()
+                            } label: {
+                                Image(systemName: isStreamPlaying ? "pause.fill" : "play.fill")
+                                    .font(.subheadline)
+                                    .foregroundStyle(isStreamPlaying ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+                                    .frame(width: 32, height: 32)
+                            }
+                            Button {
                                 Task {
                                     await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
                                 }
@@ -397,6 +422,40 @@ struct ProjectDetailView: View {
         AVSpeechSynthesizer().speak(utterance)
     }
 
+    private func toggleWordStream() {
+        if isStreamPlaying {
+            stopWordStream()
+            return
+        }
+        startWordStream()
+    }
+
+    private func startWordStream() {
+        guard !viewModel.words.isEmpty else { return }
+        stopWordStream()
+        isStreamPlaying = true
+        streamTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                guard !Task.isCancelled else { break }
+                await MainActor.run {
+                    guard isStreamPlaying, !viewModel.words.isEmpty else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        previewIndex = safePreviewIndex < viewModel.words.count - 1
+                            ? safePreviewIndex + 1
+                            : 0
+                    }
+                }
+            }
+        }
+    }
+
+    private func stopWordStream() {
+        isStreamPlaying = false
+        streamTask?.cancel()
+        streamTask = nil
+    }
+
     // MARK: - Learning Modes (2-column grid)
 
     private var learningModesSection: some View {
@@ -449,15 +508,6 @@ struct ProjectDetailView: View {
                     ) {
                         showingQuiz = project.id
                     }
-
-                    learningModeCard(
-                        icon: "text.book.closed.fill",
-                        iconColor: MerkenTheme.accentBlue,
-                        title: "単語解説",
-                        subtitle: "関連語と語法"
-                    ) {
-                        showingWordList = true
-                    }
                 }
             }
         }
@@ -488,67 +538,6 @@ struct ProjectDetailView: View {
                     .offset(y: 3)
             )
         }
-    }
-
-    @ViewBuilder
-    private func wordInsightsSection(_ word: Word) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !appState.isPro {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.fill")
-                        .font(.caption2)
-                    Text("関連語・語法はPro機能です")
-                        .font(.caption.bold())
-                }
-                .foregroundStyle(MerkenTheme.mutedText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
-            } else {
-                if let tags = word.partOfSpeechTags, !tags.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("品詞")
-                            .font(.caption.bold())
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        Text(tags.joined(separator: " / "))
-                            .font(.caption)
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                }
-
-                if let relatedWords = word.relatedWords, !relatedWords.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("関連語・語形")
-                            .font(.caption.bold())
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        ForEach(Array(relatedWords.prefix(4).enumerated()), id: \.offset) { _, item in
-                            Text("\(item.term) (\(item.relation))")
-                                .font(.caption)
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                        }
-                    }
-                }
-
-                if let usagePatterns = word.usagePatterns, !usagePatterns.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("使い方（語法）")
-                            .font(.caption.bold())
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        ForEach(Array(usagePatterns.prefix(2).enumerated()), id: \.offset) { _, item in
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(item.pattern)
-                                    .font(.caption.bold())
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                                Text(item.meaningJa)
-                                    .font(.caption2)
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Word List (compact summary → navigates to full list)

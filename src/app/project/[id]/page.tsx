@@ -21,7 +21,6 @@ import { markProjectVisited } from '@/lib/project-visit';
 import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import { createBrowserClient } from '@/lib/supabase';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
@@ -32,27 +31,6 @@ const ScanModeModal = dynamic(
 
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
   return Boolean(project && project.userId === expectedUserId);
-}
-
-type WordInsightResult = {
-  wordId: string;
-  partOfSpeechTags?: string[];
-  relatedWords?: Word['relatedWords'];
-  usagePatterns?: Word['usagePatterns'];
-  insightsGeneratedAt?: string;
-  insightsVersion?: number;
-};
-
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const supabase = createBrowserClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
-  }
-  return headers;
 }
 
 export default function ProjectDetailPage() {
@@ -450,33 +428,14 @@ export default function ProjectDetailPage() {
 
   const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
     const originalWord = words.find((w) => w.id === wordId);
-    const englishChanged = Boolean(originalWord && originalWord.english !== english);
     const japaneseChanged = originalWord && originalWord.japanese !== japanese;
-    const resetInsightPatch: Partial<Word> = englishChanged
-      ? {
-          partOfSpeechTags: [],
-          relatedWords: [],
-          usagePatterns: [],
-          insightsVersion: 0,
-        }
-      : {};
-
-    await activeRepository.updateWord(wordId, { english, japanese, ...resetInsightPatch });
+    await activeRepository.updateWord(wordId, { english, japanese });
     setWords((prev) => prev.map((w) => (
       w.id === wordId
         ? {
             ...w,
             english,
             japanese,
-            ...(englishChanged
-              ? {
-                  partOfSpeechTags: [],
-                  relatedWords: [],
-                  usagePatterns: [],
-                  insightsGeneratedAt: undefined,
-                  insightsVersion: 0,
-                }
-              : {}),
           }
         : w
     )));
@@ -503,49 +462,6 @@ export default function ProjectDetailPage() {
       }
     }
 
-    if (englishChanged && isPro && canUseAiFeatures) {
-      void (async () => {
-        try {
-          const headers = await getAuthHeaders();
-          const response = await fetch('/api/generate-word-insights', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              words: [{ id: wordId, english, japanese }],
-              force: true,
-            }),
-          });
-          if (!response.ok) return;
-          const data = await response.json() as { success?: boolean; results?: WordInsightResult[] };
-          if (!data.success || !Array.isArray(data.results)) return;
-          const result = data.results.find((item) => item.wordId === wordId);
-          if (!result) return;
-
-          await activeRepository.updateWord(wordId, {
-            partOfSpeechTags: result.partOfSpeechTags,
-            relatedWords: result.relatedWords,
-            usagePatterns: result.usagePatterns,
-            insightsGeneratedAt: result.insightsGeneratedAt,
-            insightsVersion: result.insightsVersion,
-          });
-
-          setWords((prev) => prev.map((word) =>
-            word.id === wordId
-              ? {
-                  ...word,
-                  partOfSpeechTags: result.partOfSpeechTags,
-                  relatedWords: result.relatedWords,
-                  usagePatterns: result.usagePatterns,
-                  insightsGeneratedAt: result.insightsGeneratedAt,
-                  insightsVersion: result.insightsVersion,
-                }
-              : word
-          ));
-        } catch (error) {
-          console.error('Failed to regenerate word insights:', error);
-        }
-      })();
-    }
   };
 
   const handleToggleFavorite = async (wordId: string) => {
@@ -586,53 +502,6 @@ export default function ProjectDetailPage() {
       invalidateHomeCache();
       refreshWordCount();
 
-      if (isPro && canUseAiFeatures && created.length > 0) {
-        void (async () => {
-          try {
-            const headers = await getAuthHeaders();
-            const response = await fetch('/api/generate-word-insights', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                words: created.map((word) => ({
-                  id: word.id,
-                  english: word.english,
-                  japanese: word.japanese,
-                })),
-              }),
-            });
-            if (!response.ok) return;
-            const data = await response.json() as { success?: boolean; results?: WordInsightResult[] };
-            if (!data.success || !Array.isArray(data.results) || data.results.length === 0) return;
-
-            await Promise.all(data.results.map((result) =>
-              activeRepository.updateWord(result.wordId, {
-                partOfSpeechTags: result.partOfSpeechTags,
-                relatedWords: result.relatedWords,
-                usagePatterns: result.usagePatterns,
-                insightsGeneratedAt: result.insightsGeneratedAt,
-                insightsVersion: result.insightsVersion,
-              })
-            ));
-
-            const insightMap = new Map(data.results.map((result) => [result.wordId, result]));
-            setWords((prev) => prev.map((word) => {
-              const insight = insightMap.get(word.id);
-              if (!insight) return word;
-              return {
-                ...word,
-                partOfSpeechTags: insight.partOfSpeechTags,
-                relatedWords: insight.relatedWords,
-                usagePatterns: insight.usagePatterns,
-                insightsGeneratedAt: insight.insightsGeneratedAt,
-                insightsVersion: insight.insightsVersion,
-              };
-            }));
-          } catch (error) {
-            console.error('Failed to generate word insights:', error);
-          }
-        })();
-      }
     } catch (error) {
       console.error('Failed to add word:', error);
       showToast({ message: '単語の追加に失敗しました', type: 'error' });
@@ -921,19 +790,6 @@ export default function ProjectDetailPage() {
                   layout="vertical"
                   styleMode="home"
                 />
-                {canUseAiFeatures && (
-                  <StudyModeCard
-                    title="単語解説"
-                    description="関連語と語法"
-                    icon="menu_book"
-                    href={isPro ? `/project/${project.id}/insights` : '/subscription'}
-                    variant="orange"
-                    disabled={words.length === 0}
-                    badge={!isPro ? 'Pro' : undefined}
-                    layout="vertical"
-                    styleMode="home"
-                  />
-                )}
               </div>
             </section>
           )}

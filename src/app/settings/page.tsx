@@ -178,7 +178,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="font-medium text-[var(--color-foreground)]">AI機能</p>
                     <p className="text-sm text-[var(--color-muted)] mt-1">
-                      OFFにすると、4択クイズと単語解説の生成・表示を停止します。
+                      OFFにすると、4択クイズの生成・表示を停止します。
                     </p>
                   </div>
                   {(userPreferencesLoading || userPreferencesSaving) && (
