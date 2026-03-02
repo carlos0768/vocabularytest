@@ -182,6 +182,9 @@ actor ShareImportService {
         case 400:
             throw ShareImportServiceError.badRequest(errorMessage(from: data, fallback: "入力値が不正です。"))
         default:
+            if http.statusCode == 404 || isLikelyHTMLResponse(data: data, http: http) {
+                throw ShareImportServiceError.server("共有APIのデプロイ待ちです。手動入力で続行してください。")
+            }
             throw ShareImportServiceError.server(errorMessage(from: data, fallback: "プレビューの生成に失敗しました。"))
         }
 
@@ -224,6 +227,9 @@ actor ShareImportService {
         case 401:
             throw ShareImportServiceError.unauthorized
         default:
+            if http.statusCode == 404 || isLikelyHTMLResponse(data: data, http: http) {
+                return try await fetchProjectsViaSupabase(limit: limit, bearerToken: bearerToken)
+            }
             throw ShareImportServiceError.server(errorMessage(from: data, fallback: "単語帳一覧の取得に失敗しました。"))
         }
 
@@ -243,6 +249,7 @@ actor ShareImportService {
         japanese: String,
         originalText: String?,
         sourceApp: String?,
+        userId: String,
         bearerToken: String
     ) async throws -> ShareImportCommitResultDTO {
         let requestBody = ShareImportCommitRequestDTO(
@@ -271,6 +278,16 @@ actor ShareImportService {
         case 400, 422:
             throw ShareImportServiceError.badRequest(errorMessage(from: data, fallback: "保存データが不正です。"))
         default:
+            if http.statusCode == 404 || isLikelyHTMLResponse(data: data, http: http) {
+                return try await commitViaSupabase(
+                    targetProjectId: targetProjectId,
+                    newProjectTitle: newProjectTitle,
+                    english: english,
+                    japanese: japanese,
+                    userId: userId,
+                    bearerToken: bearerToken
+                )
+            }
             throw ShareImportServiceError.server(errorMessage(from: data, fallback: "保存に失敗しました。"))
         }
 
@@ -320,6 +337,290 @@ actor ShareImportService {
         return url
     }
 
+    private func makeSupabaseRESTURL(path: String, query: [URLQueryItem]) throws -> URL {
+        var components = URLComponents(url: supabaseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)
+        components?.queryItems = query
+        guard let url = components?.url else {
+            throw ShareImportServiceError.server("URLの生成に失敗しました。")
+        }
+        return url
+    }
+
+    private func fetchProjectsViaSupabase(limit: Int, bearerToken: String) async throws -> [ShareImportProjectOptionDTO] {
+        struct SupabaseProjectListRow: Decodable {
+            let id: String
+            let title: String
+            let updatedAt: String?
+        }
+
+        let query = [
+            URLQueryItem(name: "select", value: "id,title,updated_at"),
+            URLQueryItem(name: "order", value: "updated_at.desc"),
+            URLQueryItem(name: "limit", value: String(max(1, min(50, limit))))
+        ]
+
+        var request = URLRequest(url: try makeSupabaseRESTURL(path: "rest/v1/projects", query: query))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 20
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch {
+            throw ShareImportServiceError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ShareImportServiceError.server("通信エラー")
+        }
+        if http.statusCode == 401 {
+            throw ShareImportServiceError.unauthorized
+        }
+        guard (200 ... 299).contains(http.statusCode) else {
+            throw ShareImportServiceError.server(errorMessage(from: data, fallback: "単語帳一覧の取得に失敗しました。"))
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let rows: [SupabaseProjectListRow]
+        do {
+            rows = try decoder.decode([SupabaseProjectListRow].self, from: data)
+        } catch {
+            throw ShareImportServiceError.decode
+        }
+
+        return rows.map { row in
+            ShareImportProjectOptionDTO(id: row.id, title: row.title, updatedAt: row.updatedAt)
+        }
+    }
+
+    private func commitViaSupabase(
+        targetProjectId: String?,
+        newProjectTitle: String?,
+        english: String,
+        japanese: String,
+        userId: String,
+        bearerToken: String
+    ) async throws -> ShareImportCommitResultDTO {
+        struct SupabaseProjectRow: Decodable {
+            let id: String
+            let title: String
+        }
+
+        struct SupabaseWordRow: Decodable {
+            let id: String
+        }
+
+        struct SupabaseProjectInsert: Encodable {
+            let userId: String
+            let title: String
+            let isFavorite: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case title
+                case isFavorite = "is_favorite"
+            }
+        }
+
+        struct SupabaseWordInsert: Encodable {
+            let projectId: String
+            let english: String
+            let japanese: String
+            let distractors: [String]
+
+            enum CodingKeys: String, CodingKey {
+                case projectId = "project_id"
+                case english
+                case japanese
+                case distractors
+            }
+        }
+
+        let trimmedEnglish = english.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedJapanese = japanese.trimmingCharacters(in: .whitespacesAndNewlines)
+        let project: SupabaseProjectRow
+
+        if let targetProjectId, !targetProjectId.isEmpty {
+            let query = [
+                URLQueryItem(name: "id", value: "eq.\(targetProjectId)"),
+                URLQueryItem(name: "select", value: "id,title"),
+                URLQueryItem(name: "limit", value: "1")
+            ]
+            var request = URLRequest(url: try makeSupabaseRESTURL(path: "rest/v1/projects", query: query))
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+            request.timeoutInterval = 20
+
+            let (data, response) = try await urlSession.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw ShareImportServiceError.server("通信エラー")
+            }
+            if http.statusCode == 401 { throw ShareImportServiceError.unauthorized }
+            guard (200 ... 299).contains(http.statusCode) else {
+                throw ShareImportServiceError.server(errorMessage(from: data, fallback: "保存先の確認に失敗しました。"))
+            }
+
+            let decoder = JSONDecoder()
+            let rows: [SupabaseProjectRow]
+            do {
+                rows = try decoder.decode([SupabaseProjectRow].self, from: data)
+            } catch {
+                throw ShareImportServiceError.decode
+            }
+            guard let found = rows.first else {
+                throw ShareImportServiceError.badRequest("保存先の単語帳にアクセスできません。")
+            }
+            project = found
+        } else {
+            let title = newProjectTitle?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? newProjectTitle!.trimmingCharacters(in: .whitespacesAndNewlines)
+                : defaultProjectTitle()
+            let payload = [SupabaseProjectInsert(userId: userId, title: title, isFavorite: false)]
+
+            var request = URLRequest(url: try makeSupabaseRESTURL(path: "rest/v1/projects", query: []))
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("return=representation", forHTTPHeaderField: "Prefer")
+            request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+            request.httpBody = try JSONEncoder().encode(payload)
+            request.timeoutInterval = 20
+
+            let (data, response) = try await urlSession.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw ShareImportServiceError.server("通信エラー")
+            }
+            if http.statusCode == 401 { throw ShareImportServiceError.unauthorized }
+            guard (200 ... 299).contains(http.statusCode) else {
+                throw ShareImportServiceError.server(errorMessage(from: data, fallback: "単語帳の作成に失敗しました。"))
+            }
+
+            let decoder = JSONDecoder()
+            let rows: [SupabaseProjectRow]
+            do {
+                rows = try decoder.decode([SupabaseProjectRow].self, from: data)
+            } catch {
+                throw ShareImportServiceError.decode
+            }
+            guard let created = rows.first else {
+                throw ShareImportServiceError.server("単語帳の作成に失敗しました。")
+            }
+            project = created
+        }
+
+        do {
+            let duplicateQuery = [
+                URLQueryItem(name: "project_id", value: "eq.\(project.id)"),
+                URLQueryItem(name: "english", value: "ilike.\(trimmedEnglish)"),
+                URLQueryItem(name: "japanese", value: "eq.\(trimmedJapanese)"),
+                URLQueryItem(name: "select", value: "id"),
+                URLQueryItem(name: "limit", value: "1")
+            ]
+            var request = URLRequest(url: try makeSupabaseRESTURL(path: "rest/v1/words", query: duplicateQuery))
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+            request.timeoutInterval = 20
+
+            let (data, response) = try await urlSession.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw ShareImportServiceError.server("通信エラー")
+            }
+            if http.statusCode == 401 { throw ShareImportServiceError.unauthorized }
+            guard (200 ... 299).contains(http.statusCode) else {
+                throw ShareImportServiceError.server(errorMessage(from: data, fallback: "重複チェックに失敗しました。"))
+            }
+
+            let rows = try JSONDecoder().decode([SupabaseWordRow].self, from: data)
+            if rows.first != nil {
+                return ShareImportCommitResultDTO(
+                    success: true,
+                    projectId: project.id,
+                    projectTitle: project.title,
+                    wordId: rows.first?.id,
+                    created: false,
+                    duplicate: true,
+                    error: nil
+                )
+            }
+        } catch let error as ShareImportServiceError {
+            throw error
+        } catch {
+            throw ShareImportServiceError.decode
+        }
+
+        let wordPayload = [SupabaseWordInsert(
+            projectId: project.id,
+            english: trimmedEnglish,
+            japanese: trimmedJapanese,
+            distractors: []
+        )]
+
+        var insertRequest = URLRequest(url: try makeSupabaseRESTURL(path: "rest/v1/words", query: []))
+        insertRequest.httpMethod = "POST"
+        insertRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        insertRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        insertRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        insertRequest.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        insertRequest.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        insertRequest.httpBody = try JSONEncoder().encode(wordPayload)
+        insertRequest.timeoutInterval = 20
+
+        let (insertData, insertResponse) = try await urlSession.data(for: insertRequest)
+        guard let insertHTTP = insertResponse as? HTTPURLResponse else {
+            throw ShareImportServiceError.server("通信エラー")
+        }
+        if insertHTTP.statusCode == 401 { throw ShareImportServiceError.unauthorized }
+        guard (200 ... 299).contains(insertHTTP.statusCode) else {
+            throw ShareImportServiceError.server(errorMessage(from: insertData, fallback: "単語の保存に失敗しました。"))
+        }
+
+        let insertedRows: [SupabaseWordRow]
+        do {
+            insertedRows = try JSONDecoder().decode([SupabaseWordRow].self, from: insertData)
+        } catch {
+            throw ShareImportServiceError.decode
+        }
+
+        return ShareImportCommitResultDTO(
+            success: true,
+            projectId: project.id,
+            projectTitle: project.title,
+            wordId: insertedRows.first?.id,
+            created: true,
+            duplicate: false,
+            error: nil
+        )
+    }
+
+    private func defaultProjectTitle(now: Date = .now) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let month = calendar.component(.month, from: now)
+        let day = calendar.component(.day, from: now)
+        let hour = calendar.component(.hour, from: now)
+        let minute = calendar.component(.minute, from: now)
+        return String(format: "共有 %d/%d %02d:%02d", month, day, hour, minute)
+    }
+
+    private func isLikelyHTMLResponse(data: Data, http: HTTPURLResponse) -> Bool {
+        if http.value(forHTTPHeaderField: "Content-Type")?.lowercased().contains("text/html") == true {
+            return true
+        }
+        guard let raw = String(data: data.prefix(128), encoding: .utf8)?.lowercased() else {
+            return false
+        }
+        return raw.contains("<!doctype html") || raw.contains("<html")
+    }
+
     private func errorMessage(from data: Data, fallback: String) -> String {
         if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             if let message = object["error"] as? String, !message.isEmpty {
@@ -331,6 +632,10 @@ actor ShareImportService {
         }
 
         if let raw = String(data: data, encoding: .utf8), !raw.isEmpty {
+            let lower = raw.lowercased()
+            if lower.contains("<!doctype html") || lower.contains("<html") {
+                return fallback
+            }
             return raw
         }
 

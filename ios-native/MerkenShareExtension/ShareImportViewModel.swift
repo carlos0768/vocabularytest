@@ -195,6 +195,7 @@ final class ShareImportViewModel: ObservableObject {
                     japanese: trimmedJapanese,
                     originalText: input?.text,
                     sourceApp: input?.sourceApp,
+                    userId: refreshedSnapshot.userId,
                     bearerToken: refreshedSnapshot.accessToken
                 )
             }
