@@ -62,12 +62,14 @@ struct HomeView: View {
 
                 if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
                     emptyStateSection
+                        .padding(.top, 14)
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
+                            Spacer().frame(height: 14)
+
                             // MARK: - Hero
                             heroSection
-                                .padding(.top, 6)
 
                             if let errorMessage = viewModel.errorMessage {
                                 SolidCard {
@@ -322,7 +324,7 @@ struct HomeView: View {
             quickLink(icon: "magnifyingglass", label: "検索", color: MerkenTheme.secondaryText) {
                 appState.selectedTab = 2
             }
-            quickLink(icon: "flag.fill", label: "苦手な単語一覧", color: MerkenTheme.warning) {
+            quickLink(icon: "flag.fill", label: "苦手単語", color: MerkenTheme.warning) {
                 // Intentionally no-op for this release.
             }
             quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {

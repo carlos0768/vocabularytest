@@ -181,6 +181,7 @@ final class AppState: ObservableObject {
         static let pendingScanImportContexts = "merken_pending_scan_import_contexts"
         static let importedScanJobs = "merken_imported_scan_jobs"
         static let reportedScanFailures = "merken_reported_scan_job_failures"
+        static let cachedRepositoryMode = "merken_cached_repository_mode"
     }
 
     init(
@@ -214,6 +215,10 @@ final class AppState: ObservableObject {
         self.importedScanJobs = Self.loadImportedScanJobs(defaults: defaults)
         self.reportedScanFailures = Self.loadReportedFailures(defaults: defaults)
         self.appStoreLaunchSyncUserId = nil
+        if self.session != nil,
+           let cachedMode = Self.loadCachedRepositoryMode(defaults: defaults) {
+            self.repositoryMode = cachedMode
+        }
     }
 
     var isPro: Bool {
@@ -386,6 +391,7 @@ final class AppState: ObservableObject {
         guard session != nil else {
             subscription = nil
             repositoryMode = .guestLocal
+            clearCachedRepositoryMode()
             aiPreference = nil
             aiPreferenceErrorMessage = nil
             appStoreLaunchSyncUserId = nil
@@ -398,6 +404,7 @@ final class AppState: ObservableObject {
             let subscription = try await authService.refreshSubscription()
             self.subscription = subscription
             repositoryMode = repositoryRouter.mode(for: subscription)
+            persistRepositoryMode(repositoryMode)
             authErrorMessage = nil
             await scanJobSyncService.start()
             await refreshUserPreferences()
@@ -436,6 +443,7 @@ final class AppState: ObservableObject {
             } else {
                 if session == nil {
                     repositoryMode = .guestLocal
+                    clearCachedRepositoryMode()
                 }
                 authErrorMessage = error.localizedDescription
                 logger.error("Auth refresh failed: \(error.localizedDescription)")
@@ -873,6 +881,37 @@ final class AppState: ObservableObject {
     private static func loadReportedFailures(defaults: UserDefaults) -> Set<String> {
         let values = defaults.stringArray(forKey: Keys.reportedScanFailures) ?? []
         return Set(values)
+    }
+
+    private static func loadCachedRepositoryMode(defaults: UserDefaults) -> RepositoryMode? {
+        guard let raw = defaults.string(forKey: Keys.cachedRepositoryMode) else { return nil }
+        switch raw {
+        case "guestLocal":
+            return .guestLocal
+        case "proCloud":
+            return .proCloud
+        case "readonlyCloud":
+            return .readonlyCloud
+        default:
+            return nil
+        }
+    }
+
+    private func persistRepositoryMode(_ mode: RepositoryMode) {
+        let raw: String
+        switch mode {
+        case .guestLocal:
+            raw = "guestLocal"
+        case .proCloud:
+            raw = "proCloud"
+        case .readonlyCloud:
+            raw = "readonlyCloud"
+        }
+        defaults.set(raw, forKey: Keys.cachedRepositoryMode)
+    }
+
+    private func clearCachedRepositoryMode() {
+        defaults.removeObject(forKey: Keys.cachedRepositoryMode)
     }
 
     private func triggerOfflinePrefetchIfNeeded() async {

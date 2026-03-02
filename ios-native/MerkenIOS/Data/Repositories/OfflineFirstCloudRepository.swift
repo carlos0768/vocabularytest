@@ -24,6 +24,12 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
     }
 
     func fetchProjects(userId: String) async throws -> [Project] {
+        let cachedProjects = (try? await cacheStore.fetchProjects(userId: userId)) ?? []
+        if !cachedProjects.isEmpty {
+            refreshProjectsInBackground(userId: userId)
+            return cachedProjects
+        }
+
         do {
             let projects = try await cloudRepository.fetchProjects(userId: userId)
             try? await cacheStore.replaceProjects(userId: userId, projects: projects)
@@ -60,6 +66,13 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
     }
 
     func fetchWords(projectId: String) async throws -> [Word] {
+        let cachedWords = (try? await cacheStore.fetchWords(projectId: projectId)) ?? []
+        if !cachedWords.isEmpty {
+            try? await cacheStore.markProjectAccessed(projectId: projectId)
+            refreshProjectWordsInBackground(projectId: projectId)
+            return cachedWords
+        }
+
         do {
             let words = try await cloudRepository.fetchWords(projectId: projectId)
             if let resolvedUserId = await resolveUserId(projectId: projectId) {
@@ -80,6 +93,12 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
     }
 
     func fetchAllWords(userId: String) async throws -> [Word] {
+        let cachedWords = (try? await cacheStore.fetchAllWords(userId: userId)) ?? []
+        if !cachedWords.isEmpty {
+            refreshAllWordsInBackground(userId: userId)
+            return cachedWords
+        }
+
         do {
             let words = try await cloudRepository.fetchAllWords(userId: userId)
             try? await cacheStore.replaceAllWords(userId: userId, words: words)
@@ -214,6 +233,51 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
             maxWords: maxCachedWords,
             protectedProjectIDs: Set(protectedIds)
         )
+    }
+
+    private func refreshProjectsInBackground(userId: String) {
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            do {
+                let projects = try await self.cloudRepository.fetchProjects(userId: userId)
+                try? await self.cacheStore.replaceProjects(userId: userId, projects: projects)
+            } catch {
+                self.logger.debug("Background project refresh skipped: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func refreshProjectWordsInBackground(projectId: String) {
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            do {
+                let words = try await self.cloudRepository.fetchWords(projectId: projectId)
+                if let resolvedUserId = await self.resolveUserId(projectId: projectId) {
+                    try? await self.cacheStore.replaceWords(
+                        userId: resolvedUserId,
+                        projectId: projectId,
+                        words: words,
+                        markAsAccessed: true
+                    )
+                    await self.enforceWordLimit(userId: resolvedUserId)
+                }
+            } catch {
+                self.logger.debug("Background word refresh skipped for \(projectId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func refreshAllWordsInBackground(userId: String) {
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            do {
+                let words = try await self.cloudRepository.fetchAllWords(userId: userId)
+                try? await self.cacheStore.replaceAllWords(userId: userId, words: words)
+                await self.enforceWordLimit(userId: userId)
+            } catch {
+                self.logger.debug("Background all-words refresh skipped: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private func resolveUserId(projectId: String) async -> String? {

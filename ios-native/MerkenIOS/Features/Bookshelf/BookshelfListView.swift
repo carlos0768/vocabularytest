@@ -240,7 +240,10 @@ struct BookshelfListView: View {
 
         return ZStack {
             if let iconImage = preview.iconImage,
-               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+               let uiImage = ImageCompressor.decodeBase64Image(
+                iconImage,
+                cacheKey: preview.iconImageCacheKey
+               ) {
                 // Project has a cover image
                 Image(uiImage: uiImage)
                     .resizable()

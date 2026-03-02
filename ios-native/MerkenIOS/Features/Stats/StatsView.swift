@@ -41,6 +41,8 @@ struct StatsView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+                        Spacer().frame(height: 10)
+
                         // MARK: - 今日の学習
                         sectionHeader(icon: "calendar", title: "今日の学習")
 

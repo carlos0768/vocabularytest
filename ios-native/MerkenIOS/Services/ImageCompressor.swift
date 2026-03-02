@@ -1,6 +1,12 @@
 import UIKit
 
 enum ImageCompressor {
+    private static let decodedImageCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 512
+        return cache
+    }()
+
     /// Compression profiles matching web's image-utils.ts settings
     enum Profile {
         case `default`    // maxDim 1024, quality 0.8→0.3, 1MB
@@ -90,7 +96,12 @@ enum ImageCompressor {
     }
 
     /// Decode a base64 image string (handles both plain base64 and data URL format).
-    static func decodeBase64Image(_ string: String) -> UIImage? {
+    static func decodeBase64Image(_ string: String, cacheKey: String? = nil) -> UIImage? {
+        let resolvedCacheKey = NSString(string: cacheKey ?? String(string.hashValue))
+        if let cachedImage = decodedImageCache.object(forKey: resolvedCacheKey) {
+            return cachedImage
+        }
+
         let base64: String
         if let commaIndex = string.firstIndex(of: ",") {
             base64 = String(string[string.index(after: commaIndex)...])
@@ -98,7 +109,9 @@ enum ImageCompressor {
             base64 = string
         }
         guard let data = Data(base64Encoded: base64) else { return nil }
-        return UIImage(data: data)
+        guard let image = UIImage(data: data) else { return nil }
+        decodedImageCache.setObject(image, forKey: resolvedCacheKey)
+        return image
     }
 
     private static func resizeIfNeeded(_ image: UIImage, maxDimension maxDim: CGFloat? = nil) -> UIImage {
