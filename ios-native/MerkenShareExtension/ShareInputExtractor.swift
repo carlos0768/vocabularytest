@@ -3,6 +3,18 @@ import UniformTypeIdentifiers
 import MobileCoreServices
 
 enum ShareInputExtractor {
+    private static let highPriorityTypeIdentifiers: [String] = [
+        UTType.plainText.identifier,
+        UTType.text.identifier,
+        "public.utf8-plain-text",
+        "com.apple.uikit.attributedstring",
+        UTType.html.identifier,
+        "public.rtf",
+        UTType.url.identifier,
+        "public.property-list",
+        UTType.data.identifier
+    ]
+
     static func extract(from inputItems: [Any]) async -> ShareImportInput? {
         let extensionItems = inputItems.compactMap { $0 as? NSExtensionItem }
         var textCandidates: [String] = []
@@ -32,7 +44,7 @@ enum ShareInputExtractor {
             ? (uniqueURLs.first ?? "")
             : uniqueTexts.joined(separator: "\n")
 
-        let pair = detectBilingualPair(from: uniqueTexts)
+        let pair = detectBilingualPair(textCandidates: uniqueTexts, urlCandidates: uniqueURLs)
         return ShareImportInput(
             text: sourceText,
             sourceApp: nil,
@@ -57,11 +69,10 @@ enum ShareInputExtractor {
     private static func allTexts(from attachments: [NSItemProvider]) async -> [String] {
         var results: [String] = []
         for provider in attachments {
-            let types = [UTType.plainText.identifier, UTType.text.identifier]
-            for type in types where provider.hasItemConformingToTypeIdentifier(type) {
+            let typeIdentifiers = candidateTypeIdentifiers(for: provider)
+            for type in typeIdentifiers where provider.hasItemConformingToTypeIdentifier(type) {
                 if let value = await loadItem(provider: provider, typeIdentifier: type) {
-                    results.append(contentsOf: textValues(from: value))
-                    break
+                    results.append(contentsOf: extractStrings(from: value, typeIdentifier: type))
                 }
             }
         }
@@ -71,56 +82,245 @@ enum ShareInputExtractor {
     private static func allURLStrings(from attachments: [NSItemProvider]) async -> [String] {
         var results: [String] = []
         for provider in attachments {
-            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
-               let value = await loadItem(provider: provider, typeIdentifier: UTType.url.identifier) {
-                if let url = value as? URL {
-                    results.append(url.absoluteString)
-                    continue
-                }
-
-                if let text = value as? String {
-                    results.append(text)
-                    continue
-                }
-
-                if let text = value as? NSString {
-                    results.append(String(text))
+            let typeIdentifiers = candidateTypeIdentifiers(for: provider)
+            for type in typeIdentifiers where provider.hasItemConformingToTypeIdentifier(type) {
+                if let value = await loadItem(provider: provider, typeIdentifier: type) {
+                    let strings = extractStrings(from: value, typeIdentifier: type)
+                    for string in strings where looksLikeURL(string) {
+                        results.append(string)
+                    }
                 }
             }
         }
         return dedupe(results)
     }
 
-    private static func textValues(from value: NSSecureCoding) -> [String] {
+    private static func candidateTypeIdentifiers(for provider: NSItemProvider) -> [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        for value in highPriorityTypeIdentifiers + provider.registeredTypeIdentifiers where !value.isEmpty {
+            if seen.insert(value).inserted {
+                ordered.append(value)
+            }
+        }
+        return ordered
+    }
+
+    private static func looksLikeURL(_ value: String) -> Bool {
+        let lower = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return lower.hasPrefix("http://") || lower.hasPrefix("https://")
+    }
+
+    private static func extractStrings(from value: Any, typeIdentifier: String) -> [String] {
         if let text = value as? String {
             return [text]
         }
         if let text = value as? NSString {
             return [String(text)]
         }
-        if let data = value as? Data, let text = String(data: data, encoding: .utf8) {
-            return [text]
-        }
         if let url = value as? URL {
             return [url.absoluteString]
+        }
+        if let attributed = value as? NSAttributedString {
+            return [attributed.string]
+        }
+        if let data = value as? Data {
+            return extractStrings(from: data, typeIdentifier: typeIdentifier)
+        }
+        if let array = value as? [Any] {
+            return array.flatMap { extractStrings(from: $0, typeIdentifier: typeIdentifier) }
+        }
+        if let dict = value as? [AnyHashable: Any] {
+            return dict.values.flatMap { extractStrings(from: $0, typeIdentifier: typeIdentifier) }
         }
         return []
     }
 
-    private static func detectBilingualPair(from candidates: [String]) -> (english: String?, japanese: String?) {
-        let lines = candidates
+    private static func extractStrings(from data: Data, typeIdentifier: String) -> [String] {
+        var values: [String] = []
+        if let utf8 = String(data: data, encoding: .utf8), !utf8.isEmpty {
+            values.append(utf8)
+        }
+        if typeIdentifier == UTType.html.identifier || typeIdentifier == "public.rtf" {
+            let documentType: NSAttributedString.DocumentType = typeIdentifier == UTType.html.identifier ? .html : .rtf
+            if let attributed = try? NSAttributedString(
+                data: data,
+                options: [
+                    .documentType: documentType,
+                    .characterEncoding: String.Encoding.utf8.rawValue
+                ],
+                documentAttributes: nil
+            ) {
+                values.append(attributed.string)
+            }
+        }
+        return values
+    }
+
+    private static func detectBilingualPair(
+        textCandidates: [String],
+        urlCandidates: [String]
+    ) -> (english: String?, japanese: String?) {
+        var lines = textCandidates
             .flatMap { $0.components(separatedBy: .newlines) }
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .filter { !isNoiseLabel($0) }
 
+        let pairFromURL = detectPairFromURLs(urlCandidates)
+        if let englishFromURL = pairFromURL.english {
+            lines.append(englishFromURL)
+        }
+        if let japaneseFromURL = pairFromURL.japanese {
+            lines.append(japaneseFromURL)
+        }
+
+        let pairFromLabels = detectPairFromLabels(lines)
+        if let englishFromLabels = pairFromLabels.english {
+            lines.append(englishFromLabels)
+        }
+        if let japaneseFromLabels = pairFromLabels.japanese {
+            lines.append(japaneseFromLabels)
+        }
+
+        let pairFromSameLine = detectPairFromMixedLine(lines)
+        if let englishFromMixed = pairFromSameLine.english {
+            lines.append(englishFromMixed)
+        }
+        if let japaneseFromMixed = pairFromSameLine.japanese {
+            lines.append(japaneseFromMixed)
+        }
+
         let englishCandidates = lines.filter(isLikelyEnglishPhrase(_:))
         let japaneseCandidates = lines.filter(isLikelyJapanesePhrase(_:))
 
-        return (
-            english: pickBestEnglish(from: englishCandidates),
-            japanese: pickBestJapanese(from: japaneseCandidates)
-        )
+        let english = pairFromLabels.english
+            ?? pairFromSameLine.english
+            ?? pickBestEnglish(from: englishCandidates)
+            ?? pairFromURL.english
+
+        let japanese = pairFromLabels.japanese
+            ?? pairFromSameLine.japanese
+            ?? pickBestJapanese(from: japaneseCandidates)
+            ?? pairFromURL.japanese
+
+        return (english: english, japanese: japanese)
+    }
+
+    private static func detectPairFromLabels(_ lines: [String]) -> (english: String?, japanese: String?) {
+        func normalizeLabel(_ value: String) -> String {
+            value
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+                .replacingOccurrences(of: "：", with: ":")
+        }
+
+        let englishLabels: Set<String> = ["english", "英語", "source", "source text", "原文"]
+        let japaneseLabels: Set<String> = ["japanese", "日本語", "translation", "翻訳", "訳文"]
+
+        var english: String?
+        var japanese: String?
+
+        for (index, raw) in lines.enumerated() {
+            let label = normalizeLabel(raw)
+            if english == nil, englishLabels.contains(label) {
+                english = nextMeaningfulLine(after: index, in: lines, validator: isLikelyEnglishPhrase(_:))
+            }
+            if japanese == nil, japaneseLabels.contains(label) {
+                japanese = nextMeaningfulLine(after: index, in: lines, validator: isLikelyJapanesePhrase(_:))
+            }
+            if english != nil, japanese != nil {
+                break
+            }
+        }
+
+        return (english: english, japanese: japanese)
+    }
+
+    private static func nextMeaningfulLine(
+        after index: Int,
+        in lines: [String],
+        validator: (String) -> Bool
+    ) -> String? {
+        guard index + 1 < lines.count else { return nil }
+        for candidate in lines[(index + 1)...] {
+            let value = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            if value.isEmpty || isNoiseLabel(value) {
+                continue
+            }
+            if validator(value) {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private static func detectPairFromMixedLine(_ lines: [String]) -> (english: String?, japanese: String?) {
+        let separators = [" | ", " / ", " → ", " -> ", "：", ":"]
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            for separator in separators where trimmed.contains(separator) {
+                let parts = trimmed.components(separatedBy: separator).map {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                }.filter { !$0.isEmpty }
+                if parts.count < 2 { continue }
+
+                let first = parts[0]
+                let second = parts[1]
+                if isLikelyEnglishPhrase(first), isLikelyJapanesePhrase(second) {
+                    return (english: first, japanese: second)
+                }
+                if isLikelyJapanesePhrase(first), isLikelyEnglishPhrase(second) {
+                    return (english: second, japanese: first)
+                }
+            }
+        }
+        return (english: nil, japanese: nil)
+    }
+
+    private static func detectPairFromURLs(_ urls: [String]) -> (english: String?, japanese: String?) {
+        var english: String?
+        var japanese: String?
+
+        for raw in urls {
+            guard let components = URLComponents(string: raw) else { continue }
+            let items = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+            guard !items.isEmpty else { continue }
+
+            let sourceText = items["text"] ?? items["q"] ?? items["query"] ?? ""
+            let sl = (items["sl"] ?? items["source"] ?? "").lowercased()
+            let tl = (items["tl"] ?? items["target"] ?? "").lowercased()
+
+            if sourceText.isEmpty { continue }
+            let normalizedSource = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if normalizedSource.isEmpty { continue }
+
+            if sl == "en" || sl.hasPrefix("en-") {
+                if english == nil { english = normalizedSource }
+            } else if sl == "ja" || sl.hasPrefix("ja-") {
+                if japanese == nil { japanese = normalizedSource }
+            } else {
+                if english == nil, isLikelyEnglishPhrase(normalizedSource) {
+                    english = normalizedSource
+                }
+                if japanese == nil, isLikelyJapanesePhrase(normalizedSource) {
+                    japanese = normalizedSource
+                }
+            }
+
+            if tl == "en" || tl.hasPrefix("en-") {
+                if japanese == nil, isLikelyJapanesePhrase(normalizedSource) {
+                    japanese = normalizedSource
+                }
+            } else if tl == "ja" || tl.hasPrefix("ja-") {
+                if english == nil, isLikelyEnglishPhrase(normalizedSource) {
+                    english = normalizedSource
+                }
+            }
+        }
+
+        return (english: english, japanese: japanese)
     }
 
     private static func isNoiseLabel(_ value: String) -> Bool {
@@ -183,10 +383,10 @@ enum ShareInputExtractor {
             .first
     }
 
-    private static func loadItem(provider: NSItemProvider, typeIdentifier: String) async -> NSSecureCoding? {
+    private static func loadItem(provider: NSItemProvider, typeIdentifier: String) async -> Any? {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
-                continuation.resume(returning: item as? NSSecureCoding)
+                continuation.resume(returning: item)
             }
         }
     }
