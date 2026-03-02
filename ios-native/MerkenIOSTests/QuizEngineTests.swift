@@ -6,14 +6,18 @@ final class QuizEngineTests: XCTestCase {
         english: String = "resilient",
         japanese: String = "回復力のある",
         distractors: [String] = ["弱い", "退屈な", "困難な"],
-        status: WordStatus
+        status: WordStatus,
+        lastReviewedAt: Date? = nil,
+        nextReviewAt: Date? = nil
     ) -> Word {
         Word(
             projectId: "p1",
             english: english,
             japanese: japanese,
             distractors: distractors,
-            status: status
+            status: status,
+            lastReviewedAt: lastReviewedAt,
+            nextReviewAt: nextReviewAt
         )
     }
 
@@ -65,5 +69,76 @@ final class QuizEngineTests: XCTestCase {
 
         let questions = QuizEngine.generateQuestions(words: words, count: 1)
         XCTAssertTrue(questions.isEmpty)
+    }
+
+    func testWordsDueForReviewIncludesWordWhenNextReviewAtIsPast() {
+        let now = Date()
+        let words = [
+            makeWord(
+                english: "past",
+                status: .mastered,
+                nextReviewAt: now.addingTimeInterval(-60)
+            )
+        ]
+
+        let dueWords = QuizEngine.wordsDueForReview(words, now: now)
+        XCTAssertEqual(dueWords.count, 1)
+        XCTAssertEqual(dueWords.first?.english, "past")
+    }
+
+    func testWordsDueForReviewExcludesWordWhenNextReviewAtIsFuture() {
+        let now = Date()
+        let words = [
+            makeWord(
+                english: "future",
+                status: .review,
+                nextReviewAt: now.addingTimeInterval(60)
+            )
+        ]
+
+        let dueWords = QuizEngine.wordsDueForReview(words, now: now)
+        XCTAssertTrue(dueWords.isEmpty)
+    }
+
+    func testWordsDueForReviewExcludesBrandNewWordWithoutReviewDates() {
+        let words = [
+            makeWord(
+                english: "brand-new",
+                status: .new,
+                lastReviewedAt: nil,
+                nextReviewAt: nil
+            )
+        ]
+
+        let dueWords = QuizEngine.wordsDueForReview(words)
+        XCTAssertTrue(dueWords.isEmpty)
+    }
+
+    func testWordsDueForReviewIncludesWordWithoutNextReviewWhenStatusIsNotNew() {
+        let words = [
+            makeWord(english: "review-word", status: .review, nextReviewAt: nil),
+            makeWord(english: "mastered-word", status: .mastered, nextReviewAt: nil)
+        ]
+
+        let dueWords = QuizEngine.wordsDueForReview(words)
+        XCTAssertEqual(dueWords.count, 2)
+        XCTAssertTrue(dueWords.contains { $0.english == "review-word" })
+        XCTAssertTrue(dueWords.contains { $0.english == "mastered-word" })
+    }
+
+    func testWordsDueForReviewIncludesNewWordWhenLastReviewedAtExists() {
+        let now = Date()
+        let words = [
+            makeWord(
+                english: "reviewed-new",
+                status: .new,
+                lastReviewedAt: now.addingTimeInterval(-120),
+                nextReviewAt: nil
+            )
+        ]
+
+        let dueWords = QuizEngine.wordsDueForReview(words, now: now)
+        XCTAssertEqual(dueWords.count, 1)
+        XCTAssertEqual(dueWords.first?.english, "reviewed-new")
     }
 }

@@ -182,6 +182,16 @@ enum QuizEngine {
         )
     }
 
+    /// Returns words that are due for review, aligned with web `getWordsDueForReview`.
+    static func wordsDueForReview(_ words: [Word], now: Date = .now) -> [Word] {
+        words.filter { word in
+            if let nextReviewAt = word.nextReviewAt {
+                return nextReviewAt <= now
+            }
+            return word.lastReviewedAt != nil || word.status != .new
+        }
+    }
+
     static func compareByStudyPriority(_ lhs: Word, _ rhs: Word, now: Date = .now) -> Bool {
         let lhsBucket = reviewBucket(for: lhs, now: now)
         let rhsBucket = reviewBucket(for: rhs, now: now)

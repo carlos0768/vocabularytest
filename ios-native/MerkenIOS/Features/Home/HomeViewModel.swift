@@ -56,11 +56,8 @@ final class HomeViewModel: ObservableObject {
                     guard !Task.isCancelled else { return }
 
                     let total = allWords.count
-                    let dueList = allWords.filter { word in
-                        if word.status != .mastered { return true }
-                        guard let nextReviewAt = word.nextReviewAt else { return false }
-                        return nextReviewAt <= .now
-                    }
+                    // Keep due-word behavior aligned with web SM-2 due filtering.
+                    let dueList = QuizEngine.wordsDueForReview(allWords)
 
                     self?.totalWordCount = total
                     self?.dueWordCount = dueList.count

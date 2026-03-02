@@ -109,8 +109,10 @@ struct SettingsView: View {
         }
         .task(id: appState.isLoggedIn) {
             localAIEnabled = appState.isAIEnabled
-            guard appState.isLoggedIn else { return }
-            await appState.refreshUserPreferences()
+
+            // Avoid blocking the settings screen with a visible loader on every open.
+            guard appState.isLoggedIn, appState.aiPreference == nil else { return }
+            await appState.refreshUserPreferences(showLoadingIndicator: false)
             localAIEnabled = appState.isAIEnabled
         }
         .onChange(of: appState.isAIEnabled) { _ in
@@ -223,10 +225,10 @@ struct SettingsView: View {
                                 .foregroundStyle(MerkenTheme.mutedText)
                         }
                     }
-                    .disabled(!appState.isLoggedIn || appState.isLoadingAIPreference || appState.isSavingAIPreference)
+                    .disabled(!appState.isLoggedIn || appState.isSavingAIPreference)
 
-                    if appState.isLoadingAIPreference || appState.isSavingAIPreference {
-                        ProgressView(appState.isSavingAIPreference ? "保存中..." : "読み込み中...")
+                    if appState.isSavingAIPreference {
+                        ProgressView("保存中...")
                             .tint(MerkenTheme.accentBlue)
                     }
 

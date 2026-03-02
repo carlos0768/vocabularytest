@@ -407,7 +407,7 @@ final class AppState: ObservableObject {
             persistRepositoryMode(repositoryMode)
             authErrorMessage = nil
             await scanJobSyncService.start()
-            await refreshUserPreferences()
+            await refreshUserPreferences(showLoadingIndicator: false)
 
             if let currentSession = session,
                appStoreLaunchSyncUserId != currentSession.userId {
@@ -601,7 +601,7 @@ final class AppState: ObservableObject {
         try await projectShareService.generateShareId(projectId: projectId)
     }
 
-    func refreshUserPreferences() async {
+    func refreshUserPreferences(showLoadingIndicator: Bool = true) async {
         guard isLoggedIn else {
             aiPreference = nil
             aiPreferenceErrorMessage = nil
@@ -610,8 +610,14 @@ final class AppState: ObservableObject {
             return
         }
 
-        isLoadingAIPreference = true
-        defer { isLoadingAIPreference = false }
+        if showLoadingIndicator {
+            isLoadingAIPreference = true
+        }
+        defer {
+            if showLoadingIndicator {
+                isLoadingAIPreference = false
+            }
+        }
 
         do {
             let preference = try await performWebAPIRequest { token in
