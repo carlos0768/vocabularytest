@@ -75,6 +75,7 @@ enum ShareInputExtractor {
                     results.append(contentsOf: extractStrings(from: value, typeIdentifier: type))
                 }
             }
+            results.append(contentsOf: await loadObjectStrings(from: provider))
         }
         return dedupe(results)
     }
@@ -90,6 +91,9 @@ enum ShareInputExtractor {
                         results.append(string)
                     }
                 }
+            }
+            for value in await loadObjectStrings(from: provider) where looksLikeURL(value) {
+                results.append(value)
             }
         }
         return dedupe(results)
@@ -161,11 +165,12 @@ enum ShareInputExtractor {
         textCandidates: [String],
         urlCandidates: [String]
     ) -> (english: String?, japanese: String?) {
-        var lines = textCandidates
+        let rawLines = textCandidates
             .flatMap { $0.components(separatedBy: .newlines) }
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-            .filter { !isNoiseLabel($0) }
+
+        var lines = rawLines.filter { !isNoiseLabel($0) }
 
         let pairFromURL = detectPairFromURLs(urlCandidates)
         if let englishFromURL = pairFromURL.english {
@@ -175,7 +180,7 @@ enum ShareInputExtractor {
             lines.append(japaneseFromURL)
         }
 
-        let pairFromLabels = detectPairFromLabels(lines)
+        let pairFromLabels = detectPairFromLabels(rawLines)
         if let englishFromLabels = pairFromLabels.english {
             lines.append(englishFromLabels)
         }
@@ -387,6 +392,38 @@ enum ShareInputExtractor {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
                 continuation.resume(returning: item)
+            }
+        }
+    }
+
+    private static func loadObjectStrings(from provider: NSItemProvider) async -> [String] {
+        var values: [String] = []
+
+        if provider.canLoadObject(ofClass: NSString.self),
+           let text = await loadObject(from: provider, as: NSString.self) {
+            values.append(String(text))
+        }
+
+        if provider.canLoadObject(ofClass: NSAttributedString.self),
+           let attributed = await loadObject(from: provider, as: NSAttributedString.self) {
+            values.append(attributed.string)
+        }
+
+        if provider.canLoadObject(ofClass: NSURL.self),
+           let url = await loadObject(from: provider, as: NSURL.self) as URL? {
+            values.append(url.absoluteString)
+        }
+
+        return dedupe(values)
+    }
+
+    private static func loadObject<T: NSItemProviderReading>(
+        from provider: NSItemProvider,
+        as type: T.Type
+    ) async -> T? {
+        await withCheckedContinuation { continuation in
+            provider.loadObject(ofClass: type) { object, _ in
+                continuation.resume(returning: object as? T)
             }
         }
     }
