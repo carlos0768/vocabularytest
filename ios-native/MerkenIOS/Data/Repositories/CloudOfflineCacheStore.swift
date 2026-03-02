@@ -84,18 +84,19 @@ actor CloudOfflineCacheStore {
         markAsAccessed: Bool,
         syncedAt: Date = .now
     ) throws {
+        let incomingWords = deduplicatedWordsByID(words)
         let existingDescriptor = FetchDescriptor<CachedCloudWordRecord>(
             predicate: #Predicate { $0.projectId == projectId && $0.userId == userId }
         )
         let existing = try modelContext.fetch(existingDescriptor)
         let existingMap = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
-        let incomingIds = Set(words.map(\.id))
+        let incomingIds = Set(incomingWords.map(\.id))
 
         for record in existing where !incomingIds.contains(record.id) {
             modelContext.delete(record)
         }
 
-        for word in words {
+        for word in incomingWords {
             if let record = existingMap[word.id] {
                 apply(
                     userId: userId,
@@ -123,20 +124,36 @@ actor CloudOfflineCacheStore {
     }
 
     func replaceAllWords(userId: String, words: [Word], syncedAt: Date = .now) throws {
+        let incomingWords = deduplicatedWordsByID(words)
         let existingDescriptor = FetchDescriptor<CachedCloudWordRecord>(
             predicate: #Predicate { $0.userId == userId }
         )
         let existing = try modelContext.fetch(existingDescriptor)
-        existing.forEach { modelContext.delete($0) }
+        let existingMap = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        let incomingIds = Set(incomingWords.map(\.id))
 
-        for word in words {
-            let record = try makeWordRecord(
-                userId: userId,
-                word: word,
-                syncedAt: syncedAt,
-                markAsAccessed: false
-            )
-            modelContext.insert(record)
+        for record in existing where !incomingIds.contains(record.id) {
+            modelContext.delete(record)
+        }
+
+        for word in incomingWords {
+            if let record = existingMap[word.id] {
+                apply(
+                    userId: userId,
+                    word: word,
+                    to: record,
+                    syncedAt: syncedAt,
+                    markAsAccessed: false
+                )
+            } else {
+                let record = try makeWordRecord(
+                    userId: userId,
+                    word: word,
+                    syncedAt: syncedAt,
+                    markAsAccessed: false
+                )
+                modelContext.insert(record)
+            }
         }
 
         try modelContext.save()
@@ -212,7 +229,9 @@ actor CloudOfflineCacheStore {
     }
 
     func upsertWords(userId: String, words: [Word], markAsAccessed: Bool = true, syncedAt: Date = .now) throws {
-        for word in words {
+        let incomingWords = deduplicatedWordsByID(words)
+
+        for word in incomingWords {
             if let record = try fetchWordRecord(id: word.id) {
                 apply(
                     userId: userId,
@@ -233,7 +252,7 @@ actor CloudOfflineCacheStore {
         }
 
         if markAsAccessed {
-            let ids = Set(words.map(\.projectId))
+            let ids = Set(incomingWords.map(\.projectId))
             for projectId in ids {
                 try touchProjectAccess(projectId: projectId, at: syncedAt)
             }
@@ -516,5 +535,22 @@ actor CloudOfflineCacheStore {
     private func decodeOptional<T: Decodable>(_ data: Data?, as _: T.Type) -> T? {
         guard let data else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private func deduplicatedWordsByID(_ words: [Word]) -> [Word] {
+        guard words.count > 1 else { return words }
+
+        var seenIDs = Set<String>()
+        var reversedUniqueWords: [Word] = []
+        reversedUniqueWords.reserveCapacity(words.count)
+
+        // Keep the latest value for each ID when duplicates exist.
+        for word in words.reversed() {
+            if seenIDs.insert(word.id).inserted {
+                reversedUniqueWords.append(word)
+            }
+        }
+
+        return reversedUniqueWords.reversed()
     }
 }

@@ -308,6 +308,11 @@ final class AppState: ObservableObject {
 
     /// Request notification permission and register for remote notifications
     private func requestRemoteNotificationPermission() {
+#if targetEnvironment(simulator)
+        logger.debug("Skipping APNs registration on simulator.")
+        return
+#endif
+
         Task {
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
