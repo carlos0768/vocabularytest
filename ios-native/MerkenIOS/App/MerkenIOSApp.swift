@@ -32,6 +32,7 @@ struct MerkenIOSApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     guard newPhase == .active else { return }
                     Task {
+                        appState.consumeSharedImportEventIfNeeded()
                         await appState.refreshAuthState(showLoading: false)
                     }
                 }

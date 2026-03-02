@@ -289,6 +289,7 @@ final class AppState: ObservableObject {
     private var hasRegisteredDeviceToken = false
 
     func bootstrap() async {
+        consumeSharedImportEventIfNeeded()
         await refreshAuthState(showLoading: true)
         Task {
             await scanNotificationService.requestAuthorizationIfNeeded()
@@ -595,6 +596,17 @@ final class AppState: ObservableObject {
 
     func bumpDataVersion() {
         dataVersion += 1
+    }
+
+    func consumeSharedImportEventIfNeeded() {
+        guard let event = ShareImportBridge.consumeImportEvent() else {
+            return
+        }
+
+        bumpDataVersion()
+        let safeCount = max(0, event.wordCount)
+        let message = "「\(event.projectTitle)」に\(safeCount)語を追加しました。"
+        showScanBanner(level: .success, title: "共有から追加完了", message: message)
     }
 
     func generateProjectShareId(projectId: String) async throws -> String {

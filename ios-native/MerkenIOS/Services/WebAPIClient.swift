@@ -345,6 +345,56 @@ struct AppStoreVerifyResponse: Decodable, Sendable {
     let error: String?
 }
 
+struct ShareImportPreviewCandidate: Decodable, Sendable {
+    let english: String
+    let japanese: String
+    let wasSentence: Bool
+    let warnings: [String]
+}
+
+struct ShareImportPreviewResponse: Decodable, Sendable {
+    let success: Bool
+    let candidate: ShareImportPreviewCandidate?
+    let error: String?
+}
+
+struct ShareImportProjectOption: Decodable, Sendable {
+    let id: String
+    let title: String
+    let updatedAt: Date?
+}
+
+private struct ShareImportProjectsResponse: Decodable {
+    let success: Bool
+    let projects: [ShareImportProjectOption]
+    let error: String?
+}
+
+struct ShareImportCommitResponse: Decodable, Sendable {
+    let success: Bool
+    let projectId: String
+    let projectTitle: String
+    let wordId: String?
+    let created: Bool
+    let duplicate: Bool
+    let error: String?
+}
+
+private struct ShareImportPreviewRequest: Encodable {
+    let text: String
+    let sourceApp: String?
+    let locale: String?
+}
+
+private struct ShareImportCommitRequest: Encodable {
+    let targetProjectId: String?
+    let newProjectTitle: String?
+    let english: String
+    let japanese: String
+    let originalText: String?
+    let sourceApp: String?
+}
+
 actor WebAPIClient {
     private let baseURL: URL
     private let supabaseURL: URL
@@ -1077,6 +1127,163 @@ actor WebAPIClient {
             return try JSONDecoder().decode(UserPreferencesResponse.self, from: data).aiEnabled
         } catch {
             logger.error("User preferences update decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func previewShareImport(
+        text: String,
+        sourceApp: String?,
+        locale: String?,
+        bearerToken: String
+    ) async throws -> ShareImportPreviewCandidate {
+        let (data, http) = try await sendJSONRequest(
+            path: "api/share-import/preview",
+            bearerToken: bearerToken,
+            timeout: 20,
+            body: ShareImportPreviewRequest(
+                text: text,
+                sourceApp: sourceApp,
+                locale: locale
+            )
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 429:
+            throw WebAPIError.scanLimitReached(
+                decodeErrorMessage(from: data, fallback: "利用上限に達しました。")
+            )
+        case 422:
+            throw WebAPIError.unprocessable(
+                decodeErrorMessage(from: data, fallback: "英単語を判定できませんでした。")
+            )
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "共有プレビューの生成に失敗しました。")
+            )
+        }
+
+        let decoded: ShareImportPreviewResponse
+        do {
+            decoded = try JSONDecoder().decode(ShareImportPreviewResponse.self, from: data)
+        } catch {
+            logger.error("Share import preview decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+
+        guard decoded.success, let candidate = decoded.candidate else {
+            throw WebAPIError.serverError(decoded.error ?? "共有プレビューの生成に失敗しました。")
+        }
+
+        return candidate
+    }
+
+    func fetchShareImportProjects(
+        limit: Int = 20,
+        bearerToken: String
+    ) async throws -> [ShareImportProjectOption] {
+        var components = URLComponents(url: try makeWebAPIURL(path: "api/share-import/projects"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "limit", value: String(max(1, min(50, limit))))]
+        guard let url = components?.url else {
+            throw WebAPIError.serverError("単語帳取得URLの生成に失敗しました。")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 20
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch let error as URLError where error.code == .timedOut {
+            throw WebAPIError.networkTimeout
+        } catch {
+            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw WebAPIError.serverError("不明な通信エラー")
+        }
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "単語帳一覧の取得に失敗しました。")
+            )
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .supabaseISO8601
+            let decoded = try decoder.decode(ShareImportProjectsResponse.self, from: data)
+            guard decoded.success else {
+                throw WebAPIError.serverError(decoded.error ?? "単語帳一覧の取得に失敗しました。")
+            }
+            return decoded.projects
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Share import projects decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func commitShareImport(
+        targetProjectId: String?,
+        newProjectTitle: String?,
+        english: String,
+        japanese: String,
+        originalText: String?,
+        sourceApp: String?,
+        bearerToken: String
+    ) async throws -> ShareImportCommitResponse {
+        let (data, http) = try await sendJSONRequest(
+            path: "api/share-import/commit",
+            bearerToken: bearerToken,
+            timeout: 20,
+            body: ShareImportCommitRequest(
+                targetProjectId: targetProjectId,
+                newProjectTitle: newProjectTitle,
+                english: english,
+                japanese: japanese,
+                originalText: originalText,
+                sourceApp: sourceApp
+            )
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 403:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "保存先の単語帳にアクセスできません。")
+            )
+        case 400, 422:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "共有単語の保存に失敗しました。")
+            )
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "共有単語の保存に失敗しました。")
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(ShareImportCommitResponse.self, from: data)
+        } catch {
+            logger.error("Share import commit decode failed: \(error.localizedDescription)")
             throw WebAPIError.decodeFailed
         }
     }

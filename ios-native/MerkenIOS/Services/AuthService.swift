@@ -41,11 +41,17 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
         self.webAPIBaseURL = webAPIBaseURL
         self.defaults = defaults
         self.session = Self.loadSession(from: defaults)
+        if let session {
+            syncSharedAuthSnapshot(session: session)
+        } else {
+            ShareImportBridge.clearAuthSnapshot()
+        }
     }
 
     private func clearLocalSession() {
         self.session = nil
         defaults.removeObject(forKey: Keys.session)
+        ShareImportBridge.clearAuthSnapshot()
     }
 
     private static func isInvalidRefreshTokenMessage(_ message: String) -> Bool {
@@ -109,6 +115,7 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
 
         self.session = nil
         defaults.removeObject(forKey: Keys.session)
+        ShareImportBridge.clearAuthSnapshot()
     }
 
     func refreshSessionIfNeeded(forceRefresh: Bool) async throws -> AuthSession {
@@ -311,5 +318,18 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
         if let encoded = try? JSONEncoder().encode(session) {
             defaults.set(encoded, forKey: Keys.session)
         }
+        syncSharedAuthSnapshot(session: session)
+    }
+
+    private func syncSharedAuthSnapshot(session: AuthSession) {
+        let snapshot = SharedAuthSnapshot(
+            userId: session.userId,
+            email: session.email,
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            expiresAt: session.expiresAt,
+            tokenType: session.tokenType
+        )
+        ShareImportBridge.saveAuthSnapshot(snapshot)
     }
 }

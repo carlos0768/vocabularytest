@@ -42,9 +42,31 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_PREVIEWS: YES
         CODE_SIGN_ENTITLEMENTS: MerkenIOS/MerkenIOS.entitlements
+        TARGETED_DEVICE_FAMILY: 1
     dependencies:
       - package: Supabase
         product: Supabase
+      - target: MerkenShareExtension
+        embed: true
+  MerkenShareExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: 26.0
+    sources:
+      - path: MerkenShareExtension
+      - path: MerkenIOS/Utilities/ShareImportBridge.swift
+    resources:
+      - path: MerkenShareExtension/Resources
+    entitlements:
+      path: MerkenShareExtension/MerkenShareExtension.entitlements
+    settings:
+      base:
+        INFOPLIST_FILE: MerkenShareExtension/Resources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.merken.iosnative.ShareExtension
+        PRODUCT_NAME: MerkenShareExtension
+        SWIFT_EMIT_LOC_STRINGS: YES
+        CODE_SIGN_ENTITLEMENTS: MerkenShareExtension/MerkenShareExtension.entitlements
+        TARGETED_DEVICE_FAMILY: 1
   MerkenIOSTests:
     type: bundle.unit-test
     platform: iOS
