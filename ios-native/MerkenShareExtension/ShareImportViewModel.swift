@@ -85,6 +85,22 @@ final class ShareImportViewModel: ObservableObject {
         }
     }
 
+    func retry() {
+        if phase == .saving || phase == .loading {
+            return
+        }
+
+        if case .failure = phase, let input {
+            phase = .loading
+            Task {
+                await loadInitialData(input: input)
+            }
+            return
+        }
+
+        save()
+    }
+
     @MainActor
     func finishAfterSuccess() {
         onComplete()
@@ -92,16 +108,19 @@ final class ShareImportViewModel: ObservableObject {
 
     private func loadInitialData(input: ShareImportInput) async {
         do {
-            let (candidate, fetchedProjects): (ShareImportPreviewCandidateDTO, [ShareImportProjectOptionDTO]) =
+            let fetchedProjects: [ShareImportProjectOptionDTO] =
                 try await withAuthorizedSnapshot { snapshot in
-                    async let preview = service.preview(
+                    try await service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
+                }
+
+            let candidate: ShareImportPreviewCandidateDTO =
+                try await withAuthorizedSnapshot { snapshot in
+                    try await service.preview(
                         text: input.text,
                         sourceApp: input.sourceApp,
                         locale: Locale.preferredLanguages.first,
                         bearerToken: snapshot.accessToken
                     )
-                    async let projects = service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
-                    return try await (preview, projects)
                 }
 
             english = candidate.english
@@ -114,10 +133,52 @@ final class ShareImportViewModel: ObservableObject {
         } catch ShareImportServiceError.unauthorized {
             phase = .loginRequired
         } catch {
+            // Keep the flow usable even when preview fails.
+            let fallback = localFallbackCandidate(from: input.text)
+            if let fallback {
+                english = fallback.english
+                if japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    japanese = ""
+                }
+                warnings = ["プレビューの生成に失敗したため、手動で確認して追加してください。"]
+                phase = .editing
+                return
+            }
+
             let message = error.localizedDescription
             logger.error("Failed to load share import initial data: \(message, privacy: .public)")
             phase = .failure(message)
         }
+    }
+
+    private func localFallbackCandidate(from text: String) -> (english: String, wasSentence: Bool)? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return nil
+        }
+
+        if let url = URL(string: trimmed), let host = url.host {
+            let hostTokens = host
+                .components(separatedBy: CharacterSet(charactersIn: ".-"))
+                .filter { $0.count > 1 && $0.range(of: "^[A-Za-z]+$", options: .regularExpression) != nil }
+            if let best = hostTokens.max(by: { $0.count < $1.count }) {
+                return (english: best.lowercased(), wasSentence: false)
+            }
+        }
+
+        guard let regex = try? NSRegularExpression(pattern: #"[A-Za-z][A-Za-z'\-]{1,63}"#) else {
+            return nil
+        }
+        let nsText = trimmed as NSString
+        let matches = regex.matches(in: trimmed, range: NSRange(location: 0, length: nsText.length))
+        guard !matches.isEmpty else {
+            return nil
+        }
+
+        let candidates = matches.map { nsText.substring(with: $0.range) }
+        let selected = candidates.max(by: { $0.count < $1.count }) ?? candidates[0]
+        let wasSentence = candidates.count > 1 || trimmed.range(of: #"[.!?。！？]"#, options: .regularExpression) != nil
+        return (english: selected.lowercased(), wasSentence: wasSentence)
     }
 
     private func commit() async {

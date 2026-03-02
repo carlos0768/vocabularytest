@@ -321,10 +321,13 @@ actor ShareImportService {
     }
 
     private func errorMessage(from data: Data, fallback: String) -> String {
-        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let message = object["error"] as? String,
-           !message.isEmpty {
-            return message
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let message = object["error"] as? String, !message.isEmpty {
+                return message
+            }
+            if let message = object["message"] as? String, !message.isEmpty {
+                return message
+            }
         }
 
         if let raw = String(data: data, encoding: .utf8), !raw.isEmpty {

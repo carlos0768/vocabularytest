@@ -124,7 +124,7 @@ struct ShareImportRootView: View {
                 .buttonStyle(.glass)
 
                 Button("再試行") {
-                    viewModel.save()
+                    viewModel.retry()
                 }
                 .buttonStyle(.glassProminent)
             }
