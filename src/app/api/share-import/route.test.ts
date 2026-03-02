@@ -32,6 +32,7 @@ test('share-import preview returns 401 when unauthenticated', async () => {
       is_pro: false,
     }),
     translateToJapanese: async () => '人',
+    translateToEnglish: async () => 'person',
   });
 
   assert.equal(res.status, 401);
@@ -56,6 +57,9 @@ test('share-import preview sentence is reduced to one representative word', asyn
       assert.equal(english, 'person');
       return '人';
     },
+    translateToEnglish: async () => {
+      throw new Error('should_not_be_called');
+    },
   });
 
   assert.equal(res.status, 200);
@@ -66,6 +70,39 @@ test('share-import preview sentence is reduced to one representative word', asyn
   assert.equal(payload.candidate.wasSentence, true);
   assert.equal(Array.isArray(payload.candidate.warnings), true);
   assert.equal(payload.candidate.warnings.length > 0, true);
+});
+
+test('share-import preview can recover when only Japanese text is shared', async () => {
+  const req = jsonRequest('http://localhost/api/share-import/preview', {
+    text: '対面での会議',
+    sourceApp: 'com.google.Translate',
+  });
+
+  const res = await handleShareImportPreviewPost(req, {
+    resolveUser: async () => ({ id: 'user-1' }),
+    checkUsage: async () => ({
+      allowed: true,
+      requires_pro: false,
+      current_count: 3,
+      limit: 100,
+      is_pro: false,
+    }),
+    translateToJapanese: async () => {
+      throw new Error('should_not_be_called');
+    },
+    translateToEnglish: async (japanese) => {
+      assert.equal(japanese, '対面での会議');
+      return 'face-to-face meeting';
+    },
+  });
+
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.success, true);
+  assert.equal(payload.candidate.english, 'face-to-face meeting');
+  assert.equal(payload.candidate.japanese, '対面での会議');
+  assert.equal(Array.isArray(payload.candidate.warnings), true);
+  assert.equal(payload.candidate.warnings.includes('日本語入力のため英語へ変換しました'), true);
 });
 
 test('share-import projects returns 401 when unauthenticated', async () => {

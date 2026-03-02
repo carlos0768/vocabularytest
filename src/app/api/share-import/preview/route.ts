@@ -9,7 +9,11 @@ import {
   isAiUsageLimitsEnabled,
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
-import { extractRepresentativeEnglish, resolveAuthenticatedUser } from '@/app/api/share-import/shared';
+import {
+  containsSentencePunctuation,
+  extractRepresentativeEnglish,
+  resolveAuthenticatedUser,
+} from '@/app/api/share-import/shared';
 
 const requestSchema = z.object({
   text: z.string().trim().min(1).max(1200),
@@ -26,6 +30,14 @@ const TRANSLATE_PROMPT = `あなたは英和辞典です。与えられた英単
 - 名詞・形容詞はそのまま返す
 - フレーズの場合は自然な日本語訳を返す`;
 
+const JP_TO_EN_PROMPT = `あなたは和英辞典です。与えられた日本語を英語に変換してください。
+
+ルール:
+- 英語のみを返してください（説明不要）
+- 単語なら単語、フレーズなら短い英語フレーズで返す
+- 先頭大文字化や句読点は不要
+- 複数候補は出さず、最も一般的な1つだけ返す`;
+
 type UsageResult = {
   allowed: boolean;
   requires_pro: boolean;
@@ -38,6 +50,7 @@ type PreviewDeps = {
   resolveUser: (request: NextRequest) => Promise<{ id: string } | null>;
   checkUsage: (request: NextRequest) => Promise<UsageResult>;
   translateToJapanese: (english: string) => Promise<string>;
+  translateToEnglish: (japanese: string) => Promise<string>;
 };
 
 const defaultDeps: PreviewDeps = {
@@ -59,6 +72,19 @@ const defaultDeps: PreviewDeps = {
     };
     const provider = getProviderFromConfig(config, { openai: openaiApiKey });
     const result = await provider.generateText(`${TRANSLATE_PROMPT}\n\n英語: ${english}`, config);
+    if (!result.success || !result.content?.trim()) {
+      throw new Error('translation_failed');
+    }
+    return result.content.trim();
+  },
+  async translateToEnglish(japanese: string) {
+    const openaiApiKey = process.env.OPENAI_API_KEY?.trim() || '';
+    const config = {
+      ...AI_CONFIG.defaults.openai,
+      maxOutputTokens: 256,
+    };
+    const provider = getProviderFromConfig(config, { openai: openaiApiKey });
+    const result = await provider.generateText(`${JP_TO_EN_PROMPT}\n\n日本語: ${japanese}`, config);
     if (!result.success || !result.content?.trim()) {
       throw new Error('translation_failed');
     }
@@ -103,12 +129,27 @@ export async function handleShareImportPreviewPost(
       }
     }
 
-    const candidate = extractRepresentativeEnglish(parsed.data.text);
+    const normalizedText = parsed.data.text.trim();
+    const candidate = extractRepresentativeEnglish(normalizedText);
     if (!candidate) {
-      return NextResponse.json(
-        { success: false, error: '英単語を判定できませんでした。' },
-        { status: 422 }
-      );
+      const hasJapanese = /[\u3040-\u30ff\u3400-\u9fff]/.test(normalizedText);
+      if (!hasJapanese) {
+        return NextResponse.json(
+          { success: false, error: '英単語を判定できませんでした。' },
+          { status: 422 }
+        );
+      }
+
+      const translatedEnglish = await deps.translateToEnglish(normalizedText);
+      return NextResponse.json({
+        success: true,
+        candidate: {
+          english: translatedEnglish,
+          japanese: normalizedText,
+          wasSentence: containsSentencePunctuation(normalizedText) || normalizedText.includes(' '),
+          warnings: ['日本語入力のため英語へ変換しました'],
+        },
+      });
     }
 
     const japanese = await deps.translateToJapanese(candidate.english);

@@ -3,6 +3,8 @@ import Foundation
 struct ShareImportInput: Sendable {
     let text: String
     let sourceApp: String?
+    let detectedEnglish: String?
+    let detectedJapanese: String?
 }
 
 struct ShareImportPreviewCandidateDTO: Decodable, Sendable {

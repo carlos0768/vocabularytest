@@ -110,6 +110,8 @@ final class ShareImportViewModel: ObservableObject {
         var fetchedProjects: [ShareImportProjectOptionDTO] = []
         var previewCandidate: ShareImportPreviewCandidateDTO?
         var nextWarnings: [String] = []
+        let localEnglish = input.detectedEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let localJapanese = input.detectedJapanese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         do {
             fetchedProjects = try await withAuthorizedSnapshot { snapshot in
@@ -122,6 +124,23 @@ final class ShareImportViewModel: ObservableObject {
             let message = error.localizedDescription
             logger.error("Failed to fetch project list in share import: \(message, privacy: .public)")
             nextWarnings.append("単語帳一覧の取得に失敗しました。新規作成で続行できます。")
+        }
+
+        if !localEnglish.isEmpty {
+            english = localEnglish
+        }
+        if !localJapanese.isEmpty {
+            japanese = localJapanese
+        }
+
+        // Avoid consuming preview API when both languages were already extracted from the share payload.
+        if !localEnglish.isEmpty, !localJapanese.isEmpty {
+            projectOptions = fetchedProjects
+            selectedProjectId = fetchedProjects.first?.id
+            useNewProject = fetchedProjects.isEmpty
+            warnings = dedupeWarnings(nextWarnings)
+            phase = .editing
+            return
         }
 
         do {
