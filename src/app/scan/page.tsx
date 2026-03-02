@@ -853,7 +853,7 @@ function ScanPageContent() {
                 AI機能を使いますか？
               </h2>
               <p className="text-sm text-[var(--color-muted)] mb-4">
-                4択クイズと単語解説の自動生成に使います。あとで設定からいつでも変更できます。
+                4択クイズの自動生成に使います。あとで設定からいつでも変更できます。
               </p>
               <div className="grid grid-cols-1 gap-2">
                 <button

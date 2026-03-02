@@ -218,7 +218,7 @@ struct SettingsView: View {
                             Text("AI機能を使う")
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(MerkenTheme.primaryText)
-                            Text("OFFにすると4択クイズ・単語解説を非表示にします")
+                            Text("OFFにすると4択クイズを非表示にします")
                                 .font(.caption)
                                 .foregroundStyle(MerkenTheme.mutedText)
                         }

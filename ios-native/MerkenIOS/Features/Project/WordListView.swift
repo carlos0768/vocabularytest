@@ -201,29 +201,6 @@ struct WordListView: View {
                     Text(word.japanese)
                         .font(.subheadline)
                         .foregroundStyle(MerkenTheme.secondaryText)
-
-                    if appState.isPro && appState.isAIEnabled {
-                        if let relatedWords = word.relatedWords, !relatedWords.isEmpty {
-                            Text("関連語: \(relatedWords.prefix(3).map(\.term).joined(separator: ", "))")
-                                .font(.caption2)
-                                .foregroundStyle(MerkenTheme.mutedText)
-                                .lineLimit(1)
-                        }
-                        if let usage = word.usagePatterns, let first = usage.first {
-                            Text("語法: \(first.pattern)")
-                                .font(.caption2)
-                                .foregroundStyle(MerkenTheme.mutedText)
-                                .lineLimit(1)
-                        }
-                    } else if !appState.isPro {
-                        HStack(spacing: 4) {
-                            Image(systemName: "lock.fill")
-                                .font(.caption2)
-                            Text("関連語・語法はPro機能")
-                                .font(.caption2)
-                        }
-                        .foregroundStyle(MerkenTheme.mutedText)
-                    }
                 }
                 Spacer()
                 HStack(spacing: 14) {

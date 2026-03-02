@@ -10,8 +10,11 @@ interface VocabularyTabProps {
   onWordsUpdate: (updater: (prev: Word[]) => Word[]) => void;
 }
 
+const WORD_STREAM_INTERVAL_MS = 2500;
+
 export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTabProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isStreamPlaying, setIsStreamPlaying] = useState(false);
 
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -22,19 +25,30 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
 
-  const currentWord = words[currentIndex];
+  const lastWordIndex = words.length - 1;
+  const safeCurrentIndex = words.length === 0 ? 0 : Math.min(currentIndex, lastWordIndex);
+  const currentWord = words[safeCurrentIndex];
+  const streamPlaying = isStreamPlaying && words.length > 0;
 
-  // Ensure currentIndex is valid when words change
   useEffect(() => {
-    if (currentIndex >= words.length && words.length > 0) {
-      setCurrentIndex(words.length - 1);
-    }
-  }, [words.length, currentIndex]);
+    if (!streamPlaying) return;
+
+    const timer = window.setInterval(() => {
+      setCurrentIndex((prev) => {
+        const clamped = Math.min(prev, words.length - 1);
+        return clamped < words.length - 1 ? clamped + 1 : 0;
+      });
+    }, WORD_STREAM_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [streamPlaying, words.length]);
 
   // Navigation
   const handleNext = useCallback((withAnimation = false) => {
     if (isAnimating || words.length === 0) return;
-    const nextIndex = currentIndex < words.length - 1 ? currentIndex + 1 : 0;
+    const nextIndex = safeCurrentIndex < words.length - 1 ? safeCurrentIndex + 1 : 0;
 
     if (withAnimation) {
       setIsAnimating(true);
@@ -56,11 +70,11 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
     } else {
       setCurrentIndex(nextIndex);
     }
-  }, [isAnimating, currentIndex, words.length]);
+  }, [isAnimating, safeCurrentIndex, words.length]);
 
   const handlePrev = useCallback((withAnimation = false) => {
     if (isAnimating || words.length === 0) return;
-    const prevIndex = currentIndex > 0 ? currentIndex - 1 : words.length - 1;
+    const prevIndex = safeCurrentIndex > 0 ? safeCurrentIndex - 1 : words.length - 1;
 
     if (withAnimation) {
       setIsAnimating(true);
@@ -82,7 +96,7 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
     } else {
       setCurrentIndex(prevIndex);
     }
-  }, [isAnimating, currentIndex, words.length]);
+  }, [isAnimating, safeCurrentIndex, words.length]);
 
   // Touch handlers for swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -207,7 +221,7 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
               {/* Top bar: progress + actions */}
               <div className="flex items-center justify-between px-5 pt-4 pb-2">
                 <span className="text-xs font-bold text-[var(--color-muted)]">
-                  {currentIndex + 1}/{words.length}
+                  {safeCurrentIndex + 1}/{words.length}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
@@ -216,6 +230,21 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
                     aria-label="発音を聞く"
                   >
                     <Icon name="volume_up" size={18} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (streamPlaying) {
+                        setIsStreamPlaying(false);
+                        return;
+                      }
+                      if (words.length > 0) {
+                        setIsStreamPlaying(true);
+                      }
+                    }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
+                    aria-label={streamPlaying ? '単語垂れ流しを停止' : '単語垂れ流しを再生'}
+                  >
+                    <Icon name={streamPlaying ? 'pause' : 'play_arrow'} size={18} />
                   </button>
                   <button
                     onClick={handleToggleFavorite}

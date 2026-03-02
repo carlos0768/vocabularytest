@@ -16,7 +16,6 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { isActiveProSubscription } from '@/lib/subscription/status';
-import { generateWordInsightsForWords } from '@/lib/ai/generate-word-insights';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -707,10 +706,6 @@ export async function POST(request: NextRequest) {
         quizPrefillRequested?: number;
         quizPrefillSucceeded?: number;
         quizPrefillFailed?: number;
-        insightsRequested?: number;
-        insightsSucceeded?: number;
-        insightsSkipped?: number;
-        insightsFailed?: number;
       } = {
         wordCount: dedupedWords.length,
         saveMode,
@@ -771,46 +766,6 @@ export async function POST(request: NextRequest) {
           resultPayload.quizPrefillRequested = quizSeedWords.length;
           resultPayload.quizPrefillSucceeded = quizPrefillSucceeded;
           resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
-        }
-      }
-
-      if (aiEnabled && isProUser && insertedWordsArray.length > 0) {
-        const insightInputs = insertedWordsArray.map((word: { id: string; english: string; japanese: string }) => ({
-          id: word.id,
-          english: word.english,
-          japanese: word.japanese,
-        }));
-
-        try {
-          const insightResult = await generateWordInsightsForWords(insightInputs);
-
-          if (insightResult.successes.length > 0) {
-            await Promise.all(
-              insightResult.successes.map((item) =>
-                getSupabaseAdmin()
-                  .from('words')
-                  .update({
-                    part_of_speech_tags: item.insight.partOfSpeechTags,
-                    related_words: item.insight.relatedWords,
-                    usage_patterns: item.insight.usagePatterns,
-                    insights_generated_at: item.insight.insightsGeneratedAt,
-                    insights_version: item.insight.insightsVersion,
-                  })
-                  .eq('id', item.wordId)
-              )
-            );
-          }
-
-          resultPayload.insightsRequested = insightInputs.length;
-          resultPayload.insightsSucceeded = insightResult.successes.length;
-          resultPayload.insightsSkipped = insightResult.skipped.length;
-          resultPayload.insightsFailed = insightResult.failed.length;
-        } catch (insightError) {
-          console.error('Word insights generation failed before completion:', insightError);
-          resultPayload.insightsRequested = insightInputs.length;
-          resultPayload.insightsSucceeded = 0;
-          resultPayload.insightsSkipped = 0;
-          resultPayload.insightsFailed = insightInputs.length;
         }
       }
 
