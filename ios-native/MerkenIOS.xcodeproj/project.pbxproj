@@ -885,7 +885,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = MerkenIOS/MerkenIOS.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MerkenIOS/MerkenIOSDebug.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 6T7DM566WA;
 				ENABLE_PREVIEWS = YES;
@@ -894,6 +894,10 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				OTHER_SWIFT_FLAGS = (
+					"$(inherited)",
+					"-DDEBUG_DISABLE_PUSH_NOTIFICATIONS",
 				);
 				PRODUCT_NAME = MerkenIOS;
 				SDKROOT = iphoneos;

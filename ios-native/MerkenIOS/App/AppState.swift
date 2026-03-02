@@ -312,6 +312,10 @@ final class AppState: ObservableObject {
         logger.debug("Skipping APNs registration on simulator.")
         return
 #endif
+#if DEBUG_DISABLE_PUSH_NOTIFICATIONS
+        logger.debug("Skipping APNs registration because push notifications are disabled for this build configuration.")
+        return
+#endif
 
         Task {
             let center = UNUserNotificationCenter.current()
