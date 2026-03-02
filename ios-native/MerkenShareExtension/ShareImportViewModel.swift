@@ -143,6 +143,18 @@ final class ShareImportViewModel: ObservableObject {
             return
         }
 
+        // If Japanese text is already present but English is missing,
+        // skip JP->EN auto-generation to avoid unnecessary API usage.
+        if localEnglish.isEmpty, !localJapanese.isEmpty {
+            nextWarnings.append("共有内容から英語を取得できませんでした。英語を入力してください。")
+            warnings = dedupeWarnings(nextWarnings)
+            projectOptions = fetchedProjects
+            selectedProjectId = fetchedProjects.first?.id
+            useNewProject = fetchedProjects.isEmpty
+            phase = .editing
+            return
+        }
+
         do {
             previewCandidate = try await withAuthorizedSnapshot { snapshot in
                 try await service.preview(
