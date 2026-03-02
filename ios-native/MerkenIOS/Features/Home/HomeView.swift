@@ -50,6 +50,7 @@ struct HomeView: View {
     @State private var projectToDelete: Project?
     @State private var projectToRename: Project?
     @State private var renameProjectTitle = ""
+    @State private var projectForActions: Project?
 
     var body: some View {
         ZStack {
@@ -166,6 +167,49 @@ struct HomeView: View {
         } message: {
             if let project = projectToRename {
                 Text("「\(project.title)」の名前を変更します。")
+            }
+        }
+        .confirmationDialog(
+            "操作を選択",
+            isPresented: Binding(
+                get: { projectForActions != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        projectForActions = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let project = projectForActions {
+                Button("名前を変更") {
+                    let target = project
+                    projectForActions = nil
+                    DispatchQueue.main.async {
+                        projectToRename = target
+                        renameProjectTitle = target.title
+                    }
+                }
+
+                Button(project.isFavorite ? "ピン解除" : "ピン留め") {
+                    projectForActions = nil
+                    Task {
+                        await viewModel.toggleFavorite(projectId: project.id, using: appState)
+                    }
+                }
+
+                Button("削除", role: .destructive) {
+                    projectForActions = nil
+                    projectToDelete = project
+                }
+            }
+
+            Button("キャンセル", role: .cancel) {
+                projectForActions = nil
+            }
+        } message: {
+            if let project = projectForActions {
+                Text("「\(project.title)」")
             }
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
@@ -526,30 +570,8 @@ struct HomeView: View {
                 .fill(MerkenTheme.border)
                 .offset(y: 2)
         )
-        .contextMenu {
-            Button {
-                projectToRename = project
-                renameProjectTitle = project.title
-            } label: {
-                Label("名前を変更", systemImage: "pencil")
-            }
-
-            Button {
-                Task {
-                    await viewModel.toggleFavorite(projectId: project.id, using: appState)
-                }
-            } label: {
-                Label(
-                    project.isFavorite ? "ピン解除" : "ピン留め",
-                    systemImage: project.isFavorite ? "flag.slash" : "flag"
-                )
-            }
-
-            Button(role: .destructive) {
-                projectToDelete = project
-            } label: {
-                Label("削除", systemImage: "trash")
-            }
+        .onLongPressGesture(minimumDuration: 0.35) {
+            projectForActions = project
         }
     }
 

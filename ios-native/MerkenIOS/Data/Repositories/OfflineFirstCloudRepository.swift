@@ -1,12 +1,28 @@
 import Foundation
 import OSLog
 
+private actor BackgroundRefreshDeduplicator {
+    private var runningKeys: Set<String> = []
+
+    func runIfNeeded(
+        key: String,
+        operation: @escaping @Sendable () async -> Void
+    ) async {
+        guard runningKeys.insert(key).inserted else { return }
+        defer {
+            runningKeys.remove(key)
+        }
+        await operation()
+    }
+}
+
 final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareServiceProtocol, OfflinePrefetchingRepository {
     private let cloudRepository: CloudWordRepository
     private let cacheStore: CloudOfflineCacheStore
     private let userIdProvider: @Sendable () async -> String?
     private let forceAuthRefresh: @Sendable () async -> Void
     private let logger = Logger(subsystem: "MerkenIOS", category: "OfflineFirstRepo")
+    private let refreshDeduplicator = BackgroundRefreshDeduplicator()
 
     private let maxCachedWords = 20_000
     private let recentPrefetchLimit = 10
@@ -236,7 +252,7 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
     }
 
     private func refreshProjectsInBackground(userId: String) {
-        Task.detached(priority: .utility) { [weak self] in
+        runBackgroundRefresh(key: "projects:\(userId)") { [weak self] in
             guard let self else { return }
             do {
                 let projects = try await self.cloudRepository.fetchProjects(userId: userId)
@@ -248,7 +264,7 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
     }
 
     private func refreshProjectWordsInBackground(projectId: String) {
-        Task.detached(priority: .utility) { [weak self] in
+        runBackgroundRefresh(key: "words:\(projectId)") { [weak self] in
             guard let self else { return }
             do {
                 let words = try await self.cloudRepository.fetchWords(projectId: projectId)
@@ -268,7 +284,7 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
     }
 
     private func refreshAllWordsInBackground(userId: String) {
-        Task.detached(priority: .utility) { [weak self] in
+        runBackgroundRefresh(key: "allWords:\(userId)") { [weak self] in
             guard let self else { return }
             do {
                 let words = try await self.cloudRepository.fetchAllWords(userId: userId)
@@ -277,6 +293,16 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
             } catch {
                 self.logger.debug("Background all-words refresh skipped: \(error.localizedDescription, privacy: .public)")
             }
+        }
+    }
+
+    private func runBackgroundRefresh(
+        key: String,
+        operation: @escaping @Sendable () async -> Void
+    ) {
+        Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            await self.refreshDeduplicator.runIfNeeded(key: key, operation: operation)
         }
     }
 
