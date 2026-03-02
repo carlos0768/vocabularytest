@@ -12,6 +12,10 @@ struct CreateBookshelfSheet: View {
     @State private var selectedProjectIds: Set<String> = []
     @State private var saving = false
 
+    private var canSubmit: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !saving
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -19,10 +23,6 @@ struct CreateBookshelfSheet: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("新しい本棚")
-                            .font(.title3.bold())
-                            .foregroundStyle(MerkenTheme.primaryText)
-
                         TextField("名前（例: 期末テスト対策）", text: $name)
                             .textFieldStyle(.plain)
                             .solidTextField(cornerRadius: 16)
@@ -56,43 +56,60 @@ struct CreateBookshelfSheet: View {
                                 }
                             }
                         }
-
-                        Button("作成") {
-                            Task {
-                                saving = true
-                                do {
-                                    let created = try await appState.collectionRepository.createCollection(
-                                        userId: appState.activeUserId,
-                                        name: name.trimmingCharacters(in: .whitespaces),
-                                        description: description.isEmpty ? nil : description
-                                    )
-                                    if !selectedProjectIds.isEmpty {
-                                        try await appState.collectionRepository.addProjects(
-                                            collectionId: created.id,
-                                            projectIds: Array(selectedProjectIds)
-                                        )
-                                    }
-                                    await onComplete()
-                                    dismiss()
-                                } catch {
-                                    // Error will be shown via parent reload
-                                    dismiss()
-                                }
-                                saving = false
-                            }
-                        }
-                        .buttonStyle(PrimaryGlassButton())
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || saving)
-
-                        Spacer()
                     }
                     .padding(16)
+                }
+            }
+            .navigationTitle("新しい本棚")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task {
+                            await createBookshelf()
+                        }
+                    } label: {
+                        if saving {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("作成")
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    .disabled(!canSubmit)
                 }
             }
             .task {
                 let projects = try? await appState.activeRepository.fetchProjects(userId: appState.activeUserId)
                 allProjects = projects ?? []
             }
+        }
+    }
+
+    private func createBookshelf() async {
+        guard canSubmit else { return }
+
+        saving = true
+        defer { saving = false }
+
+        do {
+            let created = try await appState.collectionRepository.createCollection(
+                userId: appState.activeUserId,
+                name: name.trimmingCharacters(in: .whitespaces),
+                description: description.isEmpty ? nil : description
+            )
+            if !selectedProjectIds.isEmpty {
+                try await appState.collectionRepository.addProjects(
+                    collectionId: created.id,
+                    projectIds: Array(selectedProjectIds)
+                )
+            }
+            await onComplete()
+            dismiss()
+        } catch {
+            // Error will be shown via parent reload.
+            dismiss()
         }
     }
 }
