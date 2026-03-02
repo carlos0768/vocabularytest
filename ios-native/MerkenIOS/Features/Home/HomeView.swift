@@ -44,9 +44,12 @@ struct HomeView: View {
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingProjectList = false
+    @State private var showingFavorites = false
     @State private var showingScan = false
     @State private var showingSignUp = false
     @State private var projectToDelete: Project?
+    @State private var projectToRename: Project?
+    @State private var renameProjectTitle = ""
 
     var body: some View {
         ZStack {
@@ -127,8 +130,43 @@ struct HomeView: View {
         .navigationDestination(item: $detailProject) { project in
             ProjectDetailView(project: project)
         }
+        .navigationDestination(isPresented: $showingFavorites) {
+            FavoritesView()
+        }
         .navigationDestination(isPresented: $showingProjectList) {
             ProjectListView()
+        }
+        .alert(
+            "単語帳名を変更",
+            isPresented: Binding(
+                get: { projectToRename != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        projectToRename = nil
+                        renameProjectTitle = ""
+                    }
+                }
+            )
+        ) {
+            TextField("単語帳名", text: $renameProjectTitle)
+            Button("保存") {
+                guard let project = projectToRename else { return }
+                let nextTitle = renameProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                Task {
+                    await viewModel.renameProject(id: project.id, title: nextTitle, using: appState)
+                }
+                projectToRename = nil
+                renameProjectTitle = ""
+            }
+            .disabled(renameProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("キャンセル", role: .cancel) {
+                projectToRename = nil
+                renameProjectTitle = ""
+            }
+        } message: {
+            if let project = projectToRename {
+                Text("「\(project.title)」の名前を変更します。")
+            }
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
@@ -221,7 +259,7 @@ struct HomeView: View {
                             skipSetup: true
                         )
                     } label: {
-                        Label("復習を始める (\(viewModel.dueWordCount)問)", systemImage: "arrow.trianglehead.2.clockwise")
+                        Label("復習を始める", systemImage: "arrow.trianglehead.2.clockwise")
                     }
                     .buttonStyle(HeroCTAButton(isDark: isDark))
                 } else if appState.isAIEnabled {
@@ -325,7 +363,7 @@ struct HomeView: View {
                 appState.selectedTab = 2
             }
             quickLink(icon: "flag.fill", label: "苦手単語", color: MerkenTheme.warning) {
-                // Intentionally no-op for this release.
+                showingFavorites = true
             }
             quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {
                 showingProjectList = true
@@ -489,6 +527,13 @@ struct HomeView: View {
                 .offset(y: 2)
         )
         .contextMenu {
+            Button {
+                projectToRename = project
+                renameProjectTitle = project.title
+            } label: {
+                Label("名前を変更", systemImage: "pencil")
+            }
+
             Button {
                 Task {
                     await viewModel.toggleFavorite(projectId: project.id, using: appState)

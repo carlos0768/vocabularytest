@@ -1640,7 +1640,7 @@ export default function HomePage() {
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 dark:bg-white/10 text-white font-bold text-sm border-b-[3px] border-white/10 dark:border-white/5 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                   >
                     <Icon name="error" size={20} />
-                    苦手単語 ({wrongAnswers.length})
+                    間違え一覧 ({wrongAnswers.length})
                   </button>
                 )}
               </div>
@@ -1668,18 +1668,15 @@ export default function HomePage() {
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">検索</span>
               </Link>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                }}
+              <Link
+                href="/favorites"
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
                 <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
                   <Icon name="flag" size={22} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">苦手単語</span>
-              </button>
+              </Link>
               <Link
                 href="/projects"
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"

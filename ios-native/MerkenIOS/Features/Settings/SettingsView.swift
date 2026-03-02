@@ -118,6 +118,16 @@ struct SettingsView: View {
         .onChange(of: appState.isAIEnabled) { _ in
             localAIEnabled = appState.isAIEnabled
         }
+        .alert("ログアウトしますか？", isPresented: $showingSignOutAlert) {
+            Button("ログアウト", role: .destructive) {
+                Task {
+                    await appState.signOut()
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("現在のセッションを終了します。")
+        }
     }
 
     // MARK: - 1. Account Card
@@ -217,10 +227,10 @@ struct SettingsView: View {
                         }
                     )) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("AI機能を使う")
+                            Text("クイズ生成機能を有効にする")
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(MerkenTheme.primaryText)
-                            Text("OFFにすると4択クイズを非表示にします")
+                            Text("OFFにするとスキャン時間が短くなります")
                                 .font(.caption)
                                 .foregroundStyle(MerkenTheme.mutedText)
                         }
@@ -537,14 +547,6 @@ struct SettingsView: View {
             .foregroundStyle(MerkenTheme.mutedText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-        }
-        .alert("ログアウトしますか？", isPresented: $showingSignOutAlert) {
-            Button("ログアウト", role: .destructive) {
-                Task {
-                    await appState.signOut()
-                }
-            }
-            Button("キャンセル", role: .cancel) {}
         }
     }
 

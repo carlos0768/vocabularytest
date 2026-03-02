@@ -1,6 +1,11 @@
 import SwiftUI
 import AVFoundation
 
+private struct SharePayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
+
 struct ProjectDetailView: View {
     let project: Project
 
@@ -18,11 +23,8 @@ struct ProjectDetailView: View {
     @State private var previewIndex = 0
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
-    @State private var showingShareSheet = false
-    @State private var shareItems: [Any] = []
+    @State private var sharePayload: SharePayload?
     @State private var showingDeleteConfirm = false
-    @State private var isStreamPlaying = false
-    @State private var streamTask: Task<Void, Never>?
 
     private var hasIconImage: Bool {
         if let iconImage = project.iconImage,
@@ -144,8 +146,8 @@ struct ProjectDetailView: View {
         .navigationDestination(item: $quickResponseDestination) { project in
             QuickResponseView(project: project, preloadedWords: viewModel.words)
         }
-        .sheet(isPresented: $showingShareSheet) {
-            ShareSheet(items: shareItems)
+        .sheet(item: $sharePayload) { payload in
+            ShareSheet(items: payload.items)
         }
         .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm) {
             Button("削除", role: .destructive) {
@@ -163,18 +165,13 @@ struct ProjectDetailView: View {
         }
         .onChange(of: viewModel.words.count) { _ in
             if viewModel.words.isEmpty {
-                stopWordStream()
                 previewIndex = 0
                 return
             }
 
             if previewIndex >= viewModel.words.count {
-                stopWordStream()
                 previewIndex = viewModel.words.count - 1
             }
-        }
-        .onDisappear {
-            stopWordStream()
         }
     }
 
@@ -183,8 +180,7 @@ struct ProjectDetailView: View {
             // Guest users: text share via share sheet
             let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
             let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
-            shareItems = [text]
-            showingShareSheet = true
+            presentShareSheet(items: [text])
             return
         }
 
@@ -195,16 +191,19 @@ struct ProjectDetailView: View {
             }
             guard let shareId else { return }
 
-            let shareUrl = "https://www.merken.jp/share/\(shareId)"
-            shareItems = [shareUrl]
-            showingShareSheet = true
+            guard let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") else { return }
+            presentShareSheet(items: [shareURL])
         } catch {
             // Fallback to text share on error
             let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
             let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
-            shareItems = [text]
-            showingShareSheet = true
+            presentShareSheet(items: [text])
         }
+    }
+
+    @MainActor
+    private func presentShareSheet(items: [Any]) {
+        sharePayload = SharePayload(items: items)
     }
 
     // MARK: - Header (Notion-style cover, extends behind nav bar)
@@ -321,14 +320,6 @@ struct ProjectDetailView: View {
                                     .frame(width: 32, height: 32)
                             }
                             Button {
-                                toggleWordStream()
-                            } label: {
-                                Image(systemName: isStreamPlaying ? "pause.fill" : "play.fill")
-                                    .font(.subheadline)
-                                    .foregroundStyle(isStreamPlaying ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
-                                    .frame(width: 32, height: 32)
-                            }
-                            Button {
                                 Task {
                                     await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
                                 }
@@ -419,40 +410,6 @@ struct ProjectDetailView: View {
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = 0.45
         AVSpeechSynthesizer().speak(utterance)
-    }
-
-    private func toggleWordStream() {
-        if isStreamPlaying {
-            stopWordStream()
-            return
-        }
-        startWordStream()
-    }
-
-    private func startWordStream() {
-        guard !viewModel.words.isEmpty else { return }
-        stopWordStream()
-        isStreamPlaying = true
-        streamTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                guard !Task.isCancelled else { break }
-                await MainActor.run {
-                    guard isStreamPlaying, !viewModel.words.isEmpty else { return }
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        previewIndex = safePreviewIndex < viewModel.words.count - 1
-                            ? safePreviewIndex + 1
-                            : 0
-                    }
-                }
-            }
-        }
-    }
-
-    private func stopWordStream() {
-        isStreamPlaying = false
-        streamTask?.cancel()
-        streamTask = nil
     }
 
     // MARK: - Learning Modes (2-column grid)

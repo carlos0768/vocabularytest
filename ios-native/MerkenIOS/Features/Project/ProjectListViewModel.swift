@@ -103,4 +103,25 @@ final class ProjectListViewModel: ObservableObject {
             logger.error("Project delete failed: \(error.localizedDescription)")
         }
     }
+
+    func renameProject(id: String, title: String, using state: AppState) async {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+
+        do {
+            try await state.activeRepository.updateProject(id: id, title: trimmedTitle)
+            if let index = projects.firstIndex(where: { $0.id == id }) {
+                projects[index].title = trimmedTitle
+            }
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError {
+                errorMessage = nil
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Project rename failed: \(error.localizedDescription)")
+        }
+    }
 }

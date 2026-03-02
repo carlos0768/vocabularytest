@@ -15,7 +15,7 @@ struct FavoritesView: View {
                 wordList
             }
         }
-        .navigationTitle("お気に入り")
+        .navigationTitle("苦手単語")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $viewModel.searchText, prompt: "単語を検索")
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
@@ -29,12 +29,12 @@ struct FavoritesView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(MerkenTheme.mutedText)
             Text(viewModel.searchText.isEmpty
-                 ? "お気に入りの単語がありません"
+                 ? "苦手単語がありません"
                  : "該当する単語がありません")
                 .font(.headline)
                 .foregroundStyle(MerkenTheme.secondaryText)
             if viewModel.searchText.isEmpty {
-                Text("単語帳の中でハートをタップしてお気に入りに追加できます。")
+                Text("単語帳の中でハートをタップして苦手単語に追加できます。")
                     .font(.subheadline)
                     .foregroundStyle(MerkenTheme.mutedText)
                     .multilineTextAlignment(.center)

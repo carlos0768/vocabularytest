@@ -7,16 +7,16 @@ import { StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
 import { getGuestUserId } from '@/lib/utils';
-import type { Word, Project, SubscriptionStatus } from '@/types';
+import type { Word, SubscriptionStatus } from '@/types';
 
 interface FavoriteWord extends Word {
   projectTitle: string;
 }
 
 const tabs = [
-  { id: 'study', label: '学習' },
-  { id: 'words', label: '単語' },
-  { id: 'stats', label: '統計' },
+  { id: 'study', label: '学習', icon: 'school' },
+  { id: 'words', label: '単語', icon: 'menu_book' },
+  { id: 'stats', label: '統計', icon: 'insights' },
 ] as const;
 
 type TabId = (typeof tabs)[number]['id'];
@@ -136,62 +136,70 @@ export default function FavoritesPage() {
     <div className="min-h-screen pb-28 lg:pb-6">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Link
               href="/"
               className="p-2 -ml-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
             >
               <Icon name="arrow_back" size={20} />
             </Link>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Icon name="flag" size={20} filled className="text-[var(--color-warning)]" />
-                <h1 className="text-lg font-bold text-[var(--color-foreground)]">苦手な単語</h1>
+                <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">苦手単語</h1>
               </div>
-              <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
+              <p className="text-sm text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-6 space-y-6">
         {favorites.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Icon name="flag" size={32} className="text-[var(--color-muted)]" />
+          <section className="card p-8 lg:p-10 text-center border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-alt,var(--color-surface))]">
+            <div className="w-16 h-16 mx-auto bg-[var(--color-surface)] rounded-full flex items-center justify-center border-2 border-[var(--color-border)] mb-4">
+              <Icon name="flag" size={30} className="text-[var(--color-warning)]" />
             </div>
-            <h2 className="text-lg font-medium text-[var(--color-foreground)] mb-2">
-              苦手な単語はありません
-            </h2>
-            <p className="text-[var(--color-muted)] mb-6">
-              クイズ中にフラグをタップして
-              <br />
-              苦手な単語をマークしましょう
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-2">苦手単語はまだありません</h2>
+            <p className="text-sm text-[var(--color-muted)] mb-6 max-w-[280px] mx-auto">
+              クイズや単語一覧のフラグを使って、後で見直したい単語をまとめましょう。
             </p>
-          </div>
+            <Link
+              href="/projects"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] text-sm font-semibold border-2 border-[var(--color-warning)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
+            >
+              <Icon name="menu_book" size={16} />
+              単語帳を見る
+            </Link>
+          </section>
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex gap-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-[var(--color-warning)] text-white border-[var(--color-warning)]'
-                      : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <section className="space-y-3">
+              <h2 className="text-sm font-bold text-[var(--color-foreground)] px-1">表示モード</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold border-2 border-b-4 transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-[var(--color-warning-light)] text-[var(--color-warning)] border-[var(--color-warning)]/30'
+                        : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] active:border-b-2 active:mt-[2px]'
+                    }`}
+                  >
+                    <Icon name={tab.icon} size={16} />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </section>
 
             {/* Study Tab */}
             {activeTab === 'study' && firstProjectId && (
               <section className="space-y-4">
+                <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">学習モード</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <StudyModeCard
                     title="苦手クイズ"
@@ -200,6 +208,8 @@ export default function FavoritesPage() {
                     href={isPro ? `/quiz/all/favorites?from=${returnPath}` : '/subscription'}
                     variant="primary"
                     badge={!isPro ? 'Pro' : undefined}
+                    layout="vertical"
+                    styleMode="home"
                   />
                   <StudyModeCard
                     title="苦手カード"
@@ -208,6 +218,8 @@ export default function FavoritesPage() {
                     href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'}
                     variant="blue"
                     badge={!isPro ? 'Pro' : undefined}
+                    layout="vertical"
+                    styleMode="home"
                   />
                 </div>
               </section>
@@ -215,7 +227,8 @@ export default function FavoritesPage() {
 
             {/* Words Tab */}
             {activeTab === 'words' && (
-              <section>
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">単語一覧</h3>
                 <WordList
                   words={favorites}
                   editingWordId={editingWordId}
@@ -231,22 +244,37 @@ export default function FavoritesPage() {
 
             {/* Stats Tab */}
             {activeTab === 'stats' && (
-              <section className="grid grid-cols-2 gap-3">
-                <div className="card p-4">
-                  <p className="text-xs text-[var(--color-muted)]">苦手単語</p>
-                  <p className="text-2xl font-bold text-[var(--color-warning)] mt-2">{stats.total}</p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-xs text-[var(--color-muted)]">習得済み</p>
-                  <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.mastered}</p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-xs text-[var(--color-muted)]">復習中</p>
-                  <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.review}</p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-xs text-[var(--color-muted)]">未学習</p>
-                  <p className="text-2xl font-bold text-[var(--color-foreground)] mt-2">{stats.newWords}</p>
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">統計</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-warning-light)] flex items-center justify-center mb-3">
+                      <Icon name="flag" size={20} className="text-[var(--color-warning)]" />
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)]">苦手単語</p>
+                    <p className="text-2xl font-bold text-[var(--color-warning)] mt-1">{stats.total}</p>
+                  </div>
+                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center mb-3">
+                      <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)]">習得済み</p>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)] mt-1">{stats.mastered}</p>
+                  </div>
+                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center mb-3">
+                      <Icon name="schedule" size={20} className="text-[var(--color-primary)]" />
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)]">復習中</p>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)] mt-1">{stats.review}</p>
+                  </div>
+                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-surface-alt,var(--color-border-light))] flex items-center justify-center mb-3">
+                      <Icon name="fiber_new" size={20} className="text-[var(--color-muted)]" />
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)]">未学習</p>
+                    <p className="text-2xl font-bold text-[var(--color-foreground)] mt-1">{stats.newWords}</p>
+                  </div>
                 </div>
               </section>
             )}
