@@ -160,29 +160,44 @@ struct BookshelfListView: View {
                                 .foregroundStyle(MerkenTheme.mutedText)
                         )
                 } else {
-                    Spacer(minLength: 0)
-                    ForEach(Array(previews.enumerated()), id: \.element.id) { index, preview in
-                        miniBook(preview)
-                            .padding(.leading, index > 0 ? -4 : 0)
-                    }
+                    GeometryReader { geo in
+                        let overlap: CGFloat = 4
+                        let visiblePreviews = Array(previews.prefix(3))
+                        let extraCount = max(projectCount - visiblePreviews.count, 0)
+                        let totalItems = visiblePreviews.count + (extraCount > 0 ? 1 : 0)
+                        let rawWidth = totalItems > 0
+                            ? (geo.size.width + overlap * CGFloat(max(totalItems - 1, 0))) / CGFloat(totalItems)
+                            : 40
+                        let bookWidth = min(40, max(24, floor(rawWidth)))
 
-                    let extraCount = projectCount - previews.count
-                    if extraCount > 0 {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(MerkenTheme.surfaceAlt)
-                            .frame(width: 40, height: 56)
-                            .overlay(
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            ForEach(Array(visiblePreviews.enumerated()), id: \.element.id) { index, preview in
+                                miniBook(preview, width: bookWidth)
+                                    .padding(.leading, index > 0 ? -overlap : 0)
+                            }
+
+                            if extraCount > 0 {
                                 RoundedRectangle(cornerRadius: 3)
-                                    .stroke(MerkenTheme.border, lineWidth: 1)
-                            )
-                            .overlay(
-                                Text("+\(extraCount)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                            )
-                            .padding(.leading, -4)
+                                    .fill(MerkenTheme.surfaceAlt)
+                                    .frame(width: bookWidth, height: 56)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .stroke(MerkenTheme.border, lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        Text("+\(extraCount)")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(MerkenTheme.mutedText)
+                                    )
+                                    .padding(.leading, -overlap)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                     }
-                    Spacer(minLength: 0)
+                    .frame(height: 56)
                 }
             }
             .frame(minHeight: 68)
@@ -230,11 +245,12 @@ struct BookshelfListView: View {
                 .fill(MerkenTheme.border)
                 .offset(y: 3)
         )
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Mini Book (matching Web MiniBook component)
 
-    private func miniBook(_ preview: CollectionProjectPreview) -> some View {
+    private func miniBook(_ preview: CollectionProjectPreview, width: CGFloat = 40) -> some View {
         let color = MerkenTheme.placeholderColor(for: preview.id, isDark: colorScheme == .dark)
         let initial = String(preview.title.prefix(1)).uppercased()
 
@@ -269,7 +285,7 @@ struct BookshelfListView: View {
                     .foregroundStyle(.white.opacity(0.9))
             }
         }
-        .frame(width: 40, height: 56)
+        .frame(width: width, height: 56)
         .clipShape(.rect(cornerRadius: 3))
         .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
     }
