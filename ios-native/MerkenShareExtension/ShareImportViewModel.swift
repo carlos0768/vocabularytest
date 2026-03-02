@@ -54,7 +54,7 @@ final class ShareImportViewModel: ObservableObject {
         self.input = input
         self.sourceText = input.text
 
-        guard let snapshot = ShareImportBridge.loadAuthSnapshot(), !snapshot.isExpired else {
+        guard let snapshot = ShareImportBridge.loadAuthSnapshot() else {
             phase = .loginRequired
             return
         }
@@ -63,7 +63,7 @@ final class ShareImportViewModel: ObservableObject {
         phase = .loading
 
         Task {
-            await loadInitialData(using: snapshot, input: input)
+            await loadInitialData(input: input)
         }
     }
 
@@ -73,7 +73,7 @@ final class ShareImportViewModel: ObservableObject {
 
     func save() {
         guard canSave, phase != .saving else { return }
-        guard let snapshot = authSnapshot else {
+        guard authSnapshot != nil else {
             phase = .loginRequired
             return
         }
@@ -81,7 +81,7 @@ final class ShareImportViewModel: ObservableObject {
         phase = .saving
 
         Task {
-            await commit(using: snapshot)
+            await commit()
         }
     }
 
@@ -90,17 +90,19 @@ final class ShareImportViewModel: ObservableObject {
         onComplete()
     }
 
-    private func loadInitialData(using snapshot: SharedAuthSnapshot, input: ShareImportInput) async {
+    private func loadInitialData(input: ShareImportInput) async {
         do {
-            async let preview = service.preview(
-                text: input.text,
-                sourceApp: input.sourceApp,
-                locale: Locale.preferredLanguages.first,
-                bearerToken: snapshot.accessToken
-            )
-            async let projects = service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
-
-            let (candidate, fetchedProjects) = try await (preview, projects)
+            let (candidate, fetchedProjects): (ShareImportPreviewCandidateDTO, [ShareImportProjectOptionDTO]) =
+                try await withAuthorizedSnapshot { snapshot in
+                    async let preview = service.preview(
+                        text: input.text,
+                        sourceApp: input.sourceApp,
+                        locale: Locale.preferredLanguages.first,
+                        bearerToken: snapshot.accessToken
+                    )
+                    async let projects = service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
+                    return try await (preview, projects)
+                }
 
             english = candidate.english
             japanese = candidate.japanese
@@ -118,21 +120,23 @@ final class ShareImportViewModel: ObservableObject {
         }
     }
 
-    private func commit(using snapshot: SharedAuthSnapshot) async {
+    private func commit() async {
         do {
             let trimmedEnglish = english.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedJapanese = japanese.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedProjectTitle = newProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            let result = try await service.commit(
-                targetProjectId: useNewProject ? nil : selectedProjectId,
-                newProjectTitle: useNewProject ? (trimmedProjectTitle.isEmpty ? nil : trimmedProjectTitle) : nil,
-                english: trimmedEnglish,
-                japanese: trimmedJapanese,
-                originalText: input?.text,
-                sourceApp: input?.sourceApp,
-                bearerToken: snapshot.accessToken
-            )
+            let result: ShareImportCommitResultDTO = try await withAuthorizedSnapshot { refreshedSnapshot in
+                try await service.commit(
+                    targetProjectId: useNewProject ? nil : selectedProjectId,
+                    newProjectTitle: useNewProject ? (trimmedProjectTitle.isEmpty ? nil : trimmedProjectTitle) : nil,
+                    english: trimmedEnglish,
+                    japanese: trimmedJapanese,
+                    originalText: input?.text,
+                    sourceApp: input?.sourceApp,
+                    bearerToken: refreshedSnapshot.accessToken
+                )
+            }
 
             let addedCount = result.created ? 1 : 0
             let event = SharedImportEvent(
@@ -156,5 +160,39 @@ final class ShareImportViewModel: ObservableObject {
             logger.error("Failed to commit share import: \(message, privacy: .public)")
             phase = .failure(message)
         }
+    }
+
+    private func withAuthorizedSnapshot<T>(
+        _ operation: (SharedAuthSnapshot) async throws -> T
+    ) async throws -> T {
+        guard let snapshot = authSnapshot else {
+            throw ShareImportServiceError.unauthorized
+        }
+
+        do {
+            let activeSnapshot = try await refreshedSnapshotIfNeeded(from: snapshot, force: false)
+            return try await operation(activeSnapshot)
+        } catch ShareImportServiceError.unauthorized {
+            let refreshed = try await refreshedSnapshotIfNeeded(from: snapshot, force: true)
+            return try await operation(refreshed)
+        }
+    }
+
+    private func refreshedSnapshotIfNeeded(
+        from snapshot: SharedAuthSnapshot,
+        force: Bool
+    ) async throws -> SharedAuthSnapshot {
+        if !force, !snapshot.isExpired {
+            return snapshot
+        }
+
+        guard snapshot.refreshToken?.isEmpty == false else {
+            throw ShareImportServiceError.unauthorized
+        }
+
+        let refreshed = try await service.refreshSession(using: snapshot)
+        authSnapshot = refreshed
+        ShareImportBridge.saveAuthSnapshot(refreshed)
+        return refreshed
     }
 }

@@ -34,10 +34,14 @@ enum ShareImportServiceError: LocalizedError {
 
 actor ShareImportService {
     private let baseURL: URL
+    private let supabaseURL: URL
+    private let supabaseAnonKey: String
     private let urlSession: URLSession
 
-    init(baseURL: URL) {
+    init(baseURL: URL, supabaseURL: URL, supabaseAnonKey: String) {
         self.baseURL = baseURL
+        self.supabaseURL = supabaseURL
+        self.supabaseAnonKey = supabaseAnonKey
 
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 20
@@ -51,7 +55,105 @@ actor ShareImportService {
               let baseURL = URL(string: raw), !raw.isEmpty else {
             throw ShareImportServiceError.misconfigured("WEB_API_BASE_URL")
         }
-        return ShareImportService(baseURL: baseURL)
+        guard let supabaseRaw = info["SUPABASE_URL"] as? String,
+              let supabaseURL = URL(string: supabaseRaw), !supabaseRaw.isEmpty else {
+            throw ShareImportServiceError.misconfigured("SUPABASE_URL")
+        }
+        guard let anonKey = info["SUPABASE_ANON_KEY"] as? String, !anonKey.isEmpty else {
+            throw ShareImportServiceError.misconfigured("SUPABASE_ANON_KEY")
+        }
+        return ShareImportService(
+            baseURL: baseURL,
+            supabaseURL: supabaseURL,
+            supabaseAnonKey: anonKey
+        )
+    }
+
+    func refreshSession(using snapshot: SharedAuthSnapshot) async throws -> SharedAuthSnapshot {
+        struct RefreshRequestBody: Encodable {
+            let refreshToken: String
+
+            enum CodingKeys: String, CodingKey {
+                case refreshToken = "refresh_token"
+            }
+        }
+
+        struct RefreshUserDTO: Decodable {
+            let id: String
+            let email: String?
+        }
+
+        struct RefreshResponseDTO: Decodable {
+            let accessToken: String
+            let tokenType: String
+            let expiresIn: Int?
+            let expiresAt: Int?
+            let refreshToken: String?
+            let user: RefreshUserDTO
+        }
+
+        guard let refreshToken = snapshot.refreshToken, !refreshToken.isEmpty else {
+            throw ShareImportServiceError.unauthorized
+        }
+
+        var components = URLComponents(url: supabaseURL.appendingPathComponent("auth/v1/token"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token")]
+        guard let url = components?.url else {
+            throw ShareImportServiceError.server("URLの生成に失敗しました。")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.timeoutInterval = 20
+        request.httpBody = try JSONEncoder().encode(RefreshRequestBody(refreshToken: refreshToken))
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch {
+            throw ShareImportServiceError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ShareImportServiceError.server("通信エラー")
+        }
+
+        if http.statusCode == 400 || http.statusCode == 401 {
+            throw ShareImportServiceError.unauthorized
+        }
+        guard (200 ... 299).contains(http.statusCode) else {
+            throw ShareImportServiceError.server(errorMessage(from: data, fallback: "認証更新に失敗しました。"))
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded: RefreshResponseDTO
+        do {
+            decoded = try decoder.decode(RefreshResponseDTO.self, from: data)
+        } catch {
+            throw ShareImportServiceError.decode
+        }
+
+        let expiresAtDate: Date?
+        if let unix = decoded.expiresAt {
+            expiresAtDate = Date(timeIntervalSince1970: TimeInterval(unix))
+        } else if let expiresIn = decoded.expiresIn {
+            expiresAtDate = Date().addingTimeInterval(TimeInterval(expiresIn))
+        } else {
+            expiresAtDate = nil
+        }
+
+        return SharedAuthSnapshot(
+            userId: decoded.user.id,
+            email: decoded.user.email,
+            accessToken: decoded.accessToken,
+            refreshToken: decoded.refreshToken ?? snapshot.refreshToken,
+            expiresAt: expiresAtDate,
+            tokenType: decoded.tokenType
+        )
     }
 
     func preview(
