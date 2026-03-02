@@ -62,11 +62,11 @@ struct HomeView: View {
 
                 if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
                     emptyStateSection
-                        .padding(.top, 10)
+                        .padding(.top, 5)
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            Spacer().frame(height: 10)
+                            Spacer().frame(height: 5)
 
                             // MARK: - Hero
                             heroSection
