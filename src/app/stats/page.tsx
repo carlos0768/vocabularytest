@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { AppShell, Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
@@ -43,7 +43,7 @@ export default function StatsPage() {
           </div>
         </header>
 
-        <main className="max-w-lg mx-auto px-6 py-4">
+        <main className="max-w-lg mx-auto px-6 pt-8 pb-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />

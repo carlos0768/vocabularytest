@@ -13,7 +13,7 @@ import { useState } from 'react';
 export default function CollectionsPage() {
   const router = useRouter();
   const { isPro, loading: authLoading } = useAuth();
-  const { collections, stats, previews, loading, deleteCollection, refresh } = useCollections();
+  const { collections, stats, previews, loading, deleteCollection } = useCollections();
   const { showToast } = useToast();
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export default function CollectionsPage() {
         </header>
 
         <main className="max-w-2xl mx-auto px-4 py-6">
-          {loading ? (
+          {loading && collections.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
               <Icon name="progress_activity" size={20} className="animate-spin" />
               <span className="ml-2">読み込み中...</span>

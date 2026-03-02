@@ -3,7 +3,8 @@
  *
  * ホーム画面の単語帳・単語データを一元管理するキャッシュ。
  * useWordCount, prefetchStats はここから読み取ることで重複フェッチを排除する。
- * sessionStorage にも永続化し、フルリロード後も即時表示を実現する。
+ * sessionStorage + localStorage に軽量スナップショットを永続化し、
+ * フルリロード/再オープン後も即時表示を実現する。
  */
 
 import type { Project, Word } from '@/types';
@@ -62,8 +63,8 @@ export function setHomeCache(data: HomeCacheData) {
   hasLoaded = true;
   loadedUserId = data.userId;
 
-  // Persist lightweight snapshot to sessionStorage
-  persistToSessionStorage(data);
+  // Persist lightweight snapshot to browser storage (session + local)
+  persistSnapshot(data);
 
   notifyListeners();
 }
@@ -74,12 +75,7 @@ export function updateProjectWordsCache(projectId: string, words: Word[]) {
 
 export function invalidateHomeCache() {
   hasLoaded = false;
-  // Also clear sessionStorage to ensure fresh data is fetched
-  try {
-    sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    // ignore
-  }
+  clearPersistedSnapshot();
 }
 
 export function clearHomeCache() {
@@ -92,18 +88,17 @@ export function clearHomeCache() {
   loadedUserId = null;
 
   // Clear persisted snapshot to avoid restoring another account's cache
-  try {
-    sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    // ignore
-  }
+  clearPersistedSnapshot();
 
   notifyListeners();
 }
 
-// ---------- sessionStorage persistence (Strategy 5) ----------
+// ---------- Storage persistence ----------
 
-const SESSION_KEY = 'merken_home_snapshot';
+const SESSION_KEY = 'merken_home_snapshot_session';
+const LOCAL_KEY = 'merken_home_snapshot_local';
+const SESSION_TTL_MS = 5 * 60 * 1000;
+const LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
 
 interface HomeSnapshot {
   projects: Project[];
@@ -113,42 +108,108 @@ interface HomeSnapshot {
   timestamp: number;
 }
 
-function persistToSessionStorage(data: HomeCacheData) {
+function buildSnapshot(data: HomeCacheData): HomeSnapshot {
+  return {
+    projects: data.projects,
+    totalWords: data.totalWords,
+    favoriteCounts: data.favoriteCounts,
+    userId: data.userId,
+    timestamp: Date.now(),
+  };
+}
+
+function persistSnapshot(data: HomeCacheData) {
+  const snapshot = buildSnapshot(data);
   try {
-    const snapshot: HomeSnapshot = {
-      projects: data.projects,
-      totalWords: data.totalWords,
-      favoriteCounts: data.favoriteCounts,
-      userId: data.userId,
-      timestamp: Date.now(),
-    };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(snapshot));
   } catch {
     // sessionStorage full or unavailable - ignore
   }
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(snapshot));
+  } catch {
+    // localStorage full or unavailable - ignore
+  }
+}
+
+function clearPersistedSnapshot() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // ignore
+  }
+  try {
+    localStorage.removeItem(LOCAL_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function parseSnapshot(raw: string): HomeSnapshot | null {
+  try {
+    return JSON.parse(raw) as HomeSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+function restoreSnapshot(
+  storage: Storage,
+  key: string,
+  currentUserId: string,
+  ttlMs: number
+): HomeSnapshot | null {
+  const raw = storage.getItem(key);
+  if (!raw) return null;
+
+  const snapshot = parseSnapshot(raw);
+  if (!snapshot) {
+    storage.removeItem(key);
+    return null;
+  }
+
+  // 別ユーザーのキャッシュは無効
+  if (snapshot.userId !== currentUserId) {
+    storage.removeItem(key);
+    return null;
+  }
+
+  // 古すぎるキャッシュは無効
+  if (Date.now() - snapshot.timestamp > ttlMs) {
+    storage.removeItem(key);
+    return null;
+  }
+
+  return snapshot;
 }
 
 /**
- * sessionStorageから軽量スナップショットを復元する。
- * フルリロード直後でもスピナーなしで表示できる。
- * 5分以内のキャッシュのみ有効。
+ * sessionStorage -> localStorage の順で軽量スナップショットを復元する。
+ * sessionStorage は短期キャッシュ、localStorage は再オープン時フォールバックとして使う。
  */
 export function restoreFromSessionStorage(currentUserId: string): HomeCacheData | null {
+  if (typeof window === 'undefined') return null;
+
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
+    const sessionSnapshot = restoreSnapshot(sessionStorage, SESSION_KEY, currentUserId, SESSION_TTL_MS);
+    const localSnapshot = sessionSnapshot
+      ? null
+      : restoreSnapshot(localStorage, LOCAL_KEY, currentUserId, LOCAL_TTL_MS);
+    const snapshot = sessionSnapshot ?? localSnapshot;
+    if (!snapshot) return null;
 
-    const snapshot: HomeSnapshot = JSON.parse(raw);
-
-    // 別ユーザーのキャッシュは無効
-    if (snapshot.userId !== currentUserId) return null;
-
-    // 5分以上古いキャッシュは無効
-    if (Date.now() - snapshot.timestamp > 5 * 60 * 1000) return null;
+    // localStorage から復元した場合は sessionStorage を温め直す
+    if (!sessionSnapshot) {
+      try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(snapshot));
+      } catch {
+        // ignore
+      }
+    }
 
     return {
       projects: snapshot.projects,
-      projectWords: {}, // 単語データはsessionStorageに保存しない（サイズ対策）
+      projectWords: {}, // 単語データは永続保存しない（サイズ対策）
       allFavorites: [],
       favoriteCounts: snapshot.favoriteCounts,
       totalWords: snapshot.totalWords,
