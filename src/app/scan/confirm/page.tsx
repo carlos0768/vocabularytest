@@ -13,6 +13,7 @@ import { getRepository } from '@/lib/db';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
+import { hasAuthorizationHeader, mergePrefilledQuizContent, prefillQuizContent } from '@/lib/quiz/prefill';
 import type { AIWordExtraction, Word } from '@/types';
 
 interface EditableWord extends AIWordExtraction {
@@ -21,8 +22,6 @@ interface EditableWord extends AIWordExtraction {
   isSelected: boolean;
 }
 
-const QUIZ_PREFILL_BATCH_SIZE = 30;
-const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 const QUIZ2_PREFILL_BATCH_SIZE = 200;
 const WORD_INSIGHT_BATCH_SIZE = 40;
 
@@ -33,21 +32,6 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(i, i + size));
   }
   return chunks;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function hasValidDistractors(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  if (value.length < 3) return false;
-  if (value.length === 3 && value[0] === '選択肢1') return false;
-  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasExampleSentence(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 type WordInsightResult = {
@@ -133,7 +117,7 @@ export default function ConfirmPage() {
     return `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
 
-  const [existingProjectId, setExistingProjectId] = useState<string | null>(initialData.existingProjectId);
+  const [existingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
 
@@ -221,92 +205,30 @@ export default function ConfirmPage() {
   const prefillQuizData = async (
     createdWords: Word[],
     updateWord: (id: string, updates: Partial<Word>) => Promise<void>
-  ): Promise<Word[]> => {
-    if (createdWords.length === 0) return createdWords;
-    const headers = await getAuthHeaders();
-
-    const seedWords = createdWords
-      .filter((word) =>
-        word.english.trim().length > 0 &&
-        word.japanese.trim().length > 0 &&
-        (!hasValidDistractors(word.distractors) || !hasExampleSentence(word.exampleSentence))
-      )
-      .map((word) => ({
-        id: word.id,
-        english: word.english,
-        japanese: word.japanese,
-      }));
-
-    if (seedWords.length === 0) return createdWords;
-
-    const resultMap = new Map<string, {
-      distractors: string[];
-      exampleSentence: string;
-      exampleSentenceJa: string;
-    }>();
-
-    const batches = chunkArray(seedWords, QUIZ_PREFILL_BATCH_SIZE);
-
-    for (const batch of batches) {
-      let pending = batch;
-
-      for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
-        try {
-          const response = await fetch('/api/generate-quiz-distractors', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ words: pending }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`prefill request failed: ${response.status}`);
-          }
-
-          const data = await response.json();
-          if (!data.success || !Array.isArray(data.results)) {
-            throw new Error('prefill response format is invalid');
-          }
-
-          const succeeded = new Set<string>();
-          for (const result of data.results) {
-            if (!result?.wordId || !Array.isArray(result.distractors)) continue;
-            succeeded.add(result.wordId);
-            resultMap.set(result.wordId, {
-              distractors: result.distractors,
-              exampleSentence: result.exampleSentence || '',
-              exampleSentenceJa: result.exampleSentenceJa || '',
-            });
-          }
-
-          pending = pending.filter((word) => !succeeded.has(word.id));
-          if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) {
-            await sleep(250 * attempt);
-          }
-        } catch (error) {
-          if (attempt >= QUIZ_PREFILL_MAX_ATTEMPTS) {
-            console.error('Quiz prefill failed after max attempts:', {
-              failedWordIds: pending.map((word) => word.id),
-              error,
-            });
-            break;
-          }
-          await sleep(250 * attempt);
-        }
-      }
+  ): Promise<{ words: Word[]; failedWordIds: string[] }> => {
+    if (createdWords.length === 0) {
+      return { words: createdWords, failedWordIds: [] };
     }
+
+    const headers = await getAuthHeaders();
+    if (!hasAuthorizationHeader(headers)) {
+      return { words: createdWords, failedWordIds: [] };
+    }
+
+    const { updatesByWordId, failedWordIds } = await prefillQuizContent(createdWords, headers);
 
     const updates: Array<Promise<void>> = [];
     for (const word of createdWords) {
-      const generated = resultMap.get(word.id);
+      const generated = updatesByWordId.get(word.id);
       if (!generated) continue;
 
       const patch: Partial<Word> = {
         distractors: generated.distractors,
       };
 
-      if (generated.exampleSentence.trim().length > 0) {
+      if (generated.exampleSentence && generated.exampleSentence.trim().length > 0) {
         patch.exampleSentence = generated.exampleSentence;
-        patch.exampleSentenceJa = generated.exampleSentenceJa;
+        patch.exampleSentenceJa = generated.exampleSentenceJa ?? '';
       }
 
       updates.push(updateWord(word.id, patch));
@@ -314,20 +236,10 @@ export default function ConfirmPage() {
 
     await Promise.all(updates);
 
-    return createdWords.map((word) => {
-      const generated = resultMap.get(word.id);
-      if (!generated) return word;
-      return {
-        ...word,
-        distractors: generated.distractors,
-        ...(generated.exampleSentence.trim().length > 0
-          ? {
-              exampleSentence: generated.exampleSentence,
-              exampleSentenceJa: generated.exampleSentenceJa,
-            }
-          : {}),
-      };
-    });
+    return {
+      words: mergePrefilledQuizContent(createdWords, updatesByWordId),
+      failedWordIds,
+    };
   };
 
   const prefillQuiz2Data = async (createdWords: Word[]) => {
@@ -437,7 +349,8 @@ export default function ConfirmPage() {
     try {
       // Get repository and userId
       const subscriptionStatus = subscription?.status || 'free';
-      const repository = getRepository(subscriptionStatus);
+      const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+      const repository = getRepository(subscriptionStatus, wasPro);
       const userId = user ? user.id : getGuestUserId();
 
       let targetProjectId: string;
@@ -471,9 +384,18 @@ export default function ConfirmPage() {
         }))
       );
 
-      const quizReadyWords = aiEnabledForGeneration
+      const quizPrefillResult = aiEnabledForGeneration
         ? await prefillQuizData(createdWords, repository.updateWord.bind(repository))
-        : createdWords;
+        : { words: createdWords, failedWordIds: [] };
+      const quizReadyWords = quizPrefillResult.words;
+
+      if (quizPrefillResult.failedWordIds.length > 0) {
+        showToast({
+          message: `クイズ補完の生成に失敗した単語が${quizPrefillResult.failedWordIds.length}語あります。保存は完了しました。`,
+          type: 'warning',
+          duration: 4500,
+        });
+      }
 
       // Pro users: warm quiz2 similarity data during save.
       await prefillQuiz2Data(quizReadyWords);

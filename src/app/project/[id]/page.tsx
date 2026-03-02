@@ -22,6 +22,7 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
+import { hasAuthorizationHeader, mergePrefilledQuizContent, prefillQuizContent } from '@/lib/quiz/prefill';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
@@ -585,6 +586,44 @@ export default function ProjectDetailPage() {
       setShowManualWordModal(false);
       invalidateHomeCache();
       refreshWordCount();
+
+      if (canUseAiFeatures && created.length > 0) {
+        void (async () => {
+          try {
+            const headers = await getAuthHeaders();
+            if (!hasAuthorizationHeader(headers)) return;
+
+            const { updatesByWordId, failedWordIds } = await prefillQuizContent(created, headers);
+            if (updatesByWordId.size > 0) {
+              await Promise.all(
+                Array.from(updatesByWordId.entries()).map(([wordId, generated]) =>
+                  activeRepository.updateWord(wordId, {
+                    distractors: generated.distractors,
+                    ...(generated.exampleSentence
+                      ? {
+                          exampleSentence: generated.exampleSentence,
+                          exampleSentenceJa: generated.exampleSentenceJa ?? '',
+                        }
+                      : {}),
+                  })
+                )
+              );
+
+              setWords((prev) => mergePrefilledQuizContent(prev, updatesByWordId));
+            }
+
+            if (failedWordIds.length > 0) {
+              showToast({
+                message: `クイズ補完の生成に失敗した単語が${failedWordIds.length}語あります。`,
+                type: 'warning',
+                duration: 4200,
+              });
+            }
+          } catch (error) {
+            console.error('Failed to prefill quiz content for manual words:', error);
+          }
+        })();
+      }
 
       if (isPro && canUseAiFeatures && created.length > 0) {
         void (async () => {

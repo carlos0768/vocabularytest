@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useProjects } from '@/hooks/use-projects';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { createBrowserClient } from '@/lib/supabase';
 import type { SubscriptionStatus } from '@/types';
 
 /**
@@ -40,6 +41,18 @@ function parseSharedText(text: string): { english: string; japanese: string } {
 
   // Single word/phrase — user enters Japanese manually
   return { english: trimmed, japanese: '' };
+}
+
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const supabase = createBrowserClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return headers;
 }
 
 function ShareTargetContent() {
@@ -104,7 +117,8 @@ function ShareTargetContent() {
     setSaving(true);
     try {
       const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
-      const repository = getRepository(subscriptionStatus);
+      const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+      const repository = getRepository(subscriptionStatus, wasPro);
 
       // Determine project
       let targetProjectId: string;
@@ -127,9 +141,10 @@ function ShareTargetContent() {
       let exampleSentence = '';
       let exampleSentenceJa = '';
       try {
+        const headers = await getAuthHeaders();
         const res = await fetch('/api/generate-quiz-distractors', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             words: [{ id: 'share-1', english: english.trim(), japanese: japanese.trim() }],
           }),
