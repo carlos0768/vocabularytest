@@ -89,7 +89,15 @@ actor CloudOfflineCacheStore {
             predicate: #Predicate { $0.projectId == projectId && $0.userId == userId }
         )
         let existing = try modelContext.fetch(existingDescriptor)
-        let existingMap = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        var existingMap: [String: CachedCloudWordRecord] = [:]
+        existingMap.reserveCapacity(existing.count)
+        for record in existing {
+            if existingMap[record.id] == nil {
+                existingMap[record.id] = record
+            } else {
+                modelContext.delete(record)
+            }
+        }
         let incomingIds = Set(incomingWords.map(\.id))
 
         for record in existing where !incomingIds.contains(record.id) {
@@ -129,7 +137,15 @@ actor CloudOfflineCacheStore {
             predicate: #Predicate { $0.userId == userId }
         )
         let existing = try modelContext.fetch(existingDescriptor)
-        let existingMap = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        var existingMap: [String: CachedCloudWordRecord] = [:]
+        existingMap.reserveCapacity(existing.count)
+        for record in existing {
+            if existingMap[record.id] == nil {
+                existingMap[record.id] = record
+            } else {
+                modelContext.delete(record)
+            }
+        }
         let incomingIds = Set(incomingWords.map(\.id))
 
         for record in existing where !incomingIds.contains(record.id) {
