@@ -20,11 +20,11 @@ struct RootTabView: View {
                 }
 
                 NavigationStack {
-                    ProjectListView()
+                    BookshelfTabView()
                 }
                 .tag(1)
                 .tabItem {
-                    Label("単語帳", systemImage: "text.book.closed.fill")
+                    Label("本棚", systemImage: "books.vertical.fill")
                 }
 
                 NavigationStack {

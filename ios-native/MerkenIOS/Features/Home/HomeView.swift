@@ -34,9 +34,9 @@ struct HomeView: View {
     @State private var flashcardDestination: FlashcardDestination?
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
+    @State private var showingProjectList = false
     @State private var showingScan = false
     @State private var showingSignUp = false
-    @State private var showingBookshelf = false
     @State private var projectToDelete: Project?
 
     var body: some View {
@@ -116,8 +116,8 @@ struct HomeView: View {
         .navigationDestination(item: $detailProject) { project in
             ProjectDetailView(project: project)
         }
-        .navigationDestination(isPresented: $showingBookshelf) {
-            BookshelfTabView()
+        .navigationDestination(isPresented: $showingProjectList) {
+            ProjectListView()
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
@@ -310,11 +310,11 @@ struct HomeView: View {
             quickLink(icon: "magnifyingglass", label: "検索", color: MerkenTheme.secondaryText) {
                 appState.selectedTab = 2
             }
-            quickLink(icon: "books.vertical.fill", label: "本棚", color: MerkenTheme.warning) {
-                showingBookshelf = true
+            quickLink(icon: "flag.fill", label: "苦手な単語一覧", color: MerkenTheme.warning) {
+                // Intentionally no-op for this release.
             }
             quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {
-                appState.selectedTab = 1
+                showingProjectList = true
             }
         }
         .sheet(isPresented: $showingScan) {
