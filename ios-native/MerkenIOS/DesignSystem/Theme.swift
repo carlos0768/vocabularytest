@@ -68,7 +68,7 @@ enum MerkenTheme {
     static let secondaryText = Color("ThemeSecondaryText")
     static let mutedText = Color("ThemeMutedText")
 
-    // Placeholder thumbnail colors
+    // Placeholder thumbnail colors (light mode – vivid)
     static let thumbnailColors: [Color] = [
         Color(red: 0.91, green: 0.30, blue: 0.53),
         Color(red: 0.25, green: 0.47, blue: 0.85),
@@ -80,9 +80,10 @@ enum MerkenTheme {
         Color(red: 0.40, green: 0.55, blue: 0.85),
     ]
 
-    static func placeholderColor(for id: String) -> Color {
+    static func placeholderColor(for id: String, isDark: Bool = false) -> Color {
         let hash = id.utf8.reduce(0) { $0 &+ Int($1) }
-        return thumbnailColors[abs(hash) % thumbnailColors.count]
+        let color = thumbnailColors[abs(hash) % thumbnailColors.count]
+        return isDark ? color.opacity(0.7) : color
     }
 
     // Legacy compat

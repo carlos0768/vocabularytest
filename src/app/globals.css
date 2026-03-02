@@ -49,11 +49,11 @@
   --color-warning-light: #2e2a1a;
   --color-dot: #1a1e23;
 
-  /* Hero (dashboard) */
-  --color-hero: #1a3a5c;
-  --color-hero-btn: rgba(255, 255, 255, 0.15);
-  --color-hero-btn-text: #ffffff;
-  --color-hero-btn-border: rgba(255, 255, 255, 0.1);
+  /* Hero (dashboard) — dark blue gradient base */
+  --color-hero: #142947;
+  --color-hero-btn: #ffffff;
+  --color-hero-btn-text: #142947;
+  --color-hero-btn-border: rgba(255, 255, 255, 0.3);
 }
 
 @theme inline {

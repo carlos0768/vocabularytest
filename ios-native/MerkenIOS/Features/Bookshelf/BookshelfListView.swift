@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BookshelfListView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = BookshelfListViewModel()
 
     @State private var showingCreateSheet = false
@@ -234,7 +235,7 @@ struct BookshelfListView: View {
     // MARK: - Mini Book (matching Web MiniBook component)
 
     private func miniBook(_ preview: CollectionProjectPreview) -> some View {
-        let color = MerkenTheme.placeholderColor(for: preview.id)
+        let color = MerkenTheme.placeholderColor(for: preview.id, isDark: colorScheme == .dark)
         let initial = String(preview.title.prefix(1)).uppercased()
 
         return ZStack {

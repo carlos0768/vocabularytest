@@ -7,6 +7,7 @@ struct ProjectDetailView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = ProjectDetailViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var showingQuiz: String?
@@ -219,7 +220,7 @@ struct ProjectDetailView: View {
                 .frame(height: 184 + headerTopExtension)
                 .clipped()
             } else {
-                MerkenTheme.placeholderColor(for: project.id)
+                MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                     .frame(height: 184 + headerTopExtension)
             }
 

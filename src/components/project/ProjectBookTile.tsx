@@ -32,7 +32,6 @@ export function ProjectBookTile({
   extraMenuItems,
 }: ProjectBookTileProps) {
   const [showMenu, setShowMenu] = useState(false);
-
   const safeIconImage =
     typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
       ? project.iconImage
@@ -128,7 +127,7 @@ export function ProjectBookTile({
         }`}
       >
         {/* Book cover */}
-        <div className="relative mx-auto w-[64px] h-[90px] rounded-md overflow-hidden shadow-sm">
+        <div className="relative mx-auto w-[64px] h-[90px] rounded-md overflow-hidden shadow-sm dark:brightness-75">
           {safeIconImage ? (
             <span
               className="block w-full h-full bg-center bg-cover"

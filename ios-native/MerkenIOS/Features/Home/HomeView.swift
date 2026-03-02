@@ -27,6 +27,7 @@ private struct SentenceQuizDestination: Hashable {
 
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = HomeViewModel()
 
     @State private var quizDestination: QuizDestination?
@@ -163,7 +164,9 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Hero Section (blue gradient card)
+    // MARK: - Hero Section
+
+    private var isDark: Bool { colorScheme == .dark }
 
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -173,7 +176,7 @@ struct HomeView: View {
                     .font(.title2)
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.2), in: .circle)
+                    .background(.white.opacity(isDark ? 0.12 : 0.2), in: .circle)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(heroHeading)
@@ -181,7 +184,7 @@ struct HomeView: View {
                         .foregroundStyle(.white)
                     Text(heroSubheading)
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(.white.opacity(isDark ? 0.6 : 0.8))
                 }
             }
 
@@ -209,7 +212,7 @@ struct HomeView: View {
                     } label: {
                         Label("復習を始める (\(viewModel.dueWordCount)問)", systemImage: "arrow.trianglehead.2.clockwise")
                     }
-                    .buttonStyle(HeroCTAButton())
+                    .buttonStyle(HeroCTAButton(isDark: isDark))
                 } else if appState.isAIEnabled {
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -217,7 +220,7 @@ struct HomeView: View {
                     } label: {
                         Label("クイズに挑戦", systemImage: "play.fill")
                     }
-                    .buttonStyle(HeroCTAButton())
+                    .buttonStyle(HeroCTAButton(isDark: isDark))
                 } else {
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -225,23 +228,30 @@ struct HomeView: View {
                     } label: {
                         Label("フラッシュカードで学習", systemImage: "rectangle.on.rectangle.angled")
                     }
-                    .buttonStyle(HeroCTAButton())
+                    .buttonStyle(HeroCTAButton(isDark: isDark))
                 }
             } else {
                 Text("まず単語帳を作成してください。")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(isDark ? MerkenTheme.mutedText : .white.opacity(0.7))
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [MerkenTheme.accentBlue, MerkenTheme.accentBlueStrong],
+                colors: isDark
+                    ? [Color(red: 0.08, green: 0.16, blue: 0.28), Color(red: 0.05, green: 0.10, blue: 0.20)]
+                    : [MerkenTheme.accentBlue, MerkenTheme.accentBlueStrong],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
             in: .rect(cornerRadius: 22)
+        )
+        .overlay(
+            isDark
+                ? RoundedRectangle(cornerRadius: 22).stroke(MerkenTheme.border, lineWidth: 1)
+                : nil
         )
     }
 
@@ -405,7 +415,7 @@ struct HomeView: View {
                                 .resizable()
                                 .scaledToFill()
                         } else {
-                            let bgColor = MerkenTheme.placeholderColor(for: project.id)
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                             bgColor
                             VStack(spacing: 2) {
                                 Text(String(project.title.prefix(1)))
@@ -513,24 +523,34 @@ struct HomeView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(.white.opacity(0.2), in: .capsule)
-        .foregroundStyle(.white)
+        .background(.white.opacity(isDark ? 0.10 : 0.2), in: .capsule)
+        .foregroundStyle(.white.opacity(isDark ? 0.75 : 1.0))
     }
 }
 
-// White CTA button for hero card (Web-matching border-bottom 3D style)
+// CTA button for hero card — white bg, text matches hero gradient
 private struct HeroCTAButton: ButtonStyle {
+    var isDark: Bool = false
+
+    // Dark hero gradient base color
+    private let heroDarkBlue = Color(red: 0.08, green: 0.16, blue: 0.28)
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(MerkenTheme.accentBlue)
+            .foregroundStyle(isDark ? heroDarkBlue : MerkenTheme.accentBlue)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
             .background(.white, in: .rect(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color(white: 0.82), lineWidth: configuration.isPressed ? 0 : 1)
+                    .stroke(
+                        isDark
+                            ? Color.white.opacity(0.3)
+                            : Color(white: 0.82),
+                        lineWidth: configuration.isPressed ? 0 : 1
+                    )
             )
             .background(
                 RoundedRectangle(cornerRadius: 14)

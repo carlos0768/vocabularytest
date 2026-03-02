@@ -23,6 +23,7 @@ struct BookshelfDetailView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = BookshelfDetailViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var isEditingName = false
     @State private var editedName: String = ""
@@ -193,7 +194,7 @@ struct BookshelfDetailView: View {
     private var headerSection: some View {
         ZStack(alignment: .bottomLeading) {
             // Cover placeholder color — extended upward to cover safe area
-            MerkenTheme.placeholderColor(for: collection.id)
+            MerkenTheme.placeholderColor(for: collection.id, isDark: colorScheme == .dark)
                 .frame(height: 184 + headerTopExtension)
 
             // Content overlay — title + actions pinned to bottom
@@ -537,7 +538,7 @@ struct BookshelfDetailView: View {
                 // Thumbnail
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(MerkenTheme.placeholderColor(for: project.id))
+                        .fill(MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark))
                         .frame(width: 40, height: 40)
                     Text(String(project.title.prefix(1)))
                         .font(.headline.bold())

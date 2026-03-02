@@ -8,6 +8,7 @@ enum ProjectSortOrder: String, CaseIterable {
 
 struct ProjectListView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = ProjectListViewModel()
 
     @State private var showingCreateSheet = false
@@ -299,7 +300,7 @@ struct ProjectListView: View {
                                     .resizable()
                                     .scaledToFill()
                             } else {
-                                let bgColor = MerkenTheme.placeholderColor(for: project.id)
+                                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                                 bgColor
                                 VStack(spacing: 2) {
                                     Text(String(project.title.prefix(1)))

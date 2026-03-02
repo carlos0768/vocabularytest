@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { getBookCoverColors } from '@/lib/book-cover-utils';
 
+
 interface PreviewProject {
   id: string;
   title: string;
@@ -29,7 +30,7 @@ function MiniBook({ project }: { project: PreviewProject }) {
       : null;
 
   return (
-    <div className="relative w-[40px] h-[56px] rounded-[3px] overflow-hidden shadow-sm shrink-0">
+    <div className="relative w-[40px] h-[56px] rounded-[3px] overflow-hidden shadow-sm shrink-0 dark:brightness-75">
       {safeIcon ? (
         <span
           className="block w-full h-full bg-center bg-cover"

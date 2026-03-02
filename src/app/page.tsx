@@ -1577,10 +1577,10 @@ export default function HomePage() {
         <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
           {/* === Hero Section === */}
           <section>
-            <div className="rounded-2xl bg-[var(--color-hero)] p-5 lg:p-6 text-white">
+            <div className="rounded-2xl bg-[var(--color-hero)] p-5 lg:p-6 text-white dark:border dark:border-[var(--color-border)]">
               {/* Tier A: ストリーク + 動機付け */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center shrink-0">
                   <Icon name="local_fire_department" size={24} filled className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1591,7 +1591,7 @@ export default function HomePage() {
                       ? '今日も頑張っています'
                       : '今日の学習を始めよう'}
                   </p>
-                  <p className="text-sm text-white/70">
+                  <p className="text-sm text-white/70 dark:text-white/55">
                     {dailyStats.todayCount > 0
                       ? `今日 ${dailyStats.todayCount}問回答`
                       : 'クイズに挑戦して単語を覚えよう'}
@@ -1602,16 +1602,16 @@ export default function HomePage() {
               {/* Tier B: コンパクトスタット（活動ある時のみ） */}
               {dailyStats.todayCount > 0 && (
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-sm font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
                     <Icon name="check_circle" size={16} />
                     {accuracyPercent}% 正答率
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-sm font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
                     <Icon name="school" size={16} />
                     {dailyStats.masteredCount} 習得
                   </span>
                   {reviewDueCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-sm font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
                       <Icon name="schedule" size={16} />
                       {reviewDueCount} 復習待ち
                     </span>
@@ -1643,7 +1643,7 @@ export default function HomePage() {
                 {wrongAnswers.length > 0 && (
                   <button
                     onClick={() => setShowWrongAnswers(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 text-white font-bold text-sm border-b-[3px] border-white/10 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 dark:bg-white/10 text-white font-bold text-sm border-b-[3px] border-white/10 dark:border-white/5 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
                   >
                     <Icon name="error" size={20} />
                     苦手単語 ({wrongAnswers.length})
@@ -1660,8 +1660,8 @@ export default function HomePage() {
                 onClick={() => handleScanButtonClick(false)}
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-sky-100 flex items-center justify-center">
-                  <Icon name="photo_camera" size={22} className="text-sky-600" />
+                <div className="w-11 h-11 rounded-xl bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
+                  <Icon name="photo_camera" size={22} className="text-sky-600 dark:text-sky-400" />
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">スキャン</span>
               </button>
@@ -1669,8 +1669,8 @@ export default function HomePage() {
                 href="/search"
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center">
-                  <Icon name="search" size={22} className="text-slate-600" />
+                <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-500/15 flex items-center justify-center">
+                  <Icon name="search" size={22} className="text-slate-600 dark:text-slate-400" />
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">検索</span>
               </Link>
@@ -1678,8 +1678,8 @@ export default function HomePage() {
                 href="/collections"
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
-                  <Icon name="shelves" size={22} className="text-amber-600" />
+                <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
+                  <Icon name="shelves" size={22} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">本棚</span>
               </Link>
@@ -1687,8 +1687,8 @@ export default function HomePage() {
                 href="/projects"
                 className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
               >
-                <div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center">
-                  <Icon name="folder" size={22} className="text-teal-600" />
+                <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-500/15 flex items-center justify-center">
+                  <Icon name="folder" size={22} className="text-teal-600 dark:text-teal-400" />
                 </div>
                 <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">単語帳</span>
               </Link>
