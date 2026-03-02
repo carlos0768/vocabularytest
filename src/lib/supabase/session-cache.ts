@@ -151,8 +151,13 @@ function parseExpiresAt(value: unknown): number | null {
 
 function parseUser(value: unknown): User | null {
   if (!isRecord(value)) return null;
-  if (typeof value.id !== 'string') return null;
-  return value as User;
+  const candidate = value as unknown as Partial<User>;
+  if (typeof candidate.id !== 'string') return null;
+  if (typeof candidate.aud !== 'string') return null;
+  if (typeof candidate.created_at !== 'string') return null;
+  if (!isRecord(candidate.app_metadata)) return null;
+  if (!isRecord(candidate.user_metadata)) return null;
+  return candidate as User;
 }
 
 function extractUserIdFromToken(accessToken: string): string | null {
