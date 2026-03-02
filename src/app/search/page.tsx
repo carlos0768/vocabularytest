@@ -22,6 +22,7 @@ export default function SearchPage() {
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
   const isSemanticSearchEnabled = subscriptionStatus === 'active';
+  const authResolvingWithoutUser = authLoading && !user;
 
   // Semantic search state
   const [semanticResults, setSemanticResults] = useState<SemanticResult[]>([]);
@@ -153,12 +154,7 @@ export default function SearchPage() {
         </div>
 
         {/* Results */}
-        {authLoading ? (
-          <div className="text-center py-12">
-            <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin mx-auto mb-3" />
-            <p className="text-sm text-[var(--color-muted)]">読み込み中...</p>
-          </div>
-        ) : !user ? (
+        {!user && !authLoading ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <Icon name="person" size={32} className="text-[var(--color-primary)]" />
@@ -167,7 +163,7 @@ export default function SearchPage() {
               検索にはログインが必要です
             </p>
           </div>
-        ) : !searchQuery.trim() ? (
+        ) : !searchQuery.trim() || authResolvingWithoutUser ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />

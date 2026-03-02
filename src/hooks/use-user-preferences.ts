@@ -3,6 +3,50 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 
+const SESSION_CACHE_KEY = 'merken_user_preferences_cache';
+
+interface UserPreferencesCache {
+  userId: string;
+  aiEnabled: boolean | null;
+}
+
+let cache: UserPreferencesCache | null = null;
+
+function readCache(userId: string): boolean | null | undefined {
+  if (cache && cache.userId === userId) {
+    return cache.aiEnabled;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as UserPreferencesCache;
+    if (parsed.userId !== userId) return undefined;
+    cache = parsed;
+    return parsed.aiEnabled;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCache(userId: string, aiEnabled: boolean | null) {
+  cache = { userId, aiEnabled };
+  try {
+    sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore
+  }
+}
+
+function clearCache() {
+  cache = null;
+  try {
+    sessionStorage.removeItem(SESSION_CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 interface UserPreferencesState {
   aiEnabled: boolean | null;
   loading: boolean;
@@ -13,22 +57,32 @@ interface UserPreferencesState {
 }
 
 export function useUserPreferences(): UserPreferencesState {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [aiEnabled, setAiEnabledState] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (authLoading) return;
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user?.id) {
       setAiEnabledState(null);
       setLoading(false);
+      setError(null);
+      clearCache();
       return;
     }
 
-    setLoading(true);
+    const cachedValue = readCache(user.id);
+    const hasCachedValue = cachedValue !== undefined;
+    if (hasCachedValue) {
+      setAiEnabledState(cachedValue);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
+
     try {
       const response = await fetch('/api/user-preferences', {
         method: 'GET',
@@ -40,22 +94,29 @@ export function useUserPreferences(): UserPreferencesState {
       }
 
       const data = await response.json() as { aiEnabled: boolean | null };
-      setAiEnabledState(typeof data.aiEnabled === 'boolean' ? data.aiEnabled : null);
+      const normalized = typeof data.aiEnabled === 'boolean' ? data.aiEnabled : null;
+      setAiEnabledState(normalized);
+      writeCache(user.id, normalized);
     } catch (err) {
       setError(err instanceof Error ? err.message : '設定の取得に失敗しました');
     } finally {
       setLoading(false);
     }
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, user?.id]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const setAiEnabled = useCallback(async (enabled: boolean): Promise<boolean> => {
-    if (!isAuthenticated) return false;
+    if (!isAuthenticated || !user?.id) return false;
+
+    const previousValue = aiEnabled;
+    setAiEnabledState(enabled);
+    writeCache(user.id, enabled);
     setSaving(true);
     setError(null);
+
     try {
       const response = await fetch('/api/user-preferences', {
         method: 'PUT',
@@ -68,15 +129,19 @@ export function useUserPreferences(): UserPreferencesState {
       }
 
       const data = await response.json() as { aiEnabled: boolean | null };
-      setAiEnabledState(typeof data.aiEnabled === 'boolean' ? data.aiEnabled : null);
+      const normalized = typeof data.aiEnabled === 'boolean' ? data.aiEnabled : null;
+      setAiEnabledState(normalized);
+      writeCache(user.id, normalized);
       return true;
     } catch (err) {
+      setAiEnabledState(previousValue);
+      writeCache(user.id, previousValue);
       setError(err instanceof Error ? err.message : '設定の保存に失敗しました');
       return false;
     } finally {
       setSaving(false);
     }
-  }, [isAuthenticated]);
+  }, [aiEnabled, isAuthenticated, user?.id]);
 
   return {
     aiEnabled,

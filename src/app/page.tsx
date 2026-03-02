@@ -31,7 +31,6 @@ import {
   getCachedFavoriteCounts,
   getCachedTotalWords,
   getHasLoaded,
-  getLoadedUserId,
   setHomeCache,
   updateProjectWordsCache,
   invalidateHomeCache,
@@ -96,7 +95,7 @@ function ensureCacheRestored(): boolean {
   if (typeof window !== 'undefined') {
     const userId = getCachedSessionUserId() ?? getGuestUserId();
     const snapshot = restoreFromSessionStorage(userId);
-    if (snapshot && snapshot.projects.length > 0) {
+    if (snapshot) {
       setHomeCache(snapshot);
       return true;
     }
@@ -226,7 +225,7 @@ export default function HomePage() {
 
     // 1. Show cached data immediately (stale-while-revalidate)
     const hasCache = getHasLoaded();
-    if (hasCache) {
+    if (hasCache && !forceReload) {
       const cachedProjects = getCachedProjects();
       const cachedWords = getCachedProjectWords();
       setProjects(cachedProjects);
@@ -236,11 +235,6 @@ export default function HomePage() {
       setTotalWords(getCachedTotalWords());
       setWrongAnswers(getWrongAnswers());
       setLoading(false);
-      
-      // If not force reload and cache is for same user, skip fetch
-      if (!forceReload && getLoadedUserId() === userId) {
-        return;
-      }
     }
 
     try {
@@ -1402,7 +1396,7 @@ export default function HomePage() {
 
   // Loading state — only gate on data loading, not auth
   // Auth resolves in background; cached data displays instantly
-  if (loading) {
+  if (loading && projects.length === 0 && words.length === 0 && totalWords === 0) {
     return (
       <AppShell>
         <div className="min-h-screen flex items-center justify-center">
@@ -1574,7 +1568,7 @@ export default function HomePage() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
+        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-6 pb-8 w-full space-y-5">
           {/* === Hero Section === */}
           <section>
             <div className="rounded-2xl bg-[var(--color-hero)] p-5 lg:p-6 text-white dark:border dark:border-[var(--color-border)]">
@@ -1684,7 +1678,7 @@ export default function HomePage() {
                 <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
                   <Icon name="flag" size={22} className="text-amber-600 dark:text-amber-400" />
                 </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">苦手な単語一覧</span>
+                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">苦手単語</span>
               </button>
               <Link
                 href="/projects"
