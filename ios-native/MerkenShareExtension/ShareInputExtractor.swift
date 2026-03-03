@@ -156,9 +156,14 @@ enum ShareInputExtractor {
     private static func extractStrings(from data: Data, typeIdentifier: String) -> [String] {
         var values: [String] = []
 
-        if looksLikeBinaryPlist(data),
-           let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) {
-            values.append(contentsOf: extractStrings(from: plist, typeIdentifier: UTType.propertyList.identifier))
+        if looksLikeBinaryPlist(data) {
+            if let unarchived = decodeKeyedArchive(data) {
+                values.append(contentsOf: extractStrings(from: unarchived, typeIdentifier: UTType.propertyList.identifier))
+            }
+
+            if let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) {
+                values.append(contentsOf: extractStrings(from: plist, typeIdentifier: UTType.propertyList.identifier))
+            }
         }
 
         if let utf8 = String(data: data, encoding: .utf8), isUsefulTextCandidate(utf8) {
@@ -178,6 +183,19 @@ enum ShareInputExtractor {
             }
         }
         return dedupe(values).filter(isUsefulTextCandidate(_:))
+    }
+
+    private static func decodeKeyedArchive(_ data: Data) -> Any? {
+        let allowedClasses: [AnyClass] = [
+            NSArray.self,
+            NSDictionary.self,
+            NSSet.self,
+            NSString.self,
+            NSURL.self,
+            NSNumber.self,
+            NSData.self
+        ]
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClasses: allowedClasses, from: data)
     }
 
     private static func detectBilingualPair(
