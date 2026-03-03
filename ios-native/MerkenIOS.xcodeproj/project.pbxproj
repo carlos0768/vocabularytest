@@ -88,6 +88,7 @@
 		AE7EE2C756414015794DAEBA /* FlashcardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C74EC37EB58B4BAB670254 /* FlashcardView.swift */; };
 		B37B22C5DAFC5A44AA0D13BD /* AppStoreSubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9C0DEAE51AE5BC9B58F359 /* AppStoreSubscriptionService.swift */; };
 		B7E529B7FF94D761C9A5905E /* ImagePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605CB38C73485BE8EED7F11B /* ImagePreviewView.swift */; };
+		B7E529B7FF94D761C9A5906F /* ProjectSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605CB38C73485BE8EED7F12C /* ProjectSetupView.swift */; };
 		BA024A6E34EB8AE537B3E75F /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2FA794B47954819759A483 /* SearchView.swift */; };
 		BAE610992EF94B082753128F /* FlashcardCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02365F3E7227E8E11F1404DF /* FlashcardCardView.swift */; };
 		BC48D87E377015022E8017C1 /* ExtractDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C83CC93420B69AA48F302C /* ExtractDTO.swift */; };
@@ -211,6 +212,7 @@
 		53062913A0AF81DD487C373B /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
 		5C4B1F5C32E6E783B32304EE /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		605CB38C73485BE8EED7F12C /* ProjectSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSetupView.swift; sourceTree = "<group>"; };
 		605CB38C73485BE8EED7F11B /* ImagePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreviewView.swift; sourceTree = "<group>"; };
 		613544935B00012992714B3E /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		677116D076DAC6DBA21BD9F6 /* WordRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordRepositoryProtocol.swift; sourceTree = "<group>"; };
@@ -653,6 +655,7 @@
 			children = (
 				F9615BEF3A9E8F028664EC53 /* CameraView.swift */,
 				605CB38C73485BE8EED7F11B /* ImagePreviewView.swift */,
+				605CB38C73485BE8EED7F12C /* ProjectSetupView.swift */,
 				0FF9C5352AB1173D35DBB46B /* ScanConfirmView.swift */,
 				D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */,
 				166FFF08F3BA9F490CBB5116 /* ScanCoordinatorView.swift */,
@@ -914,6 +917,7 @@
 				285B1F6A64363279D591E317 /* IconBadge.swift in Sources */,
 				38CDE077537991E745B6A502 /* ImageCompressor.swift in Sources */,
 				B7E529B7FF94D761C9A5905E /* ImagePreviewView.swift in Sources */,
+				B7E529B7FF94D761C9A5906F /* ProjectSetupView.swift in Sources */,
 				4EBFDB6D125B13FD50C69AD3 /* LocalRecords.swift in Sources */,
 				DF5C281FC16649431FC0AD17 /* LocalWordRepository.swift in Sources */,
 				45583E1DC5B732A000DCEC24 /* LoginGateView.swift in Sources */,
