@@ -50,6 +50,7 @@ struct HomeView: View {
     @State private var projectToRename: Project?
     @State private var renameProjectTitle = ""
     @State private var projectForActions: Project?
+    @State private var selectedCollection: Collection?
 
     private var isDark: Bool { colorScheme == .dark }
 
@@ -102,6 +103,11 @@ struct HomeView: View {
                             if !viewModel.projects.isEmpty {
                                 recentProjectsSection
                             }
+
+                            // MARK: - Bookshelf Section
+                            if !viewModel.collections.isEmpty {
+                                bookshelfSection
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.bottom, 80) // room for FAB
@@ -151,6 +157,9 @@ struct HomeView: View {
         }
         .navigationDestination(item: $detailProject) { project in
             ProjectDetailView(project: project)
+        }
+        .navigationDestination(item: $selectedCollection) { collection in
+            BookshelfDetailView(collection: collection)
         }
         .navigationDestination(isPresented: $showingFavorites) {
             FavoritesView()
@@ -672,6 +681,65 @@ struct HomeView: View {
                     lineWidth: project.isFavorite ? 2 : 1
                 )
         )
+    }
+
+    // MARK: - Bookshelf Section
+
+    private var bookshelfSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("本棚")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Button {
+                    appState.selectedTab = 1
+                } label: {
+                    Text("すべて見る")
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+
+            ForEach(viewModel.collections.prefix(3)) { collection in
+                Button {
+                    selectedCollection = collection
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "books.vertical.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .frame(width: 40, height: 40)
+                            .background(MerkenTheme.accentBlueLight, in: .rect(cornerRadius: 10))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(collection.name)
+                                .font(.system(size: 15, weight: .medium, design: .serif))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .lineLimit(1)
+                            if let desc = collection.description, !desc.isEmpty {
+                                Text(desc)
+                                    .font(.system(size: 12, design: .serif))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                    .padding(12)
+                    .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(MerkenTheme.borderLight, lineWidth: 1)
+                    )
+                }
+            }
+        }
     }
 
     // MARK: - Focus Banner Helpers

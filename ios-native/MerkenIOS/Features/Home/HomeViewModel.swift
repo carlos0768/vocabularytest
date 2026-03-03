@@ -9,6 +9,7 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var dueWords: [Word] = []
     @Published private(set) var wordsByProject: [String: [Word]] = [:]
     @Published private(set) var dueCountByProject: [String: Int] = [:]
+    @Published private(set) var collections: [Collection] = []
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
@@ -48,6 +49,18 @@ final class HomeViewModel: ObservableObject {
             self.projects = projects
             errorMessage = nil
             loading = false
+
+            // Fetch collections (bookshelf) for home preview
+            if state.isLoggedIn {
+                Task { [weak self] in
+                    do {
+                        let cols = try await state.collectionRepository.fetchCollections(userId: userId)
+                        self?.collections = cols
+                    } catch {
+                        // Non-critical — just skip
+                    }
+                }
+            }
 
             // Single fetchAllWords instead of N+1 per-project queries
             wordCountTask = Task { [weak self] in
