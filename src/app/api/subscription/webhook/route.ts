@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { createHash } from 'crypto';
 import { KOMOJU_CONFIG, verifyWebhookSignature } from '@/lib/komoju';
 import {
   activateBillingFromSession,
 } from '@/lib/subscription/billing-activation';
+import {
+  claimWebhookEvent,
+  hashPayload,
+  markWebhookEventFailed,
+  markWebhookEventProcessed,
+} from '@/lib/webhooks/event-log';
 
 type JsonRecord = Record<string, unknown>;
 type WebhookEvent = {
   id?: unknown;
   type?: unknown;
   data?: unknown;
-};
-
-type WebhookClaim = {
-  shouldProcess: boolean;
 };
 
 type SessionLookupRow = {
@@ -92,7 +93,11 @@ export async function POST(request: NextRequest) {
     }
 
     const payloadHash = hashPayload(payload);
-    const claim = await claimWebhookEvent(supabaseAdmin, eventId, eventType, payloadHash);
+    const claim = await claimWebhookEvent(supabaseAdmin, {
+      eventId,
+      eventType,
+      payloadHash,
+    });
     if (!claim.shouldProcess) {
       return NextResponse.json({ received: true });
     }
@@ -134,17 +139,20 @@ export async function POST(request: NextRequest) {
           console.log('Unhandled event type:', event.type);
       }
 
-      await markWebhookEventProcessed(supabaseAdmin, eventId, eventType, payloadHash);
-      return NextResponse.json({ received: true });
-    } catch (processingError) {
-      const normalizedError = normalizeErrorMessage(processingError);
-      await markWebhookEventFailed(
-        supabaseAdmin,
+      await markWebhookEventProcessed(supabaseAdmin, {
         eventId,
         eventType,
         payloadHash,
-        normalizedError
-      );
+      });
+      return NextResponse.json({ received: true });
+    } catch (processingError) {
+      const normalizedError = normalizeErrorMessage(processingError);
+      await markWebhookEventFailed(supabaseAdmin, {
+        eventId,
+        eventType,
+        payloadHash,
+        lastError: normalizedError,
+      });
       console.error('Webhook processing failed:', processingError);
       return NextResponse.json(
         { error: 'Webhook processing failed' },
@@ -782,84 +790,6 @@ function toIsoTimestamp(value: unknown): string | null {
   }
 
   return null;
-}
-
-function hashPayload(payload: string): string {
-  return createHash('sha256').update(payload).digest('hex');
-}
-
-async function claimWebhookEvent(
-  supabaseAdmin: SupabaseClient,
-  eventId: string,
-  eventType: string,
-  payloadHash: string
-): Promise<WebhookClaim> {
-  const { data, error } = await supabaseAdmin.rpc('claim_webhook_event', {
-    p_id: eventId,
-    p_type: eventType,
-    p_payload_hash: payloadHash,
-    p_stale_after_seconds: 300,
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) {
-    throw new Error('Failed to claim webhook event');
-  }
-
-  return {
-    shouldProcess: Boolean((row as Record<string, unknown>).should_process),
-  };
-}
-
-async function markWebhookEventProcessed(
-  supabaseAdmin: SupabaseClient,
-  eventId: string,
-  eventType: string,
-  payloadHash: string
-) {
-  const nowIso = new Date().toISOString();
-  const { error } = await supabaseAdmin
-    .from('webhook_events')
-    .update({
-      type: eventType,
-      payload_hash: payloadHash,
-      status: 'processed',
-      processed_at: nowIso,
-      last_error: null,
-      updated_at: nowIso,
-    })
-    .eq('id', eventId);
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function markWebhookEventFailed(
-  supabaseAdmin: SupabaseClient,
-  eventId: string,
-  eventType: string,
-  payloadHash: string,
-  lastError: string
-) {
-  const { error } = await supabaseAdmin
-    .from('webhook_events')
-    .update({
-      type: eventType,
-      payload_hash: payloadHash,
-      status: 'failed',
-      last_error: lastError,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', eventId);
-
-  if (error) {
-    console.error('Failed to mark webhook as failed:', error);
-  }
 }
 
 function normalizeErrorMessage(error: unknown): string {

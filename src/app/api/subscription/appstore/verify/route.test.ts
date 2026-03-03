@@ -8,7 +8,7 @@ test('active billing with future period is a conflict', () => {
     plan: 'pro',
     pro_source: 'billing',
     test_pro_expires_at: null,
-    current_period_end: '2026-03-01T00:00:00.000Z',
+    current_period_end: '2099-03-01T00:00:00.000Z',
   });
 
   assert.equal(conflict, true);
@@ -32,7 +32,7 @@ test('appstore source is not treated as billing conflict', () => {
     plan: 'pro',
     pro_source: 'appstore',
     test_pro_expires_at: null,
-    current_period_end: '2026-03-01T00:00:00.000Z',
+    current_period_end: '2099-03-01T00:00:00.000Z',
   });
 
   assert.equal(conflict, false);

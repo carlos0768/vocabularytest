@@ -225,6 +225,31 @@ KOMOJUのWebhook URLを本番ドメインに設定：
 https://your-domain.com/api/subscription/webhook
 ```
 
+App Store Server Notifications V2（Phase 3）:
+- エンドポイント: `https://www.your-domain.com/api/subscription/appstore/notifications`
+- App Store ConnectでまずSandbox通知を有効化して到達確認
+- `TEST` 通知はDB更新せず監査ログのみ処理
+- 重複通知は `webhook_events` の `appstore:{notificationUUID}` で冪等化
+
+運用監視クエリ例（Supabase SQL）:
+```sql
+-- 失敗イベント
+select id, type, status, attempt_count, last_error, updated_at
+from webhook_events
+where id like 'appstore:%'
+  and status = 'failed'
+order by updated_at desc
+limit 100;
+
+-- 直近24時間の失敗率
+select
+  count(*) filter (where status = 'failed') as failed_count,
+  count(*) as total_count
+from webhook_events
+where id like 'appstore:%'
+  and received_at >= now() - interval '24 hours';
+```
+
 ## ライセンス
 
 プライベートリポジトリ。All rights reserved.
