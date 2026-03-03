@@ -110,8 +110,9 @@ final class ShareImportViewModel: ObservableObject {
         var fetchedProjects: [ShareImportProjectOptionDTO] = []
         var previewCandidate: ShareImportPreviewCandidateDTO?
         var nextWarnings: [String] = []
-        let localEnglish = input.detectedEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let localEnglishRaw = input.detectedEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let localJapanese = input.detectedJapanese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let localEnglish = isTrustedLocalEnglish(localEnglishRaw) ? localEnglishRaw : ""
 
         do {
             fetchedProjects = try await withAuthorizedSnapshot { snapshot in
@@ -143,16 +144,8 @@ final class ShareImportViewModel: ObservableObject {
             return
         }
 
-        // If Japanese text is already present but English is missing,
-        // skip JP->EN auto-generation to avoid unnecessary API usage.
-        if localEnglish.isEmpty, !localJapanese.isEmpty {
-            nextWarnings.append("共有内容から英語を取得できませんでした。英語を入力してください。")
-            warnings = dedupeWarnings(nextWarnings)
-            projectOptions = fetchedProjects
-            selectedProjectId = fetchedProjects.first?.id
-            useNewProject = fetchedProjects.isEmpty
-            phase = .editing
-            return
+        if !localEnglishRaw.isEmpty, localEnglish.isEmpty {
+            nextWarnings.append("共有内容の英語候補を判定できなかったため、再取得します。")
         }
 
         do {
@@ -239,6 +232,25 @@ final class ShareImportViewModel: ObservableObject {
         let selected = candidates.max(by: { $0.count < $1.count }) ?? candidates[0]
         let wasSentence = candidates.count > 1 || trimmed.range(of: #"[.!?。！？]"#, options: .regularExpression) != nil
         return (english: selected.lowercased(), wasSentence: wasSentence)
+    }
+
+    private func isTrustedLocalEnglish(_ candidate: String) -> Bool {
+        let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard trimmed.range(of: #"^[A-Za-z][A-Za-z'\-\s]{0,79}$"#, options: .regularExpression) != nil else {
+            return false
+        }
+        let hasLowercase = trimmed.range(of: #"[a-z]"#, options: .regularExpression) != nil
+        let allUppercase = trimmed.range(of: #"[A-Z]"#, options: .regularExpression) != nil && !hasLowercase
+        if allUppercase && trimmed.count >= 4 {
+            return false
+        }
+        let lower = trimmed.lowercased()
+        let blockedPrefixes = ["troot", "null", "archiver", "bplist", "version", "object", "key", "uid", "cfuid"]
+        if blockedPrefixes.contains(where: { lower.hasPrefix($0) }) {
+            return false
+        }
+        return true
     }
 
     private func commit() async {

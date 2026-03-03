@@ -115,6 +115,7 @@ enum ShareInputExtractor {
             .filter { !$0.isEmpty }
             .filter { !isPayloadNoise($0) }
             .filter { !isNoiseLabel($0) }
+            .filter { !isSuspiciousUppercaseNoiseToken($0) }
         return dedupe(lines)
     }
 
@@ -542,6 +543,9 @@ enum ShareInputExtractor {
         if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
             return false
         }
+        if isSuspiciousUppercaseNoiseToken(trimmed) {
+            return false
+        }
         let lower = trimmed.lowercased()
         if isBinaryArtifactToken(lower) {
             return false
@@ -556,6 +560,13 @@ enum ShareInputExtractor {
             return false
         }
         return containsLatin(trimmed)
+    }
+
+    private static func isSuspiciousUppercaseNoiseToken(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let lettersOnly = trimmed.range(of: #"^[A-Z]{4,}$"#, options: .regularExpression) != nil
+        return lettersOnly
     }
 
     private static func isLikelyJapanesePhrase(_ value: String) -> Bool {
