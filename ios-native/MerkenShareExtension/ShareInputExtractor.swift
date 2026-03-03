@@ -15,6 +15,19 @@ enum ShareInputExtractor {
         UTType.data.identifier
     ]
 
+    private static let payloadNoiseMarkers: [String] = [
+        "bplist00",
+        "nskeyedarchiver",
+        "$archiver",
+        "$objects",
+        "$top",
+        "cf$uid",
+        "ns.keys",
+        "ns.objects",
+        "ns.string",
+        "x$versiony$archiver"
+    ]
+
     static func extract(from inputItems: [Any]) async -> ShareImportInput? {
         let extensionItems = inputItems.compactMap { $0 as? NSExtensionItem }
         var textCandidates: [String] = []
@@ -77,7 +90,7 @@ enum ShareInputExtractor {
             }
             results.append(contentsOf: await loadObjectStrings(from: provider))
         }
-        return dedupe(results)
+        return dedupe(results).filter(isUsefulTextCandidate(_:))
     }
 
     private static func allURLStrings(from attachments: [NSItemProvider]) async -> [String] {
@@ -142,7 +155,13 @@ enum ShareInputExtractor {
 
     private static func extractStrings(from data: Data, typeIdentifier: String) -> [String] {
         var values: [String] = []
-        if let utf8 = String(data: data, encoding: .utf8), !utf8.isEmpty {
+
+        if looksLikeBinaryPlist(data),
+           let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) {
+            values.append(contentsOf: extractStrings(from: plist, typeIdentifier: UTType.propertyList.identifier))
+        }
+
+        if let utf8 = String(data: data, encoding: .utf8), isUsefulTextCandidate(utf8) {
             values.append(utf8)
         }
         if typeIdentifier == UTType.html.identifier || typeIdentifier == "public.rtf" {
@@ -155,10 +174,10 @@ enum ShareInputExtractor {
                 ],
                 documentAttributes: nil
             ) {
-                values.append(attributed.string)
+                values.append(contentsOf: attributed.string.components(separatedBy: .newlines))
             }
         }
-        return values
+        return dedupe(values).filter(isUsefulTextCandidate(_:))
     }
 
     private static func detectBilingualPair(
@@ -169,6 +188,7 @@ enum ShareInputExtractor {
             .flatMap { $0.components(separatedBy: .newlines) }
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .filter { !isPayloadNoise($0) }
 
         var lines = rawLines.filter { !isNoiseLabel($0) }
 
@@ -337,6 +357,46 @@ enum ShareInputExtractor {
         return labels.contains(normalized)
     }
 
+    private static func isPayloadNoise(_ value: String) -> Bool {
+        let normalized = value.lowercased()
+        if payloadNoiseMarkers.contains(where: { normalized.contains($0) }) {
+            return true
+        }
+
+        // Large binary-ish fragments often appear as a single long token packed with $/UID markers.
+        if normalized.count > 60, normalized.contains("$"), normalized.contains("uid") {
+            return true
+        }
+
+        return false
+    }
+
+    private static func isUsefulTextCandidate(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return false }
+        if isPayloadNoise(trimmed) { return false }
+        if trimmed.count > 1000 { return false }
+
+        // Reject control-heavy strings.
+        let controlCount = trimmed.unicodeScalars.filter { scalar in
+            CharacterSet.controlCharacters.contains(scalar)
+                && scalar != "\n"
+                && scalar != "\r"
+                && scalar != "\t"
+        }.count
+        if controlCount > 0 {
+            return false
+        }
+
+        return true
+    }
+
+    private static func looksLikeBinaryPlist(_ data: Data) -> Bool {
+        let magic = "bplist00".data(using: .utf8) ?? Data()
+        guard magic.count > 0, data.count >= magic.count else { return false }
+        return data.starts(with: magic)
+    }
+
     private static func containsJapanese(_ value: String) -> Bool {
         value.range(of: #"[ぁ-ゖァ-ヺ一-龯]"#, options: .regularExpression) != nil
     }
@@ -348,6 +408,9 @@ enum ShareInputExtractor {
     private static func isLikelyEnglishPhrase(_ value: String) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
+            return false
+        }
+        if isPayloadNoise(trimmed) {
             return false
         }
         if containsJapanese(trimmed) {
