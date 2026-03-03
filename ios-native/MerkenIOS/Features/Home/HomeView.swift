@@ -51,6 +51,7 @@ struct HomeView: View {
     @State private var renameProjectTitle = ""
     @State private var projectForActions: Project?
     @State private var selectedCollection: Collection?
+    @State private var showingBookshelfList = false
 
     private var isDark: Bool { colorScheme == .dark }
 
@@ -166,6 +167,9 @@ struct HomeView: View {
         }
         .navigationDestination(isPresented: $showingProjectList) {
             ProjectListView()
+        }
+        .navigationDestination(isPresented: $showingBookshelfList) {
+            BookshelfListView()
         }
         .sheet(isPresented: $showingScan) {
             ScanCoordinatorView()
@@ -699,7 +703,7 @@ struct HomeView: View {
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 Button {
-                    appState.selectedTab = 1
+                    showingBookshelfList = true
                 } label: {
                     Text("すべて見る")
                         .font(.system(size: 14, design: .serif))

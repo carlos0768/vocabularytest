@@ -20,11 +20,11 @@ struct RootTabView: View {
                 }
 
                 NavigationStack {
-                    BookshelfTabView()
+                    FavoritesView()
                 }
                 .tag(1)
                 .tabItem {
-                    Label("本棚", systemImage: "books.vertical.fill")
+                    Label("苦手単語", systemImage: "flag.fill")
                 }
 
                 NavigationStack {
