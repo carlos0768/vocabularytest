@@ -235,7 +235,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
         let userId = session.userId
 
-        stepBeforeError = .preview
+        stepBeforeError = .projectSetup
         currentStep = .processing
         processingSummary = nil
         beginBackgroundTask()
