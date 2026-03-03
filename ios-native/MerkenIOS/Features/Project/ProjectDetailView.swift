@@ -177,9 +177,16 @@ struct ProjectDetailView: View {
 
     private func handleShare() async {
         guard case .proCloud = appState.repositoryMode else {
-            // Guest users: text share via share sheet
-            let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
-            let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
+            // Guest users: text share with sample words (no link)
+            let sampleWords = viewModel.words.prefix(3).map { $0.english }
+            let wordsPart = sampleWords.joined(separator: "、")
+            let totalCount = viewModel.words.count
+            let text: String
+            if wordsPart.isEmpty {
+                text = "Merkenで単語を暗記中！"
+            } else {
+                text = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\nhttps://www.merken.jp"
+            }
             presentShareSheet(items: [text])
             return
         }
@@ -192,11 +199,36 @@ struct ProjectDetailView: View {
             guard let shareId else { return }
 
             guard let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") else { return }
-            presentShareSheet(items: [shareURL])
+
+            // Build share text with sample words
+            let sampleWords = viewModel.words.prefix(3).map { $0.english }
+            let wordsPart: String
+            if sampleWords.count >= 2 {
+                wordsPart = sampleWords.dropLast().joined(separator: "、") + "、" + sampleWords.last!
+            } else if let first = sampleWords.first {
+                wordsPart = first
+            } else {
+                wordsPart = ""
+            }
+            let totalCount = viewModel.words.count
+            let shareText: String
+            if wordsPart.isEmpty {
+                shareText = "Merkenで単語を暗記中！\n\(shareURL.absoluteString)"
+            } else {
+                shareText = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\n\(shareURL.absoluteString)"
+            }
+            presentShareSheet(items: [shareText])
         } catch {
             // Fallback to text share on error
-            let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
-            let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
+            let sampleWords = viewModel.words.prefix(3).map { $0.english }
+            let wordsPart = sampleWords.joined(separator: "、")
+            let totalCount = viewModel.words.count
+            let text: String
+            if wordsPart.isEmpty {
+                text = "Merkenで単語を暗記中！"
+            } else {
+                text = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\nhttps://www.merken.jp"
+            }
             presentShareSheet(items: [text])
         }
     }
