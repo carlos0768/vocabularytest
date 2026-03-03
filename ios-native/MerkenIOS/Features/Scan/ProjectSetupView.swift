@@ -1,18 +1,17 @@
 import SwiftUI
+import PhotosUI
 
-/// Pre-scan setup: project name + thumbnail selection
+/// Pre-scan setup: project name + optional thumbnail
 struct ProjectSetupView: View {
     let images: [SelectedScanImage]
     @Binding var projectTitle: String
-    @Binding var useThumbnail: Bool
+    @Binding var thumbnailImage: UIImage?
     let onBack: () -> Void
     let onStart: () -> Void
 
     @FocusState private var titleFocused: Bool
-
-    private var firstImage: UIImage? {
-        images.first?.image
-    }
+    @State private var showingPhotoPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     var body: some View {
         ZStack {
@@ -27,28 +26,9 @@ struct ProjectSetupView: View {
                     .padding(.bottom, 16)
 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        // Thumbnail preview
-                        if let img = firstImage {
-                            VStack(spacing: 10) {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 120, height: 120)
-                                    .clipShape(.rect(cornerRadius: 18))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 18)
-                                            .stroke(MerkenTheme.border, lineWidth: 1.5)
-                                    )
-                                    .opacity(useThumbnail ? 1 : 0.4)
-
-                                if images.count > 1 {
-                                    Text("\(images.count)枚の画像を解析します")
-                                        .font(.system(size: 12, design: .serif))
-                                        .foregroundStyle(MerkenTheme.mutedText)
-                                }
-                            }
-                        }
+                    VStack(spacing: 24) {
+                        // Thumbnail picker
+                        thumbnailSection
 
                         // Project name field
                         VStack(alignment: .leading, spacing: 8) {
@@ -64,42 +44,16 @@ struct ProjectSetupView: View {
                         }
                         .padding(.horizontal, 16)
 
-                        // Thumbnail toggle
-                        if firstImage != nil {
-                            HStack(spacing: 14) {
-                                Image(uiImage: firstImage!)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 48, height: 48)
-                                    .clipShape(.rect(cornerRadius: 10))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(MerkenTheme.borderLight, lineWidth: 1)
-                                    )
-                                    .opacity(useThumbnail ? 1 : 0.4)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("この画像をサムネイルに使う")
-                                        .font(.system(size: 14, weight: .medium, design: .serif))
-                                        .foregroundStyle(MerkenTheme.primaryText)
-                                    Text("単語帳の表紙として表示されます")
-                                        .font(.system(size: 12, design: .serif))
-                                        .foregroundStyle(MerkenTheme.mutedText)
-                                }
-
-                                Spacer()
-
-                                Toggle("", isOn: $useThumbnail)
-                                    .tint(MerkenTheme.accentBlue)
-                                    .labelsHidden()
+                        // Image count info
+                        if images.count > 0 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "doc.text.image")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                                Text("\(images.count)枚の画像を解析します")
+                                    .font(.system(size: 13, design: .serif))
+                                    .foregroundStyle(MerkenTheme.mutedText)
                             }
-                            .padding(14)
-                            .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
-                            )
-                            .padding(.horizontal, 16)
                         }
                     }
                     .padding(.top, 8)
@@ -129,5 +83,74 @@ struct ProjectSetupView: View {
             }
         }
         .onTapGesture { titleFocused = false }
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    thumbnailImage = uiImage
+                }
+            }
+        }
+    }
+
+    // MARK: - Thumbnail Section
+
+    private var thumbnailSection: some View {
+        VStack(spacing: 10) {
+            // Thumbnail preview or placeholder
+            ZStack {
+                if let thumb = thumbnailImage {
+                    Image(uiImage: thumb)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 100)
+                        .clipShape(.rect(cornerRadius: 18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(MerkenTheme.border, lineWidth: 1.5)
+                        )
+                } else {
+                    // Placeholder matching web's colored square
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(MerkenTheme.accentBlue.opacity(0.15))
+                        .frame(width: 100, height: 100)
+                        .overlay(
+                            Image(systemName: "photo.badge.plus")
+                                .font(.system(size: 28))
+                                .foregroundStyle(MerkenTheme.accentBlue.opacity(0.5))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(MerkenTheme.borderLight, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                        )
+                }
+            }
+            .onTapGesture { showingPhotoPicker = true }
+
+            // Action buttons
+            HStack(spacing: 12) {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    Text(thumbnailImage == nil ? "サムネを設定" : "変更")
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+
+                if thumbnailImage != nil {
+                    Button {
+                        thumbnailImage = nil
+                        selectedPhotoItem = nil
+                    } label: {
+                        Text("削除")
+                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .foregroundStyle(MerkenTheme.danger)
+                    }
+                }
+            }
+
+            Text("未設定の場合、カラーアイコンが表示されます")
+                .font(.system(size: 11, design: .serif))
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
     }
 }

@@ -4,7 +4,7 @@ struct ScanCoordinatorView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel: ScanCoordinatorViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var useThumbnail = true
+    @State private var thumbnailImage: UIImage?
 
     let onComplete: ((String) -> Void)?
 
@@ -83,7 +83,7 @@ struct ScanCoordinatorView: View {
             ProjectSetupView(
                 images: viewModel.selectedImages,
                 projectTitle: $viewModel.projectTitle,
-                useThumbnail: $useThumbnail,
+                thumbnailImage: $thumbnailImage,
                 onBack: {
                     if viewModel.isPhotoLibrarySelection {
                         viewModel.selectPhotosAgain()
@@ -92,9 +92,7 @@ struct ScanCoordinatorView: View {
                     }
                 },
                 onStart: {
-                    if useThumbnail, let first = viewModel.selectedImages.first {
-                        viewModel.projectThumbnail = first.image
-                    }
+                    viewModel.projectThumbnail = thumbnailImage
                     viewModel.processSelectedImages(using: appState)
                 }
             )
