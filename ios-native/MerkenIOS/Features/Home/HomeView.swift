@@ -6,7 +6,6 @@ private struct QuizDestination: Hashable {
     var preloadedWords: [Word]? = nil
     var skipSetup: Bool = false
 
-    // Hashable conformance — only hash project to allow navigation dedup
     func hash(into hasher: inout Hasher) {
         hasher.combine(project)
         hasher.combine(skipSetup)
@@ -52,12 +51,14 @@ struct HomeView: View {
     @State private var renameProjectTitle = ""
     @State private var projectForActions: Project?
 
+    private var isDark: Bool { colorScheme == .dark }
+
     var body: some View {
         ZStack {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
+                // Fixed header — minimal
                 headerSection
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
@@ -69,11 +70,16 @@ struct HomeView: View {
                         .padding(.top, 5)
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Spacer().frame(height: 5)
+                        VStack(alignment: .leading, spacing: 14) {
+                            Spacer().frame(height: 2)
 
-                            // MARK: - Hero
-                            heroSection
+                            // MARK: - Today's Focus (compact banner)
+                            todayFocusBanner
+
+                            // MARK: - Mini Stats Row
+                            if viewModel.todayAnswered > 0 || viewModel.streakDays > 0 {
+                                miniStatsRow
+                            }
 
                             if let errorMessage = viewModel.errorMessage {
                                 SolidCard {
@@ -84,32 +90,47 @@ struct HomeView: View {
                                         Text(errorMessage)
                                             .font(.subheadline)
                                             .foregroundStyle(MerkenTheme.secondaryText)
-
                                         Button("再試行") {
-                                            Task {
-                                                await viewModel.load(using: appState)
-                                            }
+                                            Task { await viewModel.load(using: appState) }
                                         }
                                         .buttonStyle(PrimaryGlassButton())
                                     }
                                 }
                             }
 
-                            // MARK: - Quick Links
-                            quickLinksSection
-
-                            // MARK: - Recent Projects
+                            // MARK: - Projects (main content, promoted)
                             if !viewModel.projects.isEmpty {
                                 recentProjectsSection
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.bottom, 18)
+                        .padding(.bottom, 80) // room for FAB
                     }
                     .scrollIndicators(.hidden)
                     .refreshable {
                         await viewModel.load(using: appState)
                     }
+                }
+            }
+
+            // MARK: - Floating Scan Button (FAB)
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        showingScan = true
+                    } label: {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(MerkenTheme.accentBlue, in: .circle)
+                            .shadow(color: MerkenTheme.accentBlue.opacity(0.35), radius: 8, x: 0, y: 4)
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 16)
                 }
             }
         }
@@ -137,25 +158,24 @@ struct HomeView: View {
         .navigationDestination(isPresented: $showingProjectList) {
             ProjectListView()
         }
+        .sheet(isPresented: $showingScan) {
+            ScanCoordinatorView()
+                .environmentObject(appState)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .alert(
             "単語帳名を変更",
             isPresented: Binding(
                 get: { projectToRename != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        projectToRename = nil
-                        renameProjectTitle = ""
-                    }
-                }
+                set: { if !$0 { projectToRename = nil; renameProjectTitle = "" } }
             )
         ) {
             TextField("単語帳名", text: $renameProjectTitle)
             Button("保存") {
                 guard let project = projectToRename else { return }
                 let nextTitle = renameProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                Task {
-                    await viewModel.renameProject(id: project.id, title: nextTitle, using: appState)
-                }
+                Task { await viewModel.renameProject(id: project.id, title: nextTitle, using: appState) }
                 projectToRename = nil
                 renameProjectTitle = ""
             }
@@ -173,11 +193,7 @@ struct HomeView: View {
             "操作を選択",
             isPresented: Binding(
                 get: { projectForActions != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        projectForActions = nil
-                    }
-                }
+                set: { if !$0 { projectForActions = nil } }
             ),
             titleVisibility: .visible
         ) {
@@ -190,47 +206,53 @@ struct HomeView: View {
                         renameProjectTitle = target.title
                     }
                 }
-
                 Button(project.isFavorite ? "ピン解除" : "ピン留め") {
                     projectForActions = nil
-                    Task {
-                        await viewModel.toggleFavorite(projectId: project.id, using: appState)
-                    }
+                    Task { await viewModel.toggleFavorite(projectId: project.id, using: appState) }
                 }
-
                 Button("削除", role: .destructive) {
                     projectForActions = nil
                     projectToDelete = project
                 }
             }
-
-            Button("キャンセル", role: .cancel) {
-                projectForActions = nil
-            }
+            Button("キャンセル", role: .cancel) { projectForActions = nil }
         } message: {
             if let project = projectForActions {
                 Text("「\(project.title)」")
             }
+        }
+        .confirmationDialog(
+            "「\(projectToDelete?.title ?? "")」を削除しますか？",
+            isPresented: Binding(
+                get: { projectToDelete != nil },
+                set: { if !$0 { projectToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                if let project = projectToDelete {
+                    Task { await viewModel.deleteProject(id: project.id, using: appState) }
+                }
+                projectToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) { projectToDelete = nil }
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
     }
 
-    // MARK: - Header (MERKEN + sync + Pro)
+    // MARK: - Header (minimal: MERKEN + Pro badge)
 
     private var headerSection: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("MERKEN")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .tracking(2)
-                Text("手入力ゼロで単語帳を作成")
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
+        HStack(alignment: .center) {
+            Text("MERKEN")
+                .font(.system(size: 24, weight: .bold, design: .serif))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .tracking(2)
+
             Spacer()
+
             HStack(spacing: 8) {
                 if appState.canUseCloud {
                     HStack(spacing: 4) {
@@ -258,93 +280,118 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Hero Section
+    // MARK: - Today's Focus Banner (compact)
 
-    private var isDark: Bool { colorScheme == .dark }
+    private var todayFocusBanner: some View {
+        HStack(spacing: 12) {
+            // Icon
+            Image(systemName: focusBannerIcon)
+                .font(.title3)
+                .foregroundStyle(MerkenTheme.accentBlue)
+                .frame(width: 40, height: 40)
+                .background(MerkenTheme.accentBlueLight, in: .circle)
 
-    private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Streak + motivation
-            HStack(spacing: 12) {
-                Image(systemName: "flame.fill")
-                    .font(.title2)
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                    .frame(width: 44, height: 44)
-                    .background(MerkenTheme.accentBlueLight, in: .circle)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(heroHeading)
-                        .font(.system(size: 20, weight: .bold, design: .serif))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text(heroSubheading)
-                        .font(.system(size: 14, design: .serif))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
+            // Text
+            VStack(alignment: .leading, spacing: 2) {
+                Text(focusBannerHeading)
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(focusBannerSubheading)
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundStyle(MerkenTheme.secondaryText)
             }
 
-            // Stat pills
-            if viewModel.todayAnswered > 0 {
-                HStack(spacing: 8) {
-                    statPill(icon: "checkmark.circle", text: "\(viewModel.accuracyPercent)% 正答率")
-                    statPill(icon: "graduationcap", text: "\(viewModel.totalWordCount) 習得")
-                    if viewModel.dueWordCount > 0 {
-                        statPill(icon: "clock", text: "\(viewModel.dueWordCount) 復習待ち")
-                    }
-                }
-            }
+            Spacer()
 
-            // CTA
+            // CTA arrow
             if let firstProject = viewModel.projects.first {
-                if appState.isAIEnabled, viewModel.dueWordCount > 0 {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    if appState.isAIEnabled, viewModel.dueWordCount > 0 {
                         quizDestination = QuizDestination(
                             project: firstProject,
                             preloadedWords: viewModel.dueWords,
                             skipSetup: true
                         )
-                    } label: {
-                        Label("復習を始める", systemImage: "arrow.trianglehead.2.clockwise")
-                    }
-                    .buttonStyle(HeroCTAButton(isDark: isDark))
-                } else if appState.isAIEnabled {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } else if appState.isAIEnabled {
                         quizDestination = QuizDestination(project: firstProject)
-                    } label: {
-                        Label("クイズに挑戦", systemImage: "play.fill")
-                    }
-                    .buttonStyle(HeroCTAButton(isDark: isDark))
-                } else {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } else {
                         flashcardDestination = FlashcardDestination(
                             project: firstProject,
                             preloadedWords: viewModel.preloadedWords(for: firstProject.id)
                         )
-                    } label: {
-                        Label("フラッシュカードで学習", systemImage: "rectangle.on.rectangle.angled")
                     }
-                    .buttonStyle(HeroCTAButton(isDark: isDark))
+                } label: {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(MerkenTheme.accentBlue, in: .circle)
                 }
-            } else {
-                Text("まず単語帳を作成してください。")
-                    .font(.system(size: 14, design: .serif))
-                    .foregroundStyle(MerkenTheme.mutedText)
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .padding(14)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(MerkenTheme.border, lineWidth: 1.5)
         )
         .background(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(MerkenTheme.border)
-                .offset(y: 3)
+                .offset(y: 2)
         )
+    }
+
+    // MARK: - Mini Stats Row
+
+    private var miniStatsRow: some View {
+        HStack(spacing: 0) {
+            if viewModel.streakDays > 0 {
+                miniStat(icon: "flame.fill", value: "\(viewModel.streakDays)日", label: "連続")
+            }
+            if viewModel.todayAnswered > 0 {
+                if viewModel.streakDays > 0 { miniStatDivider }
+                miniStat(icon: "checkmark.circle", value: "\(viewModel.accuracyPercent)%", label: "正答率")
+                miniStatDivider
+                miniStat(icon: "graduationcap", value: "\(viewModel.totalWordCount)", label: "習得")
+            }
+            if viewModel.dueWordCount > 0 {
+                miniStatDivider
+                miniStat(icon: "clock", value: "\(viewModel.dueWordCount)", label: "復習待ち")
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(MerkenTheme.borderLight, lineWidth: 1)
+        )
+    }
+
+    private func miniStat(icon: String, value: String, label: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(MerkenTheme.accentBlue)
+            VStack(spacing: 0) {
+                Text(value)
+                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(label)
+                    .font(.system(size: 10, design: .serif))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var miniStatDivider: some View {
+        Rectangle()
+            .fill(MerkenTheme.borderLight)
+            .frame(width: 1, height: 28)
     }
 
     // MARK: - Empty State
@@ -363,7 +410,7 @@ struct HomeView: View {
                 .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(MerkenTheme.primaryText)
 
-            Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
+            Text("右下の📷ボタンから\nノートやプリントを撮影しましょう。")
                 .font(.system(size: 14, design: .serif))
                 .foregroundStyle(MerkenTheme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -377,12 +424,9 @@ struct HomeView: View {
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
                 .font(.subheadline)
-                .onTapGesture {
-                    showingSignUp = true
-                }
+                .onTapGesture { showingSignUp = true }
                 .sheet(isPresented: $showingSignUp) {
-                    SignUpView()
-                        .environmentObject(appState)
+                    SignUpView().environmentObject(appState)
                 }
             }
 
@@ -392,103 +436,35 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Quick Links (4 icons)
-
-    private var quickLinksSection: some View {
-        HStack(spacing: 10) {
-            quickLink(icon: "camera.fill", label: "スキャン", color: MerkenTheme.accentBlue) {
-                showingScan = true
-            }
-            quickLink(icon: "magnifyingglass", label: "検索", color: MerkenTheme.secondaryText) {
-                appState.selectedTab = 2
-            }
-            quickLink(icon: "flag.fill", label: "苦手単語", color: MerkenTheme.warning) {
-                showingFavorites = true
-            }
-            quickLink(icon: "text.book.closed.fill", label: "単語帳", color: MerkenTheme.success) {
-                showingProjectList = true
-            }
-        }
-        .sheet(isPresented: $showingScan) {
-            ScanCoordinatorView()
-                .environmentObject(appState)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
-        .confirmationDialog(
-            "「\(projectToDelete?.title ?? "")」を削除しますか？",
-            isPresented: Binding(
-                get: { projectToDelete != nil },
-                set: { if !$0 { projectToDelete = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("削除", role: .destructive) {
-                if let project = projectToDelete {
-                    Task {
-                        await viewModel.deleteProject(id: project.id, using: appState)
-                    }
-                }
-                projectToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) {
-                projectToDelete = nil
-            }
-        }
-    }
-
-    private func quickLink(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundStyle(color)
-                    .frame(width: 48, height: 48)
-                    .background(color.opacity(0.10), in: .circle)
-                Text(label)
-                    .font(.system(size: 11, design: .serif))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 2)
-            )
-        }
-    }
-
-    // MARK: - Recent Projects (3-column grid)
+    // MARK: - Projects Section (promoted to main content)
 
     private var recentProjectsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("最近の単語帳")
+                Text("単語帳")
                     .font(.system(size: 17, weight: .bold, design: .serif))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                Text("すべて見る")
-                    .font(.system(size: 14, design: .serif))
-                    .foregroundStyle(MerkenTheme.accentBlue)
+                if viewModel.projects.count > 6 {
+                    Button {
+                        showingProjectList = true
+                    } label: {
+                        Text("すべて見る")
+                            .font(.system(size: 14, design: .serif))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
+                }
             }
 
             let columns = [
-                GridItem(.flexible(), spacing: 18),
-                GridItem(.flexible(), spacing: 18),
-                GridItem(.flexible(), spacing: 18)
+                GridItem(.flexible(), spacing: 16),
+                GridItem(.flexible(), spacing: 16),
+                GridItem(.flexible(), spacing: 16)
             ]
             LazyVGrid(columns: columns, spacing: 14) {
-                ForEach(viewModel.projects.prefix(6)) { project in
+                ForEach(viewModel.projects.prefix(9)) { project in
                     projectThumbnail(project)
-                        .onTapGesture {
-                            detailProject = project
-                        }
+                        .onTapGesture { detailProject = project }
                 }
             }
         }
@@ -496,7 +472,6 @@ struct HomeView: View {
 
     private func projectThumbnail(_ project: Project) -> some View {
         VStack(spacing: 0) {
-            // Image area with padding
             Color.clear
                 .aspectRatio(1.0, contentMode: .fit)
                 .overlay {
@@ -507,23 +482,21 @@ struct HomeView: View {
                                 .resizable()
                                 .scaledToFill()
                         } else {
-                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
                             bgColor
                             VStack(spacing: 2) {
                                 Text(String(project.title.prefix(1)))
-                                    .font(.system(size: 28, weight: .bold))
+                                    .font(.system(size: 28, weight: .bold, design: .serif))
                                     .foregroundStyle(.white)
                                 Text("\(project.title.count)語")
-                                    .font(.caption2.bold())
+                                    .font(.system(size: 10, weight: .semibold, design: .serif))
                                     .foregroundStyle(.white.opacity(0.8))
                             }
                         }
-
                     }
                 }
                 .clipShape(.rect(cornerRadius: 14))
                 .overlay {
-                    // Flag overlay — outside clipShape so it won't be clipped
                     if project.isFavorite {
                         VStack {
                             HStack {
@@ -542,9 +515,8 @@ struct HomeView: View {
                 .padding(.horizontal, 8)
                 .padding(.top, 8)
 
-            // Title inside card — fixed height so tiles align regardless of title length
             Text(project.title)
-                .font(.caption)
+                .font(.system(size: 12, design: .serif))
                 .foregroundStyle(MerkenTheme.primaryText)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -571,59 +543,31 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Focus Banner Helpers
 
-    private var heroHeading: String {
-        if viewModel.streakDays > 0 {
-            return "\(viewModel.streakDays)日連続学習中"
+    private var focusBannerIcon: String {
+        if viewModel.dueWordCount > 0 { return "arrow.trianglehead.2.clockwise" }
+        if viewModel.todayAnswered > 0 { return "checkmark.seal.fill" }
+        return "book.fill"
+    }
+
+    private var focusBannerHeading: String {
+        if viewModel.dueWordCount > 0 {
+            return "\(viewModel.dueWordCount)語の復習待ち"
         } else if viewModel.todayAnswered > 0 {
-            return "今日も頑張っています"
+            return "今日 \(viewModel.todayAnswered)問クリア"
         } else {
             return "今日の学習を始めよう"
         }
     }
 
-    private var heroSubheading: String {
-        if viewModel.todayAnswered > 0 {
-            return "今日 \(viewModel.todayAnswered)問回答"
+    private var focusBannerSubheading: String {
+        if viewModel.dueWordCount > 0 {
+            return "タップして復習を開始"
+        } else if viewModel.todayAnswered > 0 {
+            return "調子いいね！続けよう"
         } else {
             return "クイズに挑戦して単語を覚えよう"
         }
-    }
-
-    private func statPill(icon: String, text: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption2)
-            Text(text)
-                .font(.system(size: 11, weight: .semibold, design: .serif))
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(MerkenTheme.accentBlueLight, in: .capsule)
-        .foregroundStyle(MerkenTheme.accentBlue)
-    }
-}
-
-// CTA button for hero card — teal accent, paper feel
-private struct HeroCTAButton: ButtonStyle {
-    var isDark: Bool = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .semibold, design: .serif))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
-            .overlay(alignment: .bottom) {
-                UnevenRoundedRectangle(bottomLeadingRadius: 14, bottomTrailingRadius: 14)
-                    .fill(MerkenTheme.accentBlueStrong)
-                    .frame(height: 3)
-            }
-            .clipShape(.rect(cornerRadius: 14))
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
