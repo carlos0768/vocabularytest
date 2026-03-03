@@ -106,6 +106,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
     @Published private(set) var currentStep: FlowStep = .modeSelection
     @Published var editableWords: [EditableExtractedWord] = []
     @Published var projectTitle: String = ""
+    @Published var projectThumbnail: UIImage?
     @Published private(set) var currentWordCount: Int = 0
     @Published private(set) var selectedImages: [SelectedScanImage] = []
     @Published private(set) var processingPages: [ScanPageProgress] = []
@@ -383,7 +384,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     source: targetProjectId == nil ? .homeOrProjectList : .projectDetail,
                     localTargetProjectId: response.saveMode == .clientLocal ? targetProjectId : nil,
                     requestedProjectTitle: resolvedProjectTitle,
-                    requestedProjectIconImage: nil,
+                    requestedProjectIconImage: projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) },
                     createdAt: .now
                 )
                 appState.registerPendingScanImport(context)
@@ -861,10 +862,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     return
                 }
 
+                let thumbnailBase64 = projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) }
                 let project = try await appState.activeRepository.createProject(
                     title: trimmedTitle,
                     userId: appState.activeUserId,
-                    iconImage: nil
+                    iconImage: thumbnailBase64
                 )
                 projectId = project.id
                 projectDisplayTitle = project.title

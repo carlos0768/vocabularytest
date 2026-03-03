@@ -4,6 +4,7 @@ struct ScanCoordinatorView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel: ScanCoordinatorViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var useThumbnail = true
 
     let onComplete: ((String) -> Void)?
 
@@ -82,17 +83,26 @@ struct ScanCoordinatorView: View {
             if viewModel.selectedImages.count > 1 {
                 MultiImagePreviewView(
                     images: viewModel.selectedImages,
+                    projectTitle: $viewModel.projectTitle,
+                    useThumbnail: $useThumbnail,
                     onDelete: { id in viewModel.removeSelectedImage(id: id) },
                     onMove: { source, destination in
                         viewModel.moveSelectedImages(from: source, to: destination)
                     },
                     onRepick: { viewModel.selectPhotosAgain() },
-                    onUseImages: { viewModel.processSelectedImages(using: appState) }
+                    onUseImages: {
+                        if useThumbnail, let first = viewModel.selectedImages.first {
+                            viewModel.projectThumbnail = first.image
+                        }
+                        viewModel.processSelectedImages(using: appState)
+                    }
                 )
             } else if let image = viewModel.capturedImage {
                 ImagePreviewView(
                     image: image,
                     retakeButtonTitle: viewModel.isPhotoLibrarySelection ? "選び直し" : "撮り直す",
+                    projectTitle: $viewModel.projectTitle,
+                    useThumbnail: $useThumbnail,
                     onRetake: {
                         if viewModel.isPhotoLibrarySelection {
                             viewModel.selectPhotosAgain()
@@ -100,7 +110,12 @@ struct ScanCoordinatorView: View {
                             viewModel.retakePhoto()
                         }
                     },
-                    onUseImage: { viewModel.processSelectedImages(using: appState) }
+                    onUseImage: {
+                        if useThumbnail {
+                            viewModel.projectThumbnail = image
+                        }
+                        viewModel.processSelectedImages(using: appState)
+                    }
                 )
             } else {
                 errorView(message: "画像が選択されていません。")
