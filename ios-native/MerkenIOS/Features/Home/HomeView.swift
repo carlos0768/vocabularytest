@@ -338,11 +338,17 @@ struct HomeView: View {
                     }
                 } label: {
                     Text("復習")
-                        .font(.system(size: 13, weight: .semibold, design: .serif))
+                        .font(.system(size: 15, weight: .bold, design: .serif))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 10))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 12))
+                        .overlay(alignment: .bottom) {
+                            UnevenRoundedRectangle(bottomLeadingRadius: 12, bottomTrailingRadius: 12)
+                                .fill(MerkenTheme.accentBlueStrong)
+                                .frame(height: 3)
+                        }
+                        .clipShape(.rect(cornerRadius: 12))
                 }
             }
         }
