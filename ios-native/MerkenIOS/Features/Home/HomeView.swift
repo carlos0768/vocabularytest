@@ -677,14 +677,14 @@ struct HomeView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .stroke(
-                    project.isFavorite ? MerkenTheme.success : MerkenTheme.borderLight,
-                    lineWidth: project.isFavorite ? 2 : 1
+                    project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                    lineWidth: project.isFavorite ? 2.5 : 1.5
                 )
         )
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(MerkenTheme.border)
-                .offset(y: 2)
+                .offset(y: 4)
         )
     }
 
