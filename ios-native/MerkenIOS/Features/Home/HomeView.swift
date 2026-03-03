@@ -223,10 +223,11 @@ struct HomeView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("MERKEN")
-                    .font(.system(size: 28, weight: .black))
+                    .font(.system(size: 26, weight: .bold, design: .serif))
                     .foregroundStyle(MerkenTheme.primaryText)
+                    .tracking(2)
                 Text("手入力ゼロで単語帳を作成")
-                    .font(.subheadline)
+                    .font(.system(size: 13, design: .serif))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
             Spacer()
@@ -243,10 +244,10 @@ struct HomeView: View {
                 }
                 if appState.isPro {
                     HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
+                        Image(systemName: "leaf.fill")
                             .font(.caption2)
                         Text("Pro")
-                            .font(.caption.bold())
+                            .font(.system(size: 12, weight: .semibold, design: .serif))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
@@ -267,17 +268,17 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 Image(systemName: "flame.fill")
                     .font(.title2)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MerkenTheme.accentBlue)
                     .frame(width: 44, height: 44)
-                    .background(.white.opacity(isDark ? 0.12 : 0.2), in: .circle)
+                    .background(MerkenTheme.accentBlueLight, in: .circle)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(heroHeading)
-                        .font(.title3.bold())
-                        .foregroundStyle(.white)
+                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .foregroundStyle(MerkenTheme.primaryText)
                     Text(heroSubheading)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(isDark ? 0.6 : 0.8))
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
 
@@ -328,26 +329,21 @@ struct HomeView: View {
                 }
             } else {
                 Text("まず単語帳を作成してください。")
-                    .font(.subheadline)
-                    .foregroundStyle(isDark ? MerkenTheme.mutedText : .white.opacity(0.7))
+                    .font(.system(size: 14, design: .serif))
+                    .foregroundStyle(MerkenTheme.mutedText)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: isDark
-                    ? [Color(red: 0.08, green: 0.16, blue: 0.28), Color(red: 0.05, green: 0.10, blue: 0.20)]
-                    : [MerkenTheme.accentBlue, MerkenTheme.accentBlueStrong],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: .rect(cornerRadius: 22)
-        )
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
         .overlay(
-            isDark
-                ? RoundedRectangle(cornerRadius: 22).stroke(MerkenTheme.border, lineWidth: 1)
-                : nil
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
         )
     }
 
@@ -361,14 +357,14 @@ struct HomeView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(MerkenTheme.accentBlue)
                 .frame(width: 96, height: 96)
-                .background(MerkenTheme.accentBlue.opacity(0.1), in: .circle)
+                .background(MerkenTheme.accentBlueLight, in: .circle)
 
             Text("単語帳がありません")
-                .font(.title2.bold())
+                .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             Text("ノートやプリントを撮影して\n最初の単語帳を作りましょう。")
-                .font(.subheadline)
+                .font(.system(size: 14, design: .serif))
                 .foregroundStyle(MerkenTheme.secondaryText)
                 .multilineTextAlignment(.center)
 
@@ -450,7 +446,7 @@ struct HomeView: View {
                     .frame(width: 48, height: 48)
                     .background(color.opacity(0.10), in: .circle)
                 Text(label)
-                    .font(.caption)
+                    .font(.system(size: 11, design: .serif))
                     .foregroundStyle(MerkenTheme.secondaryText)
             }
             .frame(maxWidth: .infinity)
@@ -474,11 +470,11 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("最近の単語帳")
-                    .font(.headline)
+                    .font(.system(size: 17, weight: .bold, design: .serif))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 Text("すべて見る")
-                    .font(.subheadline)
+                    .font(.system(size: 14, design: .serif))
                     .foregroundStyle(MerkenTheme.accentBlue)
             }
 
@@ -600,45 +596,34 @@ struct HomeView: View {
             Image(systemName: icon)
                 .font(.caption2)
             Text(text)
-                .font(.caption2.bold())
+                .font(.system(size: 11, weight: .semibold, design: .serif))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(.white.opacity(isDark ? 0.10 : 0.2), in: .capsule)
-        .foregroundStyle(.white.opacity(isDark ? 0.75 : 1.0))
+        .background(MerkenTheme.accentBlueLight, in: .capsule)
+        .foregroundStyle(MerkenTheme.accentBlue)
     }
 }
 
-// CTA button for hero card — white bg, text matches hero gradient
+// CTA button for hero card — teal accent, paper feel
 private struct HeroCTAButton: ButtonStyle {
     var isDark: Bool = false
 
-    // Dark hero gradient base color
-    private let heroDarkBlue = Color(red: 0.08, green: 0.16, blue: 0.28)
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
-            .foregroundStyle(isDark ? heroDarkBlue : MerkenTheme.accentBlue)
+            .font(.system(size: 16, weight: .semibold, design: .serif))
+            .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(.white, in: .rect(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(
-                        isDark
-                            ? Color.white.opacity(0.3)
-                            : Color(white: 0.82),
-                        lineWidth: configuration.isPressed ? 0 : 1
-                    )
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.82, green: 0.84, blue: 0.86))
-                    .offset(y: configuration.isPressed ? 0 : 3)
-            )
-            .offset(y: configuration.isPressed ? 3 : 0)
+            .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+            .overlay(alignment: .bottom) {
+                UnevenRoundedRectangle(bottomLeadingRadius: 14, bottomTrailingRadius: 14)
+                    .fill(MerkenTheme.accentBlueStrong)
+                    .frame(height: 3)
+            }
+            .clipShape(.rect(cornerRadius: 14))
+            .offset(y: configuration.isPressed ? 2 : 0)
             .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
