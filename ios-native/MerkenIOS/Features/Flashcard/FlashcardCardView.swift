@@ -3,6 +3,7 @@ import SwiftUI
 struct FlashcardCardView: View {
     let word: Word
     let isFlipped: Bool
+    var japaneseFirst: Bool = false
     let onTap: () -> Void
     let onSwipeLeft: () -> Void
     let onSwipeRight: () -> Void
@@ -15,13 +16,13 @@ struct FlashcardCardView: View {
 
     var body: some View {
         ZStack {
-            // Back face (Japanese)
-            backFace
+            // Back face
+            (japaneseFirst ? englishFace : japaneseFace)
                 .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
                 .opacity(isFlipped ? 1 : 0)
 
-            // Front face (English)
-            frontFace
+            // Front face
+            (japaneseFirst ? japaneseFace : englishFace)
                 .opacity(isFlipped ? 0 : 1)
         }
         .rotation3DEffect(
@@ -61,9 +62,9 @@ struct FlashcardCardView: View {
         }
     }
 
-    // MARK: - Front (English)
+    // MARK: - English face
 
-    private var frontFace: some View {
+    private var englishFace: some View {
         VStack(spacing: 12) {
             Spacer()
             Text(word.english)
@@ -95,9 +96,9 @@ struct FlashcardCardView: View {
         )
     }
 
-    // MARK: - Back (Japanese)
+    // MARK: - Japanese face
 
-    private var backFace: some View {
+    private var japaneseFace: some View {
         VStack(spacing: 12) {
             Spacer()
             Text(word.japanese)
