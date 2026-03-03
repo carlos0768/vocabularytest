@@ -681,6 +681,11 @@ struct HomeView: View {
                     lineWidth: project.isFavorite ? 2 : 1
                 )
         )
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(MerkenTheme.border)
+                .offset(y: 2)
+        )
     }
 
     // MARK: - Bookshelf Section
