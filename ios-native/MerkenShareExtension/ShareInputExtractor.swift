@@ -28,6 +28,13 @@ enum ShareInputExtractor {
         "x$versiony$archiver"
     ]
 
+    private static let payloadNoiseWords: Set<String> = [
+        "bplist00", "version", "archiver", "top", "objects", "object", "keyed", "archive",
+        "nskeyedarchiver", "ns", "key", "keys", "value", "values", "class", "root", "uid",
+        "cfuid", "string", "array", "dictionary", "true", "false", "null", "nskeys", "nsobjects",
+        "nsstring", "nsdata", "nsnumber", "nsdictionary", "nsarray"
+    ]
+
     static func extract(from inputItems: [Any]) async -> ShareImportInput? {
         let extensionItems = inputItems.compactMap { $0 as? NSExtensionItem }
         var textCandidates: [String] = []
@@ -90,7 +97,8 @@ enum ShareInputExtractor {
             }
             results.append(contentsOf: await loadObjectStrings(from: provider))
         }
-        return dedupe(results).filter(isUsefulTextCandidate(_:))
+        let expanded = dedupe(results).flatMap(expandTextCandidate(_:))
+        return dedupe(expanded).filter(isUsefulTextCandidate(_:))
     }
 
     private static func allURLStrings(from attachments: [NSItemProvider]) async -> [String] {
@@ -125,7 +133,10 @@ enum ShareInputExtractor {
 
     private static func looksLikeURL(_ value: String) -> Bool {
         let lower = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return lower.hasPrefix("http://") || lower.hasPrefix("https://")
+        if lower.hasPrefix("http://") || lower.hasPrefix("https://") {
+            return true
+        }
+        return lower.contains("://")
     }
 
     private static func extractStrings(from value: Any, typeIdentifier: String) -> [String] {
@@ -387,6 +398,34 @@ enum ShareInputExtractor {
         }
 
         return false
+    }
+
+    private static func expandTextCandidate(_ value: String) -> [String] {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        guard isPayloadNoise(trimmed) else { return [trimmed] }
+
+        var extracted: [String] = []
+
+        if let jpRegex = try? NSRegularExpression(pattern: #"[ぁ-ゖァ-ヺ一-龯ー]{1,}"#) {
+            let ns = trimmed as NSString
+            let matches = jpRegex.matches(in: trimmed, range: NSRange(location: 0, length: ns.length))
+            extracted.append(contentsOf: matches.map { ns.substring(with: $0.range) })
+        }
+
+        if let enRegex = try? NSRegularExpression(pattern: #"[A-Za-z][A-Za-z'\-]{1,63}"#) {
+            let ns = trimmed as NSString
+            let matches = enRegex.matches(in: trimmed, range: NSRange(location: 0, length: ns.length))
+            let words = matches.map { ns.substring(with: $0.range) }
+            for word in words {
+                let lower = word.lowercased()
+                if payloadNoiseWords.contains(lower) { continue }
+                if lower.hasPrefix("ns"), payloadNoiseWords.contains(String(lower.dropFirst(2))) { continue }
+                extracted.append(word)
+            }
+        }
+
+        return dedupe(extracted)
     }
 
     private static func isUsefulTextCandidate(_ value: String) -> Bool {
