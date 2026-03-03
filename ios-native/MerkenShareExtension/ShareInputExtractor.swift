@@ -16,7 +16,9 @@ enum ShareInputExtractor {
     ]
 
     private static let payloadNoiseMarkers: [String] = [
+        "bplist",
         "bplist00",
+        "version",
         "nskeyedarchiver",
         "$archiver",
         "$objects",
@@ -33,6 +35,21 @@ enum ShareInputExtractor {
         "nskeyedarchiver", "ns", "key", "keys", "value", "values", "class", "root", "uid",
         "cfuid", "string", "array", "dictionary", "true", "false", "null", "nskeys", "nsobjects",
         "nsstring", "nsdata", "nsnumber", "nsdictionary", "nsarray"
+    ]
+
+    private static let payloadNoisePrefixes: [String] = [
+        "bplist",
+        "version",
+        "archiver",
+        "object",
+        "objects",
+        "top",
+        "key",
+        "keys",
+        "uid",
+        "ns",
+        "cfuid",
+        "plist"
     ]
 
     static func extract(from inputItems: [Any]) async -> ShareImportInput? {
@@ -60,9 +77,10 @@ enum ShareInputExtractor {
             return nil
         }
 
-        let sourceText = uniqueTexts.isEmpty
+        let cleanedSourceLines = cleanedSourceLines(from: uniqueTexts)
+        let sourceText = cleanedSourceLines.isEmpty
             ? (uniqueURLs.first ?? "")
-            : uniqueTexts.joined(separator: "\n")
+            : cleanedSourceLines.joined(separator: "\n")
 
         let pair = detectBilingualPair(textCandidates: uniqueTexts, urlCandidates: uniqueURLs)
         return ShareImportInput(
@@ -84,6 +102,16 @@ enum ShareInputExtractor {
             }
         }
         return result
+    }
+
+    private static func cleanedSourceLines(from values: [String]) -> [String] {
+        let lines = values
+            .flatMap { $0.components(separatedBy: .newlines) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { !isPayloadNoise($0) }
+            .filter { !isNoiseLabel($0) }
+        return dedupe(lines)
     }
 
     private static func allTexts(from attachments: [NSItemProvider]) async -> [String] {
@@ -202,6 +230,8 @@ enum ShareInputExtractor {
             NSDictionary.self,
             NSSet.self,
             NSString.self,
+            NSAttributedString.self,
+            NSMutableAttributedString.self,
             NSURL.self,
             NSNumber.self,
             NSData.self
@@ -391,6 +421,9 @@ enum ShareInputExtractor {
         if payloadNoiseMarkers.contains(where: { normalized.contains($0) }) {
             return true
         }
+        if payloadNoisePrefixes.contains(where: { normalized.hasPrefix($0) }) {
+            return true
+        }
 
         // Large binary-ish fragments often appear as a single long token packed with $/UID markers.
         if normalized.count > 60, normalized.contains("$"), normalized.contains("uid") {
@@ -420,6 +453,7 @@ enum ShareInputExtractor {
             for word in words {
                 let lower = word.lowercased()
                 if payloadNoiseWords.contains(lower) { continue }
+                if payloadNoisePrefixes.contains(where: { lower.hasPrefix($0) }) { continue }
                 if lower.hasPrefix("ns"), payloadNoiseWords.contains(String(lower.dropFirst(2))) { continue }
                 extracted.append(word)
             }
@@ -465,6 +499,10 @@ enum ShareInputExtractor {
     private static func isLikelyEnglishPhrase(_ value: String) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
+            return false
+        }
+        let lower = trimmed.lowercased()
+        if payloadNoisePrefixes.contains(where: { lower.hasPrefix($0) }) {
             return false
         }
         if isPayloadNoise(trimmed) {
