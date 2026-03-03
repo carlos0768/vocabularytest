@@ -60,6 +60,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
         case camera
         case photoLibrary
         case preview
+        case projectSetup
         case processing
         case queued(jobId: String)
         case confirm
@@ -73,6 +74,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                  (.camera, .camera),
                  (.photoLibrary, .photoLibrary),
                  (.preview, .preview),
+                 (.projectSetup, .projectSetup),
                  (.processing, .processing),
                  (.confirm, .confirm),
                  (.saving, .saving):
@@ -176,7 +178,8 @@ final class ScanCoordinatorViewModel: ObservableObject {
             return
         }
 
-        currentStep = .preview
+        // Skip image preview, go directly to project setup
+        currentStep = .projectSetup
     }
 
     func removeSelectedImage(id: UUID) {
