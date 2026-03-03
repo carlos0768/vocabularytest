@@ -123,6 +123,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private var stepBeforeError: FlowStep = .modeSelection
     private var completionSource: ScanCompletionSource = .foregroundManual
     private var shouldAutoSaveAfterProcessingDismiss = false
+    var shouldAutoProcessOnSetup = false
     private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
 
     // For adding words to an existing project
@@ -178,7 +179,14 @@ final class ScanCoordinatorViewModel: ObservableObject {
             return
         }
 
-        // Skip image preview, go directly to project setup
+        // If adding to existing project, skip setup (no name/thumbnail needed)
+        if targetProjectId != nil {
+            shouldAutoProcessOnSetup = true
+            currentStep = .projectSetup
+            return
+        }
+
+        // New project — show project setup page
         currentStep = .projectSetup
     }
 

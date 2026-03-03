@@ -80,22 +80,30 @@ struct ScanCoordinatorView: View {
             )
 
         case .preview, .projectSetup:
-            ProjectSetupView(
-                images: viewModel.selectedImages,
-                projectTitle: $viewModel.projectTitle,
-                thumbnailImage: $thumbnailImage,
-                onBack: {
-                    if viewModel.isPhotoLibrarySelection {
-                        viewModel.selectPhotosAgain()
-                    } else {
-                        viewModel.retakePhoto()
-                    }
-                },
-                onStart: {
-                    viewModel.projectThumbnail = thumbnailImage
+            if viewModel.shouldAutoProcessOnSetup {
+                // Adding to existing project — skip setup, auto-process
+                Color.clear.onAppear {
+                    viewModel.shouldAutoProcessOnSetup = false
                     viewModel.processSelectedImages(using: appState)
                 }
-            )
+            } else {
+                ProjectSetupView(
+                    images: viewModel.selectedImages,
+                    projectTitle: $viewModel.projectTitle,
+                    thumbnailImage: $thumbnailImage,
+                    onBack: {
+                        if viewModel.isPhotoLibrarySelection {
+                            viewModel.selectPhotosAgain()
+                        } else {
+                            viewModel.retakePhoto()
+                        }
+                    },
+                    onStart: {
+                        viewModel.projectThumbnail = thumbnailImage
+                        viewModel.processSelectedImages(using: appState)
+                    }
+                )
+            }
 
         case .processing:
             ScanProcessingView(
