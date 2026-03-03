@@ -24,6 +24,7 @@
   "dependencies": {
     "@apple/app-store-server-library": "^2.0.0",
     "@google/genai": "^1.38.0",
+    "@sentry/nextjs": "^10.41.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.0",
     "apns2": "^12.2.0",
