@@ -436,19 +436,18 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Projects Section (promoted to main content)
+    // MARK: - Projects Section (featured + carousel)
 
     private var recentProjectsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section header
             HStack {
                 Text("単語帳")
                     .font(.system(size: 17, weight: .bold, design: .serif))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                if viewModel.projects.count > 6 {
-                    Button {
-                        showingProjectList = true
-                    } label: {
+                if viewModel.projects.count > 1 {
+                    Button { showingProjectList = true } label: {
                         Text("すべて見る")
                             .font(.system(size: 14, design: .serif))
                             .foregroundStyle(MerkenTheme.accentBlue)
@@ -456,24 +455,104 @@ struct HomeView: View {
                 }
             }
 
-            let columns = [
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16)
-            ]
-            LazyVGrid(columns: columns, spacing: 14) {
-                ForEach(viewModel.projects.prefix(9)) { project in
-                    projectThumbnail(project)
-                        .onTapGesture { detailProject = project }
+            // Featured project (first/most recent) — full width
+            if let featured = viewModel.projects.first {
+                featuredProjectCard(featured)
+                    .onTapGesture { detailProject = featured }
+                    .onLongPressGesture(minimumDuration: 0.35) { projectForActions = featured }
+            }
+
+            // Remaining projects — horizontal scroll
+            if viewModel.projects.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(viewModel.projects.dropFirst().prefix(10)) { project in
+                            compactProjectCard(project)
+                                .onTapGesture { detailProject = project }
+                                .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
+                        }
+                    }
+                    .padding(.horizontal, 2)
                 }
             }
         }
     }
 
-    private func projectThumbnail(_ project: Project) -> some View {
+    // MARK: Featured Project Card (full-width, detailed)
+
+    private func featuredProjectCard(_ project: Project) -> some View {
+        HStack(spacing: 14) {
+            // Thumbnail
+            Color.clear
+                .frame(width: 80, height: 80)
+                .overlay {
+                    ZStack {
+                        if let iconImage = project.iconImage,
+                           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
+                            bgColor
+                            Text(String(project.title.prefix(1)))
+                                .font(.system(size: 32, weight: .bold, design: .serif))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+                .clipShape(.rect(cornerRadius: 14))
+
+            // Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project.title)
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(2)
+
+                if let words = viewModel.preloadedWords(for: project.id) {
+                    Text("\(words.count)語")
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+
+                if project.isFavorite {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 10))
+                        Text("ピン留め")
+                            .font(.system(size: 11, design: .serif))
+                    }
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+
+            Spacer()
+
+            // Quick study arrow
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
+        .padding(14)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(MerkenTheme.border)
+                .offset(y: 2)
+        )
+    }
+
+    // MARK: Compact Project Card (horizontal scroll item)
+
+    private func compactProjectCard(_ project: Project) -> some View {
         VStack(spacing: 0) {
             Color.clear
-                .aspectRatio(1.0, contentMode: .fit)
+                .frame(width: 100, height: 100)
                 .overlay {
                     ZStack {
                         if let iconImage = project.iconImage,
@@ -486,61 +565,49 @@ struct HomeView: View {
                             bgColor
                             VStack(spacing: 2) {
                                 Text(String(project.title.prefix(1)))
-                                    .font(.system(size: 28, weight: .bold, design: .serif))
+                                    .font(.system(size: 24, weight: .bold, design: .serif))
                                     .foregroundStyle(.white)
-                                Text("\(project.title.count)語")
-                                    .font(.system(size: 10, weight: .semibold, design: .serif))
-                                    .foregroundStyle(.white.opacity(0.8))
                             }
                         }
                     }
                 }
-                .clipShape(.rect(cornerRadius: 14))
+                .clipShape(.rect(cornerRadius: 12))
                 .overlay {
                     if project.isFavorite {
                         VStack {
                             HStack {
                                 Image(systemName: "flag.fill")
-                                    .font(.caption2)
+                                    .font(.system(size: 8))
                                     .foregroundStyle(.white)
-                                    .padding(4)
-                                    .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 5))
+                                    .padding(3)
+                                    .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 4))
                                 Spacer()
                             }
                             Spacer()
                         }
-                        .padding(6)
+                        .padding(4)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.top, 8)
+                .padding(.horizontal, 6)
+                .padding(.top, 6)
 
             Text(project.title)
-                .font(.system(size: 12, design: .serif))
+                .font(.system(size: 11, design: .serif))
                 .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 32, alignment: .top)
-                .padding(.horizontal, 6)
+                .lineLimit(1)
+                .frame(width: 100, alignment: .center)
+                .padding(.horizontal, 4)
                 .padding(.top, 6)
                 .padding(.bottom, 8)
         }
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 14)
                 .stroke(
-                    project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
-                    lineWidth: project.isFavorite ? 2.5 : 1.5
+                    project.isFavorite ? MerkenTheme.success : MerkenTheme.borderLight,
+                    lineWidth: project.isFavorite ? 2 : 1
                 )
         )
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(MerkenTheme.border)
-                .offset(y: 2)
-        )
-        .onLongPressGesture(minimumDuration: 0.35) {
-            projectForActions = project
-        }
     }
 
     // MARK: - Focus Banner Helpers
