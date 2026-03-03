@@ -716,11 +716,35 @@ struct HomeView: View {
                     selectedCollection = collection
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "books.vertical.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                            .frame(width: 40, height: 40)
-                            .background(MerkenTheme.accentBlueLight, in: .rect(cornerRadius: 10))
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            MerkenTheme.placeholderColor(for: collection.id, isDark: isDark),
+                                            MerkenTheme.placeholderColor(for: collection.id + "x", isDark: isDark)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            // Mini stacked books visual
+                            HStack(spacing: 2) {
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(.white.opacity(0.5))
+                                    .frame(width: 5, height: 22)
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(.white.opacity(0.7))
+                                    .frame(width: 6, height: 20)
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(.white.opacity(0.4))
+                                    .frame(width: 5, height: 24)
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(.white.opacity(0.6))
+                                    .frame(width: 5, height: 18)
+                            }
+                        }
+                        .frame(width: 40, height: 40)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(collection.name)
