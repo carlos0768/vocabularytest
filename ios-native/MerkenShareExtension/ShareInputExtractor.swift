@@ -33,8 +33,9 @@ enum ShareInputExtractor {
     private static let payloadNoiseWords: Set<String> = [
         "bplist00", "version", "archiver", "top", "objects", "object", "keyed", "archive",
         "nskeyedarchiver", "ns", "key", "keys", "value", "values", "class", "root", "uid",
-        "cfuid", "string", "array", "dictionary", "true", "false", "null", "nskeys", "nsobjects",
-        "nsstring", "nsdata", "nsnumber", "nsdictionary", "nsarray"
+        "cfuid", "string", "array", "dictionary", "true", "false", "null", "nullb", "nulla",
+        "nullc", "troot", "nskeys", "nsobjects", "nsstring", "nsdata", "nsnumber",
+        "nsdictionary", "nsarray", "bytes", "offset", "count", "index"
     ]
 
     private static let payloadNoisePrefixes: [String] = [
@@ -49,7 +50,10 @@ enum ShareInputExtractor {
         "uid",
         "ns",
         "cfuid",
-        "plist"
+        "plist",
+        "troot",
+        "null",
+        "$"
     ]
 
     static func extract(from inputItems: [Any]) async -> ShareImportInput? {
@@ -71,7 +75,7 @@ enum ShareInputExtractor {
         }
 
         let uniqueTexts = dedupe(textCandidates)
-        let uniqueURLs = dedupe(urlCandidates)
+        let uniqueURLs = dedupe(urlCandidates + extractEmbeddedURLs(from: uniqueTexts))
 
         if uniqueTexts.isEmpty, uniqueURLs.isEmpty {
             return nil
@@ -112,6 +116,21 @@ enum ShareInputExtractor {
             .filter { !isPayloadNoise($0) }
             .filter { !isNoiseLabel($0) }
         return dedupe(lines)
+    }
+
+    private static func extractEmbeddedURLs(from values: [String]) -> [String] {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            return []
+        }
+        var urls: [String] = []
+        for value in values {
+            let range = NSRange(location: 0, length: (value as NSString).length)
+            detector.enumerateMatches(in: value, options: [], range: range) { match, _, _ in
+                guard let url = match?.url?.absoluteString, !url.isEmpty else { return }
+                urls.append(url)
+            }
+        }
+        return dedupe(urls)
     }
 
     private static func allTexts(from attachments: [NSItemProvider]) async -> [String] {
@@ -418,6 +437,9 @@ enum ShareInputExtractor {
 
     private static func isPayloadNoise(_ value: String) -> Bool {
         let normalized = value.lowercased()
+        if isBinaryArtifactToken(normalized) {
+            return true
+        }
         if payloadNoiseMarkers.contains(where: { normalized.contains($0) }) {
             return true
         }
@@ -430,6 +452,24 @@ enum ShareInputExtractor {
             return true
         }
 
+        return false
+    }
+
+    private static func isBinaryArtifactToken(_ value: String) -> Bool {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return false }
+        if payloadNoiseWords.contains(normalized) {
+            return true
+        }
+        if payloadNoisePrefixes.contains(where: { normalized.hasPrefix($0) }) {
+            return true
+        }
+        if normalized.contains("null"), normalized.count <= 16 {
+            return true
+        }
+        if normalized.hasPrefix("troot") || normalized.hasPrefix("xroot") {
+            return true
+        }
         return false
     }
 
@@ -454,6 +494,7 @@ enum ShareInputExtractor {
                 let lower = word.lowercased()
                 if payloadNoiseWords.contains(lower) { continue }
                 if payloadNoisePrefixes.contains(where: { lower.hasPrefix($0) }) { continue }
+                if isBinaryArtifactToken(lower) { continue }
                 if lower.hasPrefix("ns"), payloadNoiseWords.contains(String(lower.dropFirst(2))) { continue }
                 extracted.append(word)
             }
@@ -502,6 +543,9 @@ enum ShareInputExtractor {
             return false
         }
         let lower = trimmed.lowercased()
+        if isBinaryArtifactToken(lower) {
+            return false
+        }
         if payloadNoisePrefixes.contains(where: { lower.hasPrefix($0) }) {
             return false
         }
