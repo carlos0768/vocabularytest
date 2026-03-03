@@ -478,63 +478,95 @@ struct HomeView: View {
         }
     }
 
-    // MARK: Featured Project Card (full-width, detailed)
+    // MARK: Featured Project Card (full-width, rich detail)
 
     private func featuredProjectCard(_ project: Project) -> some View {
-        HStack(spacing: 14) {
-            // Thumbnail
-            Color.clear
-                .frame(width: 80, height: 80)
-                .overlay {
-                    ZStack {
-                        if let iconImage = project.iconImage,
-                           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
-                            bgColor
-                            Text(String(project.title.prefix(1)))
-                                .font(.system(size: 32, weight: .bold, design: .serif))
-                                .foregroundStyle(.white)
+        let wordCount = viewModel.preloadedWords(for: project.id)?.count ?? 0
+        let dueCount = viewModel.dueCountByProject[project.id] ?? 0
+        let masteryPercent = wordCount > 0 ? Double(max(wordCount - dueCount, 0)) / Double(wordCount) : 0
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                // Thumbnail
+                Color.clear
+                    .frame(width: 72, height: 72)
+                    .overlay {
+                        ZStack {
+                            if let iconImage = project.iconImage,
+                               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                            } else {
+                                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
+                                bgColor
+                                Text(String(project.title.prefix(1)))
+                                    .font(.system(size: 28, weight: .bold, design: .serif))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                    }
+                    .clipShape(.rect(cornerRadius: 14))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(project.title)
+                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .lineLimit(1)
+                        if project.isFavorite {
+                            Image(systemName: "flag.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        Label("\(wordCount)語", systemImage: "textformat.abc")
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                        if dueCount > 0 {
+                            Label("\(dueCount)復習待ち", systemImage: "clock")
+                                .font(.system(size: 12, design: .serif))
+                                .foregroundStyle(MerkenTheme.warning)
                         }
                     }
                 }
-                .clipShape(.rect(cornerRadius: 14))
 
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(project.title)
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
+                Spacer()
 
-                if let words = viewModel.preloadedWords(for: project.id) {
-                    Text("\(words.count)語")
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-
-                if project.isFavorite {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 10))
-                        Text("ピン留め")
-                            .font(.system(size: 11, design: .serif))
-                    }
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
             }
 
-            Spacer()
-
-            // Quick study arrow
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(MerkenTheme.mutedText)
+            // Progress bar
+            if wordCount > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("習得度")
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Spacer()
+                        Text("\(Int(masteryPercent * 100))%")
+                            .font(.system(size: 11, weight: .semibold, design: .serif))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(MerkenTheme.borderLight)
+                                .frame(height: 6)
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(MerkenTheme.accentBlue)
+                                .frame(width: geo.size.width * masteryPercent, height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+                }
+            }
         }
-        .padding(14)
+        .padding(16)
         .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
@@ -547,12 +579,17 @@ struct HomeView: View {
         )
     }
 
-    // MARK: Compact Project Card (horizontal scroll item)
+    // MARK: Compact Project Card (horizontal scroll, enriched)
 
     private func compactProjectCard(_ project: Project) -> some View {
-        VStack(spacing: 0) {
+        let wordCount = viewModel.preloadedWords(for: project.id)?.count ?? 0
+        let dueCount = viewModel.dueCountByProject[project.id] ?? 0
+        let masteryPercent = wordCount > 0 ? Double(max(wordCount - dueCount, 0)) / Double(wordCount) : 0
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Thumbnail
             Color.clear
-                .frame(width: 100, height: 100)
+                .frame(width: 130, height: 90)
                 .overlay {
                     ZStack {
                         if let iconImage = project.iconImage,
@@ -563,15 +600,13 @@ struct HomeView: View {
                         } else {
                             let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
                             bgColor
-                            VStack(spacing: 2) {
-                                Text(String(project.title.prefix(1)))
-                                    .font(.system(size: 24, weight: .bold, design: .serif))
-                                    .foregroundStyle(.white)
-                            }
+                            Text(String(project.title.prefix(1)))
+                                .font(.system(size: 24, weight: .bold, design: .serif))
+                                .foregroundStyle(.white)
                         }
                     }
                 }
-                .clipShape(.rect(cornerRadius: 12))
+                .clipShape(.rect(cornerRadius: 10))
                 .overlay {
                     if project.isFavorite {
                         VStack {
@@ -588,18 +623,47 @@ struct HomeView: View {
                         .padding(4)
                     }
                 }
-                .padding(.horizontal, 6)
-                .padding(.top, 6)
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
 
-            Text(project.title)
-                .font(.system(size: 11, design: .serif))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(1)
-                .frame(width: 100, alignment: .center)
-                .padding(.horizontal, 4)
-                .padding(.top, 6)
-                .padding(.bottom, 8)
+            // Info section
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project.title)
+                    .font(.system(size: 12, weight: .medium, design: .serif))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text("\(wordCount)語")
+                        .font(.system(size: 10, design: .serif))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                    if dueCount > 0 {
+                        Text("· \(dueCount)復習")
+                            .font(.system(size: 10, design: .serif))
+                            .foregroundStyle(MerkenTheme.warning)
+                    }
+                }
+
+                // Mini progress bar
+                if wordCount > 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(MerkenTheme.borderLight)
+                                .frame(height: 4)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(MerkenTheme.accentBlue)
+                                .frame(width: geo.size.width * masteryPercent, height: 4)
+                        }
+                    }
+                    .frame(height: 4)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 6)
+            .padding(.bottom, 10)
         }
+        .frame(width: 146)
         .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
