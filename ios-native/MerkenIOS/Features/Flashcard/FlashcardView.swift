@@ -98,94 +98,125 @@ struct FlashcardView: View {
 
     private var viewingView: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header: progress + mode badge + overflow menu
             HStack {
+                // Mode badge
+                Button {
+                    viewModel.toggleDirection()
+                } label: {
+                    Text(viewModel.japaneseFirst ? "日→英" : "英→日")
+                        .font(.system(size: 12, weight: .semibold, design: .serif))
+                        .foregroundStyle(viewModel.japaneseFirst ? .white : MerkenTheme.secondaryText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            viewModel.japaneseFirst ? MerkenTheme.accentBlue : MerkenTheme.surface,
+                            in: Capsule()
+                        )
+                        .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1))
+                }
+
+                Spacer()
+
+                // Progress
                 Text("\(viewModel.currentIndex + 1) / \(viewModel.wordCount)")
-                    .font(.headline)
+                    .font(.system(size: 14, weight: .medium, design: .serif))
                     .foregroundStyle(MerkenTheme.secondaryText)
 
                 Spacer()
+
+                // Overflow menu (⋯)
+                Menu {
+                    Button {
+                        dictionaryURL = viewModel.dictionaryURL
+                    } label: {
+                        Label("辞書で調べる", systemImage: "book")
+                    }
+
+                    Button {
+                        if let word = viewModel.currentWord {
+                            editEnglish = word.english
+                            editJapanese = word.japanese
+                            showingEditSheet = true
+                        }
+                    } label: {
+                        Label("単語を編集", systemImage: "pencil")
+                    }
+
+                    Button {
+                        viewModel.shuffle()
+                    } label: {
+                        Label("シャッフル", systemImage: "shuffle")
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        showingDeleteConfirm = true
+                    } label: {
+                        Label("単語を削除", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.title3)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .frame(width: 36, height: 36)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 4)
 
-            // Card
-            if let word = viewModel.currentWord {
-                FlashcardCardView(
-                    word: word,
-                    isFlipped: viewModel.isFlipped,
-                    japaneseFirst: viewModel.japaneseFirst,
-                    onTap: { viewModel.flipCard() },
-                    onSwipeLeft: { viewModel.goNext() },
-                    onSwipeRight: { viewModel.goPrevious() }
-                )
-                .padding(.horizontal, 24)
+            // Card with favorite overlay
+            ZStack(alignment: .topTrailing) {
+                if let word = viewModel.currentWord {
+                    FlashcardCardView(
+                        word: word,
+                        isFlipped: viewModel.isFlipped,
+                        japaneseFirst: viewModel.japaneseFirst,
+                        onTap: { viewModel.flipCard() },
+                        onSwipeLeft: { viewModel.goNext() },
+                        onSwipeRight: { viewModel.goPrevious() }
+                    )
+                }
+
+                // Favorite badge on card corner
+                if let word = viewModel.currentWord {
+                    Button {
+                        Task { await viewModel.toggleFavorite(using: appState) }
+                    } label: {
+                        Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 18))
+                            .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .offset(x: -8, y: 8)
+                }
             }
+            .padding(.horizontal, 24)
 
             Spacer(minLength: 0)
 
-            // Action buttons (matches web version)
-            HStack(spacing: 12) {
-                // 日→英 / 英→日 toggle
-                actionButton(
-                    icon: "textformat.abc",
-                    active: viewModel.japaneseFirst,
-                    label: viewModel.japaneseFirst ? "日→英" : "英→日"
-                ) {
-                    viewModel.toggleDirection()
-                }
-
-                // Favorite toggle
-                actionButton(
-                    icon: viewModel.currentWord?.isFavorite == true ? "heart.fill" : "heart",
-                    active: viewModel.currentWord?.isFavorite == true,
-                    label: "苦手"
-                ) {
-                    Task { await viewModel.toggleFavorite(using: appState) }
-                }
-
-                // Dictionary
-                actionButton(icon: "book", label: "辞書") {
-                    dictionaryURL = viewModel.dictionaryURL
-                }
-
-                // Edit
-                actionButton(icon: "pencil", label: "編集") {
-                    if let word = viewModel.currentWord {
-                        editEnglish = word.english
-                        editJapanese = word.japanese
-                        showingEditSheet = true
-                    }
-                }
-
-                // Delete
-                actionButton(icon: "trash", label: "削除", destructive: true) {
-                    showingDeleteConfirm = true
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-
-            // Navigation toolbar
-            HStack(spacing: 32) {
-                toolbarButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
+            // Navigation — clean, focused
+            HStack(spacing: 40) {
+                navButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
                     viewModel.goPrevious()
                 }
 
-                toolbarButton(icon: "speaker.wave.2", enabled: true) {
+                navButton(icon: "speaker.wave.2.fill", enabled: true) {
                     viewModel.speak()
                 }
 
-                toolbarButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
+                navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
                     viewModel.flipCard()
                 }
 
-                toolbarButton(icon: "chevron.right", enabled: viewModel.hasNext) {
+                navButton(icon: "chevron.right", enabled: viewModel.hasNext) {
                     viewModel.goNext()
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 20)
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
@@ -197,40 +228,15 @@ struct FlashcardView: View {
         }
     }
 
-    private func actionButton(icon: String, active: Bool = false, label: String, destructive: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                Text(label)
-                    .font(.system(size: 10, design: .serif))
-            }
-            .foregroundStyle(
-                destructive ? MerkenTheme.danger :
-                active ? MerkenTheme.accentBlue :
-                MerkenTheme.secondaryText
-            )
-            .frame(width: 52, height: 48)
-            .background(
-                active ? MerkenTheme.accentBlue.opacity(0.1) : Color.clear,
-                in: .rect(cornerRadius: 10)
-            )
-        }
-    }
-
-    private func toolbarButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+    private func navButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(enabled ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
-                .frame(width: 44, height: 44)
+                .frame(width: 48, height: 48)
                 .background(MerkenTheme.surface, in: .circle)
                 .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                .background(
-                    Circle()
-                        .fill(MerkenTheme.border)
-                        .offset(y: 2)
-                )
+                .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
         }
         .disabled(!enabled)
     }
