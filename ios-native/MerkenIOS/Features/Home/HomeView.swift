@@ -37,6 +37,7 @@ struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = HomeViewModel()
+    @StateObject private var bookshelfVM = BookshelfListViewModel()
 
     @State private var quizDestination: QuizDestination?
     @State private var flashcardDestination: FlashcardDestination?
@@ -106,7 +107,7 @@ struct HomeView: View {
                             }
 
                             // MARK: - Bookshelf Section
-                            if !viewModel.collections.isEmpty {
+                            if !bookshelfVM.collections.isEmpty {
                                 bookshelfSection
                             }
                         }
@@ -252,6 +253,7 @@ struct HomeView: View {
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
+            await bookshelfVM.load(using: appState)
         }
     }
 
@@ -693,7 +695,7 @@ struct HomeView: View {
         )
     }
 
-    // MARK: - Bookshelf Section
+    // MARK: - Bookshelf Section (2-column grid with mini-book thumbnails)
 
     private var bookshelfSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -702,78 +704,157 @@ struct HomeView: View {
                     .font(.system(size: 17, weight: .bold, design: .serif))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                Button {
-                    showingBookshelfList = true
-                } label: {
+                Button { showingBookshelfList = true } label: {
                     Text("すべて見る")
                         .font(.system(size: 14, design: .serif))
                         .foregroundStyle(MerkenTheme.accentBlue)
                 }
             }
 
-            ForEach(viewModel.collections.prefix(3)) { collection in
-                Button {
-                    selectedCollection = collection
-                } label: {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            MerkenTheme.placeholderColor(for: collection.id, isDark: isDark),
-                                            MerkenTheme.placeholderColor(for: collection.id + "x", isDark: isDark)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            // Mini stacked books visual
-                            HStack(spacing: 2) {
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(.white.opacity(0.5))
-                                    .frame(width: 5, height: 22)
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(.white.opacity(0.7))
-                                    .frame(width: 6, height: 20)
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(.white.opacity(0.4))
-                                    .frame(width: 5, height: 24)
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(.white.opacity(0.6))
-                                    .frame(width: 5, height: 18)
-                            }
-                        }
-                        .frame(width: 40, height: 40)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(collection.name)
-                                .font(.system(size: 15, weight: .medium, design: .serif))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                                .lineLimit(1)
-                            if let desc = collection.description, !desc.isEmpty {
-                                Text(desc)
-                                    .font(.system(size: 12, design: .serif))
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                                    .lineLimit(1)
-                            }
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
-                    .padding(12)
-                    .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(MerkenTheme.borderLight, lineWidth: 1)
-                    )
+            let columns = [
+                GridItem(.flexible(), spacing: 14),
+                GridItem(.flexible(), spacing: 14)
+            ]
+            LazyVGrid(columns: columns, spacing: 14) {
+                ForEach(bookshelfVM.collections.prefix(4)) { collection in
+                    homeCollectionCard(collection)
+                        .onTapGesture { selectedCollection = collection }
                 }
             }
         }
+    }
+
+    private func homeCollectionCard(_ collection: Collection) -> some View {
+        let stat = bookshelfVM.stats[collection.id]
+        let projectCount = stat?.projectCount ?? 0
+        let wordCount = stat?.wordCount ?? 0
+        let previews = stat?.previews ?? []
+
+        return VStack(spacing: 0) {
+            // Mini books shelf area
+            HStack(spacing: 0) {
+                if previews.isEmpty {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                        .frame(height: 56)
+                        .frame(maxWidth: .infinity)
+                        .overlay(
+                            Image(systemName: "books.vertical")
+                                .font(.title3)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        )
+                } else {
+                    GeometryReader { geo in
+                        let overlap: CGFloat = 4
+                        let visiblePreviews = Array(previews.prefix(3))
+                        let extraCount = max(projectCount - visiblePreviews.count, 0)
+                        let totalItems = visiblePreviews.count + (extraCount > 0 ? 1 : 0)
+                        let rawWidth = totalItems > 0
+                            ? (geo.size.width + overlap * CGFloat(max(totalItems - 1, 0))) / CGFloat(totalItems)
+                            : 40
+                        let bookWidth = min(40, max(24, floor(rawWidth)))
+
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            ForEach(Array(visiblePreviews.enumerated()), id: \.element.id) { index, preview in
+                                homeMiniBook(preview, width: bookWidth)
+                                    .padding(.leading, index > 0 ? -overlap : 0)
+                            }
+                            if extraCount > 0 {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(MerkenTheme.surfaceAlt)
+                                    .frame(width: bookWidth, height: 56)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .stroke(MerkenTheme.border, lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        Text("+\(extraCount)")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(MerkenTheme.mutedText)
+                                    )
+                                    .padding(.leading, -overlap)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                    }
+                    .frame(height: 56)
+                }
+            }
+            .frame(minHeight: 68)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+
+            // Shelf line
+            Rectangle()
+                .fill(MerkenTheme.border)
+                .frame(height: 2)
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
+
+            // Title
+            Text(collection.name)
+                .font(.system(size: 12, weight: .semibold, design: .serif))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(minHeight: 28)
+                .padding(.horizontal, 4)
+                .padding(.top, 6)
+
+            // Stats
+            HStack(spacing: 0) {
+                Text("\(projectCount)冊")
+                if wordCount > 0 {
+                    Text(" · \(wordCount)語")
+                }
+            }
+            .font(.system(size: 10, weight: .medium, design: .serif))
+            .foregroundStyle(MerkenTheme.mutedText)
+            .padding(.bottom, 8)
+        }
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func homeMiniBook(_ preview: CollectionProjectPreview, width: CGFloat) -> some View {
+        let color = MerkenTheme.placeholderColor(for: preview.id, isDark: isDark)
+        let initial = String(preview.title.prefix(1)).uppercased()
+
+        return ZStack {
+            if let iconImage = preview.iconImage,
+               let uiImage = ImageCompressor.decodeBase64Image(iconImage, cacheKey: preview.iconImageCacheKey) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(
+                    colors: [color, color.opacity(0.7)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                HStack(spacing: 0) {
+                    Color.black.opacity(0.15).frame(width: 2)
+                    Spacer()
+                }
+                Text(initial)
+                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+        }
+        .frame(width: width, height: 56)
+        .clipShape(.rect(cornerRadius: 3))
+        .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
     }
 
     // MARK: - Focus Banner Helpers
