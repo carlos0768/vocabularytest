@@ -312,7 +312,7 @@ struct HomeView: View {
 
             Spacer()
 
-            // CTA arrow
+            // CTA button
             if let firstProject = viewModel.projects.first {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -331,11 +331,12 @@ struct HomeView: View {
                         )
                     }
                 } label: {
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
+                    Text("復習")
+                        .font(.system(size: 13, weight: .semibold, design: .serif))
                         .foregroundStyle(.white)
-                        .frame(width: 36, height: 36)
-                        .background(MerkenTheme.accentBlue, in: .circle)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 10))
                 }
             }
         }
