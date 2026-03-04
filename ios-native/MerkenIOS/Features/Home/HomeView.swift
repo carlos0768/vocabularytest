@@ -107,7 +107,7 @@ struct HomeView: View {
                             }
 
                             // MARK: - Bookshelf Section
-                            if !bookshelfVM.collections.isEmpty {
+                            if appState.isPro {
                                 bookshelfSection
                             }
                         }
@@ -703,6 +703,8 @@ struct HomeView: View {
 
     // MARK: - Bookshelf Section (2-column grid with mini-book thumbnails)
 
+    @State private var showingCreateBookshelf = false
+
     private var bookshelfSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -710,21 +712,60 @@ struct HomeView: View {
                     .font(.system(size: 17, weight: .bold, design: .serif))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                Button { showingBookshelfList = true } label: {
-                    Text("すべて見る")
-                        .font(.system(size: 14, design: .serif))
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                if !bookshelfVM.collections.isEmpty {
+                    Button { showingBookshelfList = true } label: {
+                        Text("すべて見る")
+                            .font(.system(size: 14, design: .serif))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
                 }
             }
 
-            let columns = [
-                GridItem(.flexible(), spacing: 14),
-                GridItem(.flexible(), spacing: 14)
-            ]
-            LazyVGrid(columns: columns, spacing: 14) {
-                ForEach(bookshelfVM.collections.prefix(4)) { collection in
-                    homeCollectionCard(collection)
-                        .onTapGesture { selectedCollection = collection }
+            if bookshelfVM.collections.isEmpty {
+                // Empty state with create CTA
+                SolidCard {
+                    VStack(spacing: 12) {
+                        Image(systemName: "books.vertical.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                        Text("本棚を作ろう")
+                            .font(.headline)
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("複数の単語帳をまとめて管理・学習できます")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            showingCreateBookshelf = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                    .font(.subheadline.bold())
+                                Text("本棚を作成")
+                                    .font(.subheadline.bold())
+                            }
+                        }
+                        .buttonStyle(PrimaryGlassButton())
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .sheet(isPresented: $showingCreateBookshelf) {
+                    CreateBookshelfSheet {
+                        await bookshelfVM.load(using: appState)
+                    }
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                }
+            } else {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(bookshelfVM.collections.prefix(4)) { collection in
+                        homeCollectionCard(collection)
+                            .onTapGesture { selectedCollection = collection }
+                    }
                 }
             }
         }

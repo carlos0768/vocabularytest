@@ -179,7 +179,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
             return
         }
 
-        // If adding to existing project, skip setup (no name/thumbnail needed)
+        // If adding to existing project, skip project setup — auto-process immediately
         if targetProjectId != nil {
             shouldAutoProcessOnSetup = true
             currentStep = .projectSetup
