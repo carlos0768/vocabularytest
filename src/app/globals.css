@@ -533,44 +533,7 @@ body {
 }
 
 /* ===== Flashcard Specific ===== */
-
-.flashcard {
-  perspective: 1000px;
-}
-
-.flashcard-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-style: preserve-3d;
-}
-
-.flashcard-inner.flipped {
-  transform: rotateY(180deg);
-}
-
-.flashcard-face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  border-radius: var(--radius-2xl);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.flashcard-front {
-  background: var(--color-surface);
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.1);
-}
-
-.flashcard-back {
-  background: var(--color-primary);
-  transform: rotateY(180deg);
-}
+/* Flashcard animations now handled by Framer Motion (see src/lib/motion.ts) */
 
 /* ===== Material Icons Support ===== */
 
