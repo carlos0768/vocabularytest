@@ -265,25 +265,8 @@ struct FlashcardView: View {
                     viewModel.goPrevious()
                 }
 
-                // Speaker with speed toggle (long press)
-                Button {
-                    MerkenHaptic.light()
+                navButton(icon: viewModel.slowSpeed ? "speaker.wave.1.fill" : "speaker.wave.2.fill", enabled: true) {
                     viewModel.speak()
-                } label: {
-                    ZStack(alignment: .bottomTrailing) {
-                        Image(systemName: "speaker.wave.2.fill")
-                            .font(.title2)
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                            .frame(width: 48, height: 48)
-                            .background(MerkenTheme.surface, in: .circle)
-                            .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
-
-                        // Speed indicator
-                        Text(viewModel.slowSpeed ? "🐢" : "🐇")
-                            .font(.system(size: 10))
-                            .offset(x: 4, y: 4)
-                    }
                 }
                 .simultaneousGesture(
                     LongPressGesture(minimumDuration: 0.5)

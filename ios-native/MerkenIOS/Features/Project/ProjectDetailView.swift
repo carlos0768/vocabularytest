@@ -487,15 +487,6 @@ struct ProjectDetailView: View {
                 }
 
                 learningModeCard(
-                    icon: "mic.fill",
-                    iconColor: MerkenTheme.danger,
-                    title: "即答チャレンジ",
-                    subtitle: "声で即答"
-                ) {
-                    quickResponseDestination = project
-                }
-
-                learningModeCard(
                     icon: "timer",
                     iconColor: .orange,
                     title: "タイムアタック",
