@@ -10,7 +10,7 @@ struct AppBackground: View {
     }
 }
 
-/// Graph-paper grid pattern — faint ruled lines for a notebook feel
+/// Graph-paper grid pattern — faint ruled lines
 private struct GridPattern: View {
     @Environment(\.colorScheme) private var colorScheme
 
@@ -19,8 +19,8 @@ private struct GridPattern: View {
             let spacing: CGFloat = 20
             let lineWidth: CGFloat = 0.5
             let color: Color = colorScheme == .dark
-                ? Color(red: 0.16, green: 0.14, blue: 0.12)
-                : Color(red: 0.82, green: 0.78, blue: 0.72)
+                ? Color(red: 0.08, green: 0.14, blue: 0.24)   // dark navy grid
+                : Color(red: 0.82, green: 0.78, blue: 0.72)   // warm light grid
 
             // Vertical lines
             for x in stride(from: CGFloat(0), through: size.width, by: spacing) {
