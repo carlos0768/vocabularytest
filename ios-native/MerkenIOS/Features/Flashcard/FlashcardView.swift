@@ -12,6 +12,7 @@ struct FlashcardView: View {
     @State private var editEnglish = ""
     @State private var editJapanese = ""
     @State private var favoriteScale: CGFloat = 1.0
+    @State private var pressedButton: String?
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
@@ -240,9 +241,33 @@ struct FlashcardView: View {
                     viewModel.goPrevious()
                 }
 
-                navButton(icon: "speaker.wave.2.fill", enabled: true) {
+                // Speaker with speed toggle (long press)
+                Button {
+                    MerkenHaptic.light()
                     viewModel.speak()
+                } label: {
+                    ZStack(alignment: .bottomTrailing) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.title2)
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .frame(width: 48, height: 48)
+                            .background(MerkenTheme.surface, in: .circle)
+                            .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
+                            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+
+                        // Speed indicator
+                        Text(viewModel.slowSpeed ? "🐢" : "🐇")
+                            .font(.system(size: 10))
+                            .offset(x: 4, y: 4)
+                    }
                 }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            MerkenHaptic.medium()
+                            viewModel.toggleSpeed()
+                        }
+                )
 
                 navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
                     viewModel.flipCard()
@@ -267,6 +292,16 @@ struct FlashcardView: View {
     private func navButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button {
             MerkenHaptic.light()
+            // Bounce animation
+            pressedButton = icon
+            withAnimation(MerkenSpring.tap) {
+                pressedButton = icon
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(MerkenSpring.bouncy) {
+                    pressedButton = nil
+                }
+            }
             action()
         } label: {
             Image(systemName: icon)
@@ -276,6 +311,7 @@ struct FlashcardView: View {
                 .background(MerkenTheme.surface, in: .circle)
                 .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
                 .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+                .scaleEffect(pressedButton == icon ? 0.85 : 1.0)
         }
         .disabled(!enabled)
     }

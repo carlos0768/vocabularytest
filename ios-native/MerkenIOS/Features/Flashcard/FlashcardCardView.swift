@@ -12,6 +12,8 @@ struct FlashcardCardView: View {
     @State private var exitOffset: CGFloat = 0
     @State private var exitOpacity: Double = 1
     @State private var showBackContent = false
+    @State private var cardAppearScale: CGFloat = 0.85
+    @State private var cardAppearOpacity: Double = 0
 
     private let swipeThreshold: CGFloat = 50
 
@@ -66,7 +68,22 @@ struct FlashcardCardView: View {
         }
         .animation(MerkenSpring.flip, value: isFlipped)
         .animation(MerkenSpring.snappy, value: dragOffset != 0)
+        .scaleEffect(cardAppearScale)
+        .opacity(cardAppearOpacity)
+        .onAppear {
+            withAnimation(MerkenSpring.bouncy) {
+                cardAppearScale = 1.0
+                cardAppearOpacity = 1.0
+            }
+        }
         .onChange(of: word.id) {
+            // Reset card entrance
+            cardAppearScale = 0.9
+            cardAppearOpacity = 0.3
+            withAnimation(MerkenSpring.snappy) {
+                cardAppearScale = 1.0
+                cardAppearOpacity = 1.0
+            }
             dragOffset = 0
             exitOffset = 0
             exitOpacity = 1
@@ -176,11 +193,19 @@ struct FlashcardCardView: View {
                         .multilineTextAlignment(.center)
                         .staggerIn(index: 0, isVisible: showBackContent)
 
-                    // Small english reference
-                    Text(word.english)
-                        .font(.callout)
-                        .foregroundStyle(.white.opacity(0.5))
-                        .staggerIn(index: 1, isVisible: showBackContent)
+                    // Small english reference + pronunciation
+                    VStack(spacing: 4) {
+                        Text(word.english)
+                            .font(.callout)
+                            .foregroundStyle(.white.opacity(0.5))
+
+                        if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
+                            Text(pronunciation)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.4))
+                        }
+                    }
+                    .staggerIn(index: 1, isVisible: showBackContent)
 
                     dividerLine
                         .staggerIn(index: 1, isVisible: showBackContent)

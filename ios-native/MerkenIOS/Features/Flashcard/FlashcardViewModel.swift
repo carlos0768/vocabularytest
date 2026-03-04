@@ -16,6 +16,7 @@ final class FlashcardViewModel: ObservableObject {
     @Published private(set) var isFlipped = false
     @Published private(set) var wordCount = 0
     @Published var japaneseFirst = false
+    @Published var slowSpeed = false
     @Published var errorMessage: String?
 
     // ── Non-published backing store ──
@@ -98,8 +99,14 @@ final class FlashcardViewModel: ObservableObject {
 
         let utterance = AVSpeechUtterance(string: word.english)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        utterance.rate = slowSpeed
+            ? AVSpeechUtteranceDefaultSpeechRate * 0.5
+            : AVSpeechUtteranceDefaultSpeechRate * 0.9
         synthesizer.speak(utterance)
+    }
+
+    func toggleSpeed() {
+        slowSpeed.toggle()
     }
 
     func toggleFavorite(using state: AppState) async {
