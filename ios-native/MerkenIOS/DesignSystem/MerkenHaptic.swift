@@ -22,6 +22,10 @@ enum MerkenHaptic {
         UINotificationFeedbackGenerator().notificationOccurred(.error)
     }
 
+    static func warning() {
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
     static func selection() {
         UISelectionFeedbackGenerator().selectionChanged()
     }
