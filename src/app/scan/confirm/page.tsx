@@ -13,6 +13,8 @@ import { getRepository } from '@/lib/db';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
+import { useCollections } from '@/hooks/use-collections';
+import { BookshelfPickerModal } from '@/components/collection/BookshelfPickerModal';
 import type { AIWordExtraction, Word } from '@/types';
 
 interface EditableWord extends AIWordExtraction {
@@ -126,6 +128,11 @@ export default function ConfirmPage() {
   const [existingProjectId, setExistingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
+
+  // Bookshelf picker (Pro only)
+  const { collections, loading: collectionsLoading, createCollection, addProjectsToCollection, refresh: refreshCollections } = useCollections();
+  const [showBookshelfPicker, setShowBookshelfPicker] = useState(false);
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
 
   // Check if adding these words would exceed limit
   const { wouldExceed, excessCount, availableSlots } = canAddWords(words.filter(w => w.isSelected).length);
@@ -460,6 +467,14 @@ export default function ConfirmPage() {
       // Invalidate home page cache so it fetches fresh data
       invalidateHomeCache();
 
+      // Pro users: show bookshelf picker before navigating
+      if (isPro) {
+        setSavedProjectId(targetProjectId);
+        refreshCollections();
+        setShowBookshelfPicker(true);
+        return; // Don't navigate yet - wait for picker
+      }
+
       // Navigate back: to the project page if adding to existing, otherwise home
       if (isAddingToExisting && existingProjectId) {
         router.push(`/project/${existingProjectId}`);
@@ -473,6 +488,39 @@ export default function ConfirmPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const navigateAfterSave = () => {
+    if (isAddingToExisting && existingProjectId) {
+      router.push(`/project/${existingProjectId}`);
+    } else {
+      router.push('/');
+    }
+  };
+
+  const handleBookshelfSelect = async (collectionId: string) => {
+    if (!savedProjectId) return;
+    const ok = await addProjectsToCollection(collectionId, [savedProjectId]);
+    if (ok) {
+      showToast({ message: '本棚に追加しました', type: 'success' });
+    }
+    setShowBookshelfPicker(false);
+    navigateAfterSave();
+  };
+
+  const handleBookshelfCreate = async (name: string) => {
+    const col = await createCollection(name);
+    if (col && savedProjectId) {
+      await addProjectsToCollection(col.id, [savedProjectId]);
+      showToast({ message: `「${name}」を作成し、追加しました`, type: 'success' });
+    }
+    setShowBookshelfPicker(false);
+    navigateAfterSave();
+  };
+
+  const handleBookshelfSkip = () => {
+    setShowBookshelfPicker(false);
+    navigateAfterSave();
   };
 
   // Show loading state until data is ready
@@ -646,6 +694,16 @@ export default function ConfirmPage() {
           )}
         </div>
       </div>
+
+      {/* Bookshelf picker modal (Pro) */}
+      <BookshelfPickerModal
+        isOpen={showBookshelfPicker}
+        collections={collections}
+        loading={collectionsLoading}
+        onSelect={handleBookshelfSelect}
+        onCreate={handleBookshelfCreate}
+        onSkip={handleBookshelfSkip}
+      />
     </div>
   );
 }
