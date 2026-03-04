@@ -14,6 +14,7 @@ struct FlashcardView: View {
     @State private var favoriteScale: CGFloat = 1.0
     @State private var pressedButton: String?
     @State private var showTinderSort = false
+    @State private var showTimeAttack = false
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
@@ -64,6 +65,12 @@ struct FlashcardView: View {
                     showTinderSort = false
                     viewModel.setWords(unknownWords)
                 }
+            )
+        }
+        .navigationDestination(isPresented: $showTimeAttack) {
+            TimeAttackView(
+                project: project,
+                words: viewModel.allWords
             )
         }
     }
@@ -146,6 +153,12 @@ struct FlashcardView: View {
                             showTinderSort = true
                         } label: {
                             Label("仕分けモード", systemImage: "hand.thumbsup")
+                        }
+
+                        Button {
+                            showTimeAttack = true
+                        } label: {
+                            Label("タイムアタック", systemImage: "timer")
                         }
 
                         Button {
