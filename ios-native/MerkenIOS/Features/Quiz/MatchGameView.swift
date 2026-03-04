@@ -81,67 +81,72 @@ struct MatchGameView: View {
     // MARK: - Playing
 
     private var playingView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             // Timer header
             HStack {
-                // Timer
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                    Text(formatTime(viewModel.totalTime))
-                        .font(.system(size: 20, weight: .bold, design: .monospaced))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .contentTransition(.numericText())
-                }
+                // Close / back handled by nav
 
                 Spacer()
 
-                // Floating penalty
-                if viewModel.floatingPenalty {
-                    Text("+1.0秒")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(MerkenTheme.danger)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+                // Timer (centered)
+                Text(formatTime(viewModel.totalTime))
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .contentTransition(.numericText())
 
                 Spacer()
 
-                // Round info
-                if viewModel.totalRounds > 1 {
-                    Text("R\(viewModel.currentRound + 1)/\(viewModel.totalRounds)")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .animation(MerkenSpring.snappy, value: viewModel.floatingPenalty)
-
-            // Card grid
-            let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: gridColumns)
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(viewModel.cards) { card in
-                    MatchCardView(
-                        card: card,
-                        isSelected: viewModel.selectedCardId == card.id,
-                        isMismatch: viewModel.mismatchIds.contains(card.id)
-                    ) {
-                        viewModel.tapCard(card)
+                // Floating penalty or round info
+                ZStack {
+                    if viewModel.floatingPenalty {
+                        Text("+1.0秒")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(MerkenTheme.danger)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    } else if viewModel.totalRounds > 1 {
+                        Text("R\(viewModel.currentRound + 1)/\(viewModel.totalRounds)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
                     }
                 }
+                .frame(width: 60)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .animation(MerkenSpring.snappy, value: viewModel.floatingPenalty)
 
-            Spacer()
+            // Card grid — fill remaining screen
+            GeometryReader { geo in
+                let totalCards = viewModel.cards.count
+                let cols = gridColumns(for: totalCards)
+                let rows = Int(ceil(Double(totalCards) / Double(cols)))
+                let hSpacing: CGFloat = 8
+                let vSpacing: CGFloat = 8
+                let cardWidth = (geo.size.width - CGFloat(cols + 1) * hSpacing) / CGFloat(cols)
+                let cardHeight = (geo.size.height - CGFloat(rows + 1) * vSpacing) / CGFloat(rows)
+
+                let columns = Array(repeating: GridItem(.flexible(), spacing: hSpacing), count: cols)
+
+                LazyVGrid(columns: columns, spacing: vSpacing) {
+                    ForEach(viewModel.cards) { card in
+                        MatchCardView(
+                            card: card,
+                            isSelected: viewModel.selectedCardId == card.id,
+                            isMismatch: viewModel.mismatchIds.contains(card.id),
+                            cardHeight: cardHeight
+                        ) {
+                            viewModel.tapCard(card)
+                        }
+                    }
+                }
+                .padding(.horizontal, hSpacing)
+            }
         }
     }
 
-    private var gridColumns: Int {
-        let count = viewModel.cards.filter { !$0.isMatched }.count + viewModel.cards.filter { $0.isMatched }.count
-        // For 12 cards: 3x4, for 10: 2x5, for 8: 2x4, etc.
+    private func gridColumns(for count: Int) -> Int {
         if count <= 8 { return 2 }
-        if count <= 12 { return 3 }
-        return 4
+        return 3
     }
 
     // MARK: - Round Complete
@@ -261,6 +266,7 @@ struct MatchCardView: View {
     let card: MatchGameViewModel.Card
     let isSelected: Bool
     let isMismatch: Bool
+    var cardHeight: CGFloat = 56
     let onTap: () -> Void
 
     @State private var shakeOffset: CGFloat = 0
@@ -270,18 +276,19 @@ struct MatchCardView: View {
             onTap()
         } label: {
             Text(card.text)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(
                     card.isMatched ? .clear :
                     isMismatch ? .white :
                     isSelected ? .white :
                     MerkenTheme.primaryText
                 )
-                .minimumScaleFactor(0.6)
-                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .lineLimit(3)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity)
-                .frame(height: 56)
+                .frame(height: cardHeight)
                 .background(
                     card.isMatched ? Color.clear :
                     isMismatch ? MerkenTheme.danger :
