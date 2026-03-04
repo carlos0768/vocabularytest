@@ -11,14 +11,6 @@ struct TimeAttackView: View {
         ZStack {
             AppBackground()
 
-            // Flash feedback overlay
-            if let color = viewModel.feedbackColor {
-                color
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-            }
-
             switch viewModel.stage {
             case .setup:
                 setupView
@@ -33,7 +25,6 @@ struct TimeAttackView: View {
         .onAppear {
             viewModel.setup(words: words)
         }
-        .animation(MerkenSpring.snappy, value: viewModel.feedbackColor != nil)
     }
 
     // MARK: - Setup
@@ -162,22 +153,44 @@ struct TimeAttackView: View {
                     // 4 choices in 2x2 grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         ForEach(viewModel.choices, id: \.self) { choice in
+                            let isAnswered = viewModel.lastAnsweredChoice == choice
+                            let isCorrectAnswer = choice == word.japanese
+                            let showCorrect = viewModel.lastAnsweredChoice != nil && isCorrectAnswer
+                            let showWrong = isAnswered && !viewModel.lastAnswerCorrect
+
                             Button {
+                                guard viewModel.lastAnsweredChoice == nil else { return }
                                 MerkenHaptic.light()
                                 viewModel.answer(choice)
                             } label: {
                                 Text(choice)
                                     .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(MerkenTheme.primaryText)
+                                    .foregroundStyle(
+                                        showCorrect ? .white :
+                                        showWrong ? .white :
+                                        MerkenTheme.primaryText
+                                    )
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 14))
+                                    .background(
+                                        showCorrect ? Color.green :
+                                        showWrong ? MerkenTheme.danger :
+                                        MerkenTheme.surface,
+                                        in: RoundedRectangle(cornerRadius: 14)
+                                    )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 14)
-                                            .stroke(MerkenTheme.border, lineWidth: 1.5)
+                                            .stroke(
+                                                showCorrect ? Color.green :
+                                                showWrong ? MerkenTheme.danger :
+                                                MerkenTheme.border,
+                                                lineWidth: 1.5
+                                            )
                                     )
                                     .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+                                    .scaleEffect(isAnswered ? 0.95 : 1.0)
                             }
+                            .animation(MerkenSpring.tap, value: viewModel.lastAnsweredChoice)
                         }
                     }
                     .padding(.horizontal, 16)

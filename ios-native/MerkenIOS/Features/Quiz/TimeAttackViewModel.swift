@@ -21,6 +21,8 @@ final class TimeAttackViewModel: ObservableObject {
     @Published private(set) var choices: [String] = []
     @Published private(set) var feedbackColor: Color? = nil
     @Published private(set) var bestScore: Int = 0
+    @Published private(set) var lastAnsweredChoice: String? = nil
+    @Published private(set) var lastAnswerCorrect: Bool = false
     @Published var selectedDuration: TimerDuration = .sixty
 
     private var words: [Word] = []
@@ -74,16 +76,17 @@ final class TimeAttackViewModel: ObservableObject {
         totalAnswered += 1
 
         let isCorrect = choice == word.japanese
+        lastAnsweredChoice = choice
+        lastAnswerCorrect = isCorrect
+
         if isCorrect {
             score += 1
-            flashFeedback(.green.opacity(0.3), duration: 0.3)
-        } else {
-            flashFeedback(MerkenTheme.danger.opacity(0.3), duration: 0.5)
         }
 
         // Next question after brief delay
-        let delay = isCorrect ? 0.3 : 0.5
+        let delay = isCorrect ? 0.4 : 0.7
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.lastAnsweredChoice = nil
             self?.nextQuestion()
         }
     }
