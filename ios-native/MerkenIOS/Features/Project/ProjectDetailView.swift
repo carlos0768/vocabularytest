@@ -28,6 +28,9 @@ struct ProjectDetailView: View {
     @State private var dictionaryURL: URL?
     @State private var sharePayload: SharePayload?
     @State private var showingDeleteConfirm = false
+    @State private var showingMoreMenu = false
+    @State private var showingBookshelfPicker = false
+    @State private var showingCreateBookshelf = false
 
     private var hasIconImage: Bool {
         if let iconImage = project.iconImage,
@@ -105,13 +108,13 @@ struct ProjectDetailView: View {
                     .accessibilityIdentifier("scanToProjectButton")
 
                     Button {
-                        editorMode = .create
+                        showingMoreMenu = true
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "ellipsis")
                             .foregroundStyle(.white)
                             .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
                     }
-                    .accessibilityIdentifier("addWordButton")
+                    .accessibilityIdentifier("moreMenuButton")
                 }
             }
         }
@@ -171,6 +174,32 @@ struct ProjectDetailView: View {
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("「\(project.title)」と含まれる単語がすべて削除されます。この操作は取り消せません。")
+        }
+        .confirmationDialog("", isPresented: $showingMoreMenu, titleVisibility: .hidden) {
+            Button {
+                editorMode = .create
+            } label: {
+                Label("手動追加", systemImage: "plus")
+            }
+            Button {
+                showingBookshelfPicker = true
+            } label: {
+                Label("本棚に追加", systemImage: "books.vertical")
+            }
+            Button {
+                showingCreateBookshelf = true
+            } label: {
+                Label("新しい本棚を作成", systemImage: "plus.rectangle.on.folder")
+            }
+            Button("キャンセル", role: .cancel) {}
+        }
+        .sheet(isPresented: $showingBookshelfPicker) {
+            AddToBookshelfSheet(projectId: project.id)
+                .environmentObject(appState)
+        }
+        .sheet(isPresented: $showingCreateBookshelf) {
+            CreateBookshelfSheet(onComplete: {})
+                .environmentObject(appState)
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(projectId: project.id, using: appState)
