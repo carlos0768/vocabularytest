@@ -20,6 +20,8 @@ struct ProjectDetailView: View {
     @State private var quiz2Destination: Project?
     @State private var quickResponseDestination: Project?
     @State private var showingScan = false
+    @State private var showTinderSort = false
+    @State private var showTimeAttack = false
     @State private var previewIndex = 0
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
@@ -145,6 +147,12 @@ struct ProjectDetailView: View {
         }
         .navigationDestination(item: $quickResponseDestination) { project in
             QuickResponseView(project: project, preloadedWords: viewModel.words)
+        }
+        .navigationDestination(isPresented: $showTinderSort) {
+            TinderSortView(project: project, words: viewModel.words)
+        }
+        .navigationDestination(isPresented: $showTimeAttack) {
+            TimeAttackView(project: project, words: viewModel.words)
         }
         .sheet(item: $sharePayload) { payload in
             ShareSheet(items: payload.items)
@@ -485,6 +493,24 @@ struct ProjectDetailView: View {
                     subtitle: "声で即答"
                 ) {
                     quickResponseDestination = project
+                }
+
+                learningModeCard(
+                    icon: "hand.thumbsup",
+                    iconColor: .purple,
+                    title: "仕分け",
+                    subtitle: "知ってる？知らない？"
+                ) {
+                    showTinderSort = true
+                }
+
+                learningModeCard(
+                    icon: "timer",
+                    iconColor: .orange,
+                    title: "タイムアタック",
+                    subtitle: "時間内に即答"
+                ) {
+                    showTimeAttack = true
                 }
 
                 if aiEnabled || hasPreparedQuizData {
