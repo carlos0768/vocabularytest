@@ -60,6 +60,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
         case camera
         case photoLibrary
         case preview
+        case projectSetup
         case processing
         case queued(jobId: String)
         case confirm
@@ -73,6 +74,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                  (.camera, .camera),
                  (.photoLibrary, .photoLibrary),
                  (.preview, .preview),
+                 (.projectSetup, .projectSetup),
                  (.processing, .processing),
                  (.confirm, .confirm),
                  (.saving, .saving):
@@ -106,6 +108,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
     @Published private(set) var currentStep: FlowStep = .modeSelection
     @Published var editableWords: [EditableExtractedWord] = []
     @Published var projectTitle: String = ""
+    @Published var projectThumbnail: UIImage?
     @Published private(set) var currentWordCount: Int = 0
     @Published private(set) var selectedImages: [SelectedScanImage] = []
     @Published private(set) var processingPages: [ScanPageProgress] = []
@@ -120,6 +123,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private var stepBeforeError: FlowStep = .modeSelection
     private var completionSource: ScanCompletionSource = .foregroundManual
     private var shouldAutoSaveAfterProcessingDismiss = false
+    var shouldAutoProcessOnSetup = false
     private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
 
     // For adding words to an existing project
@@ -175,7 +179,15 @@ final class ScanCoordinatorViewModel: ObservableObject {
             return
         }
 
-        currentStep = .preview
+        // If adding to existing project, skip project setup — auto-process immediately
+        if targetProjectId != nil {
+            shouldAutoProcessOnSetup = true
+            currentStep = .projectSetup
+            return
+        }
+
+        // New project — show project setup page
+        currentStep = .projectSetup
     }
 
     func removeSelectedImage(id: UUID) {
@@ -231,7 +243,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
         let userId = session.userId
 
-        stepBeforeError = .preview
+        stepBeforeError = .projectSetup
         currentStep = .processing
         processingSummary = nil
         beginBackgroundTask()
@@ -383,7 +395,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     source: targetProjectId == nil ? .homeOrProjectList : .projectDetail,
                     localTargetProjectId: response.saveMode == .clientLocal ? targetProjectId : nil,
                     requestedProjectTitle: resolvedProjectTitle,
-                    requestedProjectIconImage: nil,
+                    requestedProjectIconImage: projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) },
                     createdAt: .now
                 )
                 appState.registerPendingScanImport(context)
@@ -861,10 +873,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     return
                 }
 
+                let thumbnailBase64 = projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) }
                 let project = try await appState.activeRepository.createProject(
                     title: trimmedTitle,
                     userId: appState.activeUserId,
-                    iconImage: nil
+                    iconImage: thumbnailBase64
                 )
                 projectId = project.id
                 projectDisplayTitle = project.title

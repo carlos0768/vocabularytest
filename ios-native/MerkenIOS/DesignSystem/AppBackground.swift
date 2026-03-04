@@ -4,35 +4,40 @@ struct AppBackground: View {
     var body: some View {
         MerkenTheme.background
             .overlay {
-                DotPattern()
+                GridPattern()
             }
             .ignoresSafeArea()
     }
 }
 
-/// Dot pattern matching Web版 `bg-dot-pattern` (16px grid, small gray dots)
-private struct DotPattern: View {
+/// Graph-paper grid pattern — faint ruled lines for a notebook feel
+private struct GridPattern: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Canvas { context, size in
-            let spacing: CGFloat = 16
-            let dotRadius: CGFloat = 1.0
-            // Light: original iOS color, Dark: Web版 #1a1e23
+            let spacing: CGFloat = 20
+            let lineWidth: CGFloat = 0.5
             let color: Color = colorScheme == .dark
-                ? Color(red: 0.10, green: 0.12, blue: 0.14)
-                : Color(red: 0.80, green: 0.82, blue: 0.86)
+                ? Color(red: 0.16, green: 0.14, blue: 0.12)
+                : Color(red: 0.82, green: 0.78, blue: 0.72)
 
+            // Vertical lines
             for x in stride(from: CGFloat(0), through: size.width, by: spacing) {
-                for y in stride(from: CGFloat(0), through: size.height, by: spacing) {
-                    let rect = CGRect(
-                        x: x - dotRadius,
-                        y: y - dotRadius,
-                        width: dotRadius * 2,
-                        height: dotRadius * 2
-                    )
-                    context.fill(Circle().path(in: rect), with: .color(color))
+                let path = Path { p in
+                    p.move(to: CGPoint(x: x, y: 0))
+                    p.addLine(to: CGPoint(x: x, y: size.height))
                 }
+                context.stroke(path, with: .color(color), lineWidth: lineWidth)
+            }
+
+            // Horizontal lines
+            for y in stride(from: CGFloat(0), through: size.height, by: spacing) {
+                let path = Path { p in
+                    p.move(to: CGPoint(x: 0, y: y))
+                    p.addLine(to: CGPoint(x: size.width, y: y))
+                }
+                context.stroke(path, with: .color(color), lineWidth: lineWidth)
             }
         }
         .allowsHitTesting(false)

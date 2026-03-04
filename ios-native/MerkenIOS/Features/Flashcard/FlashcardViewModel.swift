@@ -15,7 +15,10 @@ final class FlashcardViewModel: ObservableObject {
     @Published private(set) var currentIndex = 0
     @Published private(set) var isFlipped = false
     @Published private(set) var wordCount = 0
+    @Published var japaneseFirst = false
+    @Published var slowSpeed = false
     @Published var errorMessage: String?
+    @Published var shouldShowTinderSort = false  // set true to auto-trigger tinder sort
 
     // ── Non-published backing store ──
     private var words: [Word] = []
@@ -34,6 +37,8 @@ final class FlashcardViewModel: ObservableObject {
         words.indices.contains(currentIndex) ? words[currentIndex] : nil
     }
 
+    var allWords: [Word] { words }
+
     var hasNext: Bool {
         currentIndex + 1 < words.count
     }
@@ -49,6 +54,16 @@ final class FlashcardViewModel: ObservableObject {
         currentIndex = 0
         isFlipped = false
         stage = prioritized.isEmpty ? .empty : .viewing
+        // Check if all words are brand new (never reviewed) → auto tinder sort
+        checkFirstTimeSort()
+    }
+
+    private func checkFirstTimeSort() {
+        guard !words.isEmpty else { return }
+        let allNew = words.allSatisfy { $0.repetition == 0 && $0.lastReviewedAt == nil }
+        if allNew {
+            shouldShowTinderSort = true
+        }
     }
 
     func load(projectId: String, using state: AppState) async {
@@ -65,6 +80,7 @@ final class FlashcardViewModel: ObservableObject {
             currentIndex = 0
             isFlipped = false
             stage = prioritized.isEmpty ? .empty : .viewing
+            checkFirstTimeSort()
         } catch {
             if error.isCancellationError {
                 return
@@ -97,8 +113,14 @@ final class FlashcardViewModel: ObservableObject {
 
         let utterance = AVSpeechUtterance(string: word.english)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        utterance.rate = slowSpeed
+            ? AVSpeechUtteranceDefaultSpeechRate * 0.5
+            : AVSpeechUtteranceDefaultSpeechRate * 0.9
         synthesizer.speak(utterance)
+    }
+
+    func toggleSpeed() {
+        slowSpeed.toggle()
     }
 
     func toggleFavorite(using state: AppState) async {
@@ -137,6 +159,57 @@ final class FlashcardViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             logger.error("Toggle favorite failed: \(error.localizedDescription)")
         }
+    }
+
+    func toggleDirection() {
+        japaneseFirst.toggle()
+        isFlipped = false
+    }
+
+    func shuffle() {
+        words.shuffle()
+        currentIndex = 0
+        isFlipped = false
+        wordCount = words.count
+    }
+
+    func editWord(english: String, japanese: String, using state: AppState) async {
+        guard let word = currentWord else { return }
+        do {
+            try await state.activeRepository.updateWord(
+                id: word.id,
+                patch: WordPatch(english: english, japanese: japanese)
+            )
+            words[currentIndex] = Word(
+                id: word.id,
+                projectId: word.projectId,
+                english: english,
+                japanese: japanese,
+                distractors: word.distractors,
+                exampleSentence: word.exampleSentence,
+                exampleSentenceJa: word.exampleSentenceJa,
+                pronunciation: word.pronunciation,
+                status: word.status,
+                createdAt: word.createdAt,
+                lastReviewedAt: word.lastReviewedAt,
+                nextReviewAt: word.nextReviewAt,
+                easeFactor: word.easeFactor,
+                intervalDays: word.intervalDays,
+                repetition: word.repetition,
+                isFavorite: word.isFavorite
+            )
+            objectWillChange.send()
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("Edit word failed: \(error.localizedDescription)")
+        }
+    }
+
+    var dictionaryURL: URL? {
+        guard let word = currentWord else { return nil }
+        let encoded = word.english.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word.english
+        return URL(string: "https://eow.alc.co.jp/search?q=\(encoded)")
     }
 
     func deleteWord(using state: AppState) async {

@@ -6,6 +6,15 @@ struct FlashcardView: View {
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel: FlashcardViewModel
+    @State private var dictionaryURL: URL?
+    @State private var showingDeleteConfirm = false
+    @State private var showingEditSheet = false
+    @State private var editEnglish = ""
+    @State private var editJapanese = ""
+    @State private var favoriteScale: CGFloat = 1.0
+    @State private var pressedButton: String?
+    @State private var showTinderSort = false
+    @State private var showTimeAttack = false
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
@@ -31,6 +40,44 @@ struct FlashcardView: View {
         .task(id: project.id) {
             guard preloadedWords == nil || preloadedWords?.isEmpty == true else { return }
             await viewModel.load(projectId: project.id, using: appState)
+        }
+        .sheet(item: $dictionaryURL) { url in
+            SafariView(url: url)
+        }
+        .alert("この単語を削除しますか？", isPresented: $showingDeleteConfirm) {
+            Button("削除", role: .destructive) {
+                Task { await viewModel.deleteWord(using: appState) }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            if let word = viewModel.currentWord {
+                Text("「\(word.english)」を削除します。この操作は元に戻せません。")
+            }
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            editWordSheet
+        }
+        .navigationDestination(isPresented: $showTinderSort) {
+            TinderSortView(
+                project: project,
+                words: viewModel.allWords,
+                onFlashcardUnknown: { unknownWords in
+                    showTinderSort = false
+                    viewModel.setWords(unknownWords)
+                }
+            )
+        }
+        .onChange(of: viewModel.shouldShowTinderSort) {
+            if viewModel.shouldShowTinderSort {
+                viewModel.shouldShowTinderSort = false
+                showTinderSort = true
+            }
+        }
+        .navigationDestination(isPresented: $showTimeAttack) {
+            TimeAttackView(
+                project: project,
+                words: viewModel.allWords
+            )
         }
     }
 
@@ -77,62 +124,167 @@ struct FlashcardView: View {
 
     private var viewingView: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("\(viewModel.currentIndex + 1) / \(viewModel.wordCount)")
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
+            // Header: progress + mode badge + overflow menu
+            VStack(spacing: 6) {
+                HStack {
+                    // Mode badge
+                    Button {
+                        MerkenHaptic.light()
+                        viewModel.toggleDirection()
+                    } label: {
+                        Text(viewModel.japaneseFirst ? "日→英" : "英→日")
+                            .font(.system(size: 12, weight: .semibold, design: .serif))
+                            .foregroundStyle(viewModel.japaneseFirst ? .white : MerkenTheme.secondaryText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                viewModel.japaneseFirst ? MerkenTheme.accentBlue : MerkenTheme.surface,
+                                in: Capsule()
+                            )
+                            .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1))
+                    }
 
-                Spacer()
+                    Spacer()
 
-                if let word = viewModel.currentWord {
-                    Image(systemName: word.isFavorite ? "heart.fill" : "heart")
-                        .font(.title3)
-                        .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.secondaryText)
-                        .onTapGesture {
-                            Task {
-                                await viewModel.toggleFavorite(using: appState)
-                            }
+                    // Progress
+                    Text("\(viewModel.currentIndex + 1) / \(viewModel.wordCount)")
+                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+
+                    Spacer()
+
+                    // Overflow menu (⋯)
+                    Menu {
+                        Button {
+                            dictionaryURL = viewModel.dictionaryURL
+                        } label: {
+                            Label("辞書で調べる", systemImage: "book")
                         }
+
+                        Button {
+                            if let word = viewModel.currentWord {
+                                editEnglish = word.english
+                                editJapanese = word.japanese
+                                showingEditSheet = true
+                            }
+                        } label: {
+                            Label("単語を編集", systemImage: "pencil")
+                        }
+
+                        Button {
+                            MerkenHaptic.light()
+                            viewModel.shuffle()
+                        } label: {
+                            Label("シャッフル", systemImage: "shuffle")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            Label("単語を削除", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.title3)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .frame(width: 36, height: 36)
+                    }
                 }
+
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(MerkenTheme.border)
+                            .frame(height: 3)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(MerkenTheme.accentBlue)
+                            .frame(
+                                width: viewModel.wordCount > 0
+                                    ? geo.size.width * CGFloat(viewModel.currentIndex + 1) / CGFloat(viewModel.wordCount)
+                                    : 0,
+                                height: 3
+                            )
+                            .animation(MerkenSpring.gentle, value: viewModel.currentIndex)
+                    }
+                }
+                .frame(height: 3)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 4)
 
-            // Card
-            if let word = viewModel.currentWord {
-                FlashcardCardView(
-                    word: word,
-                    isFlipped: viewModel.isFlipped,
-                    onTap: { viewModel.flipCard() },
-                    onSwipeLeft: { viewModel.goNext() },
-                    onSwipeRight: { viewModel.goPrevious() }
-                )
-                .padding(.horizontal, 24)
+            // Card with favorite overlay
+            ZStack(alignment: .topTrailing) {
+                if let word = viewModel.currentWord {
+                    FlashcardCardView(
+                        word: word,
+                        isFlipped: viewModel.isFlipped,
+                        japaneseFirst: viewModel.japaneseFirst,
+                        onTap: { viewModel.flipCard() },
+                        onSwipeLeft: { viewModel.goNext() },
+                        onSwipeRight: { viewModel.goPrevious() }
+                    )
+                }
+
+                // Favorite badge on card corner
+                if let word = viewModel.currentWord {
+                    Button {
+                        Task {
+                            await viewModel.toggleFavorite(using: appState)
+                            if !word.isFavorite { // was false, now becoming true
+                                MerkenHaptic.medium()
+                                withAnimation(MerkenSpring.bouncy) {
+                                    favoriteScale = 1.4
+                                }
+                                withAnimation(MerkenSpring.bouncy.delay(0.15)) {
+                                    favoriteScale = 1.0
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 18))
+                            .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .scaleEffect(favoriteScale)
+                    }
+                    .offset(x: -8, y: 8)
+                }
             }
+            .padding(.horizontal, 24)
 
             Spacer(minLength: 0)
 
-            // Toolbar
-            HStack(spacing: 32) {
-                toolbarButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
+            // Navigation — clean, focused
+            HStack(spacing: 40) {
+                navButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
                     viewModel.goPrevious()
                 }
 
-                toolbarButton(icon: "speaker.wave.2", enabled: true) {
+                navButton(icon: viewModel.slowSpeed ? "speaker.wave.1.fill" : "speaker.wave.2.fill", enabled: true) {
                     viewModel.speak()
                 }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            MerkenHaptic.medium()
+                            viewModel.toggleSpeed()
+                        }
+                )
 
-                toolbarButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
+                navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
                     viewModel.flipCard()
                 }
 
-                toolbarButton(icon: "chevron.right", enabled: viewModel.hasNext) {
+                navButton(icon: "chevron.right", enabled: viewModel.hasNext) {
                     viewModel.goNext()
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 20)
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
@@ -144,20 +296,68 @@ struct FlashcardView: View {
         }
     }
 
-    private func toolbarButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func navButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            MerkenHaptic.light()
+            // Bounce animation
+            pressedButton = icon
+            withAnimation(MerkenSpring.tap) {
+                pressedButton = icon
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(MerkenSpring.bouncy) {
+                    pressedButton = nil
+                }
+            }
+            action()
+        } label: {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(enabled ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
-                .frame(width: 44, height: 44)
+                .frame(width: 48, height: 48)
                 .background(MerkenTheme.surface, in: .circle)
                 .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                .background(
-                    Circle()
-                        .fill(MerkenTheme.border)
-                        .offset(y: 2)
-                )
+                .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+                .scaleEffect(pressedButton == icon ? 0.85 : 1.0)
         }
         .disabled(!enabled)
+    }
+
+    // MARK: - Edit Word Sheet
+
+    private var editWordSheet: some View {
+        NavigationStack {
+            Form {
+                Section("英語") {
+                    TextField("英単語", text: $editEnglish)
+                        .autocapitalization(.none)
+                }
+                Section("日本語") {
+                    TextField("日本語訳", text: $editJapanese)
+                }
+            }
+            .navigationTitle("単語を編集")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { showingEditSheet = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        Task {
+                            await viewModel.editWord(
+                                english: editEnglish.trimmingCharacters(in: .whitespaces),
+                                japanese: editJapanese.trimmingCharacters(in: .whitespaces),
+                                using: appState
+                            )
+                            showingEditSheet = false
+                        }
+                    }
+                    .disabled(editEnglish.trimmingCharacters(in: .whitespaces).isEmpty ||
+                              editJapanese.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }

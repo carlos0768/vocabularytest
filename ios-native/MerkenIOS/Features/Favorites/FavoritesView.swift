@@ -12,7 +12,10 @@ struct FavoritesView: View {
             } else if viewModel.filteredWords.isEmpty {
                 emptyState
             } else {
-                wordList
+                VStack(spacing: 0) {
+                    sortBar
+                    wordList
+                }
             }
         }
         .navigationTitle("苦手単語")
@@ -21,6 +24,46 @@ struct FavoritesView: View {
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
+    }
+
+    private var sortBar: some View {
+        HStack(spacing: 8) {
+            ForEach(FavoritesViewModel.SortMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        viewModel.sortMode = mode
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        if mode == .alphabetical {
+                            Image(systemName: "textformat.abc")
+                                .font(.system(size: 11))
+                        } else if mode == .status {
+                            Image(systemName: "line.3.horizontal.decrease")
+                                .font(.system(size: 11))
+                        }
+                        Text(mode.rawValue)
+                            .font(.system(size: 13, weight: .medium, design: .serif))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .foregroundStyle(viewModel.sortMode == mode ? .white : MerkenTheme.secondaryText)
+                    .background(
+                        viewModel.sortMode == mode ? MerkenTheme.accentBlue : MerkenTheme.surface,
+                        in: .capsule
+                    )
+                    .overlay(
+                        Capsule().stroke(
+                            viewModel.sortMode == mode ? Color.clear : MerkenTheme.borderLight,
+                            lineWidth: 1
+                        )
+                    )
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
     private var emptyState: some View {

@@ -8,6 +8,7 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var dueWordCount: Int = 0
     @Published private(set) var dueWords: [Word] = []
     @Published private(set) var wordsByProject: [String: [Word]] = [:]
+    @Published private(set) var dueCountByProject: [String: Int] = [:]
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
@@ -62,8 +63,16 @@ final class HomeViewModel: ObservableObject {
                     self?.totalWordCount = total
                     self?.dueWordCount = dueList.count
                     self?.dueWords = dueList
-                    self?.wordsByProject = Dictionary(grouping: allWords, by: \.projectId)
+                    let grouped = Dictionary(grouping: allWords, by: \.projectId)
                         .mapValues { $0.sorted { $0.createdAt < $1.createdAt } }
+                    self?.wordsByProject = grouped
+
+                    // Per-project due counts
+                    var dueCounts: [String: Int] = [:]
+                    for (pid, words) in grouped {
+                        dueCounts[pid] = QuizEngine.wordsDueForReview(words).count
+                    }
+                    self?.dueCountByProject = dueCounts
                 } catch {
                     // skip on failure
                 }

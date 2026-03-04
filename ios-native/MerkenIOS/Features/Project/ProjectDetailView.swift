@@ -20,6 +20,9 @@ struct ProjectDetailView: View {
     @State private var quiz2Destination: Project?
     @State private var quickResponseDestination: Project?
     @State private var showingScan = false
+    @State private var showTinderSort = false
+    @State private var showTimeAttack = false
+    @State private var showMatchGame = false
     @State private var previewIndex = 0
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
@@ -146,6 +149,15 @@ struct ProjectDetailView: View {
         .navigationDestination(item: $quickResponseDestination) { project in
             QuickResponseView(project: project, preloadedWords: viewModel.words)
         }
+        .navigationDestination(isPresented: $showTinderSort) {
+            TinderSortView(project: project, words: viewModel.words)
+        }
+        .navigationDestination(isPresented: $showTimeAttack) {
+            TimeAttackView(project: project, words: viewModel.words)
+        }
+        .navigationDestination(isPresented: $showMatchGame) {
+            MatchGameView(project: project, words: viewModel.words)
+        }
         .sheet(item: $sharePayload) { payload in
             ShareSheet(items: payload.items)
         }
@@ -177,9 +189,16 @@ struct ProjectDetailView: View {
 
     private func handleShare() async {
         guard case .proCloud = appState.repositoryMode else {
-            // Guest users: text share via share sheet
-            let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
-            let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
+            // Guest users: text share with sample words (no link)
+            let sampleWords = viewModel.words.prefix(3).map { $0.english }
+            let wordsPart = sampleWords.joined(separator: "、")
+            let totalCount = viewModel.words.count
+            let text: String
+            if wordsPart.isEmpty {
+                text = "Merkenで単語を暗記中！"
+            } else {
+                text = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\nhttps://www.merken.jp"
+            }
             presentShareSheet(items: [text])
             return
         }
@@ -192,11 +211,36 @@ struct ProjectDetailView: View {
             guard let shareId else { return }
 
             guard let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") else { return }
-            presentShareSheet(items: [shareURL])
+
+            // Build share text with sample words
+            let sampleWords = viewModel.words.prefix(3).map { $0.english }
+            let wordsPart: String
+            if sampleWords.count >= 2 {
+                wordsPart = sampleWords.dropLast().joined(separator: "、") + "、" + sampleWords.last!
+            } else if let first = sampleWords.first {
+                wordsPart = first
+            } else {
+                wordsPart = ""
+            }
+            let totalCount = viewModel.words.count
+            let shareText: String
+            if wordsPart.isEmpty {
+                shareText = "Merkenで単語を暗記中！\n\(shareURL.absoluteString)"
+            } else {
+                shareText = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\n\(shareURL.absoluteString)"
+            }
+            presentShareSheet(items: [shareText])
         } catch {
             // Fallback to text share on error
-            let lines = viewModel.words.map { "\($0.english) — \($0.japanese)" }
-            let text = "【\(project.title)】\n" + lines.joined(separator: "\n")
+            let sampleWords = viewModel.words.prefix(3).map { $0.english }
+            let wordsPart = sampleWords.joined(separator: "、")
+            let totalCount = viewModel.words.count
+            let text: String
+            if wordsPart.isEmpty {
+                text = "Merkenで単語を暗記中！"
+            } else {
+                text = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\nhttps://www.merken.jp"
+            }
             presentShareSheet(items: [text])
         }
     }
@@ -447,15 +491,26 @@ struct ProjectDetailView: View {
                 }
 
                 learningModeCard(
-                    icon: "mic.fill",
-                    iconColor: MerkenTheme.danger,
-                    title: "即答チャレンジ",
-                    subtitle: "声で即答"
+                    icon: "timer",
+                    iconColor: .orange,
+                    title: "タイムアタック",
+                    subtitle: "時間内に即答"
                 ) {
-                    quickResponseDestination = project
+                    showTimeAttack = true
                 }
 
-                if aiEnabled || hasPreparedQuizData {
+                if viewModel.words.count >= 4 {
+                    learningModeCard(
+                        icon: "square.grid.2x2",
+                        iconColor: .purple,
+                        title: "マッチ",
+                        subtitle: "ペアを見つけろ"
+                    ) {
+                        showMatchGame = true
+                    }
+                }
+
+                if false {  // Quiz disabled — replaced by Time Attack
                     learningModeCard(
                         icon: "questionmark.square.fill",
                         iconColor: MerkenTheme.accentBlue,

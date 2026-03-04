@@ -37,18 +37,29 @@ struct CreateBookshelfSheet: View {
                                 .foregroundStyle(MerkenTheme.secondaryText)
 
                             ForEach(allProjects) { project in
+                                let isSelected = selectedProjectIds.contains(project.id)
                                 SolidPane {
-                                    HStack {
-                                        Image(systemName: selectedProjectIds.contains(project.id) ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(selectedProjectIds.contains(project.id) ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
-                                        Text(project.title)
-                                            .foregroundStyle(MerkenTheme.primaryText)
+                                    HStack(spacing: 12) {
+                                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                            .font(.title3)
+                                            .foregroundStyle(isSelected ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+
+                                        // Thumbnail
+                                        projectThumbnailView(project)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(project.title)
+                                                .font(.system(size: 15, weight: .medium, design: .serif))
+                                                .foregroundStyle(MerkenTheme.primaryText)
+                                                .lineLimit(1)
+                                        }
+
                                         Spacer()
                                     }
                                 }
                                 .contentShape(.rect)
                                 .onTapGesture {
-                                    if selectedProjectIds.contains(project.id) {
+                                    if isSelected {
                                         selectedProjectIds.remove(project.id)
                                     } else {
                                         selectedProjectIds.insert(project.id)
@@ -84,6 +95,28 @@ struct CreateBookshelfSheet: View {
                 let projects = try? await appState.activeRepository.fetchProjects(userId: appState.activeUserId)
                 allProjects = projects ?? []
             }
+        }
+    }
+
+    @ViewBuilder
+    private func projectThumbnailView(_ project: Project) -> some View {
+        if let iconImage = project.iconImage,
+           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(.rect(cornerRadius: 10))
+        } else {
+            let bgColor = MerkenTheme.placeholderColor(for: project.id)
+            ZStack {
+                bgColor
+                Text(String(project.title.prefix(1)))
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(.rect(cornerRadius: 10))
         }
     }
 
