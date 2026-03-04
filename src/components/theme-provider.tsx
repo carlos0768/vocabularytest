@@ -3,14 +3,11 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
-type ColorTheme = 'default' | 'navy-copper' | 'charcoal-lime';
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolvedTheme: 'light' | 'dark';
-  colorTheme: ColorTheme;
-  setColorTheme: (colorTheme: ColorTheme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -23,24 +20,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const savedTheme = localStorage.getItem('scanvocab_theme') as Theme | null;
     return savedTheme ?? 'light';
   });
-  const [colorTheme, setColorThemeState] = useState<ColorTheme>(() => {
-    if (typeof window === 'undefined') {
-      return 'default';
-    }
-    const saved = localStorage.getItem('merken-color-theme') as ColorTheme | null;
-    return saved ?? 'default';
-  });
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
-
-  // Apply color theme to document
-  useEffect(() => {
-    const root = document.documentElement;
-    if (colorTheme === 'default') {
-      root.removeAttribute('data-theme');
-    } else {
-      root.setAttribute('data-theme', colorTheme);
-    }
-  }, [colorTheme]);
 
   // Resolve theme and apply to document
   useEffect(() => {
@@ -73,13 +53,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('scanvocab_theme', newTheme);
   };
 
-  const setColorTheme = (newColorTheme: ColorTheme) => {
-    setColorThemeState(newColorTheme);
-    localStorage.setItem('merken-color-theme', newColorTheme);
-  };
-
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, colorTheme, setColorTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
       {children}
     </ThemeContext.Provider>
   );
