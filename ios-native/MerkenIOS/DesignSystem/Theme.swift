@@ -50,10 +50,10 @@ enum MerkenTheme {
     static let border = Color("ThemeBorder")
     static let borderLight = Color("ThemeBorderLight")
 
-    // Accent — deep teal (stationery/ink feel)
-    static let accentBlue = Color(red: 0.176, green: 0.416, blue: 0.310)  // #2D6A4F
-    static let accentBlueStrong = Color(red: 0.133, green: 0.353, blue: 0.259)  // #225A42
-    static let accentBlueLight = Color(red: 0.176, green: 0.416, blue: 0.310).opacity(0.1)
+    // Accent — Stitch Blue (matches web main)
+    static let accentBlue = Color(red: 0.075, green: 0.498, blue: 0.925)  // #137fec
+    static let accentBlueStrong = Color(red: 0.051, green: 0.431, blue: 0.800)  // #0d6ecc
+    static let accentBlueLight = Color(red: 0.075, green: 0.498, blue: 0.925).opacity(0.1)
 
     // Status
     static let success = Color(red: 0.13, green: 0.77, blue: 0.37)
@@ -68,16 +68,16 @@ enum MerkenTheme {
     static let secondaryText = Color("ThemeSecondaryText")
     static let mutedText = Color("ThemeMutedText")
 
-    // Placeholder thumbnail colors — warm, muted tones (stationery palette)
+    // Placeholder thumbnail colors — blue-based palette (matches Stitch Blue)
     static let thumbnailColors: [Color] = [
-        Color(red: 0.176, green: 0.416, blue: 0.310),  // teal
-        Color(red: 0.545, green: 0.231, blue: 0.231),  // brick red
-        Color(red: 0.380, green: 0.318, blue: 0.224),  // olive brown
-        Color(red: 0.420, green: 0.290, blue: 0.520),  // muted purple
-        Color(red: 0.220, green: 0.420, blue: 0.400),  // dark cyan
-        Color(red: 0.600, green: 0.400, blue: 0.180),  // amber
-        Color(red: 0.310, green: 0.460, blue: 0.290),  // sage
-        Color(red: 0.470, green: 0.350, blue: 0.280),  // warm brown
+        Color(red: 0.075, green: 0.498, blue: 0.925),  // stitch blue
+        Color(red: 0.180, green: 0.400, blue: 0.750),  // medium blue
+        Color(red: 0.100, green: 0.350, blue: 0.650),  // deep blue
+        Color(red: 0.300, green: 0.500, blue: 0.800),  // sky blue
+        Color(red: 0.051, green: 0.431, blue: 0.800),  // primary dark
+        Color(red: 0.200, green: 0.450, blue: 0.700),  // slate blue
+        Color(red: 0.133, green: 0.545, blue: 0.133),  // green accent
+        Color(red: 0.400, green: 0.300, blue: 0.700),  // purple accent
     ]
 
     static func placeholderColor(for id: String, isDark: Bool = false) -> Color {
