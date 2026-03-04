@@ -18,13 +18,17 @@ struct FlashcardCardView: View {
     var body: some View {
         ZStack {
             // Back face
-            (japaneseFirst ? englishRichFace : japaneseRichFace)
-                .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
-                .opacity(isFlipped ? 1 : 0)
+            Group {
+                if japaneseFirst { englishRichFace } else { japaneseRichFace }
+            }
+            .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
+            .opacity(isFlipped ? 1 : 0)
 
             // Front face
-            (japaneseFirst ? japaneseFrontFace : englishFrontFace)
-                .opacity(isFlipped ? 0 : 1)
+            Group {
+                if japaneseFirst { japaneseFrontFace } else { englishFrontFace }
+            }
+            .opacity(isFlipped ? 0 : 1)
         }
         .rotation3DEffect(
             .degrees(isFlipped ? 180 : 0),
@@ -201,7 +205,7 @@ struct FlashcardCardView: View {
                     // Related words
                     if let related = word.relatedWords, !related.isEmpty {
                         infoSection(title: "関連語", index: 3) {
-                            FlowLayout(spacing: 8) {
+                            FlashcardFlowLayout(spacing: 8) {
                                 ForEach(related.prefix(6), id: \.term) { rw in
                                     HStack(spacing: 4) {
                                         Text(rw.term)
@@ -299,7 +303,7 @@ struct FlashcardCardView: View {
 
                     if let related = word.relatedWords, !related.isEmpty {
                         infoSection(title: "関連語", index: 3) {
-                            FlowLayout(spacing: 8) {
+                            FlashcardFlowLayout(spacing: 8) {
                                 ForEach(related.prefix(6), id: \.term) { rw in
                                     HStack(spacing: 4) {
                                         Text(rw.term)
@@ -441,12 +445,7 @@ struct FlashcardCardView: View {
         return attributed
     }
 
-    private func formatDate(_ isoString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = formatter.date(from: isoString) ?? ISO8601DateFormatter().date(from: isoString) else {
-            return ""
-        }
+    private func formatDate(_ date: Date) -> String {
         let df = DateFormatter()
         df.dateFormat = "M/d"
         return df.string(from: date)
@@ -471,7 +470,7 @@ struct FlashcardCardView: View {
 
 // MARK: - Flow Layout (for tags/chips)
 
-struct FlowLayout: Layout {
+struct FlashcardFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
