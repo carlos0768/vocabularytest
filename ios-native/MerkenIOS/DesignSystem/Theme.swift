@@ -38,7 +38,7 @@ final class ThemeManager: ObservableObject {
     }
 }
 
-// MARK: - MerkenTheme (adaptive colors)
+// MARK: - MerkenTheme — Charcoal × Electric Lime
 
 enum MerkenTheme {
     // Backgrounds
@@ -50,10 +50,10 @@ enum MerkenTheme {
     static let border = Color("ThemeBorder")
     static let borderLight = Color("ThemeBorderLight")
 
-    // Accent — deep teal (stationery/ink feel)
-    static let accentBlue = Color(red: 0.176, green: 0.416, blue: 0.310)  // #2D6A4F
-    static let accentBlueStrong = Color(red: 0.133, green: 0.353, blue: 0.259)  // #225A42
-    static let accentBlueLight = Color(red: 0.176, green: 0.416, blue: 0.310).opacity(0.1)
+    // Accent — Electric Lime (light vs dark adaptive)
+    static let accentBlue = Color(red: 0.486, green: 0.710, blue: 0.094)        // #7CB518
+    static let accentBlueStrong = Color(red: 0.353, green: 0.541, blue: 0.059)   // #5A8A0F
+    static let accentBlueLight = Color(red: 0.706, green: 0.890, blue: 0.239).opacity(0.1) // #B4E33D
 
     // Status
     static let success = Color(red: 0.13, green: 0.77, blue: 0.37)
@@ -68,16 +68,16 @@ enum MerkenTheme {
     static let secondaryText = Color("ThemeSecondaryText")
     static let mutedText = Color("ThemeMutedText")
 
-    // Placeholder thumbnail colors — warm, muted tones (stationery palette)
+    // Placeholder thumbnail colors — Charcoal/Lime monochrome palette
     static let thumbnailColors: [Color] = [
-        Color(red: 0.176, green: 0.416, blue: 0.310),  // teal
-        Color(red: 0.545, green: 0.231, blue: 0.231),  // brick red
-        Color(red: 0.380, green: 0.318, blue: 0.224),  // olive brown
-        Color(red: 0.420, green: 0.290, blue: 0.520),  // muted purple
-        Color(red: 0.220, green: 0.420, blue: 0.400),  // dark cyan
-        Color(red: 0.600, green: 0.400, blue: 0.180),  // amber
-        Color(red: 0.310, green: 0.460, blue: 0.290),  // sage
-        Color(red: 0.470, green: 0.350, blue: 0.280),  // warm brown
+        Color(red: 0.486, green: 0.710, blue: 0.094),  // lime
+        Color(red: 0.240, green: 0.240, blue: 0.240),  // charcoal
+        Color(red: 0.706, green: 0.890, blue: 0.239),  // bright lime
+        Color(red: 0.333, green: 0.333, blue: 0.333),  // dark gray
+        Color(red: 0.420, green: 0.557, blue: 0.137),  // olive
+        Color(red: 0.290, green: 0.290, blue: 0.290),  // medium gray
+        Color(red: 0.604, green: 0.804, blue: 0.196),  // yellow-green
+        Color(red: 0.180, green: 0.180, blue: 0.180),  // near black
     ]
 
     static func placeholderColor(for id: String, isDark: Bool = false) -> Color {
