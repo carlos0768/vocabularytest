@@ -18,6 +18,7 @@ final class FlashcardViewModel: ObservableObject {
     @Published var japaneseFirst = false
     @Published var slowSpeed = false
     @Published var errorMessage: String?
+    @Published var shouldShowTinderSort = false  // set true to auto-trigger tinder sort
 
     // ── Non-published backing store ──
     private var words: [Word] = []
@@ -53,6 +54,16 @@ final class FlashcardViewModel: ObservableObject {
         currentIndex = 0
         isFlipped = false
         stage = prioritized.isEmpty ? .empty : .viewing
+        // Check if all words are brand new (never reviewed) → auto tinder sort
+        checkFirstTimeSort()
+    }
+
+    private func checkFirstTimeSort() {
+        guard !words.isEmpty else { return }
+        let allNew = words.allSatisfy { $0.repetition == 0 && $0.lastReviewedAt == nil }
+        if allNew {
+            shouldShowTinderSort = true
+        }
     }
 
     func load(projectId: String, using state: AppState) async {
@@ -69,6 +80,7 @@ final class FlashcardViewModel: ObservableObject {
             currentIndex = 0
             isFlipped = false
             stage = prioritized.isEmpty ? .empty : .viewing
+            checkFirstTimeSort()
         } catch {
             if error.isCancellationError {
                 return

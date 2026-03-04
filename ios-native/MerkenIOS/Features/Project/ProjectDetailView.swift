@@ -496,15 +496,6 @@ struct ProjectDetailView: View {
                 }
 
                 learningModeCard(
-                    icon: "hand.thumbsup",
-                    iconColor: .purple,
-                    title: "仕分け",
-                    subtitle: "知ってる？知らない？"
-                ) {
-                    showTinderSort = true
-                }
-
-                learningModeCard(
                     icon: "timer",
                     iconColor: .orange,
                     title: "タイムアタック",
@@ -513,7 +504,7 @@ struct ProjectDetailView: View {
                     showTimeAttack = true
                 }
 
-                if aiEnabled || hasPreparedQuizData {
+                if false {  // Quiz disabled — replaced by Time Attack
                     learningModeCard(
                         icon: "questionmark.square.fill",
                         iconColor: MerkenTheme.accentBlue,

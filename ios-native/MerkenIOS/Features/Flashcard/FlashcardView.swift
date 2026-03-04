@@ -67,6 +67,12 @@ struct FlashcardView: View {
                 }
             )
         }
+        .onChange(of: viewModel.shouldShowTinderSort) {
+            if viewModel.shouldShowTinderSort {
+                viewModel.shouldShowTinderSort = false
+                showTinderSort = true
+            }
+        }
         .navigationDestination(isPresented: $showTimeAttack) {
             TimeAttackView(
                 project: project,
@@ -149,18 +155,6 @@ struct FlashcardView: View {
 
                     // Overflow menu (⋯)
                     Menu {
-                        Button {
-                            showTinderSort = true
-                        } label: {
-                            Label("仕分けモード", systemImage: "hand.thumbsup")
-                        }
-
-                        Button {
-                            showTimeAttack = true
-                        } label: {
-                            Label("タイムアタック", systemImage: "timer")
-                        }
-
                         Button {
                             dictionaryURL = viewModel.dictionaryURL
                         } label: {
