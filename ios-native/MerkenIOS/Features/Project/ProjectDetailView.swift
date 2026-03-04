@@ -288,7 +288,7 @@ struct ProjectDetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         Text(project.title)
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .font(.title3.bold())
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -379,7 +379,7 @@ struct ProjectDetailView: View {
                     // English word
                     VStack(spacing: 4) {
                         Text(word.english)
-                            .font(.system(size: 28, weight: .bold, design: .serif))
+                            .font(.title.bold())
                             .foregroundStyle(MerkenTheme.primaryText)
                             .multilineTextAlignment(.center)
                     }
@@ -388,7 +388,7 @@ struct ProjectDetailView: View {
 
                     // Japanese translation
                     Text(word.japanese)
-                        .font(.system(size: 20, weight: .medium, design: .default))
+                        .font(.title3)
                         .foregroundStyle(MerkenTheme.secondaryText)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -464,7 +464,7 @@ struct ProjectDetailView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("学習モード")
-                .font(.system(size: 17, weight: .semibold, design: .serif))
+                .font(.headline)
                 .foregroundStyle(MerkenTheme.primaryText)
 
             let columns = [
@@ -530,7 +530,7 @@ struct ProjectDetailView: View {
                 IconBadge(systemName: icon, color: iconColor, size: 48)
 
                 Text(title)
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .font(.headline.bold())
                     .foregroundStyle(MerkenTheme.primaryText)
                 Text(subtitle)
                     .font(.caption)
@@ -563,7 +563,7 @@ struct ProjectDetailView: View {
                         IconBadge(systemName: "list.bullet", color: MerkenTheme.accentBlue, size: 32)
                         VStack(alignment: .leading, spacing: 0) {
                             Text("単語一覧")
-                                .font(.system(size: 17, weight: .semibold, design: .serif))
+                                .font(.headline)
                                 .foregroundStyle(MerkenTheme.primaryText)
                             let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
                             let reviewCount = viewModel.words.filter { $0.status == .review }.count
