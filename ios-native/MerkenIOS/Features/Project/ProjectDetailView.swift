@@ -22,6 +22,7 @@ struct ProjectDetailView: View {
     @State private var showingScan = false
     @State private var showTinderSort = false
     @State private var showTimeAttack = false
+    @State private var showMatchGame = false
     @State private var previewIndex = 0
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
@@ -153,6 +154,9 @@ struct ProjectDetailView: View {
         }
         .navigationDestination(isPresented: $showTimeAttack) {
             TimeAttackView(project: project, words: viewModel.words)
+        }
+        .navigationDestination(isPresented: $showMatchGame) {
+            MatchGameView(project: project, words: viewModel.words)
         }
         .sheet(item: $sharePayload) { payload in
             ShareSheet(items: payload.items)
@@ -493,6 +497,17 @@ struct ProjectDetailView: View {
                     subtitle: "時間内に即答"
                 ) {
                     showTimeAttack = true
+                }
+
+                if viewModel.words.count >= 4 {
+                    learningModeCard(
+                        icon: "square.grid.2x2",
+                        iconColor: .purple,
+                        title: "マッチ",
+                        subtitle: "ペアを見つけろ"
+                    ) {
+                        showMatchGame = true
+                    }
                 }
 
                 if false {  // Quiz disabled — replaced by Time Attack
