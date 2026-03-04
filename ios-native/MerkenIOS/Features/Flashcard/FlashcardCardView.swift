@@ -184,16 +184,17 @@ struct FlashcardCardView: View {
 
     private var japaneseRichFace: some View {
         richCardBase {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 16) {
-                    // Main answer
+            VStack(spacing: 0) {
+                // Top section: main answer centered
+                Spacer()
+
+                VStack(spacing: 12) {
                     Text(word.japanese)
                         .font(.title.bold())
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .staggerIn(index: 0, isVisible: showBackContent)
 
-                    // Small english reference + pronunciation
                     VStack(spacing: 4) {
                         Text(word.english)
                             .font(.callout)
@@ -206,9 +207,15 @@ struct FlashcardCardView: View {
                         }
                     }
                     .staggerIn(index: 1, isVisible: showBackContent)
+                }
 
-                    dividerLine
-                        .staggerIn(index: 1, isVisible: showBackContent)
+                Spacer()
+
+                // Bottom section: supplemental info (scrollable)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        dividerLine
+                            .staggerIn(index: 1, isVisible: showBackContent)
 
                     // Example sentence
                     if let example = word.exampleSentence, !example.isEmpty {
@@ -275,10 +282,13 @@ struct FlashcardCardView: View {
                     }
 
                     Spacer(minLength: 8)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
                 }
-                .padding(24)
-                .padding(.top, 4)
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
+            .padding(.top, 16)
         }
     }
 
