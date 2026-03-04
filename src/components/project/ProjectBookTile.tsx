@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { getBookCoverColors } from '@/lib/book-cover-utils';
+import { useTheme } from '@/components/theme-provider';
 import type { Project } from '@/types';
 
 interface CustomMenuItem {
@@ -32,12 +33,13 @@ export function ProjectBookTile({
   extraMenuItems,
 }: ProjectBookTileProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const { colorTheme } = useTheme();
   const safeIconImage =
     typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
       ? project.iconImage
       : null;
 
-  const [colorFrom, colorTo] = getBookCoverColors(project.id);
+  const [colorFrom, colorTo] = getBookCoverColors(project.id, colorTheme);
   const clampedProgress = Math.max(0, Math.min(progress, 100));
   const hasProgress = clampedProgress > 0 && wordCount > 0;
 

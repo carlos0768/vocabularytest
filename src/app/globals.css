@@ -56,6 +56,86 @@
   --color-hero-btn-border: rgba(255, 255, 255, 0.3);
 }
 
+/* ===== Theme: Deep Navy × Copper ===== */
+
+[data-theme="navy-copper"] {
+  --color-primary: #C87941;
+  --color-primary-dark: #A86330;
+  --color-primary-light: #FDF3EB;
+  --color-background: #F4F1ED;
+  --color-surface: #FFFFFF;
+  --color-foreground: #1A1A2E;
+  --color-muted: #7A7A8A;
+  --color-border: #DDD5CC;
+  --color-border-light: #EDE8E2;
+  --color-dot: #B0A89E;
+  --color-hero: #0F2240;
+  --color-hero-btn: #ffffff;
+  --color-hero-btn-text: #0F2240;
+  --color-hero-btn-border: rgba(200, 121, 65, 0.4);
+  --color-accent-secondary: #2E7D8C;
+}
+
+[data-theme="navy-copper"].dark {
+  --color-primary: #C87941;
+  --color-primary-dark: #D48A52;
+  --color-primary-light: #1F1510;
+  --color-background: #0A1628;
+  --color-surface: #121F36;
+  --color-foreground: #D4D0C8;
+  --color-muted: #8A9AB0;
+  --color-border: #1E3050;
+  --color-border-light: #162640;
+  --color-dot: #15253D;
+  --color-hero: #0A1628;
+  --color-hero-btn: #C87941;
+  --color-hero-btn-text: #FFFFFF;
+  --color-hero-btn-border: #A86330;
+  --color-success-light: #0A1F14;
+  --color-error-light: #1F0A0A;
+  --color-warning-light: #1F1A0A;
+  --color-accent-secondary: #2E7D8C;
+}
+
+/* ===== Theme: Charcoal × Electric Lime ===== */
+
+[data-theme="charcoal-lime"] {
+  --color-primary: #7CB518;
+  --color-primary-dark: #5A8A0F;
+  --color-primary-light: #F2F9E6;
+  --color-background: #F5F5F0;
+  --color-surface: #FFFFFF;
+  --color-foreground: #1A1A1A;
+  --color-muted: #6E6E6E;
+  --color-border: #E0E0DA;
+  --color-border-light: #EBEBEB;
+  --color-dot: #CCCCCC;
+  --color-hero: #1A1A1A;
+  --color-hero-btn: #B4E33D;
+  --color-hero-btn-text: #1A1A1A;
+  --color-hero-btn-border: #7CB518;
+}
+
+[data-theme="charcoal-lime"].dark {
+  --color-primary: #B4E33D;
+  --color-primary-dark: #9ACD32;
+  --color-primary-light: #161E0A;
+  --color-background: #141414;
+  --color-surface: #1E1E1E;
+  --color-foreground: #F0F0F0;
+  --color-muted: #8A8A8A;
+  --color-border: #2E2E2E;
+  --color-border-light: #242424;
+  --color-dot: #222222;
+  --color-hero: #141414;
+  --color-hero-btn: #B4E33D;
+  --color-hero-btn-text: #141414;
+  --color-hero-btn-border: #7CB518;
+  --color-success-light: #0F1A0A;
+  --color-error-light: #1A0A0A;
+  --color-warning-light: #1A180A;
+}
+
 @theme inline {
   /* Colors */
   --color-primary: var(--color-primary);
