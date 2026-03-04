@@ -16,7 +16,7 @@ type Theme = 'light' | 'dark' | 'system';
 export default function SettingsPage() {
   const router = useRouter();
   const { user, subscription, isPro, signOut, refresh, loading: authLoading, isAuthenticated } = useAuth();
-  const { theme, setTheme, colorTheme, setColorTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { count: wordCount, loading: wordCountLoading } = useWordCount();
   const {
     aiEnabled,
@@ -159,44 +159,6 @@ export default function SettingsPage() {
                     }`}
                   >
                     {themeLabels[t]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Color Theme */}
-            <div className="border-t border-[var(--color-border)] px-4 py-4">
-              <span className="font-medium text-[var(--color-foreground)] block mb-3">カラーテーマ</span>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { key: 'default' as const, label: 'Stitch Blue', colors: ['#137fec', '#2563eb', '#e8f2fd'] },
-                  { key: 'navy-copper' as const, label: 'Navy × Copper', colors: ['#C87941', '#0F2240', '#2E7D8C'] },
-                  { key: 'charcoal-lime' as const, label: 'Charcoal × Lime', colors: ['#B4E33D', '#1A1A1A', '#555555'] },
-                ]).map(({ key, label, colors }) => (
-                  <button
-                    key={key}
-                    onClick={() => setColorTheme(key)}
-                    className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                      colorTheme === key
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
-                        : 'border-[var(--color-border)] hover:border-[var(--color-muted)]'
-                    }`}
-                  >
-                    <div className="flex gap-1">
-                      {colors.map((c, i) => (
-                        <div
-                          key={i}
-                          className="w-5 h-5 rounded-full border border-black/10"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs font-medium text-[var(--color-foreground)]">{label}</span>
-                    {colorTheme === key && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                        <Icon name="check" size={10} className="text-white" />
-                      </div>
-                    )}
                   </button>
                 ))}
               </div>
