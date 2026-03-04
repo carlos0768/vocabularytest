@@ -36,6 +36,8 @@ final class FlashcardViewModel: ObservableObject {
         words.indices.contains(currentIndex) ? words[currentIndex] : nil
     }
 
+    var allWords: [Word] { words }
+
     var hasNext: Bool {
         currentIndex + 1 < words.count
     }

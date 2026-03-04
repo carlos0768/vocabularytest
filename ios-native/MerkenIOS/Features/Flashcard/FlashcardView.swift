@@ -13,6 +13,7 @@ struct FlashcardView: View {
     @State private var editJapanese = ""
     @State private var favoriteScale: CGFloat = 1.0
     @State private var pressedButton: String?
+    @State private var showTinderSort = false
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
@@ -54,6 +55,16 @@ struct FlashcardView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             editWordSheet
+        }
+        .navigationDestination(isPresented: $showTinderSort) {
+            TinderSortView(
+                project: project,
+                words: viewModel.allWords,
+                onFlashcardUnknown: { unknownWords in
+                    showTinderSort = false
+                    viewModel.setWords(unknownWords)
+                }
+            )
         }
     }
 
@@ -131,6 +142,12 @@ struct FlashcardView: View {
 
                     // Overflow menu (⋯)
                     Menu {
+                        Button {
+                            showTinderSort = true
+                        } label: {
+                            Label("仕分けモード", systemImage: "hand.thumbsup")
+                        }
+
                         Button {
                             dictionaryURL = viewModel.dictionaryURL
                         } label: {
