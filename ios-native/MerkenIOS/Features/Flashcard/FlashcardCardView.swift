@@ -184,36 +184,36 @@ struct FlashcardCardView: View {
 
     private var japaneseRichFace: some View {
         richCardBase {
-            VStack(spacing: 0) {
-                // Top section: main answer centered
-                Spacer()
-
-                VStack(spacing: 12) {
-                    Text(word.japanese)
-                        .font(.title.bold())
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .staggerIn(index: 0, isVisible: showBackContent)
-
-                    VStack(spacing: 4) {
-                        Text(word.english)
-                            .font(.callout)
-                            .foregroundStyle(.white.opacity(0.5))
-
-                        if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
-                            Text(pronunciation)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.4))
-                        }
-                    }
-                    .staggerIn(index: 1, isVisible: showBackContent)
-                }
-
-                Spacer()
-
-                // Bottom section: supplemental info (scrollable)
+            GeometryReader { geo in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
+                        // Push Japanese to center: top spacer = ~40% of card height
+                        Spacer()
+                            .frame(height: max(geo.size.height * 0.3, 60))
+
+                        // Main answer — centered
+                        VStack(spacing: 12) {
+                            Text(word.japanese)
+                                .font(.title.bold())
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .staggerIn(index: 0, isVisible: showBackContent)
+
+                            VStack(spacing: 4) {
+                                Text(word.english)
+                                    .font(.callout)
+                                    .foregroundStyle(.white.opacity(0.5))
+
+                                if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
+                                    Text(pronunciation)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                }
+                            }
+                            .staggerIn(index: 1, isVisible: showBackContent)
+                        }
+
+                        // Supplemental info below
                         dividerLine
                             .staggerIn(index: 1, isVisible: showBackContent)
 
@@ -283,12 +283,9 @@ struct FlashcardCardView: View {
 
                     Spacer(minLength: 8)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 16)
+                    .padding(24)
                 }
-                .frame(maxHeight: .infinity, alignment: .bottom)
             }
-            .padding(.top, 16)
         }
     }
 
