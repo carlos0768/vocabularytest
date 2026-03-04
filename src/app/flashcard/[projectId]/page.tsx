@@ -442,6 +442,11 @@ export default function FlashcardPage() {
   // Keyboard navigation for PC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip keyboard navigation when editing (modal open or input focused)
+      if (isEditModalOpen) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
       if (isAnimating) return;
 
       switch (e.key) {
@@ -467,7 +472,7 @@ export default function FlashcardPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAnimating, currentIndex, words.length, isFlipped, projectId, router]);
+  }, [isAnimating, isEditModalOpen, currentIndex, words.length, isFlipped, projectId, router]);
 
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
