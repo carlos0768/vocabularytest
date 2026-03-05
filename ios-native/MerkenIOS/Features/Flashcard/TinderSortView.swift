@@ -34,7 +34,7 @@ struct TinderSortView: View {
             VStack(spacing: 8) {
                 HStack {
                     Text("残り \(viewModel.remainingCount) 語")
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                     Spacer()
                     HStack(spacing: 12) {
@@ -122,7 +122,7 @@ struct TinderSortView: View {
             Spacer()
 
             Text("仕分け完了！")
-                .font(.system(size: 28, weight: .bold, design: .serif))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             // Stats

@@ -43,7 +43,7 @@ struct FavoritesView: View {
                                 .font(.system(size: 11))
                         }
                         Text(mode.rawValue)
-                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .font(.system(size: 13, weight: .medium))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)

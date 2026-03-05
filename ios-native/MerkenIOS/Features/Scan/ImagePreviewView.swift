@@ -16,7 +16,7 @@ struct ImagePreviewView: View {
 
             VStack(spacing: 0) {
                 Text("撮影した画像")
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .padding(.top, 20)
                     .padding(.bottom, 12)
@@ -35,10 +35,10 @@ struct ImagePreviewView: View {
                             // Project name
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("単語帳の名前")
-                                    .font(.system(size: 13, weight: .medium, design: .serif))
+                                    .font(.system(size: 13, weight: .medium))
                                     .foregroundStyle(MerkenTheme.secondaryText)
                                 TextField("例: 英検2級 第3章", text: $projectTitle)
-                                    .font(.system(size: 15, design: .serif))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(MerkenTheme.primaryText)
                                     .focused($titleFocused)
                                     .solidTextField()
@@ -60,10 +60,10 @@ struct ImagePreviewView: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("この画像をサムネイルに使う")
-                                        .font(.system(size: 13, weight: .medium, design: .serif))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundStyle(MerkenTheme.primaryText)
                                     Text("単語帳の表紙として表示されます")
-                                        .font(.system(size: 11, design: .serif))
+                                        .font(.system(size: 11))
                                         .foregroundStyle(MerkenTheme.mutedText)
                                 }
 
@@ -135,10 +135,10 @@ struct MultiImagePreviewView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("単語帳の名前")
-                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(MerkenTheme.secondaryText)
                             TextField("例: 英検2級 第3章", text: $projectTitle)
-                                .font(.system(size: 15, design: .serif))
+                                .font(.system(size: 15))
                                 .focused($titleFocused)
                         }
                         .padding(.vertical, 4)
@@ -153,7 +153,7 @@ struct MultiImagePreviewView: View {
                                     .opacity(useThumbnail ? 1 : 0.4)
 
                                 Text("1枚目をサムネイルに使う")
-                                    .font(.system(size: 13, design: .serif))
+                                    .font(.system(size: 13))
                                     .foregroundStyle(MerkenTheme.primaryText)
 
                                 Spacer()

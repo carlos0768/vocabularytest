@@ -5,6 +5,7 @@ struct RootTabView: View {
 
     @State private var showingScan = false
     @State private var showLoginAlert = false
+    @State private var previousTab: Int = 0
 
     var body: some View {
         ZStack {
@@ -20,20 +21,19 @@ struct RootTabView: View {
                 }
 
                 NavigationStack {
-                    FavoritesView()
+                    BookshelfListView()
                 }
                 .tag(1)
                 .tabItem {
-                    Label("苦手単語", systemImage: "flag.fill")
+                    Label("本棚", systemImage: "books.vertical.fill")
                 }
 
-                NavigationStack {
-                    SearchView()
-                }
-                .tag(2)
-                .tabItem {
-                    Label("検索", systemImage: "magnifyingglass")
-                }
+                // Center scan tab (dummy view, intercept selection to show sheet)
+                Color.clear
+                    .tag(99)
+                    .tabItem {
+                        Label("スキャン", systemImage: "doc.viewfinder")
+                    }
 
                 NavigationStack {
                     StatsView()
@@ -52,6 +52,15 @@ struct RootTabView: View {
                 }
             }
             .tint(MerkenTheme.accentBlue)
+            .onChange(of: appState.selectedTab) { newTab in
+                if newTab == 99 {
+                    // Intercept scan tab — show sheet, stay on current tab
+                    appState.selectedTab = previousTab
+                    showingScan = true
+                } else {
+                    previousTab = newTab
+                }
+            }
         }
         .overlay(alignment: .top) {
             if let banner = appState.scanBanner {
