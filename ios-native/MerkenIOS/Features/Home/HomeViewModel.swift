@@ -12,6 +12,13 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
+    // Preview quiz widget
+    @Published private(set) var previewWord: Word?
+    @Published private(set) var masteredWordCount: Int = 0
+
+    // Favorite (苦手) words for home section
+    @Published private(set) var favoriteWords: [Word] = []
+
     // Daily stats for hero section
     @Published private(set) var streakDays: Int = 0
     @Published private(set) var todayAnswered: Int = 0
@@ -63,6 +70,9 @@ final class HomeViewModel: ObservableObject {
                     self?.totalWordCount = total
                     self?.dueWordCount = dueList.count
                     self?.dueWords = dueList
+                    self?.previewWord = dueList.first
+                    self?.masteredWordCount = allWords.filter { $0.status == .mastered }.count
+                    self?.favoriteWords = allWords.filter { $0.isFavorite }
                     let grouped = Dictionary(grouping: allWords, by: \.projectId)
                         .mapValues { $0.sorted { $0.createdAt < $1.createdAt } }
                     self?.wordsByProject = grouped

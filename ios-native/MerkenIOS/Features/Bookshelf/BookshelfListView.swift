@@ -13,47 +13,13 @@ struct BookshelfListView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header (matching ProjectListView layout)
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Spacer().frame(height: 4)
+
                         Text("本棚")
                             .font(.system(size: 28, weight: .bold))
                             .foregroundStyle(MerkenTheme.primaryText)
-                        Text("単語帳をまとめて管理")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
-                    Spacer()
-                    Button {
-                        showingCreateSheet = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "plus")
-                                .font(.subheadline.bold())
-                            Text("新規作成")
-                                .font(.subheadline.bold())
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(MerkenTheme.accentBlue, in: .capsule)
-                        .overlay(Capsule().stroke(Color.clear, lineWidth: 1))
-                        .background(
-                            Capsule()
-                                .fill(MerkenTheme.accentBlueStrong)
-                                .offset(y: 2)
-                        )
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
-                .stickyHeaderStyle()
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Extra spacing between header and content (#7)
-                        Spacer().frame(height: 4)
                         if let errorMessage = viewModel.errorMessage {
                             SolidCard {
                                 Text(errorMessage)
@@ -104,6 +70,33 @@ struct BookshelfListView: View {
                 }
                 .refreshable {
                     await viewModel.load(using: appState)
+                }
+            }
+
+            // Floating + button (liquid glass)
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button {
+                        showingCreateSheet = true
+                    } label: {
+                        let baseLabel = Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .frame(width: 56, height: 56)
+                        if #available(iOS 26.0, *) {
+                            baseLabel
+                                .glassEffect(.regular.interactive())
+                                .clipShape(.circle)
+                        } else {
+                            baseLabel
+                                .background(.ultraThinMaterial, in: .circle)
+                        }
+                    }
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 16)
                 }
             }
         }

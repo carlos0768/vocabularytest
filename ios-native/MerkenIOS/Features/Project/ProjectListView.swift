@@ -1,7 +1,6 @@
 import SwiftUI
 
 enum ProjectSortOrder: String, CaseIterable {
-    case newest = "新しい"
     case wordCount = "単語数"
     case recentlyUsed = "最近"
 }
@@ -15,7 +14,7 @@ struct ProjectListView: View {
     @State private var newProjectTitle = ""
     @State private var selectedProject: Project?
     @State private var searchText = ""
-    @State private var sortOrder: ProjectSortOrder = .newest
+    @State private var sortOrder: ProjectSortOrder = .recentlyUsed
     @State private var showingScan = false
     @State private var projectToDelete: Project?
     @State private var projectToRename: Project?
@@ -35,8 +34,6 @@ struct ProjectListView: View {
             if !a.isFavorite && b.isFavorite { return false }
 
             switch sortOrder {
-            case .newest:
-                return a.createdAt > b.createdAt
             case .wordCount:
                 return (viewModel.wordCounts[a.id] ?? 0) > (viewModel.wordCounts[b.id] ?? 0)
             case .recentlyUsed:
@@ -89,10 +86,37 @@ struct ProjectListView: View {
                         allProjectsSection
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 80)
                 }
                 .refreshable {
                     await viewModel.load(using: appState)
+                }
+            }
+
+            // Floating scan button (liquid glass)
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button {
+                        showingScan = true
+                    } label: {
+                        let baseLabel = Image(systemName: "doc.viewfinder")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .frame(width: 56, height: 56)
+                        if #available(iOS 26.0, *) {
+                            baseLabel
+                                .glassEffect(.regular.interactive())
+                                .clipShape(.circle)
+                        } else {
+                            baseLabel
+                                .background(.ultraThinMaterial, in: .circle)
+                                .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                        }
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
                 }
             }
         }
@@ -223,26 +247,6 @@ struct ProjectListView: View {
                     .foregroundStyle(MerkenTheme.mutedText)
             }
             Spacer()
-            Button {
-                showingScan = true
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.subheadline.bold())
-                    Text("新規スキャン")
-                        .font(.subheadline.bold())
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(MerkenTheme.accentBlue, in: .capsule)
-                .overlay(Capsule().stroke(Color.clear, lineWidth: 1))
-                .background(
-                    Capsule()
-                        .fill(MerkenTheme.accentBlueStrong)
-                        .offset(y: 2)
-                )
-            }
         }
     }
 
@@ -308,7 +312,6 @@ struct ProjectListView: View {
 
     private func chipIcon(for order: ProjectSortOrder) -> String {
         switch order {
-        case .newest: return "clock"
         case .wordCount: return "line.3.horizontal.decrease"
         case .recentlyUsed: return "clock.arrow.circlepath"
         }
@@ -349,96 +352,110 @@ struct ProjectListView: View {
 
     private func projectGrid(_ projects: [Project]) -> some View {
         let columns = [
-            GridItem(.flexible(), spacing: 18),
-            GridItem(.flexible(), spacing: 18),
-            GridItem(.flexible(), spacing: 18)
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12)
         ]
-        return LazyVGrid(columns: columns, spacing: 14) {
+        return LazyVGrid(columns: columns, spacing: 12) {
             ForEach(projects) { project in
-                projectThumbnail(project)
+                projectCard(project)
                     .onTapGesture {
                         selectedProject = project
+                    }
+                    .onLongPressGesture(minimumDuration: 0.35) {
+                        projectForActions = project
                     }
             }
         }
     }
 
-    private func projectThumbnail(_ project: Project) -> some View {
-        // Card with image inside + title below image, menu dot outside
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-                // Image area with padding
-                Color.clear
-                    .aspectRatio(0.89, contentMode: .fit)
-                    .overlay {
-                        ZStack {
-                            if let iconImage = project.iconImage,
-                               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                            } else {
-                                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
-                                bgColor
-                                VStack(spacing: 2) {
-                                    Text(String(project.title.prefix(1)))
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundStyle(.white)
-                                    Text("\(viewModel.wordCounts[project.id] ?? 0)語")
-                                        .font(.caption2.bold())
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
-                            }
+    private func projectCard(_ project: Project) -> some View {
+        let wordCount = viewModel.wordCounts[project.id] ?? 0
+        let mastered = viewModel.masteredCounts[project.id] ?? 0
+        let masteryPercent = wordCount > 0 ? Double(mastered) / Double(wordCount) : 0
 
+        return VStack(alignment: .leading, spacing: 0) {
+            // Thumbnail
+            Color.clear
+                .aspectRatio(1.4, contentMode: .fit)
+                .overlay {
+                    ZStack {
+                        if let iconImage = project.iconImage,
+                           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+                            bgColor
+                            Text(String(project.title.prefix(1)))
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(.white)
                         }
                     }
-                    .clipShape(.rect(cornerRadius: 14))
-                    .overlay {
-                        // Flag overlay — outside clipShape so it won't be clipped
-                        if project.isFavorite {
-                            VStack {
-                                HStack {
-                                    Image(systemName: "flag.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.white)
-                                        .padding(4)
-                                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 5))
-                                    Spacer()
-                                }
+                }
+                .clipShape(.rect(cornerRadius: 10))
+                .overlay {
+                    if project.isFavorite {
+                        VStack {
+                            HStack {
+                                Image(systemName: "flag.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.white)
+                                    .padding(3)
+                                    .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 4))
                                 Spacer()
                             }
-                            .padding(6)
+                            Spacer()
+                        }
+                        .padding(4)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+
+            // Info section
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+
+                Text("\(wordCount)語")
+                    .font(.system(size: 10))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+
+                // Mini progress bar
+                if wordCount > 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(MerkenTheme.borderLight)
+                                .frame(height: 4)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(MerkenTheme.accentBlue)
+                                .frame(width: geo.size.width * masteryPercent, height: 4)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
-
-                // Title inside card — fixed height so tiles align regardless of title length
-                Text(project.title)
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .top)
-                    .padding(.horizontal, 6)
-                    .padding(.top, 6)
-                    .padding(.bottom, 8)
+                    .frame(height: 4)
+                }
             }
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(MerkenTheme.border, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 2)
-            )
-
+            .padding(.horizontal, 8)
+            .padding(.top, 6)
+            .padding(.bottom, 10)
         }
-        .onLongPressGesture(minimumDuration: 0.35) {
-            projectForActions = project
-        }
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                    project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                    lineWidth: project.isFavorite ? 2.5 : 1.5
+                )
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(MerkenTheme.border)
+                .offset(y: 4)
+        )
     }
 
     // MARK: - Create Sheet

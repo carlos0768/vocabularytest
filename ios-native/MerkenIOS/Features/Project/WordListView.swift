@@ -31,15 +31,12 @@ struct WordListView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
-                headerSection
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                    .stickyHeaderStyle()
-
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
+                        // Header
+                        headerSection
+                            .padding(.bottom, 4)
+
                         // Search
                         searchBar
 

@@ -39,7 +39,7 @@ struct TimeAttackView: View {
                 .foregroundStyle(MerkenTheme.accentBlue)
 
             Text("タイムアタック")
-                .font(.system(size: 28, weight: .bold, design: .serif))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             Text("制限時間内にできるだけ多く正解しよう！")
@@ -213,12 +213,12 @@ struct TimeAttackView: View {
                 Text("🎉")
                     .font(.system(size: 60))
                 Text("新記録！")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.orange)
             }
 
             Text("タイムアップ！")
-                .font(.system(size: 28, weight: .bold, design: .serif))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             // Stats

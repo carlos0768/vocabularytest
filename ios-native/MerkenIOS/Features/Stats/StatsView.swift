@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct StatsView: View {
     @EnvironmentObject private var appState: AppState
@@ -27,21 +28,16 @@ struct StatsView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
-                HStack(alignment: .top) {
-                    Text("統計")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
-                .stickyHeaderStyle()
-
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Spacer().frame(height: 10)
+                        Spacer().frame(height: 4)
+
+                        Text("統計")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+
+                        // MARK: - Mastery Chart (40% of screen)
+                        masteryChart
 
                         // MARK: - 今日の学習
                         sectionHeader(icon: "calendar", title: "今日の学習")
@@ -168,6 +164,123 @@ struct StatsView: View {
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
         }
+    }
+
+    // MARK: - Mastery Chart
+
+    private var masteryChart: some View {
+        let data = viewModel.masteryHistory
+        let maxVal = max(data.map(\.total).max() ?? 1, 1)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("暗記した単語数の推移")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("過去14日間")
+                    .font(.system(size: 12))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            if data.isEmpty {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(MerkenTheme.surfaceAlt)
+                    .frame(height: 200)
+                    .overlay(
+                        Text("データなし")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    )
+            } else {
+                Chart {
+                    // Total words line (behind mastered)
+                    ForEach(data) { point in
+                        LineMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("合計", point.total),
+                            series: .value("series", "total")
+                        )
+                        .foregroundStyle(MerkenTheme.accentBlue.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .interpolationMethod(.monotone)
+                    }
+
+                    // Mastered area fill
+                    ForEach(data) { point in
+                        AreaMark(
+                            x: .value("日付", point.date, unit: .day),
+                            yStart: .value("yStart", 0),
+                            yEnd: .value("習得", point.mastered)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [MerkenTheme.success.opacity(0.3), MerkenTheme.success.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .interpolationMethod(.monotone)
+                    }
+
+                    // Mastered line
+                    ForEach(data) { point in
+                        LineMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("習得", point.mastered),
+                            series: .value("series", "mastered")
+                        )
+                        .foregroundStyle(MerkenTheme.success)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                        .interpolationMethod(.monotone)
+                    }
+                }
+                .chartYScale(domain: 0...maxVal)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day, count: 3)) { value in
+                        AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
+                            .font(.system(size: 9))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(MerkenTheme.border.opacity(0.5))
+                        AxisValueLabel()
+                            .font(.system(size: 10))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .frame(height: UIScreen.main.bounds.height * 0.32)
+
+                // Legend
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(MerkenTheme.success)
+                            .frame(width: 8, height: 8)
+                        Text("習得済み")
+                            .font(.system(size: 11))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(MerkenTheme.accentBlue.opacity(0.4))
+                            .frame(width: 8, height: 8)
+                        Text("総単語数")
+                            .font(.system(size: 11))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
     }
 
     // MARK: - Components

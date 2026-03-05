@@ -24,21 +24,15 @@ struct SettingsView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
-                HStack(alignment: .top) {
-                    Text("設定")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
-                .stickyHeaderStyle()
-
                 if appState.isLoggedIn && !appState.isSessionExpired {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
+                            Spacer().frame(height: 4)
+
+                            Text("設定")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+
                             accountCard
 
                             displaySection
@@ -55,7 +49,11 @@ struct SettingsView: View {
                     .scrollIndicators(.hidden)
                 } else {
                     VStack(spacing: 20) {
-                        Spacer()
+                        Text("設定")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
 
                         accountCard
 
@@ -235,12 +233,7 @@ struct SettingsView: View {
                                 .foregroundStyle(MerkenTheme.mutedText)
                         }
                     }
-                    .disabled(!appState.isLoggedIn || appState.isSavingAIPreference)
-
-                    if appState.isSavingAIPreference {
-                        ProgressView("保存中...")
-                            .tint(MerkenTheme.accentBlue)
-                    }
+                    .disabled(!appState.isLoggedIn)
 
                     if let preferenceError = appState.aiPreferenceErrorMessage, !preferenceError.isEmpty {
                         Text(preferenceError)
