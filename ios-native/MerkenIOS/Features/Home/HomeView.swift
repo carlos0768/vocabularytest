@@ -115,9 +115,9 @@ struct HomeView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) {
+            ToolbarItem(placement: .topBarLeading) {
                 Text("MERKEN")
-                    .font(.system(size: 18, weight: .black))
+                    .font(.system(size: 27, weight: .black))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .tracking(2)
             }
