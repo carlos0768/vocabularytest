@@ -1,5 +1,15 @@
 import SwiftUI
 
+private struct DayWordsSheet: Identifiable, Equatable {
+    let id = UUID()
+    let date: String
+    let words: [Word]
+
+    static func == (lhs: DayWordsSheet, rhs: DayWordsSheet) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 /// Wrapper to distinguish quiz navigation from project detail navigation
 private struct QuizDestination: Hashable {
     let project: Project
@@ -121,6 +131,39 @@ struct HomeView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: Binding(
+            get: { selectedDayWords.map { DayWordsSheet(date: $0.date, words: $0.words) } },
+            set: { if $0 == nil { selectedDayWords = nil } }
+        )) { item in
+            NavigationStack {
+                List {
+                    if item.words.isEmpty {
+                        Text("この日に追加された単語はありません")
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    } else {
+                        ForEach(item.words) { word in
+                            HStack {
+                                Text(word.english)
+                                    .font(.system(size: 15, weight: .semibold))
+                                Spacer()
+                                Text(word.japanese)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("\(item.date) に追加した単語")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("閉じる") { selectedDayWords = nil }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .navigationDestination(item: $quizDestination) { dest in
             QuizView(
                 project: dest.project,
@@ -383,36 +426,45 @@ struct HomeView: View {
                 let isToday = calendar.isDate(date, inSameDayAs: today)
                 let hasActivity = activeDates.contains(dateKey)
 
-                VStack(spacing: 6) {
-                    Text(dayLabels[offset])
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(isToday ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                Button {
+                    let dayStart = calendar.startOfDay(for: date)
+                    let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+                    let allWords = viewModel.allWordsFlat
+                    let wordsForDay = allWords.filter { $0.createdAt >= dayStart && $0.createdAt < dayEnd }
+                    let label = "\(calendar.component(.month, from: date))/\(dayNum)"
+                    selectedDayWords = (date: label, words: wordsForDay)
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(dayLabels[offset])
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(isToday ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
 
-                    ZStack {
-                        if isToday {
-                            Circle()
-                                .fill(MerkenTheme.accentBlue)
-                                .frame(width: 36, height: 36)
-                            Text("\(dayNum)")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white)
-                        } else if hasActivity {
-                            Circle()
-                                .fill(MerkenTheme.accentBlue.opacity(0.15))
-                                .frame(width: 36, height: 36)
-                            Circle()
-                                .stroke(MerkenTheme.accentBlue, lineWidth: 2)
-                                .frame(width: 36, height: 36)
-                            Text("\(dayNum)")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                        } else {
-                            Circle()
-                                .stroke(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                                .frame(width: 36, height: 36)
-                            Text("\(dayNum)")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(MerkenTheme.mutedText)
+                        ZStack {
+                            if isToday {
+                                Circle()
+                                    .fill(MerkenTheme.accentBlue)
+                                    .frame(width: 36, height: 36)
+                                Text("\(dayNum)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                            } else if hasActivity {
+                                Circle()
+                                    .fill(MerkenTheme.accentBlue.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Circle()
+                                    .stroke(MerkenTheme.accentBlue, lineWidth: 2)
+                                    .frame(width: 36, height: 36)
+                                Text("\(dayNum)")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                            } else {
+                                Circle()
+                                    .stroke(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                                    .frame(width: 36, height: 36)
+                                Text("\(dayNum)")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
                         }
                     }
                 }
@@ -1124,6 +1176,7 @@ struct HomeView: View {
     @State private var favoriteSelectedChoice: String?
     @State private var favoriteChoices: [String] = []
     @State private var favoriteTabPage: Int = 0
+    @State private var selectedDayWords: (date: String, words: [Word])? = nil
 
     private var favoriteWordsSection: some View {
         let words = viewModel.favoriteWords

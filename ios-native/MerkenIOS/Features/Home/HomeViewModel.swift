@@ -22,6 +22,9 @@ final class HomeViewModel: ObservableObject {
     // Words added today
     @Published private(set) var todayAddedWords: [Word] = []
 
+    // All words flat (for day filtering)
+    @Published private(set) var allWordsFlat: [Word] = []
+
     // Daily stats for hero section
     @Published private(set) var streakDays: Int = 0
     @Published private(set) var todayAnswered: Int = 0
@@ -76,6 +79,7 @@ final class HomeViewModel: ObservableObject {
                     self?.previewWord = dueList.first
                     self?.masteredWordCount = allWords.filter { $0.status == .mastered }.count
                     self?.favoriteWords = allWords.filter { $0.isFavorite }
+                    self?.allWordsFlat = allWords
                     let todayStart = Calendar.current.startOfDay(for: Date())
                     self?.todayAddedWords = allWords.filter { $0.createdAt >= todayStart }
                     let grouped = Dictionary(grouping: allWords, by: \.projectId)
