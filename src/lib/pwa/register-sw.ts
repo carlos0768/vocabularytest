@@ -39,13 +39,30 @@ export async function registerServiceWorker() {
   }
 }
 
+export async function clearServiceWorkerCaches() {
+  if (typeof window === 'undefined') return;
+  if (!('caches' in window)) return;
+
+  try {
+    const cacheNames = await caches.keys();
+    await Promise.all(
+      cacheNames
+        .filter((name) => name.startsWith('scanvocab-'))
+        .map((name) => caches.delete(name))
+    );
+    console.log('[PWA] Cleared service worker caches');
+  } catch (error) {
+    console.error('[PWA] Failed to clear service worker caches:', error);
+  }
+}
+
 export async function unregisterServiceWorker() {
   if (typeof window === 'undefined') return;
   if (!('serviceWorker' in navigator)) return;
 
   try {
-    const registration = await navigator.serviceWorker.ready;
-    await registration.unregister();
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
     console.log('[PWA] Service Worker unregistered');
   } catch (error) {
     console.error('[PWA] Service Worker unregistration failed:', error);
