@@ -311,58 +311,77 @@ struct ProjectDetailView: View {
         let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
         let reviewCount = viewModel.words.filter { $0.status == .review }.count
         let newCount = viewModel.words.filter { $0.status == .new }.count
-        let masteredPct = total > 0 ? Double(masteredCount) / Double(total) : 0
+        let weakCount = weakWords.count
 
-        return SolidCard {
-            VStack(spacing: 16) {
-                // Circular progress
-                ZStack {
-                    Circle()
-                        .stroke(MerkenTheme.border, lineWidth: 8)
-                    Circle()
-                        .trim(from: 0, to: masteredPct)
-                        .stroke(MerkenTheme.success, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .animation(.easeOut(duration: 0.5), value: masteredPct)
-                    VStack(spacing: 2) {
-                        Text("\(Int(masteredPct * 100))%")
-                            .font(.title.bold())
+        return SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Progress header + bar
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("習得の進捗")
+                            .font(.headline)
                             .foregroundStyle(MerkenTheme.primaryText)
-                        Text("習得率")
-                            .font(.caption)
-                            .foregroundStyle(MerkenTheme.mutedText)
+                        Spacer()
+                        Text(total > 0
+                             ? "\(Int(Double(masteredCount) / Double(total) * 100))% 習得"
+                             : "0% 習得")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(MerkenTheme.success)
                     }
-                }
-                .frame(width: 100, height: 100)
 
-                // Status counts
-                HStack(spacing: 0) {
-                    statItem(count: masteredCount, label: "習得", color: MerkenTheme.success)
-                    Divider().frame(height: 36)
-                    statItem(count: reviewCount, label: "学習中", color: MerkenTheme.warning)
-                    Divider().frame(height: 36)
-                    statItem(count: newCount, label: "未学習", color: MerkenTheme.mutedText)
-                }
+                    GeometryReader { geo in
+                        let t = max(CGFloat(total), 1)
+                        let masteredW = geo.size.width * CGFloat(masteredCount) / t
+                        let reviewW = geo.size.width * CGFloat(reviewCount) / t
 
-                Text("\(total)語")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(MerkenTheme.surfaceAlt)
+                            HStack(spacing: 0) {
+                                Rectangle()
+                                    .fill(MerkenTheme.success)
+                                    .frame(width: max(masteredW, 0))
+                                Rectangle()
+                                    .fill(MerkenTheme.accentBlue)
+                                    .frame(width: max(reviewW, 0))
+                            }
+                            .clipShape(.rect(cornerRadius: 6))
+                        }
+                    }
+                    .frame(height: 12)
+                }
+                .padding(16)
+
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+
+                statsRow(icon: "checkmark.circle", iconColor: MerkenTheme.success, label: "習得済み", value: "\(masteredCount)")
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                statsRow(icon: "arrow.triangle.2.circlepath", iconColor: MerkenTheme.accentBlue, label: "復習中", value: "\(reviewCount)")
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                statsRow(icon: "clock", iconColor: MerkenTheme.mutedText, label: "未学習", value: "\(newCount)")
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                statsRow(icon: "exclamationmark.circle", iconColor: MerkenTheme.danger, label: "苦手な単語", value: "\(weakCount)")
             }
-            .padding(.vertical, 8)
         }
         .padding(.horizontal, 4)
     }
 
-    private func statItem(count: Int, label: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text("\(count)")
-                .font(.title2.bold())
-                .foregroundStyle(color)
+    private func statsRow(icon: String, iconColor: Color, label: String, value: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.body)
+                .foregroundStyle(iconColor)
+                .frame(width: 24)
             Text(label)
-                .font(.caption)
-                .foregroundStyle(MerkenTheme.mutedText)
+                .font(.subheadline)
+                .foregroundStyle(MerkenTheme.secondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundStyle(MerkenTheme.primaryText)
         }
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Flashcard Preview (full-width with fullscreen button)
