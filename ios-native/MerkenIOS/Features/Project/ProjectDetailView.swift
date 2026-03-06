@@ -575,7 +575,7 @@ struct ProjectDetailView: View {
     }
 
 
-    // MARK: - Learning Modes (2-column grid)
+    // MARK: - Learning Modes (horizontal full-width)
 
     private var learningModesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -583,11 +583,7 @@ struct ProjectDetailView: View {
                 .font(.headline)
                 .foregroundStyle(MerkenTheme.primaryText)
 
-            let columns = [
-                GridItem(.flexible(), spacing: 10),
-                GridItem(.flexible(), spacing: 10)
-            ]
-            LazyVGrid(columns: columns, spacing: 10) {
+            VStack(spacing: 10) {
                 learningModeCard(
                     icon: "scope",
                     iconColor: MerkenTheme.success,
@@ -633,27 +629,30 @@ struct ProjectDetailView: View {
 
     private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                IconBadge(systemName: icon, color: iconColor, size: 56)
+            HStack(spacing: 14) {
+                IconBadge(systemName: icon, color: iconColor, size: 48)
 
-                Text(title)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text(subtitle)
-                    .font(.caption)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
-            .padding(20)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 16)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 3)
             )
         }
     }
