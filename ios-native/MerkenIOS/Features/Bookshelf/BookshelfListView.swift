@@ -123,8 +123,6 @@ struct BookshelfListView: View {
         let stat = viewModel.stats[collection.id]
         let statsLoaded = stat != nil
         let projectCount = stat?.projectCount ?? 0
-        let wordCount = stat?.wordCount ?? 0
-        let progress = stat?.progress ?? 0
         let previews = stat?.previews ?? []
 
         return VStack(spacing: 0) {
@@ -213,20 +211,7 @@ struct BookshelfListView: View {
                 .frame(minHeight: 32)
                 .padding(.horizontal, 4)
                 .padding(.top, 8)
-
-            // Stats
-            HStack(spacing: 0) {
-                Text("\(projectCount)冊")
-                if wordCount > 0 {
-                    Text(" · \(wordCount)語")
-                }
-                if progress > 0 {
-                    Text(" · \(progress)%")
-                }
-            }
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(MerkenTheme.mutedText)
-            .padding(.bottom, 10)
+                .padding(.bottom, 10)
         }
         .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
         .overlay(

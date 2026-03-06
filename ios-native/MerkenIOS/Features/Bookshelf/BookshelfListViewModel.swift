@@ -12,13 +12,7 @@ struct CollectionProjectPreview: Identifiable {
 /// Aggregated stats for a single collection.
 struct CollectionStats {
     let projectCount: Int
-    let wordCount: Int
-    let masteredCount: Int
     let previews: [CollectionProjectPreview]
-
-    var progress: Int {
-        wordCount > 0 ? Int(Double(masteredCount) / Double(wordCount) * 100) : 0
-    }
 }
 
 private struct BookshelfSnapshot {
@@ -128,15 +122,6 @@ final class BookshelfListViewModel: ObservableObject {
         let allProjects = try await state.activeRepository.fetchProjects(userId: userId)
         let projectMap = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
 
-        // Fetch all words once for word/mastered counts
-        let allWords = try await state.activeRepository.fetchAllWords(userId: userId)
-
-        // Group words by projectId
-        var wordsByProject: [String: [Word]] = [:]
-        for word in allWords {
-            wordsByProject[word.projectId, default: []].append(word)
-        }
-
         var collectionStats: [String: CollectionStats] = [:]
 
         await withTaskGroup(of: (String, CollectionStats).self) { group in
@@ -158,20 +143,8 @@ final class BookshelfListViewModel: ObservableObject {
                         }
                     }
 
-                    // Compute word counts
-                    var wordCount = 0
-                    var masteredCount = 0
-                    for pid in projectIds {
-                        if let words = wordsByProject[pid] {
-                            wordCount += words.count
-                            masteredCount += words.filter { $0.status == .mastered }.count
-                        }
-                    }
-
                     return (collection.id, CollectionStats(
                         projectCount: projectIds.count,
-                        wordCount: wordCount,
-                        masteredCount: masteredCount,
                         previews: previews
                     ))
                 }

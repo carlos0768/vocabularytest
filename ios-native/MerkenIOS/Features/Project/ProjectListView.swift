@@ -63,6 +63,10 @@ struct ProjectListView: View {
     private var projectListContent: some View {
         ZStack {
             AppBackground()
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             VStack(spacing: 0) {
                 // Fixed header
@@ -70,7 +74,11 @@ struct ProjectListView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
                     .padding(.bottom, 10)
-                    .stickyHeaderStyle()
+                    .background(.ultraThinMaterial)
+                    .overlay(alignment: .bottom) {
+                        MerkenTheme.borderLight
+                            .frame(height: 1)
+                    }
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -261,10 +269,10 @@ struct ProjectListView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 20))
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                .stroke(MerkenTheme.borderLight.opacity(0.8), lineWidth: 1.5)
         )
     }
 
@@ -288,10 +296,13 @@ struct ProjectListView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 9)
                         .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
-                        .background(
-                            isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
-                            in: .capsule
-                        )
+                        .background {
+                            if isActive {
+                                Capsule().fill(MerkenTheme.accentBlue)
+                            } else {
+                                Capsule().fill(.ultraThinMaterial)
+                            }
+                        }
                         .overlay(
                             Capsule().stroke(
                                 isActive ? Color.clear : MerkenTheme.borderLight,
@@ -410,8 +421,8 @@ struct ProjectListView: View {
                         .padding(4)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.top, 8)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
 
             // Info section
             VStack(alignment: .leading, spacing: 4) {
@@ -443,17 +454,17 @@ struct ProjectListView: View {
             .padding(.top, 6)
             .padding(.bottom, 10)
         }
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .stroke(
-                    project.isFavorite ? MerkenTheme.success : MerkenTheme.border,
+                    project.isFavorite ? MerkenTheme.success : MerkenTheme.border.opacity(0.8),
                     lineWidth: project.isFavorite ? 2.5 : 1.5
                 )
         )
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(MerkenTheme.border)
+                .fill(MerkenTheme.border.opacity(0.7))
                 .offset(y: 4)
         )
     }

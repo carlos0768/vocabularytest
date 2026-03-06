@@ -91,14 +91,6 @@ struct ProjectDetailView: View {
                     // Learning modes
                     learningModesSection
 
-                    // Stats
-                    if !viewModel.words.isEmpty {
-                        Text("統計")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        statsWidget
-                    }
-
 }
                 .padding(16)
             }
@@ -187,7 +179,7 @@ struct ProjectDetailView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationContentInteraction(.scrolls)
+            .presentationContentInteraction(.resizes)
         }
         .navigationDestination(item: $showingQuiz) { _ in
             QuizView(project: project, preloadedWords: viewModel.words)
@@ -591,85 +583,6 @@ struct ProjectDetailView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(color.opacity(0.1), in: .capsule)
-    }
-
-    // MARK: - Stats Widget
-
-    private var statsWidget: some View {
-        let total = viewModel.words.count
-        let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
-        let reviewCount = viewModel.words.filter { $0.status == .review }.count
-        let newCount = viewModel.words.filter { $0.status == .new }.count
-        let weakCount = weakWords.count
-
-        return VStack(alignment: .leading, spacing: 20) {
-            // Header + percentage
-            HStack {
-                Text("習得の進捗")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Spacer()
-                Text(total > 0
-                     ? "\(Int(Double(masteredCount) / Double(total) * 100))%"
-                     : "0%")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(MerkenTheme.success)
-            }
-
-            // Progress bar
-            GeometryReader { geo in
-                let t = max(CGFloat(total), 1)
-                let masteredW = geo.size.width * CGFloat(masteredCount) / t
-                let reviewW = geo.size.width * CGFloat(reviewCount) / t
-
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(MerkenTheme.surfaceAlt)
-                    HStack(spacing: 0) {
-                        Rectangle()
-                            .fill(MerkenTheme.success)
-                            .frame(width: max(masteredW, 0))
-                        Rectangle()
-                            .fill(MerkenTheme.accentBlue)
-                            .frame(width: max(reviewW, 0))
-                    }
-                    .clipShape(.rect(cornerRadius: 6))
-                }
-            }
-            .frame(height: 14)
-
-            // Stat cards (2x2 grid, no dividers)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                statTile(icon: "checkmark.circle", iconColor: MerkenTheme.success, label: "習得済み", count: masteredCount)
-                statTile(icon: "arrow.triangle.2.circlepath", iconColor: MerkenTheme.accentBlue, label: "復習中", count: reviewCount)
-                statTile(icon: "clock", iconColor: MerkenTheme.mutedText, label: "未学習", count: newCount)
-                statTile(icon: "exclamationmark.circle", iconColor: MerkenTheme.danger, label: "苦手な単語", count: weakCount)
-            }
-        }
-        .padding(20)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .padding(.horizontal, 4)
-    }
-
-    private func statTile(icon: String, iconColor: Color, label: String, count: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundStyle(iconColor)
-            Text("\(count)")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundStyle(MerkenTheme.mutedText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 14))
     }
 
     private var safePreviewIndex: Int {

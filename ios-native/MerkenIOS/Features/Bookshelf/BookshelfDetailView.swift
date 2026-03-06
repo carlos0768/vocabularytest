@@ -135,7 +135,7 @@ struct BookshelfDetailView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationContentInteraction(.scrolls)
+            .presentationContentInteraction(.resizes)
         }
         .fullScreenCover(item: $flashcardDestination) { project in
             NavigationStack {
