@@ -67,6 +67,9 @@ struct HomeView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
+                            // MARK: - Story-style Weekly Tracker
+                            weeklyTracker
+
                             // MARK: - Today's Focus (compact banner)
                             if viewModel.dueWordCount > 0 {
                                 Text("今すぐに復習すべき単語")
@@ -244,6 +247,72 @@ struct HomeView: View {
             await viewModel.load(using: appState)
             await bookshelfVM.load(using: appState)
         }
+    }
+
+    // MARK: - Weekly Tracker (Story-style)
+
+    private var weeklyTracker: some View {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date())
+        // Get start of this week (Sunday)
+        let weekday = calendar.component(.weekday, from: today) // 1=Sun
+        let startOfWeek = calendar.date(byAdding: .day, value: -(weekday - 1), to: today)!
+
+        let dayLabels = ["日", "月", "火", "水", "木", "金", "土"]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        // Get this week's stats
+        let weekStats = appState.quizStatsStore.allStats(days: 7)
+        let activeDates = Set(weekStats.map(\.date))
+
+        return HStack(spacing: 0) {
+            ForEach(0..<7, id: \.self) { offset in
+                let date = calendar.date(byAdding: .day, value: offset, to: startOfWeek)!
+                let dateKey = formatter.string(from: date)
+                let dayNum = calendar.component(.day, from: date)
+                let isToday = calendar.isDate(date, inSameDayAs: today)
+                let hasActivity = activeDates.contains(dateKey)
+
+                VStack(spacing: 6) {
+                    Text(dayLabels[offset])
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(isToday ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+
+                    ZStack {
+                        if isToday {
+                            Circle()
+                                .fill(MerkenTheme.accentBlue)
+                                .frame(width: 36, height: 36)
+                            Text("\(dayNum)")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                        } else if hasActivity {
+                            Circle()
+                                .fill(MerkenTheme.accentBlue.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Circle()
+                                .stroke(MerkenTheme.accentBlue, lineWidth: 2)
+                                .frame(width: 36, height: 36)
+                            Text("\(dayNum)")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                        } else {
+                            Circle()
+                                .stroke(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                                .frame(width: 36, height: 36)
+                            Text("\(dayNum)")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 4)
     }
 
     // MARK: - Today's Focus Widget (quiz card style)
