@@ -1123,14 +1123,17 @@ struct HomeView: View {
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("苦手な単語")
+                Text(favoriteTabPage == 0 ? "苦手な単語" : "今日追加した単語")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
+                    .animation(.easeOut(duration: 0.2), value: favoriteTabPage)
                 Spacer()
-                Button { showingFavorites = true } label: {
-                    Text("すべて見る")
-                        .font(.system(size: 14))
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                if favoriteTabPage == 0 {
+                    Button { showingFavorites = true } label: {
+                        Text("すべて見る")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
                 }
             }
 
