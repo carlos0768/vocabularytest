@@ -51,17 +51,41 @@ struct ProjectDetailView: View {
                         looseLeafWordCard
                     }
 
-                    // Word list link
-                    Button {
-                        showingWordList = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "list.bullet")
-                                .font(.system(size: 13))
-                            Text("単語一覧")
-                                .font(.system(size: 13, weight: .semibold))
+                    // Word list + Flashcard buttons
+                    HStack(spacing: 12) {
+                        Button {
+                            showingWordList = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "list.bullet")
+                                    .font(.system(size: 14))
+                                Text("単語一覧")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(MerkenTheme.border, lineWidth: 1.5)
+                            )
                         }
-                        .foregroundStyle(MerkenTheme.accentBlue)
+
+                        Button {
+                            flashcardDestination = project
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "rectangle.portrait.on.rectangle.portrait")
+                                    .font(.system(size: 14))
+                                Text("フラッシュカード")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 12))
+                        }
                     }
 
                     // Learning modes

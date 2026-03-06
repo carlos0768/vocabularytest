@@ -77,6 +77,10 @@ struct HomeView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
+                            // MARK: - Virtual Header (safe area spacer)
+                            Color.clear
+                                .frame(height: 8)
+
                             // MARK: - Logo
                             Text("MERKEN")
                                 .font(.system(size: 24, weight: .black))
