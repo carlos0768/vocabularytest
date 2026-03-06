@@ -71,11 +71,6 @@ struct HomeView: View {
                             weeklyTracker
 
                             // MARK: - Today's Focus (compact banner)
-                            if viewModel.dueWordCount > 0 {
-                                Text("今すぐに復習すべき単語")
-                                    .font(.system(size: 17, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                            }
                             todayFocusBanner
 
                             // MARK: - Mini Stats Row
@@ -582,7 +577,7 @@ struct HomeView: View {
             // Section header
             HStack {
                 Text("単語帳")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 if viewModel.projects.count > 1 {
@@ -822,7 +817,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("本棚")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 if !bookshelfVM.collections.isEmpty {
@@ -1015,6 +1010,7 @@ struct HomeView: View {
     @State private var showFavoriteAnswer = false
     @State private var favoriteSelectedChoice: String?
     @State private var favoriteChoices: [String] = []
+    @State private var favoriteTabPage: Int = 0
 
     private var favoriteWordsSection: some View {
         let words = viewModel.favoriteWords
@@ -1023,7 +1019,7 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("苦手な単語")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 Button { showingFavorites = true } label: {
@@ -1035,134 +1031,209 @@ struct HomeView: View {
 
             if !words.isEmpty {
                 let word = words[safeIndex]
+                let todayWords = viewModel.todayAddedWords
 
-                VStack(spacing: 0) {
-                    // Top: counter + nav
-                    HStack {
-                        Text("\(safeIndex + 1)/\(words.count)")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        Spacer()
-                        HStack(spacing: 12) {
-                            Button {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    favoriteSelectedChoice = nil
-                                    let newIndex = safeIndex > 0 ? safeIndex - 1 : words.count - 1
-                                    favoriteWordIndex = newIndex
-                                    buildFavoriteChoices(words: words, index: newIndex)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                                    .frame(width: 32, height: 32)
-                                    .background(MerkenTheme.surfaceAlt, in: .circle)
-                            }
-                            Button {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    favoriteSelectedChoice = nil
-                                    let newIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
-                                    favoriteWordIndex = newIndex
-                                    buildFavoriteChoices(words: words, index: newIndex)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                                    .frame(width: 32, height: 32)
-                                    .background(MerkenTheme.surfaceAlt, in: .circle)
-                            }
-                        }
+                VStack(spacing: 8) {
+                    TabView(selection: $favoriteTabPage) {
+                        // Page 0: Quiz card
+                        favoriteQuizCard(word: word, words: words, safeIndex: safeIndex)
+                            .tag(0)
+
+                        // Page 1: Today's added words
+                        todayAddedWordsCard(todayWords: todayWords)
+                            .tag(1)
                     }
-                    .padding(.bottom, 12)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: UIScreen.main.bounds.width * 1.15)
 
-                    Spacer(minLength: 0)
-
-                    // English word (large)
-                    Text(word.english)
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.5)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-
-                    Spacer(minLength: 12)
-
-                    // 2x2 choices grid (TimeAttack style)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ForEach(favoriteChoices, id: \.self) { choice in
-                            let isSelected = favoriteSelectedChoice == choice
-                            let isCorrect = choice == word.japanese
-                            let showCorrect = favoriteSelectedChoice != nil && isCorrect
-                            let showWrong = isSelected && !isCorrect
-
-                            Button {
-                                guard favoriteSelectedChoice == nil else { return }
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    favoriteSelectedChoice = choice
-                                }
-                                // Auto-advance after delay
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                    withAnimation(.easeOut(duration: 0.2)) {
-                                        favoriteSelectedChoice = nil
-                                        favoriteWordIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
-                                        buildFavoriteChoices(words: words, index: favoriteWordIndex)
-                                    }
-                                }
-                            } label: {
-                                Text(choice)
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(
-                                        showCorrect ? .white :
-                                        showWrong ? .white :
-                                        MerkenTheme.primaryText
-                                    )
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.7)
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        showCorrect ? Color.green :
-                                        showWrong ? MerkenTheme.danger :
-                                        MerkenTheme.surface,
-                                        in: RoundedRectangle(cornerRadius: 14)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .stroke(
-                                                showCorrect ? Color.green :
-                                                showWrong ? MerkenTheme.danger :
-                                                MerkenTheme.border,
-                                                lineWidth: 1.5
-                                            )
-                                    )
-                                    .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
-                                    .scaleEffect(isSelected ? 0.95 : 1.0)
-                            }
-                            .disabled(favoriteSelectedChoice != nil)
+                    // Page indicator
+                    HStack(spacing: 6) {
+                        ForEach(0..<2, id: \.self) { i in
+                            Circle()
+                                .fill(i == favoriteTabPage ? MerkenTheme.accentBlue : MerkenTheme.border)
+                                .frame(width: 6, height: 6)
                         }
                     }
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .aspectRatio(0.85, contentMode: .fit)
-                .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(MerkenTheme.border, lineWidth: 1.5)
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(MerkenTheme.border)
-                        .offset(y: 3)
-                )
                 .onAppear {
                     buildFavoriteChoices(words: words, index: safeIndex)
                 }
             }
         }
+    }
+
+    private func favoriteQuizCard(word: Word, words: [Word], safeIndex: Int) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("\(safeIndex + 1)/\(words.count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                Spacer()
+                HStack(spacing: 12) {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            favoriteSelectedChoice = nil
+                            let newIndex = safeIndex > 0 ? safeIndex - 1 : words.count - 1
+                            favoriteWordIndex = newIndex
+                            buildFavoriteChoices(words: words, index: newIndex)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .frame(width: 32, height: 32)
+                            .background(MerkenTheme.surfaceAlt, in: .circle)
+                    }
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            favoriteSelectedChoice = nil
+                            let newIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
+                            favoriteWordIndex = newIndex
+                            buildFavoriteChoices(words: words, index: newIndex)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .frame(width: 32, height: 32)
+                            .background(MerkenTheme.surfaceAlt, in: .circle)
+                    }
+                }
+            }
+            .padding(.bottom, 12)
+
+            Spacer(minLength: 0)
+
+            Text(word.english)
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+
+            Spacer(minLength: 12)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(favoriteChoices, id: \.self) { choice in
+                    let isSelected = favoriteSelectedChoice == choice
+                    let isCorrect = choice == word.japanese
+                    let showCorrect = favoriteSelectedChoice != nil && isCorrect
+                    let showWrong = isSelected && !isCorrect
+
+                    Button {
+                        guard favoriteSelectedChoice == nil else { return }
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            favoriteSelectedChoice = choice
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                favoriteSelectedChoice = nil
+                                favoriteWordIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
+                                buildFavoriteChoices(words: words, index: favoriteWordIndex)
+                            }
+                        }
+                    } label: {
+                        Text(choice)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(
+                                showCorrect ? .white :
+                                showWrong ? .white :
+                                MerkenTheme.primaryText
+                            )
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                showCorrect ? Color.green :
+                                showWrong ? MerkenTheme.danger :
+                                MerkenTheme.surface,
+                                in: RoundedRectangle(cornerRadius: 14)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(
+                                        showCorrect ? Color.green :
+                                        showWrong ? MerkenTheme.danger :
+                                        MerkenTheme.border,
+                                        lineWidth: 1.5
+                                    )
+                            )
+                            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+                            .scaleEffect(isSelected ? 0.95 : 1.0)
+                    }
+                    .disabled(favoriteSelectedChoice != nil)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func todayAddedWordsCard(todayWords: [Word]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("今日追加した単語")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("\(todayWords.count)語")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+            }
+
+            if todayWords.isEmpty {
+                Spacer()
+                Text("今日はまだ単語を追加していません")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(todayWords) { word in
+                            HStack {
+                                Text(word.english)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                                Spacer()
+                                Text(word.japanese)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 10))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
     }
 
     private func buildFavoriteChoices(words: [Word], index: Int) {
