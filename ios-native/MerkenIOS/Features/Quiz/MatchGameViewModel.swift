@@ -33,15 +33,17 @@ final class MatchGameViewModel: ObservableObject {
     private var projectId: String = ""
     private var timer: AnyCancellable?
     private var words: [Word] = []
+    private var quizStatsStore: QuizStatsStore?
 
     var totalTime: Double { elapsedTime + penaltyTime }
     var isNewBest: Bool { bestTime == 0 || totalTime < bestTime }
 
     // MARK: - Setup
 
-    func setup(words: [Word], projectId: String) {
+    func setup(words: [Word], projectId: String, quizStatsStore: QuizStatsStore? = nil) {
         self.words = words
         self.projectId = projectId
+        self.quizStatsStore = quizStatsStore
         loadBestTime()
 
         // Shuffle and chunk into rounds of 6
@@ -189,6 +191,15 @@ final class MatchGameViewModel: ObservableObject {
             bestTime = totalTime
             saveBestTime()
         }
+
+        // Record match game stats: each pair = 1 answer, each mismatch penalty = 1 wrong
+        let totalPairs = words.count
+        let correctPairs = totalPairs  // all pairs are eventually matched
+        let wrongAttempts = penaltyCount
+        quizStatsStore?.record(
+            totalAnswered: correctPairs + wrongAttempts,
+            correctAnswered: correctPairs
+        )
     }
 
     // MARK: - Persistence
