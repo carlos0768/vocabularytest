@@ -244,17 +244,55 @@ struct HomeView: View {
             weeklyTracker
 
             // Mini stats (middle)
-            HStack(spacing: 16) {
-                Label("\(viewModel.streakDays)日連続", systemImage: "flame.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.warning)
-                Label("正答率 \(viewModel.accuracyPercent)%", systemImage: "checkmark.circle")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.success)
-                Label("習得 \(viewModel.masteredWordCount)", systemImage: "graduationcap")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.accentBlue)
+            HStack(spacing: 0) {
+                VStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(MerkenTheme.warning)
+                    Text("\(viewModel.streakDays)日")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("連続")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(MerkenTheme.borderLight)
+                    .frame(width: 1, height: 36)
+
+                VStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(MerkenTheme.success)
+                    Text("\(viewModel.accuracyPercent)%")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("正答率")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(MerkenTheme.borderLight)
+                    .frame(width: 1, height: 36)
+
+                VStack(spacing: 4) {
+                    Image(systemName: "graduationcap")
+                        .font(.system(size: 16))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                    Text("\(viewModel.masteredWordCount)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("習得")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+                .frame(maxWidth: .infinity)
             }
+            .padding(.vertical, 8)
 
             // Today's goal + progress
             VStack(spacing: 10) {
