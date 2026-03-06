@@ -86,19 +86,10 @@ struct ProjectDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Button {
-                    showingWordList = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(project.title)
-                            .font(.headline)
-                            .foregroundStyle(MerkenTheme.primaryText)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
-                }
+                Text(project.title)
+                    .font(.headline)
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 16) {
@@ -416,6 +407,7 @@ struct ProjectDetailView: View {
                     }
                 }
             }
+            .clipShape(.rect(cornerRadius: 16))
             .background(Color.white, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -459,7 +451,21 @@ struct ProjectDetailView: View {
         let word = viewModel.words[safeIdx]
 
         return ZStack {
+            // Loose-leaf ruled lines background
             Color.white.ignoresSafeArea()
+            VStack(spacing: 0) {
+                ForEach(0..<30, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(height: 28)
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .fill(MerkenTheme.accentBlue.opacity(0.06))
+                                .frame(height: 1)
+                        }
+                }
+            }
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Top bar
