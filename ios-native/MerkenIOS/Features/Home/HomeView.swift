@@ -243,6 +243,19 @@ struct HomeView: View {
             // Weekly tracker
             weeklyTracker
 
+            // Mini stats (middle)
+            HStack(spacing: 16) {
+                Label("\(viewModel.streakDays)日連続", systemImage: "flame.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.warning)
+                Label("正答率 \(viewModel.accuracyPercent)%", systemImage: "checkmark.circle")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.success)
+                Label("習得 \(viewModel.masteredWordCount)", systemImage: "graduationcap")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+            }
+
             // Today's goal + progress
             VStack(spacing: 10) {
                 if viewModel.dueWordCount > 0 {
@@ -321,18 +334,6 @@ struct HomeView: View {
                     }
                 }
 
-                // Mini stats inline (always visible)
-                HStack(spacing: 16) {
-                    Label("\(viewModel.streakDays)日連続", systemImage: "flame.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.warning)
-                    Label("正答率 \(viewModel.accuracyPercent)%", systemImage: "checkmark.circle")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.success)
-                    Label("習得 \(viewModel.masteredWordCount)", systemImage: "graduationcap")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                }
             }
         }
         .padding(16)
