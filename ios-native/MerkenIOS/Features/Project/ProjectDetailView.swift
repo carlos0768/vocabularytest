@@ -320,8 +320,9 @@ struct ProjectDetailView: View {
                 let end = min(i + bucketSize, words.count)
                 let slice = words[i..<end]
                 let avg = slice.map(\.easeFactor).reduce(0, +) / Double(slice.count)
-                // Always use index-based labels to avoid overlap
-                let label = bucketSize == 1 ? "\(i+1)" : "\(i+1)-\(end)"
+                // Use first word's english as label (truncate long words)
+                let raw = slice.first!.english
+                let label = raw.count > 6 ? String(raw.prefix(5)) + "…" : raw
                 result.append((index: result.count, label: label, avgEase: avg))
                 i = end
             }
@@ -365,9 +366,9 @@ struct ProjectDetailView: View {
                 }
                 .chartYScale(domain: 0...4)
                 .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: min(buckets.count, 8))) { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 9))
+                    AxisMarks(values: .automatic(desiredCount: min(buckets.count, 6))) { _ in
+                        AxisValueLabel(orientation: .vertical)
+                            .font(.system(size: 8))
                             .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
