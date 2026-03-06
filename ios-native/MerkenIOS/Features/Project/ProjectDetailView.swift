@@ -31,6 +31,7 @@ struct ProjectDetailView: View {
     @State private var showingBookshelfPicker = false
     @State private var showingCreateBookshelf = false
     @State private var weakWordsFlashcard: Project?
+    @State private var topWidgetPage = 0
 
     var body: some View {
         ZStack {
@@ -45,9 +46,9 @@ struct ProjectDetailView: View {
                         }
                     }
 
-                    // Flashcard preview with navigation (full-width)
+                    // Swipeable top widget: Stats ↔ Word Card
                     if !viewModel.words.isEmpty {
-                        flashcardPreview
+                        topSwipeableWidget
                     }
 
                     // Learning modes
@@ -278,6 +279,90 @@ struct ProjectDetailView: View {
     @MainActor
     private func presentShareSheet(items: [Any]) {
         sharePayload = SharePayload(items: items)
+    }
+
+    // MARK: - Top Swipeable Widget (Stats ↔ Word Card)
+
+    private var topSwipeableWidget: some View {
+        VStack(spacing: 0) {
+            TabView(selection: $topWidgetPage) {
+                statsPage.tag(0)
+                flashcardPreview.tag(1)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: UIScreen.main.bounds.height * 0.4)
+
+            // Custom page indicator
+            HStack(spacing: 6) {
+                ForEach(0..<2, id: \.self) { i in
+                    Circle()
+                        .fill(i == topWidgetPage ? MerkenTheme.accentBlue : MerkenTheme.border)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    // MARK: - Stats Page
+
+    private var statsPage: some View {
+        let total = viewModel.words.count
+        let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
+        let reviewCount = viewModel.words.filter { $0.status == .review }.count
+        let newCount = viewModel.words.filter { $0.status == .new }.count
+        let masteredPct = total > 0 ? Double(masteredCount) / Double(total) : 0
+
+        return SolidCard {
+            VStack(spacing: 16) {
+                // Circular progress
+                ZStack {
+                    Circle()
+                        .stroke(MerkenTheme.border, lineWidth: 8)
+                    Circle()
+                        .trim(from: 0, to: masteredPct)
+                        .stroke(MerkenTheme.success, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeOut(duration: 0.5), value: masteredPct)
+                    VStack(spacing: 2) {
+                        Text("\(Int(masteredPct * 100))%")
+                            .font(.title.bold())
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("習得率")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .frame(width: 100, height: 100)
+
+                // Status counts
+                HStack(spacing: 0) {
+                    statItem(count: masteredCount, label: "習得", color: MerkenTheme.success)
+                    Divider().frame(height: 36)
+                    statItem(count: reviewCount, label: "学習中", color: MerkenTheme.warning)
+                    Divider().frame(height: 36)
+                    statItem(count: newCount, label: "未学習", color: MerkenTheme.mutedText)
+                }
+
+                Text("\(total)語")
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+            .padding(.vertical, 8)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func statItem(count: Int, label: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text("\(count)")
+                .font(.title2.bold())
+                .foregroundStyle(color)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Flashcard Preview (full-width with fullscreen button)
