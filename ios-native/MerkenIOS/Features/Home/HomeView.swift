@@ -316,23 +316,17 @@ struct HomeView: View {
                     }
                 }
 
-                // Mini stats inline
-                if viewModel.todayAnswered > 0 || viewModel.streakDays > 0 {
-                    HStack(spacing: 16) {
-                        if viewModel.streakDays > 0 {
-                            Label("\(viewModel.streakDays)日連続", systemImage: "flame.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.warning)
-                        }
-                        if viewModel.todayAnswered > 0 {
-                            Label("正答率 \(viewModel.accuracyPercent)%", systemImage: "checkmark.circle")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.success)
-                            Label("習得 \(viewModel.totalWordCount)", systemImage: "graduationcap")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                        }
-                    }
+                // Mini stats inline (always visible)
+                HStack(spacing: 16) {
+                    Label("\(viewModel.streakDays)日連続", systemImage: "flame.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.warning)
+                    Label("正答率 \(viewModel.accuracyPercent)%", systemImage: "checkmark.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.success)
+                    Label("習得 \(viewModel.masteredWordCount)", systemImage: "graduationcap")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
                 }
             }
         }
