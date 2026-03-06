@@ -1,6 +1,5 @@
 import SwiftUI
 import AVFoundation
-import Charts
 
 private struct SharePayload: Identifiable {
     let id = UUID()
@@ -305,108 +304,84 @@ struct ProjectDetailView: View {
         }
     }
 
-    // MARK: - Stats Page (Ease Factor per Word)
+    // MARK: - Stats Page (Progress bar + row list, same as StatsView)
 
     private var statsPage: some View {
-        // Group words into buckets to prevent x-axis overcrowding (max 20 bars)
-        let words = viewModel.words
-        let maxBars = 20
-        let bucketSize = max(1, words.count / maxBars)
-        let buckets: [(index: Int, label: String, avgEase: Double)] = {
-            guard !words.isEmpty else { return [] }
-            var result: [(index: Int, label: String, avgEase: Double)] = []
-            var i = 0
-            while i < words.count {
-                let end = min(i + bucketSize, words.count)
-                let slice = words[i..<end]
-                let avg = slice.map(\.easeFactor).reduce(0, +) / Double(slice.count)
-                // Use first word's english as label (truncate long words)
-                let raw = slice.first!.english
-                let label = raw.count > 6 ? String(raw.prefix(5)) + "…" : raw
-                result.append((index: result.count, label: label, avgEase: avg))
-                i = end
-            }
-            return result
-        }()
+        let total = viewModel.words.count
+        let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
+        let reviewCount = viewModel.words.filter { $0.status == .review }.count
+        let newCount = viewModel.words.filter { $0.status == .new }.count
+        let weakCount = weakWords.count
 
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("単語別 学習効率")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Spacer()
-                Text("\(words.count)語")
-                    .font(.system(size: 12))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
+        return SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Progress header + bar
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("習得の進捗")
+                            .font(.headline)
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Spacer()
+                        Text(total > 0
+                             ? "\(Int(Double(masteredCount) / Double(total) * 100))% 習得"
+                             : "0% 習得")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(MerkenTheme.success)
+                    }
 
-            if buckets.isEmpty {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(MerkenTheme.surfaceAlt)
-                    .frame(maxHeight: .infinity)
-                    .overlay(
-                        Text("データなし")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    )
-            } else {
-                Chart(buckets, id: \.index) { bucket in
-                    BarMark(
-                        x: .value("単語", bucket.label),
-                        y: .value("効率", bucket.avgEase)
-                    )
-                    .foregroundStyle(
-                        bucket.avgEase >= 2.5
-                            ? MerkenTheme.success
-                            : bucket.avgEase >= 1.8
-                                ? MerkenTheme.warning
-                                : MerkenTheme.danger
-                    )
-                    .cornerRadius(2)
-                }
-                .chartYScale(domain: 0...4)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: min(buckets.count, 6))) { _ in
-                        AxisValueLabel(orientation: .vertical)
-                            .font(.system(size: 8))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: [0, 1, 2, 3, 4]) { _ in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(MerkenTheme.border.opacity(0.5))
-                        AxisValueLabel()
-                            .font(.system(size: 10))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
-                }
-                .frame(maxHeight: .infinity)
+                    GeometryReader { geo in
+                        let t = max(CGFloat(total), 1)
+                        let masteredW = geo.size.width * CGFloat(masteredCount) / t
+                        let reviewW = geo.size.width * CGFloat(reviewCount) / t
 
-                // Legend
-                HStack(spacing: 12) {
-                    HStack(spacing: 4) {
-                        Circle().fill(MerkenTheme.success).frame(width: 8, height: 8)
-                        Text("得意").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(MerkenTheme.surfaceAlt)
+                            HStack(spacing: 0) {
+                                Rectangle()
+                                    .fill(MerkenTheme.success)
+                                    .frame(width: max(masteredW, 0))
+                                Rectangle()
+                                    .fill(MerkenTheme.accentBlue)
+                                    .frame(width: max(reviewW, 0))
+                            }
+                            .clipShape(.rect(cornerRadius: 6))
+                        }
                     }
-                    HStack(spacing: 4) {
-                        Circle().fill(MerkenTheme.warning).frame(width: 8, height: 8)
-                        Text("普通").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    HStack(spacing: 4) {
-                        Circle().fill(MerkenTheme.danger).frame(width: 8, height: 8)
-                        Text("苦手").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
-                    }
+                    .frame(height: 12)
                 }
+                .padding(16)
+
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+
+                statsRow(icon: "checkmark.circle", iconColor: MerkenTheme.success, label: "習得済み", value: "\(masteredCount)")
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                statsRow(icon: "arrow.triangle.2.circlepath", iconColor: MerkenTheme.accentBlue, label: "復習中", value: "\(reviewCount)")
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                statsRow(icon: "clock", iconColor: MerkenTheme.mutedText, label: "未学習", value: "\(newCount)")
+                Divider().overlay(MerkenTheme.border.opacity(0.3))
+                statsRow(icon: "exclamationmark.circle", iconColor: MerkenTheme.danger, label: "苦手な単語", value: "\(weakCount)")
             }
         }
-        .padding(16)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
         .padding(.horizontal, 4)
+    }
+
+    private func statsRow(icon: String, iconColor: Color, label: String, value: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.body)
+                .foregroundStyle(iconColor)
+                .frame(width: 24)
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(MerkenTheme.secondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundStyle(MerkenTheme.primaryText)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Flashcard Preview (full-width with fullscreen button)
