@@ -40,7 +40,7 @@ struct MatchGameView: View {
                 .foregroundStyle(.purple)
 
             Text("マッチ")
-                .font(.system(size: 28, weight: .bold, design: .serif))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             Text("英単語と日本語訳のペアを\nできるだけ速くマッチさせよう！")
@@ -156,7 +156,7 @@ struct MatchGameView: View {
             Spacer()
 
             Text("ラウンド\(viewModel.currentRound + 1) クリア！")
-                .font(.system(size: 24, weight: .bold, design: .serif))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             Text("タイム: \(formatTime(viewModel.totalTime))")
@@ -191,12 +191,12 @@ struct MatchGameView: View {
                 Text("🎉")
                     .font(.system(size: 60))
                 Text("新記録！")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.orange)
             }
 
             Text("完了！")
-                .font(.system(size: 28, weight: .bold, design: .serif))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             // Total time (big)

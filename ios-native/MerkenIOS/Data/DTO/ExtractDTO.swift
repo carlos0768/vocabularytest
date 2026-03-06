@@ -27,7 +27,7 @@ enum ScanMode: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .all: return "写真内の英単語をすべて抽出"
+        case .all: return "難しい単語を優先して最大30語抽出"
         case .circled: return "手書きで丸をつけた単語のみ"
         case .highlighted: return "蛍光マーカーの単語のみ"
         case .eiken: return "指定した英検級の単語のみ"

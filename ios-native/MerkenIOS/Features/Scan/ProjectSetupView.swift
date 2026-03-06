@@ -20,7 +20,7 @@ struct ProjectSetupView: View {
             VStack(spacing: 0) {
                 // Header
                 Text("単語帳の設定")
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .padding(.top, 20)
                     .padding(.bottom, 16)
@@ -33,11 +33,11 @@ struct ProjectSetupView: View {
                         // Project name field
                         VStack(alignment: .leading, spacing: 8) {
                             Text("単語帳の名前")
-                                .font(.system(size: 14, weight: .medium, design: .serif))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(MerkenTheme.secondaryText)
 
                             TextField("例: 英検2級 第3章", text: $projectTitle)
-                                .font(.system(size: 16, design: .serif))
+                                .font(.system(size: 16))
                                 .foregroundStyle(MerkenTheme.primaryText)
                                 .focused($titleFocused)
                                 .solidTextField()
@@ -51,7 +51,7 @@ struct ProjectSetupView: View {
                                     .font(.system(size: 13))
                                     .foregroundStyle(MerkenTheme.mutedText)
                                 Text("\(images.count)枚の画像を解析します")
-                                    .font(.system(size: 13, design: .serif))
+                                    .font(.system(size: 13))
                                     .foregroundStyle(MerkenTheme.mutedText)
                             }
                         }
@@ -132,7 +132,7 @@ struct ProjectSetupView: View {
             HStack(spacing: 12) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     Text(thumbnailImage == nil ? "サムネを設定" : "変更")
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(MerkenTheme.accentBlue)
                 }
 
@@ -142,14 +142,14 @@ struct ProjectSetupView: View {
                         selectedPhotoItem = nil
                     } label: {
                         Text("削除")
-                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(MerkenTheme.danger)
                     }
                 }
             }
 
             Text("未設定の場合、カラーアイコンが表示されます")
-                .font(.system(size: 11, design: .serif))
+                .font(.system(size: 11))
                 .foregroundStyle(MerkenTheme.mutedText)
         }
     }

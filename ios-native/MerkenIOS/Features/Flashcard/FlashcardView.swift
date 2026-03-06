@@ -15,6 +15,7 @@ struct FlashcardView: View {
     @State private var pressedButton: String?
     @State private var showTinderSort = false
     @State private var showTimeAttack = false
+    @Environment(\.dismiss) private var dismiss
 
     init(project: Project, preloadedWords: [Word]? = nil) {
         self.project = project
@@ -37,6 +38,17 @@ struct FlashcardView: View {
         }
         .navigationTitle("フラッシュカード")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+            }
+        }
         .task(id: project.id) {
             guard preloadedWords == nil || preloadedWords?.isEmpty == true else { return }
             await viewModel.load(projectId: project.id, using: appState)
@@ -133,7 +145,7 @@ struct FlashcardView: View {
                         viewModel.toggleDirection()
                     } label: {
                         Text(viewModel.japaneseFirst ? "日→英" : "英→日")
-                            .font(.system(size: 12, weight: .semibold, design: .serif))
+                            .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(viewModel.japaneseFirst ? .white : MerkenTheme.secondaryText)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -148,7 +160,7 @@ struct FlashcardView: View {
 
                     // Progress
                     Text("\(viewModel.currentIndex + 1) / \(viewModel.wordCount)")
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
 
                     Spacer()

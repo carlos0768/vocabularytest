@@ -49,7 +49,7 @@ struct CreateBookshelfSheet: View {
 
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(project.title)
-                                                .font(.system(size: 15, weight: .medium, design: .serif))
+                                                .font(.system(size: 15, weight: .medium))
                                                 .foregroundStyle(MerkenTheme.primaryText)
                                                 .lineLimit(1)
                                         }
@@ -112,7 +112,7 @@ struct CreateBookshelfSheet: View {
             ZStack {
                 bgColor
                 Text(String(project.title.prefix(1)))
-                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
             }
             .frame(width: 44, height: 44)

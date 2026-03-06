@@ -151,6 +151,34 @@ struct Quiz2View: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
+
+                    // Example sentence
+                    if let example = word.exampleSentence, !example.isEmpty {
+                        Divider()
+                            .padding(.vertical, 8)
+
+                        Text("例文")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .textCase(.uppercase)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, 4)
+
+                        Text(example)
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let exampleJa = word.exampleSentenceJa, !exampleJa.isEmpty {
+                            Text(exampleJa)
+                                .font(.caption)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 2)
+                        }
+                    }
                 }
             }
         }

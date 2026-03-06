@@ -40,7 +40,7 @@ struct AddToBookshelfSheet: View {
 
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(collection.name)
-                                                .font(.system(size: 15, weight: .medium, design: .serif))
+                                                .font(.system(size: 15, weight: .medium))
                                                 .foregroundStyle(MerkenTheme.primaryText)
                                                 .lineLimit(1)
                                             if let desc = collection.description, !desc.isEmpty {

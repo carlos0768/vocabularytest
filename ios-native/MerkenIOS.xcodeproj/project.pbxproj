@@ -104,6 +104,9 @@
 		AA00000000000002 /* TinderSortViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000012 /* TinderSortViewModel.swift */; };
 		AA00000000000003 /* TimeAttackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000013 /* TimeAttackView.swift */; };
 		AA00000000000004 /* TimeAttackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000014 /* TimeAttackViewModel.swift */; };
+		BB00000000000001 /* MatchGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000011 /* MatchGameView.swift */; };
+		BB00000000000002 /* MatchGameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000012 /* MatchGameViewModel.swift */; };
+		CC00000000000001 /* AddToBookshelfSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000000000011 /* AddToBookshelfSheet.swift */; };
 		D59BDF4D6ACB1F376EEFE0AE /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99EE467D962530D980D8B556 /* QuizView.swift */; };
 		D963FD784830B6369DC2D54C /* ProjectDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33F439DA7C119036CF02695B /* ProjectDetailViewModel.swift */; };
 		DBD1528243E864424B4F512D /* ShareImportRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979404E37986CA4245C3D65D /* ShareImportRootView.swift */; };
@@ -205,6 +208,9 @@
 		AA00000000000012 /* TinderSortViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinderSortViewModel.swift; sourceTree = "<group>"; };
 		AA00000000000013 /* TimeAttackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAttackView.swift; sourceTree = "<group>"; };
 		AA00000000000014 /* TimeAttackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAttackViewModel.swift; sourceTree = "<group>"; };
+		BB00000000000011 /* MatchGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchGameView.swift; sourceTree = "<group>"; };
+		BB00000000000012 /* MatchGameViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchGameViewModel.swift; sourceTree = "<group>"; };
+		CC00000000000011 /* AddToBookshelfSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddToBookshelfSheet.swift; sourceTree = "<group>"; };
 		2E2D0D4C99D6ECE8097535C4 /* ShareImportViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImportViewModel.swift; sourceTree = "<group>"; };
 		3030DAACE90D702433A311CF /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
 		30935187DFB30E1359223B86 /* SentenceQuizDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentenceQuizDTO.swift; sourceTree = "<group>"; };
@@ -421,6 +427,7 @@
 				2A5D52FEC41B3B9AFB9AD0BB /* WordEditorSheet.swift */,
 				41BF5284FA3263B19D304B15 /* WordListView.swift */,
 				1D14F2A209459F83F00FC77C /* WordListViewModel.swift */,
+				CC00000000000011 /* AddToBookshelfSheet.swift */,
 			);
 			path = Project;
 			sourceTree = "<group>";
@@ -530,6 +537,8 @@
 				528A9430116E2D659E74D431 /* QuizViewModel.swift */,
 				AA00000000000013 /* TimeAttackView.swift */,
 				AA00000000000014 /* TimeAttackViewModel.swift */,
+				BB00000000000011 /* MatchGameView.swift */,
+				BB00000000000012 /* MatchGameViewModel.swift */,
 			);
 			path = Quiz;
 			sourceTree = "<group>";
@@ -935,6 +944,9 @@
 				AA00000000000002 /* TinderSortViewModel.swift in Sources */,
 				AA00000000000003 /* TimeAttackView.swift in Sources */,
 				AA00000000000004 /* TimeAttackViewModel.swift in Sources */,
+				BB00000000000001 /* MatchGameView.swift in Sources */,
+				BB00000000000002 /* MatchGameViewModel.swift in Sources */,
+				CC00000000000001 /* AddToBookshelfSheet.swift in Sources */,
 				E2CEB7BD87A413D98979F166 /* Formatters.swift in Sources */,
 				5819BA1E558A83EA4D4952BF /* GlassSurface.swift in Sources */,
 				62F1E90A617D1E7A791D0047 /* GuestSessionStore.swift in Sources */,
