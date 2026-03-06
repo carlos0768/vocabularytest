@@ -58,7 +58,7 @@ struct HomeView: View {
 
     var body: some View {
         ZStack {
-            AppBackground()
+            Color.white.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
