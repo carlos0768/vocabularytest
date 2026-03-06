@@ -117,9 +117,10 @@ struct HomeView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Text("MERKEN")
-                    .font(.system(size: 27, weight: .black))
+                    .font(.system(size: 24, weight: .black))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .tracking(2)
+                    .fixedSize()
             }
         }
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -239,7 +240,7 @@ struct HomeView: View {
     // MARK: - Hero Block (Weekly Tracker + Review CTA)
 
     private var heroBlock: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 6) {
             // Weekly tracker
             weeklyTracker
 
