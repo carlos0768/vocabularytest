@@ -67,16 +67,8 @@ struct HomeView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
-                            // MARK: - Story-style Weekly Tracker
-                            weeklyTracker
-
-                            // MARK: - Today's Focus (compact banner)
-                            todayFocusBanner
-
-                            // MARK: - Mini Stats Row
-                            if viewModel.todayAnswered > 0 || viewModel.streakDays > 0 {
-                                miniStatsRow
-                            }
+                            // MARK: - Hero Block (Weekly Tracker + Review)
+                            heroBlock
 
                             if let errorMessage = viewModel.errorMessage {
                                 SolidCard {
@@ -242,6 +234,119 @@ struct HomeView: View {
             await viewModel.load(using: appState)
             await bookshelfVM.load(using: appState)
         }
+    }
+
+    // MARK: - Hero Block (Weekly Tracker + Review CTA)
+
+    private var heroBlock: some View {
+        VStack(spacing: 16) {
+            // Weekly tracker
+            weeklyTracker
+
+            // Today's goal + progress
+            VStack(spacing: 10) {
+                if viewModel.dueWordCount > 0 {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("今日の目標")
+                                .font(.system(size: 13))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                            Text("\(viewModel.dueWordCount)語を復習")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                        }
+                        Spacer()
+                        if let firstProject = viewModel.projects.first {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                if appState.isAIEnabled, viewModel.dueWordCount > 0 {
+                                    quizDestination = QuizDestination(
+                                        project: firstProject,
+                                        preloadedWords: viewModel.dueWords,
+                                        skipSetup: true
+                                    )
+                                } else if appState.isAIEnabled {
+                                    quizDestination = QuizDestination(project: firstProject)
+                                } else {
+                                    flashcardDestination = FlashcardDestination(
+                                        project: firstProject,
+                                        preloadedWords: viewModel.preloadedWords(for: firstProject.id)
+                                    )
+                                }
+                            } label: {
+                                Text("復習する")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 12)
+                                    .background(MerkenTheme.accentBlue, in: .capsule)
+                            }
+                        }
+                    }
+
+                    // Progress bar
+                    if viewModel.todayAnswered > 0 {
+                        GeometryReader { geo in
+                            let progress = min(Double(viewModel.todayAnswered) / Double(viewModel.todayAnswered + viewModel.dueWordCount), 1.0)
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(MerkenTheme.borderLight)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(MerkenTheme.accentBlue)
+                                    .frame(width: geo.size.width * progress)
+                            }
+                        }
+                        .frame(height: 8)
+                    }
+                } else {
+                    // No due words — show encouragement
+                    HStack(spacing: 12) {
+                        Image(systemName: focusBannerIcon)
+                            .font(.title3)
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(focusBannerHeading)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            Text(focusBannerSubheading)
+                                .font(.system(size: 13))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                        }
+                        Spacer()
+                    }
+                }
+
+                // Mini stats inline
+                if viewModel.todayAnswered > 0 || viewModel.streakDays > 0 {
+                    HStack(spacing: 16) {
+                        if viewModel.streakDays > 0 {
+                            Label("\(viewModel.streakDays)日連続", systemImage: "flame.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.warning)
+                        }
+                        if viewModel.todayAnswered > 0 {
+                            Label("正答率 \(viewModel.accuracyPercent)%", systemImage: "checkmark.circle")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.success)
+                            Label("習得 \(viewModel.totalWordCount)", systemImage: "graduationcap")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
     }
 
     // MARK: - Weekly Tracker (Story-style)
