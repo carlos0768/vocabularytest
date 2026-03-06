@@ -31,6 +31,7 @@ struct ProjectDetailView: View {
     @State private var showingBookshelfPicker = false
     @State private var showingCreateBookshelf = false
     @State private var weakWordsFlashcard: Project?
+    @State private var showFullScreenWord = false
 
     var body: some View {
         ZStack {
@@ -185,6 +186,9 @@ struct ProjectDetailView: View {
             NavigationStack {
                 FlashcardView(project: project, preloadedWords: weakWords)
             }
+        }
+        .fullScreenCover(isPresented: $showFullScreenWord) {
+            fullScreenWordView
         }
         .navigationDestination(item: $quiz2Destination) { project in
             Quiz2View(project: project, preloadedWords: viewModel.words)
@@ -417,6 +421,17 @@ struct ProjectDetailView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(MerkenTheme.border, lineWidth: 1)
             )
+            // Expand button
+            .overlay(alignment: .bottomTrailing) {
+                Button { showFullScreenWord = true } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(width: 32, height: 32)
+                        .background(.ultraThinMaterial, in: .circle)
+                }
+                .padding(12)
+            }
             // Paper shadow
             .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
             // Swipe gesture
@@ -435,6 +450,101 @@ struct ProjectDetailView: View {
                     }
             )
         }
+    }
+
+    // MARK: - Full Screen Word View
+
+    private var fullScreenWordView: some View {
+        let safeIdx = min(previewIndex, max(viewModel.words.count - 1, 0))
+        let word = viewModel.words[safeIdx]
+
+        return ZStack {
+            Color.white.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Top bar
+                HStack {
+                    Button { showFullScreenWord = false } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .frame(width: 36, height: 36)
+                            .background(MerkenTheme.surfaceAlt, in: .circle)
+                    }
+                    Spacer()
+                    Text("\(safeIdx + 1) / \(viewModel.words.count)")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                    Spacer()
+                    HStack(spacing: 16) {
+                        Button { speakWord(word.english) } label: {
+                            Image(systemName: "speaker.wave.2")
+                                .font(.system(size: 18))
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                        }
+                        Button {
+                            Task { await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState) }
+                        } label: {
+                            Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                                .font(.system(size: 18))
+                                .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+                Spacer()
+
+                // Word
+                VStack(spacing: 16) {
+                    Text(word.english)
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .multilineTextAlignment(.center)
+
+                    Text(word.japanese)
+                        .font(.system(size: 24))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+
+                    if let example = word.exampleSentence, !example.isEmpty {
+                        VStack(spacing: 8) {
+                            Text(example)
+                                .font(.system(size: 18))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .italic()
+                                .multilineTextAlignment(.center)
+                            if let exampleJa = word.exampleSentenceJa, !exampleJa.isEmpty {
+                                Text(exampleJa)
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .padding(.top, 8)
+                    }
+
+                    statusBadge(word.status)
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                .onEnded { value in
+                    if value.translation.width < -30 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            previewIndex = safeIdx < viewModel.words.count - 1 ? safeIdx + 1 : 0
+                        }
+                    } else if value.translation.width > 30 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            previewIndex = safeIdx > 0 ? safeIdx - 1 : viewModel.words.count - 1
+                        }
+                    }
+                }
+        )
     }
 
     private func statusBadge(_ status: WordStatus) -> some View {
