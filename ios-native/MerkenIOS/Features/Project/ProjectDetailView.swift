@@ -300,12 +300,28 @@ struct ProjectDetailView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: UIScreen.main.bounds.height * 0.4)
 
-            // Custom page indicator
-            HStack(spacing: 6) {
-                ForEach(0..<2, id: \.self) { i in
-                    Circle()
-                        .fill(i == topWidgetPage ? MerkenTheme.accentBlue : MerkenTheme.border)
-                        .frame(width: 6, height: 6)
+            // Bottom row: word list link + page indicator
+            HStack {
+                Button {
+                    showingWordList = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 13))
+                        Text("単語一覧")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                }
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    ForEach(0..<2, id: \.self) { i in
+                        Circle()
+                            .fill(i == topWidgetPage ? MerkenTheme.accentBlue : MerkenTheme.border)
+                            .frame(width: 6, height: 6)
+                    }
                 }
             }
             .padding(.top, 8)

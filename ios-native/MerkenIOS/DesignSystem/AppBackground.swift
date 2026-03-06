@@ -16,15 +16,7 @@ struct AppBackground: View {
                     endPoint: .bottomTrailing
                 )
             } else {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.98, green: 0.98, blue: 1.0),
-                        Color(red: 0.93, green: 0.96, blue: 1.0),
-                        Color(red: 0.96, green: 0.97, blue: 1.0)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                Color.white
             }
         }
         .ignoresSafeArea()
