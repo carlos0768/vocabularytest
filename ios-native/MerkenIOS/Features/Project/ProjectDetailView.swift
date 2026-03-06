@@ -308,9 +308,10 @@ struct ProjectDetailView: View {
     // MARK: - Stats Page (Ease Factor per Word)
 
     private var statsPage: some View {
-        // Group words into buckets to prevent x-axis overcrowding
+        // Group words into buckets to prevent x-axis overcrowding (max 20 bars)
         let words = viewModel.words
-        let bucketSize = max(1, words.count / 30) // max ~30 bars
+        let maxBars = 20
+        let bucketSize = max(1, words.count / maxBars)
         let buckets: [(index: Int, label: String, avgEase: Double)] = {
             guard !words.isEmpty else { return [] }
             var result: [(index: Int, label: String, avgEase: Double)] = []
@@ -319,7 +320,8 @@ struct ProjectDetailView: View {
                 let end = min(i + bucketSize, words.count)
                 let slice = words[i..<end]
                 let avg = slice.map(\.easeFactor).reduce(0, +) / Double(slice.count)
-                let label = bucketSize == 1 ? slice.first!.english : "\(i+1)-\(end)"
+                // Always use index-based labels to avoid overlap
+                let label = bucketSize == 1 ? "\(i+1)" : "\(i+1)-\(end)"
                 result.append((index: result.count, label: label, avgEase: avg))
                 i = end
             }
@@ -363,18 +365,10 @@ struct ProjectDetailView: View {
                 }
                 .chartYScale(domain: 0...4)
                 .chartXAxis {
-                    if bucketSize == 1 && words.count <= 15 {
-                        AxisMarks { _ in
-                            AxisValueLabel()
-                                .font(.system(size: 8))
-                                .foregroundStyle(MerkenTheme.mutedText)
-                        }
-                    } else {
-                        AxisMarks(values: .automatic(desiredCount: 6)) { _ in
-                            AxisValueLabel()
-                                .font(.system(size: 8))
-                                .foregroundStyle(MerkenTheme.mutedText)
-                        }
+                    AxisMarks(values: .automatic(desiredCount: min(buckets.count, 8))) { _ in
+                        AxisValueLabel()
+                            .font(.system(size: 9))
+                            .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
                 .chartYAxis {
