@@ -305,24 +305,39 @@ struct ProjectDetailView: View {
         }
     }
 
-    // MARK: - Stats Page (Mastery Chart)
+    // MARK: - Stats Page (Ease Factor per Word)
 
     private var statsPage: some View {
-        let data = StatsViewModel.buildMasteryHistory(allWords: viewModel.words, days: 14)
-        let maxVal = max(data.map(\.total).max() ?? 1, 1)
+        // Group words into buckets to prevent x-axis overcrowding
+        let words = viewModel.words
+        let bucketSize = max(1, words.count / 30) // max ~30 bars
+        let buckets: [(index: Int, label: String, avgEase: Double)] = {
+            guard !words.isEmpty else { return [] }
+            var result: [(index: Int, label: String, avgEase: Double)] = []
+            var i = 0
+            while i < words.count {
+                let end = min(i + bucketSize, words.count)
+                let slice = words[i..<end]
+                let avg = slice.map(\.easeFactor).reduce(0, +) / Double(slice.count)
+                let label = bucketSize == 1 ? slice.first!.english : "\(i+1)-\(end)"
+                result.append((index: result.count, label: label, avgEase: avg))
+                i = end
+            }
+            return result
+        }()
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("暗記した単語数の推移")
+                Text("単語別 学習効率")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                Text("過去14日間")
+                Text("\(words.count)語")
                     .font(.system(size: 12))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
 
-            if data.isEmpty {
+            if buckets.isEmpty {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(MerkenTheme.surfaceAlt)
                     .frame(maxHeight: .infinity)
@@ -332,55 +347,38 @@ struct ProjectDetailView: View {
                             .foregroundStyle(MerkenTheme.mutedText)
                     )
             } else {
-                Chart {
-                    ForEach(data) { point in
-                        LineMark(
-                            x: .value("日付", point.date, unit: .day),
-                            y: .value("合計", point.total),
-                            series: .value("series", "total")
-                        )
-                        .foregroundStyle(MerkenTheme.accentBlue.opacity(0.4))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                        .interpolationMethod(.monotone)
-                    }
-
-                    ForEach(data) { point in
-                        AreaMark(
-                            x: .value("日付", point.date, unit: .day),
-                            yStart: .value("yStart", 0),
-                            yEnd: .value("習得", point.mastered)
-                        )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [MerkenTheme.success.opacity(0.3), MerkenTheme.success.opacity(0.05)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .interpolationMethod(.monotone)
-                    }
-
-                    ForEach(data) { point in
-                        LineMark(
-                            x: .value("日付", point.date, unit: .day),
-                            y: .value("習得", point.mastered),
-                            series: .value("series", "mastered")
-                        )
-                        .foregroundStyle(MerkenTheme.success)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-                        .interpolationMethod(.monotone)
-                    }
+                Chart(buckets, id: \.index) { bucket in
+                    BarMark(
+                        x: .value("単語", bucket.label),
+                        y: .value("効率", bucket.avgEase)
+                    )
+                    .foregroundStyle(
+                        bucket.avgEase >= 2.5
+                            ? MerkenTheme.success
+                            : bucket.avgEase >= 1.8
+                                ? MerkenTheme.warning
+                                : MerkenTheme.danger
+                    )
+                    .cornerRadius(2)
                 }
-                .chartYScale(domain: 0...maxVal)
+                .chartYScale(domain: 0...4)
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 3)) { _ in
-                        AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
-                            .font(.system(size: 9))
-                            .foregroundStyle(MerkenTheme.mutedText)
+                    if bucketSize == 1 && words.count <= 15 {
+                        AxisMarks { _ in
+                            AxisValueLabel()
+                                .font(.system(size: 8))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+                    } else {
+                        AxisMarks(values: .automatic(desiredCount: 6)) { _ in
+                            AxisValueLabel()
+                                .font(.system(size: 8))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
                     }
                 }
                 .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                    AxisMarks(position: .leading, values: [0, 1, 2, 3, 4]) { _ in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                             .foregroundStyle(MerkenTheme.border.opacity(0.5))
                         AxisValueLabel()
@@ -390,14 +388,19 @@ struct ProjectDetailView: View {
                 }
                 .frame(maxHeight: .infinity)
 
-                HStack(spacing: 16) {
+                // Legend
+                HStack(spacing: 12) {
                     HStack(spacing: 4) {
                         Circle().fill(MerkenTheme.success).frame(width: 8, height: 8)
-                        Text("習得済み").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
+                        Text("得意").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
                     }
                     HStack(spacing: 4) {
-                        Circle().fill(MerkenTheme.accentBlue.opacity(0.4)).frame(width: 8, height: 8)
-                        Text("総単語数").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
+                        Circle().fill(MerkenTheme.warning).frame(width: 8, height: 8)
+                        Text("普通").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    HStack(spacing: 4) {
+                        Circle().fill(MerkenTheme.danger).frame(width: 8, height: 8)
+                        Text("苦手").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
                     }
                 }
             }
