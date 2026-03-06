@@ -31,7 +31,7 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>即答チャレンジであなたの英語の発音を認識するために音声認識を使用します。</string>
 	<key>SUPABASE_ANON_KEY</key>
-	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5b3l2cGF5b2FjZ2VxZ29laGdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNDQ4NjksImV4cCI6MjA4NDcyMDg2OX0.lDj9qdTwPAZew-fJpMDWBOnI6vNLqz2gk3uNmtVvUmY</string>
+	<string>sb_publishable_6bCANBatXqcB5OgACP0R2g_TSQ8NBak</string>
 	<key>SUPABASE_URL</key>
 	<string>https://ryoyvpayoacgeqgoehgk.supabase.co</string>
 	<key>IAP_PRO_PRODUCT_IDS</key>
