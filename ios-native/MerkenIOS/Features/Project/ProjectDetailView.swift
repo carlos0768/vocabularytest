@@ -53,6 +53,9 @@ struct ProjectDetailView: View {
 
                     // Word detail
                     if !viewModel.words.isEmpty {
+                        Text("単語詳細")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
                         wordDetailWidget
                     }
 
@@ -496,16 +499,6 @@ struct ProjectDetailView: View {
         let word = viewModel.words[safeIdx]
 
         return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("単語詳細")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Spacer()
-                Text("\(safeIdx + 1)/\(viewModel.words.count)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-
             // Word + pronunciation
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
