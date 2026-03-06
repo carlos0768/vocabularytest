@@ -24,6 +24,8 @@ const EXCLUDED_PATHS = new Set([
 
 const PLACEHOLDER_RE =
   /\b(your[-_]|example|dummy|sample|placeholder|changeme|xxxx|fake)\b|sk_test_|pk_test_|re_test_/i;
+const PRIVATE_KEY_PLACEHOLDER_RE =
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----(?:\\+n|\n)\.\.\.(?:\\+n|\n)-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/;
 
 const SECRET_PATTERNS = [
   {
@@ -42,6 +44,7 @@ const SECRET_PATTERNS = [
     regexes: [
       /\b(?:secret|token|api[_-]?key|service[_-]?role[_-]?key)\b\s*[:=]\s*["'`][^"'`\n]{20,}["'`]/gi,
       /\b(?:secret|token|api[_-]?key)\b\s*=\s*[A-Za-z0-9._-]{24,}/gi,
+      /\bsupabase(?:Service(?:Role)?)?Key\b\s*[:=]\s*["'`][^"'`\n]{20,}["'`]/gi,
     ],
   },
   {
@@ -134,6 +137,9 @@ function isPlaceholderMatch(matchText, lineText) {
 
 function shouldIgnoreMatch(relativePath, rule, matchText, lineText) {
   if (relativePath === '.env.example') {
+    return true;
+  }
+  if (rule === 'SECRET003' && PRIVATE_KEY_PLACEHOLDER_RE.test(lineText)) {
     return true;
   }
   if (rule === 'SECRET001' && /\bprocess\.env\./.test(lineText)) {

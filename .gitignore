@@ -20,6 +20,10 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+/check-user*.js
+/check-user*.ps1
+/upgrade-user.js
+/upgrade-user.ps1
 
 # Vercel
 .vercel

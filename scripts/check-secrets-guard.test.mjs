@@ -9,6 +9,7 @@ import { runGuard } from './check-secrets-guard.mjs';
 
 const TEST_SECRET_KEY = ['sk', '1234567890abcdefghijklmnopqrstuv'].join('-');
 const TEST_PRIVATE_KEY_BLOCK = ['-----BEGIN ', 'PRIVATE KEY-----\nabc\n-----END ', 'PRIVATE KEY-----\n'].join('');
+const TEST_JWT_LITERAL = 'eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSJ9.signature1234567890';
 
 function runGit(repoRoot, args) {
   execFileSync('git', args, {
@@ -70,6 +71,20 @@ test('detects SECRET001 api key literals', async (t) => {
   assert.equal(rules.has('SECRET001'), true);
 });
 
+test('detects hardcoded Supabase service key variable assignments', async (t) => {
+  const repoRoot = await createTempRepo({
+    files: {
+      'scripts/upgrade-user.mjs': `const supabaseServiceKey = '${TEST_JWT_LITERAL}';\n`,
+    },
+  });
+  t.after(async () => fs.rm(repoRoot, { recursive: true, force: true }));
+
+  const result = await runGuard({ repoRoot });
+  const rules = new Set(result.findings.map((finding) => finding.rule));
+  assert.equal(result.configErrors.length, 0);
+  assert.equal(rules.has('SECRET002'), true);
+});
+
 test('detects SECRET003 private key blocks', async (t) => {
   const repoRoot = await createTempRepo({
     files: {
@@ -82,6 +97,20 @@ test('detects SECRET003 private key blocks', async (t) => {
   const rules = new Set(result.findings.map((finding) => finding.rule));
   assert.equal(result.configErrors.length, 0);
   assert.equal(rules.has('SECRET003'), true);
+});
+
+test('ignores placeholder private key examples in docs', async (t) => {
+  const repoRoot = await createTempRepo({
+    files: {
+      'README.md': 'APPLE_IAP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----"\n',
+    },
+  });
+  t.after(async () => fs.rm(repoRoot, { recursive: true, force: true }));
+
+  const result = await runGuard({ repoRoot });
+  const rules = new Set(result.findings.map((finding) => finding.rule));
+  assert.equal(result.configErrors.length, 0);
+  assert.equal(rules.has('SECRET003'), false);
 });
 
 test('allowlist suppresses matching path+rule findings', async (t) => {
