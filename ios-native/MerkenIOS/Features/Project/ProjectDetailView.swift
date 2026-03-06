@@ -394,123 +394,86 @@ struct ProjectDetailView: View {
     private var flashcardPreview: some View {
         let word = viewModel.words[safePreviewIndex]
 
-        return VStack(spacing: 14) {
-            // Card (full-width, with fullscreen button overlay)
-            ZStack(alignment: .bottomTrailing) {
-                SolidCard {
-                    VStack(spacing: 12) {
-                        // Top bar: progress + actions
-                        HStack {
-                            Text("\(safePreviewIndex + 1)/\(viewModel.words.count)")
-                                .font(.caption.bold())
-                                .foregroundStyle(MerkenTheme.mutedText)
-                            Spacer()
-                            HStack(spacing: 4) {
-                                Button {
-                                    speakWord(word.english)
-                                } label: {
-                                    Image(systemName: "speaker.wave.2")
-                                        .font(.subheadline)
-                                        .foregroundStyle(MerkenTheme.secondaryText)
-                                        .frame(width: 32, height: 32)
+        return ZStack(alignment: .bottomTrailing) {
+            SolidCard {
+                VStack(spacing: 16) {
+                    // Top bar: progress + actions
+                    HStack {
+                        Text("\(safePreviewIndex + 1)/\(viewModel.words.count)")
+                            .font(.caption.bold())
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Button {
+                                speakWord(word.english)
+                            } label: {
+                                Image(systemName: "speaker.wave.2")
+                                    .font(.subheadline)
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                                    .frame(width: 32, height: 32)
+                            }
+                            Button {
+                                Task {
+                                    await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
                                 }
-                                Button {
-                                    Task {
-                                        await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
-                                    }
-                                } label: {
-                                    Image(systemName: word.isFavorite ? "heart.fill" : "heart")
-                                        .font(.subheadline)
-                                        .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.secondaryText)
-                                        .frame(width: 32, height: 32)
-                                }
+                            } label: {
+                                Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                                    .font(.subheadline)
+                                    .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.secondaryText)
+                                    .frame(width: 32, height: 32)
                             }
                         }
+                    }
 
-                        // English word
-                        VStack(spacing: 4) {
-                            Text(word.english)
-                                .font(.title.bold())
-                                .foregroundStyle(MerkenTheme.primaryText)
-                                .multilineTextAlignment(.center)
-                        }
+                    Spacer()
+
+                    // English word
+                    Text(word.english)
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
 
-                        // Japanese translation
-                        Text(word.japanese)
-                            .font(.title3)
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
+                    // Japanese translation
+                    Text(word.japanese)
+                        .font(.title2)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
 
-                // Fullscreen button overlay
-                Button {
-                    flashcardDestination = project
-                } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .frame(width: 36, height: 36)
-                        .background(.ultraThinMaterial, in: .circle)
+                    Spacer()
                 }
-                .padding(12)
             }
 
-            // Navigation: prev / dictionary / next
-            HStack(spacing: 12) {
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        previewIndex = safePreviewIndex > 0
-                            ? safePreviewIndex - 1
-                            : viewModel.words.count - 1
-                    }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .frame(width: 44, height: 44)
-                        .background(MerkenTheme.surface, in: .circle)
-                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                }
-
-                Button {
-                    let encoded = word.english.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word.english
-                    if let url = URL(string: "https://eow.alc.co.jp/search?q=\(encoded)") {
-                        dictionaryURL = url
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "book")
-                            .font(.subheadline)
-                        Text("辞書")
-                            .font(.subheadline.bold())
-                    }
+            // Fullscreen button overlay
+            Button {
+                flashcardDestination = project
+            } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(MerkenTheme.primaryText)
-                    .padding(.horizontal, 20)
-                    .frame(height: 44)
-                    .background(MerkenTheme.surface, in: .capsule)
-                    .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1.5))
-                }
-
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        previewIndex = safePreviewIndex < viewModel.words.count - 1
-                            ? safePreviewIndex + 1
-                            : 0
-                    }
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .frame(width: 44, height: 44)
-                        .background(MerkenTheme.surface, in: .circle)
-                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                }
+                    .frame(width: 36, height: 36)
+                    .background(.ultraThinMaterial, in: .circle)
             }
+            .padding(12)
         }
+        .padding(.horizontal, 4)
+        .gesture(
+            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                .onEnded { value in
+                    if value.translation.width < -30 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            previewIndex = safePreviewIndex < viewModel.words.count - 1
+                                ? safePreviewIndex + 1 : 0
+                        }
+                    } else if value.translation.width > 30 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            previewIndex = safePreviewIndex > 0
+                                ? safePreviewIndex - 1 : viewModel.words.count - 1
+                        }
+                    }
+                }
+        )
     }
 
     private func speakWord(_ text: String) {
