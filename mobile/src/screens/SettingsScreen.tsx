@@ -28,6 +28,7 @@ import { Button } from '../components/ui';
 import { useAuth } from '../hooks/use-auth';
 import { getRepository } from '../lib/db';
 import { getGuestUserId, getDailyScanInfo } from '../lib/utils';
+import { withWebAppBase } from '../lib/web-base-url';
 import colors from '../constants/colors';
 import type { RootStackParamList } from '../types';
 
@@ -96,11 +97,11 @@ export function SettingsScreen() {
   };
 
   const handleTerms = () => {
-    Linking.openURL('https://vocabularytest-omega.vercel.app/terms');
+    Linking.openURL(withWebAppBase('/terms'));
   };
 
   const handlePrivacy = () => {
-    Linking.openURL('https://vocabularytest-omega.vercel.app/privacy');
+    Linking.openURL(withWebAppBase('/privacy'));
   };
 
   return (

@@ -22,6 +22,7 @@ import {
 import { Button } from '../components/ui';
 import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
+import { withWebAppBase } from '../lib/web-base-url';
 import { shuffleArray, recordWrongAnswer, recordActivity } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import colors from '../constants/colors';
@@ -41,7 +42,7 @@ type RouteType = RouteProp<RootStackParamList, 'Grammar'>;
 
 const QUIZ_SIZE = 15;
 const MIN_WORDS_REQUIRED = 10;
-const API_URL = 'https://vocabularytest-omega.vercel.app/api/sentence-quiz';
+const API_URL = withWebAppBase('/api/sentence-quiz');
 
 export function SentenceQuizScreen() {
   const navigation = useNavigation<NavigationProp>();

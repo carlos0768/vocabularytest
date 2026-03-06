@@ -48,6 +48,7 @@ import { getRepository } from '../lib/db';
 import { extractWordsFromImage } from '../lib/ai';
 import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../lib/supabase';
+import { withWebAppBase } from '../lib/web-base-url';
 import {
   getGuestUserId,
   getDailyScanInfo,
@@ -59,7 +60,7 @@ import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const SHARE_BASE_URL = 'https://vocabularytest-omega.vercel.app/share';
+const SHARE_BASE_URL = withWebAppBase('/share');
 
 // Extraction modes (including grammar and eiken filter)
 type ScanMode = 'all' | 'circled' | 'eiken' | 'grammar';
