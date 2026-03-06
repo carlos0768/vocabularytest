@@ -5,6 +5,7 @@ struct MatchGameView: View {
     let words: [Word]
 
     @StateObject private var viewModel = MatchGameViewModel()
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -25,7 +26,7 @@ struct MatchGameView: View {
         .navigationTitle("マッチ")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            viewModel.setup(words: words, projectId: project.id)
+            viewModel.setup(words: words, projectId: project.id, quizStatsStore: appState.quizStatsStore)
         }
     }
 
@@ -229,7 +230,7 @@ struct MatchGameView: View {
             VStack(spacing: 12) {
                 Button {
                     MerkenHaptic.medium()
-                    viewModel.setup(words: words, projectId: project.id)
+                    viewModel.setup(words: words, projectId: project.id, quizStatsStore: appState.quizStatsStore)
                     viewModel.startGame()
                 } label: {
                     Label("もう一度", systemImage: "arrow.counterclockwise")

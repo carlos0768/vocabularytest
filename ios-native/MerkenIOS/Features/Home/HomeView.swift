@@ -1,5 +1,15 @@
 import SwiftUI
 
+private struct DayWordsSheet: Identifiable, Equatable {
+    let id = UUID()
+    let date: String
+    let words: [Word]
+
+    static func == (lhs: DayWordsSheet, rhs: DayWordsSheet) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 /// Wrapper to distinguish quiz navigation from project detail navigation
 private struct QuizDestination: Hashable {
     let project: Project
@@ -67,18 +77,18 @@ struct HomeView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
-                            // MARK: - Today's Focus (compact banner)
-                            if viewModel.dueWordCount > 0 {
-                                Text("今すぐに復習すべき単語")
-                                    .font(.system(size: 17, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                            }
-                            todayFocusBanner
+                            // MARK: - Virtual Header (safe area spacer)
+                            Color.clear
+                                .frame(height: 8)
 
-                            // MARK: - Mini Stats Row
-                            if viewModel.todayAnswered > 0 || viewModel.streakDays > 0 {
-                                miniStatsRow
-                            }
+                            // MARK: - Logo
+                            Text("MERKEN")
+                                .font(.system(size: 24, weight: .black))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .tracking(2)
+
+                            // MARK: - Hero Block (Weekly Tracker + Review)
+                            heroBlock
 
                             if let errorMessage = viewModel.errorMessage {
                                 SolidCard {
@@ -124,15 +134,40 @@ struct HomeView: View {
 
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("MERKEN")
-                    .font(.system(size: 18, weight: .black))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .tracking(2)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: Binding(
+            get: { selectedDayWords.map { DayWordsSheet(date: $0.date, words: $0.words) } },
+            set: { if $0 == nil { selectedDayWords = nil } }
+        )) { item in
+            NavigationStack {
+                List {
+                    if item.words.isEmpty {
+                        Text("この日に追加された単語はありません")
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    } else {
+                        ForEach(item.words) { word in
+                            HStack {
+                                Text(word.english)
+                                    .font(.system(size: 15, weight: .semibold))
+                                Spacer()
+                                Text(word.japanese)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("\(item.date) に追加した単語")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("閉じる") { selectedDayWords = nil }
+                    }
+                }
             }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
-        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationDestination(item: $quizDestination) { dest in
             QuizView(
                 project: dest.project,
@@ -244,6 +279,204 @@ struct HomeView: View {
             await viewModel.load(using: appState)
             await bookshelfVM.load(using: appState)
         }
+    }
+
+    // MARK: - Hero Block (Weekly Tracker + Review CTA)
+
+    private var heroBlock: some View {
+        VStack(spacing: 2) {
+            // Weekly tracker
+            weeklyTracker
+
+            // Mini stats (middle)
+            HStack(spacing: 10) {
+                heroStatTile(icon: "flame.fill", iconColor: MerkenTheme.warning, value: "\(viewModel.streakDays)日", label: "連続")
+                heroStatTile(icon: "checkmark.circle", iconColor: MerkenTheme.success, value: "\(viewModel.accuracyPercent)%", label: "正答率")
+                heroStatTile(icon: "graduationcap", iconColor: MerkenTheme.accentBlue, value: "\(viewModel.masteredWordCount)", label: "習得")
+            }
+
+            // Today's goal + progress
+            VStack(spacing: 10) {
+                if viewModel.dueWordCount > 0 {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("今日の目標")
+                                .font(.system(size: 13))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                Text("\(viewModel.dueWordCount)")
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundStyle(MerkenTheme.accentBlue)
+                                Text("語を復習")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                            }
+                        }
+                        Spacer()
+                        if let firstProject = viewModel.projects.first {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                if appState.isAIEnabled, viewModel.dueWordCount > 0 {
+                                    quizDestination = QuizDestination(
+                                        project: firstProject,
+                                        preloadedWords: viewModel.dueWords,
+                                        skipSetup: true
+                                    )
+                                } else if appState.isAIEnabled {
+                                    quizDestination = QuizDestination(project: firstProject)
+                                } else {
+                                    flashcardDestination = FlashcardDestination(
+                                        project: firstProject,
+                                        preloadedWords: viewModel.preloadedWords(for: firstProject.id)
+                                    )
+                                }
+                            } label: {
+                                Text("復習する")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 12)
+                                    .background(MerkenTheme.accentBlue, in: .capsule)
+                            }
+                        }
+                    }
+
+                    // Progress bar
+                    if viewModel.todayAnswered > 0 {
+                        GeometryReader { geo in
+                            let progress = min(Double(viewModel.todayAnswered) / Double(viewModel.todayAnswered + viewModel.dueWordCount), 1.0)
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(MerkenTheme.borderLight)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(MerkenTheme.accentBlue)
+                                    .frame(width: geo.size.width * progress)
+                            }
+                        }
+                        .frame(height: 8)
+                    }
+                } else {
+                    // No due words — show encouragement
+                    HStack(spacing: 12) {
+                        Image(systemName: focusBannerIcon)
+                            .font(.title3)
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(focusBannerHeading)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            Text(focusBannerSubheading)
+                                .font(.system(size: 13))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                        }
+                        Spacer()
+                    }
+                }
+
+            }
+        }
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func heroStatTile(icon: String, iconColor: Color, value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(iconColor)
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Weekly Tracker (Story-style)
+
+    private var weeklyTracker: some View {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date())
+        // Get start of this week (Sunday)
+        let weekday = calendar.component(.weekday, from: today) // 1=Sun
+        let startOfWeek = calendar.date(byAdding: .day, value: -(weekday - 1), to: today)!
+
+        let dayLabels = ["日", "月", "火", "水", "木", "金", "土"]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        // Get this week's stats
+        let weekStats = appState.quizStatsStore.allStats(days: 7)
+        let activeDates = Set(weekStats.map(\.date))
+
+        return HStack(spacing: 0) {
+            ForEach(0..<7, id: \.self) { offset in
+                let date = calendar.date(byAdding: .day, value: offset, to: startOfWeek)!
+                let dateKey = formatter.string(from: date)
+                let dayNum = calendar.component(.day, from: date)
+                let isToday = calendar.isDate(date, inSameDayAs: today)
+                let hasActivity = activeDates.contains(dateKey)
+
+                Button {
+                    let dayStart = calendar.startOfDay(for: date)
+                    let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+                    let allWords = viewModel.allWordsFlat
+                    let wordsForDay = allWords.filter { $0.createdAt >= dayStart && $0.createdAt < dayEnd }
+                    let label = "\(calendar.component(.month, from: date))/\(dayNum)"
+                    selectedDayWords = (date: label, words: wordsForDay)
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(dayLabels[offset])
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(isToday ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+
+                        ZStack {
+                            if isToday {
+                                Circle()
+                                    .fill(MerkenTheme.accentBlue)
+                                    .frame(width: 36, height: 36)
+                                Text("\(dayNum)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                            } else if hasActivity {
+                                Circle()
+                                    .fill(MerkenTheme.accentBlue.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Circle()
+                                    .stroke(MerkenTheme.accentBlue, lineWidth: 2)
+                                    .frame(width: 36, height: 36)
+                                Text("\(dayNum)")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                            } else {
+                                Circle()
+                                    .stroke(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                                    .frame(width: 36, height: 36)
+                                Text("\(dayNum)")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
     }
 
     // MARK: - Today's Focus Widget (quiz card style)
@@ -513,7 +746,7 @@ struct HomeView: View {
             // Section header
             HStack {
                 Text("単語帳")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 if viewModel.projects.count > 1 {
@@ -549,92 +782,76 @@ struct HomeView: View {
         }
     }
 
-    // MARK: Featured Project Card (full-width, rich detail)
+    // MARK: Featured Project Card (full-width, with circular progress)
 
     private func featuredProjectCard(_ project: Project) -> some View {
-        let wordCount = viewModel.preloadedWords(for: project.id)?.count ?? 0
-        let dueCount = viewModel.dueCountByProject[project.id] ?? 0
-        let masteryPercent = wordCount > 0 ? Double(max(wordCount - dueCount, 0)) / Double(wordCount) : 0
+        let words = viewModel.preloadedWords(for: project.id) ?? []
+        let wordCount = words.count
+        let masteredCount = words.filter { $0.status == .mastered }.count
+        let reviewCount = words.filter { $0.status == .review }.count
+        let newCount = words.filter { $0.status == .new }.count
+        let masteryPercent = wordCount > 0 ? Double(masteredCount) / Double(wordCount) : 0
 
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                // Thumbnail
-                Color.clear
-                    .frame(width: 72, height: 72)
-                    .overlay {
-                        ZStack {
-                            if let iconImage = project.iconImage,
-                               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                            } else {
-                                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
-                                bgColor
-                                Text(String(project.title.prefix(1)))
-                                    .font(.system(size: 28, weight: .bold))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
-                    .clipShape(.rect(cornerRadius: 14))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(project.title)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                            .lineLimit(1)
-                        if project.isFavorite {
-                            Image(systemName: "flag.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                        }
-                    }
-
-                    HStack(spacing: 12) {
-                        Label("\(wordCount)語", systemImage: "textformat.abc")
-                            .font(.system(size: 12))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        if dueCount > 0 {
-                            Label("\(dueCount)復習待ち", systemImage: "clock")
-                                .font(.system(size: 12))
-                                .foregroundStyle(MerkenTheme.warning)
-                        }
-                    }
+        return HStack(spacing: 14) {
+            // Left: Icon
+            ZStack {
+                if let iconImage = project.iconImage,
+                   let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
+                    bgColor
+                    Text(String(project.title.prefix(1)))
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(.white)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
             }
+            .frame(width: 48, height: 48)
+            .clipShape(.rect(cornerRadius: 12))
 
-            // Progress bar
-            if wordCount > 0 {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("習得度")
-                            .font(.system(size: 11))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        Spacer()
-                        Text("\(Int(masteryPercent * 100))%")
-                            .font(.system(size: 11, weight: .semibold))
+            // Middle: Text info
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(project.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .lineLimit(1)
+                    if project.isFavorite {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 9))
                             .foregroundStyle(MerkenTheme.accentBlue)
                     }
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(MerkenTheme.borderLight)
-                                .frame(height: 6)
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(MerkenTheme.accentBlue)
-                                .frame(width: geo.size.width * masteryPercent, height: 6)
-                        }
-                    }
-                    .frame(height: 6)
                 }
+
+                Text("\(wordCount)語")
+                    .font(.system(size: 13))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+
+                // Status dots
+                HStack(spacing: 10) {
+                    statusDot(color: MerkenTheme.success, label: "習得", count: masteredCount)
+                    statusDot(color: MerkenTheme.accentBlue, label: "学習", count: reviewCount)
+                    statusDot(color: MerkenTheme.mutedText, label: "未学", count: newCount)
+                }
+            }
+
+            Spacer()
+
+            // Right: Circular progress ring
+            ZStack {
+                Circle()
+                    .stroke(MerkenTheme.border, lineWidth: 4)
+                    .frame(width: 52, height: 52)
+                Circle()
+                    .trim(from: 0, to: masteryPercent)
+                    .stroke(MerkenTheme.success, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 52, height: 52)
+                    .rotationEffect(.degrees(-90))
+                Text("\(Int(masteryPercent * 100))%")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
             }
         }
         .padding(16)
@@ -648,6 +865,17 @@ struct HomeView: View {
                 .fill(MerkenTheme.border)
                 .offset(y: 2)
         )
+    }
+
+    private func statusDot(color: Color, label: String, count: Int) -> some View {
+        HStack(spacing: 3) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+            Text("\(label) \(count)")
+                .font(.system(size: 11))
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
     }
 
     // MARK: Compact Project Card (horizontal scroll)
@@ -758,7 +986,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("本棚")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
                 if !bookshelfVM.collections.isEmpty {
@@ -951,6 +1179,8 @@ struct HomeView: View {
     @State private var showFavoriteAnswer = false
     @State private var favoriteSelectedChoice: String?
     @State private var favoriteChoices: [String] = []
+    @State private var favoriteTabPage: Int = 0
+    @State private var selectedDayWords: (date: String, words: [Word])? = nil
 
     private var favoriteWordsSection: some View {
         let words = viewModel.favoriteWords
@@ -958,147 +1188,225 @@ struct HomeView: View {
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("苦手な単語")
-                    .font(.system(size: 17, weight: .bold))
+                Text(favoriteTabPage == 0 ? "苦手な単語" : "今日追加した単語")
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
+                    .animation(.easeOut(duration: 0.2), value: favoriteTabPage)
                 Spacer()
-                Button { showingFavorites = true } label: {
-                    Text("すべて見る")
-                        .font(.system(size: 14))
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                if favoriteTabPage == 0 {
+                    Button { showingFavorites = true } label: {
+                        Text("すべて見る")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
                 }
             }
 
             if !words.isEmpty {
                 let word = words[safeIndex]
+                let todayWords = viewModel.todayAddedWords
 
-                VStack(spacing: 0) {
-                    // Top: counter + nav
-                    HStack {
-                        Text("\(safeIndex + 1)/\(words.count)")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        Spacer()
-                        HStack(spacing: 12) {
-                            Button {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    favoriteSelectedChoice = nil
-                                    let newIndex = safeIndex > 0 ? safeIndex - 1 : words.count - 1
-                                    favoriteWordIndex = newIndex
-                                    buildFavoriteChoices(words: words, index: newIndex)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                                    .frame(width: 32, height: 32)
-                                    .background(MerkenTheme.surfaceAlt, in: .circle)
-                            }
-                            Button {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    favoriteSelectedChoice = nil
-                                    let newIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
-                                    favoriteWordIndex = newIndex
-                                    buildFavoriteChoices(words: words, index: newIndex)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                                    .frame(width: 32, height: 32)
-                                    .background(MerkenTheme.surfaceAlt, in: .circle)
-                            }
-                        }
+                VStack(spacing: 8) {
+                    TabView(selection: $favoriteTabPage) {
+                        // Page 0: Quiz card
+                        favoriteQuizCard(word: word, words: words, safeIndex: safeIndex)
+                            .tag(0)
+
+                        // Page 1: Today's added words
+                        todayAddedWordsCard(todayWords: todayWords)
+                            .tag(1)
                     }
-                    .padding(.bottom, 12)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: UIScreen.main.bounds.width * 1.15)
 
-                    Spacer(minLength: 0)
-
-                    // English word (large)
-                    Text(word.english)
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.5)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-
-                    Spacer(minLength: 12)
-
-                    // 2x2 choices grid (TimeAttack style)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ForEach(favoriteChoices, id: \.self) { choice in
-                            let isSelected = favoriteSelectedChoice == choice
-                            let isCorrect = choice == word.japanese
-                            let showCorrect = favoriteSelectedChoice != nil && isCorrect
-                            let showWrong = isSelected && !isCorrect
-
-                            Button {
-                                guard favoriteSelectedChoice == nil else { return }
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    favoriteSelectedChoice = choice
-                                }
-                                // Auto-advance after delay
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                    withAnimation(.easeOut(duration: 0.2)) {
-                                        favoriteSelectedChoice = nil
-                                        favoriteWordIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
-                                        buildFavoriteChoices(words: words, index: favoriteWordIndex)
-                                    }
-                                }
-                            } label: {
-                                Text(choice)
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(
-                                        showCorrect ? .white :
-                                        showWrong ? .white :
-                                        MerkenTheme.primaryText
-                                    )
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.7)
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        showCorrect ? Color.green :
-                                        showWrong ? MerkenTheme.danger :
-                                        MerkenTheme.surface,
-                                        in: RoundedRectangle(cornerRadius: 14)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .stroke(
-                                                showCorrect ? Color.green :
-                                                showWrong ? MerkenTheme.danger :
-                                                MerkenTheme.border,
-                                                lineWidth: 1.5
-                                            )
-                                    )
-                                    .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
-                                    .scaleEffect(isSelected ? 0.95 : 1.0)
-                            }
-                            .disabled(favoriteSelectedChoice != nil)
+                    // Page indicator
+                    HStack(spacing: 6) {
+                        ForEach(0..<2, id: \.self) { i in
+                            Circle()
+                                .fill(i == favoriteTabPage ? MerkenTheme.accentBlue : MerkenTheme.border)
+                                .frame(width: 6, height: 6)
                         }
                     }
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .aspectRatio(0.85, contentMode: .fit)
-                .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(MerkenTheme.border, lineWidth: 1.5)
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(MerkenTheme.border)
-                        .offset(y: 3)
-                )
                 .onAppear {
                     buildFavoriteChoices(words: words, index: safeIndex)
                 }
             }
         }
+    }
+
+    private func favoriteQuizCard(word: Word, words: [Word], safeIndex: Int) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("\(safeIndex + 1)/\(words.count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                Spacer()
+                HStack(spacing: 12) {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            favoriteSelectedChoice = nil
+                            let newIndex = safeIndex > 0 ? safeIndex - 1 : words.count - 1
+                            favoriteWordIndex = newIndex
+                            buildFavoriteChoices(words: words, index: newIndex)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .frame(width: 32, height: 32)
+                            .background(MerkenTheme.surfaceAlt, in: .circle)
+                    }
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            favoriteSelectedChoice = nil
+                            let newIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
+                            favoriteWordIndex = newIndex
+                            buildFavoriteChoices(words: words, index: newIndex)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .frame(width: 32, height: 32)
+                            .background(MerkenTheme.surfaceAlt, in: .circle)
+                    }
+                }
+            }
+            .padding(.bottom, 12)
+
+            Spacer(minLength: 0)
+
+            Text(word.english)
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+
+            Spacer(minLength: 12)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(favoriteChoices, id: \.self) { choice in
+                    let isSelected = favoriteSelectedChoice == choice
+                    let isCorrect = choice == word.japanese
+                    let showCorrect = favoriteSelectedChoice != nil && isCorrect
+                    let showWrong = isSelected && !isCorrect
+
+                    Button {
+                        guard favoriteSelectedChoice == nil else { return }
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            favoriteSelectedChoice = choice
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                favoriteSelectedChoice = nil
+                                favoriteWordIndex = safeIndex < words.count - 1 ? safeIndex + 1 : 0
+                                buildFavoriteChoices(words: words, index: favoriteWordIndex)
+                            }
+                        }
+                    } label: {
+                        Text(choice)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(
+                                showCorrect ? .white :
+                                showWrong ? .white :
+                                MerkenTheme.primaryText
+                            )
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                showCorrect ? Color.green :
+                                showWrong ? MerkenTheme.danger :
+                                MerkenTheme.surface,
+                                in: RoundedRectangle(cornerRadius: 14)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(
+                                        showCorrect ? Color.green :
+                                        showWrong ? MerkenTheme.danger :
+                                        MerkenTheme.border,
+                                        lineWidth: 1.5
+                                    )
+                            )
+                            .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+                            .scaleEffect(isSelected ? 0.95 : 1.0)
+                    }
+                    .disabled(favoriteSelectedChoice != nil)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func todayAddedWordsCard(todayWords: [Word]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("今日追加した単語")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("\(todayWords.count)語")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+            }
+
+            if todayWords.isEmpty {
+                Spacer()
+                Text("今日はまだ単語を追加していません")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(todayWords) { word in
+                            HStack {
+                                Text(word.english)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                                Spacer()
+                                Text(word.japanese)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 10))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
     }
 
     private func buildFavoriteChoices(words: [Word], index: Int) {

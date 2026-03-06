@@ -30,6 +30,7 @@ final class TimeAttackViewModel: ObservableObject {
     private var timer: AnyCancellable?
     private var questionStartTime: Date = .now
     private var totalResponseTime: Double = 0
+    private var quizStatsStore: QuizStatsStore?
 
     var progress: Double {
         totalTime > 0 ? timeRemaining / totalTime : 0
@@ -49,8 +50,9 @@ final class TimeAttackViewModel: ObservableObject {
         score > 0 && score >= bestScore
     }
 
-    func setup(words: [Word]) {
+    func setup(words: [Word], quizStatsStore: QuizStatsStore? = nil) {
         self.words = words
+        self.quizStatsStore = quizStatsStore
         stage = .setup
         loadBestScore()
     }
@@ -153,6 +155,14 @@ final class TimeAttackViewModel: ObservableObject {
         if score > bestScore {
             bestScore = score
             saveBestScore()
+        }
+
+        // Record time attack stats
+        if totalAnswered > 0 {
+            quizStatsStore?.record(
+                totalAnswered: totalAnswered,
+                correctAnswered: score
+            )
         }
     }
 

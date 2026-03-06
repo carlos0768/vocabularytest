@@ -5,6 +5,7 @@ struct TimeAttackView: View {
     let words: [Word]
 
     @StateObject private var viewModel = TimeAttackViewModel()
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -23,7 +24,7 @@ struct TimeAttackView: View {
         .navigationTitle("タイムアタック")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            viewModel.setup(words: words)
+            viewModel.setup(words: words, quizStatsStore: appState.quizStatsStore)
         }
     }
 
