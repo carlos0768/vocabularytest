@@ -67,6 +67,12 @@ struct HomeView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
+                            // MARK: - Logo
+                            Text("MERKEN")
+                                .font(.system(size: 24, weight: .black))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .tracking(2)
+
                             // MARK: - Hero Block (Weekly Tracker + Review)
                             heroBlock
 
@@ -114,16 +120,7 @@ struct HomeView: View {
 
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Text("MERKEN")
-                    .font(.system(size: 24, weight: .black))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .tracking(2)
-                    .fixedSize()
-            }
-        }
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $quizDestination) { dest in
             QuizView(
                 project: dest.project,
