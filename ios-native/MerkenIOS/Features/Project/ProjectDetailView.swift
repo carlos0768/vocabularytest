@@ -50,6 +50,19 @@ struct ProjectDetailView: View {
                         looseLeafWordCard
                     }
 
+                    // Word list link
+                    Button {
+                        showingWordList = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 13))
+                            Text("単語一覧")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                    }
+
                     // Learning modes
                     learningModesSection
 
@@ -295,19 +308,8 @@ struct ProjectDetailView: View {
         let word = viewModel.words[safeIdx]
 
         return VStack(spacing: 8) {
-            // Header: word list + counter
+            // Counter
             HStack {
-                Button {
-                    showingWordList = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "list.bullet")
-                            .font(.system(size: 13))
-                        Text("単語一覧")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                }
                 Spacer()
                 Text("\(safeIdx + 1) / \(viewModel.words.count)")
                     .font(.system(size: 13, weight: .semibold))
