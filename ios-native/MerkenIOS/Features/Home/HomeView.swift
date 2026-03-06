@@ -355,7 +355,6 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 12))
     }
 
     // MARK: - Weekly Tracker (Story-style)
