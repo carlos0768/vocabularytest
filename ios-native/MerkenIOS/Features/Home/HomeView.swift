@@ -242,55 +242,11 @@ struct HomeView: View {
             weeklyTracker
 
             // Mini stats (middle)
-            HStack(spacing: 0) {
-                VStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(MerkenTheme.warning)
-                    Text("\(viewModel.streakDays)日")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("連続")
-                        .font(.system(size: 11))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-                .frame(maxWidth: .infinity)
-
-                Rectangle()
-                    .fill(MerkenTheme.borderLight)
-                    .frame(width: 1, height: 36)
-
-                VStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(MerkenTheme.success)
-                    Text("\(viewModel.accuracyPercent)%")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("正答率")
-                        .font(.system(size: 11))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-                .frame(maxWidth: .infinity)
-
-                Rectangle()
-                    .fill(MerkenTheme.borderLight)
-                    .frame(width: 1, height: 36)
-
-                VStack(spacing: 4) {
-                    Image(systemName: "graduationcap")
-                        .font(.system(size: 16))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                    Text("\(viewModel.masteredWordCount)")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("習得")
-                        .font(.system(size: 11))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-                .frame(maxWidth: .infinity)
+            HStack(spacing: 10) {
+                heroStatTile(icon: "flame.fill", iconColor: MerkenTheme.warning, value: "\(viewModel.streakDays)日", label: "連続")
+                heroStatTile(icon: "checkmark.circle", iconColor: MerkenTheme.success, value: "\(viewModel.accuracyPercent)%", label: "正答率")
+                heroStatTile(icon: "graduationcap", iconColor: MerkenTheme.accentBlue, value: "\(viewModel.masteredWordCount)", label: "習得")
             }
-            .padding(.vertical, 8)
 
             // Today's goal + progress
             VStack(spacing: 10) {
@@ -382,6 +338,27 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(MerkenTheme.border)
                 .offset(y: 3)
+        )
+    }
+
+    private func heroStatTile(icon: String, iconColor: Color, value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(iconColor)
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(MerkenTheme.border, lineWidth: 1)
         )
     }
 
