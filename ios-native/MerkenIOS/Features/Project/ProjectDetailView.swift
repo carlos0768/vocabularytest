@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import Charts
 
 private struct SharePayload: Identifiable {
     let id = UUID()
@@ -304,84 +305,110 @@ struct ProjectDetailView: View {
         }
     }
 
-    // MARK: - Stats Page
+    // MARK: - Stats Page (Mastery Chart)
 
     private var statsPage: some View {
-        let total = viewModel.words.count
-        let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
-        let reviewCount = viewModel.words.filter { $0.status == .review }.count
-        let newCount = viewModel.words.filter { $0.status == .new }.count
-        let weakCount = weakWords.count
+        let data = StatsViewModel.buildMasteryHistory(allWords: viewModel.words, days: 14)
+        let maxVal = max(data.map(\.total).max() ?? 1, 1)
 
-        return SolidCard(padding: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Progress header + bar
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("習得の進捗")
-                            .font(.headline)
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Spacer()
-                        Text(total > 0
-                             ? "\(Int(Double(masteredCount) / Double(total) * 100))% 習得"
-                             : "0% 習得")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(MerkenTheme.success)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("暗記した単語数の推移")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("過去14日間")
+                    .font(.system(size: 12))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            if data.isEmpty {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(MerkenTheme.surfaceAlt)
+                    .frame(maxHeight: .infinity)
+                    .overlay(
+                        Text("データなし")
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    )
+            } else {
+                Chart {
+                    ForEach(data) { point in
+                        LineMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("合計", point.total),
+                            series: .value("series", "total")
+                        )
+                        .foregroundStyle(MerkenTheme.accentBlue.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .interpolationMethod(.monotone)
                     }
 
-                    GeometryReader { geo in
-                        let t = max(CGFloat(total), 1)
-                        let masteredW = geo.size.width * CGFloat(masteredCount) / t
-                        let reviewW = geo.size.width * CGFloat(reviewCount) / t
-
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(MerkenTheme.surfaceAlt)
-                            HStack(spacing: 0) {
-                                Rectangle()
-                                    .fill(MerkenTheme.success)
-                                    .frame(width: max(masteredW, 0))
-                                Rectangle()
-                                    .fill(MerkenTheme.accentBlue)
-                                    .frame(width: max(reviewW, 0))
-                            }
-                            .clipShape(.rect(cornerRadius: 6))
-                        }
+                    ForEach(data) { point in
+                        AreaMark(
+                            x: .value("日付", point.date, unit: .day),
+                            yStart: .value("yStart", 0),
+                            yEnd: .value("習得", point.mastered)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [MerkenTheme.success.opacity(0.3), MerkenTheme.success.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .interpolationMethod(.monotone)
                     }
-                    .frame(height: 12)
+
+                    ForEach(data) { point in
+                        LineMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("習得", point.mastered),
+                            series: .value("series", "mastered")
+                        )
+                        .foregroundStyle(MerkenTheme.success)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                        .interpolationMethod(.monotone)
+                    }
                 }
-                .padding(16)
+                .chartYScale(domain: 0...maxVal)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day, count: 3)) { _ in
+                        AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
+                            .font(.system(size: 9))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(MerkenTheme.border.opacity(0.5))
+                        AxisValueLabel()
+                            .font(.system(size: 10))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .frame(maxHeight: .infinity)
 
-                Divider().overlay(MerkenTheme.border.opacity(0.3))
-
-                statsRow(icon: "checkmark.circle", iconColor: MerkenTheme.success, label: "習得済み", value: "\(masteredCount)")
-                Divider().overlay(MerkenTheme.border.opacity(0.3))
-                statsRow(icon: "arrow.triangle.2.circlepath", iconColor: MerkenTheme.accentBlue, label: "復習中", value: "\(reviewCount)")
-                Divider().overlay(MerkenTheme.border.opacity(0.3))
-                statsRow(icon: "clock", iconColor: MerkenTheme.mutedText, label: "未学習", value: "\(newCount)")
-                Divider().overlay(MerkenTheme.border.opacity(0.3))
-                statsRow(icon: "exclamationmark.circle", iconColor: MerkenTheme.danger, label: "苦手な単語", value: "\(weakCount)")
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Circle().fill(MerkenTheme.success).frame(width: 8, height: 8)
+                        Text("習得済み").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    HStack(spacing: 4) {
+                        Circle().fill(MerkenTheme.accentBlue.opacity(0.4)).frame(width: 8, height: 8)
+                        Text("総単語数").font(.system(size: 11)).foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
             }
         }
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
         .padding(.horizontal, 4)
-    }
-
-    private func statsRow(icon: String, iconColor: Color, label: String, value: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.body)
-                .foregroundStyle(iconColor)
-                .frame(width: 24)
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(MerkenTheme.secondaryText)
-            Spacer()
-            Text(value)
-                .font(.subheadline.bold())
-                .foregroundStyle(MerkenTheme.primaryText)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     // MARK: - Flashcard Preview (full-width with fullscreen button)
