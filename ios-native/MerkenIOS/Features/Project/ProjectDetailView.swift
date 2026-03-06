@@ -51,6 +51,11 @@ struct ProjectDetailView: View {
                         topSwipeableWidget
                     }
 
+                    // Word detail
+                    if !viewModel.words.isEmpty {
+                        wordDetailWidget
+                    }
+
                     // Learning modes
                     learningModesSection
 
@@ -480,6 +485,85 @@ struct ProjectDetailView: View {
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = 0.45
         AVSpeechSynthesizer().speak(utterance)
+    }
+
+    // MARK: - Word Detail Widget
+
+    @State private var wordDetailIndex = 0
+
+    private var wordDetailWidget: some View {
+        let safeIdx = min(wordDetailIndex, max(viewModel.words.count - 1, 0))
+        let word = viewModel.words[safeIdx]
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("単語詳細")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("\(safeIdx + 1)/\(viewModel.words.count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            // Word + pronunciation
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(word.english)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Spacer()
+                    Button {
+                        speakWord(word.english)
+                    } label: {
+                        Image(systemName: "speaker.wave.2")
+                            .font(.system(size: 16))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
+                }
+                Text(word.japanese)
+                    .font(.system(size: 16))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            // Example sentence
+            if let example = word.exampleSentence, !example.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(example)
+                        .font(.system(size: 15))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .italic()
+                    if let exampleJa = word.exampleSentenceJa, !exampleJa.isEmpty {
+                        Text(exampleJa)
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 12))
+            }
+        }
+        .padding(20)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .gesture(
+            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                .onEnded { value in
+                    if value.translation.width < -30 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            wordDetailIndex = safeIdx < viewModel.words.count - 1 ? safeIdx + 1 : 0
+                        }
+                    } else if value.translation.width > 30 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            wordDetailIndex = safeIdx > 0 ? safeIdx - 1 : viewModel.words.count - 1
+                        }
+                    }
+                }
+        )
     }
 
     // MARK: - Weak Words (苦手な単語)
