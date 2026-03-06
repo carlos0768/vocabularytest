@@ -48,6 +48,6 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>WEB_API_BASE_URL</key>
-	<string>https://vocabularytest-omega.vercel.app</string>
+	<string>https://vocabularytest-gamma.vercel.app</string>
 </dict>
 </plist>

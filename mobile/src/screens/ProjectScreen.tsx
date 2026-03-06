@@ -36,6 +36,7 @@ import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../lib/supabase';
 import { extractWordsFromImage } from '../lib/ai';
+import { withWebAppBase } from '../lib/web-base-url';
 import { getDailyScanInfo, incrementScanCount } from '../lib/utils';
 import colors from '../constants/colors';
 import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
@@ -43,7 +44,7 @@ import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, 'Project'>;
 
-const SHARE_BASE_URL = 'https://vocabularytest-omega.vercel.app/share';
+const SHARE_BASE_URL = withWebAppBase('/share');
 
 export function ProjectScreen() {
   const navigation = useNavigation<NavigationProp>();
