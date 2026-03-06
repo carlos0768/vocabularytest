@@ -237,7 +237,7 @@ struct HomeView: View {
     // MARK: - Hero Block (Weekly Tracker + Review CTA)
 
     private var heroBlock: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 2) {
             // Weekly tracker
             weeklyTracker
 
@@ -424,7 +424,7 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 4)
         .padding(.horizontal, 4)
     }
 
