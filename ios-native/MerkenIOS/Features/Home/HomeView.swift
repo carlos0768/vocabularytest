@@ -251,9 +251,14 @@ struct HomeView: View {
                             Text("今日の目標")
                                 .font(.system(size: 13))
                                 .foregroundStyle(MerkenTheme.secondaryText)
-                            Text("\(viewModel.dueWordCount)語を復習")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
+                            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                Text("\(viewModel.dueWordCount)")
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundStyle(MerkenTheme.accentBlue)
+                                Text("語を復習")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                            }
                         }
                         Spacer()
                         if let firstProject = viewModel.projects.first {
