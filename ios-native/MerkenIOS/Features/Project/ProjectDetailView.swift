@@ -31,7 +31,6 @@ struct ProjectDetailView: View {
     @State private var showingBookshelfPicker = false
     @State private var showingCreateBookshelf = false
     @State private var weakWordsFlashcard: Project?
-    @State private var topWidgetPage = 0
 
     var body: some View {
         ZStack {
@@ -46,21 +45,21 @@ struct ProjectDetailView: View {
                         }
                     }
 
-                    // Swipeable top widget: Stats ↔ Word Card
+                    // Loose-leaf word detail
                     if !viewModel.words.isEmpty {
-                        topSwipeableWidget
-                    }
-
-                    // Word detail
-                    if !viewModel.words.isEmpty {
-                        Text("単語詳細")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        wordDetailWidget
+                        looseLeafWordCard
                     }
 
                     // Learning modes
                     learningModesSection
+
+                    // Stats
+                    if !viewModel.words.isEmpty {
+                        Text("統計")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        statsWidget
+                    }
 
 }
                 .padding(16)
@@ -289,18 +288,14 @@ struct ProjectDetailView: View {
         sharePayload = SharePayload(items: items)
     }
 
-    // MARK: - Top Swipeable Widget (Stats ↔ Word Card)
+    // MARK: - Loose-leaf Word Card
 
-    private var topSwipeableWidget: some View {
-        VStack(spacing: 0) {
-            TabView(selection: $topWidgetPage) {
-                statsPage.tag(0)
-                flashcardPreview.tag(1)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: UIScreen.main.bounds.height * 0.4)
+    private var looseLeafWordCard: some View {
+        let safeIdx = min(previewIndex, max(viewModel.words.count - 1, 0))
+        let word = viewModel.words[safeIdx]
 
-            // Bottom row: word list link + page indicator
+        return VStack(spacing: 8) {
+            // Header: word list + counter
             HStack {
                 Button {
                     showingWordList = true
@@ -313,24 +308,152 @@ struct ProjectDetailView: View {
                     }
                     .foregroundStyle(MerkenTheme.accentBlue)
                 }
-
                 Spacer()
+                Text("\(safeIdx + 1) / \(viewModel.words.count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
 
-                HStack(spacing: 6) {
-                    ForEach(0..<2, id: \.self) { i in
-                        Circle()
-                            .fill(i == topWidgetPage ? MerkenTheme.accentBlue : MerkenTheme.border)
-                            .frame(width: 6, height: 6)
+            // Loose-leaf card
+            VStack(alignment: .leading, spacing: 0) {
+                // Red margin line
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(width: 40)
+                    Rectangle()
+                        .fill(Color.red.opacity(0.2))
+                        .frame(width: 1)
+                    Spacer()
+                }
+                .frame(height: 0)
+
+                VStack(alignment: .leading, spacing: 16) {
+                    // Word + audio
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(word.english)
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Spacer()
+                        HStack(spacing: 12) {
+                            Button { speakWord(word.english) } label: {
+                                Image(systemName: "speaker.wave.2")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(MerkenTheme.accentBlue)
+                            }
+                            Button {
+                                Task { await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState) }
+                            } label: {
+                                Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
+                            }
+                        }
+                    }
+
+                    // Japanese
+                    Text(word.japanese)
+                        .font(.system(size: 18))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+
+                    // Divider line (notebook ruled line style)
+                    Rectangle()
+                        .fill(MerkenTheme.border.opacity(0.3))
+                        .frame(height: 1)
+
+                    // Example sentence
+                    if let example = word.exampleSentence, !example.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(example)
+                                .font(.system(size: 15))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .italic()
+                            if let exampleJa = word.exampleSentenceJa, !exampleJa.isEmpty {
+                                Text(exampleJa)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(MerkenTheme.mutedText)
+                            }
+                        }
+                    } else {
+                        Text("例文なし")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+
+                    // Status badge
+                    HStack(spacing: 8) {
+                        statusBadge(word.status)
+                        if word.isFavorite {
+                            Text("苦手")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.danger)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(MerkenTheme.danger.opacity(0.1), in: .capsule)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            // Notebook styling: ruled lines background
+            .background {
+                VStack(spacing: 0) {
+                    ForEach(0..<12, id: \.self) { _ in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(height: 27)
+                            .overlay(alignment: .bottom) {
+                                Rectangle()
+                                    .fill(MerkenTheme.accentBlue.opacity(0.06))
+                                    .frame(height: 1)
+                            }
                     }
                 }
             }
-            .padding(.top, 8)
+            .background(Color.white, in: .rect(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(MerkenTheme.border, lineWidth: 1)
+            )
+            // Paper shadow
+            .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+            // Swipe gesture
+            .gesture(
+                DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                    .onEnded { value in
+                        if value.translation.width < -30 {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                previewIndex = safeIdx < viewModel.words.count - 1 ? safeIdx + 1 : 0
+                            }
+                        } else if value.translation.width > 30 {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                previewIndex = safeIdx > 0 ? safeIdx - 1 : viewModel.words.count - 1
+                            }
+                        }
+                    }
+            )
         }
     }
 
-    // MARK: - Stats Page (Progress bar + row list, same as StatsView)
+    private func statusBadge(_ status: WordStatus) -> some View {
+        let (text, color): (String, Color) = {
+            switch status {
+            case .mastered: return ("習得", MerkenTheme.success)
+            case .review: return ("学習中", MerkenTheme.accentBlue)
+            case .new: return ("未学習", MerkenTheme.mutedText)
+            }
+        }()
+        return Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.1), in: .capsule)
+    }
 
-    private var statsPage: some View {
+    // MARK: - Stats Widget
+
+    private var statsWidget: some View {
         let total = viewModel.words.count
         let masteredCount = viewModel.words.filter { $0.status == .mastered }.count
         let reviewCount = viewModel.words.filter { $0.status == .review }.count
@@ -407,14 +530,13 @@ struct ProjectDetailView: View {
         .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 14))
     }
 
-    // MARK: - Flashcard Preview (full-width with fullscreen button)
-
     private var safePreviewIndex: Int {
         guard !viewModel.words.isEmpty else { return 0 }
         return min(previewIndex, viewModel.words.count - 1)
     }
 
-    private var flashcardPreview: some View {
+    // Kept for fullscreen cover reference
+    private var flashcardPreview_unused: some View {
         let word = viewModel.words[safePreviewIndex]
 
         return ZStack(alignment: .bottomTrailing) {
