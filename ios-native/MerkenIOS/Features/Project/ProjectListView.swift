@@ -410,8 +410,8 @@ struct ProjectListView: View {
                         .foregroundStyle(.white)
                 }
             }
-            .frame(width: 80, height: 80)
-            .clipShape(.rect(cornerRadius: 12))
+            .frame(width: 120, height: 120)
+            .clipShape(.rect(cornerRadius: 14))
             .overlay {
                 if project.isFavorite {
                     VStack {
@@ -489,8 +489,8 @@ struct ProjectListView: View {
                 Color.black.opacity(0.35)
                 GeneratingProgressRing()
             }
-            .frame(width: 80, height: 80)
-            .clipShape(.rect(cornerRadius: 12))
+            .frame(width: 120, height: 120)
+            .clipShape(.rect(cornerRadius: 14))
 
             // Right: Title + skeleton
             VStack(alignment: .leading, spacing: 8) {
