@@ -145,7 +145,7 @@ final class AppState: ObservableObject {
     private var bannerDismissTask: Task<Void, Never>?
     private let defaults: UserDefaults
 
-    private var pendingScanImportContexts: [String: PendingScanImportContext]
+    @Published private(set) var pendingScanImportContexts: [String: PendingScanImportContext]
     private var importedScanJobs: [String: ImportedScanJobRecord]
     private var reportedScanFailures: Set<String>
     private var appStoreLaunchSyncUserId: String?

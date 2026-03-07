@@ -359,6 +359,14 @@ struct ProjectListView: View {
         }
     }
 
+    // MARK: - Pending scan contexts (generating cards)
+
+    private var pendingScans: [PendingScanImportContext] {
+        appState.pendingScanImportContexts.values
+            .filter { $0.source == .homeOrProjectList && $0.localTargetProjectId == nil }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
     // MARK: - Project Grid
 
     private func projectGrid(_ projects: [Project]) -> some View {
@@ -367,6 +375,11 @@ struct ProjectListView: View {
             GridItem(.flexible(), spacing: 12)
         ]
         return LazyVGrid(columns: columns, spacing: 12) {
+            // Show generating cards for pending scans
+            ForEach(pendingScans, id: \.jobId) { context in
+                generatingCard(context)
+            }
+
             ForEach(projects) { project in
                 projectCard(project)
                     .onTapGesture {
@@ -382,12 +395,14 @@ struct ProjectListView: View {
     private func projectCard(_ project: Project) -> some View {
         let wordCount = viewModel.wordCounts[project.id] ?? 0
         let mastered = viewModel.masteredCounts[project.id] ?? 0
+        let reviewing = viewModel.reviewCounts[project.id] ?? 0
+        let newWords = viewModel.newCounts[project.id] ?? 0
         let masteryPercent = wordCount > 0 ? Double(mastered) / Double(wordCount) : 0
 
         return VStack(alignment: .leading, spacing: 0) {
-            // Thumbnail
+            // Thumbnail (taller aspect ratio for widget feel)
             Color.clear
-                .aspectRatio(1.4, contentMode: .fit)
+                .aspectRatio(1.2, contentMode: .fit)
                 .overlay {
                     ZStack {
                         if let iconImage = project.iconImage,
@@ -399,13 +414,14 @@ struct ProjectListView: View {
                             let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                             bgColor
                             Text(String(project.title.prefix(1)))
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundStyle(.white)
                         }
                     }
                 }
                 .clipShape(.rect(cornerRadius: 10))
                 .overlay {
+                    // Pin badge
                     if project.isFavorite {
                         VStack {
                             HStack {
@@ -424,39 +440,65 @@ struct ProjectListView: View {
             .padding(.horizontal, 8)
             .padding(.top, 8)
 
-            // Info section
-            VStack(alignment: .leading, spacing: 4) {
-                Text(project.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
+            // Info + stats section
+            VStack(alignment: .leading, spacing: 8) {
+                // Title + total count
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(project.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .lineLimit(1)
 
-                Text("\(wordCount)語")
-                    .font(.system(size: 10))
-                    .foregroundStyle(MerkenTheme.secondaryText)
+                    Text("\(wordCount)語")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
 
-                // Mini progress bar
+                // Progress bar
                 if wordCount > 0 {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 2)
+                            RoundedRectangle(cornerRadius: 3)
                                 .fill(MerkenTheme.borderLight)
-                                .frame(height: 4)
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(MerkenTheme.accentBlue)
-                                .frame(width: geo.size.width * masteryPercent, height: 4)
+                                .frame(height: 5)
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(MerkenTheme.success)
+                                .frame(width: geo.size.width * masteryPercent, height: 5)
                         }
                     }
-                    .frame(height: 4)
+                    .frame(height: 5)
+                }
+
+                // Stats row (diet app widget style)
+                if wordCount > 0 {
+                    HStack(spacing: 0) {
+                        statItem(
+                            count: mastered,
+                            label: "習得",
+                            color: MerkenTheme.success
+                        )
+                        Spacer()
+                        statItem(
+                            count: reviewing,
+                            label: "学習中",
+                            color: MerkenTheme.warning
+                        )
+                        Spacer()
+                        statItem(
+                            count: newWords,
+                            label: "未学習",
+                            color: MerkenTheme.mutedText
+                        )
+                    }
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 6)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
         }
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     project.isFavorite ? MerkenTheme.success : MerkenTheme.border.opacity(0.8),
                     lineWidth: project.isFavorite ? 2.5 : 1.5
@@ -467,6 +509,107 @@ struct ProjectListView: View {
                 .fill(MerkenTheme.border.opacity(0.7))
                 .offset(y: 4)
         )
+    }
+
+    // MARK: - Generating Card
+
+    private func generatingCard(_ context: PendingScanImportContext) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Blurred thumbnail area with progress ring
+            Color.clear
+                .aspectRatio(1.2, contentMode: .fit)
+                .overlay {
+                    ZStack {
+                        // Blurred placeholder background
+                        if let iconBase64 = context.requestedProjectIconImage,
+                           let data = Data(base64Encoded: iconBase64),
+                           let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .blur(radius: 12)
+                        } else {
+                            MerkenTheme.surface
+                                .overlay {
+                                    LinearGradient(
+                                        colors: [
+                                            MerkenTheme.accentBlue.opacity(0.15),
+                                            MerkenTheme.accentBlue.opacity(0.05)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                }
+                                .blur(radius: 8)
+                        }
+
+                        // Dark overlay
+                        Color.black.opacity(0.4)
+
+                        // Spinning progress ring
+                        GeneratingProgressRing()
+                    }
+                }
+                .clipShape(.rect(cornerRadius: 10))
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+
+            // Skeleton text area
+            VStack(alignment: .leading, spacing: 8) {
+                // Title
+                Text(context.requestedProjectTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+
+                // Skeleton lines (like the reference image)
+                VStack(alignment: .leading, spacing: 5) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(MerkenTheme.borderLight)
+                        .frame(height: 8)
+                        .frame(maxWidth: .infinity)
+                    HStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(MerkenTheme.borderLight)
+                            .frame(height: 8)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(MerkenTheme.borderLight)
+                            .frame(height: 8)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(MerkenTheme.borderLight)
+                            .frame(height: 8)
+                    }
+                }
+
+                Text("生成中...")
+                    .font(.system(size: 11))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+        }
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(MerkenTheme.accentBlue.opacity(0.4), lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(MerkenTheme.border)
+                .offset(y: 4)
+        )
+    }
+
+    private func statItem(count: Int, label: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text("\(count)")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(MerkenTheme.mutedText)
+        }
     }
 
     // MARK: - Create Sheet
@@ -500,6 +643,33 @@ struct ProjectListView: View {
                     Spacer()
                 }
                 .padding(16)
+            }
+        }
+    }
+}
+
+// MARK: - Generating Progress Ring
+
+private struct GeneratingProgressRing: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        ZStack {
+            // Track
+            Circle()
+                .stroke(Color.white.opacity(0.2), lineWidth: 4)
+                .frame(width: 44, height: 44)
+
+            // Spinning arc
+            Circle()
+                .trim(from: 0, to: 0.3)
+                .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .frame(width: 44, height: 44)
+                .rotationEffect(.degrees(rotation))
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                rotation = 360
             }
         }
     }
