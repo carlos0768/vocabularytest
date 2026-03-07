@@ -432,16 +432,21 @@ struct ProjectListView: View {
             // Right: Info
             VStack(alignment: .leading, spacing: 6) {
                 Text(project.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .lineLimit(1)
 
-                Text("\(wordCount)語")
-                    .font(.system(size: 13))
-                    .foregroundStyle(MerkenTheme.secondaryText)
+                HStack(spacing: 4) {
+                    Image(systemName: "text.word.spacing")
+                        .font(.system(size: 13))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                    Text("\(wordCount)語")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                }
 
                 if wordCount > 0 {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         inlineStat(icon: "circle.fill", count: mastered, label: "習得", color: MerkenTheme.success)
                         inlineStat(icon: "circle.fill", count: reviewing, label: "学習", color: MerkenTheme.warning)
                         inlineStat(icon: "circle.fill", count: newWords, label: "未学", color: MerkenTheme.mutedText)
