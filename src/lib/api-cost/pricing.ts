@@ -1,6 +1,7 @@
 type PricingPerMillionTokens = {
   inputUsdPerMillion: number;
   outputUsdPerMillion: number;
+  thinkingUsdPerMillion?: number;
 };
 
 type ProviderPricingTable = Record<string, PricingPerMillionTokens>;
@@ -14,7 +15,7 @@ const DEFAULT_PRICING: Record<'openai' | 'gemini', ProviderPricingTable> = {
     'text-embedding-3-small': { inputUsdPerMillion: 0.02, outputUsdPerMillion: 0.0 },
   },
   gemini: {
-    'gemini-2.5-flash': { inputUsdPerMillion: 0.3, outputUsdPerMillion: 2.5 },
+    'gemini-2.5-flash': { inputUsdPerMillion: 0.3, outputUsdPerMillion: 2.5, thinkingUsdPerMillion: 0.70 },
   },
 };
 
@@ -23,6 +24,7 @@ export type ApiCostCalculationInput = {
   model: string;
   inputTokens: number | null;
   outputTokens: number | null;
+  thinkingTokens?: number | null;
   totalTokens: number | null;
 };
 
@@ -131,10 +133,12 @@ export function calculateEstimatedApiCost(
 
   const inferredInputTokens = inputTokens === 0 && outputTokens === 0 ? totalTokens : inputTokens;
   const inferredOutputTokens = outputTokens;
+  const thinkingTokens = sanitizeTokens(input.thinkingTokens ?? null);
 
   const estimatedCostUsd =
     (inferredInputTokens / 1_000_000) * pricing.inputUsdPerMillion +
-    (inferredOutputTokens / 1_000_000) * pricing.outputUsdPerMillion;
+    (inferredOutputTokens / 1_000_000) * pricing.outputUsdPerMillion +
+    (thinkingTokens / 1_000_000) * (pricing.thinkingUsdPerMillion ?? 0);
 
   const usdToJpy = getUsdToJpyRate();
 

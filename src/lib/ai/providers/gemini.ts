@@ -64,8 +64,10 @@ export class GeminiProvider implements AIProvider {
       const usage = response.usageMetadata as {
         promptTokenCount?: number;
         candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
         totalTokenCount?: number;
       } | undefined;
+      const thoughtsTokenCount = usage?.thoughtsTokenCount ?? null;
       await recordApiCostEvent({
         provider: 'gemini',
         model: config.model,
@@ -74,10 +76,12 @@ export class GeminiProvider implements AIProvider {
         inputTokens: usage?.promptTokenCount ?? null,
         outputTokens: usage?.candidatesTokenCount ?? null,
         totalTokens: usage?.totalTokenCount ?? null,
+        thinkingTokens: thoughtsTokenCount,
         metadata: {
           response_format: config.responseFormat ?? 'text',
           image_count: allImages.length,
           has_system_prompt: Boolean(systemPrompt),
+          thoughts_token_count: thoughtsTokenCount,
         },
       });
 
