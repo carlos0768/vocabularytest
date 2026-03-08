@@ -140,9 +140,27 @@ function findLastCompleteObjectEnd(json: string): number {
     return lastMatch.index + lastMatch[0].length - 1;
   }
 
+  const partOfSpeechPattern = /"partOfSpeechTags"\s*:\s*\[[^\]]*\]\s*}/g;
+  while ((match = partOfSpeechPattern.exec(json)) !== null) {
+    lastMatch = match;
+  }
+
+  if (lastMatch) {
+    return lastMatch.index + lastMatch[0].length - 1;
+  }
+
   // exampleSentenceJaがない場合は distractors の閉じ括弧を探す
   const distractorsPattern = /"distractors"\s*:\s*\[[^\]]*\]\s*}/g;
   while ((match = distractorsPattern.exec(json)) !== null) {
+    lastMatch = match;
+  }
+
+  if (lastMatch) {
+    return lastMatch.index + lastMatch[0].length - 1;
+  }
+
+  const japanesePattern = /"japanese"\s*:\s*"[^"]*"\s*}/g;
+  while ((match = japanesePattern.exec(json)) !== null) {
     lastMatch = match;
   }
 

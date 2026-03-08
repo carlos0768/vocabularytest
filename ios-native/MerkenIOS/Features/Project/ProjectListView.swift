@@ -8,6 +8,7 @@ enum ProjectSortOrder: String, CaseIterable {
 struct ProjectListView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = ProjectListViewModel()
 
     @State private var showingCreateSheet = false
@@ -63,42 +64,26 @@ struct ProjectListView: View {
     private var projectListContent: some View {
         ZStack {
             AppBackground()
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
 
-            VStack(spacing: 0) {
-                // Fixed header
-                headerSection
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                    .background(.ultraThinMaterial)
-                    .overlay(alignment: .bottom) {
-                        MerkenTheme.borderLight
-                            .frame(height: 1)
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    headerSection
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Spacer().frame(height: 4)
+                    // Search
+                    searchBar
 
-                        // Search
-                        searchBar
+                    // Sort chips
+                    sortChips
 
-                        // Sort chips
-                        sortChips
-
-                        // All projects (pinned sorted to top)
-                        allProjectsSection
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 80)
+                    // All projects (pinned sorted to top)
+                    allProjectsSection
                 }
-                .refreshable {
-                    await viewModel.load(using: appState)
-                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 100)
+            }
+            .refreshable {
+                await viewModel.load(using: appState)
             }
 
             // Floating scan button (liquid glass)
@@ -245,16 +230,28 @@ struct ProjectListView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("単語帳")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text("学習を続ける単語帳を選択")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.mutedText)
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                dismiss()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("ホームに戻る")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(MerkenTheme.accentBlue)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(MerkenTheme.accentBlue.opacity(0.08), in: Capsule())
             }
-            Spacer()
+            .buttonStyle(.plain)
+
+            Text("単語帳")
+                .font(.system(size: 31.2, weight: .black))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .tracking(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -263,24 +260,20 @@ struct ProjectListView: View {
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
+                .font(.system(size: 14))
                 .foregroundStyle(MerkenTheme.mutedText)
             TextField("単語帳を検索", text: $searchText)
+                .font(.system(size: 15))
                 .textFieldStyle(.plain)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.borderLight.opacity(0.8), lineWidth: 1.5)
-        )
+        .solidTextField(cornerRadius: 14)
     }
 
     // MARK: - Sort Chips
 
     private var sortChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(ProjectSortOrder.allCases, id: \.self) { order in
                     let isActive = sortOrder == order
                     Button {
@@ -288,36 +281,27 @@ struct ProjectListView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: chipIcon(for: order))
-                                .font(.subheadline)
+                                .font(.system(size: 13, weight: .semibold))
                             Text(order.rawValue)
-                                .font(.subheadline)
+                                .font(.system(size: 13, weight: .semibold))
                                 .lineLimit(1)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
                         .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
-                        .background {
-                            if isActive {
-                                Capsule().fill(MerkenTheme.accentBlue)
-                            } else {
-                                Capsule().fill(.ultraThinMaterial)
-                            }
-                        }
+                        .background(
+                            isActive ? MerkenTheme.accentBlue : MerkenTheme.surface,
+                            in: .capsule
+                        )
                         .overlay(
                             Capsule().stroke(
                                 isActive ? Color.clear : MerkenTheme.borderLight,
-                                lineWidth: isActive ? 1.5 : 1
+                                lineWidth: 1
                             )
-                        )
-                        .background(
-                            Capsule()
-                                .fill(isActive ? MerkenTheme.accentBlueStrong : MerkenTheme.border)
-                                .offset(y: 2)
                         )
                     }
                 }
             }
-            .padding(.bottom, 2)
         }
     }
 
@@ -346,11 +330,11 @@ struct ProjectListView: View {
             } else {
                 HStack {
                     Text("すべての単語帳")
-                        .font(.subheadline.bold())
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(MerkenTheme.primaryText)
                     Spacer()
                     Text("\(filteredProjects.count)件")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundStyle(MerkenTheme.mutedText)
                 }
 
@@ -393,9 +377,9 @@ struct ProjectListView: View {
         let mastered = viewModel.masteredCounts[project.id] ?? 0
         let reviewing = viewModel.reviewCounts[project.id] ?? 0
         let newWords = viewModel.newCounts[project.id] ?? 0
+        let thumbSize: CGFloat = 86
 
-        return HStack(spacing: 14) {
-            // Left: Square thumbnail
+        return HStack(spacing: 0) {
             ZStack {
                 if let iconImage = project.iconImage,
                    let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
@@ -406,72 +390,70 @@ struct ProjectListView: View {
                     let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                     bgColor
                     Text(String(project.title.prefix(1)))
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(.white)
                 }
             }
-            .frame(width: 120, height: 120)
-            .clipShape(.rect(cornerRadius: 14))
-            .overlay {
-                if project.isFavorite {
-                    VStack {
-                        HStack {
-                            Image(systemName: "flag.fill")
-                                .font(.system(size: 7))
-                                .foregroundStyle(.white)
-                                .padding(2.5)
-                                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 3))
-                            Spacer()
-                        }
-                        Spacer()
-                    }
-                    .padding(3)
-                }
-            }
+            .frame(width: thumbSize, height: thumbSize)
+            .clipShape(.rect(cornerRadius: 18))
 
-            // Right: Info
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(project.title)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: 4) {
-                    Image(systemName: "text.word.spacing")
-                        .font(.system(size: 13))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                    Text("\(wordCount)語")
-                        .font(.system(size: 20, weight: .bold))
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(wordCount)")
+                        .font(.system(size: 24, weight: .bold))
+                        .monospacedDigit()
                         .foregroundStyle(MerkenTheme.primaryText)
+                    Text("語")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.secondaryText)
                 }
 
-                if wordCount > 0 {
-                    HStack(spacing: 10) {
-                        inlineStat(icon: "circle.fill", count: mastered, label: "習得", color: MerkenTheme.success)
-                        inlineStat(icon: "circle.fill", count: reviewing, label: "学習", color: MerkenTheme.warning)
-                        inlineStat(icon: "circle.fill", count: newWords, label: "未学", color: MerkenTheme.mutedText)
-                    }
+                HStack(spacing: 8) {
+                    compactMetric(icon: "checkmark.circle.fill", text: "習得 \(mastered)", tint: MerkenTheme.success)
+                    compactMetric(icon: "bolt.circle.fill", text: "学習 \(reviewing)", tint: MerkenTheme.accentBlue)
+                    compactMetric(icon: "sparkles", text: "未学習 \(newWords)", tint: MerkenTheme.mutedText)
                 }
             }
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(10)
-        .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 22)
                 .stroke(
-                    project.isFavorite ? MerkenTheme.success.opacity(0.6) : MerkenTheme.border.opacity(0.6),
-                    lineWidth: project.isFavorite ? 2 : 1
+                    project.isFavorite ? MerkenTheme.accentBlue.opacity(0.55) : MerkenTheme.border,
+                    lineWidth: project.isFavorite ? 1.5 : 1
                 )
         )
+    }
+
+    private func compactMetric(icon: String, text: String, tint: Color) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(MerkenTheme.background, in: Capsule())
     }
 
     // MARK: - Generating Card (horizontal)
 
     private func generatingCard(_ context: PendingScanImportContext) -> some View {
-        HStack(spacing: 14) {
-            // Left: Blurred thumbnail with spinner
+        HStack(spacing: 0) {
             ZStack {
                 if let iconBase64 = context.requestedProjectIconImage,
                    let data = Data(base64Encoded: iconBase64),
@@ -494,50 +476,42 @@ struct ProjectListView: View {
                 Color.black.opacity(0.35)
                 GeneratingProgressRing()
             }
-            .frame(width: 120, height: 120)
-            .clipShape(.rect(cornerRadius: 14))
+            .frame(width: 86, height: 86)
+            .clipShape(.rect(cornerRadius: 18))
 
-            // Right: Title + skeleton
             VStack(alignment: .leading, spacing: 8) {
                 Text(context.requestedProjectTitle)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
-
-                // Skeleton lines
-                VStack(alignment: .leading, spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(MerkenTheme.borderLight)
-                        .frame(width: 120, height: 8)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(MerkenTheme.borderLight)
-                        .frame(width: 80, height: 8)
-                }
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text("生成中...")
-                    .font(.system(size: 12))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
 
-            Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    placeholderChip(width: 56)
+                    placeholderChip(width: 56)
+                    placeholderChip(width: 56)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(10)
-        .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 22)
                 .stroke(MerkenTheme.accentBlue.opacity(0.3), lineWidth: 1)
         )
     }
 
-    private func inlineStat(icon: String, count: Int, label: String, color: Color) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 6))
-                .foregroundStyle(color)
-            Text("\(label) \(count)")
-                .font(.system(size: 11))
-                .foregroundStyle(MerkenTheme.secondaryText)
-        }
+    private func placeholderChip(width: CGFloat) -> some View {
+        Capsule()
+            .fill(MerkenTheme.borderLight)
+            .frame(width: width, height: 30)
     }
 
     // MARK: - Create Sheet

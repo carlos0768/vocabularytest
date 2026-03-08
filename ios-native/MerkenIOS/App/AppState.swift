@@ -7,6 +7,7 @@ import UserNotifications
 struct ScanBannerState: Identifiable, Equatable {
     enum Level: Equatable {
         case success
+        case warning
         case error
     }
 
@@ -95,6 +96,8 @@ private actor ScanJobSyncService {
                             } catch {
                                 await logHandler("Failed to acknowledge scan job \(job.id): \(error.localizedDescription)")
                             }
+                        } else {
+                            hasActiveJobs = true
                         }
                     case .failed:
                         await failedHandler(job)
@@ -127,7 +130,9 @@ final class AppState: ObservableObject {
     @Published private(set) var aiPreferenceErrorMessage: String?
     @Published var dataVersion = 0
     @Published var selectedTab: Int = 0
+    @Published var tabBarVisible: Bool = true
     @Published var scanBanner: ScanBannerState?
+    @Published var scrollToTopTrigger: Int = 0
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "AppState")
 
@@ -148,6 +153,7 @@ final class AppState: ObservableObject {
     @Published private(set) var pendingScanImportContexts: [String: PendingScanImportContext]
     private var importedScanJobs: [String: ImportedScanJobRecord]
     private var reportedScanFailures: Set<String>
+    private var reportedScanSyncWarnings: Set<String>
     private var appStoreLaunchSyncUserId: String?
 
     private lazy var scanJobSyncService = ScanJobSyncService(
@@ -214,6 +220,7 @@ final class AppState: ObservableObject {
         self.pendingScanImportContexts = Self.loadPendingScanImportContexts(defaults: defaults)
         self.importedScanJobs = Self.loadImportedScanJobs(defaults: defaults)
         self.reportedScanFailures = Self.loadReportedFailures(defaults: defaults)
+        self.reportedScanSyncWarnings = []
         self.appStoreLaunchSyncUserId = nil
         if self.session != nil,
            let cachedMode = Self.loadCachedRepositoryMode(defaults: defaults) {
@@ -710,6 +717,12 @@ final class AppState: ObservableObject {
         }
     }
 
+    func postScanSyncPending(projectTitle: String, wordCount: Int) {
+        let title = "保存済み・同期待ち"
+        let message = "「\(projectTitle)」に\(wordCount)語を保存しました。通信復帰後に一覧へ反映します。"
+        showScanBanner(level: .warning, title: title, message: message)
+    }
+
     private func handleCompletedScanJob(_ job: ScanJobDTO) async -> Bool {
         if importedScanJobs[job.id] != nil {
             removePendingScanImportContext(jobId: job.id)
@@ -726,15 +739,28 @@ final class AppState: ObservableObject {
         switch saveMode {
         case .serverCloud:
             let count = result?.wordCount ?? 0
+
+            if let offlineRepository = activeRepository as? OfflineFirstCloudRepository {
+                let refreshed = await offlineRepository.refreshSnapshotFromCloud(userId: activeUserId)
+                if !refreshed {
+                    if reportedScanSyncWarnings.insert(job.id).inserted {
+                        postScanSyncPending(projectTitle: job.projectTitle, wordCount: count)
+                    }
+                    return false
+                }
+            }
+
             recordImportedScanJob(jobId: job.id)
             removePendingScanImportContext(jobId: job.id)
             reportedScanFailures.remove(job.id)
             persistReportedFailures()
+            reportedScanSyncWarnings.remove(job.id)
             bumpDataVersion()
             postScanSuccess(projectTitle: job.projectTitle, wordCount: count)
             return true
 
         case .clientLocal:
+            reportedScanSyncWarnings.remove(job.id)
             return await importClientLocalScanJob(job: job, context: context, result: result)
         }
     }
@@ -744,9 +770,11 @@ final class AppState: ObservableObject {
         guard !reportedScanFailures.contains(job.id) else { return }
         reportedScanFailures.insert(job.id)
         persistReportedFailures()
+        reportedScanSyncWarnings.remove(job.id)
         removePendingScanImportContext(jobId: job.id)
 
         let message = job.errorMessage ?? "スキャン処理に失敗しました。"
+        logger.error("Scan job failed: jobId=\(job.id, privacy: .public) message=\(message, privacy: .public)")
         postScanFailure(message: message)
     }
 
@@ -782,13 +810,16 @@ final class AppState: ObservableObject {
             if let targetId = context.localTargetProjectId {
                 let projects = try await localRepository.fetchProjects(userId: localUserId)
                 if let existingProject = projects.first(where: { $0.id == targetId }) {
+                    if let requestedIcon = context.requestedProjectIconImage, !requestedIcon.isEmpty {
+                        try await localRepository.updateProjectIcon(id: existingProject.id, iconImage: requestedIcon)
+                    }
                     projectId = existingProject.id
                     projectTitleForMessage = existingProject.title
                 } else {
                     let created = try await localRepository.createProject(
                         title: fallbackTitle,
                         userId: localUserId,
-                        iconImage: nil
+                        iconImage: context.requestedProjectIconImage
                     )
                     projectId = created.id
                     projectTitleForMessage = created.title
@@ -797,7 +828,7 @@ final class AppState: ObservableObject {
                 let created = try await localRepository.createProject(
                     title: fallbackTitle,
                     userId: localUserId,
-                    iconImage: nil
+                    iconImage: context.requestedProjectIconImage
                 )
                 projectId = created.id
                 projectTitleForMessage = created.title
@@ -811,7 +842,8 @@ final class AppState: ObservableObject {
                     distractors: $0.distractors,
                     exampleSentence: $0.exampleSentence,
                     exampleSentenceJa: $0.exampleSentenceJa,
-                    pronunciation: nil
+                    pronunciation: nil,
+                    partOfSpeechTags: $0.partOfSpeechTags
                 )
             }
 

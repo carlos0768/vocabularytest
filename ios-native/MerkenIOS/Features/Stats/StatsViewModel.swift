@@ -15,6 +15,7 @@ final class StatsViewModel: ObservableObject {
     @Published private(set) var masteredWords = 0
     @Published private(set) var reviewWords = 0
     @Published private(set) var newWords = 0
+    @Published private(set) var todayMasteredWords = 0
     @Published private(set) var todayAnswered = 0
     @Published private(set) var todayCorrect = 0
     @Published private(set) var todaySessions = 0
@@ -27,6 +28,17 @@ final class StatsViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "StatsVM")
+
+    private static func masteryProxyDate(for word: Word) -> Date {
+        word.lastReviewedAt ?? word.createdAt
+    }
+
+    private static func masteredWordCount(before endDate: Date, allWords: [Word]) -> Int {
+        allWords.filter { word in
+            guard word.status == .mastered else { return false }
+            return masteryProxyDate(for: word) < endDate
+        }.count
+    }
 
     /// Build cumulative mastered word count for each of the last N days.
     /// Uses `lastReviewedAt` for mastered words to estimate when mastery was achieved,
@@ -45,19 +57,7 @@ final class StatsViewModel: ObservableObject {
             let totalByDay = allWords.filter { $0.createdAt < endOfDay }.count
 
             // Words mastered by end of this day
-            let masteredByDay = allWords.filter { word in
-                guard word.status == .mastered else {
-                    // Not currently mastered — check if it was reviewed before this day
-                    // (conservative: only count currently mastered words)
-                    return false
-                }
-                // If lastReviewedAt exists, use it as proxy for mastery date
-                if let reviewed = word.lastReviewedAt {
-                    return reviewed < endOfDay
-                }
-                // Fallback: if mastered but no review date, count if created before this day
-                return word.createdAt < endOfDay
-            }.count
+            let masteredByDay = masteredWordCount(before: endOfDay, allWords: allWords)
 
             return MasteryDataPoint(
                 date: date,
@@ -91,6 +91,15 @@ final class StatsViewModel: ObservableObject {
             masteredWords = allWords.filter { $0.status == .mastered }.count
             favoriteWords = allWords.filter { $0.isFavorite }.count
 
+            let calendar = Calendar.current
+            let todayStart = calendar.startOfDay(for: Date())
+            let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart
+            todayMasteredWords = max(
+                0,
+                Self.masteredWordCount(before: tomorrowStart, allWords: allWords)
+                    - Self.masteredWordCount(before: todayStart, allWords: allWords)
+            )
+
             let projects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
             totalProjects = projects.count
 
@@ -102,6 +111,7 @@ final class StatsViewModel: ObservableObject {
                 streakDays = state.quizStatsStore.streakDays()
                 wrongAnswersCount = today.totalAnswered - today.correctAnswered
             } else {
+                todayMasteredWords = 0
                 todayAnswered = 0
                 todayCorrect = 0
                 todaySessions = 0

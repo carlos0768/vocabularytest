@@ -73,6 +73,7 @@ final class SupabaseMapperTests: XCTestCase {
               "english": "resilient",
               "japanese": "回復力のある",
               "distractors": ["弱い", "脆い", "遅い"],
+              "partOfSpeechTags": ["adjective"],
               "exampleSentence": "She stayed resilient during the crisis.",
               "exampleSentenceJa": "彼女は危機の中でも回復力を保った。"
             }
@@ -85,6 +86,7 @@ final class SupabaseMapperTests: XCTestCase {
 
         XCTAssertEqual(word.exampleSentence, "She stayed resilient during the crisis.")
         XCTAssertEqual(word.exampleSentenceJa, "彼女は危機の中でも回復力を保った。")
+        XCTAssertEqual(word.partOfSpeechTags ?? [], ["adjective"])
     }
 
     func testExtractedWordDecodesExamplesAsNilWhenMissing() throws {
@@ -119,6 +121,7 @@ final class ScanBatchProcessingTests: XCTestCase {
                 english: "  RESILIENT ",
                 japanese: " 回復力のある  ",
                 distractors: ["弱い", "遅い"],
+                partOfSpeechTags: ["adjective"],
                 exampleSentence: nil,
                 exampleSentenceJa: nil
             ),
@@ -127,6 +130,7 @@ final class ScanBatchProcessingTests: XCTestCase {
                 english: "resilient",
                 japanese: "回復力のある",
                 distractors: ["脆い", "弱い"],
+                partOfSpeechTags: ["形容詞", "adjective"],
                 exampleSentence: "She is resilient.",
                 exampleSentenceJa: "彼女は回復力がある。"
             ),
@@ -148,6 +152,7 @@ final class ScanBatchProcessingTests: XCTestCase {
         XCTAssertEqual(deduped[0].japanese, "回復力のある")
         XCTAssertEqual(deduped[0].exampleSentence, "She is resilient.")
         XCTAssertEqual(deduped[0].exampleSentenceJa, "彼女は回復力がある。")
+        XCTAssertEqual(deduped[0].partOfSpeechTags ?? [], ["adjective", "形容詞"])
     }
 
     func testDedupeWordsMergesDistractorsUniquelyWithMaxThree() {

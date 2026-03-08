@@ -63,7 +63,7 @@ typealias GlassPane = SolidPane
 struct PrimaryGlassButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .semibold, design: .serif))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

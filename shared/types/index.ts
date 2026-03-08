@@ -81,6 +81,7 @@ export interface AIWordExtraction {
   english: string;
   japanese: string;
   distractors: string[];
+  partOfSpeechTags?: string[];
   exampleSentence?: string;
   exampleSentenceJa?: string;
 }

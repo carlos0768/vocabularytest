@@ -47,7 +47,7 @@ struct Quiz2View: View {
             ProgressView()
                 .tint(MerkenTheme.accentBlue)
                 .scaleEffect(1.2)
-            Text("クイズ2を準備中...")
+            Text("自己評価を準備中...")
                 .font(.subheadline)
                 .foregroundStyle(MerkenTheme.mutedText)
         }

@@ -17,9 +17,12 @@ struct FlashcardView: View {
     @State private var showTimeAttack = false
     @Environment(\.dismiss) private var dismiss
 
-    init(project: Project, preloadedWords: [Word]? = nil) {
+    private let showDismissButton: Bool
+
+    init(project: Project, preloadedWords: [Word]? = nil, showDismissButton: Bool = true) {
         self.project = project
         self.preloadedWords = preloadedWords
+        self.showDismissButton = showDismissButton
         _viewModel = StateObject(wrappedValue: FlashcardViewModel(initialWords: preloadedWords))
     }
 
@@ -39,13 +42,15 @@ struct FlashcardView: View {
         .navigationTitle("フラッシュカード")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.secondaryText)
+            if showDismissButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
                 }
             }
         }
@@ -275,7 +280,7 @@ struct FlashcardView: View {
                 Spacer(minLength: 0)
 
                 // Navigation — clean, focused
-                HStack(spacing: 40) {
+                HStack(spacing: 28) {
                     navButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
                         viewModel.goPrevious()
                     }
@@ -290,6 +295,10 @@ struct FlashcardView: View {
                                 viewModel.toggleSpeed()
                             }
                     )
+
+                    navButton(icon: "book", enabled: viewModel.dictionaryURL != nil) {
+                        dictionaryURL = viewModel.dictionaryURL
+                    }
 
                     navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
                         viewModel.flipCard()

@@ -18,6 +18,12 @@ struct ScanModeSheet: View {
     @State private var pendingEikenLevel: EikenLevel?
     @State private var showSourcePicker = false
 
+    private var visibleModes: [ScanMode] {
+        ScanMode.allCases.filter { mode in
+            mode != .highlighted && mode != .wrong
+        }
+    }
+
     private func iconName(for mode: ScanMode) -> String {
         mode.iconName
     }
@@ -57,7 +63,7 @@ struct ScanModeSheet: View {
                         .padding(.bottom, 4)
 
                     // Mode buttons
-                    ForEach(ScanMode.allCases) { mode in
+                    ForEach(visibleModes) { mode in
                         let locked = mode.requiresPro && !isPro
                         modeButton(mode: mode, locked: locked)
                     }

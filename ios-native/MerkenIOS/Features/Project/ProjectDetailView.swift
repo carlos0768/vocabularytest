@@ -32,128 +32,92 @@ struct ProjectDetailView: View {
     @State private var showingCreateBookshelf = false
     @State private var weakWordsFlashcard: Project?
     @State private var showFullScreenWord = false
+    @State private var statsPage = 0
+    @State private var filteredWordListStatus: WordStatus?
+    @State private var showingFilteredWordList = false
+
+    private var thumbnailBackgroundColor: Color {
+        if project.iconImage != nil {
+            return Color(red: 0.15, green: 0.15, blue: 0.18)
+        }
+        return MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+    }
 
     var body: some View {
-        ZStack {
-            AppBackground()
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                thumbnailBackgroundColor
+                MerkenTheme.background
+            }
+            .ignoresSafeArea()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if let errorMessage = viewModel.errorMessage {
-                        SolidCard {
-                            Text(errorMessage)
-                                .foregroundStyle(MerkenTheme.warning)
-                        }
-                    }
+                VStack(spacing: 0) {
+                    // Edge-to-edge thumbnail
+                    projectThumbnailHeader
 
-                    // Loose-leaf word detail
-                    if !viewModel.words.isEmpty {
-                        looseLeafWordCard
-                    }
-
-                    // Word list + Flashcard buttons
-                    HStack(spacing: 12) {
-                        Button {
-                            showingWordList = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "list.bullet")
-                                    .font(.system(size: 14))
-                                Text("単語一覧")
-                                    .font(.system(size: 14, weight: .semibold))
+                    // Body card overlapping the thumbnail
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Project title + word count
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(project.title)
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .lineLimit(2)
+                            Spacer()
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text("\(viewModel.words.count)")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(MerkenTheme.primaryText)
+                                Text("語")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
                             }
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(MerkenTheme.border, lineWidth: 1.5)
-                            )
                         }
+                        .padding(.bottom, 24)
 
-                        Button {
-                            flashcardDestination = project
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "rectangle.portrait.on.rectangle.portrait")
-                                    .font(.system(size: 14))
-                                Text("フラッシュカード")
-                                    .font(.system(size: 14, weight: .semibold))
+                        if let errorMessage = viewModel.errorMessage {
+                            SolidCard {
+                                Text(errorMessage)
+                                    .foregroundStyle(MerkenTheme.warning)
                             }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 12))
                         }
+
+                        // Word stats + Part of speech widgets
+                        projectStatsSection
+
+                        // Learning modes
+                        learningModesSection
                     }
-
-                    // Learning modes
-                    learningModesSection
-
-}
-                .padding(16)
+                    .padding(20)
+                    .padding(.bottom, 80) // space for bottom bar
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
+                            .fill(MerkenTheme.background)
+                    )
+                    .clipShape(
+                        UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
+                    )
+                    .padding(.top, -100)
+                }
             }
             .scrollIndicators(.hidden)
+            .ignoresSafeArea(.container, edges: .top)
             .refreshable {
                 await viewModel.load(projectId: project.id, using: appState)
             }
+
+            // Fixed bottom bar with two action buttons
+            bottomActionBar
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(project.title)
-                    .font(.headline)
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 16) {
-                    Button {
-                        showingScan = true
-                    } label: {
-                        Image(systemName: "camera")
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                    }
-                    .disabled(!appState.isLoggedIn)
-                    .accessibilityIdentifier("scanToProjectButton")
-
-                    Menu {
-                        Button {
-                            editorMode = .create
-                        } label: {
-                            Label("手動追加", systemImage: "plus")
-                        }
-                        Button {
-                            showingBookshelfPicker = true
-                        } label: {
-                            Label("本棚に追加", systemImage: "books.vertical")
-                        }
-                        Button {
-                            showingCreateBookshelf = true
-                        } label: {
-                            Label("新しい本棚を作成", systemImage: "plus.rectangle.on.folder")
-                        }
-                        Button {
-                            Task { await handleShare() }
-                        } label: {
-                            Label("共有", systemImage: "square.and.arrow.up")
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive) {
-                            showingDeleteConfirm = true
-                        } label: {
-                            Label("単語帳を削除", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                    }
-                    .accessibilityIdentifier("moreMenuButton")
-                }
-            }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) {
+            topButtonsOverlay
         }
         .sheet(isPresented: $showingScan) {
             ScanCoordinatorView(
@@ -173,13 +137,37 @@ struct ProjectDetailView: View {
             SafariView(url: url)
                 .ignoresSafeArea()
         }
-        .sheet(isPresented: $showingWordList) {
+        .fullScreenCover(isPresented: $showingWordList) {
             NavigationStack {
                 WordListView(project: project)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button {
+                                showingWordList = false
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                        }
+                    }
             }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-            .presentationContentInteraction(.resizes)
+        }
+        .fullScreenCover(isPresented: $showingFilteredWordList) {
+            NavigationStack {
+                WordListView(project: project, initialStatus: filteredWordListStatus)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button {
+                                showingFilteredWordList = false
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                            }
+                        }
+                    }
+            }
         }
         .navigationDestination(item: $showingQuiz) { _ in
             QuizView(project: project, preloadedWords: viewModel.words)
@@ -247,6 +235,80 @@ struct ProjectDetailView: View {
                 previewIndex = viewModel.words.count - 1
             }
         }
+        .onAppear { appState.tabBarVisible = false }
+        .onDisappear {
+            // Only restore tab bar when actually leaving the project detail flow
+            // (not when pushing to quiz/flashcard sub-screens)
+            if flashcardDestination == nil &&
+               quiz2Destination == nil &&
+               quickResponseDestination == nil &&
+               !showTinderSort &&
+               !showTimeAttack &&
+               !showMatchGame &&
+               !showFullScreenWord &&
+               !showingWordList &&
+               !showingFilteredWordList {
+                appState.tabBarVisible = true
+            }
+        }
+    }
+
+    // MARK: - Top Buttons Overlay
+
+    private var topButtonsOverlay: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Color.black.opacity(0.35), in: .circle)
+            }
+
+            Spacer()
+
+            Menu {
+                Button {
+                    showingScan = true
+                } label: {
+                    Label("スキャンで追加", systemImage: "camera")
+                }
+                .disabled(!appState.isLoggedIn)
+
+                Button {
+                    editorMode = .create
+                } label: {
+                    Label("手動追加", systemImage: "plus")
+                }
+                Button {
+                    showingBookshelfPicker = true
+                } label: {
+                    Label("本棚に追加", systemImage: "books.vertical")
+                }
+                Button {
+                    Task { await handleShare() }
+                } label: {
+                    Label("共有", systemImage: "square.and.arrow.up")
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    showingDeleteConfirm = true
+                } label: {
+                    Label("単語帳を削除", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Color.black.opacity(0.35), in: .circle)
+            }
+            .accessibilityIdentifier("moreMenuButton")
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
     }
 
     private func handleShare() async {
@@ -514,11 +576,11 @@ struct ProjectDetailView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 16)
+                .padding(.bottom, 8)
 
-                Spacer()
+                // Word content centered
+                Spacer(minLength: 0)
 
-                // Word
                 VStack(spacing: 16) {
                     Text(word.english)
                         .font(.system(size: 40, weight: .bold))
@@ -528,6 +590,7 @@ struct ProjectDetailView: View {
                     Text(word.japanese)
                         .font(.system(size: 24))
                         .foregroundStyle(MerkenTheme.secondaryText)
+                        .multilineTextAlignment(.center)
 
                     if let example = word.exampleSentence, !example.isEmpty {
                         VStack(spacing: 8) {
@@ -549,8 +612,9 @@ struct ProjectDetailView: View {
                     statusBadge(word.status)
                 }
                 .padding(.horizontal, 32)
+                .frame(maxWidth: .infinity)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
         }
         .gesture(
@@ -568,7 +632,6 @@ struct ProjectDetailView: View {
                 }
         )
     }
-
     private func statusBadge(_ status: WordStatus) -> some View {
         let (text, color): (String, Color) = {
             switch status {
@@ -761,19 +824,283 @@ struct ProjectDetailView: View {
     }
 
 
+    // MARK: - Project Thumbnail Header
+
+    private var projectThumbnailHeader: some View {
+        ZStack {
+            if let iconImage = project.iconImage,
+               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+                bgColor
+                Text(String(project.title.prefix(1)))
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 300)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Word Stats + Part-of-Speech Widgets
+
+    private var projectStatsSection: some View {
+        let words = viewModel.words
+        let widgets = HomeViewModel.topHomePartOfSpeechWidgets(for: words)
+
+        let masteredCount = words.filter { $0.status == .mastered }.count
+        let reviewCount = words.filter { $0.status == .review }.count
+        let newCount = words.filter { $0.status == .new }.count
+        let total = words.count
+
+        return VStack(spacing: 8) {
+            TabView(selection: $statsPage) {
+                // Page 1: Part-of-speech widgets
+                Group {
+                    if !widgets.isEmpty {
+                        HStack(alignment: .top, spacing: 10) {
+                            ForEach(widgets) { widget in
+                                projectPartOfSpeechCard(widget)
+                            }
+                        }
+                    } else {
+                        Color.clear
+                    }
+                }
+                .tag(0)
+
+                // Page 2: Mastery progress
+                HStack(alignment: .top, spacing: 10) {
+                    Button {
+                        filteredWordListStatus = .mastered
+                        showingFilteredWordList = true
+                    } label: {
+                        masteryCard(
+                            label: "習得",
+                            count: masteredCount,
+                            total: total,
+                            color: MerkenTheme.success,
+                            icon: "checkmark.seal.fill"
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        filteredWordListStatus = .review
+                        showingFilteredWordList = true
+                    } label: {
+                        masteryCard(
+                            label: "学習中",
+                            count: reviewCount,
+                            total: total,
+                            color: MerkenTheme.accentBlue,
+                            icon: "arrow.trianglehead.2.clockwise"
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        filteredWordListStatus = .new
+                        showingFilteredWordList = true
+                    } label: {
+                        masteryCard(
+                            label: "未学習",
+                            count: newCount,
+                            total: total,
+                            color: MerkenTheme.mutedText,
+                            icon: "sparkle"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .tag(1)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 130)
+
+            // Page indicator dots
+            HStack(spacing: 6) {
+                ForEach(0..<2, id: \.self) { page in
+                    Circle()
+                        .fill(statsPage == page ? MerkenTheme.accentBlue : MerkenTheme.borderLight)
+                        .frame(width: 6, height: 6)
+                }
+            }
+        }
+    }
+
+    private func masteryCard(label: String, count: Int, total: Int, color: Color, icon: String) -> some View {
+        let progress: CGFloat = total > 0 ? CGFloat(count) / CGFloat(total) : 0
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("\(count)")
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("/\(total)語")
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+            .font(.system(size: 21, weight: .bold))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .allowsTightening(true)
+
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 2)
+
+            ZStack {
+                Circle()
+                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        color,
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            .frame(width: 54, height: 54)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 120)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func projectPartOfSpeechCard(_ widget: HomePartOfSpeechWidget) -> some View {
+        let accentColor = projectPartOfSpeechAccent(for: widget.key)
+        let iconName = projectPartOfSpeechIcon(for: widget.key)
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("\(widget.masteredCount)")
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("/\(widget.totalCount)語")
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+            .font(.system(size: 21, weight: .bold))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .allowsTightening(true)
+
+            Text(widget.label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 2)
+
+            ZStack {
+                Circle()
+                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
+
+                Circle()
+                    .trim(from: 0, to: widget.progress)
+                    .stroke(
+                        accentColor,
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                Image(systemName: iconName)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(accentColor)
+            }
+            .frame(width: 54, height: 54)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 120)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func projectPartOfSpeechAccent(for key: String) -> Color {
+        switch key {
+        case "noun": return MerkenTheme.chartBlue
+        case "verb": return MerkenTheme.danger
+        case "adjective": return MerkenTheme.warning
+        case "idiom": return MerkenTheme.success
+        case "phrasal_verb": return Color(red: 0.18, green: 0.68, blue: 0.62)
+        case "adverb": return Color(red: 0.37, green: 0.45, blue: 0.83)
+        case "preposition": return Color(red: 0.32, green: 0.52, blue: 0.74)
+        case "conjunction": return Color(red: 0.84, green: 0.52, blue: 0.20)
+        case "pronoun": return Color(red: 0.24, green: 0.63, blue: 0.72)
+        case "determiner": return Color(red: 0.58, green: 0.49, blue: 0.84)
+        case "interjection": return Color(red: 0.94, green: 0.43, blue: 0.43)
+        case "auxiliary": return Color(red: 0.46, green: 0.58, blue: 0.71)
+        default: return MerkenTheme.secondaryText
+        }
+    }
+
+    private func projectPartOfSpeechIcon(for key: String) -> String {
+        switch key {
+        case "noun": return "tag.fill"
+        case "verb": return "bolt.fill"
+        case "adjective": return "sparkles"
+        case "adverb": return "gauge.with.dots.needle.50percent"
+        case "idiom": return "quote.opening"
+        case "phrasal_verb": return "link"
+        case "preposition": return "arrow.right"
+        case "conjunction": return "point.3.connected.trianglepath.dotted"
+        case "pronoun": return "person.fill"
+        case "determiner": return "text.book.closed.fill"
+        case "interjection": return "exclamationmark.bubble.fill"
+        case "auxiliary": return "gearshape.2.fill"
+        default: return "square.grid.2x2.fill"
+        }
+    }
+
     // MARK: - Learning Modes (horizontal full-width)
 
     private var learningModesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("学習モード")
-                .font(.headline)
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
             VStack(spacing: 10) {
                 learningModeCard(
                     icon: "scope",
                     iconColor: MerkenTheme.success,
-                    title: "クイズ2",
+                    title: "自己評価",
                     subtitle: "思い出して評価"
                 ) {
                     quiz2Destination = project
@@ -786,17 +1113,6 @@ struct ProjectDetailView: View {
                     subtitle: "時間内に即答"
                 ) {
                     showTimeAttack = true
-                }
-
-                learningModeCard(
-                    icon: "exclamationmark.triangle",
-                    iconColor: MerkenTheme.danger,
-                    title: "苦手な単語",
-                    subtitle: weakWords.isEmpty ? "苦手な単語なし" : "\(weakWords.count)語を復習"
-                ) {
-                    if !weakWords.isEmpty {
-                        weakWordsFlashcard = project
-                    }
                 }
 
                 if viewModel.words.count >= 4 {
@@ -840,7 +1156,60 @@ struct ProjectDetailView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(MerkenTheme.border)
+                    .offset(y: 3)
+            )
         }
+    }
+
+    // MARK: - Bottom Action Bar
+
+    private var bottomActionBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                showingWordList = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 15, weight: .medium))
+                    Text("単語一覧")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundStyle(MerkenTheme.primaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(MerkenTheme.border, lineWidth: 1)
+                )
+            }
+
+            Button {
+                flashcardDestination = project
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "rectangle.portrait.on.rectangle.portrait")
+                        .font(.system(size: 15, weight: .medium))
+                    Text("フラッシュカード")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea(.container, edges: .bottom)
+        )
     }
 
     // MARK: - Word List (compact summary → navigates to full list)

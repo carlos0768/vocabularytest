@@ -77,6 +77,25 @@ final class BookshelfDetailViewModel: ObservableObject {
         }
     }
 
+    func toggleFavorite(word: Word, using state: AppState) async {
+        let newValue = !word.isFavorite
+
+        do {
+            try await state.activeRepository.updateWord(
+                id: word.id,
+                patch: WordPatch(isFavorite: newValue)
+            )
+            if let index = allWords.firstIndex(where: { $0.id == word.id }) {
+                allWords[index].isFavorite = newValue
+            }
+            state.bumpDataVersion()
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("BookshelfDetail toggleFavorite failed: \(error.localizedDescription)")
+        }
+    }
+
     func addProjects(collectionId: String, projectIds: [String], using state: AppState) async {
         do {
             try await state.collectionRepository.addProjects(collectionId: collectionId, projectIds: projectIds)

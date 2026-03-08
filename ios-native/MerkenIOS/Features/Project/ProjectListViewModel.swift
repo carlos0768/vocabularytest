@@ -25,7 +25,7 @@ final class ProjectListViewModel: ObservableObject {
             var counts: [String: Int] = [:]
             var mastered: [String: Int] = [:]
             var review: [String: Int] = [:]
-            var newW: [String: Int] = [:]
+            var new: [String: Int] = [:]
             for word in allWords {
                 counts[word.projectId, default: 0] += 1
                 switch word.status {
@@ -34,13 +34,13 @@ final class ProjectListViewModel: ObservableObject {
                 case .review:
                     review[word.projectId, default: 0] += 1
                 case .new:
-                    newW[word.projectId, default: 0] += 1
+                    new[word.projectId, default: 0] += 1
                 }
             }
             wordCounts = counts
             masteredCounts = mastered
             reviewCounts = review
-            newCounts = newW
+            newCounts = new
 
             errorMessage = nil
         } catch {

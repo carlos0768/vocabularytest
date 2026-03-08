@@ -16,6 +16,7 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { isActiveProSubscription } from '@/lib/subscription/status';
+import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -50,6 +51,7 @@ interface ProcessedExtractedWord {
   english: string;
   japanese: string;
   distractors: string[];
+  partOfSpeechTags: string[];
   exampleSentence: string | null;
   exampleSentenceJa: string | null;
 }
@@ -188,6 +190,10 @@ function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasPartOfSpeechTags(value: unknown): boolean {
+  return normalizePartOfSpeechTags(value).length > 0;
+}
+
 function normalizeText(value: unknown): string {
   if (typeof value !== 'string') return '';
   return value
@@ -238,6 +244,7 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
       english,
       japanese,
       distractors: mergeDistractors([], word.distractors),
+      partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
       exampleSentence: firstNonEmpty(word.exampleSentence),
       exampleSentenceJa: firstNonEmpty(word.exampleSentenceJa),
     });
@@ -262,6 +269,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
         english: source.english,
         japanese: source.japanese,
         distractors: mergeDistractors([], source.distractors),
+        partOfSpeechTags: normalizePartOfSpeechTags(source.partOfSpeechTags),
         exampleSentence: firstNonEmpty(source.exampleSentence),
         exampleSentenceJa: firstNonEmpty(source.exampleSentenceJa),
       });
@@ -273,6 +281,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
       english: existing.english,
       japanese: existing.japanese,
       distractors: mergeDistractors(existing.distractors, source.distractors),
+      partOfSpeechTags: normalizePartOfSpeechTags([...existing.partOfSpeechTags, ...source.partOfSpeechTags]),
       exampleSentence: existing.exampleSentence ?? firstNonEmpty(source.exampleSentence),
       exampleSentenceJa: existing.exampleSentenceJa ?? firstNonEmpty(source.exampleSentenceJa),
     };
@@ -373,6 +382,7 @@ export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
+      console.warn('[scan-jobs/process] Unauthorized trigger request');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -383,26 +393,45 @@ export async function POST(request: NextRequest) {
       return parsed.response;
     }
     const { jobId } = parsed.data;
+    console.log('[scan-jobs/process] Request received', { jobId });
 
-    const { data: job, error: jobError } = await getSupabaseAdmin()
+    const processingTimestamp = new Date().toISOString();
+    const { data: claimedJob, error: claimError } = await getSupabaseAdmin()
+      .from('scan_jobs')
+      .update({ status: 'processing', updated_at: processingTimestamp })
+      .eq('id', jobId)
+      .eq('status', 'pending')
+      .select('*')
+      .maybeSingle();
+
+    if (claimError) {
+      console.error('[scan-jobs/process] Failed to claim job:', claimError);
+    }
+
+    let job = claimedJob;
+    if (!job) {
+      const { data: existingJob, error: jobError } = await getSupabaseAdmin()
       .from('scan_jobs')
       .select('*')
       .eq('id', jobId)
       .single();
 
-    if (jobError || !job) {
-      console.error('Job not found:', jobError);
-      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-    }
+      if (jobError || !existingJob) {
+        console.error('Job not found:', jobError);
+        return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+      }
 
-    if (job.status !== 'pending') {
-      return NextResponse.json({ message: 'Job already processed' });
-    }
+      if (existingJob.status !== 'pending') {
+        console.log('[scan-jobs/process] Job already claimed or finished', {
+          jobId,
+          status: existingJob.status,
+        });
+        return NextResponse.json({ message: 'Job already processed', status: existingJob.status });
+      }
 
-    await getSupabaseAdmin()
-      .from('scan_jobs')
-      .update({ status: 'processing', updated_at: new Date().toISOString() })
-      .eq('id', jobId);
+      console.warn('[scan-jobs/process] Job remained pending after claim attempt', { jobId });
+      return NextResponse.json({ message: 'Job claim deferred', status: 'pending' });
+    }
 
     const apiKeys = getAPIKeys();
 
@@ -654,6 +683,19 @@ export async function POST(request: NextRequest) {
 
         projectId = existingProject.id;
         projectTitleForNotification = existingProject.title ?? projectTitleForNotification;
+
+        if (job.project_icon_image) {
+          const { error: iconUpdateError } = await getSupabaseAdmin()
+            .from('projects')
+            .update({ icon_image: job.project_icon_image })
+            .eq('id', existingProject.id)
+            .eq('user_id', job.user_id);
+
+          if (iconUpdateError) {
+            console.error('Project icon update error:', iconUpdateError);
+            throw new Error('Failed to update project icon');
+          }
+        }
       } else {
         const { data: newProject, error: projectError } = await getSupabaseAdmin()
           .from('projects')
@@ -682,12 +724,13 @@ export async function POST(request: NextRequest) {
         distractors: word.distractors,
         example_sentence: word.exampleSentence || null,
         example_sentence_ja: word.exampleSentenceJa || null,
+        part_of_speech_tags: word.partOfSpeechTags,
       }));
 
       const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
         .from('words')
         .insert(wordsToInsert)
-        .select('id, english, japanese, distractors, example_sentence, example_sentence_ja');
+        .select('id, english, japanese, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
 
       if (wordsError) {
         if (createdNewProject) {
@@ -721,7 +764,12 @@ export async function POST(request: NextRequest) {
             distractors: unknown;
             example_sentence: string | null;
             example_sentence_ja: string | null;
-          }) => !hasValidDistractors(w.distractors) || !hasExampleSentence(w.example_sentence))
+            part_of_speech_tags: unknown;
+          }) =>
+            !hasValidDistractors(w.distractors) ||
+            !hasExampleSentence(w.example_sentence) ||
+            !hasPartOfSpeechTags(w.part_of_speech_tags)
+          )
           .map((w: { id: string; english: string; japanese: string }) => ({
             id: w.id,
             english: w.english,
@@ -744,6 +792,7 @@ export async function POST(request: NextRequest) {
                       distractors: item.distractors,
                       example_sentence: item.exampleSentence || null,
                       example_sentence_ja: item.exampleSentenceJa || null,
+                      part_of_speech_tags: item.partOfSpeechTags,
                     })
                     .eq('id', item.wordId)
                 )

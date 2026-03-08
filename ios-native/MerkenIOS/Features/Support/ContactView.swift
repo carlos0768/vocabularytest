@@ -8,28 +8,7 @@ struct ContactView: View {
         ZStack {
             AppBackground()
 
-            VStack(spacing: 0) {
-                // Header
-                HStack(spacing: 12) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                            .frame(width: 40, height: 40)
-                            .background(MerkenTheme.surface, in: .circle)
-                            .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1))
-                    }
-                    Text("お問い合わせ")
-                        .font(.title2.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
-                .stickyHeaderStyle()
-
-                ScrollView {
+            ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         SolidCard {
                             VStack(alignment: .leading, spacing: 16) {
@@ -67,9 +46,9 @@ struct ContactView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
                     .padding(.bottom, 16)
-                }
             }
         }
-        .navigationBarHidden(true)
+        .navigationTitle("お問い合わせ")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

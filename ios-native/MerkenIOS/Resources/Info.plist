@@ -48,6 +48,6 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>WEB_API_BASE_URL</key>
-	<string>https://vocabularytest-gamma.vercel.app</string>
+	<string>https://www.merken.jp</string>
 </dict>
 </plist>

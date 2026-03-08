@@ -65,6 +65,7 @@
 		67D2CAD8454BA2D4511708D3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DC2FD3D41DC83423B155E4DC /* Assets.xcassets */; };
 		684C84310A96A22D34437046 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BA600D8106B9DE11429FE05 /* FavoritesView.swift */; };
 		6D04CDC167156DF03B926FCB /* SupabaseMapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8FE90AE2328A61EE4BAEBEA /* SupabaseMapperTests.swift */; };
+		6D62E812F5D923119ED040FC /* HomeViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73093D59D2FE2E8E695CDA50 /* HomeViewModelTests.swift */; };
 		6D94DB218DF03851DCC0E86F /* AuthServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814A7CF70D4F3E1DC2EB6770 /* AuthServiceProtocol.swift */; };
 		6F59A518C26A797E08B391FC /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5EE1AEEA14C8A38C67545674 /* Supabase */; };
 		70C70476DB7385FCA834017D /* ShareImportRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979404E37986CA4245C3D65D /* ShareImportRootView.swift */; };
@@ -99,6 +100,7 @@
 		C7492B8FCE18E49256133BED /* BookshelfDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A612CAF5636804AF2A4BBD7 /* BookshelfDetailViewModel.swift */; };
 		C7CA85C04850AAE4235D41D8 /* FavoritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7856180ECB9636E96DD8EF82 /* FavoritesViewModel.swift */; };
 		CF004965918E13212A60CBEE /* ScanModeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AF8D7611BD342C5EA408E24 /* ScanModeSheet.swift */; };
+		DD00000000000001 /* ScanModeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD00000000000011 /* ScanModeOverlay.swift */; };
 		D19A2892F506FD1D2E3ED45A /* SupabaseDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C0DC218030F292F7112841 /* SupabaseDTO.swift */; };
 		AA00000000000001 /* TinderSortView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000011 /* TinderSortView.swift */; };
 		AA00000000000002 /* TinderSortViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000012 /* TinderSortViewModel.swift */; };
@@ -195,6 +197,7 @@
 		166FFF08F3BA9F490CBB5116 /* ScanCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCoordinatorView.swift; sourceTree = "<group>"; };
 		171DBA47461A259B973649AD /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
 		1AF8D7611BD342C5EA408E24 /* ScanModeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModeSheet.swift; sourceTree = "<group>"; };
+		DD00000000000011 /* ScanModeOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModeOverlay.swift; sourceTree = "<group>"; };
 		1B2FA794B47954819759A483 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		1BA600D8106B9DE11429FE05 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 		1D14F2A209459F83F00FC77C /* WordListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListViewModel.swift; sourceTree = "<group>"; };
@@ -290,6 +293,7 @@
 		D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanConfirmWordRow.swift; sourceTree = "<group>"; };
 		D4F73FA543C6DFA31FE73146 /* QuickResponseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickResponseView.swift; sourceTree = "<group>"; };
 		D8FE90AE2328A61EE4BAEBEA /* SupabaseMapperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseMapperTests.swift; sourceTree = "<group>"; };
+		73093D59D2FE2E8E695CDA50 /* HomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelTests.swift; sourceTree = "<group>"; };
 		DBE81CD4C71A909C3EA547BB /* AnyEncodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyEncodable.swift; sourceTree = "<group>"; };
 		DBF4BC78A93EA57FB70B45A7 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		DC2FD3D41DC83423B155E4DC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -607,6 +611,7 @@
 			isa = PBXGroup;
 			children = (
 				9DBD7D4AEA23D2B2E005E0C8 /* AppConfigTests.swift */,
+				73093D59D2FE2E8E695CDA50 /* HomeViewModelTests.swift */,
 				71D62B44A7683D7C1BF043E6 /* QuizEngineTests.swift */,
 				0BEF9420BED0725D89485E72 /* RepositoryRouterTests.swift */,
 				FEC3CF40D3CBAF1BCBB4FE7B /* ShareImportBridgeTests.swift */,
@@ -691,6 +696,7 @@
 				D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */,
 				166FFF08F3BA9F490CBB5116 /* ScanCoordinatorView.swift */,
 				099A240702660CEA14504514 /* ScanCoordinatorViewModel.swift */,
+				DD00000000000011 /* ScanModeOverlay.swift */,
 				1AF8D7611BD342C5EA408E24 /* ScanModeSheet.swift */,
 				E7ED26D3452459533CE74952 /* ScanProcessingView.swift */,
 			);
@@ -900,6 +906,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				482261E84A6456F0C6F3A02C /* AppConfigTests.swift in Sources */,
+				6D62E812F5D923119ED040FC /* HomeViewModelTests.swift in Sources */,
 				EBFB18F68270D0FE7BFB7D66 /* QuizEngineTests.swift in Sources */,
 				A0228D436E9BCD28D86DD8C8 /* RepositoryRouterTests.swift in Sources */,
 				77AC2478F64DE946E83356E3 /* ShareImportBridgeTests.swift in Sources */,
@@ -983,6 +990,7 @@
 				83016F6FAA440810A08E27EA /* ScanConfirmWordRow.swift in Sources */,
 				9B5FA3CD40D667AB7685083B /* ScanCoordinatorView.swift in Sources */,
 				828DE6B743BDB937942A8B4B /* ScanCoordinatorViewModel.swift in Sources */,
+				DD00000000000001 /* ScanModeOverlay.swift in Sources */,
 				CF004965918E13212A60CBEE /* ScanModeSheet.swift in Sources */,
 				E87EE2A03CF3DA72D7C423E6 /* ScanNotificationService.swift in Sources */,
 				C43D4C56E52E03822790EEC1 /* ScanProcessingView.swift in Sources */,

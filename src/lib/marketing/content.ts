@@ -24,7 +24,7 @@ export const marketingHighlights: MarketingItem[] = [
   },
   {
     title: '使い分けできる学習モード',
-    description: 'クイズ、クイズ2、カード、例文クイズに対応。',
+    description: 'クイズ、自己評価、カード、例文クイズに対応。',
     icon: 'psychology',
   },
 ];
@@ -69,7 +69,7 @@ export const studyModes: MarketingItem[] = [
     icon: 'quiz',
   },
   {
-    title: 'クイズ2',
+    title: '自己評価',
     description: '自己想起してAgain/Hard/Good/Easyで評価。',
     icon: 'psychology',
     proOnly: true,

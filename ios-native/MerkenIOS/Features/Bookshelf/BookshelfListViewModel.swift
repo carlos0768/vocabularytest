@@ -13,6 +13,18 @@ struct CollectionProjectPreview: Identifiable {
 struct CollectionStats {
     let projectCount: Int
     let previews: [CollectionProjectPreview]
+    let totalWordCount: Int
+    let masteredWordCount: Int
+    let reviewWordCount: Int
+    let newWordCount: Int
+    let sharedProjectCount: Int
+    let pinnedProjectCount: Int
+    let projectTitles: [String]
+
+    var masteryRate: Double {
+        guard totalWordCount > 0 else { return 0 }
+        return Double(masteredWordCount) / Double(totalWordCount)
+    }
 }
 
 private struct BookshelfSnapshot {
@@ -35,10 +47,25 @@ final class BookshelfListViewModel: ObservableObject {
     private let logger = Logger(subsystem: "MerkenIOS", category: "BookshelfListVM")
     private static var snapshotCacheByUserId: [String: BookshelfSnapshot] = [:]
     private static var inFlightSnapshotByUserId: [String: Task<BookshelfSnapshot, Error>] = [:]
+    private var lastLoadContext: String?
 
     func load(using state: AppState) async {
         errorMessage = nil
+
+        guard state.isLoggedIn, state.isPro else {
+            clearLoadedContent()
+            lastLoadContext = nil
+            loading = false
+            return
+        }
+
         let userId = state.activeUserId
+        let loadContext = userId
+
+        if lastLoadContext != loadContext {
+            clearLoadedContent()
+            lastLoadContext = loadContext
+        }
 
         if let snapshot = Self.snapshotCacheByUserId[userId] {
             apply(snapshot)
@@ -82,6 +109,12 @@ final class BookshelfListViewModel: ObservableObject {
         stats = snapshot.stats
     }
 
+    private func clearLoadedContent() {
+        collections = []
+        stats = [:]
+        errorMessage = nil
+    }
+
     private func fetchSnapshotShared(using state: AppState, userId: String) async throws -> BookshelfSnapshot {
         if let inFlight = Self.inFlightSnapshotByUserId[userId] {
             return try await inFlight.value
@@ -118,9 +151,11 @@ final class BookshelfListViewModel: ObservableObject {
     private func fetchSnapshot(using state: AppState, userId: String) async throws -> BookshelfSnapshot {
         let fetched = try await state.collectionRepository.fetchCollections(userId: userId)
 
-        // Fetch all user projects once for previews
+        // Fetch all user projects and words once so every bookshelf card can render rich stats.
         let allProjects = try await state.activeRepository.fetchProjects(userId: userId)
+        let allWords = try await state.activeRepository.fetchAllWords(userId: userId)
         let projectMap = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
+        let wordsByProject = Dictionary(grouping: allWords, by: \.projectId)
 
         var collectionStats: [String: CollectionStats] = [:]
 
@@ -129,6 +164,7 @@ final class BookshelfListViewModel: ObservableObject {
                 group.addTask {
                     let cps = (try? await state.collectionRepository.fetchCollectionProjects(collectionId: collection.id)) ?? []
                     let projectIds = cps.map(\.projectId)
+                    let projects = projectIds.compactMap { projectMap[$0] }
 
                     // Build previews (up to 3)
                     var previews: [CollectionProjectPreview] = []
@@ -143,9 +179,35 @@ final class BookshelfListViewModel: ObservableObject {
                         }
                     }
 
+                    var totalWordCount = 0
+                    var masteredWordCount = 0
+                    var reviewWordCount = 0
+                    var newWordCount = 0
+
+                    for projectId in projectIds {
+                        for word in wordsByProject[projectId] ?? [] {
+                            totalWordCount += 1
+                            switch word.status {
+                            case .mastered:
+                                masteredWordCount += 1
+                            case .review:
+                                reviewWordCount += 1
+                            case .new:
+                                newWordCount += 1
+                            }
+                        }
+                    }
+
                     return (collection.id, CollectionStats(
                         projectCount: projectIds.count,
-                        previews: previews
+                        previews: previews,
+                        totalWordCount: totalWordCount,
+                        masteredWordCount: masteredWordCount,
+                        reviewWordCount: reviewWordCount,
+                        newWordCount: newWordCount,
+                        sharedProjectCount: projects.filter { $0.shareId != nil }.count,
+                        pinnedProjectCount: projects.filter(\.isFavorite).count,
+                        projectTitles: Array(projects.map(\.title).prefix(3))
                     ))
                 }
             }
