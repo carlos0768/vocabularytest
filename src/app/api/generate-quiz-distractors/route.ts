@@ -24,6 +24,10 @@ function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasPartOfSpeechTags(value: unknown): boolean {
+  return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
 const requestSchema = z.object({
   words: z.array(
     z.object({
@@ -61,17 +65,28 @@ export async function POST(request: NextRequest) {
     const wordIds = words.map((word) => word.id);
     const { data: existingWordRows } = await supabase
       .from('words')
-      .select('id, distractors, example_sentence')
+      .select('id, distractors, example_sentence, part_of_speech_tags')
       .in('id', wordIds);
 
     const existingWordMap = new Map(
-      (existingWordRows || []).map((row: { id: string; distractors: unknown; example_sentence: string | null }) => [row.id, row])
+      (
+        existingWordRows || []
+      ).map((row: {
+        id: string;
+        distractors: unknown;
+        example_sentence: string | null;
+        part_of_speech_tags: unknown;
+      }) => [row.id, row])
     );
 
     const wordsToGenerate = words.filter((word) => {
       const existing = existingWordMap.get(word.id);
       if (!existing) return true;
-      return !hasValidDistractors(existing.distractors) || !hasExampleSentence(existing.example_sentence);
+      return (
+        !hasValidDistractors(existing.distractors) ||
+        !hasExampleSentence(existing.example_sentence) ||
+        !hasPartOfSpeechTags(existing.part_of_speech_tags)
+      );
     });
 
     if (wordsToGenerate.length === 0) {
@@ -85,16 +100,21 @@ export async function POST(request: NextRequest) {
       wordsToGenerate as QuizContentWordInput[]
     );
 
-    const examplesForDb = results.filter((r) => r.exampleSentence);
-    if (examplesForDb.length > 0) {
-      for (const result of examplesForDb) {
+    const resultsForDb = results.filter((r) => r.exampleSentence || r.partOfSpeechTags.length > 0);
+    if (resultsForDb.length > 0) {
+      for (const result of resultsForDb) {
         if (!existingWordMap.has(result.wordId)) continue;
+        const updateData: Record<string, unknown> = {};
+        if (result.exampleSentence) {
+          updateData.example_sentence = result.exampleSentence;
+          updateData.example_sentence_ja = result.exampleSentenceJa;
+        }
+        if (result.partOfSpeechTags.length > 0) {
+          updateData.part_of_speech_tags = result.partOfSpeechTags;
+        }
         await supabase
           .from('words')
-          .update({
-            example_sentence: result.exampleSentence,
-            example_sentence_ja: result.exampleSentenceJa,
-          })
+          .update(updateData)
           .eq('id', result.wordId)
           .then(({ error }) => {
             if (error) {

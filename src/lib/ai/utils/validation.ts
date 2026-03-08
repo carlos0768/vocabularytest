@@ -56,6 +56,7 @@ export function normalizeWord(word: Partial<WordData>): WordData | null {
     english: word.english.trim(),
     japanese: word.japanese.trim(),
     distractors: word.distractors || [],
+    partOfSpeechTags: word.partOfSpeechTags,
     exampleSentence: word.exampleSentence?.trim(),
     exampleSentenceJa: word.exampleSentenceJa?.trim(),
   };

@@ -17,9 +17,12 @@ struct FlashcardView: View {
     @State private var showTimeAttack = false
     @Environment(\.dismiss) private var dismiss
 
-    init(project: Project, preloadedWords: [Word]? = nil) {
+    private let showDismissButton: Bool
+
+    init(project: Project, preloadedWords: [Word]? = nil, showDismissButton: Bool = true) {
         self.project = project
         self.preloadedWords = preloadedWords
+        self.showDismissButton = showDismissButton
         _viewModel = StateObject(wrappedValue: FlashcardViewModel(initialWords: preloadedWords))
     }
 
@@ -39,13 +42,15 @@ struct FlashcardView: View {
         .navigationTitle("フラッシュカード")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.secondaryText)
+            if showDismissButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
                 }
             }
         }
@@ -228,84 +233,94 @@ struct FlashcardView: View {
             .padding(.top, 8)
             .padding(.bottom, 4)
 
-            // Card with favorite overlay
-            ZStack(alignment: .topTrailing) {
-                if let word = viewModel.currentWord {
-                    FlashcardCardView(
-                        word: word,
-                        isFlipped: viewModel.isFlipped,
-                        japaneseFirst: viewModel.japaneseFirst,
-                        onTap: { viewModel.flipCard() },
-                        onSwipeLeft: { viewModel.goNext() },
-                        onSwipeRight: { viewModel.goPrevious() }
-                    )
-                }
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
 
-                // Favorite badge on card corner
-                if let word = viewModel.currentWord {
-                    Button {
-                        Task {
-                            await viewModel.toggleFavorite(using: appState)
-                            if !word.isFavorite { // was false, now becoming true
-                                MerkenHaptic.medium()
-                                withAnimation(MerkenSpring.bouncy) {
-                                    favoriteScale = 1.4
-                                }
-                                withAnimation(MerkenSpring.bouncy.delay(0.15)) {
-                                    favoriteScale = 1.0
+                // Card with favorite overlay
+                ZStack(alignment: .topTrailing) {
+                    if let word = viewModel.currentWord {
+                        FlashcardCardView(
+                            word: word,
+                            isFlipped: viewModel.isFlipped,
+                            japaneseFirst: viewModel.japaneseFirst,
+                            onTap: { viewModel.flipCard() },
+                            onSwipeLeft: { viewModel.goNext() },
+                            onSwipeRight: { viewModel.goPrevious() }
+                        )
+                    }
+
+                    // Favorite badge on card corner
+                    if let word = viewModel.currentWord {
+                        Button {
+                            Task {
+                                await viewModel.toggleFavorite(using: appState)
+                                if !word.isFavorite { // was false, now becoming true
+                                    MerkenHaptic.medium()
+                                    withAnimation(MerkenSpring.bouncy) {
+                                        favoriteScale = 1.4
+                                    }
+                                    withAnimation(MerkenSpring.bouncy.delay(0.15)) {
+                                        favoriteScale = 1.0
+                                    }
                                 }
                             }
+                        } label: {
+                            Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                                .font(.system(size: 18))
+                                .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
+                                .frame(width: 36, height: 36)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .scaleEffect(favoriteScale)
                         }
-                    } label: {
-                        Image(systemName: word.isFavorite ? "heart.fill" : "heart")
-                            .font(.system(size: 18))
-                            .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
-                            .frame(width: 36, height: 36)
-                            .background(.ultraThinMaterial, in: Circle())
-                            .scaleEffect(favoriteScale)
+                        .offset(x: -8, y: 8)
                     }
-                    .offset(x: -8, y: 8)
+                }
+                .padding(.horizontal, 24)
+
+                Spacer(minLength: 0)
+
+                // Navigation — clean, focused
+                HStack(spacing: 28) {
+                    navButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
+                        viewModel.goPrevious()
+                    }
+
+                    navButton(icon: viewModel.slowSpeed ? "speaker.wave.1.fill" : "speaker.wave.2.fill", enabled: true) {
+                        viewModel.speak()
+                    }
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.5)
+                            .onEnded { _ in
+                                MerkenHaptic.medium()
+                                viewModel.toggleSpeed()
+                            }
+                    )
+
+                    navButton(icon: "book", enabled: viewModel.dictionaryURL != nil) {
+                        dictionaryURL = viewModel.dictionaryURL
+                    }
+
+                    navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
+                        viewModel.flipCard()
+                    }
+
+                    navButton(icon: "chevron.right", enabled: viewModel.hasNext) {
+                        viewModel.goNext()
+                    }
+                }
+                .padding(.vertical, 20)
+
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.warning)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
                 }
             }
-            .padding(.horizontal, 24)
-
-            Spacer(minLength: 0)
-
-            // Navigation — clean, focused
-            HStack(spacing: 40) {
-                navButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
-                    viewModel.goPrevious()
-                }
-
-                navButton(icon: viewModel.slowSpeed ? "speaker.wave.1.fill" : "speaker.wave.2.fill", enabled: true) {
-                    viewModel.speak()
-                }
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.5)
-                        .onEnded { _ in
-                            MerkenHaptic.medium()
-                            viewModel.toggleSpeed()
-                        }
-                )
-
-                navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
-                    viewModel.flipCard()
-                }
-
-                navButton(icon: "chevron.right", enabled: viewModel.hasNext) {
-                    viewModel.goNext()
-                }
-            }
-            .padding(.vertical, 20)
-
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.warning)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func navButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {

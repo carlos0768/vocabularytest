@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 
 // Zod schema for validating OpenAI API response
 // This ensures robustness against malformed AI outputs
@@ -7,6 +8,7 @@ export const AIWordSchema = z.object({
   english: z.string(),
   japanese: z.string(),
   distractors: z.array(z.string()).default([]),
+  partOfSpeechTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
   // Optional example sentence fields (Pro feature)
   exampleSentence: z.string().optional().nullable(),
   exampleSentenceJa: z.string().optional().nullable(),
@@ -22,6 +24,7 @@ export const AIWordSchema = z.object({
   japanese: sanitizedJapanese || '---',
   // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
   distractors: word.distractors,
+  partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
   exampleSentence: word.exampleSentence || undefined,
   exampleSentenceJa: word.exampleSentenceJa || undefined,
 };});

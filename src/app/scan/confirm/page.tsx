@@ -49,6 +49,10 @@ function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasPartOfSpeechTags(value: unknown): boolean {
+  return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -199,6 +203,7 @@ export default function ConfirmPage() {
       english: '',
       japanese: '',
       distractors: [],
+      partOfSpeechTags: [],
       exampleSentence: '',
       exampleSentenceJa: '',
       tempId: `word-manual-${Date.now()}`,
@@ -219,7 +224,11 @@ export default function ConfirmPage() {
       .filter((word) =>
         word.english.trim().length > 0 &&
         word.japanese.trim().length > 0 &&
-        (!hasValidDistractors(word.distractors) || !hasExampleSentence(word.exampleSentence))
+        (
+          !hasValidDistractors(word.distractors) ||
+          !hasExampleSentence(word.exampleSentence) ||
+          !hasPartOfSpeechTags(word.partOfSpeechTags)
+        )
       )
       .map((word) => ({
         id: word.id,
@@ -231,6 +240,7 @@ export default function ConfirmPage() {
 
     const resultMap = new Map<string, {
       distractors: string[];
+      partOfSpeechTags: string[];
       exampleSentence: string;
       exampleSentenceJa: string;
     }>();
@@ -263,6 +273,7 @@ export default function ConfirmPage() {
             succeeded.add(result.wordId);
             resultMap.set(result.wordId, {
               distractors: result.distractors,
+              partOfSpeechTags: Array.isArray(result.partOfSpeechTags) ? result.partOfSpeechTags : [],
               exampleSentence: result.exampleSentence || '',
               exampleSentenceJa: result.exampleSentenceJa || '',
             });
@@ -292,6 +303,7 @@ export default function ConfirmPage() {
 
       const patch: Partial<Word> = {
         distractors: generated.distractors,
+        partOfSpeechTags: generated.partOfSpeechTags,
       };
 
       if (generated.exampleSentence.trim().length > 0) {
@@ -310,6 +322,7 @@ export default function ConfirmPage() {
       return {
         ...word,
         distractors: generated.distractors,
+        partOfSpeechTags: generated.partOfSpeechTags,
         ...(generated.exampleSentence.trim().length > 0
           ? {
               exampleSentence: generated.exampleSentence,
@@ -413,6 +426,7 @@ export default function ConfirmPage() {
           english: w.english,
           japanese: w.japanese,
           distractors: w.distractors,
+          partOfSpeechTags: w.partOfSpeechTags,
           exampleSentence: w.exampleSentence,
           exampleSentenceJa: w.exampleSentenceJa,
         }))

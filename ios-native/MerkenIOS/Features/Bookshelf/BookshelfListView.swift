@@ -8,96 +8,61 @@ struct BookshelfListView: View {
     @State private var showingCreateSheet = false
     @State private var selectedCollection: Collection?
 
+    private var totalShelfCount: Int {
+        viewModel.collections.count
+    }
+
+    private var totalProjectCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.projectCount }
+    }
+
+    private var totalWordCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.totalWordCount }
+    }
+
+    private var totalMasteredWordCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.masteredWordCount }
+    }
+
+    private var totalReviewWordCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.reviewWordCount }
+    }
+
+    private var totalNewWordCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.newWordCount }
+    }
+
+    private var totalSharedProjectCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.sharedProjectCount }
+    }
+
+    private var totalPinnedProjectCount: Int {
+        viewModel.stats.values.reduce(0) { $0 + $1.pinnedProjectCount }
+    }
+
+    private var masteryRate: Double {
+        guard totalWordCount > 0 else { return 0 }
+        return Double(totalMasteredWordCount) / Double(totalWordCount)
+    }
+
+    private var masteryPercentText: String {
+        totalWordCount > 0 ? "\(Int(masteryRate * 100))%" : "0%"
+    }
+
     var body: some View {
-        ZStack {
-            AppBackground()
-
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Spacer().frame(height: 4)
-
-                        Text("本棚")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        if let errorMessage = viewModel.errorMessage {
-                            SolidCard {
-                                Text(errorMessage)
-                                    .foregroundStyle(MerkenTheme.warning)
-                            }
-                        }
-
-                        if viewModel.collections.isEmpty, !viewModel.loading {
-                            SolidCard {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text("本棚がありません")
-                                        .font(.headline)
-                                        .foregroundStyle(MerkenTheme.primaryText)
-                                    Text("「+ 新規作成」から本棚を追加してください。")
-                                        .font(.subheadline)
-                                        .foregroundStyle(MerkenTheme.secondaryText)
-                                }
-                            }
-                        } else {
-                            HStack {
-                                Text("すべての本棚")
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                                Spacer()
-                                Text("\(viewModel.collections.count)件")
-                                    .font(.caption)
-                                    .foregroundStyle(MerkenTheme.mutedText)
-                            }
-
-                            // 3-column grid (matching ProjectListView)
-                            let columns = [
-                                GridItem(.flexible(), spacing: 18),
-                                GridItem(.flexible(), spacing: 18),
-                                GridItem(.flexible(), spacing: 18)
-                            ]
-                            LazyVGrid(columns: columns, spacing: 14) {
-                                ForEach(viewModel.collections) { collection in
-                                    collectionCard(collection)
-                                        .onTapGesture {
-                                            selectedCollection = collection
-                                        }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+        Group {
+            if !appState.isLoggedIn {
+                LoginGateView(
+                    icon: "books.vertical.fill",
+                    title: "本棚を使おう",
+                    message: "ログインしてProプランにすると、複数の単語帳をまとめて学習できます。"
+                ) {
+                    appState.selectedTab = 4
                 }
-                .refreshable {
-                    await viewModel.load(using: appState)
-                }
-            }
-
-            // Floating + button (liquid glass)
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button {
-                        showingCreateSheet = true
-                    } label: {
-                        let baseLabel = Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                            .frame(width: 56, height: 56)
-                        if #available(iOS 26.0, *) {
-                            baseLabel
-                                .glassEffect(.regular.interactive())
-                                .clipShape(.circle)
-                        } else {
-                            baseLabel
-                                .background(.ultraThinMaterial, in: .circle)
-                        }
-                    }
-                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 16)
-                }
+            } else if !appState.isPro {
+                proLockedContent
+            } else {
+                bookshelfContent
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -117,133 +82,680 @@ struct BookshelfListView: View {
         }
     }
 
-    // MARK: - Collection Card (Web-matching bookshelf style)
+    private var bookshelfContent: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(spacing: 0) {
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            Color.clear.frame(height: 0).id("bookshelfTop")
+
+                            headerSection
+
+                            if let errorMessage = viewModel.errorMessage {
+                                SolidCard {
+                                    Text(errorMessage)
+                                        .foregroundStyle(MerkenTheme.warning)
+                                }
+                            }
+
+                            topSummaryWidgets
+                            overviewCard
+                            bookshelvesSection
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100)
+                    }
+                    .scrollIndicators(.hidden)
+                    .refreshable {
+                        await viewModel.load(using: appState)
+                    }
+                    .onChange(of: appState.scrollToTopTrigger) { _ in
+                        withAnimation {
+                            scrollProxy.scrollTo("bookshelfTop", anchor: .top)
+                        }
+                    }
+                }
+            }
+
+            floatingCreateButton
+        }
+    }
+
+    private var proLockedContent: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(spacing: 20) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(MerkenTheme.mutedText)
+
+                Text("本棚はPro限定機能です")
+                    .font(.title2.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                Text("複数の単語帳をまとめて学習できる本棚機能は、Proプランで利用できます。")
+                    .font(.subheadline)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+
+                Button {
+                    appState.selectedTab = 4
+                } label: {
+                    Text("設定でプランを確認")
+                }
+                .buttonStyle(PrimaryGlassButton())
+                .padding(.horizontal, 48)
+            }
+        }
+    }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("本棚")
+                .font(.system(size: 31.2, weight: .black))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .tracking(2)
+
+            Text("単語帳を束ねて、学習テーマごとにまとめて管理")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(MerkenTheme.secondaryText)
+        }
+    }
+
+    private var topSummaryWidgets: some View {
+        HStack(spacing: 10) {
+            BookshelfSummaryCard(
+                icon: "books.vertical.fill",
+                tint: MerkenTheme.chartBlue,
+                value: "\(totalShelfCount)",
+                label: "本棚",
+                detail: totalProjectCount > 0 ? "\(totalProjectCount)冊の単語帳を整理" : "まとめ学習の土台"
+            )
+
+            BookshelfSummaryCard(
+                icon: "square.stack.3d.up.fill",
+                tint: MerkenTheme.warning,
+                value: "\(totalProjectCount)",
+                label: "収録単語帳",
+                detail: totalWordCount > 0 ? "\(totalWordCount)語を収録" : "単語帳をまとめて配置"
+            )
+        }
+    }
+
+    private var overviewCard: some View {
+        SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 14) {
+                    BookshelfProgressRing(
+                        progress: masteryRate,
+                        strokeColor: MerkenTheme.chartBlue,
+                        title: masteryPercentText,
+                        subtitle: "習得"
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("本棚ライブラリ")
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(totalWordCount)")
+                                .font(.system(size: 32, weight: .bold))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                            Text("語を収録")
+                                .font(.system(size: 16, weight: .medium))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .foregroundStyle(MerkenTheme.primaryText)
+                        }
+
+                        Text("\(totalMasteredWordCount)語習得 / 復習中 \(totalReviewWordCount)語")
+                            .font(.system(size: 13, weight: .medium))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                BookshelfDistributionBar(
+                    mastered: totalMasteredWordCount,
+                    review: totalReviewWordCount,
+                    newWords: totalNewWordCount
+                )
+                .frame(height: 10)
+
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    BookshelfOverviewMetricTile(
+                        icon: "books.vertical.fill",
+                        tint: MerkenTheme.chartBlue,
+                        value: "\(totalShelfCount)",
+                        label: "本棚"
+                    )
+                    BookshelfOverviewMetricTile(
+                        icon: "square.stack.3d.up.fill",
+                        tint: MerkenTheme.warning,
+                        value: "\(totalProjectCount)",
+                        label: "単語帳"
+                    )
+                    BookshelfOverviewMetricTile(
+                        icon: "checkmark.circle.fill",
+                        tint: MerkenTheme.success,
+                        value: "\(totalMasteredWordCount)",
+                        label: "習得語"
+                    )
+                    BookshelfOverviewMetricTile(
+                        icon: "person.2.fill",
+                        tint: MerkenTheme.mutedText,
+                        value: "\(totalSharedProjectCount)",
+                        label: "共有中"
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 22)
+            .frame(minHeight: 198)
+        }
+    }
+
+    private var bookshelvesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("あなたの本棚")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("テーマごとに並べて、まとめて復習")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+                Spacer()
+                Text("\(totalShelfCount)件")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            if viewModel.collections.isEmpty, !viewModel.loading {
+                emptyStateCard
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.collections) { collection in
+                        Button {
+                            selectedCollection = collection
+                        } label: {
+                            collectionCard(collection)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var emptyStateCard: some View {
+        SolidCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(MerkenTheme.chartBlue.opacity(0.12))
+                        Image(systemName: "books.vertical.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.chartBlue)
+                    }
+                    .frame(width: 44, height: 44)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("本棚がまだありません")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("単語帳をまとめる棚を作ると、テーマ単位で学習を整理できます。")
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
+
+                Button("新しい本棚を作成") {
+                    showingCreateSheet = true
+                }
+                .buttonStyle(PrimaryGlassButton())
+            }
+        }
+    }
 
     private func collectionCard(_ collection: Collection) -> some View {
         let stat = viewModel.stats[collection.id]
-        let statsLoaded = stat != nil
+        let wordCount = stat?.totalWordCount ?? 0
+        let mastered = stat?.masteredWordCount ?? 0
+        let reviewing = stat?.reviewWordCount ?? 0
+        let newWords = stat?.newWordCount ?? 0
+        let sharedCount = stat?.sharedProjectCount ?? 0
+        let pinnedCount = stat?.pinnedProjectCount ?? 0
         let projectCount = stat?.projectCount ?? 0
-        let wordCount = stat?.wordCount ?? 0
-        let progress = stat?.progress ?? 0
-        let previews = stat?.previews ?? []
+        let masteryText = wordCount > 0 ? "\(Int((stat?.masteryRate ?? 0) * 100))%習得" : "まだ単語なし"
 
-        return VStack(spacing: 0) {
-            // Bookshelf area — mini books
-            HStack(spacing: 0) {
-                if !statsLoaded {
-                    // Loading state — show shimmer placeholder
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(MerkenTheme.surfaceAlt)
-                        .frame(height: 56)
-                        .frame(maxWidth: .infinity)
-                        .overlay(
-                            ProgressView()
-                                .tint(MerkenTheme.mutedText)
-                                .scaleEffect(0.7)
-                        )
-                } else if previews.isEmpty {
-                    // Empty state — dashed placeholder
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                        .frame(height: 56)
-                        .frame(maxWidth: .infinity)
-                        .overlay(
-                            Image(systemName: "books.vertical")
-                                .font(.title3)
-                                .foregroundStyle(MerkenTheme.mutedText)
-                        )
-                } else {
-                    GeometryReader { geo in
-                        let overlap: CGFloat = 4
-                        let visiblePreviews = Array(previews.prefix(3))
-                        let extraCount = max(projectCount - visiblePreviews.count, 0)
-                        let totalItems = visiblePreviews.count + (extraCount > 0 ? 1 : 0)
-                        let rawWidth = totalItems > 0
-                            ? (geo.size.width + overlap * CGFloat(max(totalItems - 1, 0))) / CGFloat(totalItems)
-                            : 40
-                        let bookWidth = min(40, max(24, floor(rawWidth)))
+        return SolidCard(padding: 0) {
+            HStack(alignment: .top, spacing: 14) {
+                BookshelfShelfPreview(
+                    collection: collection,
+                    stat: stat,
+                    colorScheme: colorScheme
+                )
 
-                        HStack(spacing: 0) {
-                            Spacer(minLength: 0)
-                            ForEach(Array(visiblePreviews.enumerated()), id: \.element.id) { index, preview in
-                                miniBook(preview, width: bookWidth)
-                                    .padding(.leading, index > 0 ? -overlap : 0)
-                            }
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(collection.name)
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(2)
 
-                            if extraCount > 0 {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(MerkenTheme.surfaceAlt)
-                                    .frame(width: bookWidth, height: 56)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .stroke(MerkenTheme.border, lineWidth: 1)
-                                    )
-                                    .overlay(
-                                        Text("+\(extraCount)")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(MerkenTheme.mutedText)
-                                    )
-                                    .padding(.leading, -overlap)
-                            }
-                            Spacer(minLength: 0)
+                            Text(collectionSubheadline(collection: collection, stat: stat))
+                                .font(.system(size: 13))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                                .lineLimit(2)
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
+
+                        Spacer(minLength: 0)
+
+                        Text(updatedLabel(for: collection.updatedAt))
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(MerkenTheme.background, in: Capsule())
                     }
-                    .frame(height: 56)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(wordCount)")
+                            .font(.system(size: 30, weight: .bold))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("語を収録")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+
+                        Spacer(minLength: 0)
+
+                        Text(masteryText)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(MerkenTheme.background, in: Capsule())
+                    }
+
+                    BookshelfDistributionBar(
+                        mastered: mastered,
+                        review: reviewing,
+                        newWords: newWords
+                    )
+                    .frame(height: 8)
+
+                    HStack(spacing: 8) {
+                        BookshelfStatPill(
+                            icon: "square.stack.3d.up.fill",
+                            tint: MerkenTheme.chartBlue,
+                            text: "\(projectCount)冊"
+                        )
+                        if sharedCount > 0 {
+                            BookshelfStatPill(
+                                icon: "person.2.fill",
+                                tint: MerkenTheme.warning,
+                                text: "共有 \(sharedCount)"
+                            )
+                        }
+                        if pinnedCount > 0 {
+                            BookshelfStatPill(
+                                icon: "pin.fill",
+                                tint: MerkenTheme.danger,
+                                text: "ピン \(pinnedCount)"
+                            )
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        BookshelfStatPill(
+                            icon: "checkmark.circle.fill",
+                            tint: MerkenTheme.success,
+                            text: "習得 \(mastered)"
+                        )
+                        BookshelfStatPill(
+                            icon: "bolt.circle.fill",
+                            tint: MerkenTheme.chartBlue,
+                            text: "学習 \(reviewing)"
+                        )
+                        BookshelfStatPill(
+                            icon: "sparkles",
+                            tint: MerkenTheme.mutedText,
+                            text: "未学習 \(newWords)"
+                        )
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .frame(minHeight: 68)
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
-
-            // Shelf line
-            Rectangle()
-                .fill(MerkenTheme.border)
-                .frame(height: 2)
-                .padding(.horizontal, 4)
-                .padding(.top, 2)
-
-            // Title
-            Text(collection.name)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(minHeight: 32)
-                .padding(.horizontal, 4)
-                .padding(.top, 8)
-
-            // Stats
-            HStack(spacing: 0) {
-                Text("\(projectCount)冊")
-                if wordCount > 0 {
-                    Text(" · \(wordCount)語")
-                }
-                if progress > 0 {
-                    Text(" · \(progress)%")
-                }
-            }
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(MerkenTheme.mutedText)
-            .padding(.bottom, 10)
+            .padding(14)
         }
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
-        )
-        .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Mini Book (matching Web MiniBook component)
+    private func collectionSubheadline(collection: Collection, stat: CollectionStats?) -> String {
+        if let description = collection.description?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !description.isEmpty {
+            return description
+        }
 
-    private func miniBook(_ preview: CollectionProjectPreview, width: CGFloat = 40) -> some View {
+        let titles = stat?.projectTitles ?? []
+        if !titles.isEmpty {
+            return titles.joined(separator: " ・ ")
+        }
+
+        return "この本棚に単語帳を追加して、まとめて学習できます。"
+    }
+
+    private func updatedLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M/d更新"
+        return formatter.string(from: date)
+    }
+
+    private var floatingCreateButton: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button {
+                    showingCreateSheet = true
+                } label: {
+                    let baseLabel = Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .frame(width: 56, height: 56)
+                    if #available(iOS 26.0, *) {
+                        baseLabel
+                            .glassEffect(.regular.interactive())
+                            .clipShape(.circle)
+                    } else {
+                        baseLabel
+                            .background(.ultraThinMaterial, in: .circle)
+                    }
+                }
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                .padding(.trailing, 20)
+                .padding(.bottom, 16)
+            }
+        }
+    }
+}
+
+private struct BookshelfSummaryCard: View {
+    let icon: String
+    let tint: Color
+    let value: String
+    let label: String
+    let detail: String
+
+    var body: some View {
+        SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(tint.opacity(0.12))
+                        Image(systemName: icon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(tint)
+                    }
+                    .frame(width: 36, height: 36)
+
+                    Spacer()
+                }
+
+                Text(value)
+                    .font(.system(size: 28, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 144, alignment: .topLeading)
+        }
+    }
+}
+
+private struct BookshelfOverviewMetricTile: View {
+    let icon: String
+    let tint: Color
+    let value: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.12))
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 17, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(MerkenTheme.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct BookshelfProgressRing: View {
+    let progress: Double
+    let strokeColor: Color
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(MerkenTheme.borderLight, lineWidth: 8)
+
+            Circle()
+                .trim(from: 0, to: max(0.02, progress))
+                .stroke(
+                    strokeColor,
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 1) {
+                Text(title)
+                    .font(.system(size: 20, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+        }
+        .frame(width: 86, height: 86)
+    }
+}
+
+private struct BookshelfDistributionBar: View {
+    let mastered: Int
+    let review: Int
+    let newWords: Int
+
+    private var total: Double {
+        Double(mastered + review + newWords)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(MerkenTheme.borderLight)
+
+                HStack(spacing: 0) {
+                    if mastered > 0 {
+                        Rectangle()
+                            .fill(MerkenTheme.success)
+                            .frame(width: geo.size.width * CGFloat(Double(mastered) / max(total, 1)))
+                    }
+                    if review > 0 {
+                        Rectangle()
+                            .fill(MerkenTheme.chartBlue)
+                            .frame(width: geo.size.width * CGFloat(Double(review) / max(total, 1)))
+                    }
+                    if newWords > 0 {
+                        Rectangle()
+                            .fill(MerkenTheme.mutedText.opacity(0.75))
+                            .frame(width: geo.size.width * CGFloat(Double(newWords) / max(total, 1)))
+                    }
+                }
+                .clipShape(Capsule())
+            }
+        }
+    }
+}
+
+private struct BookshelfStatPill: View {
+    let icon: String
+    let tint: Color
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(MerkenTheme.background, in: Capsule())
+    }
+}
+
+private struct BookshelfShelfPreview: View {
+    let collection: Collection
+    let stat: CollectionStats?
+    let colorScheme: ColorScheme
+
+    private var previews: [CollectionProjectPreview] {
+        stat?.previews ?? []
+    }
+
+    private var projectCount: Int {
+        stat?.projectCount ?? 0
+    }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            MerkenTheme.surface,
+                            MerkenTheme.background
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                )
+
+            if previews.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "books.vertical.fill")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                    Text("空の本棚")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+            } else {
+                ZStack(alignment: .bottomLeading) {
+                    ForEach(Array(previews.prefix(3).enumerated()), id: \.element.id) { index, preview in
+                        BookshelfPreviewBook(
+                            preview: preview,
+                            colorScheme: colorScheme
+                        )
+                        .frame(width: 58, height: 84)
+                        .rotationEffect(.degrees(Double(index - 1) * 3))
+                        .offset(x: CGFloat(index) * 16, y: CGFloat(index) * 7)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.trailing, 10)
+                .padding(.bottom, 10)
+            }
+
+            Text("\(projectCount)冊")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(MerkenTheme.surface, in: Capsule())
+                .overlay(
+                    Capsule().stroke(MerkenTheme.borderLight, lineWidth: 1)
+                )
+                .padding(10)
+        }
+        .frame(width: 118, height: 136)
+    }
+}
+
+private struct BookshelfPreviewBook: View {
+    let preview: CollectionProjectPreview
+    let colorScheme: ColorScheme
+
+    var body: some View {
         let color = MerkenTheme.placeholderColor(for: preview.id, isDark: colorScheme == .dark)
         let initial = String(preview.title.prefix(1)).uppercased()
 
@@ -253,33 +765,32 @@ struct BookshelfListView: View {
                 iconImage,
                 cacheKey: preview.iconImageCacheKey
                ) {
-                // Project has a cover image
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
             } else {
-                // Gradient + initial letter
                 LinearGradient(
-                    colors: [color, color.opacity(0.7)],
+                    colors: [color, color.opacity(0.72)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
 
-                // Spine shadow (left edge)
                 HStack(spacing: 0) {
-                    Color.black.opacity(0.15)
-                        .frame(width: 2)
+                    Color.black.opacity(0.14)
+                        .frame(width: 3)
                     Spacer()
                 }
 
-                // Initial letter
                 Text(initial)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.95))
             }
         }
-        .frame(width: width, height: 56)
-        .clipShape(.rect(cornerRadius: 3))
-        .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 4)
     }
 }

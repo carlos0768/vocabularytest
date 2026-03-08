@@ -69,15 +69,15 @@ enum ImageCompressor {
 
     /// Generate a small thumbnail (max 300px) for project icon, returned as data URL string.
     static func generateThumbnailBase64(_ image: UIImage, maxSize: CGFloat = 300) -> String? {
-        let size = image.size
+        let size = pixelSize(for: image)
         let longestSide = max(size.width, size.height)
         let scale = longestSide > maxSize ? maxSize / longestSide : 1.0
         let newSize = CGSize(
-            width: (size.width * scale).rounded(),
-            height: (size.height * scale).rounded()
+            width: max(1, (size.width * scale).rounded()),
+            height: max(1, (size.height * scale).rounded())
         )
 
-        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let renderer = makeRenderer(size: newSize)
         let resized = renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }
@@ -115,7 +115,7 @@ enum ImageCompressor {
     }
 
     private static func resizeIfNeeded(_ image: UIImage, maxDimension maxDim: CGFloat? = nil) -> UIImage {
-        let size = image.size
+        let size = pixelSize(for: image)
         let longestSide = max(size.width, size.height)
         let limit = maxDim ?? maxDimension
 
@@ -123,13 +123,30 @@ enum ImageCompressor {
 
         let scale = limit / longestSide
         let newSize = CGSize(
-            width: (size.width * scale).rounded(),
-            height: (size.height * scale).rounded()
+            width: max(1, (size.width * scale).rounded()),
+            height: max(1, (size.height * scale).rounded())
         )
 
-        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let renderer = makeRenderer(size: newSize)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }
+    }
+
+    private static func pixelSize(for image: UIImage) -> CGSize {
+        if let cgImage = image.cgImage {
+            return CGSize(width: cgImage.width, height: cgImage.height)
+        }
+
+        let scaledWidth = image.size.width * image.scale
+        let scaledHeight = image.size.height * image.scale
+        return CGSize(width: scaledWidth, height: scaledHeight)
+    }
+
+    private static func makeRenderer(size: CGSize) -> UIGraphicsImageRenderer {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format)
     }
 }

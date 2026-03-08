@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
@@ -19,6 +19,44 @@ function getSupabaseAdmin(): SupabaseClient {
     );
   }
   return supabaseAdmin;
+}
+
+function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
+  const workerToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const processUrl = new URL('/api/scan-jobs/process', request.url);
+
+  after(async () => {
+    if (!workerToken) {
+      console.error('[scan-jobs/create] Missing SUPABASE_SERVICE_ROLE_KEY while scheduling process route');
+      return;
+    }
+
+    try {
+      const response = await fetch(processUrl.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${workerToken}`,
+        },
+        body: JSON.stringify({ jobId }),
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        console.error('[scan-jobs/create] Failed to trigger processing', {
+          jobId,
+          status: response.status,
+          body,
+        });
+        return;
+      }
+
+      console.log('[scan-jobs/create] Processing triggered', { jobId });
+    } catch (error) {
+      console.error('[scan-jobs/create] Failed to trigger processing', { jobId, error });
+    }
+  });
 }
 
 const requestSchema = z.object({
@@ -45,16 +83,19 @@ const requestSchema = z.object({
 // Images are already uploaded directly to Storage by client
 export async function POST(request: NextRequest) {
   try {
+    console.log('[scan-jobs/create] Request received');
     const supabase = await createRouteHandlerClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!bearerToken) {
+      console.warn('[scan-jobs/create] Missing bearer token');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(bearerToken);
 
     if (authError || !user) {
+      console.warn('[scan-jobs/create] Auth failed', { authError: authError?.message ?? null });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -62,6 +103,7 @@ export async function POST(request: NextRequest) {
       invalidMessage: 'Missing required fields',
     });
     if (!parsed.ok) {
+      console.warn('[scan-jobs/create] Request validation failed');
       return parsed.response;
     }
     const {
@@ -78,6 +120,7 @@ export async function POST(request: NextRequest) {
     // Support both single imagePath and multiple imagePaths
     const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);
     if (imagePaths.length === 0) {
+      console.warn('[scan-jobs/create] No image paths provided', { userId: user.id });
       return NextResponse.json({ error: 'imagePaths is required' }, { status: 400 });
     }
 
@@ -91,6 +134,10 @@ export async function POST(request: NextRequest) {
         .list(user.id, { search: fileName });
 
       if (!fileData || fileData.length === 0) {
+        console.warn('[scan-jobs/create] Uploaded image missing in storage', {
+          userId: user.id,
+          candidatePath,
+        });
         return NextResponse.json({ error: `Image not found: ${fileName}` }, { status: 400 });
       }
     }
@@ -106,10 +153,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (scanData.requires_pro) {
+      console.warn('[scan-jobs/create] Pro-required scan mode blocked', {
+        userId: user.id,
+        scanMode,
+      });
       return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
     }
 
     if (!scanData.allowed) {
+      console.warn('[scan-jobs/create] Scan limit reached', {
+        userId: user.id,
+        currentCount: scanData.current_count,
+        limit: scanData.limit,
+      });
       return NextResponse.json(
         {
           error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。`,
@@ -138,6 +194,10 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (projectError || !project) {
+        console.warn('[scan-jobs/create] Target project not found', {
+          userId: user.id,
+          targetProjectId,
+        });
         return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
       }
       validatedTargetProjectId = project.id;
@@ -173,16 +233,14 @@ export async function POST(request: NextRequest) {
       console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
 
-    // Trigger background processing (fire and forget)
-    const processUrl = new URL('/api/scan-jobs/process', request.url);
-    fetch(processUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({ jobId: String(job.id) }),
-    }).catch(err => console.error('Failed to trigger processing:', err));
+    scheduleScanJobProcessing(request, String(job.id));
+    console.log('[scan-jobs/create] Job created', {
+      jobId: String(job.id),
+      userId: user.id,
+      saveMode,
+      imageCount: imagePaths.length,
+      targetProjectId: validatedTargetProjectId,
+    });
 
     return NextResponse.json({
       success: true,

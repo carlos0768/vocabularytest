@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
@@ -17,6 +17,44 @@ function getSupabaseAdmin(): SupabaseClient {
     );
   }
   return supabaseAdmin;
+}
+
+function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
+  const workerToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const processUrl = new URL('/api/scan-jobs/process', request.url);
+
+  after(async () => {
+    if (!workerToken) {
+      console.error('[scan-jobs] Missing SUPABASE_SERVICE_ROLE_KEY while scheduling process route');
+      return;
+    }
+
+    try {
+      const response = await fetch(processUrl.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${workerToken}`,
+        },
+        body: JSON.stringify({ jobId }),
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        console.error('[scan-jobs] Failed to trigger processing', {
+          jobId,
+          status: response.status,
+          body,
+        });
+        return;
+      }
+
+      console.log('[scan-jobs] Processing triggered', { jobId });
+    } catch (error) {
+      console.error('[scan-jobs] Failed to trigger processing', { jobId, error });
+    }
+  });
 }
 
 const SCAN_JOB_TIMEOUT_MS = 10 * 60 * 1000;
@@ -41,16 +79,19 @@ function isTimedOutJob(job: {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[scan-jobs] Legacy request received');
     const supabase = await createRouteHandlerClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!bearerToken) {
+      console.warn('[scan-jobs] Missing bearer token');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(bearerToken);
     
     if (authError || !user) {
+      console.warn('[scan-jobs] Auth failed', { authError: authError?.message ?? null });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -64,6 +105,10 @@ export async function POST(request: NextRequest) {
     const targetProjectId = (formData.get('targetProjectId') as string | null)?.trim() || null;
 
     if (!image || !projectTitle) {
+      console.warn('[scan-jobs] Missing form-data fields', {
+        hasImage: Boolean(image),
+        hasProjectTitle: Boolean(projectTitle),
+      });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -79,10 +124,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (scanData.requires_pro) {
+      console.warn('[scan-jobs] Pro-required scan mode blocked', {
+        userId: user.id,
+        scanMode,
+      });
       return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
     }
 
     if (!scanData.allowed) {
+      console.warn('[scan-jobs] Scan limit reached', {
+        userId: user.id,
+        currentCount: scanData.current_count,
+        limit: scanData.limit,
+      });
       return NextResponse.json(
         {
           error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。`,
@@ -111,6 +165,10 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (projectError || !project) {
+        console.warn('[scan-jobs] Target project not found', {
+          userId: user.id,
+          targetProjectId,
+        });
         return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
       }
 
@@ -164,16 +222,13 @@ export async function POST(request: NextRequest) {
       console.warn('[scan-jobs] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
 
-    // Trigger background processing (fire and forget)
-    const processUrl = new URL('/api/scan-jobs/process', request.url);
-    fetch(processUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({ jobId: String(job.id) }),
-    }).catch(err => console.error('Failed to trigger processing:', err));
+    scheduleScanJobProcessing(request, String(job.id));
+    console.log('[scan-jobs] Legacy job created', {
+      jobId: String(job.id),
+      userId: user.id,
+      saveMode,
+      targetProjectId: validatedTargetProjectId,
+    });
 
     return NextResponse.json({
       success: true,
@@ -218,6 +273,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Job not found' }, { status: 404 });
       }
 
+      if (job.status === 'pending') {
+        console.log('[scan-jobs] Re-triggering pending job from GET', { jobId: job.id });
+        scheduleScanJobProcessing(request, String(job.id));
+      }
+
       return NextResponse.json({ job });
     }
 
@@ -231,6 +291,17 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 });
+    }
+
+    const pendingJobs = (jobs || []).filter((job) => job.status === 'pending');
+    if (pendingJobs.length > 0) {
+      console.log('[scan-jobs] Re-triggering pending jobs from list GET', {
+        count: pendingJobs.length,
+        jobIds: pendingJobs.map((job) => job.id),
+      });
+      for (const pendingJob of pendingJobs) {
+        scheduleScanJobProcessing(request, String(pendingJob.id));
+      }
     }
 
     const normalizedJobs = (jobs || []) as Array<{

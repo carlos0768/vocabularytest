@@ -4,6 +4,7 @@ struct LoginGateView: View {
     let icon: String
     let title: String
     let message: String
+    var buttonTitle: String = "設定でログイン・登録"
     let onLogin: () -> Void
 
     var body: some View {
@@ -40,11 +41,17 @@ struct LoginGateView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "person.crop.circle.badge.checkmark")
                             .font(.body.weight(.medium))
-                        Text("ログインする")
+                        Text(buttonTitle)
                     }
                 }
                 .buttonStyle(PrimaryGlassButton())
                 .padding(.horizontal, 48)
+
+                Text("ログインと新規登録は設定画面にまとめています。")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
 
                 Spacer()
             }

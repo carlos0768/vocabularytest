@@ -264,12 +264,26 @@ struct QuizView: View {
                     } label: {
                         HStack {
                             Text("次へ")
-                                .font(.headline)
+                                .font(.system(size: 19, weight: .semibold, design: .serif))
                             Image(systemName: "chevron.right")
-                                .font(.headline)
+                                .font(.system(size: 19, weight: .semibold, design: .serif))
                         }
                     }
-                    .buttonStyle(PrimaryGlassButton())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 19)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        MerkenTheme.accentBlue,
+                        in: .rect(cornerRadius: 20)
+                    )
+                    .overlay(alignment: .bottom) {
+                        UnevenRoundedRectangle(bottomLeadingRadius: 20, bottomTrailingRadius: 20)
+                            .fill(MerkenTheme.accentBlueStrong)
+                            .frame(height: 3)
+                    }
+                    .clipShape(.rect(cornerRadius: 20))
+                    .contentShape(.rect(cornerRadius: 20))
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                     .accessibilityIdentifier("nextQuestionAction")
@@ -365,42 +379,292 @@ struct QuizView: View {
 
     // MARK: - Result
 
-    private var resultView: some View {
-        VStack(spacing: 16) {
-            SolidCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("完了")
-                        .font(.title2.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("\(viewModel.correctCount) / \(viewModel.questions.count) 正解")
-                        .font(.title3)
-                        .foregroundStyle(MerkenTheme.success)
-                        .accessibilityIdentifier("quizResultScore")
-                }
-            }
+    private var resultAccuracy: Double {
+        guard !viewModel.questions.isEmpty else { return 0 }
+        return Double(viewModel.correctCount) / Double(viewModel.questions.count)
+    }
 
-            Button {
-                Task {
-                    await viewModel.restart(projectId: project.id, using: appState)
-                }
-            } label: {
-                Text("もう一度")
-            }
-            .buttonStyle(PrimaryGlassButton())
-            .accessibilityIdentifier("restartQuizAction")
+    private var resultPercentage: Int {
+        Int(round(resultAccuracy * 100))
+    }
 
-            Button {
-                dismiss()
-            } label: {
-                Text("終了する")
-            }
-            .buttonStyle(GhostGlassButton())
+    private var incorrectCount: Int {
+        max(viewModel.questions.count - viewModel.correctCount, 0)
+    }
+
+    private var isReviewSession: Bool {
+        skipSetup || preloadedWords != nil
+    }
+
+    private var resultHeading: String {
+        isReviewSession ? "復習完了" : "クイズ完了"
+    }
+
+    private var resultAccentColor: Color {
+        if resultAccuracy >= 1 {
+            return MerkenTheme.success
         }
-        .padding(16)
+        if resultAccuracy >= 0.8 {
+            return MerkenTheme.accentBlue
+        }
+        if resultAccuracy >= 0.6 {
+            return MerkenTheme.warning
+        }
+        return MerkenTheme.danger
+    }
+
+    private var resultStatusLabel: String {
+        if resultAccuracy >= 1 {
+            return "全問正解です。このまま次の復習へ進めます。"
+        }
+        if resultAccuracy >= 0.8 {
+            return "かなり定着しています。もう一度回すとさらに安定します。"
+        }
+        if resultAccuracy >= 0.6 {
+            return "仕上がりは半歩手前です。間違えた語を見直しましょう。"
+        }
+        return "まだ揺れています。今のうちにもう一度回すのが効きます。"
+    }
+
+    private var resultPrimaryActionLabel: String {
+        isReviewSession ? "もう一度復習する" : "もう一度挑戦する"
+    }
+
+    private func completionMessage(percentage: Int) -> String {
+        if percentage == 100 {
+            return "パーフェクトです。次の復習までこの感覚を保てます。"
+        } else if percentage >= 80 {
+            return "かなり良い仕上がりです。このままもう一周で定着します。"
+        } else if percentage >= 60 {
+            return "あと少しです。間違えた語だけ見直すと伸びます。"
+        } else {
+            return "今が復習のしどころです。続けて回すと取り戻せます。"
+        }
+    }
+
+    private var resultMetricColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 10),
+            GridItem(.flexible(), spacing: 10)
+        ]
+    }
+
+    private var resultView: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                resultHeroCard
+                resultBreakdownCard
+
+                if let errorMessage = viewModel.errorMessage {
+                    SolidCard {
+                        Text(errorMessage)
+                            .font(.subheadline)
+                            .foregroundStyle(MerkenTheme.warning)
+                    }
+                }
+
+                VStack(spacing: 10) {
+                    Button {
+                        Task {
+                            await viewModel.restart(projectId: project.id, using: appState)
+                        }
+                    } label: {
+                        Text(resultPrimaryActionLabel)
+                    }
+                    .buttonStyle(PrimaryGlassButton())
+                    .accessibilityIdentifier("restartQuizAction")
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("終了する")
+                    }
+                    .buttonStyle(GhostGlassButton())
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             if viewModel.correctCount == viewModel.questions.count && !viewModel.questions.isEmpty {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         }
+    }
+
+    private var resultHeroCard: some View {
+        SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 14) {
+                    resultProgressRing
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(resultHeading)
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(viewModel.correctCount)")
+                                .font(.system(size: 32, weight: .bold))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .foregroundStyle(resultAccentColor)
+
+                            Text("/ \(viewModel.questions.count) 正解")
+                                .font(.system(size: 16, weight: .medium))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                                .foregroundStyle(MerkenTheme.primaryText)
+                        }
+                        .accessibilityIdentifier("quizResultScore")
+
+                        Text(resultStatusLabel)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                Text(completionMessage(percentage: resultPercentage))
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                HStack(spacing: 10) {
+                    resultHighlightPill(
+                        icon: "square.grid.2x2.fill",
+                        tint: MerkenTheme.accentBlue,
+                        label: "出題 \(viewModel.questions.count)問"
+                    )
+
+                    resultHighlightPill(
+                        icon: incorrectCount == 0 ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill",
+                        tint: incorrectCount == 0 ? MerkenTheme.success : MerkenTheme.warning,
+                        label: incorrectCount == 0 ? "見直し不要" : "見直し \(incorrectCount)問"
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 22)
+            .frame(minHeight: 188)
+        }
+    }
+
+    private var resultBreakdownCard: some View {
+        SolidCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("今回の記録")
+                    .font(.headline)
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                LazyVGrid(columns: resultMetricColumns, spacing: 10) {
+                    resultMetricTile(
+                        icon: "checkmark.circle.fill",
+                        tint: MerkenTheme.success,
+                        value: "\(viewModel.correctCount)",
+                        label: "正解"
+                    )
+                    resultMetricTile(
+                        icon: "xmark.circle.fill",
+                        tint: MerkenTheme.danger,
+                        value: "\(incorrectCount)",
+                        label: "不正解"
+                    )
+                    resultMetricTile(
+                        icon: "square.grid.2x2.fill",
+                        tint: MerkenTheme.accentBlue,
+                        value: "\(viewModel.questions.count)",
+                        label: "出題数"
+                    )
+                    resultMetricTile(
+                        icon: "percent",
+                        tint: resultAccentColor,
+                        value: "\(resultPercentage)%",
+                        label: "正答率"
+                    )
+                }
+            }
+        }
+    }
+
+    private var resultProgressRing: some View {
+        ZStack {
+            Circle()
+                .stroke(MerkenTheme.borderLight, lineWidth: 6)
+
+            Circle()
+                .trim(from: 0, to: max(0, min(resultAccuracy, 1)))
+                .stroke(
+                    resultAccentColor,
+                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 1) {
+                Text("\(resultPercentage)%")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .monospacedDigit()
+                Text("正答率")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+        }
+        .frame(width: 84, height: 84)
+    }
+
+    private func resultMetricTile(icon: String, tint: Color, value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(tint.opacity(0.12), in: .circle)
+                Spacer(minLength: 0)
+            }
+
+            Text(value)
+                .font(.system(size: 22, weight: .bold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .foregroundStyle(MerkenTheme.primaryText)
+
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(MerkenTheme.secondaryText)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MerkenTheme.surfaceAlt, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(MerkenTheme.border.opacity(0.7), lineWidth: 1)
+        )
+    }
+
+    private func resultHighlightPill(icon: String, tint: Color, label: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(MerkenTheme.surfaceAlt, in: .capsule)
+        .overlay(
+            Capsule()
+                .stroke(MerkenTheme.border.opacity(0.7), lineWidth: 1)
+        )
     }
 }

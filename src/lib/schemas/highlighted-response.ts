@@ -33,6 +33,7 @@ export const HighlightedWordSchema = z.object({
   english: z.string(),
   japanese: z.string(),
   distractors: z.array(z.string()).default([]),
+  partOfSpeechTags: z.array(z.string()).default([]),
 
   // Example sentences (Pro feature)
   exampleSentence: z.string().optional().nullable(),
@@ -107,6 +108,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
     english: string;
     japanese: string;
     distractors: string[];
+    partOfSpeechTags: string[];
     exampleSentence: string | undefined;
     exampleSentenceJa: string | undefined;
   }>;
@@ -120,6 +122,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
         word.distractors[1] || '選択肢2',
         word.distractors[2] || '選択肢3',
       ],
+      partOfSpeechTags: word.partOfSpeechTags ?? [],
       exampleSentence: word.exampleSentence ?? undefined,
       exampleSentenceJa: word.exampleSentenceJa ?? undefined,
     })),

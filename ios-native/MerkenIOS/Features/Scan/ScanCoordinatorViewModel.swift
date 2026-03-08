@@ -130,11 +130,28 @@ final class ScanCoordinatorViewModel: ObservableObject {
     let targetProjectId: String?
     let targetProjectTitle: String?
 
-    init(targetProjectId: String? = nil, targetProjectTitle: String? = nil) {
+    init(
+        targetProjectId: String? = nil,
+        targetProjectTitle: String? = nil,
+        preselectedMode: ScanMode? = nil,
+        preselectedEikenLevel: EikenLevel? = nil,
+        preselectedSource: ScanSource? = nil
+    ) {
         self.targetProjectId = targetProjectId
         self.targetProjectTitle = targetProjectTitle
         if targetProjectTitle != nil {
             self.projectTitle = targetProjectTitle!
+        }
+        if let mode = preselectedMode, let source = preselectedSource {
+            self.selectedMode = mode
+            self.selectedEikenLevel = preselectedEikenLevel
+            self.selectedSource = source
+            switch source {
+            case .camera:
+                self.currentStep = .camera
+            case .photoLibrary:
+                self.currentStep = .photoLibrary
+            }
         }
     }
 
@@ -316,6 +333,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
             let uploadedPaths: [String]
             do {
+                logger.info("Starting scan image upload: count=\(uploadPayloads.count, privacy: .public)")
                 for index in uploadIndexMap {
                     updateProgress(
                         at: index,
@@ -331,6 +349,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                         bearerToken: token
                     )
                 }
+                logger.info("Scan image upload finished: count=\(uploadedPaths.count, privacy: .public)")
 
                 for index in uploadIndexMap {
                     updateProgress(
@@ -368,11 +387,14 @@ final class ScanCoordinatorViewModel: ObservableObject {
             projectTitle = resolvedProjectTitle
 
             do {
+                logger.info(
+                    "Creating scan job: title=\(resolvedProjectTitle, privacy: .public), imageCount=\(uploadedPaths.count, privacy: .public), mode=\(self.selectedMode.rawValue, privacy: .public)"
+                )
                 let response = try await callWebAPIWithAuthRetry { token in
                     try await appState.webAPIClient.createScanJob(
                         imagePaths: uploadedPaths,
                         projectTitle: resolvedProjectTitle,
-                        projectIcon: nil,
+                        projectIcon: self.projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) },
                         scanMode: self.selectedMode,
                         eikenLevel: self.selectedEikenLevel,
                         targetProjectId: self.targetProjectId,
@@ -381,6 +403,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                         bearerToken: token
                     )
                 }
+                logger.info("Scan job created successfully: jobId=\(response.jobId, privacy: .public), saveMode=\(response.saveMode.rawValue, privacy: .public)")
 
                 let summary = Self.makeProcessingSummary(
                     from: processingPages,
@@ -405,6 +428,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 shouldAutoSaveAfterProcessingDismiss = false
                 endBackgroundTask()
             } catch {
+                logger.error("Scan job creation failed: \(error.localizedDescription, privacy: .public)")
                 do {
                     let cleanupToken = try await appState.accessTokenForWebAPI(forceRefresh: false)
                     await appState.webAPIClient.removeScanImages(paths: uploadedPaths, bearerToken: cleanupToken)
@@ -467,6 +491,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     english: existing.english,
                     japanese: existing.japanese,
                     distractors: mergeDistractors(existing: existing.distractors, incoming: source.distractors),
+                    partOfSpeechTags: mergePartOfSpeechTags(existing: existing.partOfSpeechTags, incoming: source.partOfSpeechTags),
                     exampleSentence: mergeFirstNonEmpty(existing.exampleSentence, source.exampleSentence),
                     exampleSentenceJa: mergeFirstNonEmpty(existing.exampleSentenceJa, source.exampleSentenceJa)
                 )
@@ -479,6 +504,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 english: normalizedEnglish,
                 japanese: normalizedJapanese,
                 distractors: mergeDistractors(existing: [], incoming: source.distractors),
+                partOfSpeechTags: mergePartOfSpeechTags(existing: nil, incoming: source.partOfSpeechTags),
                 exampleSentence: firstNonEmpty(source.exampleSentence),
                 exampleSentenceJa: firstNonEmpty(source.exampleSentenceJa)
             )
@@ -558,6 +584,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
             .filter {
                 !$0.english.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !$0.japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && (
+                    !Self.hasValidDistractors($0.distractors)
+                    || ($0.exampleSentence?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false)
+                    || !Self.hasPartOfSpeechTags($0.partOfSpeechTags)
+                )
             }
             .map {
                 QuizPrefillWordInput(id: $0.id, english: $0.english, japanese: $0.japanese)
@@ -604,6 +635,9 @@ final class ScanCoordinatorViewModel: ObservableObject {
             guard let generated = resultMap[word.id] else { continue }
 
             var patch = WordPatch(distractors: generated.distractors)
+            if let partOfSpeechTags = generated.partOfSpeechTags, !partOfSpeechTags.isEmpty {
+                patch.partOfSpeechTags = .some(partOfSpeechTags)
+            }
             let trimmedExample = generated.exampleSentence?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !trimmedExample.isEmpty {
                 let trimmedExampleJa = generated.exampleSentenceJa?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -622,6 +656,9 @@ final class ScanCoordinatorViewModel: ObservableObject {
             guard let generated = resultMap[word.id] else { return word }
             var updated = word
             updated.distractors = generated.distractors
+            if let partOfSpeechTags = generated.partOfSpeechTags, !partOfSpeechTags.isEmpty {
+                updated.partOfSpeechTags = partOfSpeechTags
+            }
             let trimmedExample = generated.exampleSentence?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !trimmedExample.isEmpty {
                 updated.exampleSentence = trimmedExample
@@ -766,7 +803,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
     }
 
     private var compressionProfile: ImageCompressor.Profile {
-        selectedMode == .highlighted ? .highlighted : .default
+        switch selectedMode {
+        case .circled, .highlighted, .wrong:
+            return .highlighted
+        case .all, .eiken, .idiom:
+            return .default
+        }
     }
 
     private func preparePayload(for image: UIImage) async -> (data: Data, byteCount: Int)? {
@@ -819,6 +861,37 @@ final class ScanCoordinatorViewModel: ObservableObject {
         return firstNonEmpty(incoming)
     }
 
+    private static func mergePartOfSpeechTags(existing: [String]?, incoming: [String]?) -> [String]? {
+        var merged: [String] = []
+        var seen: Set<String> = []
+
+        for candidate in (existing ?? []) + (incoming ?? []) {
+            let normalized = normalizeText(candidate)
+            guard !normalized.isEmpty else { continue }
+            let token = normalized.lowercased()
+            guard seen.insert(token).inserted else { continue }
+            merged.append(normalized)
+            if merged.count == 3 {
+                break
+            }
+        }
+
+        return merged.isEmpty ? nil : merged
+    }
+
+    private static func hasPartOfSpeechTags(_ tags: [String]?) -> Bool {
+        guard let tags else { return false }
+        return tags.contains { !normalizeText($0).isEmpty }
+    }
+
+    private static func hasValidDistractors(_ distractors: [String]) -> Bool {
+        let normalized = distractors
+            .map { normalizeText($0) }
+            .filter { !$0.isEmpty }
+        if normalized.count < 3 { return false }
+        return !(normalized.count == 3 && normalized.first == "選択肢1")
+    }
+
     private static func firstNonEmpty(_ value: String?) -> String? {
         let normalized = normalizeText(value ?? "")
         return normalized.isEmpty ? nil : normalized
@@ -857,9 +930,13 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
             let projectId: String
             let projectDisplayTitle: String
+            let thumbnailBase64 = projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) }
 
             if let existingId = targetProjectId {
                 try await ensureProjectOwnership(projectId: existingId, appState: appState)
+                if let thumbnailBase64, !thumbnailBase64.isEmpty {
+                    try await appState.activeRepository.updateProjectIcon(id: existingId, iconImage: thumbnailBase64)
+                }
                 projectId = existingId
                 projectDisplayTitle = targetProjectTitle ?? "単語帳"
             } else {
@@ -873,7 +950,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     return
                 }
 
-                let thumbnailBase64 = projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) }
                 let project = try await appState.activeRepository.createProject(
                     title: trimmedTitle,
                     userId: appState.activeUserId,
@@ -891,7 +967,8 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     distractors: word.distractors,
                     exampleSentence: word.exampleSentence,
                     exampleSentenceJa: word.exampleSentenceJa,
-                    pronunciation: nil
+                    pronunciation: nil,
+                    partOfSpeechTags: word.partOfSpeechTags
                 )
             }
 

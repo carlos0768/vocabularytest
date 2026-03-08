@@ -99,11 +99,12 @@ struct ExtractedWord: Decodable, Identifiable, Sendable {
     let english: String
     let japanese: String
     let distractors: [String]
+    let partOfSpeechTags: [String]?
     let exampleSentence: String?
     let exampleSentenceJa: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, english, japanese, distractors, exampleSentence, exampleSentenceJa
+        case id, english, japanese, distractors, partOfSpeechTags, exampleSentence, exampleSentenceJa
     }
 
     init(from decoder: Decoder) throws {
@@ -112,6 +113,7 @@ struct ExtractedWord: Decodable, Identifiable, Sendable {
         self.english = try container.decode(String.self, forKey: .english)
         self.japanese = try container.decode(String.self, forKey: .japanese)
         self.distractors = (try? container.decode([String].self, forKey: .distractors)) ?? []
+        self.partOfSpeechTags = try? container.decodeIfPresent([String].self, forKey: .partOfSpeechTags)
         self.exampleSentence = try? container.decodeIfPresent(String.self, forKey: .exampleSentence)
         self.exampleSentenceJa = try? container.decodeIfPresent(String.self, forKey: .exampleSentenceJa)
     }
@@ -121,6 +123,7 @@ struct ExtractedWord: Decodable, Identifiable, Sendable {
         english: String,
         japanese: String,
         distractors: [String],
+        partOfSpeechTags: [String]? = nil,
         exampleSentence: String? = nil,
         exampleSentenceJa: String? = nil
     ) {
@@ -128,6 +131,7 @@ struct ExtractedWord: Decodable, Identifiable, Sendable {
         self.english = english
         self.japanese = japanese
         self.distractors = distractors
+        self.partOfSpeechTags = partOfSpeechTags
         self.exampleSentence = exampleSentence
         self.exampleSentenceJa = exampleSentenceJa
     }
@@ -140,6 +144,7 @@ struct EditableExtractedWord: Identifiable {
     var english: String
     var japanese: String
     var distractors: [String]
+    var partOfSpeechTags: [String]?
     var exampleSentence: String?
     var exampleSentenceJa: String?
 
@@ -148,6 +153,7 @@ struct EditableExtractedWord: Identifiable {
         self.english = extracted.english
         self.japanese = extracted.japanese
         self.distractors = extracted.distractors
+        self.partOfSpeechTags = extracted.partOfSpeechTags
         self.exampleSentence = extracted.exampleSentence
         self.exampleSentenceJa = extracted.exampleSentenceJa
     }
@@ -157,6 +163,7 @@ struct EditableExtractedWord: Identifiable {
         english: String,
         japanese: String,
         distractors: [String] = [],
+        partOfSpeechTags: [String]? = nil,
         exampleSentence: String? = nil,
         exampleSentenceJa: String? = nil
     ) {
@@ -164,6 +171,7 @@ struct EditableExtractedWord: Identifiable {
         self.english = english
         self.japanese = japanese
         self.distractors = distractors
+        self.partOfSpeechTags = partOfSpeechTags
         self.exampleSentence = exampleSentence
         self.exampleSentenceJa = exampleSentenceJa
     }

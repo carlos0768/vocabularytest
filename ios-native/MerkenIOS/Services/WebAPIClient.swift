@@ -49,6 +49,7 @@ struct QuizPrefillWordInput: Encodable, Sendable {
 struct QuizPrefillResult: Decodable, Sendable {
     let wordId: String
     let distractors: [String]
+    let partOfSpeechTags: [String]?
     let exampleSentence: String?
     let exampleSentenceJa: String?
 }
@@ -420,6 +421,7 @@ actor WebAPIClient {
         body: Body
     ) async throws -> (data: Data, http: HTTPURLResponse) {
         let url = try makeWebAPIURL(path: path)
+        logger.info("Web API request started: method=POST url=\(url.absoluteString, privacy: .public)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -442,6 +444,8 @@ actor WebAPIClient {
             throw WebAPIError.serverError("不明な通信エラー")
         }
 
+        logger.info("Web API response received: method=POST url=\(url.absoluteString, privacy: .public) status=\(http.statusCode, privacy: .public)")
+
         return (data, http)
     }
 
@@ -453,6 +457,7 @@ actor WebAPIClient {
         body: Data? = nil
     ) async throws -> (data: Data, http: HTTPURLResponse) {
         let url = try makeWebAPIURL(path: path)
+        logger.info("Web API request started: method=\(method, privacy: .public) url=\(url.absoluteString, privacy: .public)")
 
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -476,6 +481,8 @@ actor WebAPIClient {
         guard let http = response as? HTTPURLResponse else {
             throw WebAPIError.serverError("不明な通信エラー")
         }
+
+        logger.info("Web API response received: method=\(method, privacy: .public) url=\(url.absoluteString, privacy: .public) status=\(http.statusCode, privacy: .public)")
 
         return (data, http)
     }
@@ -1290,6 +1297,7 @@ actor WebAPIClient {
 
     func fetchScanJobs(bearerToken: String) async throws -> [ScanJobDTO] {
         let url = try makeWebAPIURL(path: "api/scan-jobs")
+        logger.info("Web API request started: method=GET url=\(url.absoluteString, privacy: .public)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -1310,6 +1318,8 @@ actor WebAPIClient {
             throw WebAPIError.serverError("不明な通信エラー")
         }
 
+        logger.info("Web API response received: method=GET url=\(url.absoluteString, privacy: .public) status=\(http.statusCode, privacy: .public)")
+
         switch http.statusCode {
         case 200 ... 299:
             break
@@ -1323,6 +1333,8 @@ actor WebAPIClient {
 
         do {
             let decoded = try makeScanJobsDecoder().decode(ScanJobsResponse.self, from: data)
+            let statusSummary = decoded.jobs.map { "\($0.id):\($0.status.rawValue)" }.joined(separator: ",")
+            logger.info("Fetched scan jobs: \(statusSummary, privacy: .public)")
             return decoded.jobs
         } catch {
             logger.error("Scan jobs decode failed: \(error.localizedDescription)")

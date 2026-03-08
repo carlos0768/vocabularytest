@@ -7,17 +7,34 @@ struct ScanCoordinatorView: View {
     @State private var thumbnailImage: UIImage?
 
     let onComplete: ((String) -> Void)?
+    let onDismissRequest: (() -> Void)?
 
     init(
         targetProjectId: String? = nil,
         targetProjectTitle: String? = nil,
-        onComplete: ((String) -> Void)? = nil
+        preselectedMode: ScanMode? = nil,
+        preselectedEikenLevel: EikenLevel? = nil,
+        preselectedSource: ScanSource? = nil,
+        onComplete: ((String) -> Void)? = nil,
+        onDismissRequest: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: ScanCoordinatorViewModel(
             targetProjectId: targetProjectId,
-            targetProjectTitle: targetProjectTitle
+            targetProjectTitle: targetProjectTitle,
+            preselectedMode: preselectedMode,
+            preselectedEikenLevel: preselectedEikenLevel,
+            preselectedSource: preselectedSource
         ))
         self.onComplete = onComplete
+        self.onDismissRequest = onDismissRequest
+    }
+
+    private func closeScanFlow() {
+        if let onDismissRequest {
+            onDismissRequest()
+        } else {
+            dismiss()
+        }
     }
 
     private var showCamera: Binding<Bool> {
@@ -71,13 +88,13 @@ struct ScanCoordinatorView: View {
     private var scanContent: some View {
         switch viewModel.currentStep {
         case .modeSelection, .camera, .photoLibrary:
-            ScanModeSheet(
-                isPro: appState.subscription?.isActivePro ?? false,
-                onSelect: { mode, eikenLevel, source in
-                    viewModel.selectMode(mode, eikenLevel: eikenLevel, source: source)
-                },
-                onCancel: { dismiss() }
-            )
+                ScanModeSheet(
+                    isPro: appState.subscription?.isActivePro ?? false,
+                    onSelect: { mode, eikenLevel, source in
+                        viewModel.selectMode(mode, eikenLevel: eikenLevel, source: source)
+                    },
+                    onCancel: { closeScanFlow() }
+                )
 
         case .preview, .projectSetup:
             if viewModel.shouldAutoProcessOnSetup {
@@ -124,7 +141,7 @@ struct ScanCoordinatorView: View {
                 freeWordLimit: ScanCoordinatorViewModel.freeWordLimit,
                 processingSummary: viewModel.processingSummary,
                 onSave: { viewModel.saveWords(using: appState) },
-                onCancel: { dismiss() }
+                onCancel: { closeScanFlow() }
             )
 
         case .saving:
@@ -140,41 +157,34 @@ struct ScanCoordinatorView: View {
 
     private var loginRequiredView: some View {
         ZStack {
-            AppBackground()
-            VStack(spacing: 20) {
-                Image(systemName: "person.crop.circle.badge.exclamationmark")
-                    .font(.system(size: 56))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-
-                Text("ログインが必要です")
-                    .font(.title3.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
-
-                Text("スキャン機能を利用するには\nアカウントにログインしてください。")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-
-                Button {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        appState.selectedTab = 4
-                    }
-                } label: {
-                    Label("設定画面へ", systemImage: "gearshape")
-                        .frame(maxWidth: 200)
+            LoginGateView(
+                icon: "person.crop.circle.badge.exclamationmark",
+                title: "ログインが必要です",
+                message: "スキャン機能を利用するには、アカウントにログインしてください。"
+            ) {
+                closeScanFlow()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    appState.selectedTab = 4
                 }
-                .buttonStyle(PrimaryGlassButton())
-
-                Button {
-                    dismiss()
-                } label: {
-                    Text("閉じる")
-                        .frame(maxWidth: 200)
-                }
-                .buttonStyle(GhostGlassButton())
             }
-            .padding(.horizontal, 20)
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    closeScanFlow()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(MerkenTheme.surface, in: Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(MerkenTheme.border, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 16)
+                .padding(.trailing, 16)
+            }
         }
     }
 
@@ -205,7 +215,7 @@ struct ScanCoordinatorView: View {
                 }
 
                 Button {
-                    dismiss()
+                    closeScanFlow()
                 } label: {
                     Label("閉じる", systemImage: "checkmark")
                         .frame(maxWidth: 220)
@@ -249,7 +259,7 @@ struct ScanCoordinatorView: View {
 
                 Button {
                     onComplete?(projectId)
-                    dismiss()
+                    closeScanFlow()
                 } label: {
                     Label("閉じる", systemImage: "checkmark")
                         .frame(maxWidth: 200)
@@ -287,7 +297,7 @@ struct ScanCoordinatorView: View {
                     .buttonStyle(PrimaryGlassButton())
 
                     Button {
-                        dismiss()
+                        closeScanFlow()
                     } label: {
                         Text("閉じる")
                             .frame(maxWidth: 200)

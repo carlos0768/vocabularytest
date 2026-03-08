@@ -11,7 +11,6 @@ struct FlashcardCardView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var exitOffset: CGFloat = 0
     @State private var exitOpacity: Double = 1
-    @State private var showBackContent = false
     @State private var cardAppearScale: CGFloat = 0.85
     @State private var cardAppearOpacity: Double = 0
 
@@ -87,17 +86,6 @@ struct FlashcardCardView: View {
             dragOffset = 0
             exitOffset = 0
             exitOpacity = 1
-            showBackContent = false
-        }
-        .onChange(of: isFlipped) {
-            if isFlipped {
-                // Trigger staggered reveal after flip starts
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    showBackContent = true
-                }
-            } else {
-                showBackContent = false
-            }
         }
     }
 
@@ -197,7 +185,7 @@ struct FlashcardCardView: View {
                                 .font(.title.bold())
                                 .foregroundStyle(.white)
                                 .multilineTextAlignment(.center)
-                                .staggerIn(index: 0, isVisible: showBackContent)
+                                .staggerIn(index: 0, isVisible: true)
 
                             VStack(spacing: 4) {
                                 Text(word.english)
@@ -210,12 +198,12 @@ struct FlashcardCardView: View {
                                         .foregroundStyle(.white.opacity(0.4))
                                 }
                             }
-                            .staggerIn(index: 1, isVisible: showBackContent)
+                            .staggerIn(index: 1, isVisible: true)
                         }
 
                         // Supplemental info below
                         dividerLine
-                            .staggerIn(index: 1, isVisible: showBackContent)
+                            .staggerIn(index: 1, isVisible: true)
 
                     // Example sentence
                     if let example = word.exampleSentence, !example.isEmpty {
@@ -278,7 +266,7 @@ struct FlashcardCardView: View {
                     // Learning stats
                     if word.lastReviewedAt != nil || word.repetition > 0 {
                         learningStats
-                            .staggerIn(index: 5, isVisible: showBackContent)
+                            .staggerIn(index: 5, isVisible: true)
                     }
 
                     Spacer(minLength: 8)
@@ -299,22 +287,22 @@ struct FlashcardCardView: View {
                         .font(.largeTitle.bold())
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
-                        .staggerIn(index: 0, isVisible: showBackContent)
+                        .staggerIn(index: 0, isVisible: true)
 
                     if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
                         Text(pronunciation)
                             .font(.system(.callout, design: .monospaced))
                             .foregroundStyle(.white.opacity(0.6))
-                            .staggerIn(index: 1, isVisible: showBackContent)
+                            .staggerIn(index: 1, isVisible: true)
                     }
 
                     Text(word.japanese)
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.5))
-                        .staggerIn(index: 1, isVisible: showBackContent)
+                        .staggerIn(index: 1, isVisible: true)
 
                     dividerLine
-                        .staggerIn(index: 1, isVisible: showBackContent)
+                        .staggerIn(index: 1, isVisible: true)
 
                     // Same rich content as japanese back
                     if let example = word.exampleSentence, !example.isEmpty {
@@ -374,7 +362,7 @@ struct FlashcardCardView: View {
 
                     if word.lastReviewedAt != nil || word.repetition > 0 {
                         learningStats
-                            .staggerIn(index: 5, isVisible: showBackContent)
+                            .staggerIn(index: 5, isVisible: true)
                     }
 
                     Spacer(minLength: 8)
@@ -432,7 +420,7 @@ struct FlashcardCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .staggerIn(index: index, isVisible: showBackContent)
+        .staggerIn(index: index, isVisible: true)
     }
 
     // MARK: - Card Bases

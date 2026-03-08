@@ -26,6 +26,7 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
 
     private let maxCachedWords = 20_000
     private let recentPrefetchLimit = 10
+    private let refreshRetryLimit = 3
 
     init(
         cloudRepository: CloudWordRepository,
@@ -136,6 +137,41 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         }
 
         return created
+    }
+
+    @discardableResult
+    func refreshSnapshotFromCloud(userId: String) async -> Bool {
+        var refreshedProjects = false
+        var refreshedWords = false
+
+        do {
+            let projects = try await performRetryableRefresh(
+                label: "project snapshot refresh",
+                attempts: refreshRetryLimit
+            ) {
+                try await self.cloudRepository.fetchProjects(userId: userId)
+            }
+            try? await cacheStore.replaceProjects(userId: userId, projects: projects)
+            refreshedProjects = true
+        } catch {
+            logger.warning("Forced project refresh skipped: \(error.localizedDescription, privacy: .public)")
+        }
+
+        do {
+            let words = try await performRetryableRefresh(
+                label: "word snapshot refresh",
+                attempts: refreshRetryLimit
+            ) {
+                try await self.cloudRepository.fetchAllWords(userId: userId)
+            }
+            try? await cacheStore.replaceAllWords(userId: userId, words: words)
+            await enforceWordLimit(userId: userId)
+            refreshedWords = true
+        } catch {
+            logger.warning("Forced all-words refresh skipped: \(error.localizedDescription, privacy: .public)")
+        }
+
+        return refreshedProjects && refreshedWords
     }
 
     func updateWord(id: String, patch: WordPatch) async throws {
@@ -327,5 +363,87 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         Task {
             await forceAuthRefresh()
         }
+    }
+
+    private func performRetryableRefresh<T>(
+        label: String,
+        attempts: Int,
+        operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        precondition(attempts > 0, "attempts must be positive")
+
+        var lastError: Error?
+
+        for attempt in 1...attempts {
+            do {
+                return try await operation()
+            } catch {
+                lastError = error
+
+                let shouldRetry = attempt < attempts && isRetryableNetworkError(error)
+                if !shouldRetry {
+                    throw error
+                }
+
+                let delayNs = UInt64(500_000_000 * attempt)
+                logger.notice(
+                    "\(label, privacy: .public) retry \(attempt, privacy: .public)/\(attempts, privacy: .public) after: \(error.localizedDescription, privacy: .public)"
+                )
+                try? await Task.sleep(nanoseconds: delayNs)
+            }
+        }
+
+        throw lastError ?? RepositoryError.underlying("Retryable refresh failed")
+    }
+
+    private func isRetryableNetworkError(_ error: Error) -> Bool {
+        for candidate in nsErrorChain(from: error) {
+            if candidate.domain == NSURLErrorDomain {
+                let code = URLError.Code(rawValue: candidate.code)
+                switch code {
+                case .networkConnectionLost,
+                     .notConnectedToInternet,
+                     .timedOut,
+                     .cannotFindHost,
+                     .cannotConnectToHost,
+                     .dnsLookupFailed,
+                     .internationalRoamingOff,
+                     .callIsActive,
+                     .dataNotAllowed,
+                     .secureConnectionFailed:
+                    return true
+                default:
+                    break
+                }
+            }
+
+            if candidate.domain == kCFErrorDomainCFNetwork as String {
+                switch candidate.code {
+                case URLError.networkConnectionLost.rawValue,
+                     URLError.notConnectedToInternet.rawValue,
+                     URLError.timedOut.rawValue,
+                     URLError.cannotFindHost.rawValue,
+                     URLError.cannotConnectToHost.rawValue,
+                     URLError.dnsLookupFailed.rawValue:
+                    return true
+                default:
+                    break
+                }
+            }
+        }
+
+        return false
+    }
+
+    private func nsErrorChain(from error: Error) -> [NSError] {
+        var results: [NSError] = []
+        var current: NSError? = error as NSError
+
+        while let candidate = current {
+            results.append(candidate)
+            current = candidate.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+
+        return results
     }
 }

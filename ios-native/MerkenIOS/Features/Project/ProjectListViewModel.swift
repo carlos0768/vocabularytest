@@ -6,6 +6,8 @@ final class ProjectListViewModel: ObservableObject {
     @Published private(set) var projects: [Project] = []
     @Published private(set) var wordCounts: [String: Int] = [:]
     @Published private(set) var masteredCounts: [String: Int] = [:]
+    @Published private(set) var reviewCounts: [String: Int] = [:]
+    @Published private(set) var newCounts: [String: Int] = [:]
     @Published var errorMessage: String?
     @Published private(set) var loading = false
 
@@ -22,14 +24,23 @@ final class ProjectListViewModel: ObservableObject {
             let allWords = try await state.activeRepository.fetchAllWords(userId: state.activeUserId)
             var counts: [String: Int] = [:]
             var mastered: [String: Int] = [:]
+            var review: [String: Int] = [:]
+            var new: [String: Int] = [:]
             for word in allWords {
                 counts[word.projectId, default: 0] += 1
-                if word.status == .mastered {
+                switch word.status {
+                case .mastered:
                     mastered[word.projectId, default: 0] += 1
+                case .review:
+                    review[word.projectId, default: 0] += 1
+                case .new:
+                    new[word.projectId, default: 0] += 1
                 }
             }
             wordCounts = counts
             masteredCounts = mastered
+            reviewCounts = review
+            newCounts = new
 
             errorMessage = nil
         } catch {

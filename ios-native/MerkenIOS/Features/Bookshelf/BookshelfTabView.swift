@@ -4,7 +4,15 @@ struct BookshelfTabView: View {
     @EnvironmentObject private var appState: AppState
 
     var body: some View {
-        if appState.isPro {
+        if !appState.isLoggedIn {
+            LoginGateView(
+                icon: "books.vertical.fill",
+                title: "本棚を使おう",
+                message: "ログインしてProプランにすると、複数の単語帳をまとめて学習できます。"
+            ) {
+                appState.selectedTab = 4
+            }
+        } else if appState.isPro {
             BookshelfListView()
         } else {
             proGateView
@@ -32,10 +40,6 @@ struct BookshelfTabView: View {
 
                 if appState.isLoggedIn {
                     Text("設定画面からProプランにアップグレードしてください。")
-                        .font(.caption)
-                        .foregroundStyle(MerkenTheme.mutedText)
-                } else {
-                    Text("まずログインし、Proプランに登録してください。")
                         .font(.caption)
                         .foregroundStyle(MerkenTheme.mutedText)
                 }
