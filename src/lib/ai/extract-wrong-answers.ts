@@ -7,6 +7,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { AIError, getProviderFromConfig } from './providers';
+import { mergeSourceLabels, normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Type for OCR result - structured test data
 export interface TestQuestion {
@@ -26,6 +27,7 @@ export interface TestOCRData {
   detectedCorrectCount: number;
   detectedWrongCount: number;
   notes: string;
+  sourceLabels?: string[];
 }
 
 // Result type for OCR extraction
@@ -158,7 +160,7 @@ export async function extractTestFromImage(
     }
 
     // Parse JSON response
-    let parsed: TestOCRData;
+    let parsed: TestOCRData & { sourceLabels?: unknown };
     try {
       parsed = JSON.parse(jsonContent);
     } catch {
@@ -176,7 +178,13 @@ export async function extractTestFromImage(
       return { success: false, error: 'テストの問題が見つかりませんでした。単語テストの画像を撮影してください。' };
     }
 
-    return { success: true, data: parsed };
+    return {
+      success: true,
+      data: {
+        ...parsed,
+        sourceLabels: normalizeSourceLabels(parsed.sourceLabels),
+      },
+    };
   } catch (error) {
     console.error('AI OCR error:', error);
 
@@ -213,7 +221,7 @@ export async function analyzeWrongAnswers(
     // All correct - return empty result with success
     return {
       success: true,
-      data: { words: [], sourceLabels: [] },
+      data: { words: [], sourceLabels: testData.sourceLabels ?? [] },
       summary: {
         totalWrong: 0,
         testType: testData.testType,
@@ -255,7 +263,7 @@ export async function analyzeWrongAnswers(
     }
 
     // Parse JSON response
-    let parsed: { words: unknown[]; summary?: WrongAnswerSummary };
+    let parsed: { words: unknown[]; sourceLabels?: unknown[]; summary?: WrongAnswerSummary };
     try {
       parsed = JSON.parse(extractJsonContent(content));
     } catch {
@@ -264,7 +272,10 @@ export async function analyzeWrongAnswers(
     }
 
     // Validate with Zod schema (for words array)
-    const validated = parseAIResponse({ words: parsed.words });
+    const validated = parseAIResponse({
+      words: parsed.words,
+      sourceLabels: mergeSourceLabels(testData.sourceLabels, parsed.sourceLabels),
+    });
 
     if (!validated.success) {
       return {

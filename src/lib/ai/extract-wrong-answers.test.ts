@@ -22,6 +22,7 @@ test('extractWrongAnswersFromImage completes two-step provider flow', async () =
       return {
         success: true,
         content: JSON.stringify({
+          sourceLabels: ['鉄壁'],
           testType: 'english_to_japanese',
           questions: [
             {
@@ -76,5 +77,6 @@ test('extractWrongAnswersFromImage completes two-step provider flow', async () =
     assert.equal(result.summary.testType, 'english_to_japanese');
     assert.equal(result.data.words.length, 1);
     assert.equal(result.data.words[0].english, 'apple');
+    assert.deepEqual(result.data.sourceLabels, ['鉄壁']);
   }
 });

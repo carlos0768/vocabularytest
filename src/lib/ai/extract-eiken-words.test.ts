@@ -44,7 +44,10 @@ test('extractEikenWordsFromImage falls back to single-pass extraction on invalid
     if (generateCalls === 1) {
       return {
         success: true,
-        content: 'Extracted OCR text from image',
+        content: JSON.stringify({
+          sourceLabels: ['鉄壁'],
+          text: 'Extracted OCR text from image',
+        }),
       };
     }
 
@@ -91,6 +94,55 @@ test('extractEikenWordsFromImage falls back to single-pass extraction on invalid
   if (result.success) {
     assert.equal(result.extractedText, 'Extracted OCR text from image');
     assert.equal(result.data.words.length, 1);
+    assert.equal(result.data.words[0].english, 'abandon');
+    assert.deepEqual(result.data.sourceLabels, ['鉄壁', 'ノート']);
+  }
+});
+
+test('extractEikenWordsFromImage preserves source labels from Gemini OCR on success path', async () => {
+  let generateCalls = 0;
+
+  const provider = createProvider(async () => {
+    generateCalls += 1;
+
+    if (generateCalls === 1) {
+      return {
+        success: true,
+        content: JSON.stringify({
+          sourceLabels: ['LEAP'],
+          text: 'abandon 放棄する',
+        }),
+      };
+    }
+
+    return {
+      success: true,
+      content: JSON.stringify({
+        words: [
+          {
+            english: 'abandon',
+            japanese: '放棄する',
+          },
+        ],
+      }),
+    };
+  });
+
+  const result = await extractEikenWordsFromImage(
+    'data:image/png;base64,ZmFrZQ==',
+    { gemini: 'test-key' },
+    '3',
+    {
+      getProviderFromConfig: () => provider,
+    }
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(generateCalls, 2);
+
+  if (result.success) {
+    assert.equal(result.extractedText, 'abandon 放棄する');
+    assert.deepEqual(result.data.sourceLabels, ['LEAP']);
     assert.equal(result.data.words[0].english, 'abandon');
   }
 });

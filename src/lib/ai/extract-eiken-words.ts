@@ -10,10 +10,11 @@ import { AI_CONFIG } from './config';
 import { AIError, getProviderFromConfig } from './providers';
 import { extractWordsFromImage as extractWordsFromImageBase } from './extract-words';
 import type { EikenLevel } from '@/app/api/extract/route';
+import { mergeSourceLabels, normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Result type for OCR extraction
 export type EikenOCRResult =
-  | { success: true; text: string }
+  | { success: true; text: string; sourceLabels: string[] }
   | { success: false; error: string };
 
 // Result type for word analysis
@@ -53,6 +54,33 @@ function extractJsonContent(content: string): string {
   }
 
   return content;
+}
+
+function parseEikenOCRContent(content: string): { text: string; sourceLabels: string[] } {
+  const trimmed = content.trim();
+  const jsonContent = extractJsonContent(trimmed);
+
+  try {
+    const parsed = JSON.parse(jsonContent) as {
+      text?: unknown;
+      sourceLabels?: Iterable<unknown> | null;
+    };
+    const text = typeof parsed.text === 'string' ? parsed.text.trim() : '';
+
+    if (text) {
+      return {
+        text,
+        sourceLabels: normalizeSourceLabels(parsed.sourceLabels),
+      };
+    }
+  } catch {
+    // Legacy plain-text OCR responses are still accepted as a fallback.
+  }
+
+  return {
+    text: trimmed,
+    sourceLabels: [],
+  };
 }
 
 /**
@@ -116,13 +144,18 @@ export async function extractTextForEiken(
       return { success: false, error: result.error };
     }
 
-    const text = result.content?.trim();
+    const rawContent = result.content?.trim();
 
-    if (!text) {
+    if (!rawContent) {
       return { success: false, error: '画像からテキストを読み取れませんでした' };
     }
 
-    return { success: true, text };
+    const parsed = parseEikenOCRContent(rawContent);
+    if (!parsed.text) {
+      return { success: false, error: '画像からテキストを読み取れませんでした' };
+    }
+
+    return { success: true, text: parsed.text, sourceLabels: parsed.sourceLabels };
   } catch (error) {
     console.error('AI OCR error:', error);
 
@@ -294,7 +327,13 @@ export async function extractEikenWordsFromImage(
         return {
           success: true,
           extractedText: ocrResult.text,
-          data: fallbackResult.data,
+          data: {
+            ...fallbackResult.data,
+            sourceLabels: mergeSourceLabels(
+              ocrResult.sourceLabels,
+              fallbackResult.data.sourceLabels
+            ),
+          },
         };
       }
 
@@ -309,6 +348,9 @@ export async function extractEikenWordsFromImage(
   return {
     success: true,
     extractedText: ocrResult.text,
-    data: analysisResult.data,
+    data: {
+      ...analysisResult.data,
+      sourceLabels: mergeSourceLabels(ocrResult.sourceLabels, analysisResult.data.sourceLabels),
+    },
   };
 }
