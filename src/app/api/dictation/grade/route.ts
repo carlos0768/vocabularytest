@@ -10,7 +10,7 @@ import {
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
 
-const DEFAULT_PRIMARY_MODEL = 'gpt-4o-mini';
+const DEFAULT_PRIMARY_MODEL = 'gpt-4o';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o';
 
 // Lazy initialization to avoid build-time errors

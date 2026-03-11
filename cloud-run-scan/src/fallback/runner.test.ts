@@ -5,7 +5,7 @@ import { GeminiFallbackRunner } from './runner.js';
 import type { FallbackConfig } from './types.js';
 
 const baseConfig: FallbackConfig = {
-  fallbackOpenAIModel: 'gpt-4o-mini',
+  fallbackOpenAIModel: 'gpt-4o',
   fallbackCallsDailyCap: 1000,
   fallbackCostDailyCapYen: 3000,
   fallbackEstimatedYenPerCall: 3,
@@ -41,7 +41,7 @@ test('QUOTA_EXHAUSTED falls back immediately without retries', async () => {
         openaiCalls += 1;
         return {
           content: 'fallback-ok',
-          modelUsed: 'gpt-4o-mini',
+          modelUsed: 'gpt-4o',
           usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
         };
       },
@@ -74,7 +74,7 @@ test('RATE_LIMIT_BURST retries twice then falls back', async () => {
         openaiCalls += 1;
         return {
           content: 'fallback-after-retry',
-          modelUsed: 'gpt-4o-mini',
+          modelUsed: 'gpt-4o',
         };
       },
     },
@@ -105,7 +105,7 @@ test('TIMEOUT retries once then falls back', async () => {
         openaiCalls += 1;
         return {
           content: 'fallback-timeout',
-          modelUsed: 'gpt-4o-mini',
+          modelUsed: 'gpt-4o',
         };
       },
     },
@@ -135,7 +135,7 @@ test('INVALID_INPUT does not fallback', async () => {
           openaiCalls += 1;
           return {
             content: 'should-not-run',
-            modelUsed: 'gpt-4o-mini',
+            modelUsed: 'gpt-4o',
           };
         },
       },
@@ -211,7 +211,7 @@ test('empty-content errors retry and fallback to OpenAI', async () => {
         openaiCalls += 1;
         return {
           content: 'fallback-empty-content',
-          modelUsed: 'gpt-4o-mini',
+          modelUsed: 'gpt-4o',
         };
       },
     },

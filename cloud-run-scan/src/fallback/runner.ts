@@ -21,7 +21,7 @@ const DEFAULT_RETRY_BACKOFFS = [200, 500, 1200] as const;
 const TIMEOUT_RETRY_BACKOFF = 300;
 
 const DEFAULT_CONFIG: FallbackConfig = {
-  fallbackOpenAIModel: 'gpt-4o-mini',
+  fallbackOpenAIModel: 'gpt-4o',
   fallbackCallsDailyCap: 1000,
   fallbackCostDailyCapYen: 3000,
   fallbackEstimatedYenPerCall: 3,
