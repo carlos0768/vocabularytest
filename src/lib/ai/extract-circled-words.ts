@@ -74,7 +74,10 @@ function dedupeWords(data: ValidatedAIResponse): ValidatedAIResponse {
     }
   }
 
-  return { words: uniqueWords };
+  return {
+    words: uniqueWords,
+    sourceLabels: data.sourceLabels,
+  };
 }
 
 function buildVerificationPrompt(words: ValidatedAIResponse['words']): string {
@@ -243,7 +246,13 @@ export async function extractCircledWordsFromImage(
       };
     }
 
-    return { success: true, data: { words: circledWords } };
+    return {
+      success: true,
+      data: {
+        words: circledWords,
+        sourceLabels: parsedPrimary.data.sourceLabels,
+      },
+    };
   } catch (error) {
     console.error('Gemini API error:', error);
 

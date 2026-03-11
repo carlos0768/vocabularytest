@@ -27,6 +27,13 @@ struct BookshelfDetailView: View {
     @State private var showingFilteredWordList = false
     @State private var showingDeleteConfirm = false
     @State private var showMemberProjects = false
+    @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
+    @State private var scrollOffset: CGFloat = 0
+    @State private var chartAnimationProgress: Double = 0
+
+    private var learningModeScope: LearningModeUsageStore.Scope {
+        .bookshelf(collection.id)
+    }
 
     /// Dummy project used as a container for quiz/flashcard navigation
     private var dummyProject: Project {
@@ -48,6 +55,20 @@ struct BookshelfDetailView: View {
         return MerkenTheme.placeholderColor(for: collection.id, isDark: colorScheme == .dark)
     }
 
+    private func triggerChartAnimation() {
+        chartAnimationProgress = 0
+        withAnimation(.easeOut(duration: 0.9)) {
+            chartAnimationProgress = 1
+        }
+    }
+
+    private func animatedChartProgress(_ progress: Double, minimumVisibleProgress: Double = 0) -> Double {
+        let clamped = max(0, min(progress, 1))
+        let animated = clamped * chartAnimationProgress
+        guard animated > 0 else { return 0 }
+        return minimumVisibleProgress > 0 ? max(minimumVisibleProgress, animated) : animated
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
@@ -58,6 +79,17 @@ struct BookshelfDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: 0)
+                        .background(
+                            GeometryReader { proxy in
+                                Color.clear.preference(
+                                    key: TopSafeAreaScrollOffsetKey.self,
+                                    value: proxy.frame(in: .named("bookshelfDetailScroll")).minY
+                                )
+                            }
+                        )
+
                     collectionThumbnailHeader
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -113,10 +145,13 @@ struct BookshelfDetailView: View {
                     .padding(.top, -100)
                 }
             }
+            .coordinateSpace(name: "bookshelfDetailScroll")
             .scrollIndicators(.hidden)
+            .disableTopScrollEdgeEffectIfAvailable()
             .ignoresSafeArea(.container, edges: .top)
             .refreshable {
                 await viewModel.load(collectionId: collection.id, using: appState)
+                triggerChartAnimation()
             }
 
             bottomActionBar
@@ -125,8 +160,12 @@ struct BookshelfDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .cameraAreaGlassOverlay(scrollOffset: scrollOffset)
         .overlay(alignment: .top) {
             topButtonsOverlay
+        }
+        .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
+            scrollOffset = value
         }
         .sheet(isPresented: $isEditingName) {
             editSheet
@@ -139,6 +178,7 @@ struct BookshelfDetailView: View {
                 existingProjectIds: Set(viewModel.projects.map(\.id))
             ) {
                 await viewModel.load(collectionId: collection.id, using: appState)
+                triggerChartAnimation()
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
@@ -205,6 +245,8 @@ struct BookshelfDetailView: View {
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(collectionId: collection.id, using: appState)
+            learningModeCounts = LearningModeUsageStore.counts(for: learningModeScope)
+            triggerChartAnimation()
         }
         .onChange(of: viewModel.allWords.count) { _ in
             if viewModel.allWords.isEmpty {
@@ -215,7 +257,10 @@ struct BookshelfDetailView: View {
                 previewIndex = viewModel.allWords.count - 1
             }
         }
-        .onAppear { appState.tabBarVisible = false }
+        .onAppear {
+            appState.tabBarVisible = false
+            triggerChartAnimation()
+        }
         .onDisappear {
             if flashcardDestination == nil &&
                 quiz2Destination == nil &&
@@ -316,44 +361,10 @@ struct BookshelfDetailView: View {
         let reviewCount = words.filter { $0.status == .review }.count
         let newCount = words.filter { $0.status == .new }.count
         let total = words.count
+        let pageCount = widgets.isEmpty ? 1 : 2
 
         return VStack(spacing: 8) {
             TabView(selection: $statsPage) {
-                Group {
-                    if !widgets.isEmpty {
-                        HStack(alignment: .top, spacing: 10) {
-                            ForEach(widgets) { widget in
-                                bookshelfPartOfSpeechCard(widget)
-                            }
-                        }
-                    } else {
-                        HStack(alignment: .top, spacing: 10) {
-                            masteryCard(
-                                label: "習得",
-                                count: masteredCount,
-                                total: total,
-                                color: MerkenTheme.success,
-                                icon: "checkmark.seal.fill"
-                            )
-                            masteryCard(
-                                label: "学習中",
-                                count: reviewCount,
-                                total: total,
-                                color: MerkenTheme.accentBlue,
-                                icon: "arrow.trianglehead.2.clockwise"
-                            )
-                            masteryCard(
-                                label: "未学習",
-                                count: newCount,
-                                total: total,
-                                color: MerkenTheme.mutedText,
-                                icon: "sparkle"
-                            )
-                        }
-                    }
-                }
-                .tag(0)
-
                 HStack(alignment: .top, spacing: 10) {
                     Button {
                         filteredWordListStatus = .mastered
@@ -397,13 +408,22 @@ struct BookshelfDetailView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .tag(1)
+                .tag(0)
+
+                if !widgets.isEmpty {
+                    HStack(alignment: .top, spacing: 10) {
+                        ForEach(widgets) { widget in
+                            bookshelfPartOfSpeechCard(widget)
+                        }
+                    }
+                    .tag(1)
+                }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 130)
 
             HStack(spacing: 6) {
-                ForEach(0..<2, id: \.self) { page in
+                ForEach(0..<pageCount, id: \.self) { page in
                     Circle()
                         .fill(statsPage == page ? MerkenTheme.accentBlue : MerkenTheme.borderLight)
                         .frame(width: 6, height: 6)
@@ -441,7 +461,7 @@ struct BookshelfDetailView: View {
                     .stroke(MerkenTheme.borderLight, lineWidth: 5)
 
                 Circle()
-                    .trim(from: 0, to: progress)
+                    .trim(from: 0, to: animatedChartProgress(progress))
                     .stroke(
                         color,
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -501,7 +521,7 @@ struct BookshelfDetailView: View {
                     .stroke(MerkenTheme.borderLight, lineWidth: 5)
 
                 Circle()
-                    .trim(from: 0, to: widget.progress)
+                    .trim(from: 0, to: animatedChartProgress(widget.progress))
                     .stroke(
                         accentColor,
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -900,8 +920,10 @@ struct BookshelfDetailView: View {
                     icon: "scope",
                     iconColor: MerkenTheme.success,
                     title: "自己評価",
-                    subtitle: "思い出して評価"
+                    subtitle: "思い出して評価",
+                    count: learningModeCounts[.selfReview] ?? 0
                 ) {
+                    learningModeCounts[.selfReview] = LearningModeUsageStore.increment(.selfReview, for: learningModeScope)
                     quiz2Destination = dummyProject
                 }
 
@@ -909,8 +931,10 @@ struct BookshelfDetailView: View {
                     icon: "timer",
                     iconColor: .orange,
                     title: "タイムアタック",
-                    subtitle: "時間内に即答"
+                    subtitle: "時間内に即答",
+                    count: learningModeCounts[.timeAttack] ?? 0
                 ) {
+                    learningModeCounts[.timeAttack] = LearningModeUsageStore.increment(.timeAttack, for: learningModeScope)
                     showTimeAttack = true
                 }
 
@@ -919,8 +943,10 @@ struct BookshelfDetailView: View {
                         icon: "square.grid.2x2",
                         iconColor: .purple,
                         title: "マッチ",
-                        subtitle: "ペアを見つけろ"
+                        subtitle: "ペアを見つけろ",
+                        count: learningModeCounts[.match] ?? 0
                     ) {
+                        learningModeCounts[.match] = LearningModeUsageStore.increment(.match, for: learningModeScope)
                         showMatchGame = true
                     }
                 }
@@ -928,7 +954,7 @@ struct BookshelfDetailView: View {
         }
     }
 
-    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, count: Int, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 IconBadge(systemName: icon, color: iconColor, size: 48)
@@ -944,9 +970,19 @@ struct BookshelfDetailView: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
+                HStack(spacing: 10) {
+                    Text("\(count)回")
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1270,8 +1306,8 @@ struct BookshelfWordListView: View {
                 }
                 Spacer()
                 if word.isFavorite {
-                    Image(systemName: "flag.fill")
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                    Image(systemName: "heart.fill")
+                        .foregroundStyle(MerkenTheme.danger)
                         .font(.caption)
                 }
             }

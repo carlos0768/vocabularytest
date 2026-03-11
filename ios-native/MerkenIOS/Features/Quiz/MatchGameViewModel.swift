@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -33,19 +34,43 @@ final class MatchGameViewModel: ObservableObject {
     private var projectId: String = ""
     private var timer: AnyCancellable?
     private var words: [Word] = []
+    private var wordsById: [String: Word] = [:]
+    private var mismatchCounts: [String: Int] = [:]
     private var quizStatsStore: QuizStatsStore?
+    private var persistWordPatch: (@Sendable (String, WordPatch) async throws -> Void)?
+    private var notifyDataChange: (@MainActor @Sendable () -> Void)?
+    private var hasBroadcastDataChange = false
+    private let logger = Logger(subsystem: "MerkenIOS", category: "MatchGameVM")
 
     var totalTime: Double { elapsedTime + penaltyTime }
     var isNewBest: Bool { bestTime == 0 || totalTime < bestTime }
 
     // MARK: - Setup
 
-    func setup(words: [Word], projectId: String, quizStatsStore: QuizStatsStore? = nil) {
+    func setup(
+        words: [Word],
+        projectId: String,
+        quizStatsStore: QuizStatsStore? = nil,
+        persistWordPatch: (@Sendable (String, WordPatch) async throws -> Void)? = nil,
+        notifyDataChange: (@MainActor @Sendable () -> Void)? = nil
+    ) {
         self.words = words
+        self.wordsById = Dictionary(uniqueKeysWithValues: words.map { ($0.id, $0) })
         self.projectId = projectId
         self.quizStatsStore = quizStatsStore
+        self.persistWordPatch = persistWordPatch
+        self.notifyDataChange = notifyDataChange
+        self.hasBroadcastDataChange = false
         loadBestTime()
+        prepareRounds()
+    }
 
+    func restartGame() {
+        prepareRounds()
+        startGame()
+    }
+
+    private func prepareRounds() {
         // Shuffle and chunk into rounds of 6
         let shuffled = words.shuffled()
         rounds = stride(from: 0, to: shuffled.count, by: 6).map {
@@ -64,6 +89,7 @@ final class MatchGameViewModel: ObservableObject {
         penaltyCount = 0
         currentRound = 0
         matchedPairs = 0
+        mismatchCounts = [:]
         loadRound(index: 0)
         startTimer()
         stage = .playing
@@ -104,6 +130,7 @@ final class MatchGameViewModel: ObservableObject {
                 // Correct match!
                 MerkenHaptic.success()
                 markMatched(first.id, card.id)
+                applyMatchReviewSignal(for: card.wordId)
                 selectedCardId = nil
                 matchedPairs += 1
 
@@ -118,6 +145,8 @@ final class MatchGameViewModel: ObservableObject {
                 MerkenHaptic.error()
                 penaltyTime += 1.0
                 penaltyCount += 1
+                mismatchCounts[first.wordId, default: 0] += 1
+                mismatchCounts[card.wordId, default: 0] += 1
                 showMismatch(first.id, card.id)
                 selectedCardId = nil
             }
@@ -144,6 +173,58 @@ final class MatchGameViewModel: ObservableObject {
             newCards.append(Card(text: word.japanese, wordId: word.id, isEnglish: false))
         }
         cards = newCards.shuffled()
+    }
+
+    private func applyMatchReviewSignal(for wordId: String) {
+        guard let word = wordsById[wordId] else { return }
+
+        let mismatchCount = mismatchCounts[wordId, default: 0]
+        let patch = QuizEngine.statusPatchForMatch(for: word, mismatchCount: mismatchCount)
+        apply(patch, to: wordId)
+
+        guard let persistWordPatch else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                try await persistWordPatch(wordId, patch)
+                if !self.hasBroadcastDataChange {
+                    self.hasBroadcastDataChange = true
+                    self.notifyDataChange?()
+                }
+            } catch {
+                if error.isCancellationError { return }
+                self.logger.error("Match review patch persist failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func apply(_ patch: WordPatch, to wordId: String) {
+        guard let index = words.firstIndex(where: { $0.id == wordId }) else { return }
+
+        var updated = words[index]
+        if let status = patch.status {
+            updated.status = status
+        }
+        if let lastReviewedAt = patch.lastReviewedAt {
+            updated.lastReviewedAt = lastReviewedAt
+        }
+        if let nextReviewAt = patch.nextReviewAt {
+            updated.nextReviewAt = nextReviewAt
+        }
+        if let easeFactor = patch.easeFactor {
+            updated.easeFactor = easeFactor
+        }
+        if let intervalDays = patch.intervalDays {
+            updated.intervalDays = intervalDays
+        }
+        if let repetition = patch.repetition {
+            updated.repetition = repetition
+        }
+
+        words[index] = updated
+        wordsById[wordId] = updated
     }
 
     private func markMatched(_ id1: UUID, _ id2: UUID) {

@@ -10,34 +10,26 @@ CREATE TABLE IF NOT EXISTS public.feature_usage_daily (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, feature_key, usage_date)
 );
-
 CREATE INDEX IF NOT EXISTS idx_feature_usage_daily_user_feature_date
   ON public.feature_usage_daily (user_id, feature_key, usage_date DESC);
-
 ALTER TABLE public.feature_usage_daily ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own feature usage"
   ON public.feature_usage_daily;
-
 CREATE POLICY "Users can view own feature usage"
   ON public.feature_usage_daily
   FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can insert own feature usage"
   ON public.feature_usage_daily;
 DROP POLICY IF EXISTS "Users can update own feature usage"
   ON public.feature_usage_daily;
-
 DROP TRIGGER IF EXISTS update_feature_usage_daily_updated_at
   ON public.feature_usage_daily;
-
 CREATE TRIGGER update_feature_usage_daily_updated_at
   BEFORE UPDATE ON public.feature_usage_daily
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
-
 DROP FUNCTION IF EXISTS public.check_and_increment_feature_usage(TEXT, BOOLEAN, INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION public.check_and_increment_feature_usage(
   p_feature_key TEXT,
@@ -132,6 +124,5 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.check_and_increment_feature_usage(TEXT, BOOLEAN, INTEGER, INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.check_and_increment_feature_usage(TEXT, BOOLEAN, INTEGER, INTEGER) TO authenticated;

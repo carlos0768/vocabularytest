@@ -50,6 +50,7 @@ export interface Project {
   id: string;
   userId: string;
   title: string;
+  sourceLabels: string[]; // Physical source labels extracted from scans
   iconImage?: string; // Base64 data URL icon shown on project cards
   createdAt: string; // ISO string
   isSynced?: boolean; // Local-only flag for cloud sync status
@@ -88,6 +89,7 @@ export interface AIWordExtraction {
 
 export interface AIResponse {
   words: AIWordExtraction[];
+  sourceLabels: string[];
 }
 
 // ============ Quiz Types ============
@@ -108,7 +110,7 @@ export interface QuizResult {
 
 export interface WordRepository {
   // Projects
-  createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project>;
+  createProject(project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }): Promise<Project>;
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   updateProject(id: string, updates: Partial<Project>): Promise<void>;

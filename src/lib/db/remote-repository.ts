@@ -3,6 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, Word, WordRepository } from '@/types';
 import type { Collection, CollectionProject } from '@/types';
 import {
+  hasMissingProjectSourceLabelsColumn,
+  insertProjectWithSourceLabelsCompat,
+  updateProjectSourceLabelsCompat,
+} from '@/lib/supabase/project-source-labels-compat';
+import {
   mapProjectFromRow,
   mapProjectToInsert,
   mapProjectToInsertWithId,
@@ -42,15 +47,17 @@ export class RemoteWordRepository implements WordRepository {
   // ============ Projects ============
 
   async createProject(
-    project: Omit<Project, 'id' | 'createdAt'>
+    project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }
   ): Promise<Project> {
-    const { data, error } = await this.supabase
-      .from('projects')
-      .insert(mapProjectToInsert(project))
-      .select()
-      .single();
+    const { data, error, usedLegacyColumns } = await insertProjectWithSourceLabelsCompat<ProjectRow>(
+      this.supabase,
+      mapProjectToInsert(project),
+    );
 
     if (error) throw new Error(`Failed to create project: ${error.message}`);
+    if (usedLegacyColumns) {
+      console.warn('[RemoteRepo] projects.source_labels compatibility fallback used on createProject');
+    }
 
     return mapProjectFromRow(data as ProjectRow);
   }
@@ -83,12 +90,32 @@ export class RemoteWordRepository implements WordRepository {
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<void> {
-    const { error } = await this.supabase
-      .from('projects')
-      .update(mapProjectUpdates(updates))
-      .eq('id', id);
+    const sourceLabels = updates.sourceLabels;
+    const updatesWithoutSourceLabels = { ...updates };
+    delete updatesWithoutSourceLabels.sourceLabels;
 
-    if (error) throw new Error(`Failed to update project: ${error.message}`);
+    const mappedUpdates = mapProjectUpdates(updatesWithoutSourceLabels);
+    if (Object.keys(mappedUpdates).length > 0) {
+      const { error } = await this.supabase
+        .from('projects')
+        .update(mappedUpdates)
+        .eq('id', id);
+
+      if (error) throw new Error(`Failed to update project: ${error.message}`);
+    }
+
+    if (sourceLabels !== undefined) {
+      const { error, usedLegacyColumns } = await updateProjectSourceLabelsCompat(
+        this.supabase,
+        id,
+        sourceLabels,
+      );
+
+      if (usedLegacyColumns) {
+        console.warn('[RemoteRepo] projects.source_labels compatibility fallback used on updateProject');
+      }
+      if (error) throw new Error(`Failed to update project: ${error.message}`);
+    }
   }
 
   async deleteProject(id: string): Promise<void> {
@@ -104,11 +131,26 @@ export class RemoteWordRepository implements WordRepository {
   // ============ ID-preserving upserts (for hybrid sync) ============
 
   async createProjectWithId(project: Project): Promise<void> {
+    const payload = mapProjectToInsertWithId(project);
     const { error } = await this.supabase
       .from('projects')
-      .upsert(mapProjectToInsertWithId(project), { onConflict: 'id', ignoreDuplicates: true });
+      .upsert(payload, { onConflict: 'id', ignoreDuplicates: true });
 
-    if (error) throw new Error(`Failed to upsert project: ${error.message}`);
+    if (!error) return;
+
+    if (!hasMissingProjectSourceLabelsColumn(error)) {
+      throw new Error(`Failed to upsert project: ${error.message}`);
+    }
+
+    const legacyPayload = { ...payload };
+    delete (legacyPayload as { source_labels?: string[] }).source_labels;
+
+    const { error: legacyError } = await this.supabase
+      .from('projects')
+      .upsert(legacyPayload, { onConflict: 'id', ignoreDuplicates: true });
+
+    if (legacyError) throw new Error(`Failed to upsert project: ${legacyError.message}`);
+    console.warn('[RemoteRepo] projects.source_labels compatibility fallback used on createProjectWithId');
   }
 
   async createWordsWithIds(words: Word[]): Promise<void> {

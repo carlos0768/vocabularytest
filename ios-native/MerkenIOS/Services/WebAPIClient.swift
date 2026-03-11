@@ -107,6 +107,7 @@ struct ScanJobResultPayload: Decodable, Sendable {
     let warnings: [String]?
     let saveMode: ScanJobSaveMode?
     let extractedWords: [ExtractedWord]?
+    let sourceLabels: [String]?
     let targetProjectId: String?
 
     enum CodingKeys: String, CodingKey {
@@ -114,6 +115,7 @@ struct ScanJobResultPayload: Decodable, Sendable {
         case warnings
         case saveMode
         case extractedWords
+        case sourceLabels
         case targetProjectId
     }
 }
@@ -1007,7 +1009,8 @@ actor WebAPIClient {
             )
         }
 
-        var (data, http) = try await sendCreateRequest(bodyWithPreference)
+        var requestBody = bodyWithPreference
+        var (data, http) = try await sendCreateRequest(requestBody)
 
         // Backward compatibility: older backend schemas may reject unknown "aiEnabled".
         if http.statusCode == 400, aiEnabled != nil {
@@ -1018,7 +1021,7 @@ actor WebAPIClient {
                 || message.contains("Invalid request body")
             if shouldRetryWithoutPreference {
                 logger.warning("scan-jobs/create rejected aiEnabled field; retrying without aiEnabled for compatibility.")
-                let fallbackBody = ScanJobCreateRequest(
+                requestBody = ScanJobCreateRequest(
                     imagePaths: imagePaths,
                     projectTitle: projectTitle,
                     projectIcon: projectIcon,
@@ -1028,7 +1031,29 @@ actor WebAPIClient {
                     clientPlatform: clientPlatform,
                     aiEnabled: nil
                 )
-                (data, http) = try await sendCreateRequest(fallbackBody)
+                (data, http) = try await sendCreateRequest(requestBody)
+            }
+        }
+
+        if http.statusCode == 400, requestBody.projectIcon != nil {
+            let message = decodeErrorMessage(from: data, fallback: "")
+            let shouldRetryWithoutIcon =
+                message == "Missing required fields"
+                || message.contains("required fields")
+                || message.contains("Invalid request body")
+            if shouldRetryWithoutIcon {
+                logger.warning("scan-jobs/create rejected projectIcon field; retrying without projectIcon for compatibility.")
+                requestBody = ScanJobCreateRequest(
+                    imagePaths: imagePaths,
+                    projectTitle: projectTitle,
+                    projectIcon: nil,
+                    scanMode: scanMode.rawValue,
+                    eikenLevel: scanMode == .eiken ? eikenLevel?.rawValue : nil,
+                    targetProjectId: targetProjectId,
+                    clientPlatform: clientPlatform,
+                    aiEnabled: requestBody.aiEnabled
+                )
+                (data, http) = try await sendCreateRequest(requestBody)
             }
         }
 

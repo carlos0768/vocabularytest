@@ -7,17 +7,18 @@ struct ShareImportRootView: View {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
 
+    private let backgroundColor = Color(red: 0.97, green: 0.97, blue: 0.98)
+    private let surfaceColor = Color.white
+    private let borderColor = Color.black.opacity(0.08)
+    private let secondaryTextColor = Color(red: 0.44, green: 0.46, blue: 0.52)
+    private let accentColor = Color.black
+    private let successColor = Color(red: 0.10, green: 0.68, blue: 0.34)
+    private let warningColor = Color(red: 0.87, green: 0.52, blue: 0.13)
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.03, green: 0.09, blue: 0.20),
-                    Color(red: 0.02, green: 0.05, blue: 0.14)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            backgroundColor
+                .ignoresSafeArea()
 
             content
                 .padding(16)
@@ -43,197 +44,312 @@ struct ShareImportRootView: View {
     }
 
     private var loadingView: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .tint(.white)
-            Text("共有内容を準備中…")
-                .foregroundStyle(.white)
-                .font(.headline)
+        VStack(spacing: 14) {
+            sectionCard {
+                VStack(spacing: 12) {
+                    Text("MERKEN")
+                        .font(.system(size: 22, weight: .black))
+                        .tracking(1.2)
+                        .foregroundStyle(.black)
+
+                    ProgressView()
+                        .tint(accentColor)
+                        .scaleEffect(1.08)
+
+                    Text("共有内容を確認中")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
-        .padding(24)
-        .glassEffect(in: .rect(cornerRadius: 20))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 8)
     }
 
     private var loginRequiredView: some View {
-        VStack(spacing: 14) {
-            Text("ログインが必要です")
-                .font(.headline)
-                .foregroundStyle(.white)
+        VStack(spacing: 16) {
+            Spacer()
 
-            Text("Merkenアプリでログイン後に再度共有してください。")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.84))
-                .multilineTextAlignment(.center)
+            sectionCard {
+                VStack(spacing: 12) {
+                    Text("ログインが必要です")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.black)
 
-            Button("閉じる") {
-                viewModel.close()
+                    Text("Merkenアプリでログインしたあとに、もう一度共有してください。")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(secondaryTextColor)
+                        .multilineTextAlignment(.center)
+
+                    primaryButton(title: "閉じる", color: accentColor) {
+                        viewModel.close()
+                    }
+                }
             }
-            .buttonStyle(.glassProminent)
+
+            Spacer()
         }
-        .padding(20)
-        .glassEffect(in: .rect(cornerRadius: 20))
     }
 
     private var savingView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             ProgressView()
-                .tint(.white)
-            Text("保存中…")
-                .foregroundStyle(.white)
-                .font(.headline)
+                .tint(accentColor)
+                .scaleEffect(1.08)
+            Text("単語を追加中")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.black)
         }
-        .padding(24)
-        .glassEffect(in: .rect(cornerRadius: 20))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func successView(message: String) -> some View {
-        VStack(spacing: 14) {
-            Text("追加完了")
-                .font(.headline)
-                .foregroundStyle(.white)
+        VStack(spacing: 16) {
+            Spacer()
 
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.88))
-                .multilineTextAlignment(.center)
+            sectionCard {
+                VStack(spacing: 12) {
+                    Text("追加完了")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.black)
 
-            Button("閉じる") {
-                viewModel.finishAfterSuccess()
+                    Text(message)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(secondaryTextColor)
+                        .multilineTextAlignment(.center)
+
+                    primaryButton(title: "閉じる", color: successColor) {
+                        viewModel.finishAfterSuccess()
+                    }
+                }
             }
-            .buttonStyle(.glassProminent)
+
+            Spacer()
         }
-        .padding(20)
-        .glassEffect(.regular.tint(.green.opacity(0.2)), in: .rect(cornerRadius: 20))
     }
 
     private func failureView(message: String) -> some View {
-        VStack(spacing: 14) {
-            Text("エラー")
-                .font(.headline)
-                .foregroundStyle(.white)
+        VStack(spacing: 16) {
+            Spacer()
 
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.88))
-                .multilineTextAlignment(.center)
+            sectionCard {
+                VStack(spacing: 12) {
+                    Text("エラー")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.black)
 
-            HStack(spacing: 10) {
-                Button("閉じる") {
-                    viewModel.close()
+                    Text(message)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(secondaryTextColor)
+                        .multilineTextAlignment(.center)
+
+                    HStack(spacing: 10) {
+                        secondaryButton(title: "閉じる") {
+                            viewModel.close()
+                        }
+
+                        primaryButton(title: "再試行", color: accentColor) {
+                            viewModel.retry()
+                        }
+                    }
                 }
-                .buttonStyle(.glass)
-
-                Button("再試行") {
-                    viewModel.retry()
-                }
-                .buttonStyle(.glassProminent)
             }
+
+            Spacer()
         }
-        .padding(20)
-        .glassEffect(.regular.tint(.red.opacity(0.16)), in: .rect(cornerRadius: 20))
     }
 
     private var editingView: some View {
         ScrollView {
-            GlassEffectContainer(spacing: 14) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
-                        Text("Merkenに追加")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Button("閉じる") {
-                            viewModel.close()
-                        }
-                        .buttonStyle(.glass)
-                    }
+            VStack(alignment: .leading, spacing: 16) {
+                headerSection
 
-                    if !viewModel.warnings.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
+                if !viewModel.warnings.isEmpty {
+                    sectionCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("確認")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(warningColor)
                             ForEach(viewModel.warnings, id: \.self) { warning in
                                 Text("• \(warning)")
-                                    .font(.footnote)
-                                    .foregroundStyle(Color.yellow.opacity(0.96))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.black.opacity(0.76))
                             }
                         }
-                        .padding(10)
-                        .glassEffect(.regular.tint(.orange.opacity(0.16)), in: .rect(cornerRadius: 12))
                     }
-
-                    Text("共有テキスト")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.78))
-                    Text(viewModel.sourceText)
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.92))
-                        .lineLimit(3)
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassEffect(in: .rect(cornerRadius: 12))
-
-                    Text("英語")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.78))
-                    TextField("english", text: $viewModel.english)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .padding(12)
-                        .foregroundStyle(.white)
-                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
-
-                    Text("日本語")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.78))
-                    TextField("japanese", text: $viewModel.japanese)
-                        .padding(12)
-                        .foregroundStyle(.white)
-                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
-
-                    Toggle(isOn: $viewModel.useNewProject) {
-                        Text("新しい単語帳を作成")
-                            .foregroundStyle(.white)
-                    }
-                    .toggleStyle(.switch)
-                    .padding(12)
-                    .glassEffect(in: .rect(cornerRadius: 12))
-
-                    if viewModel.useNewProject {
-                        TextField("単語帳名（任意）", text: $viewModel.newProjectTitle)
-                            .padding(12)
-                            .foregroundStyle(.white)
-                            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
-                    } else {
-                        Picker("保存先", selection: Binding(get: {
-                            viewModel.selectedProjectId ?? ""
-                        }, set: { newValue in
-                            viewModel.selectedProjectId = newValue.isEmpty ? nil : newValue
-                        })) {
-                            ForEach(viewModel.projectOptions) { project in
-                                Text(project.title).tag(project.id)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .tint(.white)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
-                    }
-
-                    Button {
-                        viewModel.save()
-                    } label: {
-                        Text("この内容で追加")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.glassProminent)
-                    .disabled(!viewModel.canSave)
-                    .opacity(viewModel.canSave ? 1 : 0.6)
                 }
-                .padding(16)
-                .glassEffect(in: .rect(cornerRadius: 20))
+
+                sectionCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionLabel("共有テキスト")
+                        Text(viewModel.sourceText)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(secondaryTextColor)
+                            .lineLimit(3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                sectionCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        sectionLabel("英語")
+                        textField(
+                            "english",
+                            text: $viewModel.english,
+                            autocapitalization: .never,
+                            disableAutocorrection: true
+                        )
+
+                        sectionLabel("日本語")
+                        textField("japanese", text: $viewModel.japanese)
+
+                        Toggle(isOn: $viewModel.useNewProject) {
+                            Text("新しい単語帳を作成")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.black)
+                        }
+                        .toggleStyle(.switch)
+
+                        if viewModel.useNewProject {
+                            textField("単語帳名（任意）", text: $viewModel.newProjectTitle)
+                        } else {
+                            pickerField
+                        }
+                    }
+                }
+
+                primaryButton(title: "この内容で追加", color: accentColor) {
+                    viewModel.save()
+                }
+                .disabled(!viewModel.canSave)
+                .opacity(viewModel.canSave ? 1 : 0.58)
             }
+            .padding(.vertical, 6)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private var headerSection: some View {
+        sectionCard {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("MERKEN")
+                        .font(.system(size: 24, weight: .black))
+                        .foregroundStyle(.black)
+                    Text("Google翻訳などの共有内容を、そのまま単語帳へ追加できます。")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(secondaryTextColor)
+                        .lineSpacing(2)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    viewModel.close()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(width: 36, height: 36)
+                        .background(Color.black.opacity(0.04), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var pickerField: some View {
+        Menu {
+            ForEach(viewModel.projectOptions) { project in
+                Button(project.title) {
+                    viewModel.selectedProjectId = project.id
+                }
+            }
+        } label: {
+            HStack {
+                Text(
+                    viewModel.projectOptions.first(where: { $0.id == viewModel.selectedProjectId })?.title
+                    ?? "保存先を選択"
+                )
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(viewModel.selectedProjectId == nil ? secondaryTextColor : .black)
+
+                Spacer()
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(secondaryTextColor)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.black.opacity(0.035), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func textField(
+        _ title: String,
+        text: Binding<String>,
+        autocapitalization: TextInputAutocapitalization = .sentences,
+        disableAutocorrection: Bool = false
+    ) -> some View {
+        TextField(title, text: text)
+            .textInputAutocapitalization(autocapitalization)
+            .autocorrectionDisabled(disableAutocorrection)
+            .font(.system(size: 15, weight: .medium))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(Color.black.opacity(0.035), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(secondaryTextColor)
+    }
+
+    private func sectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(surfaceColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 18, x: 0, y: 8)
+    }
+
+    private func primaryButton(title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func secondaryButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(surfaceColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(borderColor, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }

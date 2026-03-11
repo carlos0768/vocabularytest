@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var purchaseErrorMessage: String?
     @State private var purchaseSuccessMessage: String?
     @State private var localAIEnabled = true
+    @State private var scrollOffset: CGFloat = 0
 
     private var isLoggedInAndActive: Bool {
         appState.isLoggedIn && !appState.isSessionExpired
@@ -24,103 +25,93 @@ struct SettingsView: View {
     var body: some View {
         ZStack {
             AppBackground()
+            LinearGradient(
+                colors: [
+                    MerkenTheme.accentBlue.opacity(0.04),
+                    Color.clear,
+                    MerkenTheme.warning.opacity(0.03)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
             ScrollViewReader { scrollProxy in
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    Color.clear.frame(height: 0).id("settingsTop")
-                    HStack {
-                        Text("設定")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Spacer()
-                    }
-                    .padding(.top, 8)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Color.clear
+                            .frame(height: 0)
+                            .id("settingsTop")
+                            .background(
+                                GeometryReader { proxy in
+                                    Color.clear.preference(
+                                        key: TopSafeAreaScrollOffsetKey.self,
+                                        value: proxy.frame(in: .named("settingsScroll")).minY
+                                    )
+                                }
+                            )
 
-                    // Account profile card
-                    accountProfileCard
+                        headerSection
 
-                    if isLoggedInAndActive {
-                        // Preferences
-                        settingsGroup {
-                            aiToggleRow
-                        }
+                        topSummaryWidgets
 
-                        // Plan
-                        settingsGroup {
-                            planRow
-                        }
-
-                        // Support
-                        settingsGroup {
-                            settingsNavRow(icon: "envelope", title: "お問い合わせ") {
-                                showingContact = true
-                            }
-                            settingsDivider
-                            settingsNavRow(icon: "doc.text", title: "利用規約") {
-                                showingTerms = true
-                            }
-                            settingsDivider
-                            settingsNavRow(icon: "hand.raised", title: "プライバシーポリシー") {
-                                showingPrivacy = true
-                            }
-                        }
-
-                        // Sign out
-                        settingsGroup {
-                            settingsActionRow(icon: "rectangle.portrait.and.arrow.right", title: "ログアウト", color: MerkenTheme.danger) {
-                                showingSignOutAlert = true
-                            }
-                        }
-                    } else {
-                        // Guest: login + signup
                         if appState.isSessionExpired {
                             sessionExpiredBanner
-                        }
-
-                        if let message = appState.authErrorMessage, !appState.isSessionExpired {
+                        } else if let message = appState.authErrorMessage, !message.isEmpty, !isLoggedInAndActive {
                             authErrorBanner(message)
                         }
 
-                        settingsGroup {
-                            guestAuthSection
+                        accountOverviewCard
+
+                        if isLoggedInAndActive {
+                            settingsSection(title: "学習設定", icon: "sparkles") {
+                                aiToggleRow
+                            }
+
+                            settingsSection(title: "プラン", icon: "creditcard.fill") {
+                                planRow
+                            }
+
+                            settingsSection(title: "サポート", icon: "lifepreserver.fill") {
+                                supportRows
+                            }
+
+                            settingsSection(title: "アカウント", icon: "person.crop.circle.badge.checkmark") {
+                                settingsActionRow(icon: "rectangle.portrait.and.arrow.right", title: "ログアウト", color: MerkenTheme.danger) {
+                                    showingSignOutAlert = true
+                                }
+                            }
+                        } else {
+                            settingsSection(title: "アカウント", icon: "person.crop.circle.badge.plus") {
+                                guestAuthSection
+                            }
                         }
 
-                        // Support
-                        settingsGroup {
-                            settingsNavRow(icon: "envelope", title: "お問い合わせ") {
-                                showingContact = true
-                            }
-                            settingsDivider
-                            settingsNavRow(icon: "doc.text", title: "利用規約") {
-                                showingTerms = true
-                            }
-                            settingsDivider
-                            settingsNavRow(icon: "hand.raised", title: "プライバシーポリシー") {
-                                showingPrivacy = true
-                            }
+                        if isLoggedInAndActive {
+                            Text("v1.0.0")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 4)
                         }
                     }
-
-                    // Version
-                    Text("v1.0.0")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 4)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 100)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 100)
-            }
-            .scrollIndicators(.hidden)
-            .onChange(of: appState.scrollToTopTrigger) { _ in
-                withAnimation {
-                    scrollProxy.scrollTo("settingsTop", anchor: .top)
+                .coordinateSpace(name: "settingsScroll")
+                .scrollIndicators(.hidden)
+                .disableTopScrollEdgeEffectIfAvailable()
+                .onChange(of: appState.scrollToTopTrigger) { _ in
+                    withAnimation {
+                        scrollProxy.scrollTo("settingsTop", anchor: .top)
+                    }
                 }
-            }
             } // ScrollViewReader
+        }
+        .cameraAreaGlassOverlay(scrollOffset: scrollOffset)
+        .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
+            scrollOffset = value
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
@@ -165,16 +156,22 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             content()
         }
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(MerkenTheme.border.opacity(0.7), lineWidth: 1)
         )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
-        )
+    }
+
+    private func settingsSection<Content: View>(
+        title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader(icon: icon, title: title)
+            settingsGroup(content: content)
+        }
     }
 
     private var settingsDivider: some View {
@@ -183,9 +180,98 @@ struct SettingsView: View {
             .padding(.leading, 52)
     }
 
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("設定")
+                .font(.system(size: 31.2, weight: .black))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .tracking(2)
+
+            Text("アカウントと学習設定をここで管理")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(MerkenTheme.secondaryText)
+        }
+    }
+
+    private var topSummaryWidgets: some View {
+        HStack(spacing: 10) {
+            summaryCard(
+                icon: appState.isPro ? "sparkles" : "person.crop.circle",
+                tint: appState.isPro ? MerkenTheme.warning : MerkenTheme.chartBlue,
+                value: appState.isLoggedIn ? (appState.isPro ? "Pro" : "Free") : "Guest",
+                label: "プラン",
+                detail: appState.isLoggedIn ? "現在の利用状態" : "ログインで同期を有効化"
+            )
+
+            summaryCard(
+                icon: appState.isPro ? "icloud.fill" : "iphone",
+                tint: appState.isPro ? MerkenTheme.accentBlue : MerkenTheme.mutedText,
+                value: appState.isPro ? "Cloud" : "Local",
+                label: "保存先",
+                detail: appState.isPro ? "複数端末で同期" : "この端末に保存"
+            )
+        }
+    }
+
+    private var accountOverviewCard: some View {
+        settingsGroup {
+            VStack(alignment: .leading, spacing: 16) {
+                accountProfileRow
+
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    overviewMetricTile(
+                        icon: "person.crop.circle.fill",
+                        tint: MerkenTheme.chartBlue,
+                        value: appState.isLoggedIn ? "認証済み" : "未ログイン",
+                        label: "アカウント"
+                    )
+                    overviewMetricTile(
+                        icon: localAIEnabled ? "sparkles" : "bolt.slash.fill",
+                        tint: localAIEnabled ? MerkenTheme.success : MerkenTheme.mutedText,
+                        value: localAIEnabled ? "ON" : "OFF",
+                        label: "クイズ生成"
+                    )
+                    overviewMetricTile(
+                        icon: appState.isPro ? "checkmark.seal.fill" : "lock.open.fill",
+                        tint: appState.isPro ? MerkenTheme.success : MerkenTheme.warning,
+                        value: appState.isPro ? "有効" : "制限あり",
+                        label: "機能状態"
+                    )
+                    overviewMetricTile(
+                        icon: appState.isPro ? "arrow.triangle.2.circlepath.circle.fill" : "iphone",
+                        tint: appState.isPro ? MerkenTheme.accentBlue : MerkenTheme.mutedText,
+                        value: appState.isPro ? "同期中" : "端末保存",
+                        label: "データ"
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
+        }
+    }
+
+    private var supportRows: some View {
+        Group {
+            settingsNavRow(icon: "envelope", title: "お問い合わせ") {
+                showingContact = true
+            }
+            settingsDivider
+            settingsNavRow(icon: "doc.text", title: "利用規約") {
+                showingTerms = true
+            }
+            settingsDivider
+            settingsNavRow(icon: "hand.raised", title: "プライバシーポリシー") {
+                showingPrivacy = true
+            }
+        }
+    }
+
     // MARK: - Account Profile Card
 
-    private var accountProfileCard: some View {
+    private var accountProfileRow: some View {
         HStack(spacing: 14) {
             // Avatar circle
             ZStack {
@@ -243,16 +329,80 @@ struct SettingsView: View {
                     .foregroundStyle(MerkenTheme.secondaryText)
             }
         }
-        .padding(16)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .padding(.vertical, 2)
+    }
+
+    private func sectionHeader(icon: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MerkenTheme.accentBlue)
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+        }
+    }
+
+    private func summaryCard(icon: String, tint: Color, value: String, label: String, detail: String) -> some View {
+        SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(tint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    Spacer(minLength: 0)
+                }
+
+                Text(value)
+                    .font(.system(size: 24, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+
+                Text(detail)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private func overviewMetricTile(icon: String, tint: Color, value: String, label: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 30, height: 30)
+                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(MerkenTheme.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(MerkenTheme.borderLight, lineWidth: 1)
         )
     }
 
@@ -329,9 +479,11 @@ struct SettingsView: View {
                 featureChip("クラウド同期")
             }
 
-            if let periodEnd = appState.subscription?.currentPeriodEnd {
-                let formatted = periodEnd.formatted(.dateTime.year().month().day())
-                Text("次回更新: \(formatted)")
+            if let subscription = appState.subscription,
+               let label = subscription.displayDateLabel,
+               let displayDate = subscription.displayDateValue {
+                let formatted = displayDate.formatted(.dateTime.year().month().day())
+                Text("\(label): \(formatted)")
                     .font(.system(size: 11))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
@@ -479,61 +631,66 @@ struct SettingsView: View {
     }
 
     private var loginFormSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 settingsIcon("key.fill", color: MerkenTheme.accentBlue)
 
-                Text("サインイン")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(MerkenTheme.primaryText)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("サインイン")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("ログインも新規登録も、この画面にまとめています。")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
             }
 
-            Text("ログインも新規登録も、この画面にまとめています。")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(MerkenTheme.secondaryText)
+            HStack(spacing: 8) {
+                featureChip("クラウド同期")
+                featureChip("進捗を保持")
+            }
 
-            TextField("メールアドレス", text: $email)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.system(size: 15))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(MerkenTheme.background, in: .rect(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(MerkenTheme.borderLight, lineWidth: 1)
-                )
-                .accessibilityIdentifier("emailField")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("メールアドレス")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
 
-            SecureField("パスワード", text: $password)
-                .font(.system(size: 15))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(MerkenTheme.background, in: .rect(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(MerkenTheme.borderLight, lineWidth: 1)
-                )
-                .accessibilityIdentifier("passwordField")
+                TextField("name@example.com", text: $email)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .solidTextField()
+                    .accessibilityIdentifier("emailField")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("パスワード")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+
+                SecureField("パスワード", text: $password)
+                    .solidTextField()
+                    .accessibilityIdentifier("passwordField")
+            }
 
             Button {
                 Task {
                     await appState.signIn(email: email, password: password)
                 }
             } label: {
-                HStack {
+                HStack(spacing: 8) {
                     if appState.isSigningIn {
                         ProgressView()
                             .tint(.white)
                     }
+                    Image(systemName: "arrow.right.circle.fill")
                     Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
                         .font(.system(size: 14, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 10))
+                .padding(.vertical, 14)
+                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
             }
             .disabled(appState.isSigningIn)
             .opacity(appState.isSigningIn ? 0.7 : 1)
@@ -551,23 +708,30 @@ struct SettingsView: View {
             HStack(spacing: 14) {
                 settingsIcon("person.badge.plus", color: MerkenTheme.success)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("新規登録")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(MerkenTheme.primaryText)
                     Text("アカウントを作成してクラウド同期を開始")
-                        .font(.system(size: 12))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
+                HStack(spacing: 6) {
+                    Text("登録へ")
+                        .font(.system(size: 12, weight: .bold))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundStyle(MerkenTheme.success)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(MerkenTheme.success.opacity(0.10), in: Capsule())
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

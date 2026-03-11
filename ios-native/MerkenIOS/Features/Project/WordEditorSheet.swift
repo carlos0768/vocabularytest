@@ -14,6 +14,7 @@ struct WordEditorSheet: View {
     }
 
     let mode: Mode
+    let projectId: String
     let onSubmit: (WordInput) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -46,7 +47,7 @@ struct WordEditorSheet: View {
                         Button("保存") {
                             onSubmit(
                                 WordInput(
-                                    projectId: "",
+                                    projectId: projectId,
                                     english: english.trimmingCharacters(in: .whitespacesAndNewlines),
                                     japanese: japanese.trimmingCharacters(in: .whitespacesAndNewlines),
                                     distractors: [distractor1, distractor2, distractor3].map {

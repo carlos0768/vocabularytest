@@ -124,10 +124,10 @@ enum QuizEngine {
 
     // MARK: - Quiz2 (quality-based SM-2)
 
-    /// Status transition for Quiz2 grades (matches web `getStatusAfterGrade`)
+    /// Status transition for SM-2 quality (matches web `getStatusAfterQuality`)
     static func statusAfterGrade(current: WordStatus, quality: Int) -> WordStatus {
         switch quality {
-        case 1: // Again
+        case ...2: // Failed / poor recall
             return current == .mastered ? .review : .new
         case 3: // Hard
             return .review
@@ -180,6 +180,30 @@ enum QuizEngine {
             intervalDays: intervalDays,
             repetition: repetition
         )
+    }
+
+    /// Match mode maps each word to a weak review signal.
+    /// - 0 mismatches: hard success (quality 3)
+    /// - 1 mismatch: poor recall (quality 2)
+    /// - 2+ mismatches: failed recall (quality 1)
+    static func statusPatchForMatch(for word: Word, mismatchCount: Int) -> WordPatch {
+        let quality: Int
+        switch mismatchCount {
+        case ..<1:
+            quality = 3
+        case 1:
+            quality = 2
+        default:
+            quality = 1
+        }
+
+        var patch = statusPatchByQuality(for: word, quality: quality)
+        if mismatchCount <= 0 {
+            patch.status = word.status == .new ? .review : word.status
+        } else {
+            patch.status = word.status == .mastered ? .review : .new
+        }
+        return patch
     }
 
     /// Returns words that are due for review, aligned with web `getWordsDueForReview`.

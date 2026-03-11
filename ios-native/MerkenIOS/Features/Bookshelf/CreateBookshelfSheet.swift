@@ -23,6 +23,26 @@ struct CreateBookshelfSheet: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
+                        SolidCard {
+                            HStack(spacing: 14) {
+                                IconBadge(systemName: "books.vertical.fill", color: MerkenTheme.accentBlue, size: 52)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("新しい本棚を作成")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundStyle(MerkenTheme.primaryText)
+                                    Text("複数の単語帳を1つにまとめて整理・学習できます。")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(MerkenTheme.secondaryText)
+                                        .lineSpacing(2)
+                                }
+
+                                Spacer(minLength: 0)
+                            }
+                        }
+
+                        sectionLabel("基本情報")
+
                         TextField("名前（例: 期末テスト対策）", text: $name)
                             .textFieldStyle(.plain)
                             .solidTextField(cornerRadius: 16)
@@ -32,9 +52,16 @@ struct CreateBookshelfSheet: View {
                             .solidTextField(cornerRadius: 16)
 
                         if !allProjects.isEmpty {
-                            Text("単語帳を選択")
-                                .font(.headline)
-                                .foregroundStyle(MerkenTheme.secondaryText)
+                            HStack {
+                                sectionLabel("単語帳を選択")
+                                Spacer()
+                                Text("\(selectedProjectIds.count)冊")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(MerkenTheme.surfaceAlt, in: Capsule())
+                            }
 
                             ForEach(allProjects) { project in
                                 let isSelected = selectedProjectIds.contains(project.id)
@@ -52,6 +79,9 @@ struct CreateBookshelfSheet: View {
                                                 .font(.system(size: 15, weight: .medium))
                                                 .foregroundStyle(MerkenTheme.primaryText)
                                                 .lineLimit(1)
+                                            Text(isSelected ? "追加予定" : "タップで追加")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundStyle(isSelected ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
                                         }
 
                                         Spacer()
@@ -144,5 +174,11 @@ struct CreateBookshelfSheet: View {
             // Error will be shown via parent reload.
             dismiss()
         }
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(MerkenTheme.secondaryText)
     }
 }

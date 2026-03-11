@@ -4,18 +4,15 @@
 -- 1. Enable pgvector extension
 -- Note: On Supabase, pgvector is installed in the public schema
 CREATE EXTENSION IF NOT EXISTS vector;
-
 -- 2. Add embedding column to words table
 -- Using 1536 dimensions for OpenAI text-embedding-3-small model
 ALTER TABLE words
 ADD COLUMN IF NOT EXISTS embedding vector(1536);
-
 -- 3. Create HNSW index for fast approximate nearest neighbor search
 -- HNSW (Hierarchical Navigable Small World) provides excellent query performance
 CREATE INDEX IF NOT EXISTS idx_words_embedding
 ON words USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
-
 -- 4. Create function for semantic word search
 -- This function finds similar words from a user's vocabulary across all projects
 CREATE OR REPLACE FUNCTION match_words_by_embedding(
@@ -52,10 +49,8 @@ AS $$
   ORDER BY w.embedding <=> query_embedding ASC
   LIMIT match_count;
 $$;
-
 -- 5. Grant execute permission on the function
 GRANT EXECUTE ON FUNCTION match_words_by_embedding TO authenticated;
-
 -- 6. Create helper function to check if a word has embedding
 CREATE OR REPLACE FUNCTION get_words_without_embedding(
   user_id_filter uuid,
@@ -79,9 +74,7 @@ AS $$
     AND w.embedding IS NULL
   LIMIT limit_count;
 $$;
-
 GRANT EXECUTE ON FUNCTION get_words_without_embedding TO authenticated;
-
 -- 7. Create function to update word embedding
 CREATE OR REPLACE FUNCTION update_word_embedding(
   word_id uuid,
@@ -96,9 +89,7 @@ AS $$
   SET embedding = new_embedding
   WHERE id = word_id;
 $$;
-
 GRANT EXECUTE ON FUNCTION update_word_embedding TO authenticated;
-
 -- 8. Add comment for documentation
 COMMENT ON COLUMN words.embedding IS 'OpenAI text-embedding-3-small vector (1536 dimensions) for semantic search';
 COMMENT ON FUNCTION match_words_by_embedding IS 'Find semantically similar words from user vocabulary for sentence quiz';

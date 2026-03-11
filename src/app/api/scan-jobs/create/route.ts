@@ -61,7 +61,7 @@ function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
 
 const requestSchema = z.object({
   projectTitle: z.string().trim().min(1).max(120),
-  projectIcon: z.string().trim().max(600_000).regex(/^data:image\//, 'projectIcon must be an image data URL').nullable().optional(),
+  projectIcon: z.string().trim().max(2_500_000).regex(/^data:image\//, 'projectIcon must be an image data URL').nullable().optional(),
   scanMode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
   eikenLevel: z.string().trim().max(100).nullable().optional(),
   imagePath: z.string().trim().min(1).max(500).optional(),

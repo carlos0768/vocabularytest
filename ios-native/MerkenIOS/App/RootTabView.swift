@@ -9,14 +9,31 @@ private struct RootTabItem: Identifiable {
     var id: Int { tab }
 }
 
+private struct LiquidBarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .brightness(configuration.isPressed ? 0.02 : 0)
+            .overlay {
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.18))
+                }
+            }
+            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
+    }
+}
+
 struct RootTabView: View {
     @EnvironmentObject private var appState: AppState
 
-    @State private var showingScanOverlay = false
-    @State private var selectedScanMode: ScanMode?
-    @State private var selectedEikenLevel: EikenLevel?
-    @State private var selectedScanSource: ScanSource?
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("seenOnboardingVersion") private var seenOnboardingVersion = 0
+
     @State private var showingScanFlow = false
+    @State private var showingOnboarding = false
+    @State private var showingSignInSheet = false
+    @State private var showingSignUpSheet = false
 
     private let tabItems: [RootTabItem] = [
         .init(tab: 0, title: "ホーム", systemImage: "house.fill"),
@@ -29,47 +46,57 @@ struct RootTabView: View {
         UITabBar.appearance().isHidden = true
     }
 
+    private var shouldShowOnboarding: Bool {
+        !hasSeenOnboarding || seenOnboardingVersion < OnboardingView.currentVersion
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
 
-            TabView(selection: $appState.selectedTab) {
-                NavigationStack {
-                    HomeView()
-                }
-                .toolbar(.hidden, for: .tabBar)
-                .tag(0)
+            if appState.isLoggedIn {
+                TabView(selection: $appState.selectedTab) {
+                    NavigationStack {
+                        HomeView()
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+                    .tag(0)
 
-                NavigationStack {
-                    StatsView()
-                }
-                .toolbar(.hidden, for: .tabBar)
-                .tag(3)
+                    NavigationStack {
+                        StatsView()
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+                    .tag(3)
 
-                NavigationStack {
-                    BookshelfListView()
-                }
-                .toolbar(.hidden, for: .tabBar)
-                .tag(1)
+                    NavigationStack {
+                        BookshelfListView()
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+                    .tag(1)
 
-                NavigationStack {
-                    SettingsView()
+                    NavigationStack {
+                        SettingsView()
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+                    .tag(4)
                 }
+                .tint(MerkenTheme.accentBlue)
                 .toolbar(.hidden, for: .tabBar)
-                .tag(4)
+                .safeAreaPadding(.bottom, appState.tabBarVisible ? 92 : 0)
+            } else {
+                RootAuthLandingView(
+                    onGetStarted: {
+                        if shouldShowOnboarding {
+                            showingOnboarding = true
+                        } else {
+                            showingSignUpSheet = true
+                        }
+                    },
+                    onSignIn: { showingSignInSheet = true }
+                )
             }
-            .tint(MerkenTheme.accentBlue)
-            .toolbar(.hidden, for: .tabBar)
-            .safeAreaPadding(.bottom, appState.tabBarVisible ? 96 : 0)
         }
-        .overlay(alignment: .bottom) {
-            if appState.tabBarVisible {
-                bottomNavigationBar
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .ignoresSafeArea(.container, edges: .bottom)
-                    .ignoresSafeArea(.keyboard)
-            }
-        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .animation(MerkenSpring.snappy, value: appState.tabBarVisible)
         .overlay(alignment: .top) {
             if let banner = appState.scanBanner {
@@ -80,33 +107,8 @@ struct RootTabView: View {
             }
         }
         .overlay {
-            if showingScanOverlay {
-                ScanModeOverlay(
-                    isPro: appState.subscription?.isActivePro ?? false,
-                    onSelectMode: { mode, eikenLevel, source in
-                        selectedScanMode = mode
-                        selectedEikenLevel = eikenLevel
-                        selectedScanSource = source
-                        withAnimation(MerkenSpring.snappy) {
-                            showingScanOverlay = false
-                        }
-                        showingScanFlow = true
-                    },
-                    onDismiss: {
-                        withAnimation(MerkenSpring.snappy) {
-                            showingScanOverlay = false
-                        }
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showingScanFlow {
+            if appState.isLoggedIn && showingScanFlow {
                 ScanCoordinatorView(
-                    preselectedMode: selectedScanMode,
-                    preselectedEikenLevel: selectedEikenLevel,
-                    preselectedSource: selectedScanSource,
                     onDismissRequest: closeScanFlow
                 )
                 .environmentObject(appState)
@@ -114,17 +116,41 @@ struct RootTabView: View {
                 .zIndex(2)
             }
         }
+        .overlay(alignment: .bottom) {
+            if appState.isLoggedIn && appState.tabBarVisible {
+                bottomNavigationBar
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .ignoresSafeArea(.keyboard)
+                    .zIndex(3)
+            }
+        }
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: appState.scanBanner?.id)
         .animation(MerkenSpring.snappy, value: showingScanFlow)
+        .sheet(isPresented: $showingSignInSheet) {
+            RootSignInSheetView()
+                .environmentObject(appState)
+        }
+        .sheet(isPresented: $showingSignUpSheet) {
+            SignUpView()
+                .environmentObject(appState)
+        }
+        .fullScreenCover(isPresented: $showingOnboarding) {
+            OnboardingView(
+                onGetStarted: {
+                    showingSignUpSheet = true
+                },
+                onSignIn: {
+                    showingSignInSheet = true
+                }
+            )
+        }
     }
 
     private func closeScanFlow() {
         withAnimation(MerkenSpring.snappy) {
             showingScanFlow = false
         }
-        selectedScanMode = nil
-        selectedEikenLevel = nil
-        selectedScanSource = nil
     }
 
     private var bottomNavigationBar: some View {
@@ -133,8 +159,8 @@ struct RootTabView: View {
             scanButton
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, 4)
+        .padding(.bottom, 0)
         .background(Color.clear)
     }
 
@@ -146,21 +172,18 @@ struct RootTabView: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 2)
         .frame(maxWidth: .infinity)
+        .frame(height: 56)
 
-        return Group {
-            if #available(iOS 26.0, *) {
-                baseBar.glassEffect(.regular.tint(Color.white.opacity(0.18)))
-            } else {
-                baseBar.background(.ultraThinMaterial, in: shape)
-            }
-        }
-        .overlay(
-            shape.stroke(Color.white.opacity(0.35), lineWidth: 1)
-        )
-        .clipShape(shape)
-        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 8)
+        return baseBar
+            .background(.ultraThinMaterial, in: shape)
+            .overlay(
+                shape.stroke(Color.white.opacity(0.32), lineWidth: 1)
+            )
+            .clipShape(shape)
+            .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
+            .allowsHitTesting(!showingScanFlow)
     }
 
     private func tabButton(for item: RootTabItem) -> some View {
@@ -174,7 +197,7 @@ struct RootTabView: View {
                 appState.selectedTab = item.tab
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 1) {
                 Image(systemName: item.systemImage)
                     .font(.system(size: 18, weight: .semibold))
                 Text(item.title)
@@ -185,21 +208,21 @@ struct RootTabView: View {
             .foregroundStyle(isSelected ? MerkenTheme.primaryText : MerkenTheme.secondaryText)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.vertical, 3)
             .background {
                 if isSelected {
                     Capsule(style: .continuous)
-                        .fill(MerkenTheme.surface.opacity(0.92))
+                        .fill(Color.white.opacity(0.58))
                         .overlay(
                             Capsule(style: .continuous)
-                                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+                                .stroke(Color.white.opacity(0.38), lineWidth: 1)
                         )
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+                        .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
                 }
             }
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LiquidBarButtonStyle())
         .accessibilityLabel(item.title)
     }
 
@@ -207,33 +230,212 @@ struct RootTabView: View {
         Button {
             MerkenHaptic.selection()
             withAnimation(MerkenSpring.snappy) {
-                showingScanOverlay.toggle()
+                showingScanFlow.toggle()
             }
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(.white)
-                .rotationEffect(.degrees(showingScanOverlay ? 45 : 0))
-                .animation(MerkenSpring.snappy, value: showingScanOverlay)
-                .frame(width: 62, height: 62)
-                .background(
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.96), Color.black.opacity(0.82)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+            ZStack {
+                Image(systemName: "plus")
+                    .opacity(showingScanFlow ? 0 : 1)
+                    .scaleEffect(showingScanFlow ? 0.55 : 1)
+                    .rotationEffect(.degrees(showingScanFlow ? 90 : 0))
+
+                Image(systemName: "xmark")
+                    .opacity(showingScanFlow ? 1 : 0)
+                    .scaleEffect(showingScanFlow ? 1 : 0.55)
+                    .rotationEffect(.degrees(showingScanFlow ? 0 : -90))
+            }
+            .font(.system(size: 24, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 56, height: 56)
+            .background(
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.black.opacity(0.96), Color.black.opacity(0.82)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 8)
+                    )
+            )
+            .overlay(
+                Circle()
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 8)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("スキャン")
+        .buttonStyle(LiquidBarButtonStyle())
+        .accessibilityLabel(showingScanFlow ? "閉じる" : "スキャン")
+    }
+}
+
+private struct RootAuthLandingView: View {
+    let onGetStarted: () -> Void
+    let onSignIn: () -> Void
+
+    var body: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        Text("🇺🇸")
+                        Text("EN")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(MerkenTheme.surface, in: Capsule())
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+                Spacer(minLength: 24)
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 44, style: .continuous)
+                        .fill(Color.black)
+                        .frame(width: 212, height: 430)
+                        .rotationEffect(.degrees(-10))
+                        .offset(x: 86, y: -10)
+
+                    RoundedRectangle(cornerRadius: 36, style: .continuous)
+                        .fill(Color.white)
+                        .frame(width: 186, height: 390)
+                        .rotationEffect(.degrees(-10))
+                        .overlay(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Image(systemName: "applelogo")
+                                    Text("Merken")
+                                        .font(.system(size: 18, weight: .bold))
+                                }
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .padding(.top, 28)
+                                .padding(.horizontal, 18)
+
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(MerkenTheme.background)
+                                    .frame(height: 220)
+                                    .overlay {
+                                        VStack(spacing: 16) {
+                                            Image(systemName: "camera.viewfinder")
+                                                .font(.system(size: 44, weight: .medium))
+                                                .foregroundStyle(MerkenTheme.accentBlue)
+                                            Text("Scan and build")
+                                                .font(.system(size: 18, weight: .bold))
+                                                .foregroundStyle(MerkenTheme.primaryText)
+                                        }
+                                    }
+                                    .padding(.horizontal, 14)
+                            }
+                        }
+                }
+                .frame(height: 360)
+
+                Spacer(minLength: 28)
+
+                VStack(spacing: 20) {
+                    Text("English learning\nmade easy")
+                        .font(.system(size: 34, weight: .black))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(MerkenTheme.primaryText)
+
+                    Button(action: onGetStarted) {
+                        Text("Get Started")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 20)
+                            .background(Color.black, in: Capsule())
+                    }
+
+                    HStack(spacing: 6) {
+                        Text("Already have an account?")
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                        Button("Sign In", action: onSignIn)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 34)
+            }
+        }
+    }
+}
+
+private struct RootSignInSheetView: View {
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var email = ""
+    @State private var password = ""
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppBackground()
+
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("サインイン")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+
+                    TextField("メールアドレス", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .solidTextField(cornerRadius: 16)
+
+                    SecureField("パスワード", text: $password)
+                        .solidTextField(cornerRadius: 16)
+
+                    if let message = appState.authErrorMessage, !message.isEmpty {
+                        Text(message)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.danger)
+                    }
+
+                    Button {
+                        Task {
+                            await appState.signIn(email: email, password: password)
+                            if appState.isLoggedIn {
+                                dismiss()
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            if appState.isSigningIn {
+                                ProgressView()
+                                    .tint(.white)
+                            }
+                            Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.black, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .disabled(appState.isSigningIn)
+                    .opacity(appState.isSigningIn ? 0.7 : 1)
+
+                    Spacer()
+                }
+                .padding(24)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -15,42 +15,43 @@ struct SignUpOTPView: View {
     var body: some View {
         ZStack {
             AppBackground()
+            authBackgroundAccent
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        authEyebrow(icon: "number.circle.fill", text: "Verify Email")
+
                         Text("認証コード入力")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.system(size: 36, weight: .black))
                             .foregroundStyle(MerkenTheme.primaryText)
                         Text("\(email) に6桁のコードを送信しました")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.mutedText)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .lineSpacing(3)
                     }
                     .padding(.top, 8)
 
-                    // OTP Input
-                    SolidCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            TextField("6桁の認証コード", text: $otpCode)
-                                .keyboardType(.numberPad)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .solidTextField()
-                                .onChange(of: otpCode) { _, newValue in
-                                    // Limit to 6 digits
-                                    let filtered = newValue.filter(\.isNumber)
-                                    if filtered.count > 6 {
-                                        otpCode = String(filtered.prefix(6))
-                                    } else if filtered != newValue {
-                                        otpCode = filtered
+                    authCard(title: "コードを確認", subtitle: "届いた6桁の数字を入力してください。") {
+                        VStack(alignment: .leading, spacing: 14) {
+                            authField(label: "認証コード", systemImage: "number") {
+                                TextField("6桁の認証コード", text: $otpCode)
+                                    .keyboardType(.numberPad)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .onChange(of: otpCode) { _, newValue in
+                                        let filtered = newValue.filter(\.isNumber)
+                                        if filtered.count > 6 {
+                                            otpCode = String(filtered.prefix(6))
+                                        } else if filtered != newValue {
+                                            otpCode = filtered
+                                        }
                                     }
-                                }
+                                    .solidTextField()
+                            }
 
                             if let error = appState.signUpErrorMessage {
-                                Text(error)
-                                    .font(.caption)
-                                    .foregroundStyle(MerkenTheme.warning)
+                                authErrorBanner(error)
                             }
 
                             Button {
@@ -70,32 +71,39 @@ struct SignUpOTPView: View {
                         }
                     }
 
-                    // Resend / Change email
-                    VStack(spacing: 12) {
+                    authCard(title: "メールが届かない場合", subtitle: "再送信かメールアドレス変更を選べます。") {
+                        VStack(spacing: 12) {
                         if resendCooldown > 0 {
                             Text("再送信まで \(resendCooldown)秒")
-                                .font(.subheadline)
-                                .foregroundStyle(MerkenTheme.mutedText)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.secondaryText)
                                 .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 12)
+                                .background(MerkenTheme.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         } else {
                             Button("認証コードを再送信") {
                                 resendOTP()
                             }
-                            .font(.subheadline.bold())
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(MerkenTheme.accentBlue)
                             .disabled(appState.isSigningUp)
                             .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 12)
+                            .background(MerkenTheme.accentBlue.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
 
                         Button("メールアドレスを変更") {
                             dismiss()
                         }
-                        .font(.subheadline)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(MerkenTheme.mutedText)
                         .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 28)
             }
             .scrollIndicators(.hidden)
         }
@@ -122,6 +130,86 @@ struct SignUpOTPView: View {
             cooldownTimer?.invalidate()
             cooldownTimer = nil
         }
+    }
+
+    private var authBackgroundAccent: some View {
+        LinearGradient(
+            colors: [
+                MerkenTheme.success.opacity(0.08),
+                .clear,
+                MerkenTheme.accentBlue.opacity(0.06)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+    }
+
+    private func authEyebrow(icon: String, text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .bold))
+            Text(text)
+                .font(.system(size: 12, weight: .bold))
+        }
+        .foregroundStyle(MerkenTheme.accentBlue)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
+    }
+
+    private func authCard<Content: View>(title: String, subtitle: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            content()
+        }
+        .padding(20)
+        .background(MerkenTheme.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(MerkenTheme.border.opacity(0.8), lineWidth: 1.2)
+        )
+    }
+
+    private func authField<Content: View>(label: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            content()
+        }
+    }
+
+    private func authErrorBanner(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(MerkenTheme.warning)
+            Text(message)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(MerkenTheme.secondaryText)
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(MerkenTheme.warning.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(MerkenTheme.warning.opacity(0.24), lineWidth: 1)
+        )
     }
 
     private func verifyOTP() {

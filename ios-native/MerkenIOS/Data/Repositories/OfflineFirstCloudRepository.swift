@@ -77,6 +77,12 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         try? await cacheStore.updateProjectFavorite(id: id, isFavorite: isFavorite)
     }
 
+    func updateProjectSourceLabels(id: String, sourceLabels: [String]) async throws {
+        let normalized = normalizeProjectSourceLabels(sourceLabels)
+        try await cloudRepository.updateProjectSourceLabels(id: id, sourceLabels: normalized)
+        try? await cacheStore.updateProjectSourceLabels(id: id, sourceLabels: normalized)
+    }
+
     func deleteProject(id: String) async throws {
         try await cloudRepository.deleteProject(id: id)
         try? await cacheStore.deleteProject(id: id)
@@ -172,6 +178,59 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         }
 
         return refreshedProjects && refreshedWords
+    }
+
+    @discardableResult
+    func refreshCompletedScanProjectFromCloud(userId: String, projectId: String?) async -> Bool {
+        var refreshedProjects = false
+        var refreshedProjectWords = projectId == nil
+
+        do {
+            let projects = try await performRetryableRefresh(
+                label: "scan completion project refresh",
+                attempts: refreshRetryLimit
+            ) {
+                try await self.cloudRepository.fetchProjects(userId: userId)
+            }
+            try? await cacheStore.replaceProjects(userId: userId, projects: projects)
+            refreshedProjects = true
+        } catch {
+            logger.warning("Forced scan-completion project refresh skipped: \(error.localizedDescription, privacy: .public)")
+        }
+
+        if let projectId, !projectId.isEmpty {
+            do {
+                let words = try await performRetryableRefresh(
+                    label: "scan completion word refresh",
+                    attempts: refreshRetryLimit
+                ) {
+                    try await self.cloudRepository.fetchWords(projectId: projectId)
+                }
+                try? await cacheStore.replaceWords(
+                    userId: userId,
+                    projectId: projectId,
+                    words: words,
+                    markAsAccessed: true
+                )
+                await enforceWordLimit(userId: userId)
+                refreshedProjectWords = true
+            } catch {
+                logger.warning(
+                    "Forced scan-completion word refresh skipped for \(projectId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        if refreshedProjects || refreshedProjectWords {
+            return true
+        }
+
+        guard let projectId, !projectId.isEmpty else {
+            return false
+        }
+
+        let cachedProjects = (try? await cacheStore.fetchProjects(userId: userId)) ?? []
+        return cachedProjects.contains(where: { $0.id == projectId })
     }
 
     func updateWord(id: String, patch: WordPatch) async throws {

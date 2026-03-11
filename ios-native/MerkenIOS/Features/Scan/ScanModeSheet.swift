@@ -13,11 +13,6 @@ struct ScanModeSheet: View {
     @State private var selectedEikenLevel: EikenLevel = .grade3
     @State private var showEikenPicker = false
 
-    // For source selection action sheet
-    @State private var pendingMode: ScanMode?
-    @State private var pendingEikenLevel: EikenLevel?
-    @State private var showSourcePicker = false
-
     private var visibleModes: [ScanMode] {
         ScanMode.allCases.filter { mode in
             mode != .highlighted && mode != .wrong
@@ -37,12 +32,6 @@ struct ScanModeSheet: View {
         case .idiom: return MerkenTheme.success
         case .wrong: return MerkenTheme.danger
         }
-    }
-
-    private func confirmSource(mode: ScanMode, eikenLevel: EikenLevel?) {
-        pendingMode = mode
-        pendingEikenLevel = eikenLevel
-        showSourcePicker = true
     }
 
     var body: some View {
@@ -105,25 +94,6 @@ struct ScanModeSheet: View {
         .sheet(isPresented: $showEikenPicker) {
             eikenPickerSheet
         }
-        .confirmationDialog("画像の取得方法", isPresented: $showSourcePicker, titleVisibility: .visible) {
-            Button {
-                if let mode = pendingMode {
-                    onSelect(mode, pendingEikenLevel, .camera)
-                }
-            } label: {
-                Label("カメラで撮影", systemImage: "camera")
-            }
-
-            Button {
-                if let mode = pendingMode {
-                    onSelect(mode, pendingEikenLevel, .photoLibrary)
-                }
-            } label: {
-                Label("写真から選択", systemImage: "photo.on.rectangle")
-            }
-
-            Button("キャンセル", role: .cancel) {}
-        }
     }
 
     private func modeButton(mode: ScanMode, locked: Bool) -> some View {
@@ -132,7 +102,7 @@ struct ScanModeSheet: View {
             if mode == .eiken {
                 showEikenPicker = true
             } else {
-                confirmSource(mode: mode, eikenLevel: nil)
+                onSelect(mode, nil, .camera)
             }
         } label: {
             HStack(spacing: 16) {
@@ -167,12 +137,6 @@ struct ScanModeSheet: View {
                             .clipShape(Capsule())
                         }
                     }
-
-                    Text(mode.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(locked ? MerkenTheme.mutedText.opacity(0.6) : MerkenTheme.secondaryText)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
                 }
 
                 Spacer()
@@ -200,7 +164,7 @@ struct ScanModeSheet: View {
                             Button {
                                 selectedEikenLevel = level
                                 showEikenPicker = false
-                                confirmSource(mode: .eiken, eikenLevel: level)
+                                onSelect(.eiken, level, .camera)
                             } label: {
                                 SolidPane {
                                     HStack {

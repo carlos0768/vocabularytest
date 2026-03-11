@@ -12,6 +12,35 @@ struct SelectedScanImage: Identifiable {
     }
 }
 
+private struct ScanDraft {
+    var mode: ScanMode
+    var eikenLevel: EikenLevel?
+    var source: ScanSource
+    var projectTitle: String
+    var projectThumbnail: UIImage?
+    var targetProjectId: String?
+    var targetProjectTitle: String?
+}
+
+private struct ResolvedScanSubmission {
+    var draft: ScanDraft
+    let projectTitle: String
+    let projectIcon: String?
+    let scanMode: ScanMode
+    let eikenLevel: EikenLevel?
+    let targetProjectId: String?
+}
+
+private struct ScanSubmissionError: LocalizedError {
+    let message: String
+
+    init(_ message: String) {
+        self.message = message
+    }
+
+    var errorDescription: String? { message }
+}
+
 enum ScanPageStatus: String, Equatable {
     case pending
     case processing
@@ -120,10 +149,10 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private var selectedMode: ScanMode = .all
     private var selectedEikenLevel: EikenLevel?
     private var selectedSource: ScanSource = .camera
+    private var scanDraft: ScanDraft?
     private var stepBeforeError: FlowStep = .modeSelection
     private var completionSource: ScanCompletionSource = .foregroundManual
     private var shouldAutoSaveAfterProcessingDismiss = false
-    var shouldAutoProcessOnSetup = false
     private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
 
     // For adding words to an existing project
@@ -146,12 +175,16 @@ final class ScanCoordinatorViewModel: ObservableObject {
             self.selectedMode = mode
             self.selectedEikenLevel = preselectedEikenLevel
             self.selectedSource = source
-            switch source {
-            case .camera:
-                self.currentStep = .camera
-            case .photoLibrary:
-                self.currentStep = .photoLibrary
-            }
+            self.scanDraft = ScanDraft(
+                mode: mode,
+                eikenLevel: preselectedEikenLevel,
+                source: source,
+                projectTitle: targetProjectTitle ?? Self.defaultProjectTitle(),
+                projectThumbnail: nil,
+                targetProjectId: targetProjectId,
+                targetProjectTitle: targetProjectTitle
+            )
+            self.currentStep = .camera
         }
     }
 
@@ -161,59 +194,89 @@ final class ScanCoordinatorViewModel: ObservableObject {
         selectedImages.first?.image
     }
 
-    var isPhotoLibrarySelection: Bool {
-        selectedSource == .photoLibrary
+    var shouldOpenPhotoPickerOnCameraEntry: Bool {
+        false
     }
 
-    func selectMode(_ mode: ScanMode, eikenLevel: EikenLevel?, source: ScanSource) {
+    func selectMode(_ mode: ScanMode, eikenLevel: EikenLevel?) {
         selectedMode = mode
         selectedEikenLevel = eikenLevel
-        selectedSource = source
+        selectedSource = .camera
         resetSelectionData()
-        switch source {
-        case .camera:
-            currentStep = .camera
-        case .photoLibrary:
-            currentStep = .photoLibrary
+        let resolvedTitle: String
+        if let targetProjectTitle, !targetProjectTitle.isEmpty {
+            resolvedTitle = targetProjectTitle
+        } else {
+            resolvedTitle = Self.defaultProjectTitle()
         }
+        projectTitle = resolvedTitle
+        scanDraft = ScanDraft(
+            mode: mode,
+            eikenLevel: eikenLevel,
+            source: .camera,
+            projectTitle: resolvedTitle,
+            projectThumbnail: nil,
+            targetProjectId: targetProjectId,
+            targetProjectTitle: targetProjectTitle
+        )
+        currentStep = .camera
     }
 
     func captureImage(_ image: UIImage) {
         selectedSource = .camera
-        setSelectedImages([image])
+        appendSelectedImages([image])
     }
 
     func setSelectedImages(_ images: [UIImage]) {
-        let limited = Array(images.prefix(Self.maxPhotoSelection))
-        selectedImages = limited.map { SelectedScanImage(image: $0) }
+        selectedSource = .photoLibrary
+        appendSelectedImages(images)
+    }
+
+    func appendSelectedImages(_ images: [UIImage]) {
+        let remainingCapacity = max(0, Self.maxPhotoSelection - selectedImages.count)
+        let limited = Array(images.prefix(remainingCapacity))
+        guard !limited.isEmpty else {
+            currentStep = .camera
+            return
+        }
+
+        selectedImages.append(contentsOf: limited.map { SelectedScanImage(image: $0) })
         editableWords = []
         currentWordCount = 0
         processingPages = []
         processingSummary = nil
+        projectThumbnail = selectedImages.first?.image
 
-        if selectedImages.isEmpty {
-            currentStep = (selectedSource == .photoLibrary) ? .photoLibrary : .camera
-            return
+        if projectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            projectTitle = Self.defaultProjectTitle()
         }
-
-        // If adding to existing project, skip project setup — auto-process immediately
-        if targetProjectId != nil {
-            shouldAutoProcessOnSetup = true
-            currentStep = .projectSetup
-            return
+        if scanDraft == nil {
+            scanDraft = ScanDraft(
+                mode: selectedMode,
+                eikenLevel: selectedEikenLevel,
+                source: selectedSource,
+                projectTitle: projectTitle,
+                projectThumbnail: projectThumbnail,
+                targetProjectId: targetProjectId,
+                targetProjectTitle: targetProjectTitle
+            )
+        } else {
+            scanDraft?.source = selectedSource
+            scanDraft?.projectTitle = projectTitle
+            scanDraft?.projectThumbnail = projectThumbnail
         }
-
-        // New project — show project setup page
-        currentStep = .projectSetup
+        currentStep = .preview
     }
 
     func removeSelectedImage(id: UUID) {
         selectedImages.removeAll { $0.id == id }
         processingPages = []
         processingSummary = nil
+        projectThumbnail = selectedImages.first?.image
+        scanDraft?.projectThumbnail = projectThumbnail
 
         if selectedImages.isEmpty {
-            currentStep = (selectedSource == .photoLibrary) ? .photoLibrary : .camera
+            currentStep = .camera
         }
     }
 
@@ -232,16 +295,16 @@ final class ScanCoordinatorViewModel: ObservableObject {
         let insertionIndex = max(0, min(destination - removedBeforeDestination, reordered.count))
         reordered.insert(contentsOf: moving, at: insertionIndex)
         selectedImages = reordered
+        projectThumbnail = selectedImages.first?.image
+        scanDraft?.projectThumbnail = projectThumbnail
     }
 
     func retakePhoto() {
-        resetSelectionData()
         currentStep = .camera
     }
 
     func selectPhotosAgain() {
-        resetSelectionData()
-        currentStep = .photoLibrary
+        currentStep = .camera
     }
 
     func processImage(using appState: AppState) {
@@ -260,7 +323,18 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
         let userId = session.userId
 
-        stepBeforeError = .projectSetup
+        let submission: ResolvedScanSubmission
+        do {
+            submission = try resolveScanSubmission()
+        } catch {
+            currentStep = .error(error.localizedDescription)
+            return
+        }
+        var scanDraft = submission.draft
+        self.scanDraft = scanDraft
+
+        stepBeforeError = .preview
+        projectThumbnail = scanDraft.projectThumbnail
         currentStep = .processing
         processingSummary = nil
         beginBackgroundTask()
@@ -270,6 +344,20 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 pageIndex: index + 1,
                 status: .pending
             )
+        }
+
+        let provisionalJobId = "pending-\(UUID().uuidString)"
+        let shouldShowProvisionalCard = scanDraft.targetProjectId == nil
+        if shouldShowProvisionalCard {
+            let provisionalContext = PendingScanImportContext(
+                jobId: provisionalJobId,
+                source: .homeOrProjectList,
+                localTargetProjectId: nil,
+                requestedProjectTitle: submission.projectTitle,
+                requestedProjectIconImage: submission.projectIcon,
+                createdAt: .now
+            )
+            appState.registerPendingScanImport(provisionalContext)
         }
 
         Task {
@@ -327,6 +415,10 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 )
                 processingSummary = summary
                 currentStep = .error("アップロードできる画像がありません。")
+                if shouldShowProvisionalCard {
+                    appState.removePendingScanImport(jobId: provisionalJobId)
+                }
+                appState.postScanFailure(message: "アップロードできる画像がありません。")
                 endBackgroundTask()
                 return
             }
@@ -374,30 +466,26 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 )
                 processingSummary = summary
                 currentStep = .error(message)
+                if shouldShowProvisionalCard {
+                    appState.removePendingScanImport(jobId: provisionalJobId)
+                }
+                appState.postScanFailure(message: message)
                 endBackgroundTask()
                 return
             }
 
-            let resolvedProjectTitle: String = {
-                let raw = projectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !raw.isEmpty { return raw }
-                if let targetProjectTitle, !targetProjectTitle.isEmpty { return targetProjectTitle }
-                return Self.defaultProjectTitle()
-            }()
-            projectTitle = resolvedProjectTitle
-
             do {
                 logger.info(
-                    "Creating scan job: title=\(resolvedProjectTitle, privacy: .public), imageCount=\(uploadedPaths.count, privacy: .public), mode=\(self.selectedMode.rawValue, privacy: .public)"
+                    "Creating scan job: title=\(submission.projectTitle, privacy: .public), imageCount=\(uploadedPaths.count, privacy: .public), mode=\(submission.scanMode.rawValue, privacy: .public)"
                 )
                 let response = try await callWebAPIWithAuthRetry { token in
                     try await appState.webAPIClient.createScanJob(
                         imagePaths: uploadedPaths,
-                        projectTitle: resolvedProjectTitle,
-                        projectIcon: self.projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) },
-                        scanMode: self.selectedMode,
-                        eikenLevel: self.selectedEikenLevel,
-                        targetProjectId: self.targetProjectId,
+                        projectTitle: submission.projectTitle,
+                        projectIcon: submission.projectIcon,
+                        scanMode: submission.scanMode,
+                        eikenLevel: submission.eikenLevel,
+                        targetProjectId: submission.targetProjectId,
                         aiEnabled: appState.aiPreference,
                         clientPlatform: "ios",
                         bearerToken: token
@@ -415,13 +503,18 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
                 let context = PendingScanImportContext(
                     jobId: response.jobId,
-                    source: targetProjectId == nil ? .homeOrProjectList : .projectDetail,
-                    localTargetProjectId: response.saveMode == .clientLocal ? targetProjectId : nil,
-                    requestedProjectTitle: resolvedProjectTitle,
-                    requestedProjectIconImage: projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) },
+                    source: scanDraft.targetProjectId == nil ? .homeOrProjectList : .projectDetail,
+                    localTargetProjectId: response.saveMode == .clientLocal ? scanDraft.targetProjectId : nil,
+                    requestedProjectTitle: submission.projectTitle,
+                    requestedProjectIconImage: submission.projectIcon,
                     createdAt: .now
                 )
-                appState.registerPendingScanImport(context)
+                if shouldShowProvisionalCard {
+                    appState.replacePendingScanImport(oldJobId: provisionalJobId, with: context)
+                } else {
+                    appState.registerPendingScanImport(context)
+                }
+                appState.postScanQueued(projectTitle: submission.projectTitle)
 
                 currentStep = .queued(jobId: response.jobId)
                 completionSource = .foregroundManual
@@ -442,7 +535,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
                     dedupedWordCount: 0
                 )
                 processingSummary = summary
+                if shouldShowProvisionalCard {
+                    appState.removePendingScanImport(jobId: provisionalJobId)
+                }
                 currentStep = .error(error.localizedDescription)
+                appState.postScanFailure(message: error.localizedDescription)
                 endBackgroundTask()
             }
         }
@@ -470,7 +567,13 @@ final class ScanCoordinatorViewModel: ObservableObject {
         resetSelectionData()
         editableWords = []
         currentWordCount = 0
+        scanDraft = nil
         currentStep = .modeSelection
+    }
+
+    func cancelSourceSelection() -> Bool {
+        resetSelectionData()
+        return true
     }
 
     static func dedupeWords(_ words: [ExtractedWord]) -> [ExtractedWord] {
@@ -781,11 +884,85 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
     private func resetSelectionData() {
         selectedImages = []
+        projectThumbnail = nil
         processingPages = []
         processingSummary = nil
         completionSource = .foregroundManual
         shouldAutoSaveAfterProcessingDismiss = false
         endBackgroundTask()
+    }
+
+    private func resolvedScanDraft() -> ScanDraft {
+        let fallbackTitle: String
+        let trimmedProjectTitle = projectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedProjectTitle.isEmpty {
+            fallbackTitle = trimmedProjectTitle
+        } else if let existingTitle = scanDraft?.projectTitle,
+                  !existingTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fallbackTitle = existingTitle
+        } else if let targetProjectTitle,
+                  !targetProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fallbackTitle = targetProjectTitle
+        } else {
+            fallbackTitle = Self.defaultProjectTitle()
+        }
+
+        projectTitle = fallbackTitle
+
+        return ScanDraft(
+            mode: scanDraft?.mode ?? selectedMode,
+            eikenLevel: scanDraft?.eikenLevel ?? selectedEikenLevel,
+            source: scanDraft?.source ?? selectedSource,
+            projectTitle: fallbackTitle,
+            projectThumbnail: scanDraft?.projectThumbnail ?? projectThumbnail ?? selectedImages.first?.image,
+            targetProjectId: targetProjectId ?? scanDraft?.targetProjectId,
+            targetProjectTitle: targetProjectTitle ?? scanDraft?.targetProjectTitle
+        )
+    }
+
+    private func resolveScanSubmission() throws -> ResolvedScanSubmission {
+        guard !selectedImages.isEmpty else {
+            throw ScanSubmissionError("解析する画像がありません。")
+        }
+
+        var draft = resolvedScanDraft()
+        let normalizedTargetProjectId = draft.targetProjectId?.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.targetProjectId = (normalizedTargetProjectId?.isEmpty == false) ? normalizedTargetProjectId : nil
+
+        if draft.mode == .eiken, draft.eikenLevel == nil {
+            draft.eikenLevel = selectedEikenLevel ?? scanDraft?.eikenLevel ?? .grade3
+        }
+
+        if draft.projectThumbnail == nil {
+            draft.projectThumbnail = selectedImages.first?.image
+        }
+
+        let resolvedTitle = draft.projectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? Self.defaultProjectTitle()
+            : draft.projectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.projectTitle = resolvedTitle
+        projectTitle = resolvedTitle
+        projectThumbnail = draft.projectThumbnail
+        scanDraft = draft
+
+        return ResolvedScanSubmission(
+            draft: draft,
+            projectTitle: resolvedTitle,
+            projectIcon: validatedProjectIconBase64(from: draft.projectThumbnail),
+            scanMode: draft.mode,
+            eikenLevel: draft.eikenLevel,
+            targetProjectId: draft.targetProjectId
+        )
+    }
+
+    private func validatedProjectIconBase64(from image: UIImage?) -> String? {
+        guard let image else { return nil }
+        guard let base64 = ImageCompressor.generateThumbnailBase64(image) else { return nil }
+        guard base64.hasPrefix("data:image/"), base64.utf8.count <= 2_400_000 else {
+            logger.warning("Skipping project icon upload: invalid or oversized thumbnail payload")
+            return nil
+        }
+        return base64
     }
 
     private func updateProgress(

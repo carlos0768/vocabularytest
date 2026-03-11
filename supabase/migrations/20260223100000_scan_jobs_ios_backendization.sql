@@ -4,10 +4,8 @@
 
 ALTER TABLE public.scan_jobs
 ADD COLUMN IF NOT EXISTS target_project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL;
-
 ALTER TABLE public.scan_jobs
 ADD COLUMN IF NOT EXISTS save_mode TEXT NOT NULL DEFAULT 'server_cloud';
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -21,14 +19,11 @@ BEGIN
       CHECK (save_mode IN ('server_cloud', 'client_local'));
   END IF;
 END $$;
-
 CREATE INDEX IF NOT EXISTS idx_scan_jobs_target_project_id
   ON public.scan_jobs (target_project_id)
   WHERE target_project_id IS NOT NULL;
-
 CREATE INDEX IF NOT EXISTS idx_scan_jobs_user_status_updated
   ON public.scan_jobs (user_id, status, updated_at DESC);
-
 DROP FUNCTION IF EXISTS public.check_and_increment_scan_batch(INTEGER, BOOLEAN);
 CREATE OR REPLACE FUNCTION public.check_and_increment_scan_batch(
   p_count INTEGER,
@@ -119,6 +114,5 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.check_and_increment_scan_batch(INTEGER, BOOLEAN) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.check_and_increment_scan_batch(INTEGER, BOOLEAN) TO authenticated;

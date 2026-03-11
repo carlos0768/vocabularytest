@@ -6,6 +6,5 @@ ALTER TABLE words
   ADD COLUMN IF NOT EXISTS usage_patterns JSONB,
   ADD COLUMN IF NOT EXISTS insights_generated_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS insights_version INTEGER DEFAULT 1;
-
 ALTER TABLE words
   ALTER COLUMN insights_version SET DEFAULT 1;

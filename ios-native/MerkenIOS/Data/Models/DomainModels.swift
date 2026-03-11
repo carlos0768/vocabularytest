@@ -14,6 +14,7 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
     let createdAt: Date
     var shareId: String?
     var isFavorite: Bool
+    var sourceLabels: [String]
 
     init(
         id: String = UUID().uuidString,
@@ -22,7 +23,8 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
         iconImage: String? = nil,
         createdAt: Date = .now,
         shareId: String? = nil,
-        isFavorite: Bool = false
+        isFavorite: Bool = false,
+        sourceLabels: [String] = []
     ) {
         self.id = id
         self.userId = userId
@@ -31,7 +33,62 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
         self.createdAt = createdAt
         self.shareId = shareId
         self.isFavorite = isFavorite
+        self.sourceLabels = normalizeProjectSourceLabels(sourceLabels)
     }
+}
+
+func normalizeProjectSourceLabel(_ value: String) -> String? {
+    let collapsed = value
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .components(separatedBy: .whitespacesAndNewlines)
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
+
+    guard !collapsed.isEmpty else { return nil }
+
+    let noteAliases: Set<String> = [
+        "ノート",
+        "note",
+        "notes",
+        "notebook"
+    ]
+
+    let normalizedToken = collapsed
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        .lowercased()
+
+    if noteAliases.contains(normalizedToken) {
+        return "ノート"
+    }
+
+    return collapsed
+}
+
+func normalizeProjectSourceLabels(_ values: [String]?) -> [String] {
+    guard let values else { return [] }
+
+    var normalized: [String] = []
+    var seen: Set<String> = []
+
+    for value in values {
+        guard let candidate = normalizeProjectSourceLabel(value) else { continue }
+        let dedupeKey = candidate
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+        guard seen.insert(dedupeKey).inserted else { continue }
+        normalized.append(candidate)
+    }
+
+    return normalized
+}
+
+func mergeProjectSourceLabels(_ lhs: [String], _ rhs: [String]) -> [String] {
+    normalizeProjectSourceLabels(lhs + rhs)
+}
+
+func ensureProjectSourceLabels(_ values: [String]?) -> [String] {
+    let normalized = normalizeProjectSourceLabels(values)
+    return normalized.isEmpty ? ["ノート"] : normalized
 }
 
 struct RelatedWord: Hashable, Codable, Sendable {
@@ -230,6 +287,7 @@ struct SubscriptionState: Codable, Hashable, Sendable {
     let proSource: String
     let testProExpiresAt: Date?
     let currentPeriodEnd: Date?
+    let cancelAtPeriodEnd: Bool
 
     var isActivePro: Bool {
         guard status == .active, plan == .pro else { return false }
@@ -261,6 +319,31 @@ struct SubscriptionState: Codable, Hashable, Sendable {
 
     var wasPro: Bool {
         plan == .pro && !isActivePro
+    }
+
+    var displayDateLabel: String? {
+        if proSource == "test" {
+            return testProExpiresAt == nil ? nil : "有効期限"
+        }
+
+        if proSource == "billing" || proSource == "appstore" {
+            guard currentPeriodEnd != nil else { return nil }
+            return cancelAtPeriodEnd ? "解約予定日" : "次回更新"
+        }
+
+        return nil
+    }
+
+    var displayDateValue: Date? {
+        if proSource == "test" {
+            return testProExpiresAt
+        }
+
+        if proSource == "billing" || proSource == "appstore" {
+            return currentPeriodEnd
+        }
+
+        return nil
     }
 }
 
@@ -307,6 +390,64 @@ struct CollectionProject: Identifiable, Hashable, Codable, Sendable {
         self.projectId = projectId
         self.sortOrder = sortOrder
         self.addedAt = addedAt
+    }
+}
+
+enum LearningModeUsageStore {
+    enum Scope: Hashable, Sendable {
+        case project(String)
+        case bookshelf(String)
+
+        fileprivate var key: String {
+            switch self {
+            case .project(let id):
+                return "project:\(id)"
+            case .bookshelf(let id):
+                return "bookshelf:\(id)"
+            }
+        }
+    }
+
+    enum Mode: String, CaseIterable, Sendable {
+        case selfReview = "self_review"
+        case timeAttack = "time_attack"
+        case match = "match"
+    }
+
+    private struct StoredCounts: Codable {
+        var counts: [String: Int]
+    }
+
+    private static let defaults = UserDefaults.standard
+    private static let keyPrefix = "merken_learning_mode_usage_"
+
+    static func counts(for scope: Scope) -> [Mode: Int] {
+        let stored = load(scope: scope)?.counts ?? [:]
+        return Dictionary(uniqueKeysWithValues: Mode.allCases.map { mode in
+            (mode, stored[mode.rawValue] ?? 0)
+        })
+    }
+
+    @discardableResult
+    static func increment(_ mode: Mode, for scope: Scope) -> Int {
+        var stored = load(scope: scope) ?? StoredCounts(counts: [:])
+        stored.counts[mode.rawValue, default: 0] += 1
+        save(stored, scope: scope)
+        return stored.counts[mode.rawValue] ?? 0
+    }
+
+    private static func key(for scope: Scope) -> String {
+        "\(keyPrefix)\(scope.key)"
+    }
+
+    private static func load(scope: Scope) -> StoredCounts? {
+        guard let data = defaults.data(forKey: key(for: scope)) else { return nil }
+        return try? JSONDecoder().decode(StoredCounts.self, from: data)
+    }
+
+    private static func save(_ stored: StoredCounts, scope: Scope) {
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+        defaults.set(data, forKey: key(for: scope))
     }
 }
 

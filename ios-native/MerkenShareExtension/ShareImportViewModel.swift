@@ -62,6 +62,25 @@ final class ShareImportViewModel: ObservableObject {
         self.authSnapshot = snapshot
         phase = .loading
 
+        let localEnglishRaw = input.detectedEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let localJapanese = input.detectedJapanese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let localEnglish = isTrustedLocalEnglish(localEnglishRaw) ? localEnglishRaw : ""
+
+        if !localEnglish.isEmpty, !localJapanese.isEmpty {
+            english = localEnglish
+            japanese = localJapanese
+            warnings = []
+            projectOptions = []
+            selectedProjectId = nil
+            useNewProject = true
+            phase = .editing
+
+            Task {
+                await loadProjectOptions(prefilledFromShare: true)
+            }
+            return
+        }
+
         Task {
             await loadInitialData(input: input)
         }
@@ -104,6 +123,40 @@ final class ShareImportViewModel: ObservableObject {
     @MainActor
     func finishAfterSuccess() {
         onComplete()
+    }
+
+    private func loadProjectOptions(prefilledFromShare: Bool) async {
+        let fetchedProjects: [ShareImportProjectOptionDTO]
+        do {
+            fetchedProjects = try await withAuthorizedSnapshot { snapshot in
+                try await service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
+            }
+        } catch ShareImportServiceError.unauthorized {
+            phase = .loginRequired
+            return
+        } catch {
+            let message = error.localizedDescription
+            logger.error("Failed to fetch project list in share import: \(message, privacy: .public)")
+            if !prefilledFromShare {
+                warnings = dedupeWarnings(warnings + ["単語帳一覧の取得に失敗しました。新規作成で続行できます。"])
+            }
+            return
+        }
+
+        projectOptions = fetchedProjects
+        if fetchedProjects.isEmpty {
+            useNewProject = true
+            selectedProjectId = nil
+            return
+        }
+
+        if selectedProjectId == nil {
+            selectedProjectId = fetchedProjects.first?.id
+        }
+
+        if prefilledFromShare {
+            useNewProject = false
+        }
     }
 
     private func loadInitialData(input: ShareImportInput) async {

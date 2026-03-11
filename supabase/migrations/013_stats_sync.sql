@@ -10,7 +10,6 @@ ALTER TABLE user_activity_logs
   ADD COLUMN IF NOT EXISTS quiz_count integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS correct_count integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS mastered_count integer NOT NULL DEFAULT 0;
-
 -- 2. Create user_wrong_answers table
 CREATE TABLE IF NOT EXISTS user_wrong_answers (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -25,24 +24,17 @@ CREATE TABLE IF NOT EXISTS user_wrong_answers (
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE(user_id, word_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_user_wrong_answers_user_id
   ON user_wrong_answers(user_id);
-
 ALTER TABLE user_wrong_answers ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view own wrong answers" ON user_wrong_answers
     FOR SELECT USING (auth.uid() = user_id);
-
 CREATE POLICY "Users can insert own wrong answers" ON user_wrong_answers
     FOR INSERT WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "Users can update own wrong answers" ON user_wrong_answers
     FOR UPDATE USING (auth.uid() = user_id);
-
 CREATE POLICY "Users can delete own wrong answers" ON user_wrong_answers
     FOR DELETE USING (auth.uid() = user_id);
-
 -- 3. Create user_streak table
 CREATE TABLE IF NOT EXISTS user_streak (
     user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -50,18 +42,13 @@ CREATE TABLE IF NOT EXISTS user_streak (
     last_activity_date date NOT NULL DEFAULT current_date,
     updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE user_streak ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view own streak" ON user_streak
     FOR SELECT USING (auth.uid() = user_id);
-
 CREATE POLICY "Users can insert own streak" ON user_streak
     FOR INSERT WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "Users can update own streak" ON user_streak
     FOR UPDATE USING (auth.uid() = user_id);
-
 -- 4. RPC: upsert_daily_stats
 -- Merges daily stats using GREATEST() so the larger value wins.
 CREATE OR REPLACE FUNCTION upsert_daily_stats(
@@ -84,7 +71,6 @@ BEGIN
         mastered_count = GREATEST(user_activity_logs.mastered_count, EXCLUDED.mastered_count);
 END;
 $$;
-
 -- 5. RPC: upsert_user_streak
 -- Updates streak: picks the latest last_activity_date and its associated streak_count.
 CREATE OR REPLACE FUNCTION upsert_user_streak(
@@ -109,7 +95,6 @@ BEGIN
         updated_at = now();
 END;
 $$;
-
 -- 6. RPC: get_daily_stats_range
 -- Returns daily stats for a date range (for heatmap).
 CREATE OR REPLACE FUNCTION get_daily_stats_range(

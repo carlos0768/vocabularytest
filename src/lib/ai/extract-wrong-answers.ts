@@ -213,7 +213,7 @@ export async function analyzeWrongAnswers(
     // All correct - return empty result with success
     return {
       success: true,
-      data: { words: [] },
+      data: { words: [], sourceLabels: [] },
       summary: {
         totalWrong: 0,
         testType: testData.testType,

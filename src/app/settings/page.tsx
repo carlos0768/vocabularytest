@@ -9,6 +9,7 @@ import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { KOMOJU_CONFIG } from '@/lib/komoju/config';
+import { getSubscriptionDisplayDate } from '@/lib/subscription/display';
 import { FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   const hasCancellationScheduled = !!subscription?.cancelAtPeriodEnd;
   const isBillingPro = isPro && subscription?.proSource === 'billing';
   const isAppStorePro = isPro && subscription?.proSource === 'appstore';
+  const subscriptionDisplayDate = getSubscriptionDisplayDate(subscription);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
@@ -284,9 +286,9 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Next Billing */}
-                {subscription?.currentPeriodEnd && (
+                {subscriptionDisplayDate && (
                   <p className="text-sm text-[var(--color-muted)]">
-                    {hasCancellationScheduled ? '解約予定日' : '次回更新'}: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
+                    {subscriptionDisplayDate.label}: {new Date(subscriptionDisplayDate.isoDate).toLocaleDateString('ja-JP')}
                   </p>
                 )}
 

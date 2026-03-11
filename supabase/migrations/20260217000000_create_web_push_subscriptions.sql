@@ -9,15 +9,11 @@ CREATE TABLE IF NOT EXISTS web_push_subscriptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_web_push_subscriptions_endpoint
   ON web_push_subscriptions(endpoint);
-
 CREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_user_id
   ON web_push_subscriptions(user_id);
-
 ALTER TABLE web_push_subscriptions ENABLE ROW LEVEL SECURITY;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -32,7 +28,6 @@ BEGIN
       USING (auth.uid() = user_id);
   END IF;
 END $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -47,7 +42,6 @@ BEGIN
       WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -63,7 +57,6 @@ BEGIN
       WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (

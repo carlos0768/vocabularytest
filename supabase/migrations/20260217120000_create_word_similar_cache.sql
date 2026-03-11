@@ -11,18 +11,13 @@ CREATE TABLE IF NOT EXISTS word_similar_cache (
   PRIMARY KEY (source_word_id, rank),
   UNIQUE (source_word_id, similar_word_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_word_similar_cache_user_source
   ON word_similar_cache (user_id, source_word_id);
-
 CREATE INDEX IF NOT EXISTS idx_word_similar_cache_user_similar
   ON word_similar_cache (user_id, similar_word_id);
-
 CREATE INDEX IF NOT EXISTS idx_word_similar_cache_updated_at_desc
   ON word_similar_cache (updated_at DESC);
-
 ALTER TABLE word_similar_cache ENABLE ROW LEVEL SECURITY;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -38,7 +33,6 @@ BEGIN
   END IF;
 END
 $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -54,7 +48,6 @@ BEGIN
   END IF;
 END
 $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -71,7 +64,6 @@ BEGIN
   END IF;
 END
 $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -87,4 +79,3 @@ BEGIN
   END IF;
 END
 $$;
-

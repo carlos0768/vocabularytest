@@ -1,19 +1,23 @@
 import SwiftUI
 
 struct ScanProcessingView: View {
+    let projectTitle: String
+    let projectImage: UIImage?
     let pages: [ScanPageProgress]
     let summary: ScanProcessingSummary?
-
-    @State private var dotCount = 0
-    private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
     private var completedPageCount: Int {
         pages.filter { $0.status == .success || $0.status == .failed || $0.status == .skippedLimit }.count
     }
 
-    private var progressValue: Double {
-        guard !pages.isEmpty else { return 0 }
-        return Double(completedPageCount) / Double(pages.count)
+    private var activeStatusText: String {
+        if pages.contains(where: { $0.status == .processing && ( $0.message ?? "" ).contains("アップロード") }) {
+            return "画像をアップロード中"
+        }
+        if pages.contains(where: { $0.status == .processing && ( $0.message ?? "" ).contains("準備") }) {
+            return "画像を準備中"
+        }
+        return "解析を開始しています"
     }
 
     var body: some View {
@@ -21,117 +25,211 @@ struct ScanProcessingView: View {
             AppBackground()
 
             VStack(spacing: 16) {
-                VStack(spacing: 12) {
-                    ProgressView(value: progressValue)
-                        .tint(MerkenTheme.accentBlue)
-
-                    Text("画像をアップロード中\(String(repeating: ".", count: dotCount))")
-                        .font(.headline)
-                        .foregroundStyle(MerkenTheme.primaryText)
-
-                    Text("アップロード後にサーバーで解析を実行します。")
-                        .font(.caption)
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                        .multilineTextAlignment(.center)
-
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(MerkenTheme.warning)
-                        Text("アップロード中はこの画面を閉じないでください")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(MerkenTheme.warning)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity)
-                    .background(MerkenTheme.warning.opacity(0.1), in: .rect(cornerRadius: 10))
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-
-                if let summary {
-                    SolidPane {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("解析サマリー")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(MerkenTheme.primaryText)
-                            Text("成功 \(summary.successPages) / 失敗 \(summary.failedPages) / スキップ \(summary.skippedPages)")
-                                .font(.caption)
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                            Text("抽出語数 \(summary.extractedWordCount)語")
-                                .font(.caption)
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-
                 ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(pages) { page in
-                            SolidPane {
-                                HStack(spacing: 12) {
-                                    Image(systemName: statusIcon(for: page.status))
-                                        .foregroundStyle(statusColor(for: page.status))
-                                        .font(.headline)
+                    VStack(spacing: 14) {
+                        processingHeaderCard
+                        pageListSection
 
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("ページ \(page.pageIndex)")
-                                            .font(.subheadline.bold())
-                                            .foregroundStyle(MerkenTheme.primaryText)
-                                        Text(statusLabel(for: page))
-                                            .font(.caption)
-                                            .foregroundStyle(MerkenTheme.secondaryText)
-                                    }
-
-                                    Spacer()
-                                }
-                            }
+                        if let summary {
+                            processingSummaryCard(summary)
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
                 }
             }
         }
-        .onReceive(timer) { _ in
-            dotCount = (dotCount + 1) % 4
+    }
+
+    private var processingHeaderCard: some View {
+        HStack(spacing: 0) {
+            thumbnail
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(projectTitle)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    MiniProcessingSpinner(size: 16, lineWidth: 2.5, tint: MerkenTheme.accentBlue)
+                    Text(activeStatusText)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+
+                HStack(spacing: 8) {
+                    progressChip(text: "\(completedPageCount)/\(max(pages.count, 1))ページ")
+                    progressChip(text: "単語帳一覧に追加予定")
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .padding(10)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(MerkenTheme.accentBlue.opacity(0.28), lineWidth: 1)
+        )
+    }
+
+    private var thumbnail: some View {
+        ZStack {
+            if let projectImage {
+                Image(uiImage: projectImage)
+                    .resizable()
+                    .scaledToFill()
+                    .blur(radius: 10)
+            } else {
+                LinearGradient(
+                    colors: [
+                        MerkenTheme.accentBlue.opacity(0.2),
+                        MerkenTheme.accentBlue.opacity(0.05)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+
+            Color.black.opacity(0.35)
+            GeneratingProgressRing()
+        }
+        .frame(width: 86, height: 86)
+        .clipShape(.rect(cornerRadius: 18))
+    }
+
+    private var pageListSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("ページ一覧")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                Text("アップロードから解析まで自動で進行")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            LazyVStack(spacing: 8) {
+                ForEach(pages) { page in
+                    SolidPane {
+                        HStack(spacing: 12) {
+                            statusIndicator(for: page.status)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("ページ \(page.pageIndex)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(MerkenTheme.primaryText)
+
+                                Text(statusLabel(for: page))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(MerkenTheme.secondaryText)
+                                    .lineLimit(2)
+                            }
+
+                            Spacer()
+
+                            if page.status == .success && page.extractedCount > 0 {
+                                Text("\(page.extractedCount)語")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(MerkenTheme.success)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(MerkenTheme.success.opacity(0.1), in: Capsule())
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func processingSummaryCard(_ summary: ScanProcessingSummary) -> some View {
+        SolidPane {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("解析サマリー")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("成功 \(summary.successPages) / 失敗 \(summary.failedPages) / スキップ \(summary.skippedPages)")
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                Text("抽出語数 \(summary.extractedWordCount)語")
+                    .font(.caption)
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+        }
+    }
+
+    private func progressChip(text: String) -> some View {
+        Capsule()
+            .fill(MerkenTheme.borderLight)
+            .overlay {
+                Text(text)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+            }
+            .fixedSize()
+    }
+
+    @ViewBuilder
+    private func statusIndicator(for status: ScanPageStatus) -> some View {
+        switch status {
+        case .pending, .processing:
+            MiniProcessingSpinner(size: 20, lineWidth: 2.8, tint: MerkenTheme.accentBlue)
+        case .success:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(MerkenTheme.success)
+        case .failed:
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(MerkenTheme.danger)
+        case .skippedLimit:
+            Image(systemName: "minus.circle.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(MerkenTheme.warning)
         }
     }
 
     private func statusLabel(for page: ScanPageProgress) -> String {
         switch page.status {
         case .pending:
-            return "待機中"
+            return page.message ?? "待機中"
         case .processing:
             return page.message ?? "解析中..."
         case .success:
-            return page.message ?? "\(page.extractedCount)語を抽出"
+            return page.message ?? (page.extractedCount > 0 ? "\(page.extractedCount)語を抽出" : "完了")
         case .failed:
             return page.message ?? "失敗"
         case .skippedLimit:
             return page.message ?? "上限到達でスキップ"
         }
     }
+}
 
-    private func statusIcon(for status: ScanPageStatus) -> String {
-        switch status {
-        case .pending: return "clock"
-        case .processing: return "hourglass"
-        case .success: return "checkmark.circle.fill"
-        case .failed: return "xmark.circle.fill"
-        case .skippedLimit: return "minus.circle.fill"
-        }
-    }
+private struct MiniProcessingSpinner: View {
+    let size: CGFloat
+    let lineWidth: CGFloat
+    let tint: Color
 
-    private func statusColor(for status: ScanPageStatus) -> Color {
-        switch status {
-        case .pending: return MerkenTheme.mutedText
-        case .processing: return MerkenTheme.accentBlue
-        case .success: return MerkenTheme.success
-        case .failed: return MerkenTheme.danger
-        case .skippedLimit: return MerkenTheme.warning
+    private let duration: TimeInterval = 0.9
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let elapsed = context.date.timeIntervalSinceReferenceDate
+            let progress = elapsed.truncatingRemainder(dividingBy: duration) / duration
+
+            Circle()
+                .trim(from: 0.12, to: 0.86)
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .frame(width: size, height: size)
+                .rotationEffect(.degrees(progress * 360))
         }
     }
 }

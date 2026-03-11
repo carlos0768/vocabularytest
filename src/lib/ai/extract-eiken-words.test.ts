@@ -71,8 +71,12 @@ test('extractEikenWordsFromImage falls back to single-pass extraction on invalid
                 english: 'abandon',
                 japanese: '捨てる',
                 distractors: ['守る', '作る', '届ける'],
+                partOfSpeechTags: ['verb'],
+                exampleSentence: undefined,
+                exampleSentenceJa: undefined,
               },
             ],
+            sourceLabels: ['ノート'],
           },
         };
       },

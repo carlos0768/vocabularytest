@@ -11,7 +11,8 @@ final class SupabaseMapperTests: XCTestCase {
           "icon_image": null,
           "created_at": "2026-02-21T10:00:00.000Z",
           "share_id": null,
-          "is_favorite": true
+          "is_favorite": true,
+          "source_labels": ["鉄壁", "ノート"]
         }
         """.data(using: .utf8)!
 
@@ -26,6 +27,7 @@ final class SupabaseMapperTests: XCTestCase {
         XCTAssertEqual(project.userId, "u1")
         XCTAssertEqual(project.title, "TOEFL")
         XCTAssertTrue(project.isFavorite)
+        XCTAssertEqual(project.sourceLabels, ["鉄壁", "ノート"])
     }
 
     func testWordDTODecodeAndMap() throws {
@@ -67,6 +69,7 @@ final class SupabaseMapperTests: XCTestCase {
         let json = """
         {
           "success": true,
+          "sourceLabels": ["鉄壁", "ノート"],
           "words": [
             {
               "id": "w1",
@@ -87,6 +90,7 @@ final class SupabaseMapperTests: XCTestCase {
         XCTAssertEqual(word.exampleSentence, "She stayed resilient during the crisis.")
         XCTAssertEqual(word.exampleSentenceJa, "彼女は危機の中でも回復力を保った。")
         XCTAssertEqual(word.partOfSpeechTags ?? [], ["adjective"])
+        XCTAssertEqual(response.sourceLabels ?? [], ["鉄壁", "ノート"])
     }
 
     func testExtractedWordDecodesExamplesAsNilWhenMissing() throws {

@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, AppShell, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
+import { ProjectSourceLabels } from '@/components/project/ProjectSourceLabels';
 import { VocabularyTab } from '@/components/project/VocabularyTab';
 import { StudyModeCard, WordList } from '@/components/home';
 import { useAuth } from '@/hooks/use-auth';
@@ -675,6 +676,7 @@ export default function ProjectDetailPage() {
                   </span>
                 )}
               </div>
+              <ProjectSourceLabels labels={project.sourceLabels} className="mt-2" />
               <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
             </div>
             <div className="flex items-center gap-2">

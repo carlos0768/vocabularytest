@@ -8,7 +8,10 @@ final class QuizEngineTests: XCTestCase {
         distractors: [String] = ["弱い", "退屈な", "困難な"],
         status: WordStatus,
         lastReviewedAt: Date? = nil,
-        nextReviewAt: Date? = nil
+        nextReviewAt: Date? = nil,
+        easeFactor: Double = 2.5,
+        intervalDays: Int = 0,
+        repetition: Int = 0
     ) -> Word {
         Word(
             projectId: "p1",
@@ -17,7 +20,10 @@ final class QuizEngineTests: XCTestCase {
             distractors: distractors,
             status: status,
             lastReviewedAt: lastReviewedAt,
-            nextReviewAt: nextReviewAt
+            nextReviewAt: nextReviewAt,
+            easeFactor: easeFactor,
+            intervalDays: intervalDays,
+            repetition: repetition
         )
     }
 
@@ -31,6 +37,32 @@ final class QuizEngineTests: XCTestCase {
 
     func testStatusTransitionFromMasteredToReviewOnWrong() {
         XCTAssertEqual(QuizEngine.nextStatus(current: .mastered, isCorrect: false), .review)
+    }
+
+    func testStatusAfterGradeTreatsQualityTwoAsFailure() {
+        XCTAssertEqual(QuizEngine.statusAfterGrade(current: .new, quality: 2), .new)
+        XCTAssertEqual(QuizEngine.statusAfterGrade(current: .review, quality: 2), .new)
+        XCTAssertEqual(QuizEngine.statusAfterGrade(current: .mastered, quality: 2), .review)
+    }
+
+    func testStatusPatchForMatchKeepsMasteredWordOnCleanMatch() {
+        let word = makeWord(status: .mastered, easeFactor: 2.5, intervalDays: 6, repetition: 2)
+
+        let patch = QuizEngine.statusPatchForMatch(for: word, mismatchCount: 0)
+
+        XCTAssertEqual(patch.status, .mastered)
+        XCTAssertEqual(patch.intervalDays, 15)
+        XCTAssertEqual(patch.repetition, 3)
+    }
+
+    func testStatusPatchForMatchPenalizesMismatchedWord() {
+        let word = makeWord(status: .review, easeFactor: 2.5, intervalDays: 6, repetition: 2)
+
+        let patch = QuizEngine.statusPatchForMatch(for: word, mismatchCount: 1)
+
+        XCTAssertEqual(patch.status, .new)
+        XCTAssertEqual(patch.intervalDays, 1)
+        XCTAssertEqual(patch.repetition, 0)
     }
 
     func testGenerateQuestionContainsCorrectAnswer() {

@@ -18,7 +18,6 @@ DROP POLICY IF EXISTS "Pro users can view own projects" ON projects;
 DROP POLICY IF EXISTS "Pro users can create own projects" ON projects;
 DROP POLICY IF EXISTS "Pro users can update own projects" ON projects;
 DROP POLICY IF EXISTS "Pro users can delete own projects" ON projects;
-
 -- READ: Allow Pro users (active or cancelled) to view their own projects
 CREATE POLICY "Pro users can view own projects"
   ON projects FOR SELECT
@@ -31,7 +30,6 @@ CREATE POLICY "Pro users can view own projects"
         -- Allow both active and cancelled (former Pro users)
     )
   );
-
 -- WRITE: Only active Pro users can create projects
 CREATE POLICY "Active Pro users can create own projects"
   ON projects FOR INSERT
@@ -44,7 +42,6 @@ CREATE POLICY "Active Pro users can create own projects"
         AND s.plan = 'pro'
     )
   );
-
 -- WRITE: Only active Pro users can update projects
 CREATE POLICY "Active Pro users can update own projects"
   ON projects FOR UPDATE
@@ -57,7 +54,6 @@ CREATE POLICY "Active Pro users can update own projects"
         AND s.plan = 'pro'
     )
   );
-
 -- WRITE: Only active Pro users can delete projects
 CREATE POLICY "Active Pro users can delete own projects"
   ON projects FOR DELETE
@@ -70,7 +66,6 @@ CREATE POLICY "Active Pro users can delete own projects"
         AND s.plan = 'pro'
     )
   );
-
 -- =========================
 -- Words policies
 -- =========================
@@ -82,7 +77,6 @@ DROP POLICY IF EXISTS "Pro users can view own words" ON words;
 DROP POLICY IF EXISTS "Pro users can create words in own projects" ON words;
 DROP POLICY IF EXISTS "Pro users can update own words" ON words;
 DROP POLICY IF EXISTS "Pro users can delete own words" ON words;
-
 -- READ: Allow Pro users (active or cancelled) to view their own words
 CREATE POLICY "Pro users can view own words"
   ON words FOR SELECT
@@ -99,7 +93,6 @@ CREATE POLICY "Pro users can view own words"
         -- Allow both active and cancelled (former Pro users)
     )
   );
-
 -- WRITE: Only active Pro users can create words
 CREATE POLICY "Active Pro users can create words in own projects"
   ON words FOR INSERT
@@ -116,7 +109,6 @@ CREATE POLICY "Active Pro users can create words in own projects"
         AND s.plan = 'pro'
     )
   );
-
 -- WRITE: Only active Pro users can update words
 CREATE POLICY "Active Pro users can update own words"
   ON words FOR UPDATE
@@ -133,7 +125,6 @@ CREATE POLICY "Active Pro users can update own words"
         AND s.plan = 'pro'
     )
   );
-
 -- WRITE: Only active Pro users can delete words
 CREATE POLICY "Active Pro users can delete own words"
   ON words FOR DELETE
@@ -150,7 +141,6 @@ CREATE POLICY "Active Pro users can delete own words"
         AND s.plan = 'pro'
     )
   );
-
 -- =========================
 -- NOTE: Sharing is DISABLED
 -- =========================
@@ -161,4 +151,4 @@ CREATE POLICY "Active Pro users can delete own words"
 -- If sharing is needed in the future, add a separate policy like:
 -- CREATE POLICY "Users can view shared projects"
 --   ON projects FOR SELECT
---   USING (share_id IS NOT NULL AND share_id = current_setting('app.share_id', true));
+--   USING (share_id IS NOT NULL AND share_id = current_setting('app.share_id', true));;

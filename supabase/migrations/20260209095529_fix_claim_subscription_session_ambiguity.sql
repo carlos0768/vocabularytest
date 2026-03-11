@@ -1,5 +1,3 @@
--- Fix ambiguous column reference in claim_subscription_session()
-
 CREATE OR REPLACE FUNCTION public.claim_subscription_session(
   p_session_id TEXT,
   p_user_id UUID,
@@ -92,4 +90,4 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.claim_subscription_session(TEXT, UUID, INTEGER) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.claim_subscription_session(TEXT, UUID, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION public.claim_subscription_session(TEXT, UUID, INTEGER) TO service_role;;

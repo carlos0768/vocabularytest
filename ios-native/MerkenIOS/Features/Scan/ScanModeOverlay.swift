@@ -4,11 +4,10 @@ struct ScanModeOverlay: View {
     private enum Stage: Equatable {
         case modes
         case eiken
-        case source(ScanMode, EikenLevel?)
     }
 
     let isPro: Bool
-    let onSelectMode: (ScanMode, EikenLevel?, ScanSource) -> Void
+    let onSelectMode: (ScanMode, EikenLevel?) -> Void
     let onDismiss: () -> Void
 
     @State private var selectedEikenLevel: EikenLevel = .grade3
@@ -16,8 +15,8 @@ struct ScanModeOverlay: View {
     @State private var appeared = false
 
     private let columns = [
-        GridItem(.flexible(), spacing: 14),
-        GridItem(.flexible(), spacing: 14)
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
     ]
 
     private var visibleModes: [ScanMode] {
@@ -41,18 +40,15 @@ struct ScanModeOverlay: View {
         if mode == .eiken {
             stage = .eiken
         } else {
-            stage = .source(mode, nil)
+            MerkenHaptic.selection()
+            onSelectMode(mode, nil)
         }
     }
 
     private func selectEikenLevel(_ level: EikenLevel) {
         selectedEikenLevel = level
-        stage = .source(.eiken, level)
-    }
-
-    private func chooseSource(_ source: ScanSource, for mode: ScanMode, level: EikenLevel?) {
         MerkenHaptic.selection()
-        onSelectMode(mode, level, source)
+        onSelectMode(.eiken, level)
     }
 
     private func goBack() {
@@ -61,8 +57,6 @@ struct ScanModeOverlay: View {
             onDismiss()
         case .eiken:
             stage = .modes
-        case .source(let mode, _):
-            stage = mode == .eiken ? .eiken : .modes
         }
     }
 
@@ -72,42 +66,18 @@ struct ScanModeOverlay: View {
                 .ignoresSafeArea()
                 .onTapGesture { onDismiss() }
 
-            VStack(spacing: 18) {
+            VStack {
                 Spacer()
-
-                overlayHeader
                 overlayContent
                     .padding(.horizontal, 18)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, 156)
             }
         }
         .opacity(appeared ? 1 : 0)
-        .scaleEffect(appeared ? 1 : 0.98, anchor: .bottom)
+        .scaleEffect(appeared ? 1 : 0.985)
         .animation(.easeOut(duration: 0.18), value: appeared)
         .animation(MerkenSpring.snappy, value: stage)
         .onAppear { appeared = true }
-    }
-
-    private var overlayHeader: some View {
-        HStack {
-            Button {
-                goBack()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: stage == .modes ? "xmark" : "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(stage == .modes ? "閉じる" : "戻る")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color.black.opacity(0.75), in: Capsule())
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 18)
     }
 
     @ViewBuilder
@@ -117,14 +87,12 @@ struct ScanModeOverlay: View {
             modeGrid
         case .eiken:
             eikenLevelGrid
-        case .source(let mode, let level):
-            sourceGrid(mode: mode, level: level)
         }
     }
 
     private var modeGrid: some View {
-        VStack(spacing: 14) {
-            LazyVGrid(columns: columns, spacing: 14) {
+        VStack(spacing: 10) {
+            LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(visibleModes) { mode in
                     let locked = mode.requiresPro && !isPro
                     modeCard(mode: mode, locked: locked)
@@ -142,6 +110,7 @@ struct ScanModeOverlay: View {
                 }
             }
         }
+        .frame(maxWidth: 560)
     }
 
     private var eikenLevelGrid: some View {
@@ -172,35 +141,7 @@ struct ScanModeOverlay: View {
                 }
             }
         }
-    }
-
-    private func sourceGrid(mode: ScanMode, level: EikenLevel?) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(sourceGridTitle(for: mode, level: level))
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            LazyVGrid(columns: columns, spacing: 14) {
-                sourceCard(
-                    title: "カメラで撮影",
-                    subtitle: "その場で読み取る",
-                    systemImage: "camera.fill",
-                    tint: MerkenTheme.accentBlue
-                ) {
-                    chooseSource(.camera, for: mode, level: level)
-                }
-
-                sourceCard(
-                    title: "写真から選択",
-                    subtitle: "ライブラリから追加",
-                    systemImage: "photo.on.rectangle.angled",
-                    tint: MerkenTheme.success
-                ) {
-                    chooseSource(.photoLibrary, for: mode, level: level)
-                }
-            }
-        }
+        .frame(maxWidth: 560)
     }
 
     private func modeCard(mode: ScanMode, locked: Bool) -> some View {
@@ -209,43 +150,29 @@ struct ScanModeOverlay: View {
             MerkenHaptic.selection()
             selectMode(mode)
         } label: {
-            VStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill((locked ? MerkenTheme.mutedText : iconColor(for: mode)).opacity(0.12))
-                        .frame(width: 56, height: 56)
+            VStack(spacing: 8) {
+                Image(systemName: mode.iconName)
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(locked ? MerkenTheme.mutedText : iconColor(for: mode))
+                    .frame(height: 28)
 
-                    Image(systemName: mode.iconName)
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundStyle(locked ? MerkenTheme.mutedText : iconColor(for: mode))
-                }
-
-                VStack(spacing: 4) {
-                    HStack(spacing: 4) {
-                        Text(mode.displayName)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(locked ? MerkenTheme.mutedText : MerkenTheme.primaryText)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-
-                        if locked {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 9))
-                                .foregroundStyle(MerkenTheme.warning)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    Text(mode.subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(locked ? MerkenTheme.mutedText.opacity(0.6) : MerkenTheme.secondaryText)
+                HStack(spacing: 4) {
+                    Text(mode.displayName)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(locked ? MerkenTheme.mutedText : MerkenTheme.primaryText)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+
+                    if locked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(MerkenTheme.warning)
+                    }
                 }
+                .frame(maxWidth: .infinity)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 164)
+            .frame(height: 92)
             .padding(.horizontal, 10)
             .background(tileBackground(isHighlighted: false))
             .opacity(locked ? 0.6 : 1)
@@ -268,49 +195,4 @@ struct ScanModeOverlay: View {
             .shadow(color: .black.opacity(0.14), radius: 18, x: 0, y: 8)
     }
 
-    private func sourceCard(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        tint: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(tint.opacity(0.12))
-                        .frame(width: 56, height: 56)
-
-                    Image(systemName: systemImage)
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundStyle(tint)
-                }
-
-                VStack(spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                        .multilineTextAlignment(.center)
-
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                        .multilineTextAlignment(.center)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 164)
-            .padding(.horizontal, 10)
-            .background(tileBackground(isHighlighted: false))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func sourceGridTitle(for mode: ScanMode, level: EikenLevel?) -> String {
-        if mode == .eiken, let level {
-            return "英検\(level.displayName)の取り込み方法"
-        }
-        return "\(mode.displayName)の取り込み方法"
-    }
 }

@@ -27,9 +27,7 @@ AS $$
     AND w.embedding IS NULL
   LIMIT limit_count;
 $$;
-
 GRANT EXECUTE ON FUNCTION get_words_without_embedding TO authenticated;
-
 -- 2. Reset all existing embeddings so they get regenerated with bilingual text
 -- This is safe because embeddings are regenerated automatically
 UPDATE words SET embedding = NULL WHERE embedding IS NOT NULL;

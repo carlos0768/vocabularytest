@@ -56,6 +56,7 @@ async function migrateProjects(
       userId,
       title: localProject.title,
       iconImage: localProject.iconImage,
+      sourceLabels: localProject.sourceLabels,
     });
 
     projectsMigrated++;

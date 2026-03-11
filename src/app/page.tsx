@@ -25,6 +25,7 @@ import { createBrowserClient } from '@/lib/supabase';
 import { getCachedSupabaseUserId } from '@/lib/supabase/session-cache';
 import { hasVisitedProject } from '@/lib/project-visit';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
+import { mergeSourceLabels } from '../../shared/source-labels';
 import {
   getCachedProjects,
   getCachedProjectWords,
@@ -1060,6 +1061,7 @@ export default function HomePage() {
 
       // Save result to sessionStorage and navigate to confirm page
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
+      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(mergeSourceLabels(result.sourceLabels)));
       // Navigate first, then close processing modal
       // (closing modal before navigation causes a flash of the home screen)
       router.push('/scan/confirm');
@@ -1104,6 +1106,7 @@ export default function HomePage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allWords: any[] = [];
+      let allSourceLabels: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -1164,6 +1167,7 @@ export default function HomePage() {
 
         // Merge words from this file
         allWords.push(...result.words);
+        allSourceLabels = mergeSourceLabels(allSourceLabels, result.sourceLabels);
 
         // Mark current step as complete
         setProcessingSteps(prev => prev.map((s, idx) => ({
@@ -1179,6 +1183,7 @@ export default function HomePage() {
 
       // Save merged results to sessionStorage
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
+      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
 
       setProcessingSteps(prev => [
         ...prev.map(s => ({ ...s, status: 'complete' as const })),

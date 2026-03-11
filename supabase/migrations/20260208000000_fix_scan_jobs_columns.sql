@@ -8,7 +8,6 @@ BEGIN
     ALTER TABLE scan_jobs RENAME COLUMN project_name TO project_title;
   END IF;
 END $$;
-
 -- Rename eiken_levels → eiken_level (API uses singular, TEXT not TEXT[])
 DO $$
 BEGIN
@@ -17,7 +16,6 @@ BEGIN
     ALTER TABLE scan_jobs ALTER COLUMN eiken_level TYPE TEXT USING (eiken_level[1]);
   END IF;
 END $$;
-
 -- Add image_path column if missing (single image backward compat)
 DO $$
 BEGIN
@@ -25,10 +23,8 @@ BEGIN
     ALTER TABLE scan_jobs ADD COLUMN image_path TEXT;
   END IF;
 END $$;
-
 -- Make image_paths nullable (route.ts inserts without it)
 ALTER TABLE scan_jobs ALTER COLUMN image_paths DROP NOT NULL;
-
 -- Add result column if missing
 DO $$
 BEGIN
@@ -36,7 +32,6 @@ BEGIN
     ALTER TABLE scan_jobs ADD COLUMN result TEXT;
   END IF;
 END $$;
-
 -- Add updated_at column if missing
 DO $$
 BEGIN

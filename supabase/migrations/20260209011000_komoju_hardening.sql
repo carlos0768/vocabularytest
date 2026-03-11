@@ -9,15 +9,12 @@
 -- ============================================
 ALTER TABLE public.subscription_sessions
   ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_sessions_idempotency_key_unique
   ON public.subscription_sessions (idempotency_key)
   WHERE idempotency_key IS NOT NULL;
-
 CREATE INDEX IF NOT EXISTS idx_subscription_sessions_pending_lookup
   ON public.subscription_sessions (user_id, plan_id, created_at DESC)
   WHERE used_at IS NULL;
-
 -- ============================================
 -- 2) webhook_events: stateful processing columns
 -- ============================================
@@ -28,7 +25,6 @@ ALTER TABLE public.webhook_events
   ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS last_error TEXT,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
-
 UPDATE public.webhook_events
 SET
   status = COALESCE(status, 'processed'),
@@ -40,7 +36,6 @@ WHERE
   OR attempt_count IS NULL
   OR processed_at IS NULL
   OR updated_at IS NULL;
-
 ALTER TABLE public.webhook_events
   ALTER COLUMN status SET DEFAULT 'processed',
   ALTER COLUMN status SET NOT NULL,
@@ -48,7 +43,6 @@ ALTER TABLE public.webhook_events
   ALTER COLUMN attempt_count SET NOT NULL,
   ALTER COLUMN updated_at SET DEFAULT NOW(),
   ALTER COLUMN updated_at SET NOT NULL;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -63,13 +57,10 @@ BEGIN
   END IF;
 END
 $$;
-
 CREATE INDEX IF NOT EXISTS idx_webhook_events_status_updated_at
   ON public.webhook_events (status, updated_at);
-
 CREATE INDEX IF NOT EXISTS idx_webhook_events_received_at
   ON public.webhook_events (received_at DESC);
-
 -- Atomic claim helper for webhook processing.
 CREATE OR REPLACE FUNCTION public.claim_webhook_event(
   p_id TEXT,
@@ -159,21 +150,17 @@ BEGIN
   RETURN QUERY SELECT v_row.id, v_row.status, v_row.attempt_count, TRUE;
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.claim_webhook_event(TEXT, TEXT, TEXT, INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.claim_webhook_event(TEXT, TEXT, TEXT, INTEGER) TO service_role;
-
 -- ============================================
 -- 3) subscriptions: uniqueness and classification guardrails
 -- ============================================
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_komoju_subscription_unique
   ON public.subscriptions (komoju_subscription_id)
   WHERE komoju_subscription_id IS NOT NULL;
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_komoju_customer_unique
   ON public.subscriptions (komoju_customer_id)
   WHERE komoju_customer_id IS NOT NULL;
-
 UPDATE public.subscriptions
 SET
   pro_source = CASE
@@ -193,7 +180,6 @@ WHERE
   plan <> 'free'
   OR pro_source <> 'none'
   OR plan = 'pro';
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -214,7 +200,6 @@ BEGIN
   END IF;
 END
 $$;
-
 -- ============================================
 -- 4) Test Pro operations (default 90 days)
 -- ============================================
@@ -279,7 +264,6 @@ BEGIN
   RETURN v_updated;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.revoke_test_pro(
   p_user_id UUID
 )
@@ -327,7 +311,6 @@ BEGIN
   RETURN v_updated;
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.grant_test_pro(UUID, BOOLEAN, INTEGER) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.revoke_test_pro(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.grant_test_pro(UUID, BOOLEAN, INTEGER) TO service_role;

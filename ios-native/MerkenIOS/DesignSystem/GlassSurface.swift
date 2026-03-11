@@ -1,5 +1,47 @@
 import SwiftUI
 
+struct TopSafeAreaScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+struct CameraAreaGlassOverlay: View {
+    let safeAreaTop: CGFloat
+    let scrollOffset: CGFloat
+
+    private var progress: CGFloat {
+        let scrolledDistance = max(-scrollOffset, 0)
+        return min(scrolledDistance / 18, 1)
+    }
+
+    var body: some View {
+        glassBackground
+            .opacity(progress)
+            .offset(y: -safeAreaTop)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.18), value: progress)
+    }
+
+    @ViewBuilder
+    private var glassBackground: some View {
+        let glassLayer = Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: safeAreaTop)
+            .clipShape(Rectangle())
+
+        if #available(iOS 26.0, *) {
+            glassLayer
+                .glassEffect(.regular.tint(Color.white.opacity(0.20)))
+        } else {
+            glassLayer
+                .background(.ultraThinMaterial)
+        }
+    }
+}
+
 // MARK: - Solid Card (Web版の border-2 + border-b-4 3Dカード)
 
 struct SolidCard<Content: View>: View {
@@ -128,6 +170,19 @@ extension View {
             self.scrollEdgeEffectStyle(.none, for: .top)
         } else {
             self
+        }
+    }
+
+    func cameraAreaGlassOverlay(scrollOffset: CGFloat) -> some View {
+        overlay(alignment: .top) {
+            GeometryReader { geometry in
+                CameraAreaGlassOverlay(
+                    safeAreaTop: geometry.safeAreaInsets.top,
+                    scrollOffset: scrollOffset
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            .ignoresSafeArea()
         }
     }
 

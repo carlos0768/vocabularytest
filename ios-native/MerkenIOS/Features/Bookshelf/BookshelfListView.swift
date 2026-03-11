@@ -7,6 +7,8 @@ struct BookshelfListView: View {
 
     @State private var showingCreateSheet = false
     @State private var selectedCollection: Collection?
+    @State private var scrollOffset: CGFloat = 0
+    @State private var chartAnimationProgress: Double = 0
 
     private var totalShelfCount: Int {
         viewModel.collections.count
@@ -49,16 +51,17 @@ struct BookshelfListView: View {
         totalWordCount > 0 ? "\(Int(masteryRate * 100))%" : "0%"
     }
 
+    private func triggerChartAnimation() {
+        chartAnimationProgress = 0
+        withAnimation(.easeOut(duration: 0.9)) {
+            chartAnimationProgress = 1
+        }
+    }
+
     var body: some View {
         Group {
             if !appState.isLoggedIn {
-                LoginGateView(
-                    icon: "books.vertical.fill",
-                    title: "本棚を使おう",
-                    message: "ログインしてProプランにすると、複数の単語帳をまとめて学習できます。"
-                ) {
-                    appState.selectedTab = 4
-                }
+                guestBookshelfContent
             } else if !appState.isPro {
                 proLockedContent
             } else {
@@ -73,13 +76,72 @@ struct BookshelfListView: View {
         .sheet(isPresented: $showingCreateSheet) {
             CreateBookshelfSheet {
                 await viewModel.load(using: appState)
+                triggerChartAnimation()
             }
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
+            triggerChartAnimation()
         }
+        .onAppear {
+            triggerChartAnimation()
+        }
+    }
+
+    private var guestBookshelfContent: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(alignment: .leading, spacing: 18) {
+                headerSection
+
+                Spacer()
+
+                VStack(spacing: 16) {
+                    Image(systemName: "books.vertical.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .frame(width: 96, height: 96)
+                        .background(MerkenTheme.accentBlueLight, in: .circle)
+
+                    Text("本棚を使おう")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+
+                    Text("ログインしてProプランにすると、\n複数の単語帳をまとめて学習できます。")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+
+                    guestSettingsButton
+                }
+                .frame(maxWidth: .infinity)
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+        }
+    }
+
+    private var guestSettingsButton: some View {
+        Button {
+            appState.selectedTab = 4
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("設定でログイン・登録")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(MerkenTheme.accentBlue)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(MerkenTheme.accentBlue.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private var bookshelfContent: some View {
@@ -90,9 +152,23 @@ struct BookshelfListView: View {
                 ScrollViewReader { scrollProxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
-                            Color.clear.frame(height: 0).id("bookshelfTop")
+                            Color.clear
+                                .frame(height: 0)
+                                .id("bookshelfTop")
+                                .background(
+                                    GeometryReader { proxy in
+                                        Color.clear.preference(
+                                            key: TopSafeAreaScrollOffsetKey.self,
+                                            value: proxy.frame(in: .named("bookshelfListScroll")).minY
+                                        )
+                                    }
+                                )
 
-                            headerSection
+                            HStack(alignment: .top, spacing: 12) {
+                                headerSection
+                                Spacer(minLength: 0)
+                                createBookshelfButton
+                            }
 
                             if let errorMessage = viewModel.errorMessage {
                                 SolidCard {
@@ -108,9 +184,12 @@ struct BookshelfListView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 100)
                     }
+                    .coordinateSpace(name: "bookshelfListScroll")
                     .scrollIndicators(.hidden)
+                    .disableTopScrollEdgeEffectIfAvailable()
                     .refreshable {
                         await viewModel.load(using: appState)
+                        triggerChartAnimation()
                     }
                     .onChange(of: appState.scrollToTopTrigger) { _ in
                         withAnimation {
@@ -119,8 +198,10 @@ struct BookshelfListView: View {
                     }
                 }
             }
-
-            floatingCreateButton
+        }
+        .cameraAreaGlassOverlay(scrollOffset: scrollOffset)
+        .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
+            scrollOffset = value
         }
     }
 
@@ -167,6 +248,24 @@ struct BookshelfListView: View {
         }
     }
 
+    private var createBookshelfButton: some View {
+        Button {
+            showingCreateSheet = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .bold))
+                Text("作成")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(MerkenTheme.accentBlue)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(MerkenTheme.accentBlue.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     private var topSummaryWidgets: some View {
         HStack(spacing: 10) {
             BookshelfSummaryCard(
@@ -195,7 +294,8 @@ struct BookshelfListView: View {
                         progress: masteryRate,
                         strokeColor: MerkenTheme.chartBlue,
                         title: masteryPercentText,
-                        subtitle: "習得"
+                        subtitle: "習得",
+                        animationProgress: chartAnimationProgress
                     )
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -231,7 +331,8 @@ struct BookshelfListView: View {
                 BookshelfDistributionBar(
                     mastered: totalMasteredWordCount,
                     review: totalReviewWordCount,
-                    newWords: totalNewWordCount
+                    newWords: totalNewWordCount,
+                    animationProgress: chartAnimationProgress
                 )
                 .frame(height: 10)
 
@@ -354,6 +455,8 @@ struct BookshelfListView: View {
                     stat: stat,
                     colorScheme: colorScheme
                 )
+                .frame(width: 118, height: 136)
+                .fixedSize()
 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 10) {
@@ -378,6 +481,7 @@ struct BookshelfListView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(MerkenTheme.background, in: Capsule())
+                            .fixedSize(horizontal: true, vertical: true)
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -399,16 +503,18 @@ struct BookshelfListView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(MerkenTheme.background, in: Capsule())
+                            .fixedSize(horizontal: true, vertical: true)
                     }
 
                     BookshelfDistributionBar(
                         mastered: mastered,
                         review: reviewing,
-                        newWords: newWords
+                        newWords: newWords,
+                        animationProgress: chartAnimationProgress
                     )
                     .frame(height: 8)
 
-                    HStack(spacing: 8) {
+                    FlowLayout(spacing: 8) {
                         BookshelfStatPill(
                             icon: "square.stack.3d.up.fill",
                             tint: MerkenTheme.chartBlue,
@@ -430,7 +536,7 @@ struct BookshelfListView: View {
                         }
                     }
 
-                    HStack(spacing: 8) {
+                    FlowLayout(spacing: 8) {
                         BookshelfStatPill(
                             icon: "checkmark.circle.fill",
                             tint: MerkenTheme.success,
@@ -449,8 +555,10 @@ struct BookshelfListView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
+                .layoutPriority(1)
             }
             .padding(14)
+            .clipped()
         }
     }
 
@@ -475,33 +583,6 @@ struct BookshelfListView: View {
         return formatter.string(from: date)
     }
 
-    private var floatingCreateButton: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                Button {
-                    showingCreateSheet = true
-                } label: {
-                    let baseLabel = Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .frame(width: 56, height: 56)
-                    if #available(iOS 26.0, *) {
-                        baseLabel
-                            .glassEffect(.regular.interactive())
-                            .clipShape(.circle)
-                    } else {
-                        baseLabel
-                            .background(.ultraThinMaterial, in: .circle)
-                    }
-                }
-                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                .padding(.trailing, 20)
-                .padding(.bottom, 16)
-            }
-        }
-    }
 }
 
 private struct BookshelfSummaryCard: View {
@@ -592,6 +673,7 @@ private struct BookshelfProgressRing: View {
     let strokeColor: Color
     let title: String
     let subtitle: String
+    let animationProgress: Double
 
     var body: some View {
         ZStack {
@@ -599,7 +681,7 @@ private struct BookshelfProgressRing: View {
                 .stroke(MerkenTheme.borderLight, lineWidth: 8)
 
             Circle()
-                .trim(from: 0, to: max(0.02, progress))
+                .trim(from: 0, to: animatedProgress)
                 .stroke(
                     strokeColor,
                     style: StrokeStyle(lineWidth: 8, lineCap: .round)
@@ -618,12 +700,19 @@ private struct BookshelfProgressRing: View {
         }
         .frame(width: 86, height: 86)
     }
+
+    private var animatedProgress: Double {
+        let clamped = max(0, min(progress, 1)) * animationProgress
+        guard clamped > 0 else { return 0 }
+        return max(0.02, clamped)
+    }
 }
 
 private struct BookshelfDistributionBar: View {
     let mastered: Int
     let review: Int
     let newWords: Int
+    let animationProgress: Double
 
     private var total: Double {
         Double(mastered + review + newWords)
@@ -631,6 +720,7 @@ private struct BookshelfDistributionBar: View {
 
     var body: some View {
         GeometryReader { geo in
+            let animationFactor = CGFloat(animationProgress)
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(MerkenTheme.borderLight)
@@ -639,17 +729,17 @@ private struct BookshelfDistributionBar: View {
                     if mastered > 0 {
                         Rectangle()
                             .fill(MerkenTheme.success)
-                            .frame(width: geo.size.width * CGFloat(Double(mastered) / max(total, 1)))
+                            .frame(width: geo.size.width * CGFloat(Double(mastered) / max(total, 1)) * animationFactor)
                     }
                     if review > 0 {
                         Rectangle()
                             .fill(MerkenTheme.chartBlue)
-                            .frame(width: geo.size.width * CGFloat(Double(review) / max(total, 1)))
+                            .frame(width: geo.size.width * CGFloat(Double(review) / max(total, 1)) * animationFactor)
                     }
                     if newWords > 0 {
                         Rectangle()
                             .fill(MerkenTheme.mutedText.opacity(0.75))
-                            .frame(width: geo.size.width * CGFloat(Double(newWords) / max(total, 1)))
+                            .frame(width: geo.size.width * CGFloat(Double(newWords) / max(total, 1)) * animationFactor)
                     }
                 }
                 .clipShape(Capsule())
@@ -747,7 +837,8 @@ private struct BookshelfShelfPreview: View {
                 )
                 .padding(10)
         }
-        .frame(width: 118, height: 136)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 }
 
@@ -768,6 +859,8 @@ private struct BookshelfPreviewBook: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
             } else {
                 LinearGradient(
                     colors: [color, color.opacity(0.72)],

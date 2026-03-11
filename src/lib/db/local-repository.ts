@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './dexie';
 import type { Project, Word, WordRepository } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
+import { normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Local implementation of WordRepository using Dexie (IndexedDB)
 // Used for Free tier users - data stays on device
@@ -10,11 +11,12 @@ export class LocalWordRepository implements WordRepository {
   // ============ Projects ============
 
   async createProject(
-    project: Omit<Project, 'id' | 'createdAt'>
+    project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }
   ): Promise<Project> {
     const db = getDb();
     const newProject: Project = {
       ...project,
+      sourceLabels: normalizeSourceLabels(project.sourceLabels),
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       isSynced: false,
@@ -26,21 +28,36 @@ export class LocalWordRepository implements WordRepository {
 
   async getProjects(userId: string): Promise<Project[]> {
     const db = getDb();
-    return db.projects
+    const projects = await db.projects
       .where('userId')
       .equals(userId)
       .reverse()
       .sortBy('createdAt');
+    return projects.map((project) => ({
+      ...project,
+      sourceLabels: normalizeSourceLabels(project.sourceLabels),
+    }));
   }
 
   async getProject(id: string): Promise<Project | undefined> {
     const db = getDb();
-    return db.projects.get(id);
+    const project = await db.projects.get(id);
+    if (!project) return undefined;
+    return {
+      ...project,
+      sourceLabels: normalizeSourceLabels(project.sourceLabels),
+    };
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<void> {
     const db = getDb();
-    await db.projects.update(id, updates);
+    const normalizedUpdates: Partial<Project> = {
+      ...updates,
+      ...(updates.sourceLabels !== undefined
+        ? { sourceLabels: normalizeSourceLabels(updates.sourceLabels) }
+        : {}),
+    };
+    await db.projects.update(id, normalizedUpdates);
   }
 
   async deleteProject(id: string): Promise<void> {
@@ -131,7 +148,11 @@ export class LocalWordRepository implements WordRepository {
 
   async getAllProjectsForSync(): Promise<Project[]> {
     const db = getDb();
-    return db.projects.where('isSynced').equals(0).toArray();
+    const projects = await db.projects.where('isSynced').equals(0).toArray();
+    return projects.map((project) => ({
+      ...project,
+      sourceLabels: normalizeSourceLabels(project.sourceLabels),
+    }));
   }
 
   async markProjectsSynced(projectIds: string[]): Promise<void> {

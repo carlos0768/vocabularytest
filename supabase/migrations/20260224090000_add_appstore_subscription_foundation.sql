@@ -11,51 +11,40 @@ ALTER TABLE public.subscriptions
   ADD COLUMN IF NOT EXISTS appstore_product_id TEXT,
   ADD COLUMN IF NOT EXISTS appstore_environment TEXT,
   ADD COLUMN IF NOT EXISTS appstore_last_verified_at TIMESTAMPTZ;
-
 UPDATE public.subscriptions
 SET pro_source = 'none'
 WHERE pro_source IS NULL
    OR pro_source NOT IN ('none', 'billing', 'test', 'appstore');
-
 ALTER TABLE public.subscriptions
   ALTER COLUMN pro_source SET DEFAULT 'none',
   ALTER COLUMN pro_source SET NOT NULL;
-
 ALTER TABLE public.subscriptions
   DROP CONSTRAINT IF EXISTS subscriptions_pro_source_check;
-
 ALTER TABLE public.subscriptions
   ADD CONSTRAINT subscriptions_pro_source_check
   CHECK (pro_source IN ('none', 'billing', 'test', 'appstore'));
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_appstore_original_transaction_unique
   ON public.subscriptions (appstore_original_transaction_id)
   WHERE appstore_original_transaction_id IS NOT NULL;
-
 CREATE INDEX IF NOT EXISTS idx_subscriptions_appstore_latest_transaction_idx
   ON public.subscriptions (appstore_latest_transaction_id)
   WHERE appstore_latest_transaction_id IS NOT NULL;
-
 ALTER TABLE public.subscriptions
   DROP CONSTRAINT IF EXISTS subscriptions_appstore_environment_check;
-
 ALTER TABLE public.subscriptions
   ADD CONSTRAINT subscriptions_appstore_environment_check
   CHECK (
     appstore_environment IS NULL
     OR appstore_environment IN ('sandbox', 'production')
   );
-
 ALTER TABLE public.subscriptions
   DROP CONSTRAINT IF EXISTS subscriptions_appstore_requires_original_transaction_id;
-
 ALTER TABLE public.subscriptions
   ADD CONSTRAINT subscriptions_appstore_requires_original_transaction_id
   CHECK (
     pro_source <> 'appstore'
     OR NULLIF(BTRIM(appstore_original_transaction_id), '') IS NOT NULL
   );
-
 CREATE OR REPLACE FUNCTION public.is_active_pro(
   p_status TEXT,
   p_plan TEXT,

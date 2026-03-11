@@ -7,7 +7,6 @@
 
 -- Drop the previous policy that allowed any authenticated user
 DROP POLICY IF EXISTS "Users can view shared projects" ON projects;
-
 -- Pro users can view shared projects (projects where share_id is set)
 -- The project owner must also be Pro (projects can only have share_id if owner is Pro)
 CREATE POLICY "Pro users can view shared projects"
@@ -21,14 +20,12 @@ CREATE POLICY "Pro users can view shared projects"
         AND s.plan = 'pro'
     )
   );
-
 -- =========================
 -- Update shared words viewing policy
 -- =========================
 
 -- Drop the previous policy
 DROP POLICY IF EXISTS "Users can view words in shared projects" ON words;
-
 -- Pro users can view words in shared projects
 CREATE POLICY "Pro users can view words in shared projects"
   ON words FOR SELECT

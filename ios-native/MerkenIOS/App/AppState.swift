@@ -41,12 +41,14 @@ private actor ScanJobSyncService {
     typealias AcknowledgeJob = @Sendable (String) async throws -> Void
     typealias CompletedHandler = @Sendable (ScanJobDTO) async -> Bool
     typealias FailedHandler = @Sendable (ScanJobDTO) async -> Void
+    typealias FetchedJobsHandler = @Sendable ([ScanJobDTO]) async -> Void
     typealias LogHandler = @Sendable (String) async -> Void
 
     private let fetchJobs: FetchJobs
     private let acknowledgeJob: AcknowledgeJob
     private let completedHandler: CompletedHandler
     private let failedHandler: FailedHandler
+    private let fetchedJobsHandler: FetchedJobsHandler
     private let logHandler: LogHandler
 
     private var pollingTask: Task<Void, Never>?
@@ -56,12 +58,14 @@ private actor ScanJobSyncService {
         acknowledgeJob: @escaping AcknowledgeJob,
         completedHandler: @escaping CompletedHandler,
         failedHandler: @escaping FailedHandler,
+        fetchedJobsHandler: @escaping FetchedJobsHandler,
         logHandler: @escaping LogHandler
     ) {
         self.fetchJobs = fetchJobs
         self.acknowledgeJob = acknowledgeJob
         self.completedHandler = completedHandler
         self.failedHandler = failedHandler
+        self.fetchedJobsHandler = fetchedJobsHandler
         self.logHandler = logHandler
     }
 
@@ -83,6 +87,7 @@ private actor ScanJobSyncService {
 
             do {
                 let jobs = try await fetchJobs()
+                await fetchedJobsHandler(jobs)
 
                 for job in jobs {
                     switch job.status {
@@ -149,6 +154,7 @@ final class AppState: ObservableObject {
     private let offlinePrefetchRepository: OfflinePrefetchingRepository?
     private var bannerDismissTask: Task<Void, Never>?
     private let defaults: UserDefaults
+    private let stalePendingScanImportInterval: TimeInterval = 20 * 60
 
     @Published private(set) var pendingScanImportContexts: [String: PendingScanImportContext]
     private var importedScanJobs: [String: ImportedScanJobRecord]
@@ -176,6 +182,10 @@ final class AppState: ObservableObject {
         failedHandler: { [weak self] job in
             guard let self else { return }
             await self.handleFailedScanJob(job)
+        },
+        fetchedJobsHandler: { [weak self] jobs in
+            guard let self else { return }
+            await self.reconcilePendingScanJobs(with: jobs)
         },
         logHandler: { [weak self] message in
             guard let self else { return }
@@ -400,9 +410,14 @@ final class AppState: ObservableObject {
             subscription = nil
             repositoryMode = .guestLocal
             clearCachedRepositoryMode()
+            authErrorMessage = nil
+            signUpErrorMessage = nil
             aiPreference = nil
             aiPreferenceErrorMessage = nil
             appStoreLaunchSyncUserId = nil
+            selectedTab = 0
+            tabBarVisible = true
+            scanBanner = nil
             await scanJobSyncService.stop()
             logger.info("Auth bootstrap: guest local mode")
             return
@@ -697,6 +712,27 @@ final class AppState: ObservableObject {
         }
     }
 
+    func replacePendingScanImport(oldJobId: String, with context: PendingScanImportContext) {
+        pendingScanImportContexts.removeValue(forKey: oldJobId)
+        pendingScanImportContexts[context.jobId] = context
+        persistPendingScanImportContexts()
+        reportedScanFailures.remove(oldJobId)
+        reportedScanFailures.remove(context.jobId)
+        persistReportedFailures()
+
+        Task {
+            await scanNotificationService.requestAuthorizationIfNeeded()
+        }
+
+        Task {
+            await scanJobSyncService.start()
+        }
+    }
+
+    func removePendingScanImport(jobId: String) {
+        removePendingScanImportContext(jobId: jobId)
+    }
+
     func postScanSuccess(projectTitle: String, wordCount: Int) {
         let title = "スキャン完了"
         let message = "「\(projectTitle)」に\(wordCount)語を追加しました。"
@@ -715,6 +751,12 @@ final class AppState: ObservableObject {
         Task {
             await scanNotificationService.notifyFailure(message: message)
         }
+    }
+
+    func postScanQueued(projectTitle: String) {
+        let title = "スキャンを開始しました"
+        let message = "「\(projectTitle)」を解析中です。完了後に自動で反映します。"
+        showScanBanner(level: .warning, title: title, message: message)
     }
 
     func postScanSyncPending(projectTitle: String, wordCount: Int) {
@@ -739,9 +781,17 @@ final class AppState: ObservableObject {
         switch saveMode {
         case .serverCloud:
             let count = result?.wordCount ?? 0
+            let resolvedProjectId =
+                result?.targetProjectId ??
+                job.projectId ??
+                job.targetProjectId ??
+                context.localTargetProjectId
 
             if let offlineRepository = activeRepository as? OfflineFirstCloudRepository {
-                let refreshed = await offlineRepository.refreshSnapshotFromCloud(userId: activeUserId)
+                let refreshed = await offlineRepository.refreshCompletedScanProjectFromCloud(
+                    userId: activeUserId,
+                    projectId: resolvedProjectId
+                )
                 if !refreshed {
                     if reportedScanSyncWarnings.insert(job.id).inserted {
                         postScanSyncPending(projectTitle: job.projectTitle, wordCount: count)
@@ -778,6 +828,43 @@ final class AppState: ObservableObject {
         postScanFailure(message: message)
     }
 
+    private func reconcilePendingScanJobs(with jobs: [ScanJobDTO]) async {
+        guard !pendingScanImportContexts.isEmpty else { return }
+
+        let visibleJobIds = Set(jobs.map(\.id))
+        let now = Date()
+        var staleJobIds: [String] = []
+
+        for context in pendingScanImportContexts.values {
+            if visibleJobIds.contains(context.jobId) {
+                continue
+            }
+
+            if importedScanJobs[context.jobId] != nil || reportedScanFailures.contains(context.jobId) {
+                staleJobIds.append(context.jobId)
+                continue
+            }
+
+            let age = now.timeIntervalSince(context.createdAt)
+            if age >= stalePendingScanImportInterval {
+                staleJobIds.append(context.jobId)
+            }
+        }
+
+        guard !staleJobIds.isEmpty else { return }
+
+        for jobId in staleJobIds {
+            pendingScanImportContexts.removeValue(forKey: jobId)
+            reportedScanSyncWarnings.remove(jobId)
+        }
+        persistPendingScanImportContexts()
+
+        let prunedIds = staleJobIds.joined(separator: ",")
+        logger.notice(
+            "Pruned stale pending scan imports: \(prunedIds, privacy: .public)"
+        )
+    }
+
     private func importClientLocalScanJob(
         job: ScanJobDTO,
         context: PendingScanImportContext,
@@ -791,6 +878,7 @@ final class AppState: ObservableObject {
         let localRepository = repositoryRouter.repository(for: .guestLocal)
         let localUserId = guestSessionStore.guestUserId
         let dedupedWords = ScanCoordinatorViewModel.dedupeWords(extractedWords)
+        let incomingSourceLabels = ensureProjectSourceLabels(result?.sourceLabels)
 
         do {
             let currentWords = try await localRepository.fetchAllWords(userId: localUserId)
@@ -806,6 +894,7 @@ final class AppState: ObservableObject {
 
             let projectId: String
             let projectTitleForMessage: String
+            let mergedSourceLabels: [String]
 
             if let targetId = context.localTargetProjectId {
                 let projects = try await localRepository.fetchProjects(userId: localUserId)
@@ -815,6 +904,7 @@ final class AppState: ObservableObject {
                     }
                     projectId = existingProject.id
                     projectTitleForMessage = existingProject.title
+                    mergedSourceLabels = mergeProjectSourceLabels(existingProject.sourceLabels, incomingSourceLabels)
                 } else {
                     let created = try await localRepository.createProject(
                         title: fallbackTitle,
@@ -823,6 +913,7 @@ final class AppState: ObservableObject {
                     )
                     projectId = created.id
                     projectTitleForMessage = created.title
+                    mergedSourceLabels = incomingSourceLabels
                 }
             } else {
                 let created = try await localRepository.createProject(
@@ -832,7 +923,10 @@ final class AppState: ObservableObject {
                 )
                 projectId = created.id
                 projectTitleForMessage = created.title
+                mergedSourceLabels = incomingSourceLabels
             }
+
+            try await localRepository.updateProjectSourceLabels(id: projectId, sourceLabels: mergedSourceLabels)
 
             let inputs = dedupedWords.map {
                 WordInput(

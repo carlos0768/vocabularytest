@@ -9,19 +9,15 @@
 ALTER TABLE public.subscriptions
   ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS cancel_requested_at TIMESTAMPTZ;
-
 UPDATE public.subscriptions
 SET cancel_at_period_end = FALSE
 WHERE cancel_at_period_end IS NULL;
-
 ALTER TABLE public.subscriptions
   ALTER COLUMN cancel_at_period_end SET DEFAULT FALSE,
   ALTER COLUMN cancel_at_period_end SET NOT NULL;
-
 ALTER TABLE public.subscription_sessions
   ADD COLUMN IF NOT EXISTS komoju_customer_id TEXT,
   ADD COLUMN IF NOT EXISTS komoju_subscription_id TEXT;
-
 -- ============================================
 -- 2. Helper: period-aware active Pro check
 -- ============================================
@@ -42,14 +38,12 @@ AS $$
       OR p_current_period_end > NOW()
     );
 $$;
-
 -- ============================================
 -- 3. Scan gate: period-aware Pro check
 -- ============================================
 DROP FUNCTION IF EXISTS check_and_increment_scan();
 DROP FUNCTION IF EXISTS check_and_increment_scan(BOOLEAN);
 DROP FUNCTION IF EXISTS check_and_increment_scan(UUID, BOOLEAN);
-
 CREATE OR REPLACE FUNCTION public.check_and_increment_scan(
   p_require_pro BOOLEAN DEFAULT FALSE
 )
@@ -121,10 +115,8 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.check_and_increment_scan(BOOLEAN) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.check_and_increment_scan(BOOLEAN) TO authenticated;
-
 -- ============================================
 -- 4. Pro-only write/share policies:
 --    require period-aware active Pro
@@ -133,7 +125,6 @@ DROP POLICY IF EXISTS "Active Pro users can create own projects" ON projects;
 DROP POLICY IF EXISTS "Active Pro users can update own projects" ON projects;
 DROP POLICY IF EXISTS "Active Pro users can delete own projects" ON projects;
 DROP POLICY IF EXISTS "Pro users can view shared projects" ON projects;
-
 CREATE POLICY "Active Pro users can create own projects"
   ON projects FOR INSERT
   WITH CHECK (
@@ -145,7 +136,6 @@ CREATE POLICY "Active Pro users can create own projects"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 CREATE POLICY "Active Pro users can update own projects"
   ON projects FOR UPDATE
   USING (
@@ -157,7 +147,6 @@ CREATE POLICY "Active Pro users can update own projects"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 CREATE POLICY "Active Pro users can delete own projects"
   ON projects FOR DELETE
   USING (
@@ -169,7 +158,6 @@ CREATE POLICY "Active Pro users can delete own projects"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 CREATE POLICY "Pro users can view shared projects"
   ON projects FOR SELECT
   USING (
@@ -181,12 +169,10 @@ CREATE POLICY "Pro users can view shared projects"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 DROP POLICY IF EXISTS "Active Pro users can create words in own projects" ON words;
 DROP POLICY IF EXISTS "Active Pro users can update own words" ON words;
 DROP POLICY IF EXISTS "Active Pro users can delete own words" ON words;
 DROP POLICY IF EXISTS "Pro users can view words in shared projects" ON words;
-
 CREATE POLICY "Active Pro users can create words in own projects"
   ON words FOR INSERT
   WITH CHECK (
@@ -203,7 +189,6 @@ CREATE POLICY "Active Pro users can create words in own projects"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 CREATE POLICY "Active Pro users can update own words"
   ON words FOR UPDATE
   USING (
@@ -220,7 +205,6 @@ CREATE POLICY "Active Pro users can update own words"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 CREATE POLICY "Active Pro users can delete own words"
   ON words FOR DELETE
   USING (
@@ -237,7 +221,6 @@ CREATE POLICY "Active Pro users can delete own words"
         AND public.is_active_pro(s.status, s.plan, s.current_period_end)
     )
   );
-
 CREATE POLICY "Pro users can view words in shared projects"
   ON words FOR SELECT
   USING (

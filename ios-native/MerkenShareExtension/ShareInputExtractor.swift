@@ -72,6 +72,24 @@ enum ShareInputExtractor {
             if !urls.isEmpty {
                 urlCandidates.append(contentsOf: urls)
             }
+
+            let uniqueTexts = dedupe(textCandidates)
+            let uniqueURLs = dedupe(urlCandidates + extractEmbeddedURLs(from: uniqueTexts))
+            let pair = detectBilingualPair(textCandidates: uniqueTexts, urlCandidates: uniqueURLs)
+
+            if let english = pair.english, let japanese = pair.japanese {
+                let cleanedSourceLines = cleanedSourceLines(from: uniqueTexts)
+                let sourceText = cleanedSourceLines.isEmpty
+                    ? (uniqueURLs.first ?? "")
+                    : cleanedSourceLines.joined(separator: "\n")
+
+                return ShareImportInput(
+                    text: sourceText,
+                    sourceApp: nil,
+                    detectedEnglish: english,
+                    detectedJapanese: japanese
+                )
+            }
         }
 
         let uniqueTexts = dedupe(textCandidates)

@@ -140,4 +140,4 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.claim_subscription_session(TEXT, UUID, INTEGER) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.claim_subscription_session(TEXT, UUID, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION public.claim_subscription_session(TEXT, UUID, INTEGER) TO service_role;;

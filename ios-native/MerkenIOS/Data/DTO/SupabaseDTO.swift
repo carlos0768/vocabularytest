@@ -8,6 +8,7 @@ struct ProjectDTO: Codable, Sendable {
     let createdAt: Date
     let shareId: String?
     let isFavorite: Bool?
+    let sourceLabels: [String]?
 }
 
 struct WordDTO: Codable, Sendable {
@@ -39,6 +40,7 @@ struct ProjectInsertDTO: Codable, Sendable {
     let title: String
     let iconImage: String?
     let isFavorite: Bool
+    let sourceLabels: [String]?
 }
 
 struct WordInsertDTO: Codable, Sendable {
@@ -119,7 +121,8 @@ enum SupabaseMapper {
             iconImage: dto.iconImage,
             createdAt: dto.createdAt,
             shareId: dto.shareId,
-            isFavorite: dto.isFavorite ?? false
+            isFavorite: dto.isFavorite ?? false,
+            sourceLabels: dto.sourceLabels ?? []
         )
     }
 

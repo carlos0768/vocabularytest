@@ -91,6 +91,7 @@ struct ExtractRequest: Encodable {
 struct ExtractResponse: Decodable {
     let success: Bool
     let words: [ExtractedWord]?
+    let sourceLabels: [String]?
     let error: String?
 }
 

@@ -17,6 +17,12 @@ import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import {
+  insertProjectWithSourceLabelsCompat,
+  selectProjectWithSourceLabelsCompat,
+  updateProjectSourceLabelsCompat,
+} from '@/lib/supabase/project-source-labels-compat';
+import { ensureSourceLabels, mergeSourceLabels } from '../../../../../shared/source-labels';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -44,7 +50,7 @@ type ExtractionWarningCode = 'grammar_not_found';
 type ScanJobSaveMode = 'server_cloud' | 'client_local';
 
 type ExtractionLikeResult =
-  | { success: true; data: { words: unknown[] } }
+  | { success: true; data: { words: unknown[]; sourceLabels?: unknown[] } }
   | { success: false; error: string; reason?: string };
 
 interface ProcessedExtractedWord {
@@ -477,6 +483,7 @@ export async function POST(request: NextRequest) {
       const aiEnabled = preference?.ai_enabled !== false;
 
       const allExtractedWords: ProcessedExtractedWord[] = [];
+      let allSourceLabels: string[] = [];
       let firstExtractionError: string | null = null;
       const warningCodes = new Set<ExtractionWarningCode>();
       const pageWarnings: string[] = [];
@@ -495,6 +502,7 @@ export async function POST(request: NextRequest) {
 
       async function processOneImage(pageIndex: number): Promise<{
         words: ProcessedExtractedWord[];
+        sourceLabels: string[];
         warningCode?: ExtractionWarningCode;
         error?: string;
         pageWarning?: string;
@@ -508,7 +516,7 @@ export async function POST(request: NextRequest) {
 
         if (downloadError || !imageData) {
           console.error(`Failed to download image ${imagePath}:`, downloadError);
-          return { words: [], error: '画像データの取得に失敗しました', pageWarning: `${pageLabel}: 画像データの取得に失敗しました` };
+          return { words: [], sourceLabels: [], error: '画像データの取得に失敗しました', pageWarning: `${pageLabel}: 画像データの取得に失敗しました` };
         }
 
         const buffer = await imageData.arrayBuffer();
@@ -533,16 +541,20 @@ export async function POST(request: NextRequest) {
           const { result, warningCode } = extractionResult;
 
           if (result.success && result.data?.words) {
-            return { words: parseExtractedWords(result.data.words), warningCode };
+            return {
+              words: parseExtractedWords(result.data.words),
+              sourceLabels: ensureSourceLabels(result.data.sourceLabels),
+              warningCode,
+            };
           } else if (!result.success) {
             const errMsg = result.error || '画像の解析に失敗しました';
-            return { words: [], warningCode, error: errMsg, pageWarning: `${pageLabel}: ${errMsg}` };
+            return { words: [], sourceLabels: [], warningCode, error: errMsg, pageWarning: `${pageLabel}: ${errMsg}` };
           }
-          return { words: [], warningCode };
+          return { words: [], sourceLabels: [], warningCode };
         } catch (error) {
           console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
           const errMsg = error instanceof Error ? error.message : '画像解析に失敗しました';
-          return { words: [], error: errMsg, pageWarning: `${pageLabel}: 画像解析に失敗しました` };
+          return { words: [], sourceLabels: [], error: errMsg, pageWarning: `${pageLabel}: 画像解析に失敗しました` };
         }
       }
 
@@ -564,7 +576,7 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          const { words, warningCode, error, pageWarning } = settledResult.value;
+          const { words, sourceLabels, warningCode, error, pageWarning } = settledResult.value;
 
           if (error && !firstExtractionError) {
             firstExtractionError = error;
@@ -589,10 +601,12 @@ export async function POST(request: NextRequest) {
           }
 
           allExtractedWords.push(...words);
+          allSourceLabels = mergeSourceLabels(allSourceLabels, sourceLabels);
         }
       }
 
       const dedupedWords = dedupeExtractedWords(allExtractedWords);
+      const dedupedSourceLabels = ensureSourceLabels(allSourceLabels);
 
       if (dedupedWords.length === 0) {
         const errorMessage = firstExtractionError || 'No words found in any image';
@@ -627,10 +641,12 @@ export async function POST(request: NextRequest) {
           warnings?: string[];
           saveMode: ScanJobSaveMode;
           extractedWords: ProcessedExtractedWord[];
+          sourceLabels: string[];
         } = {
           wordCount: dedupedWords.length,
           saveMode,
           extractedWords: dedupedWords,
+          sourceLabels: dedupedSourceLabels,
         };
         if (warnings.length > 0) {
           resultPayload.warnings = warnings;
@@ -668,14 +684,20 @@ export async function POST(request: NextRequest) {
       let projectId: string;
       let projectTitleForNotification = job.project_title as string;
       let createdNewProject = false;
+      let usedProjectSourceLabelsCompat = false;
 
       if (targetProjectId) {
-        const { data: existingProject, error: existingProjectError } = await getSupabaseAdmin()
-          .from('projects')
-          .select('id,title')
-          .eq('id', targetProjectId)
-          .eq('user_id', job.user_id)
-          .single();
+        const { data: existingProject, error: existingProjectError, usedLegacyColumns: usedLegacySelectColumns } =
+          await selectProjectWithSourceLabelsCompat<{
+            id: string;
+            title: string | null;
+            source_labels?: string[] | null;
+          }>(
+            getSupabaseAdmin(),
+            targetProjectId,
+            job.user_id,
+          );
+        usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacySelectColumns;
 
         if (existingProjectError || !existingProject) {
           throw new Error('指定した単語帳が見つかりません。');
@@ -696,16 +718,35 @@ export async function POST(request: NextRequest) {
             throw new Error('Failed to update project icon');
           }
         }
+
+        const mergedProjectSourceLabels = mergeSourceLabels(existingProject.source_labels, dedupedSourceLabels);
+        const { error: sourceLabelUpdateError, usedLegacyColumns: usedLegacyUpdateColumns } = await updateProjectSourceLabelsCompat(
+          getSupabaseAdmin(),
+          existingProject.id,
+          mergedProjectSourceLabels,
+          job.user_id,
+        );
+        usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacyUpdateColumns;
+
+        if (sourceLabelUpdateError) {
+          console.error('Project source label update error:', sourceLabelUpdateError);
+          throw new Error('Failed to update project source labels');
+        }
       } else {
-        const { data: newProject, error: projectError } = await getSupabaseAdmin()
-          .from('projects')
-          .insert({
-            user_id: job.user_id,
-            title: job.project_title,
-            icon_image: job.project_icon_image ?? null,
-          })
-          .select()
-          .single();
+        const { data: newProject, error: projectError, usedLegacyColumns: usedLegacyInsertColumns } =
+          await insertProjectWithSourceLabelsCompat<{
+            id: string;
+            title?: string | null;
+          }>(
+            getSupabaseAdmin(),
+            {
+              user_id: job.user_id,
+              title: job.project_title,
+              source_labels: dedupedSourceLabels,
+              icon_image: job.project_icon_image ?? null,
+            },
+          );
+        usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacyInsertColumns;
 
         if (projectError || !newProject) {
           console.error('Project creation error:', projectError);
@@ -715,6 +756,10 @@ export async function POST(request: NextRequest) {
         projectId = newProject.id;
         projectTitleForNotification = newProject.title ?? projectTitleForNotification;
         createdNewProject = true;
+      }
+
+      if (usedProjectSourceLabelsCompat) {
+        console.warn('[scan-jobs/process] projects.source_labels compatibility fallback used');
       }
 
       const wordsToInsert = dedupedWords.map((word) => ({
@@ -746,6 +791,7 @@ export async function POST(request: NextRequest) {
         warnings?: string[];
         saveMode: ScanJobSaveMode;
         targetProjectId: string;
+        sourceLabels: string[];
         quizPrefillRequested?: number;
         quizPrefillSucceeded?: number;
         quizPrefillFailed?: number;
@@ -753,69 +799,10 @@ export async function POST(request: NextRequest) {
         wordCount: dedupedWords.length,
         saveMode,
         targetProjectId: projectId,
+        sourceLabels: dedupedSourceLabels,
       };
       if (warnings.length > 0) {
         resultPayload.warnings = warnings;
-      }
-
-      if (aiEnabled) {
-        const quizSeedWords: QuizSeedWord[] = insertedWordsArray
-          .filter((w: {
-            distractors: unknown;
-            example_sentence: string | null;
-            example_sentence_ja: string | null;
-            part_of_speech_tags: unknown;
-          }) =>
-            !hasValidDistractors(w.distractors) ||
-            !hasExampleSentence(w.example_sentence) ||
-            !hasPartOfSpeechTags(w.part_of_speech_tags)
-          )
-          .map((w: { id: string; english: string; japanese: string }) => ({
-            id: w.id,
-            english: w.english,
-            japanese: w.japanese,
-          }));
-
-        let quizPrefillSucceeded = 0;
-        const quizPrefillFailedWordIds = new Set<string>();
-
-        for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
-          const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
-
-          if (results.length > 0) {
-            try {
-              await Promise.all(
-                results.map((item) =>
-                  getSupabaseAdmin()
-                    .from('words')
-                    .update({
-                      distractors: item.distractors,
-                      example_sentence: item.exampleSentence || null,
-                      example_sentence_ja: item.exampleSentenceJa || null,
-                      part_of_speech_tags: item.partOfSpeechTags,
-                    })
-                    .eq('id', item.wordId)
-                )
-              );
-              quizPrefillSucceeded += results.length;
-            } catch (persistError) {
-              console.error('Failed to persist quiz prefill batch:', persistError);
-              for (const item of results) {
-                quizPrefillFailedWordIds.add(item.wordId);
-              }
-            }
-          }
-
-          for (const failedWordId of failedWordIds) {
-            quizPrefillFailedWordIds.add(failedWordId);
-          }
-        }
-
-        if (quizSeedWords.length > 0) {
-          resultPayload.quizPrefillRequested = quizSeedWords.length;
-          resultPayload.quizPrefillSucceeded = quizPrefillSucceeded;
-          resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
-        }
       }
 
       await getSupabaseAdmin()
@@ -842,6 +829,69 @@ export async function POST(request: NextRequest) {
       // Heavy/non-critical tasks run after completion update.
       void (async () => {
         if (insertedWordsArray.length === 0) return;
+
+        if (aiEnabled) {
+          const quizSeedWords: QuizSeedWord[] = insertedWordsArray
+            .filter((w: {
+              distractors: unknown;
+              example_sentence: string | null;
+              example_sentence_ja: string | null;
+              part_of_speech_tags: unknown;
+            }) =>
+              !hasValidDistractors(w.distractors) ||
+              !hasExampleSentence(w.example_sentence) ||
+              !hasPartOfSpeechTags(w.part_of_speech_tags)
+            )
+            .map((w: { id: string; english: string; japanese: string }) => ({
+              id: w.id,
+              english: w.english,
+              japanese: w.japanese,
+            }));
+
+          if (quizSeedWords.length > 0) {
+            let quizPrefillSucceeded = 0;
+            const quizPrefillFailedWordIds = new Set<string>();
+
+            for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
+              const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
+
+              if (results.length > 0) {
+                try {
+                  await Promise.all(
+                    results.map((item) =>
+                      getSupabaseAdmin()
+                        .from('words')
+                        .update({
+                          distractors: item.distractors,
+                          example_sentence: item.exampleSentence || null,
+                          example_sentence_ja: item.exampleSentenceJa || null,
+                          part_of_speech_tags: item.partOfSpeechTags,
+                        })
+                        .eq('id', item.wordId)
+                    )
+                  );
+                  quizPrefillSucceeded += results.length;
+                } catch (persistError) {
+                  console.error('Failed to persist quiz prefill batch:', persistError);
+                  for (const item of results) {
+                    quizPrefillFailedWordIds.add(item.wordId);
+                  }
+                }
+              }
+
+              for (const failedWordId of failedWordIds) {
+                quizPrefillFailedWordIds.add(failedWordId);
+              }
+            }
+
+            console.log('Background quiz prefill finished:', {
+              jobId,
+              requested: quizSeedWords.length,
+              succeeded: quizPrefillSucceeded,
+              failed: quizPrefillFailedWordIds.size,
+            });
+          }
+        }
 
         // Generate embeddings for semantic search (best effort)
         if (isProUser) {

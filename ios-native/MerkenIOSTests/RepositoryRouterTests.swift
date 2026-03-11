@@ -10,6 +10,7 @@ final class RepositoryRouterTests: XCTestCase {
         func updateProject(id: String, title: String) async throws {}
         func updateProjectIcon(id: String, iconImage: String) async throws {}
         func updateProjectFavorite(id: String, isFavorite: Bool) async throws {}
+        func updateProjectSourceLabels(id: String, sourceLabels: [String]) async throws {}
         func deleteProject(id: String) async throws {}
         func fetchWords(projectId: String) async throws -> [Word] { [] }
         func fetchAllWords(userId: String) async throws -> [Word] { [] }
@@ -32,7 +33,8 @@ final class RepositoryRouterTests: XCTestCase {
             plan: .free,
             proSource: "none",
             testProExpiresAt: nil,
-            currentPeriodEnd: nil
+            currentPeriodEnd: nil,
+            cancelAtPeriodEnd: false
         )
 
         XCTAssertEqual(router.mode(for: subscription), .guestLocal)
@@ -47,7 +49,8 @@ final class RepositoryRouterTests: XCTestCase {
             plan: .pro,
             proSource: "billing",
             testProExpiresAt: nil,
-            currentPeriodEnd: Date().addingTimeInterval(3600)
+            currentPeriodEnd: Date().addingTimeInterval(3600),
+            cancelAtPeriodEnd: false
         )
 
         XCTAssertEqual(router.mode(for: subscription), .proCloud)
@@ -62,7 +65,8 @@ final class RepositoryRouterTests: XCTestCase {
             plan: .pro,
             proSource: "billing",
             testProExpiresAt: nil,
-            currentPeriodEnd: Date().addingTimeInterval(-3600)
+            currentPeriodEnd: Date().addingTimeInterval(-3600),
+            cancelAtPeriodEnd: false
         )
 
         XCTAssertEqual(router.mode(for: subscription), .readonlyCloud)
@@ -76,7 +80,8 @@ final class RepositoryRouterTests: XCTestCase {
             plan: .pro,
             proSource: "test",
             testProExpiresAt: nil,
-            currentPeriodEnd: Date().addingTimeInterval(-3600)
+            currentPeriodEnd: Date().addingTimeInterval(-3600),
+            cancelAtPeriodEnd: false
         )
 
         XCTAssertTrue(subscription.isActivePro)
@@ -90,10 +95,46 @@ final class RepositoryRouterTests: XCTestCase {
             plan: .pro,
             proSource: "test",
             testProExpiresAt: Date().addingTimeInterval(-60),
-            currentPeriodEnd: Date().addingTimeInterval(3600)
+            currentPeriodEnd: Date().addingTimeInterval(3600),
+            cancelAtPeriodEnd: false
         )
 
         XCTAssertFalse(subscription.isActivePro)
+    }
+
+    func testDisplayDateUsesTestExpiryInsteadOfStaleCurrentPeriodEnd() {
+        let expiry = Date().addingTimeInterval(3600)
+        let stalePeriodEnd = Date().addingTimeInterval(-3600)
+        let subscription = SubscriptionState(
+            id: "s1",
+            userId: "u1",
+            status: .active,
+            plan: .pro,
+            proSource: "test",
+            testProExpiresAt: expiry,
+            currentPeriodEnd: stalePeriodEnd,
+            cancelAtPeriodEnd: false
+        )
+
+        XCTAssertEqual(subscription.displayDateLabel, "有効期限")
+        XCTAssertEqual(subscription.displayDateValue, expiry)
+    }
+
+    func testDisplayDateUsesCancellationLabelForBillingCancellation() {
+        let periodEnd = Date().addingTimeInterval(3600)
+        let subscription = SubscriptionState(
+            id: "s1",
+            userId: "u1",
+            status: .active,
+            plan: .pro,
+            proSource: "billing",
+            testProExpiresAt: nil,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: true
+        )
+
+        XCTAssertEqual(subscription.displayDateLabel, "解約予定日")
+        XCTAssertEqual(subscription.displayDateValue, periodEnd)
     }
 }
 

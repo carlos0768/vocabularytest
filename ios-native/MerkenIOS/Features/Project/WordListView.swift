@@ -238,9 +238,9 @@ struct WordListView: View {
                         await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
                     }
                 } label: {
-                    Image(systemName: word.isFavorite ? "flag.fill" : "flag")
+                    Image(systemName: word.isFavorite ? "heart.fill" : "heart")
                         .font(.system(size: 14))
-                        .foregroundStyle(word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                        .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
                 }
 
                 Button {
@@ -280,7 +280,7 @@ struct WordListView: View {
 
     @ViewBuilder
     private func editorSheet(mode: WordEditorSheet.Mode) -> some View {
-        WordEditorSheet(mode: mode) { input in
+        WordEditorSheet(mode: mode, projectId: project.id) { input in
             Task {
                 switch mode {
                 case .create:

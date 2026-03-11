@@ -9,17 +9,13 @@ CREATE TABLE IF NOT EXISTS ios_device_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 -- One token per device
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ios_device_tokens_token
   ON ios_device_tokens(device_token);
-
 -- Fast lookup by user
 CREATE INDEX IF NOT EXISTS idx_ios_device_tokens_user_id
   ON ios_device_tokens(user_id);
-
 ALTER TABLE ios_device_tokens ENABLE ROW LEVEL SECURITY;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -34,7 +30,6 @@ BEGIN
       USING (auth.uid() = user_id);
   END IF;
 END $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -49,7 +44,6 @@ BEGIN
       WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -65,7 +59,6 @@ BEGIN
       WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (

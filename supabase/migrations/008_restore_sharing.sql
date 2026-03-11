@@ -11,7 +11,6 @@ DROP POLICY IF EXISTS "Users can view shared projects" ON projects;
 CREATE POLICY "Users can view shared projects"
   ON projects FOR SELECT
   USING (share_id IS NOT NULL);
-
 -- Allow any authenticated user to view words in shared projects
 DROP POLICY IF EXISTS "Users can view words in shared projects" ON words;
 CREATE POLICY "Users can view words in shared projects"

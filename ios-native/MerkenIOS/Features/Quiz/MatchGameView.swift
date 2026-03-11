@@ -26,7 +26,17 @@ struct MatchGameView: View {
         .navigationTitle("マッチ")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            viewModel.setup(words: words, projectId: project.id, quizStatsStore: appState.quizStatsStore)
+            viewModel.setup(
+                words: words,
+                projectId: project.id,
+                quizStatsStore: appState.quizStatsStore,
+                persistWordPatch: { wordId, patch in
+                    try await appState.activeRepository.updateWord(id: wordId, patch: patch)
+                },
+                notifyDataChange: {
+                    appState.bumpDataVersion()
+                }
+            )
         }
     }
 
@@ -38,7 +48,7 @@ struct MatchGameView: View {
 
             Image(systemName: "square.grid.2x2")
                 .font(.system(size: 60))
-                .foregroundStyle(.purple)
+                .foregroundStyle(MerkenTheme.primaryText)
 
             Text("マッチ")
                 .font(.system(size: 28, weight: .bold))
@@ -72,7 +82,7 @@ struct MatchGameView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(.purple, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color.black, in: RoundedRectangle(cornerRadius: 16))
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
@@ -175,7 +185,7 @@ struct MatchGameView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(.purple, in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.black, in: RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
@@ -203,7 +213,7 @@ struct MatchGameView: View {
             // Total time (big)
             Text(formatTime(viewModel.totalTime))
                 .font(.system(size: 48, weight: .bold, design: .monospaced))
-                .foregroundStyle(.purple)
+                .foregroundStyle(MerkenTheme.primaryText)
 
             // Breakdown
             VStack(spacing: 8) {
@@ -230,15 +240,14 @@ struct MatchGameView: View {
             VStack(spacing: 12) {
                 Button {
                     MerkenHaptic.medium()
-                    viewModel.setup(words: words, projectId: project.id, quizStatsStore: appState.quizStatsStore)
-                    viewModel.startGame()
+                    viewModel.restartGame()
                 } label: {
                     Label("もう一度", systemImage: "arrow.counterclockwise")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(.purple, in: RoundedRectangle(cornerRadius: 14))
+                        .background(Color.black, in: RoundedRectangle(cornerRadius: 14))
                 }
 
                 Button {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateNextReview, calculateNextReviewByQuality } from './spaced-repetition';
+import { calculateNextReview, calculateNextReviewByQuality, getStatusAfterQuality } from './spaced-repetition';
 import type { Word } from '@/types';
 
 const baseWord: Word = {
@@ -43,4 +43,11 @@ test('calculateNextReview remains compatible with boolean API', () => {
   assert.equal(fromBoolean.intervalDays, fromQuality.intervalDays);
   assert.equal(fromBoolean.repetition, fromQuality.repetition);
   assert.equal(fromBoolean.easeFactor, fromQuality.easeFactor);
+});
+
+test('getStatusAfterQuality treats low quality as failed recall', () => {
+  assert.equal(getStatusAfterQuality('new', 2), 'new');
+  assert.equal(getStatusAfterQuality('review', 2), 'new');
+  assert.equal(getStatusAfterQuality('mastered', 2), 'review');
+  assert.equal(getStatusAfterQuality('review', 3), 'review');
 });

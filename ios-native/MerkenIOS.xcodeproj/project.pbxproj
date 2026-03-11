@@ -51,6 +51,7 @@
 		5819BA1E558A83EA4D4952BF /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */; };
 		590F801E938E63F25CF704A4 /* SentenceQuizDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30935187DFB30E1359223B86 /* SentenceQuizDTO.swift */; };
 		59FC9E3327998707F9D38AAD /* ProjectListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */; };
+		5A00000000000001 /* ProjectShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A00000000000011 /* ProjectShareSheet.swift */; };
 		5C5DCED4E8C7D10E39E9463C /* ShareImportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F1059DF22F61472C6AB548 /* ShareImportModels.swift */; };
 		5CF30DE90BD1EBAC4D73C1E1 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C934020083DE64117685AC1 /* ShareViewController.swift */; };
 		5F2888977D3C580930B7A405 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE12646C56BDB1E53A54D5B /* RootTabView.swift */; };
@@ -76,6 +77,7 @@
 		7CC52CC8E5530FF41FCAD4B4 /* RepositoryRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01625E057EA3FDA1F4B71A30 /* RepositoryRouter.swift */; };
 		828DE6B743BDB937942A8B4B /* ScanCoordinatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099A240702660CEA14504514 /* ScanCoordinatorViewModel.swift */; };
 		82E3842364E5C2F8F66D7F2B /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53062913A0AF81DD487C373B /* AuthService.swift */; };
+		8300000000000001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8300000000000011 /* OnboardingView.swift */; };
 		83016F6FAA440810A08E27EA /* ScanConfirmWordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D263512898639572A6E2CAA9 /* ScanConfirmWordRow.swift */; };
 		83397F79801E665A640FB3D6 /* ShareImportViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2D0D4C99D6ECE8097535C4 /* ShareImportViewModel.swift */; };
 		849A404F11C2EFCE5022A00A /* ShareImportBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1DB811009B96029891DEF0 /* ShareImportBridge.swift */; };
@@ -245,6 +247,8 @@
 		71D62B44A7683D7C1BF043E6 /* QuizEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizEngineTests.swift; sourceTree = "<group>"; };
 		73D1B91F4FA0D910AD463493 /* ProjectSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSetupView.swift; sourceTree = "<group>"; };
 		7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectListViewModel.swift; sourceTree = "<group>"; };
+		5A00000000000011 /* ProjectShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectShareSheet.swift; sourceTree = "<group>"; };
+		8300000000000011 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		7856180ECB9636E96DD8EF82 /* FavoritesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViewModel.swift; sourceTree = "<group>"; };
 		79A16D6FAF8B57FA71EDC20D /* MerkenActionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MerkenActionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D1535FD33287E38DC613A8B /* CreateBookshelfSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBookshelfSheet.swift; sourceTree = "<group>"; };
@@ -428,6 +432,7 @@
 				33F439DA7C119036CF02695B /* ProjectDetailViewModel.swift */,
 				2345581B29EC062ACC99457B /* ProjectListView.swift */,
 				7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */,
+				5A00000000000011 /* ProjectShareSheet.swift */,
 				2A5D52FEC41B3B9AFB9AD0BB /* WordEditorSheet.swift */,
 				41BF5284FA3263B19D304B15 /* WordListView.swift */,
 				1D14F2A209459F83F00FC77C /* WordListViewModel.swift */,
@@ -533,6 +538,14 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		8300000000000021 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				8300000000000011 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
 		858CDB693F09BFDEB4A557DC /* Quiz */ = {
 			isa = PBXGroup;
 			children = (
@@ -555,6 +568,7 @@
 				6307BB58FD016FA703AC920A /* Favorites */,
 				D40620301DAAB53B3BF95330 /* Flashcard */,
 				99A3142E23A5F9317682E056 /* Home */,
+				8300000000000021 /* Onboarding */,
 				58B313D734CA9896793998DC /* Project */,
 				298C6EAAC7D8BF822C9F88C0 /* QuickResponse */,
 				858CDB693F09BFDEB4A557DC /* Quiz */,
@@ -974,6 +988,8 @@
 				D963FD784830B6369DC2D54C /* ProjectDetailViewModel.swift in Sources */,
 				3A52EDBC991FE880384EC4FC /* ProjectListView.swift in Sources */,
 				59FC9E3327998707F9D38AAD /* ProjectListViewModel.swift in Sources */,
+				5A00000000000001 /* ProjectShareSheet.swift in Sources */,
+				8300000000000001 /* OnboardingView.swift in Sources */,
 				E4AF1D1F6AFDE50AF7005414 /* ProjectSetupView.swift in Sources */,
 				254186A41262DF4FFC90E099 /* QuickResponseView.swift in Sources */,
 				317B896DAFCC0F95C8027679 /* QuickResponseViewModel.swift in Sources */,

@@ -48,6 +48,34 @@ export function calculateNextReview(
 }
 
 /**
+ * Determine the next word status based on SM-2 quality.
+ *
+ * 0-2: failed / poor recall
+ * 3: difficult recall
+ * 4: correct recall
+ * 5: easy recall
+ */
+export function getStatusAfterQuality(currentStatus: WordStatus, qualityInput: number): WordStatus {
+  const quality = clampQuality(qualityInput);
+
+  if (quality <= 2) {
+    if (currentStatus === 'mastered') return 'review';
+    return 'new';
+  }
+
+  if (quality === 3) {
+    return 'review';
+  }
+
+  if (quality === 4) {
+    if (currentStatus === 'new') return 'review';
+    return 'mastered';
+  }
+
+  return 'mastered';
+}
+
+/**
  * Calculate the next review schedule based on SM-2 algorithm using direct quality score.
  *
  * Quality scale (0-5):

@@ -67,29 +67,23 @@ enum ImageCompressor {
         return "data:image/jpeg;base64,\(base64)"
     }
 
-    /// Generate a small thumbnail (max 300px) for project icon, returned as data URL string.
-    static func generateThumbnailBase64(_ image: UIImage, maxSize: CGFloat = 300) -> String? {
-        let size = pixelSize(for: image)
-        let longestSide = max(size.width, size.height)
-        let scale = longestSide > maxSize ? maxSize / longestSide : 1.0
-        let newSize = CGSize(
-            width: max(1, (size.width * scale).rounded()),
-            height: max(1, (size.height * scale).rounded())
-        )
+    /// Generate a high-resolution project cover image for project icons.
+    /// The old 300px thumbnail was too small for edge-to-edge headers.
+    static func generateThumbnailBase64(
+        _ image: UIImage,
+        maxSize: CGFloat = maxDimension,
+        maxBytes: Int = 1_500_000
+    ) -> String? {
+        let resized = resizeIfNeeded(image, maxDimension: maxSize)
 
-        let renderer = makeRenderer(size: newSize)
-        let resized = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
-
-        // Compress to ~50KB target
-        for quality in stride(from: 0.6, through: 0.2, by: -0.1) {
+        for quality in stride(from: 0.92, through: 0.55, by: -0.07) {
             if let data = resized.jpegData(compressionQuality: quality),
-               data.count <= 80_000 {
+               data.count <= maxBytes {
                 return toBase64DataURL(data)
             }
         }
-        if let data = resized.jpegData(compressionQuality: 0.2) {
+
+        if let data = resized.jpegData(compressionQuality: 0.5) {
             return toBase64DataURL(data)
         }
         return nil

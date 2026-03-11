@@ -14,6 +14,7 @@ import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
 import type { AIWordExtraction, Word } from '@/types';
+import { ensureSourceLabels, mergeSourceLabels, normalizeSourceLabels } from '../../../../shared/source-labels';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
@@ -69,31 +70,36 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 // This prevents any flash by determining data availability immediately
 function getInitialData(): {
   words: AIWordExtraction[] | null;
+  sourceLabels: string[];
   projectName: string | null;
   projectIcon: string | null;
   existingProjectId: string | null;
   scanAiEnabled: boolean | null;
 } {
   if (typeof window === 'undefined') {
-    return { words: null, projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
+    return { words: null, sourceLabels: [], projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
   }
   try {
     const stored = sessionStorage.getItem('scanvocab_extracted_words');
+    const sourceLabelsStored = sessionStorage.getItem('scanvocab_source_labels');
     const projectName = sessionStorage.getItem('scanvocab_project_name');
     const projectIcon = sessionStorage.getItem('scanvocab_project_icon');
     const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
     const aiEnabledRaw = sessionStorage.getItem('scanvocab_ai_enabled');
     const scanAiEnabled =
       aiEnabledRaw === '1' ? true : aiEnabledRaw === '0' ? false : null;
+    const sourceLabels = sourceLabelsStored
+      ? ensureSourceLabels(JSON.parse(sourceLabelsStored) as unknown[])
+      : [];
 
     if (stored) {
       const words = JSON.parse(stored) as AIWordExtraction[];
-      return { words, projectName, projectIcon, existingProjectId, scanAiEnabled };
+      return { words, sourceLabels, projectName, projectIcon, existingProjectId, scanAiEnabled };
     }
   } catch {
     // Parse error - will redirect
   }
-  return { words: null, projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
+  return { words: null, sourceLabels: [], projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
 }
 
 export default function ConfirmPage() {
@@ -407,6 +413,10 @@ export default function ConfirmPage() {
         if (!existingProject || existingProject.userId !== userId) {
           throw new Error('選択した単語帳へのアクセス権がありません');
         }
+        const mergedSourceLabels = mergeSourceLabels(existingProject.sourceLabels, initialData.sourceLabels);
+        if (mergedSourceLabels.length !== existingProject.sourceLabels.length) {
+          await repository.updateProject(existingProjectId, { sourceLabels: mergedSourceLabels });
+        }
         // Add to existing project
         targetProjectId = existingProjectId;
       } else {
@@ -414,6 +424,7 @@ export default function ConfirmPage() {
         const project = await repository.createProject({
           userId,
           title: projectTitle.trim(),
+          sourceLabels: initialData.sourceLabels,
           iconImage: initialData.projectIcon ?? undefined,
         });
         targetProjectId = project.id;
@@ -441,6 +452,7 @@ export default function ConfirmPage() {
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
+      sessionStorage.removeItem('scanvocab_source_labels');
       sessionStorage.removeItem('scanvocab_project_name');
       sessionStorage.removeItem('scanvocab_project_icon');
       sessionStorage.removeItem('scanvocab_existing_project_id');

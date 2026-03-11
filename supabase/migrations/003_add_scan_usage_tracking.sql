@@ -13,31 +13,25 @@ CREATE TABLE IF NOT EXISTS daily_scan_usage (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, scan_date)
 );
-
 -- Index for faster queries
 CREATE INDEX IF NOT EXISTS idx_daily_scan_usage_user_date ON daily_scan_usage(user_id, scan_date);
-
 -- Enable RLS
 ALTER TABLE daily_scan_usage ENABLE ROW LEVEL SECURITY;
-
 -- Users can only view their own scan usage
 CREATE POLICY "Users can view own scan usage"
   ON daily_scan_usage FOR SELECT
   USING (auth.uid() = user_id);
-
 -- NOTE: Direct INSERT/UPDATE is intentionally blocked to prevent tampering.
 -- Scan counts should only be modified via security definer RPC.
 DROP POLICY IF EXISTS "Users can insert own scan usage"
   ON daily_scan_usage;
 DROP POLICY IF EXISTS "Users can update own scan usage"
   ON daily_scan_usage;
-
 -- Auto-update updated_at timestamp
 DROP TRIGGER IF EXISTS update_daily_scan_usage_updated_at ON daily_scan_usage;
 CREATE TRIGGER update_daily_scan_usage_updated_at
   BEFORE UPDATE ON daily_scan_usage
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 -- ============================================
 -- Helper function to check and increment scan count
 -- Returns: { allowed: boolean, current_count: integer, limit: integer }
@@ -117,7 +111,6 @@ BEGIN
   );
 END;
 $$;
-
 -- Grant execute permission to authenticated users only
 -- Note: Use the full signature with default parameter
 REVOKE ALL ON FUNCTION public.check_and_increment_scan(BOOLEAN) FROM PUBLIC;

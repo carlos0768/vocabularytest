@@ -215,9 +215,9 @@ struct QuizView: View {
                                     await viewModel.toggleFavorite(projectId: project.id, using: appState)
                                 }
                             } label: {
-                                Image(systemName: current.word.isFavorite ? "flag.fill" : "flag")
+                                Image(systemName: current.word.isFavorite ? "heart.fill" : "heart")
                                     .font(.title3)
-                                    .foregroundStyle(current.word.isFavorite ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                                    .foregroundStyle(current.word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
                             }
                         }
                         .padding(.vertical, 12)

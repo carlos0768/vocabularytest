@@ -55,6 +55,7 @@ actor CloudOfflineCacheStore {
                 record.createdAt = project.createdAt
                 record.shareId = project.shareId
                 record.isFavorite = project.isFavorite
+                record.sourceLabelsBlob = try encodeOptional(project.sourceLabels)
                 record.lastSyncedAt = syncedAt
                 record.sourceVersion = currentSourceVersion
             } else {
@@ -66,6 +67,7 @@ actor CloudOfflineCacheStore {
                     createdAt: project.createdAt,
                     shareId: project.shareId,
                     isFavorite: project.isFavorite,
+                    sourceLabelsBlob: try encodeOptional(project.sourceLabels),
                     lastSyncedAt: syncedAt,
                     lastAccessedAt: syncedAt,
                     sourceVersion: currentSourceVersion
@@ -184,6 +186,7 @@ actor CloudOfflineCacheStore {
             record.createdAt = project.createdAt
             record.shareId = project.shareId
             record.isFavorite = project.isFavorite
+            record.sourceLabelsBlob = try encodeOptional(project.sourceLabels)
             record.lastSyncedAt = syncedAt
             if markAsAccessed {
                 record.lastAccessedAt = syncedAt
@@ -198,6 +201,7 @@ actor CloudOfflineCacheStore {
                 createdAt: project.createdAt,
                 shareId: project.shareId,
                 isFavorite: project.isFavorite,
+                sourceLabelsBlob: try encodeOptional(project.sourceLabels),
                 lastSyncedAt: syncedAt,
                 lastAccessedAt: syncedAt,
                 sourceVersion: currentSourceVersion
@@ -225,6 +229,13 @@ actor CloudOfflineCacheStore {
     func updateProjectFavorite(id: String, isFavorite: Bool, syncedAt: Date = .now) throws {
         guard let record = try fetchProjectRecord(id: id) else { return }
         record.isFavorite = isFavorite
+        record.lastSyncedAt = syncedAt
+        try modelContext.save()
+    }
+
+    func updateProjectSourceLabels(id: String, sourceLabels: [String], syncedAt: Date = .now) throws {
+        guard let record = try fetchProjectRecord(id: id) else { return }
+        record.sourceLabelsBlob = try encodeOptional(normalizeProjectSourceLabels(sourceLabels))
         record.lastSyncedAt = syncedAt
         try modelContext.save()
     }
@@ -513,7 +524,8 @@ actor CloudOfflineCacheStore {
             iconImage: record.iconImage,
             createdAt: record.createdAt,
             shareId: record.shareId,
-            isFavorite: record.isFavorite
+            isFavorite: record.isFavorite,
+            sourceLabels: decodeOptional(record.sourceLabelsBlob, as: [String].self) ?? []
         )
     }
 

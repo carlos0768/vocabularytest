@@ -159,8 +159,6 @@ final class Quiz2ViewModel: ObservableObject {
             gradeCounts[grade, default: 0] += 1
             gradeHistory[word.id] = grade
 
-            // Brief pause then advance
-            try? await Task.sleep(nanoseconds: 220_000_000)
             goToNext(using: state)
         }
     }

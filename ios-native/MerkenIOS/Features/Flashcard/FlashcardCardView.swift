@@ -40,27 +40,7 @@ struct FlashcardCardView: View {
         .opacity(exitOpacity)
         .rotationEffect(.degrees(Double(dragOffset) * 0.03))
         .scaleEffect(dragOffset == 0 ? 1.0 : 0.97)
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    dragOffset = value.translation.width
-                }
-                .onEnded { value in
-                    let velocity = value.predictedEndTranslation.width - value.translation.width
-                    let translation = value.translation.width
-                    if translation > swipeThreshold || velocity > 300 {
-                        MerkenHaptic.light()
-                        swipeAway(direction: 1, action: onSwipeRight)
-                    } else if translation < -swipeThreshold || velocity < -300 {
-                        MerkenHaptic.light()
-                        swipeAway(direction: -1, action: onSwipeLeft)
-                    } else {
-                        withAnimation(MerkenSpring.snappy) {
-                            dragOffset = 0
-                        }
-                    }
-                }
-        )
+        .gesture(isFlipped ? nil : swipeGesture)
         .onTapGesture {
             MerkenHaptic.light()
             onTap()
@@ -175,11 +155,6 @@ struct FlashcardCardView: View {
             GeometryReader { geo in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
-                        // Push Japanese to center: top spacer = ~40% of card height
-                        Spacer()
-                            .frame(height: max(geo.size.height * 0.3, 60))
-
-                        // Main answer — centered
                         VStack(spacing: 12) {
                             Text(word.japanese)
                                 .font(.title.bold())
@@ -200,6 +175,8 @@ struct FlashcardCardView: View {
                             }
                             .staggerIn(index: 1, isVisible: true)
                         }
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: max(geo.size.height * 0.42, 220), alignment: .center)
 
                         // Supplemental info below
                         dividerLine
@@ -268,11 +245,11 @@ struct FlashcardCardView: View {
                         learningStats
                             .staggerIn(index: 5, isVisible: true)
                     }
-
-                    Spacer(minLength: 8)
                     }
                     .padding(24)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
                 }
+                .simultaneousGesture(swipeGesture)
             }
         }
     }
@@ -370,6 +347,7 @@ struct FlashcardCardView: View {
                 .padding(24)
                 .padding(.top, 4)
             }
+            .simultaneousGesture(swipeGesture)
         }
     }
 
@@ -469,6 +447,38 @@ struct FlashcardCardView: View {
         let df = DateFormatter()
         df.dateFormat = "M/d"
         return df.string(from: date)
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                guard abs(value.translation.width) >= abs(value.translation.height) else { return }
+                dragOffset = value.translation.width
+            }
+            .onEnded { value in
+                let translation = value.translation.width
+                let vertical = value.translation.height
+                let velocity = value.predictedEndTranslation.width - translation
+
+                guard abs(translation) >= abs(vertical) else {
+                    withAnimation(MerkenSpring.snappy) {
+                        dragOffset = 0
+                    }
+                    return
+                }
+
+                if translation > swipeThreshold || velocity > 300 {
+                    MerkenHaptic.light()
+                    swipeAway(direction: 1, action: onSwipeRight)
+                } else if translation < -swipeThreshold || velocity < -300 {
+                    MerkenHaptic.light()
+                    swipeAway(direction: -1, action: onSwipeLeft)
+                } else {
+                    withAnimation(MerkenSpring.snappy) {
+                        dragOffset = 0
+                    }
+                }
+            }
     }
 
     // MARK: - Swipe animation

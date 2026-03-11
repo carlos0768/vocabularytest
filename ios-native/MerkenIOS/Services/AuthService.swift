@@ -22,6 +22,7 @@ private struct SubscriptionDTO: Decodable {
     let proSource: String?
     let testProExpiresAt: Date?
     let currentPeriodEnd: Date?
+    let cancelAtPeriodEnd: Bool?
 }
 
 @MainActor
@@ -200,7 +201,7 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
 
         let query = [
             URLQueryItem(name: "user_id", value: "eq.\(session.userId)"),
-            URLQueryItem(name: "select", value: "id,user_id,status,plan,pro_source,test_pro_expires_at,current_period_end"),
+            URLQueryItem(name: "select", value: "id,user_id,status,plan,pro_source,test_pro_expires_at,current_period_end,cancel_at_period_end"),
             URLQueryItem(name: "limit", value: "1")
         ]
 
@@ -219,7 +220,8 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
                     plan: .free,
                     proSource: "none",
                     testProExpiresAt: nil,
-                    currentPeriodEnd: nil
+                    currentPeriodEnd: nil,
+                    cancelAtPeriodEnd: false
                 )
             }
 
@@ -230,7 +232,8 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
                 plan: row.plan,
                 proSource: row.proSource ?? "none",
                 testProExpiresAt: row.testProExpiresAt,
-                currentPeriodEnd: row.currentPeriodEnd
+                currentPeriodEnd: row.currentPeriodEnd,
+                cancelAtPeriodEnd: row.cancelAtPeriodEnd ?? false
             )
         } catch SupabaseClientError.unauthorized {
             throw AuthServiceError.sessionExpired

@@ -6,6 +6,7 @@ protocol WordRepositoryProtocol: Sendable {
     func updateProject(id: String, title: String) async throws
     func updateProjectIcon(id: String, iconImage: String) async throws
     func updateProjectFavorite(id: String, isFavorite: Bool) async throws
+    func updateProjectSourceLabels(id: String, sourceLabels: [String]) async throws
     func deleteProject(id: String) async throws
 
     func fetchWords(projectId: String) async throws -> [Word]

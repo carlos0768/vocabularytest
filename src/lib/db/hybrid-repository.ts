@@ -162,7 +162,9 @@ export class HybridWordRepository implements WordRepository {
 
   // ============ Projects ============
 
-  async createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
+  async createProject(
+    project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }
+  ): Promise<Project> {
     // 1. Create locally first (generates ID)
     const created = await localRepository.createProject(project);
 

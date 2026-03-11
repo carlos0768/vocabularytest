@@ -12,11 +12,24 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         self.accessTokenProvider = accessTokenProvider
     }
 
+    private func isMissingProjectSourceLabelsColumn(_ error: Error) -> Bool {
+        guard case let SupabaseClientError.requestFailed(code, message) = error else {
+            return false
+        }
+
+        guard code == 400 else { return false }
+        let normalized = message.lowercased()
+        return normalized.contains("projects.source_labels")
+            || normalized.contains("column projects.source_labels does not exist")
+            || normalized.contains("'source_labels' column of 'projects'")
+            || normalized.contains("source_labels")
+    }
+
     func fetchProjects(userId: String) async throws -> [Project] {
         let token = try await accessTokenProvider()
         let query = [
             URLQueryItem(name: "user_id", value: "eq.\(userId)"),
-            URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,is_favorite"),
+            URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,is_favorite,source_labels"),
             URLQueryItem(name: "order", value: "created_at.desc")
         ]
 
@@ -30,6 +43,27 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         } catch SupabaseClientError.unauthorized {
             throw RepositoryError.unauthorized
         } catch {
+            if isMissingProjectSourceLabelsColumn(error) {
+                let legacyQuery = [
+                    URLQueryItem(name: "user_id", value: "eq.\(userId)"),
+                    URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,is_favorite"),
+                    URLQueryItem(name: "order", value: "created_at.desc")
+                ]
+
+                do {
+                    let rows: [ProjectDTO] = try await restClient.get(
+                        path: "/rest/v1/projects",
+                        query: legacyQuery,
+                        bearerToken: token
+                    )
+                    return rows.map(SupabaseMapper.project(from:))
+                } catch SupabaseClientError.unauthorized {
+                    throw RepositoryError.unauthorized
+                } catch {
+                    if error.isCancellationError { throw error }
+                    throw RepositoryError.underlying(error.localizedDescription)
+                }
+            }
             if error.isCancellationError { throw error }
             throw RepositoryError.underlying(error.localizedDescription)
         }
@@ -37,7 +71,7 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
 
     func createProject(title: String, userId: String, iconImage: String? = nil) async throws -> Project {
         let token = try await accessTokenProvider()
-        let payload = [ProjectInsertDTO(userId: userId, title: title, iconImage: iconImage, isFavorite: false)]
+        let payload = [ProjectInsertDTO(userId: userId, title: title, iconImage: iconImage, isFavorite: false, sourceLabels: nil)]
 
         do {
             let rows: [ProjectDTO] = try await restClient.post(
@@ -132,6 +166,37 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         } catch SupabaseClientError.unauthorized {
             throw RepositoryError.unauthorized
         } catch {
+            if error.isCancellationError { throw error }
+            throw RepositoryError.underlying(error.localizedDescription)
+        }
+    }
+
+    func updateProjectSourceLabels(id: String, sourceLabels: [String]) async throws {
+        let token = try await accessTokenProvider()
+        let query = [URLQueryItem(name: "id", value: "eq.\(id)")]
+
+        struct SourceLabelsPatch: Encodable {
+            let sourceLabels: [String]
+
+            enum CodingKeys: String, CodingKey {
+                case sourceLabels = "source_labels"
+            }
+        }
+
+        do {
+            let _: [ProjectDTO] = try await restClient.patch(
+                path: "/rest/v1/projects",
+                body: SourceLabelsPatch(sourceLabels: normalizeProjectSourceLabels(sourceLabels)),
+                query: query,
+                bearerToken: token,
+                preferReturnRepresentation: true
+            )
+        } catch SupabaseClientError.unauthorized {
+            throw RepositoryError.unauthorized
+        } catch {
+            if isMissingProjectSourceLabelsColumn(error) {
+                return
+            }
             if error.isCancellationError { throw error }
             throw RepositoryError.underlying(error.localizedDescription)
         }

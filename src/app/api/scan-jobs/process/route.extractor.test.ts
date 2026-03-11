@@ -13,8 +13,12 @@ const successWords = {
         english: 'apple',
         japanese: 'りんご',
         distractors: ['ばなな', 'ぶどう', 'もも'],
+        partOfSpeechTags: ['noun'],
+        exampleSentence: undefined,
+        exampleSentenceJa: undefined,
       },
     ],
+    sourceLabels: ['鉄壁'],
   },
 };
 
@@ -62,6 +66,9 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
     );
 
     assert.equal(result.success, true, `mode=${mode}`);
+    if (result.success) {
+      assert.deepEqual(result.data.sourceLabels, ['鉄壁'], `mode=${mode}`);
+    }
   }
 });
 

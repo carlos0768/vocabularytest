@@ -12,7 +12,6 @@ CREATE TABLE collections (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- 2. Junction table (many-to-many: collections <-> projects)
 CREATE TABLE collection_projects (
   collection_id uuid NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
@@ -21,32 +20,25 @@ CREATE TABLE collection_projects (
   added_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (collection_id, project_id)
 );
-
 -- 3. Indexes
 CREATE INDEX idx_collections_user_id ON collections(user_id);
 CREATE INDEX idx_collection_projects_project_id ON collection_projects(project_id);
-
 -- 4. RLS
 ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_projects ENABLE ROW LEVEL SECURITY;
-
 -- Collections: users can only access their own
 CREATE POLICY "Users can view own collections"
   ON collections FOR SELECT
   USING (auth.uid() = user_id);
-
 CREATE POLICY "Users can insert own collections"
   ON collections FOR INSERT
   WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "Users can update own collections"
   ON collections FOR UPDATE
   USING (auth.uid() = user_id);
-
 CREATE POLICY "Users can delete own collections"
   ON collections FOR DELETE
   USING (auth.uid() = user_id);
-
 -- Collection_projects: users can manage entries for their own collections
 CREATE POLICY "Users can view own collection_projects"
   ON collection_projects FOR SELECT
@@ -57,7 +49,6 @@ CREATE POLICY "Users can view own collection_projects"
       AND c.user_id = auth.uid()
     )
   );
-
 CREATE POLICY "Users can insert into own collections"
   ON collection_projects FOR INSERT
   WITH CHECK (
@@ -67,7 +58,6 @@ CREATE POLICY "Users can insert into own collections"
       AND c.user_id = auth.uid()
     )
   );
-
 CREATE POLICY "Users can delete from own collections"
   ON collection_projects FOR DELETE
   USING (
@@ -77,7 +67,6 @@ CREATE POLICY "Users can delete from own collections"
       AND c.user_id = auth.uid()
     )
   );
-
 -- 5. Grant access to authenticated users
 GRANT ALL ON collections TO authenticated;
 GRANT ALL ON collection_projects TO authenticated;

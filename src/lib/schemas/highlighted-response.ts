@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Schema for highlighted word extraction with enhanced detection features
 // Based on research findings for Gemini 2.5 Flash capabilities
@@ -57,6 +58,7 @@ export const HighlightedWordSchema = z.object({
 // Full response schema
 export const HighlightedResponseSchema = z.object({
   words: z.array(HighlightedWordSchema).default([]),
+  sourceLabels: z.array(z.string()).default([]).transform((labels) => normalizeSourceLabels(labels)),
   // Detection metadata
   detectedColors: z.array(MarkerColorSchema).optional(),
   totalHighlightedRegions: z.number().optional(),
@@ -112,6 +114,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
     exampleSentence: string | undefined;
     exampleSentenceJa: string | undefined;
   }>;
+  sourceLabels: string[];
 } {
   return {
     words: highlighted.words.map((word) => ({
@@ -126,6 +129,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
       exampleSentence: word.exampleSentence ?? undefined,
       exampleSentenceJa: word.exampleSentenceJa ?? undefined,
     })),
+    sourceLabels: normalizeSourceLabels(highlighted.sourceLabels),
   };
 }
 

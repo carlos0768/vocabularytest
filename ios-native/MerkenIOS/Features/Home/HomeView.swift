@@ -35,25 +35,30 @@ private struct HomeMasteryStoryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex = 0
 
-    private let storyBackgroundColor = Color.white
-    private let storyChromeColor = Color.black.opacity(0.92)
-    private let ticketSurfaceColor = Color.white
-    private let ticketPrimaryTextColor = Color.black
-    private let ticketSecondaryTextColor = Color.black.opacity(0.7)
-    private let ticketTertiaryTextColor = Color.black.opacity(0.55)
+    private let storyBackgroundColor = MerkenTheme.background
+    private let storyChromeColor = MerkenTheme.accentBlue
+    private let ticketSurfaceColor = MerkenTheme.surface
+    private let ticketPrimaryTextColor = MerkenTheme.primaryText
+    private let ticketSecondaryTextColor = MerkenTheme.secondaryText
+    private let ticketTertiaryTextColor = MerkenTheme.mutedText
     private let ticketHorizontalPadding: CGFloat = 28
 
     private var pageCount: Int {
         max(story.words.count, 1)
     }
 
+    private var currentWord: Word? {
+        guard !story.words.isEmpty, story.words.indices.contains(currentIndex) else { return nil }
+        return story.words[currentIndex]
+    }
+
     private var ticketHeight: CGFloat {
-        min(UIScreen.main.bounds.height * 0.62, 620)
+        min(UIScreen.main.bounds.height * 0.58, 580)
     }
 
     var body: some View {
         ZStack {
-            storyBackgroundColor
+            AppBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -65,14 +70,14 @@ private struct HomeMasteryStoryView: View {
                     Group {
                         if story.words.isEmpty {
                             emptyTicket
+                        } else if let word = currentWord {
+                            ticketCard(for: word, at: currentIndex)
+                                .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                                .highPriorityGesture(storySwipeGesture)
+                                .id(word.id)
+                                .transition(.opacity)
                         } else {
-                            TabView(selection: $currentIndex) {
-                                ForEach(Array(story.words.enumerated()), id: \.element.id) { index, word in
-                                    ticketCard(for: word, at: index)
-                                        .tag(index)
-                                }
-                            }
-                            .tabViewStyle(.page(indexDisplayMode: .never))
+                            emptyTicket
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -87,25 +92,31 @@ private struct HomeMasteryStoryView: View {
             .padding(.top, 12)
             .padding(.bottom, 24)
         }
+        .onChange(of: story.id) { _ in
+            currentIndex = 0
+        }
     }
 
     private var header: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             HStack(spacing: 8) {
                 ForEach(0..<pageCount, id: \.self) { index in
                     Capsule()
-                        .fill(index <= currentIndex ? storyChromeColor : Color.black.opacity(0.12))
-                        .frame(height: 4)
+                        .fill(index <= currentIndex ? MerkenTheme.accentBlue : MerkenTheme.borderLight)
+                        .frame(height: 5)
                 }
             }
 
             HStack {
-                Text(story.title)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(storyChromeColor, in: Capsule())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ストーリーライン")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ticketTertiaryTextColor)
+
+                    Text(story.title)
+                        .font(.system(size: 24, weight: .black))
+                        .foregroundStyle(ticketPrimaryTextColor)
+                }
 
                 Spacer()
 
@@ -113,111 +124,112 @@ private struct HomeMasteryStoryView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Color.white)
-                        .frame(width: 64, height: 64)
-                        .background(storyChromeColor, in: Circle())
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(ticketPrimaryTextColor)
+                        .frame(width: 48, height: 48)
+                        .background(MerkenTheme.surfaceAlt, in: Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(MerkenTheme.borderLight, lineWidth: 1)
+                        )
                 }
+                .buttonStyle(.plain)
             }
         }
     }
 
     private func ticketCard(for word: Word, at index: Int) -> some View {
         ticketShell {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("Mastered!")
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                        .foregroundStyle(ticketPrimaryTextColor)
-
-                    ticketInfoSection(
-                        title: "今回の記録",
-                        rows: [
-                            ("checkmark.circle.fill", "習得時刻", masteryTime(for: word), Color.green),
-                            ("sparkles", "達成枚数", "\(index + 1) / \(story.words.count)", MerkenTheme.warning)
-                        ]
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(spacing: 10) {
+                    storyMetricTile(
+                        icon: "checkmark.circle.fill",
+                        label: "習得時刻",
+                        value: masteryTime(for: word),
+                        tint: MerkenTheme.success
                     )
+                    storyMetricTile(
+                        icon: "sparkles",
+                        label: "達成枚数",
+                        value: "\(index + 1) / \(story.words.count)",
+                        tint: MerkenTheme.warning
+                    )
+                }
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("習得した単語")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(ticketSecondaryTextColor)
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("習得した単語")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(ticketTertiaryTextColor)
 
-                        Text(word.english)
-                            .font(.system(size: 36, weight: .black, design: .rounded))
-                            .foregroundStyle(ticketPrimaryTextColor)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
+                    Text(word.english)
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundStyle(ticketPrimaryTextColor)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
 
-                        Text(word.japanese)
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(ticketSecondaryTextColor)
-                            .lineLimit(2)
-                    }
-
+                    Text(word.japanese)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(ticketSecondaryTextColor)
+                        .lineLimit(2)
+                    
                     if let partOfSpeech = word.partOfSpeechTags?.first, !partOfSpeech.isEmpty {
-                        ticketInfoSection(
-                            title: "補足",
-                            rows: [
-                                ("tag.fill", "品詞", partOfSpeech, MerkenTheme.accentBlue)
-                            ]
-                        )
-                    }
-
-                    if let example = word.exampleSentence, !example.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("例文")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(ticketSecondaryTextColor)
-
-                            Text(example)
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundStyle(ticketPrimaryTextColor)
-                                .lineLimit(3)
-
-                            if let exampleJa = word.exampleSentenceJa, !exampleJa.isEmpty {
-                                Text(exampleJa)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(ticketTertiaryTextColor)
-                                    .lineLimit(2)
-                            }
-                        }
+                        Text(partOfSpeech)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(MerkenTheme.accentBlueLight, in: Capsule())
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, ticketHorizontalPadding)
-                .padding(.top, 34)
-                .padding(.bottom, 28)
+
+                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, ticketHorizontalPadding)
+            .padding(.top, 34)
+            .padding(.bottom, 28)
         } footer: {
-            ticketActionButton(title: index == story.words.count - 1 ? "閉じる" : "次の単語") {
-                advance(from: index)
+            HStack {
+                Label("左右にスワイプ", systemImage: "arrow.left.and.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(ticketSecondaryTextColor)
+                Spacer()
+                Text("\(index + 1) / \(story.words.count)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(ticketSecondaryTextColor)
+                    .monospacedDigit()
             }
         }
     }
 
     private var emptyTicket: some View {
         ticketShell {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("No Mastery Yet")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .foregroundStyle(ticketPrimaryTextColor)
+            VStack(alignment: .leading, spacing: 24) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                    .frame(width: 72, height: 72)
+                    .background(MerkenTheme.accentBlueLight, in: Circle())
 
-                    Text("この日に習得した単語はまだありません。")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(ticketPrimaryTextColor)
+                Text("まだ習得なし")
+                    .font(.system(size: 32, weight: .black))
+                    .foregroundStyle(ticketPrimaryTextColor)
 
-                    Text("次の復習で習得した単語が出ると、ここにストーリーとして残ります。")
-                        .font(.system(size: 17))
-                        .foregroundStyle(ticketSecondaryTextColor)
-                        .lineSpacing(4)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, ticketHorizontalPadding)
-                .padding(.top, 34)
-                .padding(.bottom, 28)
+                Text("この日に習得した単語はまだありません。")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(ticketPrimaryTextColor)
+
+                Text("次の復習で習得した単語が出ると、ここにストーリーとして残ります。")
+                    .font(.system(size: 17))
+                    .foregroundStyle(ticketSecondaryTextColor)
+                    .lineSpacing(4)
+
+                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, ticketHorizontalPadding)
+            .padding(.top, 34)
+            .padding(.bottom, 28)
         } footer: {
             ticketActionButton(title: "閉じる") {
                 dismiss()
@@ -226,43 +238,49 @@ private struct HomeMasteryStoryView: View {
     }
 
     private func ticketShell<Content: View, Footer: View>(
+        showsFooter: Bool = true,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
     ) -> some View {
-        VStack(spacing: 0) {
-            content()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        ZStack {
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(ticketSurfaceColor)
 
             VStack(spacing: 0) {
-                ticketCutLine
+                content()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-                footer()
-                    .padding(.horizontal, ticketHorizontalPadding)
-                    .padding(.top, 18)
-                    .padding(.bottom, 26)
+                if showsFooter {
+                    VStack(spacing: 0) {
+                        ticketCutLine
+
+                        footer()
+                            .padding(.horizontal, ticketHorizontalPadding)
+                            .padding(.top, 18)
+                            .padding(.bottom, 26)
+                    }
+                }
             }
-            .background(ticketSurfaceColor)
         }
         .frame(maxWidth: .infinity)
         .frame(height: ticketHeight)
-        .background(ticketSurfaceColor, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-        .shadow(color: Color.black.opacity(0.12), radius: 24, y: 14)
+        .background(
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
     }
 
     private func ticketActionButton(title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 22)
-                .background(storyChromeColor, in: Capsule())
         }
+        .buttonStyle(PrimaryGlassButton())
     }
 
     private var ticketCutLine: some View {
@@ -272,24 +290,42 @@ private struct HomeMasteryStoryView: View {
                 .frame(height: 34)
 
             Rectangle()
-                .stroke(Color.black.opacity(0.18), style: StrokeStyle(lineWidth: 1.5, dash: [8, 8]))
+                .stroke(MerkenTheme.border, style: StrokeStyle(lineWidth: 1.5, dash: [8, 8]))
                 .frame(height: 1)
 
             HStack {
                 Circle()
-                    .fill(storyBackgroundColor)
+                    .fill(MerkenTheme.background)
                     .frame(width: 30, height: 30)
                     .offset(x: -15)
 
                 Spacer()
 
                 Circle()
-                    .fill(storyBackgroundColor)
+                    .fill(MerkenTheme.background)
                     .frame(width: 30, height: 30)
                     .offset(x: 15)
             }
         }
         .padding(.top, 8)
+    }
+
+    private var storySwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                guard abs(value.translation.width) > 40 else { return }
+
+                if value.translation.width < 0 {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                        currentIndex = min(currentIndex + 1, max(story.words.count - 1, 0))
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                        currentIndex = max(currentIndex - 1, 0)
+                    }
+                }
+            }
     }
 
     private func ticketInfoSection(
@@ -331,15 +367,34 @@ private struct HomeMasteryStoryView: View {
         return formatter.string(from: word.lastReviewedAt ?? word.createdAt)
     }
 
-    private func advance(from index: Int) {
-        guard index < story.words.count - 1 else {
-            dismiss()
-            return
-        }
-        withAnimation(.easeInOut(duration: 0.2)) {
-            currentIndex = index + 1
+    private func storyMetricTile(
+        icon: String,
+        label: String,
+        value: String,
+        tint: Color
+    ) -> some View {
+        SolidPane {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ticketTertiaryTextColor)
+
+                    Text(value)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(ticketPrimaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
         }
     }
+
 }
 
 private struct FlashcardDestination: Hashable {
@@ -357,14 +412,6 @@ private struct FlashcardDestination: Hashable {
 
 private struct SentenceQuizDestination: Hashable {
     let project: Project
-}
-
-private struct HomeScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
 }
 
 struct HomeView: View {
@@ -387,13 +434,13 @@ struct HomeView: View {
     @State private var showingBookshelfList = false
     @State private var selectedDayStory: DayMasteryStory?
     @State private var homeScrollOffset: CGFloat = 0
+    @State private var heroRingAnimationProgress: Double = 0
+    @State private var partOfSpeechAnimationProgress: Double = 0
+    @State private var homeAnimationGeneration = 0
+    @State private var lastHomeAnimationTriggerAt: Date = .distantPast
+    @State private var didAnimateForCurrentHomeVisit = false
 
     private var isDark: Bool { colorScheme == .dark }
-
-    private var headerGlassProgress: CGFloat {
-        let scrolledDistance = max(-homeScrollOffset, 0)
-        return min(scrolledDistance / 18, 1)
-    }
 
     var body: some View {
         homeBodyContent
@@ -427,20 +474,27 @@ struct HomeView: View {
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
-                detailProject: $detailProject
+                detailProject: $detailProject,
+                onLoaded: triggerHomeAnimationsIfNeededForCurrentVisit
             ))
     }
 
     private var homeGeometryLayer: some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             homeContentLayer
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(.hidden, for: .navigationBar)
-                .overlay(alignment: .top) {
-                    homeHeaderGlassCover(safeAreaTop: geometry.safeAreaInsets.top)
-                }
-                .onPreferenceChange(HomeScrollOffsetKey.self) { value in
+                .cameraAreaGlassOverlay(scrollOffset: homeScrollOffset)
+                .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
                     homeScrollOffset = value
+                }
+                .onChange(of: appState.selectedTab) { previousTab, selectedTab in
+                    if previousTab == 0, selectedTab != 0 {
+                        didAnimateForCurrentHomeVisit = false
+                    }
+                    if previousTab != 0, selectedTab == 0 {
+                        triggerHomeAnimationsIfNeededForCurrentVisit()
+                    }
                 }
         }
     }
@@ -460,7 +514,7 @@ struct HomeView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
+                if viewModel.projects.isEmpty && pendingHomeScans.isEmpty && viewModel.todayAnswered == 0 {
                     VStack(alignment: .leading, spacing: 18) {
                         homeLogoTitle
                         emptyStateSection
@@ -482,12 +536,12 @@ struct HomeView: View {
                         .frame(height: 0)
                         .id("homeTop")
                         .background(
-                            GeometryReader { proxy in
-                                Color.clear.preference(
-                                    key: HomeScrollOffsetKey.self,
-                                    value: proxy.frame(in: .named("homeScroll")).minY
-                                )
-                            }
+                                GeometryReader { proxy in
+                                    Color.clear.preference(
+                                        key: TopSafeAreaScrollOffsetKey.self,
+                                        value: proxy.frame(in: .named("homeScroll")).minY
+                                    )
+                                }
                         )
 
                     homeLogoTitle
@@ -502,7 +556,7 @@ struct HomeView: View {
 
                     errorSection
 
-                    if !viewModel.projects.isEmpty {
+                    if !viewModel.projects.isEmpty || !pendingHomeScans.isEmpty {
                         projectsSection
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
@@ -519,10 +573,14 @@ struct HomeView: View {
             .scrollIndicators(.hidden)
             .refreshable {
                 await viewModel.load(using: appState)
+                triggerHomeAnimations()
             }
             .onChange(of: appState.scrollToTopTrigger) { _ in
                 withAnimation {
                     scrollProxy.scrollTo("homeTop", anchor: .top)
+                }
+                if appState.selectedTab == 0 {
+                    triggerHomeAnimations()
                 }
             }
         }
@@ -540,7 +598,10 @@ struct HomeView: View {
                         .font(.subheadline)
                         .foregroundStyle(MerkenTheme.secondaryText)
                     Button("再試行") {
-                        Task { await viewModel.load(using: appState) }
+                        Task {
+                            await viewModel.load(using: appState)
+                            triggerHomeAnimations()
+                        }
                     }
                     .buttonStyle(PrimaryGlassButton())
                 }
@@ -555,80 +616,136 @@ struct HomeView: View {
             .tracking(2)
     }
 
-    private func homeHeaderGlassCover(safeAreaTop: CGFloat) -> some View {
-        homeHeaderGlassBackground(safeAreaTop: safeAreaTop)
-            .opacity(headerGlassProgress)
-            .offset(y: -safeAreaTop)
-            .allowsHitTesting(false)
-            .animation(.easeOut(duration: 0.18), value: headerGlassProgress)
-    }
-
-    @ViewBuilder
-    private func homeHeaderGlassBackground(safeAreaTop: CGFloat) -> some View {
-        let headerHeight = safeAreaTop + 56
-        let glassLayer = Color.clear
-            .frame(maxWidth: .infinity)
-            .frame(height: headerHeight)
-            .clipShape(Rectangle())
-
-        if #available(iOS 26.0, *) {
-            glassLayer
-                .glassEffect(.regular.tint(Color.white.opacity(0.20)))
-        } else {
-            glassLayer
-                .background(.ultraThinMaterial)
-        }
-    }
-
     // MARK: - Hero Block (Review CTA)
 
     private var reviewTargetCount: Int {
-        max(viewModel.todayAnswered + viewModel.dueWordCount, 0)
+        guard viewModel.reviewMetricsLoaded else { return 0 }
+        return max(viewModel.todayAnswered + viewModel.dueWordCount, 0)
     }
 
     private var reviewCompletedCount: Int {
-        min(viewModel.todayAnswered, reviewTargetCount)
+        guard viewModel.reviewMetricsLoaded else { return 0 }
+        return min(viewModel.todayAnswered, reviewTargetCount)
     }
 
     private var reviewCompletionProgress: Double {
-        guard reviewTargetCount > 0 else { return 0 }
+        guard viewModel.reviewMetricsLoaded, reviewTargetCount > 0 else { return 0 }
         return Double(reviewCompletedCount) / Double(reviewTargetCount)
+    }
+
+    private func triggerHomeAnimations() {
+        let now = Date()
+        guard now.timeIntervalSince(lastHomeAnimationTriggerAt) > 0.22 else { return }
+        lastHomeAnimationTriggerAt = now
+
+        homeAnimationGeneration += 1
+        let generation = homeAnimationGeneration
+        let shouldAnimateHero = viewModel.reviewMetricsLoaded
+        let shouldAnimatePartOfSpeech = !viewModel.homePartOfSpeechWidgets.isEmpty
+
+        var resetTransaction = Transaction()
+        resetTransaction.animation = nil
+        withTransaction(resetTransaction) {
+            heroRingAnimationProgress = 0
+            partOfSpeechAnimationProgress = 0
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            guard generation == homeAnimationGeneration else { return }
+
+            if shouldAnimateHero {
+                withAnimation(.easeOut(duration: 0.85)) {
+                    heroRingAnimationProgress = 1
+                }
+            }
+
+            if shouldAnimatePartOfSpeech {
+                withAnimation(.easeOut(duration: 0.9).delay(0.08)) {
+                    partOfSpeechAnimationProgress = 1
+                }
+            }
+        }
+    }
+
+    private func triggerHomeAnimationsIfNeededForCurrentVisit() {
+        guard appState.selectedTab == 0 else { return }
+        guard !didAnimateForCurrentHomeVisit else { return }
+        didAnimateForCurrentHomeVisit = true
+        triggerHomeAnimations()
+    }
+
+    private func animatedProgress(
+        _ progress: Double,
+        animationProgress: Double,
+        minimumVisibleProgress: Double = 0
+    ) -> Double {
+        let clamped = max(0, min(progress, 1))
+        let animated = clamped * animationProgress
+        guard animated > 0 else { return 0 }
+        return minimumVisibleProgress > 0 ? max(minimumVisibleProgress, animated) : animated
+    }
+
+    private var isHeroLoading: Bool {
+        !viewModel.reviewMetricsLoaded
+    }
+
+    private var hasReviewCTA: Bool {
+        viewModel.reviewMetricsLoaded && viewModel.dueWordCount > 0 && viewModel.projects.first != nil
+    }
+
+    private var heroSecondaryText: String {
+        if isHeroLoading {
+            return "データを更新中"
+        }
+        if reviewTargetCount > 0 {
+            return "\(reviewCompletedCount)/\(reviewTargetCount) 完了"
+        }
+        if viewModel.projectsLoaded && viewModel.projects.isEmpty {
+            return "単語帳を作成して学習を始めよう"
+        }
+        return "今日の復習はありません"
     }
 
     private var heroBlock: some View {
         VStack(spacing: 10) {
-            if viewModel.dueWordCount > 0 {
-                HStack(spacing: 14) {
-                    reviewProgressRing
+            HStack(spacing: 14) {
+                reviewProgressRing
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の目標")
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("\(viewModel.dueWordCount)")
-                                .font(.system(size: 32, weight: .bold))
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-                                .allowsTightening(true)
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                            Text("語を復習")
-                                .font(.system(size: 16, weight: .medium))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                                .foregroundStyle(MerkenTheme.primaryText)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完了")
-                            .font(.system(size: 13, weight: .medium))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("今日の目標")
+                        .font(.system(size: 13))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(animatedHeroDueWordCount)")
+                            .font(.system(size: 32, weight: .bold))
                             .monospacedDigit()
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .minimumScaleFactor(0.55)
+                            .allowsTightening(true)
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .contentTransition(.numericText(countsDown: false))
+
+                        Text("語を復習")
+                            .font(.system(size: 16, weight: .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .foregroundStyle(MerkenTheme.primaryText)
                     }
-                    Spacer()
-                    if let firstProject = viewModel.projects.first {
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text(heroSecondaryText)
+                        .font(.system(size: 13, weight: .medium))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+
+                Spacer()
+
+                Group {
+                    if hasReviewCTA, let firstProject = viewModel.projects.first {
                         Button {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             if appState.isAIEnabled, viewModel.dueWordCount > 0 {
@@ -651,43 +768,16 @@ struct HomeView: View {
                                 .foregroundStyle(.white)
                                 .frame(width: 56, height: 56)
                                 .background(MerkenTheme.accentBlue, in: .circle)
+                                .opacity(heroRingAnimationProgress)
+                                .scaleEffect(0.84 + (0.16 * heroRingAnimationProgress))
+                                .offset(x: (1 - heroRingAnimationProgress) * 8)
                         }
                         .accessibilityLabel("復習")
+                    } else {
+                        Circle()
+                            .fill(Color.clear)
+                            .frame(width: 56, height: 56)
                     }
-                }
-            } else if reviewTargetCount > 0 {
-                HStack(spacing: 14) {
-                    reviewProgressRing
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の復習")
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        Text("完了しました")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完了")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-
-                    Spacer()
-                }
-            } else {
-                // No due words — show encouragement
-                HStack(spacing: 12) {
-                    Image(systemName: focusBannerIcon)
-                        .font(.title3)
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(focusBannerHeading)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text(focusBannerSubheading)
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    Spacer()
                 }
             }
         }
@@ -707,6 +797,10 @@ struct HomeView: View {
     }
 
     @State private var posPage = 0
+
+    private var animatedHeroDueWordCount: Int {
+        max(0, Int((Double(viewModel.dueWordCount) * heroRingAnimationProgress).rounded()))
+    }
 
     private var partOfSpeechWidgetsSection: some View {
         let widgets = viewModel.homePartOfSpeechWidgets
@@ -778,7 +872,7 @@ struct HomeView: View {
                     .stroke(MerkenTheme.borderLight, lineWidth: 5)
 
                 Circle()
-                    .trim(from: 0, to: widget.progress)
+                    .trim(from: 0, to: animatedProgress(widget.progress, animationProgress: partOfSpeechAnimationProgress))
                     .stroke(
                         accentColor,
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -875,7 +969,7 @@ struct HomeView: View {
             Circle()
                 .stroke(MerkenTheme.borderLight, lineWidth: 6)
             Circle()
-                .trim(from: 0, to: reviewCompletionProgress)
+                .trim(from: 0, to: animatedProgress(reviewCompletionProgress, animationProgress: heroRingAnimationProgress))
                 .stroke(
                     MerkenTheme.accentBlue,
                     style: StrokeStyle(lineWidth: 6, lineCap: .round)
@@ -978,6 +1072,7 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .disabled(isFutureDay)
+                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 4)
@@ -1265,6 +1360,12 @@ struct HomeView: View {
 
     // MARK: - Projects Section (単語帳)
 
+    private var pendingHomeScans: [PendingScanImportContext] {
+        appState.pendingScanImportContexts.values
+            .filter { $0.source == .homeOrProjectList && $0.localTargetProjectId == nil }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Section header
@@ -1283,6 +1384,11 @@ struct HomeView: View {
             }
 
             VStack(spacing: 12) {
+                ForEach(pendingHomeScans, id: \.jobId) { context in
+                    GeneratingProjectCard(context: context)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 ForEach(Array(viewModel.projects.prefix(3))) { project in
                     featuredProjectCard(project)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1291,7 +1397,10 @@ struct HomeView: View {
                 }
             }
         }
-        .animation(MerkenSpring.gentle, value: Array(viewModel.projects.prefix(3).map(\.id)))
+        .animation(
+            MerkenSpring.gentle,
+            value: pendingHomeScans.map(\.jobId) + Array(viewModel.projects.prefix(3).map(\.id))
+        )
     }
 
     // MARK: Featured Project Card (full-width, with circular progress)
@@ -1451,12 +1560,13 @@ struct HomeView: View {
                     CreateBookshelfSheet {
                         await bookshelfVM.load(using: appState)
                     }
-                    .presentationDetents([.medium])
+                    .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
+                    .presentationContentInteraction(.resizes)
                 }
             } else {
                 VStack(spacing: 10) {
-                    ForEach(bookshelfVM.collections.prefix(4)) { collection in
+                    ForEach(bookshelfVM.collections.prefix(2)) { collection in
                         homeCollectionCard(collection)
                             .onTapGesture { selectedCollection = collection }
                     }
@@ -1787,6 +1897,7 @@ private struct HomeLifecycleModifier: ViewModifier {
     @Binding var flashcardDestination: FlashcardDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
+    let onLoaded: () -> Void
 
     private var isShowingNestedDestination: Bool {
         quizDestination != nil ||
@@ -1800,6 +1911,9 @@ private struct HomeLifecycleModifier: ViewModifier {
             .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                 await viewModel.load(using: appState)
                 await bookshelfVM.load(using: appState)
+                await MainActor.run {
+                    onLoaded()
+                }
             }
             .onAppear {
                 appState.tabBarVisible = !isShowingNestedDestination

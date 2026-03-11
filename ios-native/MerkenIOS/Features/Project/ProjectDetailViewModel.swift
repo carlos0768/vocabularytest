@@ -4,6 +4,7 @@ import OSLog
 @MainActor
 final class ProjectDetailViewModel: ObservableObject {
     @Published private(set) var words: [Word] = []
+    @Published private(set) var projectMetadata: Project?
     @Published var searchText = ""
     @Published var favoritesOnly = false
     @Published var errorMessage: String?
@@ -29,7 +30,12 @@ final class ProjectDetailViewModel: ObservableObject {
         defer { loading = false }
 
         do {
-            words = try await state.activeRepository.fetchWords(projectId: projectId)
+            async let projectsTask = state.activeRepository.fetchProjects(userId: state.activeUserId)
+            async let wordsTask = state.activeRepository.fetchWords(projectId: projectId)
+
+            let (projects, loadedWords) = try await (projectsTask, wordsTask)
+            projectMetadata = projects.first(where: { $0.id == projectId })
+            words = loadedWords
             errorMessage = nil
         } catch {
             if error.isCancellationError {
@@ -43,10 +49,13 @@ final class ProjectDetailViewModel: ObservableObject {
 
     func addWord(
         input: WordInput,
-        projectId _: String,
+        projectId: String,
         using state: AppState
     ) async {
         do {
+            var input = input
+            input.projectId = projectId
+
             let created = try await state.activeRepository.createWords([input])
             if !created.isEmpty {
                 words.append(contentsOf: created)
@@ -132,6 +141,28 @@ final class ProjectDetailViewModel: ObservableObject {
             }
             errorMessage = error.localizedDescription
             logger.error("Delete project failed: \(error.localizedDescription)")
+        }
+    }
+
+    func renameProject(id: String, title: String, using state: AppState) async {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+
+        do {
+            try await state.activeRepository.updateProject(id: id, title: trimmedTitle)
+            if var projectMetadata {
+                projectMetadata.title = trimmedTitle
+                self.projectMetadata = projectMetadata
+            }
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError {
+                errorMessage = nil
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Project rename failed: \(error.localizedDescription)")
         }
     }
 

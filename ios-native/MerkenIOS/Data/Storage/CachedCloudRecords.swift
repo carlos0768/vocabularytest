@@ -10,6 +10,7 @@ final class CachedCloudProjectRecord {
     var createdAt: Date
     var shareId: String?
     var isFavorite: Bool
+    var sourceLabelsBlob: Data?
     var lastSyncedAt: Date
     var lastAccessedAt: Date
     var sourceVersion: Int
@@ -22,6 +23,7 @@ final class CachedCloudProjectRecord {
         createdAt: Date,
         shareId: String? = nil,
         isFavorite: Bool,
+        sourceLabelsBlob: Data? = nil,
         lastSyncedAt: Date,
         lastAccessedAt: Date,
         sourceVersion: Int = 1
@@ -33,6 +35,7 @@ final class CachedCloudProjectRecord {
         self.createdAt = createdAt
         self.shareId = shareId
         self.isFavorite = isFavorite
+        self.sourceLabelsBlob = sourceLabelsBlob
         self.lastSyncedAt = lastSyncedAt
         self.lastAccessedAt = lastAccessedAt
         self.sourceVersion = sourceVersion

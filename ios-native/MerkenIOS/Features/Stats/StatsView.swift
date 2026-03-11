@@ -1,18 +1,17 @@
 import SwiftUI
 import Charts
 
-private struct StatsScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 struct StatsView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = StatsViewModel()
     @State private var scrollOffset: CGFloat = 0
+    @State private var summaryCardAnimationProgress: Double = 0
+    @State private var ringAnimationProgress: Double = 0
+    @State private var barAnimationProgress: Double = 0
+    @State private var chartRevealProgress: Double = 0
+    @State private var statsAnimationGeneration = 0
+    @State private var selectedWeeklyDay: Date?
+    @State private var didAnimateForCurrentStatsVisit = false
 
     private let statsGrid = [
         GridItem(.flexible(), spacing: 10),
@@ -22,19 +21,69 @@ struct StatsView: View {
     var body: some View {
         Group {
             if !appState.isLoggedIn {
-                LoginGateView(
-                    icon: "chart.bar.fill",
-                    title: "学習の記録を確認しよう",
-                    message: "ログインすると、クイズの正答率や単語の習得状況を確認できます。"
-                ) {
-                    appState.selectedTab = 4
-                }
+                guestStatsContent
             } else {
                 statsContent
             }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var guestStatsContent: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(alignment: .leading, spacing: 18) {
+                Text("進歩")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                Spacer()
+
+                VStack(spacing: 16) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .frame(width: 96, height: 96)
+                        .background(MerkenTheme.accentBlueLight, in: .circle)
+
+                    Text("学習の記録を確認しよう")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+
+                    Text("ログインすると、クイズの正答率や\n単語の習得状況を確認できます。")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+
+                    guestSettingsButton
+                }
+                .frame(maxWidth: .infinity)
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+        }
+    }
+
+    private var guestSettingsButton: some View {
+        Button {
+            appState.selectedTab = 4
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("設定でログイン・登録")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(MerkenTheme.accentBlue)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(MerkenTheme.accentBlue.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private var statsContent: some View {
@@ -51,7 +100,7 @@ struct StatsView: View {
                             .background(
                                 GeometryReader { proxy in
                                     Color.clear.preference(
-                                        key: StatsScrollOffsetKey.self,
+                                        key: TopSafeAreaScrollOffsetKey.self,
                                         value: proxy.frame(in: .named("statsScroll")).minY
                                     )
                                 }
@@ -64,6 +113,8 @@ struct StatsView: View {
                         topSummaryWidgets
 
                         masteryChart
+
+                        weeklyStudyCard
 
                         sectionHeader(icon: "text.book.closed.fill", title: "単語統計")
                         wordStatsCard
@@ -79,6 +130,8 @@ struct StatsView: View {
                 .disableTopScrollEdgeEffectIfAvailable()
                 .refreshable {
                     await viewModel.load(using: appState)
+                    syncSelectedWeeklyDay()
+                    triggerChartAnimation()
                 }
                 .onChange(of: appState.scrollToTopTrigger) { _ in
                     withAnimation {
@@ -88,47 +141,33 @@ struct StatsView: View {
                 } // ScrollViewReader
             }
         }
-        .overlay(alignment: .top) {
-            GeometryReader { geometry in
-                topGlassCover(safeAreaTop: geometry.safeAreaInsets.top)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            }
-            .ignoresSafeArea()
-        }
-        .onPreferenceChange(StatsScrollOffsetKey.self) { value in
+        .cameraAreaGlassOverlay(scrollOffset: scrollOffset)
+        .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
             scrollOffset = value
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
             await viewModel.load(using: appState)
+            syncSelectedWeeklyDay()
+            if appState.selectedTab == 3 {
+                triggerChartAnimationIfNeededForCurrentVisit()
+            }
         }
-    }
-
-    private var topGlassProgress: CGFloat {
-        let scrolledDistance = max(-scrollOffset, 0)
-        return min(scrolledDistance / 18, 1)
-    }
-
-    private func topGlassCover(safeAreaTop: CGFloat) -> some View {
-        topGlassBackground(safeAreaTop: safeAreaTop)
-            .opacity(topGlassProgress)
-            .offset(y: -safeAreaTop)
-            .allowsHitTesting(false)
-            .animation(.easeOut(duration: 0.18), value: topGlassProgress)
-    }
-
-    @ViewBuilder
-    private func topGlassBackground(safeAreaTop: CGFloat) -> some View {
-        let glassLayer = Color.clear
-            .frame(maxWidth: .infinity)
-            .frame(height: safeAreaTop + 20)
-            .clipShape(Rectangle())
-
-        if #available(iOS 26.0, *) {
-            glassLayer
-                .glassEffect(.regular.tint(Color.white.opacity(0.20)))
-        } else {
-            glassLayer
-                .background(.ultraThinMaterial)
+        .onChange(of: appState.selectedTab) { _, selectedTab in
+            if selectedTab != 3 {
+                didAnimateForCurrentStatsVisit = false
+            }
+            if selectedTab == 3 && appState.isLoggedIn {
+                syncSelectedWeeklyDay()
+                triggerChartAnimationIfNeededForCurrentVisit()
+            }
+        }
+        .onAppear {
+            guard appState.isLoggedIn, appState.selectedTab == 3 else { return }
+            syncSelectedWeeklyDay()
+            triggerChartAnimationIfNeededForCurrentVisit()
+        }
+        .onChange(of: viewModel.weeklyAccuracy.map(\.id)) { _ in
+            syncSelectedWeeklyDay()
         }
     }
 
@@ -143,6 +182,151 @@ struct StatsView: View {
 
     private var favoritePercentText: String {
         viewModel.totalWords > 0 ? "\(Int(favoritePercent * 100))%" : "0%"
+    }
+
+    private func triggerChartAnimation() {
+        statsAnimationGeneration += 1
+        let generation = statsAnimationGeneration
+
+        var resetTransaction = Transaction()
+        resetTransaction.animation = nil
+        withTransaction(resetTransaction) {
+            summaryCardAnimationProgress = 0
+            ringAnimationProgress = 0
+            barAnimationProgress = 0
+            chartRevealProgress = 0
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            guard generation == statsAnimationGeneration else { return }
+
+            withAnimation(.easeOut(duration: 0.45)) {
+                summaryCardAnimationProgress = 1
+            }
+            withAnimation(.easeOut(duration: 0.85).delay(0.05)) {
+                ringAnimationProgress = 1
+            }
+            withAnimation(.easeOut(duration: 0.85).delay(0.08)) {
+                barAnimationProgress = 1
+            }
+            withAnimation(.easeOut(duration: 1.0).delay(0.12)) {
+                chartRevealProgress = 1
+            }
+        }
+    }
+
+    private func triggerChartAnimationIfNeededForCurrentVisit() {
+        guard appState.selectedTab == 3 else { return }
+        guard !didAnimateForCurrentStatsVisit else { return }
+        didAnimateForCurrentStatsVisit = true
+        triggerChartAnimation()
+    }
+
+    private func animatedProgress(
+        _ progress: Double,
+        animationProgress: Double,
+        minimumVisibleProgress: Double = 0
+    ) -> Double {
+        let clamped = max(0, min(progress, 1))
+        let animated = clamped * animationProgress
+        guard animated > 0 else { return 0 }
+        return minimumVisibleProgress > 0 ? max(minimumVisibleProgress, animated) : animated
+    }
+
+    private func animatedInt(_ value: Int, progress: Double) -> Int {
+        max(0, Int((Double(value) * progress).rounded()))
+    }
+
+    private func syncSelectedWeeklyDay() {
+        let availableDates = Set(viewModel.weeklyAccuracy.map(\.date))
+        if let selectedWeeklyDay, availableDates.contains(selectedWeeklyDay) {
+            return
+        }
+        let today = Calendar.current.startOfDay(for: Date())
+        selectedWeeklyDay = viewModel.weeklyAccuracy.first(where: {
+            Calendar.current.isDate($0.date, inSameDayAs: today)
+        })?.date ?? viewModel.weeklyAccuracy.last?.date
+    }
+
+    private var animatedMasteryHistory: [MasteryDataPoint] {
+        viewModel.masteryHistory.map { point in
+            MasteryDataPoint(
+                date: point.date,
+                label: point.label,
+                mastered: animatedInt(point.mastered, progress: chartRevealProgress),
+                total: point.total
+            )
+        }
+    }
+
+    private var weeklyStudyCard: some View {
+        let selectedDay = viewModel.weeklyAccuracy.first(where: { $0.date == selectedWeeklyDay }) ?? viewModel.weeklyAccuracy.last
+        let maxAccuracy = max(viewModel.weeklyAccuracy.map(\.accuracy).max() ?? 0, 0.01)
+
+        return SolidCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .foregroundStyle(MerkenTheme.chartBlue)
+                    Text("今週の学習")
+                        .font(.headline)
+                        .foregroundStyle(MerkenTheme.primaryText)
+                }
+
+                HStack(alignment: .bottom, spacing: 10) {
+                    ForEach(viewModel.weeklyAccuracy) { day in
+                        let isSelected = day.date == selectedWeeklyDay
+                        VStack(spacing: 10) {
+                            Capsule()
+                                .fill(isSelected ? MerkenTheme.chartBlue : MerkenTheme.borderLight)
+                                .frame(width: 30, height: 10)
+
+                            ZStack(alignment: .bottom) {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(MerkenTheme.surfaceAlt)
+
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(isSelected ? MerkenTheme.chartBlue : MerkenTheme.chartBlue.opacity(0.26))
+                                    .frame(height: max(8, 120 * CGFloat(day.accuracy / maxAccuracy)))
+                                    .scaleEffect(y: max(barAnimationProgress, 0.001), anchor: .bottom)
+                            }
+                            .frame(height: 120)
+                            .clipped()
+
+                            Text(day.label)
+                                .font(.system(size: 15, weight: isSelected ? .bold : .semibold))
+                                .foregroundStyle(isSelected ? MerkenTheme.chartBlue : MerkenTheme.secondaryText)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(.rect)
+                        .onTapGesture {
+                            selectedWeeklyDay = day.date
+                            MerkenHaptic.selection()
+                        }
+                    }
+                }
+
+                Divider()
+
+                HStack {
+                    Text((selectedDay?.answered ?? 0) > 0
+                        ? "\(Int((selectedDay?.accuracy ?? 0) * 100))%"
+                        : "-"
+                    )
+                    .font(.system(size: 28, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                    Spacer()
+
+                    Text("正答率")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
+        }
     }
 
     private var wordStatsCard: some View {
@@ -226,7 +410,7 @@ struct StatsView: View {
             topSummaryCard(
                 icon: "flame.fill",
                 tint: .orange,
-                value: "\(viewModel.streakDays)日",
+                value: "\(animatedInt(viewModel.streakDays, progress: summaryCardAnimationProgress))日",
                 label: "連続学習",
                 detail: viewModel.streakDays > 0 ? "学習を継続中" : "今日から積み上げ"
             )
@@ -234,7 +418,7 @@ struct StatsView: View {
             topSummaryCard(
                 icon: "sparkles",
                 tint: MerkenTheme.success,
-                value: "\(viewModel.todayMasteredWords)語",
+                value: "\(animatedInt(viewModel.todayMasteredWords, progress: summaryCardAnimationProgress))語",
                 label: "今日習得",
                 detail: "今日増えた習得単語"
             )
@@ -338,13 +522,16 @@ struct StatsView: View {
                         .frame(width: max(newWidth, 0))
                 }
                 .clipShape(.rect(cornerRadius: 7))
+                .scaleEffect(x: max(barAnimationProgress, 0.001), y: 1, anchor: .leading)
+                .animation(.easeOut(duration: 0.9), value: barAnimationProgress)
             }
         }
         .frame(height: 14)
     }
 
     private var masteryChart: some View {
-        let data = viewModel.masteryHistory
+        let totalData = viewModel.masteryHistory
+        let data = animatedMasteryHistory
         let maxVal = max(data.map(\.total).max() ?? 1, 1)
 
         return VStack(alignment: .leading, spacing: 10) {
@@ -369,13 +556,13 @@ struct StatsView: View {
                     )
             } else {
                 Chart {
-                    ForEach(data) { point in
+                    ForEach(totalData) { point in
                         LineMark(
                             x: .value("日付", point.date, unit: .day),
                             y: .value("合計", point.total),
                             series: .value("series", "total")
                         )
-                        .foregroundStyle(MerkenTheme.chartBlue.opacity(0.4))
+                        .foregroundStyle(MerkenTheme.chartBlue.opacity(0.18 + (0.22 * chartRevealProgress)))
                         .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                         .interpolationMethod(.monotone)
                     }
@@ -425,6 +612,13 @@ struct StatsView: View {
                     }
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.32)
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
+                .mask(
+                    Rectangle()
+                        .scaleEffect(x: max(chartRevealProgress, 0.001), y: 1, anchor: .leading)
+                )
 
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
@@ -501,12 +695,13 @@ struct StatsView: View {
                 .stroke(MerkenTheme.borderLight, lineWidth: 6)
 
             Circle()
-                .trim(from: 0, to: max(0, min(progress, 1)))
+                .trim(from: 0, to: animatedProgress(progress, animationProgress: ringAnimationProgress))
                 .stroke(
                     strokeColor,
                     style: StrokeStyle(lineWidth: 6, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 0.9), value: ringAnimationProgress)
 
             VStack(spacing: 1) {
                 Text(title)

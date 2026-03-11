@@ -7,7 +7,6 @@
 ALTER TABLE public.subscriptions
   ADD COLUMN IF NOT EXISTS pro_source TEXT DEFAULT 'none',
   ADD COLUMN IF NOT EXISTS test_pro_expires_at TIMESTAMPTZ;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -22,7 +21,6 @@ BEGIN
   END IF;
 END
 $$;
-
 UPDATE public.subscriptions
 SET pro_source = CASE
   WHEN plan = 'pro'
@@ -33,14 +31,11 @@ SET pro_source = CASE
 END
 WHERE pro_source IS NULL
    OR pro_source NOT IN ('none', 'billing', 'test');
-
 ALTER TABLE public.subscriptions
   ALTER COLUMN pro_source SET DEFAULT 'none',
   ALTER COLUMN pro_source SET NOT NULL;
-
 CREATE INDEX IF NOT EXISTS idx_subscriptions_pro_source
   ON public.subscriptions (pro_source);
-
 -- ============================================
 -- 2. Source-aware Pro helper (5 args overload)
 -- ============================================
@@ -64,14 +59,12 @@ AS $$
       p_current_period_end IS NULL OR p_current_period_end > NOW()
   END;
 $$;
-
 -- ============================================
 -- 3. Scan gate: use source-aware Pro helper
 -- ============================================
 DROP FUNCTION IF EXISTS check_and_increment_scan();
 DROP FUNCTION IF EXISTS check_and_increment_scan(BOOLEAN);
 DROP FUNCTION IF EXISTS check_and_increment_scan(UUID, BOOLEAN);
-
 CREATE OR REPLACE FUNCTION public.check_and_increment_scan(
   p_require_pro BOOLEAN DEFAULT FALSE
 )
@@ -149,10 +142,8 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.check_and_increment_scan(BOOLEAN) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.check_and_increment_scan(BOOLEAN) TO authenticated;
-
 -- ============================================
 -- 4. Pro-only write/share policies:
 --    use source-aware helper
@@ -161,7 +152,6 @@ DROP POLICY IF EXISTS "Active Pro users can create own projects" ON projects;
 DROP POLICY IF EXISTS "Active Pro users can update own projects" ON projects;
 DROP POLICY IF EXISTS "Active Pro users can delete own projects" ON projects;
 DROP POLICY IF EXISTS "Pro users can view shared projects" ON projects;
-
 CREATE POLICY "Active Pro users can create own projects"
   ON projects FOR INSERT
   WITH CHECK (
@@ -179,7 +169,6 @@ CREATE POLICY "Active Pro users can create own projects"
         )
     )
   );
-
 CREATE POLICY "Active Pro users can update own projects"
   ON projects FOR UPDATE
   USING (
@@ -197,7 +186,6 @@ CREATE POLICY "Active Pro users can update own projects"
         )
     )
   );
-
 CREATE POLICY "Active Pro users can delete own projects"
   ON projects FOR DELETE
   USING (
@@ -215,7 +203,6 @@ CREATE POLICY "Active Pro users can delete own projects"
         )
     )
   );
-
 CREATE POLICY "Pro users can view shared projects"
   ON projects FOR SELECT
   USING (
@@ -233,12 +220,10 @@ CREATE POLICY "Pro users can view shared projects"
         )
     )
   );
-
 DROP POLICY IF EXISTS "Active Pro users can create words in own projects" ON words;
 DROP POLICY IF EXISTS "Active Pro users can update own words" ON words;
 DROP POLICY IF EXISTS "Active Pro users can delete own words" ON words;
 DROP POLICY IF EXISTS "Pro users can view words in shared projects" ON words;
-
 CREATE POLICY "Active Pro users can create words in own projects"
   ON words FOR INSERT
   WITH CHECK (
@@ -261,7 +246,6 @@ CREATE POLICY "Active Pro users can create words in own projects"
         )
     )
   );
-
 CREATE POLICY "Active Pro users can update own words"
   ON words FOR UPDATE
   USING (
@@ -284,7 +268,6 @@ CREATE POLICY "Active Pro users can update own words"
         )
     )
   );
-
 CREATE POLICY "Active Pro users can delete own words"
   ON words FOR DELETE
   USING (
@@ -307,7 +290,6 @@ CREATE POLICY "Active Pro users can delete own words"
         )
     )
   );
-
 CREATE POLICY "Pro users can view words in shared projects"
   ON words FOR SELECT
   USING (

@@ -173,6 +173,18 @@ struct FlashcardView: View {
                     // Overflow menu (⋯)
                     Menu {
                         Button {
+                            MerkenHaptic.light()
+                            viewModel.toggleAutoPlay()
+                        } label: {
+                            Label(
+                                viewModel.isAutoPlayEnabled ? "自動再生モードを停止" : "自動再生モードを開始",
+                                systemImage: viewModel.isAutoPlayEnabled ? "pause.circle" : "play.circle"
+                            )
+                        }
+
+                        Divider()
+
+                        Button {
                             dictionaryURL = viewModel.dictionaryURL
                         } label: {
                             Label("辞書で調べる", systemImage: "book")
@@ -203,10 +215,19 @@ struct FlashcardView: View {
                             Label("単語を削除", systemImage: "trash")
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.title3)
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                            .frame(width: 36, height: 36)
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "ellipsis")
+                                .font(.title3)
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                                .frame(width: 36, height: 36)
+
+                            if viewModel.isAutoPlayEnabled {
+                                Circle()
+                                    .fill(MerkenTheme.success)
+                                    .frame(width: 9, height: 9)
+                                    .offset(x: -4, y: 5)
+                            }
+                        }
                     }
                 }
 
@@ -309,6 +330,13 @@ struct FlashcardView: View {
                     }
                 }
                 .padding(.vertical, 20)
+
+                if viewModel.isAutoPlayEnabled {
+                    Text("自動再生モード中")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.success)
+                        .padding(.bottom, 10)
+                }
 
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)

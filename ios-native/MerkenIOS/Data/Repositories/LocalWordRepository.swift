@@ -20,7 +20,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
                 iconImage: $0.iconImage,
                 createdAt: $0.createdAt,
                 shareId: $0.shareId,
-                isFavorite: $0.isFavorite
+                isFavorite: $0.isFavorite,
+                sourceLabels: decodeOptional($0.sourceLabelsBlob, as: [String].self) ?? []
             )
         }
     }
@@ -34,7 +35,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
             iconImage: project.iconImage,
             createdAt: project.createdAt,
             shareId: project.shareId,
-            isFavorite: project.isFavorite
+            isFavorite: project.isFavorite,
+            sourceLabelsBlob: try encodeOptional(project.sourceLabels)
         )
         modelContext.insert(record)
         try modelContext.save()
@@ -65,6 +67,15 @@ actor LocalWordRepository: WordRepositoryProtocol {
         }
 
         record.isFavorite = isFavorite
+        try modelContext.save()
+    }
+
+    func updateProjectSourceLabels(id: String, sourceLabels: [String]) async throws {
+        guard let record = try fetchProjectRecord(id: id) else {
+            throw RepositoryError.notFound
+        }
+
+        record.sourceLabelsBlob = try encodeOptional(normalizeProjectSourceLabels(sourceLabels))
         try modelContext.save()
     }
 

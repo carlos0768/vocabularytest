@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Zod schema for validating OpenAI API response
 // This ensures robustness against malformed AI outputs
@@ -31,6 +32,7 @@ export const AIWordSchema = z.object({
 
 export const AIResponseSchema = z.object({
   words: z.array(AIWordSchema).default([]),
+  sourceLabels: z.array(z.string()).default([]).transform((labels) => normalizeSourceLabels(labels)),
 });
 
 export type ValidatedAIResponse = z.infer<typeof AIResponseSchema>;

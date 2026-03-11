@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { loadCollectionWords } from '@/lib/collection-words';
-import { calculateNextReviewByQuality } from '@/lib/spaced-repetition';
+import { calculateNextReviewByQuality, getStatusAfterQuality } from '@/lib/spaced-repetition';
 import {
   getGuestUserId,
   recordActivity,
@@ -16,7 +16,7 @@ import {
   recordWrongAnswer,
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
-import type { SubscriptionStatus, Word, WordStatus } from '@/types';
+import type { SubscriptionStatus, Word } from '@/types';
 
 type Quiz2Grade = 'again' | 'hard' | 'good' | 'easy';
 
@@ -40,25 +40,6 @@ const GRADE_HELPERS: Record<Quiz2Grade, string> = {
   good: '普通に思い出せた',
   easy: '余裕で思い出せた',
 };
-
-function getStatusAfterGrade(currentStatus: WordStatus, grade: Quiz2Grade): WordStatus {
-  if (grade === 'again') {
-    if (currentStatus === 'mastered') return 'review';
-    return 'new';
-  }
-
-  if (grade === 'hard') {
-    if (currentStatus === 'new') return 'review';
-    return 'review';
-  }
-
-  if (grade === 'good') {
-    if (currentStatus === 'new') return 'review';
-    return 'mastered';
-  }
-
-  return 'mastered';
-}
 
 export default function Quiz2Page() {
   const router = useRouter();
@@ -277,7 +258,7 @@ export default function Quiz2Page() {
 
     try {
       const quality = QUALITY_BY_GRADE[grade];
-      const nextStatus = getStatusAfterGrade(currentWord.status, grade);
+      const nextStatus = getStatusAfterQuality(currentWord.status, quality);
       const srUpdate = calculateNextReviewByQuality(quality, currentWord);
       const updates = { status: nextStatus, ...srUpdate };
 

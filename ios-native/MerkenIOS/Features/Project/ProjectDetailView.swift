@@ -1,10 +1,6 @@
 import SwiftUI
 import AVFoundation
-
-private struct SharePayload: Identifiable {
-    let id = UUID()
-    let items: [Any]
-}
+import UIKit
 
 struct ProjectDetailView: View {
     let project: Project
@@ -20,13 +16,15 @@ struct ProjectDetailView: View {
     @State private var quiz2Destination: Project?
     @State private var quickResponseDestination: Project?
     @State private var showingScan = false
+    @State private var showingScanModeSheet = false
     @State private var showTinderSort = false
     @State private var showTimeAttack = false
     @State private var showMatchGame = false
     @State private var previewIndex = 0
     @State private var showingWordList = false
     @State private var dictionaryURL: URL?
-    @State private var sharePayload: SharePayload?
+    @State private var preparedProjectShareURL: URL?
+    @State private var showingProjectShareSheet = false
     @State private var showingDeleteConfirm = false
     @State private var showingBookshelfPicker = false
     @State private var showingCreateBookshelf = false
@@ -35,6 +33,26 @@ struct ProjectDetailView: View {
     @State private var statsPage = 0
     @State private var filteredWordListStatus: WordStatus?
     @State private var showingFilteredWordList = false
+    @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
+    @State private var scrollOffset: CGFloat = 0
+    @State private var chartAnimationProgress: Double = 0
+    @State private var renameProjectTitle = ""
+    @State private var showingRenameProject = false
+    @State private var displayProjectTitle: String
+    @State private var displaySourceLabels: [String]
+    @State private var preselectedScanMode: ScanMode?
+    @State private var preselectedEikenLevel: EikenLevel?
+    @State private var preselectedScanSource: ScanSource?
+
+    init(project: Project) {
+        self.project = project
+        _displayProjectTitle = State(initialValue: project.title)
+        _displaySourceLabels = State(initialValue: project.sourceLabels)
+    }
+
+    private var learningModeScope: LearningModeUsageStore.Scope {
+        .project(project.id)
+    }
 
     private var thumbnailBackgroundColor: Color {
         if project.iconImage != nil {
@@ -43,167 +61,247 @@ struct ProjectDetailView: View {
         return MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
     }
 
+    private func triggerChartAnimation() {
+        chartAnimationProgress = 0
+        withAnimation(.easeOut(duration: 0.9)) {
+            chartAnimationProgress = 1
+        }
+    }
+
+    private func animatedChartProgress(_ progress: Double, minimumVisibleProgress: Double = 0) -> Double {
+        let clamped = max(0, min(progress, 1))
+        let animated = clamped * chartAnimationProgress
+        guard animated > 0 else { return 0 }
+        return minimumVisibleProgress > 0 ? max(minimumVisibleProgress, animated) : animated
+    }
+
     var body: some View {
-        ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-                thumbnailBackgroundColor
-                MerkenTheme.background
-            }
-            .ignoresSafeArea()
+        configuredContent
+    }
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Edge-to-edge thumbnail
-                    projectThumbnailHeader
-
-                    // Body card overlapping the thumbnail
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Project title + word count
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(project.title)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                                .lineLimit(2)
-                            Spacer()
-                            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                Text("\(viewModel.words.count)")
-                                    .font(.system(size: 22, weight: .bold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                                Text("語")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
-                        }
-                        .padding(.bottom, 24)
-
-                        if let errorMessage = viewModel.errorMessage {
-                            SolidCard {
-                                Text(errorMessage)
-                                    .foregroundStyle(MerkenTheme.warning)
-                            }
-                        }
-
-                        // Word stats + Part of speech widgets
-                        projectStatsSection
-
-                        // Learning modes
-                        learningModesSection
-                    }
-                    .padding(20)
-                    .padding(.bottom, 80) // space for bottom bar
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
-                            .fill(MerkenTheme.background)
-                    )
-                    .clipShape(
-                        UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
-                    )
-                    .padding(.top, -100)
+    private var configuredContent: some View {
+        let chrome = AnyView(
+            rootContent
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .navigationBarBackButtonHidden(true)
+                .toolbar(.hidden, for: .navigationBar)
+                .cameraAreaGlassOverlay(scrollOffset: scrollOffset)
+                .overlay(alignment: .top) {
+                    topButtonsOverlay
                 }
-            }
-            .scrollIndicators(.hidden)
-            .ignoresSafeArea(.container, edges: .top)
-            .refreshable {
-                await viewModel.load(projectId: project.id, using: appState)
-            }
+                .overlay {
+                    scanOverlay
+                }
+                .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
+                    scrollOffset = value
+                }
+        )
 
-            // Fixed bottom bar with two action buttons
-            bottomActionBar
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
-        .overlay(alignment: .top) {
-            topButtonsOverlay
-        }
-        .sheet(isPresented: $showingScan) {
+        let presented = AnyView(
+            chrome
+                .sheet(isPresented: $showingScanModeSheet, content: scanModeSheet)
+                .sheet(item: $editorMode, content: editorSheet)
+                .sheet(item: $dictionaryURL) { url in
+                    SafariView(url: url)
+                        .ignoresSafeArea()
+                }
+                .fullScreenCover(isPresented: $showingWordList, content: wordListSheet)
+                .fullScreenCover(isPresented: $showingFilteredWordList, content: filteredWordListSheet)
+                .navigationDestination(item: $showingQuiz) { _ in
+                    QuizView(project: project, preloadedWords: viewModel.words)
+                }
+                .fullScreenCover(item: $flashcardDestination, content: flashcardSheet)
+                .fullScreenCover(item: $weakWordsFlashcard, content: weakFlashcardSheet)
+                .fullScreenCover(isPresented: $showFullScreenWord) {
+                    fullScreenWordView
+                }
+                .navigationDestination(item: $quiz2Destination) { project in
+                    Quiz2View(project: project, preloadedWords: viewModel.words)
+                }
+                .navigationDestination(item: $quickResponseDestination) { project in
+                    QuickResponseView(project: project, preloadedWords: viewModel.words)
+                }
+                .navigationDestination(isPresented: $showTinderSort) {
+                    TinderSortView(project: project, words: viewModel.words)
+                }
+                .navigationDestination(isPresented: $showTimeAttack) {
+                    TimeAttackView(project: project, words: viewModel.words)
+                }
+                .navigationDestination(isPresented: $showMatchGame) {
+                    MatchGameView(project: project, words: viewModel.words)
+                }
+                .sheet(isPresented: $showingProjectShareSheet, content: projectShareSheet)
+                .sheet(isPresented: $showingBookshelfPicker) {
+                    AddToBookshelfSheet(projectId: project.id)
+                        .environmentObject(appState)
+                }
+                .sheet(isPresented: $showingCreateBookshelf) {
+                    CreateBookshelfSheet(onComplete: {})
+                        .environmentObject(appState)
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                        .presentationContentInteraction(.resizes)
+                }
+        )
+
+        return AnyView(
+            presented
+                .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm, actions: deleteAlertActions, message: deleteAlertMessage)
+                .alert("単語帳名を変更", isPresented: $showingRenameProject, actions: renameAlertActions, message: renameAlertMessage)
+                .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
+                    await viewModel.load(projectId: project.id, using: appState)
+                    learningModeCounts = LearningModeUsageStore.counts(for: learningModeScope)
+                    statsPage = 0
+                    triggerChartAnimation()
+                }
+                .onChange(of: viewModel.projectMetadata?.title) { _, newValue in
+                    if let newValue, !newValue.isEmpty {
+                        displayProjectTitle = newValue
+                    }
+                }
+                .onChange(of: viewModel.projectMetadata?.sourceLabels) { _, newValue in
+                    displaySourceLabels = normalizeProjectSourceLabels(newValue)
+                }
+                .onChange(of: viewModel.words.count) { _ in
+                    if viewModel.words.isEmpty {
+                        previewIndex = 0
+                        return
+                    }
+
+                    if previewIndex >= viewModel.words.count {
+                        previewIndex = viewModel.words.count - 1
+                    }
+                }
+                .onAppear {
+                    appState.tabBarVisible = false
+                    statsPage = 0
+                    triggerChartAnimation()
+                }
+                .onDisappear {
+                    if flashcardDestination == nil &&
+                       quiz2Destination == nil &&
+                       quickResponseDestination == nil &&
+                       !showTinderSort &&
+                       !showTimeAttack &&
+                       !showMatchGame &&
+                       !showFullScreenWord &&
+                       !showingWordList &&
+                       !showingFilteredWordList {
+                        appState.tabBarVisible = true
+                    }
+                }
+        )
+    }
+
+    @ViewBuilder
+    private var scanOverlay: some View {
+        if showingScan {
             ScanCoordinatorView(
                 targetProjectId: project.id,
-                targetProjectTitle: project.title
-            ) { _ in
-                Task {
-                    await viewModel.load(projectId: project.id, using: appState)
+                targetProjectTitle: displayProjectTitle,
+                preselectedMode: preselectedScanMode,
+                preselectedEikenLevel: preselectedEikenLevel,
+                preselectedSource: preselectedScanSource,
+                onComplete: { _ in
+                    Task {
+                        await viewModel.load(projectId: project.id, using: appState)
+                        triggerChartAnimation()
+                    }
+                },
+                onDismissRequest: {
+                    showingScan = false
                 }
-            }
+            )
             .environmentObject(appState)
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .transition(.opacity)
+            .zIndex(4)
         }
-        .sheet(item: $editorMode, content: editorSheet)
-        .sheet(item: $dictionaryURL) { url in
-            SafariView(url: url)
-                .ignoresSafeArea()
-        }
-        .fullScreenCover(isPresented: $showingWordList) {
-            NavigationStack {
-                WordListView(project: project)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button {
-                                showingWordList = false
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
+    }
+
+    private func scanModeSheet() -> some View {
+        ScanModeSheet(
+            isPro: appState.subscription?.isActivePro ?? false,
+            onSelect: { mode, eikenLevel, source in
+                preselectedScanMode = mode
+                preselectedEikenLevel = eikenLevel
+                preselectedScanSource = source
+                showingScanModeSheet = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                    showingScan = true
+                }
+            },
+            onCancel: {
+                showingScanModeSheet = false
+            }
+        )
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationContentInteraction(.resizes)
+    }
+
+    private func wordListSheet() -> some View {
+        NavigationStack {
+            WordListView(project: project)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            showingWordList = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.secondaryText)
                         }
                     }
-            }
+                }
         }
-        .fullScreenCover(isPresented: $showingFilteredWordList) {
-            NavigationStack {
-                WordListView(project: project, initialStatus: filteredWordListStatus)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button {
-                                showingFilteredWordList = false
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                            }
+    }
+
+    private func filteredWordListSheet() -> some View {
+        NavigationStack {
+            WordListView(project: project, initialStatus: filteredWordListStatus)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            showingFilteredWordList = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.secondaryText)
                         }
                     }
+                }
+        }
+    }
+
+    private func flashcardSheet(project: Project) -> some View {
+        NavigationStack {
+            FlashcardView(project: project, preloadedWords: viewModel.words)
+        }
+    }
+
+    private func weakFlashcardSheet(project: Project) -> some View {
+        NavigationStack {
+            FlashcardView(project: project, preloadedWords: weakWords)
+        }
+    }
+
+    @ViewBuilder
+    private func projectShareSheet() -> some View {
+        if let preparedProjectShareURL {
+            ProjectShareSheet(
+                project: project,
+                projectTitle: displayProjectTitle,
+                words: viewModel.words,
+                shareURL: preparedProjectShareURL
+            ) {
+                showingProjectShareSheet = false
             }
         }
-        .navigationDestination(item: $showingQuiz) { _ in
-            QuizView(project: project, preloadedWords: viewModel.words)
-        }
-        .fullScreenCover(item: $flashcardDestination) { project in
-            NavigationStack {
-                FlashcardView(project: project, preloadedWords: viewModel.words)
-            }
-        }
-        .fullScreenCover(item: $weakWordsFlashcard) { project in
-            NavigationStack {
-                FlashcardView(project: project, preloadedWords: weakWords)
-            }
-        }
-        .fullScreenCover(isPresented: $showFullScreenWord) {
-            fullScreenWordView
-        }
-        .navigationDestination(item: $quiz2Destination) { project in
-            Quiz2View(project: project, preloadedWords: viewModel.words)
-        }
-        .navigationDestination(item: $quickResponseDestination) { project in
-            QuickResponseView(project: project, preloadedWords: viewModel.words)
-        }
-        .navigationDestination(isPresented: $showTinderSort) {
-            TinderSortView(project: project, words: viewModel.words)
-        }
-        .navigationDestination(isPresented: $showTimeAttack) {
-            TimeAttackView(project: project, words: viewModel.words)
-        }
-        .navigationDestination(isPresented: $showMatchGame) {
-            MatchGameView(project: project, words: viewModel.words)
-        }
-        .sheet(item: $sharePayload) { payload in
-            ShareSheet(items: payload.items)
-        }
-        .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm) {
+    }
+
+    private func deleteAlertActions() -> some View {
+        Group {
             Button("削除", role: .destructive) {
                 Task {
                     await viewModel.deleteProject(id: project.id, using: appState)
@@ -211,44 +309,130 @@ struct ProjectDetailView: View {
                 }
             }
             Button("キャンセル", role: .cancel) {}
-        } message: {
-            Text("「\(project.title)」と含まれる単語がすべて削除されます。この操作は取り消せません。")
         }
-        .sheet(isPresented: $showingBookshelfPicker) {
-            AddToBookshelfSheet(projectId: project.id)
-                .environmentObject(appState)
+    }
+
+    private func deleteAlertMessage() -> some View {
+        Text("「\(project.title)」と含まれる単語がすべて削除されます。この操作は取り消せません。")
+    }
+
+    private func renameAlertActions() -> some View {
+        Group {
+            TextField("単語帳名", text: $renameProjectTitle)
+            Button("保存") {
+                let nextTitle = renameProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !nextTitle.isEmpty else { return }
+                displayProjectTitle = nextTitle
+                Task {
+                    await viewModel.renameProject(id: project.id, title: nextTitle, using: appState)
+                }
+            }
+            .disabled(renameProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("キャンセル", role: .cancel) {
+                renameProjectTitle = displayProjectTitle
+            }
         }
-        .sheet(isPresented: $showingCreateBookshelf) {
-            CreateBookshelfSheet(onComplete: {})
-                .environmentObject(appState)
+    }
+
+    private func renameAlertMessage() -> some View {
+        Text("「\(displayProjectTitle)」の名前を変更します。")
+    }
+
+    private var rootContent: some View {
+        ZStack(alignment: .bottom) {
+            backgroundLayers
+            scrollContent
+            bottomActionBar
         }
-        .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
+    }
+
+    private var backgroundLayers: some View {
+        VStack(spacing: 0) {
+            thumbnailBackgroundColor
+            MerkenTheme.background
+        }
+        .ignoresSafeArea()
+    }
+
+    private var scrollContent: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                topScrollAnchor
+                projectThumbnailHeader
+                projectBodyCard
+            }
+        }
+        .coordinateSpace(name: "projectDetailScroll")
+        .scrollIndicators(.hidden)
+        .disableTopScrollEdgeEffectIfAvailable()
+        .ignoresSafeArea(.container, edges: .top)
+        .refreshable {
             await viewModel.load(projectId: project.id, using: appState)
+            triggerChartAnimation()
         }
-        .onChange(of: viewModel.words.count) { _ in
-            if viewModel.words.isEmpty {
-                previewIndex = 0
-                return
+    }
+
+    private var topScrollAnchor: some View {
+        Color.clear
+            .frame(height: 0)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: TopSafeAreaScrollOffsetKey.self,
+                        value: proxy.frame(in: .named("projectDetailScroll")).minY
+                    )
+                }
+            )
+    }
+
+    private var projectBodyCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            projectTitleRow
+
+            if !displaySourceLabels.isEmpty {
+                ProjectSourceLabelsSection(labels: displaySourceLabels)
             }
 
-            if previewIndex >= viewModel.words.count {
-                previewIndex = viewModel.words.count - 1
+            if let errorMessage = viewModel.errorMessage {
+                SolidCard {
+                    Text(errorMessage)
+                        .foregroundStyle(MerkenTheme.warning)
+                }
             }
+
+            projectStatsSection
+            learningModesSection
         }
-        .onAppear { appState.tabBarVisible = false }
-        .onDisappear {
-            // Only restore tab bar when actually leaving the project detail flow
-            // (not when pushing to quiz/flashcard sub-screens)
-            if flashcardDestination == nil &&
-               quiz2Destination == nil &&
-               quickResponseDestination == nil &&
-               !showTinderSort &&
-               !showTimeAttack &&
-               !showMatchGame &&
-               !showFullScreenWord &&
-               !showingWordList &&
-               !showingFilteredWordList {
-                appState.tabBarVisible = true
+        .padding(20)
+        .padding(.bottom, 80)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
+                .fill(MerkenTheme.background)
+        )
+        .clipShape(
+            UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
+        )
+        .padding(.top, -100)
+    }
+
+    private var projectTitleRow: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(displayProjectTitle)
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+
+            Spacer()
+
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text("\(viewModel.words.count)")
+                    .font(.system(size: 22, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("語")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
             }
         }
     }
@@ -267,13 +451,31 @@ struct ProjectDetailView: View {
 
             Spacer()
 
+            Button {
+                Task { await handleShare() }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Color.black.opacity(0.35), in: .circle)
+            }
+            .buttonStyle(.plain)
+
             Menu {
                 Button {
-                    showingScan = true
+                    showingScanModeSheet = true
                 } label: {
                     Label("スキャンで追加", systemImage: "camera")
                 }
                 .disabled(!appState.isLoggedIn)
+
+                Button {
+                    renameProjectTitle = displayProjectTitle
+                    showingRenameProject = true
+                } label: {
+                    Label("名前を変更", systemImage: "pencil")
+                }
 
                 Button {
                     editorMode = .create
@@ -284,11 +486,6 @@ struct ProjectDetailView: View {
                     showingBookshelfPicker = true
                 } label: {
                     Label("本棚に追加", systemImage: "books.vertical")
-                }
-                Button {
-                    Task { await handleShare() }
-                } label: {
-                    Label("共有", systemImage: "square.and.arrow.up")
                 }
 
                 Divider()
@@ -312,66 +509,24 @@ struct ProjectDetailView: View {
     }
 
     private func handleShare() async {
-        guard case .proCloud = appState.repositoryMode else {
-            // Guest users: text share with sample words (no link)
-            let sampleWords = viewModel.words.prefix(3).map { $0.english }
-            let wordsPart = sampleWords.joined(separator: "、")
-            let totalCount = viewModel.words.count
-            let text: String
-            if wordsPart.isEmpty {
-                text = "Merkenで単語を暗記中！"
-            } else {
-                text = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\nhttps://www.merken.jp"
-            }
-            presentShareSheet(items: [text])
-            return
-        }
-
         do {
-            var shareId = project.shareId
-            if shareId == nil || shareId?.isEmpty == true {
-                shareId = try await appState.generateProjectShareId(projectId: project.id)
-            }
-            guard let shareId else { return }
-
-            guard let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") else { return }
-
-            // Build share text with sample words
-            let sampleWords = viewModel.words.prefix(3).map { $0.english }
-            let wordsPart: String
-            if sampleWords.count >= 2 {
-                wordsPart = sampleWords.dropLast().joined(separator: "、") + "、" + sampleWords.last!
-            } else if let first = sampleWords.first {
-                wordsPart = first
+            if case .proCloud = appState.repositoryMode {
+                var shareId = project.shareId
+                if shareId == nil || shareId?.isEmpty == true {
+                    shareId = try await appState.generateProjectShareId(projectId: project.id)
+                }
+                if let shareId,
+                   let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") {
+                    preparedProjectShareURL = shareURL
+                }
             } else {
-                wordsPart = ""
+                preparedProjectShareURL = URL(string: "https://www.merken.jp")
             }
-            let totalCount = viewModel.words.count
-            let shareText: String
-            if wordsPart.isEmpty {
-                shareText = "Merkenで単語を暗記中！\n\(shareURL.absoluteString)"
-            } else {
-                shareText = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\n\(shareURL.absoluteString)"
-            }
-            presentShareSheet(items: [shareText])
         } catch {
-            // Fallback to text share on error
-            let sampleWords = viewModel.words.prefix(3).map { $0.english }
-            let wordsPart = sampleWords.joined(separator: "、")
-            let totalCount = viewModel.words.count
-            let text: String
-            if wordsPart.isEmpty {
-                text = "Merkenで単語を暗記中！"
-            } else {
-                text = "Merkenで\(wordsPart)など\(totalCount)語を暗記しました！\nhttps://www.merken.jp"
-            }
-            presentShareSheet(items: [text])
+            preparedProjectShareURL = URL(string: "https://www.merken.jp")
         }
-    }
 
-    @MainActor
-    private func presentShareSheet(items: [Any]) {
-        sharePayload = SharePayload(items: items)
+        showingProjectShareSheet = preparedProjectShareURL != nil
     }
 
     // MARK: - Loose-leaf Word Card
@@ -859,21 +1014,6 @@ struct ProjectDetailView: View {
 
         return VStack(spacing: 8) {
             TabView(selection: $statsPage) {
-                // Page 1: Part-of-speech widgets
-                Group {
-                    if !widgets.isEmpty {
-                        HStack(alignment: .top, spacing: 10) {
-                            ForEach(widgets) { widget in
-                                projectPartOfSpeechCard(widget)
-                            }
-                        }
-                    } else {
-                        Color.clear
-                    }
-                }
-                .tag(0)
-
-                // Page 2: Mastery progress
                 HStack(alignment: .top, spacing: 10) {
                     Button {
                         filteredWordListStatus = .mastered
@@ -916,6 +1056,19 @@ struct ProjectDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                }
+                .tag(0)
+
+                Group {
+                    if !widgets.isEmpty {
+                        HStack(alignment: .top, spacing: 10) {
+                            ForEach(widgets) { widget in
+                                projectPartOfSpeechCard(widget)
+                            }
+                        }
+                    } else {
+                        Color.clear
+                    }
                 }
                 .tag(1)
             }
@@ -962,7 +1115,7 @@ struct ProjectDetailView: View {
                     .stroke(MerkenTheme.borderLight, lineWidth: 5)
 
                 Circle()
-                    .trim(from: 0, to: progress)
+                    .trim(from: 0, to: animatedChartProgress(progress))
                     .stroke(
                         color,
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -1022,7 +1175,7 @@ struct ProjectDetailView: View {
                     .stroke(MerkenTheme.borderLight, lineWidth: 5)
 
                 Circle()
-                    .trim(from: 0, to: widget.progress)
+                    .trim(from: 0, to: animatedChartProgress(widget.progress))
                     .stroke(
                         accentColor,
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -1101,8 +1254,10 @@ struct ProjectDetailView: View {
                     icon: "scope",
                     iconColor: MerkenTheme.success,
                     title: "自己評価",
-                    subtitle: "思い出して評価"
+                    subtitle: "思い出して評価",
+                    count: learningModeCounts[.selfReview] ?? 0
                 ) {
+                    learningModeCounts[.selfReview] = LearningModeUsageStore.increment(.selfReview, for: learningModeScope)
                     quiz2Destination = project
                 }
 
@@ -1110,8 +1265,10 @@ struct ProjectDetailView: View {
                     icon: "timer",
                     iconColor: .orange,
                     title: "タイムアタック",
-                    subtitle: "時間内に即答"
+                    subtitle: "時間内に即答",
+                    count: learningModeCounts[.timeAttack] ?? 0
                 ) {
+                    learningModeCounts[.timeAttack] = LearningModeUsageStore.increment(.timeAttack, for: learningModeScope)
                     showTimeAttack = true
                 }
 
@@ -1120,8 +1277,10 @@ struct ProjectDetailView: View {
                         icon: "square.grid.2x2",
                         iconColor: .purple,
                         title: "マッチ",
-                        subtitle: "ペアを見つけろ"
+                        subtitle: "ペアを見つけろ",
+                        count: learningModeCounts[.match] ?? 0
                     ) {
+                        learningModeCounts[.match] = LearningModeUsageStore.increment(.match, for: learningModeScope)
                         showMatchGame = true
                     }
                 }
@@ -1129,7 +1288,7 @@ struct ProjectDetailView: View {
         }
     }
 
-    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, count: Int, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 IconBadge(systemName: icon, color: iconColor, size: 48)
@@ -1145,9 +1304,22 @@ struct ProjectDetailView: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
+                HStack(spacing: 10) {
+                    Text("\(count)回")
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .frame(width: 14)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1216,7 +1388,7 @@ struct ProjectDetailView: View {
 
     @ViewBuilder
     private func editorSheet(mode: WordEditorSheet.Mode) -> some View {
-        WordEditorSheet(mode: mode) { input in
+        WordEditorSheet(mode: mode, projectId: project.id) { input in
             Task {
                 switch mode {
                 case .create:
@@ -1248,6 +1420,105 @@ struct ProjectDetailView: View {
                 }
             }
         }
+    }
+}
+
+private struct ProjectSourceLabelsSection: View {
+    let labels: [String]
+
+    @State private var availableWidth: CGFloat = 0
+
+    private let chipHorizontalPadding: CGFloat = 10
+    private let chipVerticalPadding: CGFloat = 6
+    private let chipSpacing: CGFloat = 8
+    private let maxRows = 2
+    private let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+
+    private var visibleLabels: [String] {
+        guard availableWidth > 0 else { return normalizeProjectSourceLabels(labels) }
+
+        let normalized = normalizeProjectSourceLabels(labels)
+        guard normalized.count > 1 else { return normalized }
+
+        for visibleCount in stride(from: normalized.count, through: 1, by: -1) {
+            let hiddenCount = normalized.count - visibleCount
+            var candidate = Array(normalized.prefix(visibleCount))
+            if hiddenCount > 0 {
+                candidate.append("+\(hiddenCount)")
+            }
+
+            if fitsWithinTwoRows(candidate, width: availableWidth) {
+                return candidate
+            }
+        }
+
+        return ["+\(normalized.count)"]
+    }
+
+    var body: some View {
+        let normalized = normalizeProjectSourceLabels(labels)
+
+        Group {
+            if !normalized.isEmpty {
+                FlowLayout(spacing: chipSpacing) {
+                    ForEach(visibleLabels, id: \.self) { label in
+                        Text(label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .lineLimit(1)
+                            .padding(.horizontal, chipHorizontalPadding)
+                            .padding(.vertical, chipVerticalPadding)
+                            .background(MerkenTheme.surface, in: Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(MerkenTheme.border, lineWidth: 1)
+                            )
+                    }
+                }
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear {
+                                availableWidth = proxy.size.width
+                            }
+                            .onChange(of: proxy.size.width) { _, newWidth in
+                                availableWidth = newWidth
+                            }
+                    }
+                )
+            }
+        }
+    }
+
+    private func fitsWithinTwoRows(_ labels: [String], width: CGFloat) -> Bool {
+        guard width > 0 else { return true }
+
+        var currentRow = 1
+        var currentX: CGFloat = 0
+
+        for label in labels {
+            let chipWidth = measuredChipWidth(for: label)
+            if currentX > 0, currentX + chipSpacing + chipWidth > width {
+                currentRow += 1
+                currentX = 0
+            }
+
+            if currentRow > maxRows {
+                return false
+            }
+
+            if currentX > 0 {
+                currentX += chipSpacing
+            }
+            currentX += chipWidth
+        }
+
+        return true
+    }
+
+    private func measuredChipWidth(for label: String) -> CGFloat {
+        let textWidth = NSString(string: label).size(withAttributes: [.font: font]).width
+        return ceil(textWidth + chipHorizontalPadding * 2 + 2)
     }
 }
 

@@ -5,6 +5,7 @@ import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { ensureSourceLabels } from '../../../../shared/source-labels';
 
 // Extraction modes
 // - 'all': Extract all words
@@ -242,6 +243,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       words: result.data.words,
+      sourceLabels: ensureSourceLabels(result.data.sourceLabels),
       scanInfo: {
         currentCount: scanData.current_count,
         limit: scanData.limit,

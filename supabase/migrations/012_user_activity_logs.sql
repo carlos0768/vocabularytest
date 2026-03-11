@@ -6,21 +6,16 @@ CREATE TABLE user_activity_logs (
     created_at timestamptz DEFAULT now(),
     UNIQUE(user_id, active_date)
 );
-
 -- Create indexes
 CREATE INDEX idx_user_activity_user_id ON user_activity_logs(user_id);
 CREATE INDEX idx_user_activity_user_date ON user_activity_logs(user_id, active_date);
-
 -- Enable RLS
 ALTER TABLE user_activity_logs ENABLE ROW LEVEL SECURITY;
-
 -- RLS Policies
 CREATE POLICY "Users can insert own activity" ON user_activity_logs
     FOR INSERT WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "Users can view own activity" ON user_activity_logs
     FOR SELECT USING (auth.uid() = user_id);
-
 -- RPC function to get user activity stats
 CREATE OR REPLACE FUNCTION get_user_activity_stats(p_user_id uuid)
 RETURNS json
