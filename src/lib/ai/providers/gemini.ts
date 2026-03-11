@@ -43,6 +43,9 @@ export class GeminiProvider implements AIProvider {
       const generateConfig: any = {
         temperature: config.temperature,
         maxOutputTokens: config.maxOutputTokens,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
       };
 
       // JSON modeを設定
@@ -64,6 +67,7 @@ export class GeminiProvider implements AIProvider {
       const usage = response.usageMetadata as {
         promptTokenCount?: number;
         candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
         totalTokenCount?: number;
       } | undefined;
       await recordApiCostEvent({
@@ -78,6 +82,7 @@ export class GeminiProvider implements AIProvider {
           response_format: config.responseFormat ?? 'text',
           image_count: allImages.length,
           has_system_prompt: Boolean(systemPrompt),
+          thoughts_tokens: usage?.thoughtsTokenCount ?? 0,
         },
       });
 

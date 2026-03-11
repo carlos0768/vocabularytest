@@ -135,7 +135,7 @@ export async function extractTextForEiken(
       image: { base64: base64Data, mimeType },
       config: {
         ...config,
-        temperature: 0.0,
+        temperature: 1.0,
         maxOutputTokens: config.maxOutputTokens,
       },
     });

@@ -353,7 +353,7 @@ export async function extractHighlightedWordsFromImage(
       image: { base64: base64Data, mimeType },
       config: {
         ...config,
-        temperature: 0,
+        temperature: 1.0,
         maxOutputTokens: 8192,
         responseFormat: 'json',
       },
@@ -417,7 +417,7 @@ export async function extractHighlightedWordsFromImage(
       image: { base64: base64Data, mimeType },
       config: {
         ...config,
-        temperature: 0,
+        temperature: 1.0,
         maxOutputTokens: Math.min(config.maxOutputTokens, 4096),
         responseFormat: 'json',
       },

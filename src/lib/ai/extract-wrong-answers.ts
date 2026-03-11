@@ -130,7 +130,7 @@ export async function extractTestFromImage(
       image: { base64: base64Data, mimeType },
       config: {
         ...config,
-        temperature: 0.3,
+        temperature: 1.0,
         maxOutputTokens: 8192,
       },
     });

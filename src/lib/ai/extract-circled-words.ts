@@ -192,7 +192,7 @@ export async function extractCircledWordsFromImage(
         image: { base64: base64Data, mimeType },
         config: {
           ...config,
-          temperature: 0,
+          temperature: 1.0,
           maxOutputTokens: Math.min(config.maxOutputTokens, 8192),
           responseFormat: 'json',
         },
