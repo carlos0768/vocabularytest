@@ -11,7 +11,15 @@ import {
 test('normalizeSourceLabel trims whitespace and canonicalizes note aliases', () => {
   assert.equal(normalizeSourceLabel('  note  '), 'ノート');
   assert.equal(normalizeSourceLabel(' 鉄壁 '), '鉄壁');
+  assert.equal(normalizeSourceLabel('「LEAP」'), 'LEAP');
+  assert.equal(normalizeSourceLabel('英語教材: 鉄壁'), '鉄壁');
   assert.equal(normalizeSourceLabel('   '), null);
+});
+
+test('normalizeSourceLabel rejects generic material labels', () => {
+  assert.equal(normalizeSourceLabel('英語教材'), null);
+  assert.equal(normalizeSourceLabel('参考書'), null);
+  assert.equal(normalizeSourceLabel('textbook'), null);
 });
 
 test('normalizeSourceLabels deduplicates while preserving order', () => {
@@ -30,4 +38,5 @@ test('mergeSourceLabels unions existing and incoming labels', () => {
 
 test('ensureSourceLabels falls back to ノート when labels are empty', () => {
   assert.deepEqual(ensureSourceLabels([]), ['ノート']);
+  assert.deepEqual(ensureSourceLabels(['英語教材', '参考書']), ['ノート']);
 });
