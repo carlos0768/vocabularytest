@@ -8,6 +8,7 @@ struct WordListView: View {
     @StateObject private var viewModel = WordListViewModel()
 
     @State private var editorMode: WordEditorSheet.Mode?
+    @State private var exportWord: Word?
     @State private var searchText = ""
 
     @State private var selectedStatus: WordStatus?
@@ -81,6 +82,9 @@ struct WordListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         .sheet(item: $editorMode, content: editorSheet)
+        .sheet(item: $exportWord) { word in
+            WordExportSheet(sourceWord: word, currentProject: project)
+        }
         .onAppear {
             if selectedStatus == nil, let initialStatus {
                 selectedStatus = initialStatus
@@ -251,14 +255,24 @@ struct WordListView: View {
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
 
-                Button {
-                    Task {
-                        await viewModel.deleteWord(wordId: word.id, projectId: project.id, using: appState)
+                Menu {
+                    Button {
+                        exportWord = word
+                    } label: {
+                        Label("別の単語帳にエクスポート", systemImage: "square.and.arrow.up")
+                    }
+
+                    Button(role: .destructive) {
+                        Task {
+                            await viewModel.deleteWord(wordId: word.id, projectId: project.id, using: appState)
+                        }
+                    } label: {
+                        Label("削除", systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "trash")
+                    Image(systemName: "ellipsis")
                         .font(.system(size: 14))
-                        .foregroundStyle(MerkenTheme.danger)
+                        .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
         }
@@ -312,5 +326,212 @@ struct WordListView: View {
                 }
             }
         }
+    }
+}
+
+private struct WordExportSheet: View {
+    let sourceWord: Word
+    let currentProject: Project
+
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var projects: [Project] = []
+    @State private var loading = true
+    @State private var savingProjectId: String?
+    @State private var errorMessage: String?
+
+    private var exportTargets: [Project] {
+        projects.filter { $0.id != currentProject.id }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppBackground()
+
+                if loading {
+                    ProgressView()
+                } else if exportTargets.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "books.vertical")
+                            .font(.largeTitle)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                        Text("エクスポート先の単語帳がありません")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("別の単語帳を作成すると、ここから単語を複製できます。")
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(24)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            exportHeader
+
+                            if let errorMessage {
+                                SolidCard(padding: 14) {
+                                    Text(errorMessage)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(MerkenTheme.danger)
+                                }
+                            }
+
+                            VStack(spacing: 8) {
+                                ForEach(exportTargets) { project in
+                                    exportTargetRow(project)
+                                }
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+            .navigationTitle("単語をエクスポート")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .task {
+                await loadProjects()
+            }
+        }
+    }
+
+    private var exportHeader: some View {
+        SolidCard(padding: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(sourceWord.english)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text(sourceWord.japanese)
+                    .font(.system(size: 14))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                Text("「\(currentProject.title)」から別の単語帳へ複製します")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+        }
+    }
+
+    private func exportTargetRow(_ project: Project) -> some View {
+        let saving = savingProjectId == project.id
+
+        return SolidPane {
+            Button {
+                Task {
+                    await export(to: project)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    projectThumbnail(project)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(project.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .lineLimit(2)
+
+                        Text(project.sourceLabels.isEmpty ? "単語帳" : project.sourceLabels.joined(separator: " / "))
+                            .font(.system(size: 12))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    if saving {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(savingProjectId != nil)
+        }
+    }
+
+    @ViewBuilder
+    private func projectThumbnail(_ project: Project) -> some View {
+        ZStack {
+            if let iconImage = project.iconImage,
+               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                let placeholder = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+                placeholder
+
+                Text(String(project.title.prefix(1)))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func loadProjects() async {
+        loading = true
+        defer { loading = false }
+
+        do {
+            projects = try await appState.activeRepository.fetchProjects(userId: appState.activeUserId)
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError {
+                return
+            }
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func export(to project: Project) async {
+        guard savingProjectId == nil else { return }
+        savingProjectId = project.id
+        defer { savingProjectId = nil }
+
+        do {
+            _ = try await appState.activeRepository.createWords([wordInput(for: sourceWord, projectId: project.id)])
+            appState.bumpDataVersion()
+            dismiss()
+        } catch {
+            if error.isCancellationError {
+                return
+            }
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func wordInput(for word: Word, projectId: String) -> WordInput {
+        WordInput(
+            projectId: projectId,
+            english: word.english,
+            japanese: word.japanese,
+            distractors: word.distractors,
+            exampleSentence: word.exampleSentence,
+            exampleSentenceJa: word.exampleSentenceJa,
+            pronunciation: word.pronunciation,
+            partOfSpeechTags: word.partOfSpeechTags,
+            relatedWords: word.relatedWords,
+            usagePatterns: word.usagePatterns,
+            insightsGeneratedAt: word.insightsGeneratedAt,
+            insightsVersion: word.insightsVersion
+        )
     }
 }

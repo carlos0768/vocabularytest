@@ -8,6 +8,7 @@ struct ProjectDetailView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = ProjectDetailViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var showingQuiz: String?
     @State private var flashcardDestination: Project?
@@ -50,6 +51,13 @@ struct ProjectDetailView: View {
 
     private var learningModeScope: LearningModeUsageStore.Scope {
         .project(project.id)
+    }
+
+    private var thumbnailBackgroundColor: Color {
+        if project.iconImage != nil {
+            return Color(red: 0.15, green: 0.15, blue: 0.18)
+        }
+        return MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
     }
 
     private func triggerChartAnimation() {
@@ -338,14 +346,18 @@ struct ProjectDetailView: View {
     }
 
     private var backgroundLayers: some View {
-        MerkenTheme.background
-            .ignoresSafeArea()
+        VStack(spacing: 0) {
+            thumbnailBackgroundColor
+            MerkenTheme.background
+        }
+        .ignoresSafeArea()
     }
 
     private var scrollContent: some View {
         ScrollView {
             VStack(spacing: 0) {
                 topScrollAnchor
+                projectThumbnailHeader
                 projectBodyCard
             }
         }
@@ -400,7 +412,7 @@ struct ProjectDetailView: View {
         .clipShape(
             UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
         )
-        .padding(.top, 84)
+        .padding(.top, -100)
     }
 
     private var projectTitleRow: some View {
@@ -965,6 +977,27 @@ struct ProjectDetailView: View {
         }
     }
 
+    // MARK: - Project Thumbnail Header
+
+    private var projectThumbnailHeader: some View {
+        ZStack {
+            if let iconImage = project.iconImage,
+               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+                bgColor
+                Text(String(project.title.prefix(1)))
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 300)
+        .contentShape(Rectangle())
+    }
 
     // MARK: - Word Stats + Part-of-Speech Widgets
 

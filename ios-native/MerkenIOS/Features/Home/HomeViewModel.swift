@@ -32,7 +32,6 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var dueWordCount: Int = 0
     @Published private(set) var dueWords: [Word] = []
     @Published private(set) var duePartOfSpeechCounts: [ReviewPartOfSpeechCount] = []
-    @Published private(set) var homePartOfSpeechWidgets: [HomePartOfSpeechWidget] = []
     @Published private(set) var wordsByProject: [String: [Word]] = [:]
     @Published private(set) var dueCountByProject: [String: Int] = [:]
     @Published private(set) var loading = false
@@ -109,7 +108,6 @@ final class HomeViewModel: ObservableObject {
             dueWordCount = dueList.count
             dueWords = dueList
             duePartOfSpeechCounts = Self.reviewPartOfSpeechCounts(for: dueList)
-            homePartOfSpeechWidgets = Self.topHomePartOfSpeechWidgets(for: allWords, limit: 12)
             previewWord = dueList.first
             masteredWordCount = allWords.filter { $0.status == .mastered }.count
             favoriteWords = allWords.filter { $0.isFavorite }
@@ -146,7 +144,6 @@ final class HomeViewModel: ObservableObject {
         dueWordCount = 0
         dueWords = []
         duePartOfSpeechCounts = []
-        homePartOfSpeechWidgets = []
         wordsByProject = [:]
         dueCountByProject = [:]
         previewWord = nil
