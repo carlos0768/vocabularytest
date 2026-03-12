@@ -1,3 +1,5 @@
+import { normalizeLexiconTranslation } from '../../../shared/lexicon';
+
 export const LEXICON_ENTRY_SELECT_COLUMNS =
   'id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at' as const;
 
@@ -38,6 +40,10 @@ function firstNonEmpty(value: string | null | undefined): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function firstNormalizedJapanese(value: string | null | undefined): string | undefined {
+  return normalizeLexiconTranslation(value) ?? undefined;
+}
+
 export function resolveSelectedWordTexts<T extends ResolvableWordRow>(
   row: T,
 ): Omit<T, 'english' | 'japanese'> & {
@@ -50,7 +56,10 @@ export function resolveSelectedWordTexts<T extends ResolvableWordRow>(
   return {
     ...row,
     english: firstNonEmpty(row.english_override) ?? firstNonEmpty(lexicon?.headword) ?? row.english,
-    japanese: firstNonEmpty(row.japanese_override) ?? firstNonEmpty(lexicon?.translation_ja) ?? row.japanese,
+    japanese: firstNormalizedJapanese(row.japanese_override)
+      ?? firstNormalizedJapanese(lexicon?.translation_ja)
+      ?? firstNormalizedJapanese(row.japanese)
+      ?? row.japanese,
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
     cefrLevel: firstNonEmpty(lexicon?.cefr_level),
   };

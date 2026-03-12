@@ -11,7 +11,7 @@ import type {
   UsagePattern,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
-import { normalizeLexiconDatasetSources } from '../lexicon';
+import { normalizeLexiconDatasetSources, normalizeLexiconTranslation } from '../lexicon';
 
 // ============ Default Values ============
 
@@ -163,8 +163,9 @@ function resolveWordEnglish(row: WordRow): string {
 
 function resolveWordJapanese(row: WordRow): string {
   return (
-    toNonEmptyString(row.japanese_override) ??
-    toNonEmptyString(resolveLexiconRow(row.lexicon_entries)?.translation_ja) ??
+    normalizeLexiconTranslation(row.japanese_override) ??
+    normalizeLexiconTranslation(resolveLexiconRow(row.lexicon_entries)?.translation_ja) ??
+    normalizeLexiconTranslation(row.japanese) ??
     row.japanese
   );
 }
@@ -181,7 +182,7 @@ export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
     pos: row.pos,
     cefrLevel: row.cefr_level ?? undefined,
     datasetSources: normalizeLexiconDatasetSources(row.dataset_sources ?? []),
-    translationJa: row.translation_ja ?? undefined,
+    translationJa: normalizeLexiconTranslation(row.translation_ja) ?? undefined,
     translationSource: row.translation_source ?? undefined,
     createdAt: row.created_at ?? new Date(0).toISOString(),
     updatedAt: row.updated_at ?? new Date(0).toISOString(),

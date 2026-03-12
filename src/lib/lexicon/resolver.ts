@@ -15,10 +15,15 @@ import {
 const TRANSLATION_PROMPT = `あなたは英和辞典です。与えられた英単語・フレーズの日本語訳を返してください。
 
 ルール:
-- 日本語訳のみを返してください
+- 出力はJSONのみで返してください
 - 複数の意味がある場合は最も一般的な訳を1つ返す
 - 動詞の場合は「〜する」の形を優先する
-- 不要な説明や引用符は付けない`;
+- 不要な説明や引用符は付けない
+
+出力形式:
+{
+  "japanese": "日本語訳"
+}`;
 
 const TRANSLATION_HINT_VALIDATION_PROMPT = `あなたは英和辞典の品質チェッカーです。
 与えられた英語・品詞・日本語候補について、その日本語候補を共有語彙マスタへ保存してよいか厳密に判定してください。
@@ -43,6 +48,10 @@ const translationHintValidationSchema = z.object({
   useHint: z.boolean(),
   normalizedJapanese: z.string().trim().nullable().optional(),
   suggestedJapanese: z.string().trim().nullable().optional(),
+}).strict();
+
+const translationResponseSchema = z.object({
+  japanese: z.string().trim().min(1),
 }).strict();
 
 export interface LexiconResolverInput {
@@ -98,7 +107,7 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
     pos: row.pos,
     cefrLevel: row.cefr_level ?? undefined,
     datasetSources: row.dataset_sources ?? [],
-    translationJa: row.translation_ja ?? undefined,
+    translationJa: normalizeLexiconTranslation(row.translation_ja) ?? undefined,
     translationSource: row.translation_source ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -114,9 +123,17 @@ async function translateWithAI(english: string, _pos: LexiconPos): Promise<strin
   const result = await aiClient.provider.generateText(`${TRANSLATION_PROMPT}\n\n英語: ${english}`, {
     ...aiClient.config,
     maxOutputTokens: 256,
+    responseFormat: 'json',
   });
   if (!result.success) {
     return null;
+  }
+
+  try {
+    const parsed = translationResponseSchema.parse(JSON.parse(result.content));
+    return normalizeLexiconTranslation(parsed.japanese);
+  } catch {
+    // Fall back to heuristic sanitization if the provider ignored JSON mode.
   }
 
   return normalizeLexiconTranslation(result.content);
@@ -128,10 +145,10 @@ function getLexiconTextGenerationClient():
   const apiKeys = getAPIKeys();
 
   let config: AIModelConfig | null = null;
-  if (isCloudRunConfigured() || apiKeys.openai) {
-    config = AI_CONFIG.defaults.openai;
-  } else if (apiKeys.gemini) {
+  if (isCloudRunConfigured() || apiKeys.gemini) {
     config = AI_CONFIG.defaults.gemini;
+  } else if (apiKeys.openai) {
+    config = AI_CONFIG.defaults.openai;
   }
 
   if (!config) {

@@ -59,6 +59,29 @@ const OLP_TO_LEXICON_POS: Record<string, LexiconPos> = {
   vern: 'other',
 };
 
+const TRANSLATION_FIELD_KEYS = [
+  'japanese',
+  'translation',
+  'normalizedJapanese',
+  'suggestedJapanese',
+] as const;
+
+const VERBOSE_TRANSLATION_MARKERS = [
+  '思考プロセス',
+  '最終出力',
+  '入力の理解',
+  '主要な意味',
+  'ルール',
+  '判定ルール',
+  '出力形式',
+  '日本語候補',
+  '英語:',
+  '品詞:',
+  'useHint',
+];
+
+const JAPANESE_SPAN_REGEX = /[ぁ-んァ-ヶ一-龠々ー〜・]+(?:\s*[ぁ-んァ-ヶ一-龠々ー〜・]+)*/g;
+
 export function mergeLexiconEntries(...groups: Array<LexiconEntry[] | null | undefined>): LexiconEntry[] {
   const merged = new Map<string, LexiconEntry>();
   for (const group of groups) {
@@ -96,10 +119,119 @@ export function resolvePrimaryLexiconPos(value: string[] | null | undefined): Le
 
 export function normalizeLexiconTranslation(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null;
-  const normalized = value
-    .trim()
-    .replace(/\s+/g, ' ');
+
+  const normalized = sanitizeLexiconTranslation(value);
   return normalized.length > 0 ? normalized : null;
+}
+
+function sanitizeLexiconTranslation(value: string): string {
+  const extractedFromJson = extractTranslationFromJson(value);
+  const extractedFromMarker = extractTranslationFromFinalOutput(value);
+  let candidate = extractedFromJson ?? extractedFromMarker ?? value;
+
+  candidate = candidate
+    .replace(/```(?:json)?/gi, ' ')
+    .replace(/```/g, ' ')
+    .replace(/\*\*/g, ' ')
+    .replace(/__/g, ' ')
+    .replace(/\r/g, '\n');
+
+  candidate = candidate
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  candidate = stripWrappingDecorations(stripLeadingTranslationLabel(candidate));
+  candidate = dedupeRepeatedTranslation(candidate);
+
+  if (!candidate) {
+    return '';
+  }
+
+  const looksVerbose = VERBOSE_TRANSLATION_MARKERS.some((marker) => candidate.includes(marker))
+    || candidate.includes('{')
+    || candidate.includes('}')
+    || candidate.includes('->')
+    || candidate.length > 60;
+
+  if (looksVerbose) {
+    const extracted = extractLastJapaneseSpan(candidate);
+    if (extracted) {
+      candidate = extracted;
+    }
+  }
+
+  return dedupeRepeatedTranslation(
+    stripWrappingDecorations(stripLeadingTranslationLabel(candidate)).replace(/\s+/g, ' ').trim(),
+  );
+}
+
+function extractTranslationFromJson(value: string): string | null {
+  const trimmed = value.trim();
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    for (const key of TRANSLATION_FIELD_KEYS) {
+      const candidate = parsed[key];
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  } catch {
+    // Ignore malformed JSON and try heuristic extraction below.
+  }
+
+  for (const key of TRANSLATION_FIELD_KEYS) {
+    const match = trimmed.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, 'i'));
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+
+  return null;
+}
+
+function extractTranslationFromFinalOutput(value: string): string | null {
+  const normalized = value.replace(/\*\*/g, ' ');
+  const match = normalized.match(/(?:最終出力|final output)\s*[:：]\s*([\s\S]+)$/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function stripLeadingTranslationLabel(value: string): string {
+  return value.replace(/^(?:日本語訳?|訳|translation|answer)\s*[:：]\s*/i, '');
+}
+
+function stripWrappingDecorations(value: string): string {
+  return value
+    .replace(/^[\s"'`“”‘’「」『』【】\(\)（）]+/, '')
+    .replace(/[\s"'`“”‘’「」『』【】\(\)（）]+$/, '')
+    .trim();
+}
+
+function dedupeRepeatedTranslation(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  const repeated = normalized.match(/^(.+?)\s+\1$/);
+  return repeated?.[1]?.trim() ?? normalized;
+}
+
+function extractLastJapaneseSpan(value: string): string | null {
+  const matches = value.match(JAPANESE_SPAN_REGEX);
+  if (!matches) {
+    return null;
+  }
+
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const candidate = dedupeRepeatedTranslation(matches[index]!.replace(/\s+/g, ' ').trim());
+    if (!candidate) continue;
+    if (VERBOSE_TRANSLATION_MARKERS.some((marker) => candidate.includes(marker.replace(/[:：]/g, '')))) {
+      continue;
+    }
+    return candidate;
+  }
+
+  return null;
 }
 
 export function normalizeLexiconDatasetSources(value: Iterable<string>): string[] {

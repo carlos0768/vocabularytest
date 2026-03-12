@@ -7,6 +7,7 @@ import {
   insertProjectWithSourceLabelsCompat,
   updateProjectSourceLabelsCompat,
 } from '@/lib/supabase/project-source-labels-compat';
+import { normalizeLexiconTranslation } from '../../../shared/lexicon';
 import {
   mapProjectFromRow,
   mapProjectToInsert,
@@ -235,7 +236,7 @@ export class RemoteWordRepository implements WordRepository {
       pos: row.pos as string,
       cefrLevel: (row.cefr_level as string | null) ?? undefined,
       datasetSources: (row.dataset_sources as string[] | null) ?? [],
-      translationJa: (row.translation_ja as string | null) ?? undefined,
+      translationJa: normalizeLexiconTranslation(row.translation_ja as string | null) ?? undefined,
       translationSource: (row.translation_source as string | null) ?? undefined,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,

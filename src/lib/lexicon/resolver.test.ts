@@ -220,6 +220,26 @@ test('resolveOrCreateLexiconEntry reuses existing translation without AI fallbac
   assert.equal(translateCalls, 0);
 });
 
+test('resolveOrCreateLexiconEntry sanitizes verbose stored translations when reusing lexicon rows', async () => {
+  const supabase = new FakeLexiconSupabase([
+    createRow({
+      headword: 'antibiotics',
+      normalized_headword: 'antibiotics',
+      pos: 'noun',
+      translation_ja: '思考プロセス: 1. 入力の理解 2. 最終出力: 抗生物質',
+      translation_source: 'ai',
+    }),
+  ]);
+
+  const entry = await resolveOrCreateLexiconEntry(
+    { english: 'antibiotics', partOfSpeechTags: ['noun'] },
+    createDeps(supabase, async () => 'unused'),
+  );
+
+  assert.equal(entry?.translationJa, '抗生物質');
+  assert.equal(entry?.translationSource, 'ai');
+});
+
 test('resolveOrCreateLexiconEntry fills missing translation from scan hint and persists it', async () => {
   const supabase = new FakeLexiconSupabase([
     createRow({
@@ -257,7 +277,7 @@ test('resolveOrCreateLexiconEntry creates and then reuses runtime rows with AI f
   let translateCalls = 0;
   const deps = createDeps(supabase, async () => {
     translateCalls += 1;
-    return '本';
+    return '思考プロセス: 1. 入力の理解 2. 最終出力: 本';
   });
 
   const first = await resolveOrCreateLexiconEntry(
