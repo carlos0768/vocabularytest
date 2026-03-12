@@ -15,6 +15,7 @@ const DEFAULT_PRICING: Record<'openai' | 'gemini', ProviderPricingTable> = {
     'text-embedding-3-small': { inputUsdPerMillion: 0.02, outputUsdPerMillion: 0.0 },
   },
   gemini: {
+    'gemini-2.0-flash-001': { inputUsdPerMillion: 0.10, outputUsdPerMillion: 0.40 },
     'gemini-2.5-flash': { inputUsdPerMillion: 0.3, outputUsdPerMillion: 2.5, thinkingUsdPerMillion: 0.70 },
   },
 };
@@ -49,6 +50,7 @@ function normalizeProvider(provider: string): 'openai' | 'gemini' | null {
 
 function normalizeModel(model: string): string {
   const normalized = model.trim().toLowerCase();
+  if (normalized.includes('gemini-2.0-flash')) return 'gemini-2.0-flash-001';
   if (normalized.includes('gemini-2.5-flash')) return 'gemini-2.5-flash';
   if (normalized.includes('gpt-4o-mini')) return 'gpt-4o-mini';
   if (normalized.includes('gpt-4o')) return 'gpt-4o';
