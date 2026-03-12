@@ -741,7 +741,7 @@ export async function POST(request: NextRequest) {
             getSupabaseAdmin(),
             {
               user_id: job.user_id,
-              title: finalTitle,
+              title: job.project_title,
               source_labels: dedupedSourceLabels,
               icon_image: job.project_icon_image ?? null,
             },
