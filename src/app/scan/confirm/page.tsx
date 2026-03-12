@@ -10,10 +10,11 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getRepository } from '@/lib/db';
+import { getDb } from '@/lib/db/dexie';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
-import type { AIWordExtraction, Word } from '@/types';
+import type { AIWordExtraction, LexiconEntry, Word } from '@/types';
 import { ensureSourceLabels, mergeSourceLabels, normalizeSourceLabels } from '../../../../shared/source-labels';
 
 interface EditableWord extends AIWordExtraction {
@@ -71,17 +72,27 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 function getInitialData(): {
   words: AIWordExtraction[] | null;
   sourceLabels: string[];
+  lexiconEntries: LexiconEntry[];
   projectName: string | null;
   projectIcon: string | null;
   existingProjectId: string | null;
   scanAiEnabled: boolean | null;
 } {
   if (typeof window === 'undefined') {
-    return { words: null, sourceLabels: [], projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
+    return {
+      words: null,
+      sourceLabels: [],
+      lexiconEntries: [],
+      projectName: null,
+      projectIcon: null,
+      existingProjectId: null,
+      scanAiEnabled: null,
+    };
   }
   try {
     const stored = sessionStorage.getItem('scanvocab_extracted_words');
     const sourceLabelsStored = sessionStorage.getItem('scanvocab_source_labels');
+    const lexiconEntriesStored = sessionStorage.getItem('scanvocab_lexicon_entries');
     const projectName = sessionStorage.getItem('scanvocab_project_name');
     const projectIcon = sessionStorage.getItem('scanvocab_project_icon');
     const existingProjectId = sessionStorage.getItem('scanvocab_existing_project_id');
@@ -91,15 +102,26 @@ function getInitialData(): {
     const sourceLabels = sourceLabelsStored
       ? ensureSourceLabels(JSON.parse(sourceLabelsStored) as unknown[])
       : [];
+    const lexiconEntries = lexiconEntriesStored
+      ? (JSON.parse(lexiconEntriesStored) as LexiconEntry[])
+      : [];
 
     if (stored) {
       const words = JSON.parse(stored) as AIWordExtraction[];
-      return { words, sourceLabels, projectName, projectIcon, existingProjectId, scanAiEnabled };
+      return { words, sourceLabels, lexiconEntries, projectName, projectIcon, existingProjectId, scanAiEnabled };
     }
   } catch {
     // Parse error - will redirect
   }
-  return { words: null, sourceLabels: [], projectName: null, projectIcon: null, existingProjectId: null, scanAiEnabled: null };
+  return {
+    words: null,
+    sourceLabels: [],
+    lexiconEntries: [],
+    projectName: null,
+    projectIcon: null,
+    existingProjectId: null,
+    scanAiEnabled: null,
+  };
 }
 
 export default function ConfirmPage() {
@@ -217,6 +239,15 @@ export default function ConfirmPage() {
       isSelected: true,
     };
     setWords((prev) => [...prev, newWord]);
+  };
+
+  const persistLexiconEntries = async (entries: LexiconEntry[]) => {
+    if (entries.length === 0) return;
+    try {
+      await getDb().lexiconEntries.bulkPut(entries);
+    } catch (error) {
+      console.error('Failed to cache lexicon entries locally:', error);
+    }
   };
 
   const prefillQuizData = async (
@@ -431,11 +462,15 @@ export default function ConfirmPage() {
       }
 
       // Add words to project
+      await persistLexiconEntries(initialData.lexiconEntries);
+
       const createdWords = await repository.createWords(
         selectedWords.map((w) => ({
           projectId: targetProjectId,
           english: w.english,
           japanese: w.japanese,
+          lexiconEntryId: w.lexiconEntryId,
+          cefrLevel: w.cefrLevel,
           distractors: w.distractors,
           partOfSpeechTags: w.partOfSpeechTags,
           exampleSentence: w.exampleSentence,
@@ -453,6 +488,7 @@ export default function ConfirmPage() {
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');
       sessionStorage.removeItem('scanvocab_source_labels');
+      sessionStorage.removeItem('scanvocab_lexicon_entries');
       sessionStorage.removeItem('scanvocab_project_name');
       sessionStorage.removeItem('scanvocab_project_icon');
       sessionStorage.removeItem('scanvocab_existing_project_id');

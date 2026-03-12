@@ -7,7 +7,7 @@ import { normalizeSourceLabels } from '../../../shared/source-labels';
 
 export const AIWordSchema = z.object({
   english: z.string(),
-  japanese: z.string(),
+  japanese: z.string().optional().default(''),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
   // Optional example sentence fields (Pro feature)
@@ -22,7 +22,7 @@ export const AIWordSchema = z.object({
   return {
   ...word,
   english: word.english || '---',
-  japanese: sanitizedJapanese || '---',
+  japanese: sanitizedJapanese,
   // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
   distractors: word.distractors,
   partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),

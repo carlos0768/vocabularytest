@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import { z } from 'zod';
+import {
+  RESOLVED_WORD_TEXT_SELECT_COLUMNS,
+  resolveSelectedWordTexts,
+} from '@/lib/words/resolved';
 
 const BATCH_SIZE = 100;
 const adminHeaderSchema = z.object({
@@ -42,7 +46,7 @@ export async function POST(request: NextRequest) {
     // embeddingがない全単語を取得
     const { data: words, error } = await supabase
       .from('words')
-      .select('id, english, japanese')
+      .select(RESOLVED_WORD_TEXT_SELECT_COLUMNS)
       .is('embedding', null)
       .not('english', 'is', null)
       .neq('english', '')
@@ -52,7 +56,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (!words || words.length === 0) {
+    const resolvedWords = (words || []).map((word) => resolveSelectedWordTexts(word));
+
+    if (resolvedWords.length === 0) {
       // 残り数を確認
       const { count } = await supabase
         .from('words')
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // バイリンガルテキストを生成
-    const texts = words.map((w) => {
+    const texts = resolvedWords.map((w) => {
       const en = w.english.trim();
       const ja = w.japanese?.trim();
       return ja ? `${en} ${ja}` : en;
@@ -82,9 +88,9 @@ export async function POST(request: NextRequest) {
     let successCount = 0;
     let failureCount = 0;
 
-    for (let i = 0; i < words.length; i++) {
+    for (let i = 0; i < resolvedWords.length; i++) {
       const { error: updateError } = await supabase.rpc('update_word_embedding', {
-        word_id: words[i].id,
+        word_id: resolvedWords[i].id,
         new_embedding: embeddings[i],
       });
 

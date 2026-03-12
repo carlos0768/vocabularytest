@@ -127,11 +127,21 @@ export class HybridWordRepository implements WordRepository {
         await db.words.where('projectId').anyOf(wordsProjectIdsToReplace).delete();
       }
 
+      await db.lexiconEntries.clear();
+
       if (mergedProjectIds.length > 0) {
         const remoteWordsByProject = await remoteRepository.getAllWordsByProjectIds(mergedProjectIds);
         const remoteWords = mergedProjectIds.flatMap((projectId) => remoteWordsByProject[projectId] ?? []);
         if (remoteWords.length > 0) {
           await db.words.bulkPut(remoteWords);
+        }
+
+        const lexiconEntryIds = [...new Set(remoteWords.map((word) => word.lexiconEntryId).filter(Boolean))] as string[];
+        if (lexiconEntryIds.length > 0) {
+          const lexiconEntries = await remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
+          if (lexiconEntries.length > 0) {
+            await db.lexiconEntries.bulkPut(lexiconEntries);
+          }
         }
       }
 

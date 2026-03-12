@@ -17,6 +17,7 @@ import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { resolveWordsWithLexicon } from '@/lib/lexicon/resolver';
 import {
   insertProjectWithSourceLabelsCompat,
   selectProjectWithSourceLabelsCompat,
@@ -56,10 +57,12 @@ type ExtractionLikeResult =
 interface ProcessedExtractedWord {
   english: string;
   japanese: string;
+  lexiconEntryId?: string;
+  cefrLevel?: string;
   distractors: string[];
-  partOfSpeechTags: string[];
-  exampleSentence: string | null;
-  exampleSentenceJa: string | null;
+  partOfSpeechTags?: string[];
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
 }
 
 // Keep internal timeout below platform timeout to fail gracefully.
@@ -209,9 +212,9 @@ function normalizeText(value: unknown): string {
     .join(' ');
 }
 
-function firstNonEmpty(value: unknown): string | null {
+function firstNonEmpty(value: unknown): string | undefined {
   const normalized = normalizeText(value);
-  return normalized.length > 0 ? normalized : null;
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function mergeDistractors(existing: string[], incoming: unknown): string[] {
@@ -241,14 +244,14 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
     const word = rawWord as Record<string, unknown>;
     const english = normalizeText(word.english);
     const japanese = normalizeText(word.japanese);
-    if (!english || !japanese) continue;
+    if (!english) continue;
     // Filter out placeholder/invalid Japanese translations
     const INVALID_JAPANESE = ['unknown', '不明', 'n/a', '-', '---'];
-    if (INVALID_JAPANESE.includes(japanese.toLowerCase())) continue;
+    const normalizedJapanese = INVALID_JAPANESE.includes(japanese.toLowerCase()) ? '' : japanese;
 
     parsed.push({
       english,
-      japanese,
+      japanese: normalizedJapanese,
       distractors: mergeDistractors([], word.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
       exampleSentence: firstNonEmpty(word.exampleSentence),
@@ -287,7 +290,10 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
       english: existing.english,
       japanese: existing.japanese,
       distractors: mergeDistractors(existing.distractors, source.distractors),
-      partOfSpeechTags: normalizePartOfSpeechTags([...existing.partOfSpeechTags, ...source.partOfSpeechTags]),
+      partOfSpeechTags: normalizePartOfSpeechTags([
+        ...(existing.partOfSpeechTags ?? []),
+        ...(source.partOfSpeechTags ?? []),
+      ]),
       exampleSentence: existing.exampleSentence ?? firstNonEmpty(source.exampleSentence),
       exampleSentenceJa: existing.exampleSentenceJa ?? firstNonEmpty(source.exampleSentenceJa),
     };
@@ -634,6 +640,8 @@ export async function POST(request: NextRequest) {
       }
 
       const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
+      const resolvedLexicon = await resolveWordsWithLexicon(dedupedWords);
+      const resolvedWords = resolvedLexicon.words;
 
       if (saveMode === 'client_local') {
         const resultPayload: {
@@ -642,11 +650,13 @@ export async function POST(request: NextRequest) {
           saveMode: ScanJobSaveMode;
           extractedWords: ProcessedExtractedWord[];
           sourceLabels: string[];
+          lexiconEntries: typeof resolvedLexicon.lexiconEntries;
         } = {
-          wordCount: dedupedWords.length,
+          wordCount: resolvedWords.length,
           saveMode,
-          extractedWords: dedupedWords,
+          extractedWords: resolvedWords,
           sourceLabels: dedupedSourceLabels,
+          lexiconEntries: resolvedLexicon.lexiconEntries,
         };
         if (warnings.length > 0) {
           resultPayload.warnings = warnings;
@@ -668,7 +678,7 @@ export async function POST(request: NextRequest) {
           projectId: null,
           projectTitle: job.project_title,
           status: 'completed' as const,
-          wordCount: dedupedWords.length,
+          wordCount: resolvedWords.length,
         };
         void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
         void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
@@ -677,7 +687,7 @@ export async function POST(request: NextRequest) {
           success: true,
           saveMode,
           projectId: null,
-          wordCount: dedupedWords.length,
+          wordCount: resolvedWords.length,
         });
       }
 
@@ -762,10 +772,11 @@ export async function POST(request: NextRequest) {
         console.warn('[scan-jobs/process] projects.source_labels compatibility fallback used');
       }
 
-      const wordsToInsert = dedupedWords.map((word) => ({
+      const wordsToInsert = resolvedWords.map((word) => ({
         project_id: projectId,
         english: word.english,
         japanese: word.japanese,
+        lexicon_entry_id: word.lexiconEntryId ?? null,
         distractors: word.distractors,
         example_sentence: word.exampleSentence || null,
         example_sentence_ja: word.exampleSentenceJa || null,
@@ -775,7 +786,7 @@ export async function POST(request: NextRequest) {
       const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
         .from('words')
         .insert(wordsToInsert)
-        .select('id, english, japanese, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
+        .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
 
       if (wordsError) {
         if (createdNewProject) {
@@ -796,7 +807,7 @@ export async function POST(request: NextRequest) {
         quizPrefillSucceeded?: number;
         quizPrefillFailed?: number;
       } = {
-        wordCount: dedupedWords.length,
+        wordCount: resolvedWords.length,
         saveMode,
         targetProjectId: projectId,
         sourceLabels: dedupedSourceLabels,
@@ -821,7 +832,7 @@ export async function POST(request: NextRequest) {
         projectId,
         projectTitle: projectTitleForNotification,
         status: 'completed' as const,
-        wordCount: dedupedWords.length,
+        wordCount: resolvedWords.length,
       };
       void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
       void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
@@ -940,7 +951,7 @@ export async function POST(request: NextRequest) {
         success: true,
         saveMode,
         projectId,
-        wordCount: dedupedWords.length,
+        wordCount: resolvedWords.length,
       });
 
     } catch (processingError) {

@@ -7,6 +7,7 @@ export type {
   WordStatus,
   RelatedWord,
   UsagePattern,
+  LexiconEntry,
   Word,
   Project,
   AIWordExtraction,

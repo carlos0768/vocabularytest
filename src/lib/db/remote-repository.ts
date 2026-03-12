@@ -1,7 +1,7 @@
 import { createBrowserClient } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, Word, WordRepository } from '@/types';
-import type { Collection, CollectionProject } from '@/types';
+import type { Collection, CollectionProject, LexiconEntry } from '@/types';
 import {
   hasMissingProjectSourceLabelsColumn,
   insertProjectWithSourceLabelsCompat,
@@ -13,8 +13,6 @@ import {
   mapProjectToInsertWithId,
   mapProjectUpdates,
   mapWordFromRow,
-  mapWordToInsert,
-  mapWordToInsertWithId,
   mapWordUpdates,
   mapCollectionFromRow,
   mapCollectionToInsert,
@@ -26,12 +24,12 @@ import {
   type CollectionRow,
   type CollectionProjectRow,
 } from '../../../shared/db';
+import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
 
 // Remote implementation of WordRepository using Supabase
 // Used for Pro tier users - data synced across devices
 
-export const WORDS_SELECT_COLUMNS =
-  'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
+export const WORDS_SELECT_COLUMNS = RESOLVED_WORD_SELECT_COLUMNS;
 
 export class RemoteWordRepository implements WordRepository {
   private _supabase: SupabaseClient | null = null;
@@ -42,6 +40,17 @@ export class RemoteWordRepository implements WordRepository {
       this._supabase = createBrowserClient();
     }
     return this._supabase;
+  }
+
+  private async getAuthHeaders(): Promise<HeadersInit> {
+    const { data: { session } } = await this.supabase.auth.getSession();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    return headers;
   }
 
   // ============ Projects ============
@@ -155,27 +164,82 @@ export class RemoteWordRepository implements WordRepository {
 
   async createWordsWithIds(words: Word[]): Promise<void> {
     if (words.length === 0) return;
+    const response = await fetch('/api/words/create', {
+      method: 'POST',
+      headers: await this.getAuthHeaders(),
+      body: JSON.stringify({
+        words: words.map((word) => ({
+          id: word.id,
+          projectId: word.projectId,
+          english: word.english,
+          japanese: word.japanese,
+          lexiconEntryId: word.lexiconEntryId,
+          distractors: word.distractors,
+          exampleSentence: word.exampleSentence,
+          exampleSentenceJa: word.exampleSentenceJa,
+          pronunciation: word.pronunciation,
+          partOfSpeechTags: word.partOfSpeechTags,
+          relatedWords: word.relatedWords,
+          usagePatterns: word.usagePatterns,
+          insightsGeneratedAt: word.insightsGeneratedAt,
+          insightsVersion: word.insightsVersion,
+          status: word.status,
+          createdAt: word.createdAt,
+          lastReviewedAt: word.lastReviewedAt,
+          nextReviewAt: word.nextReviewAt,
+          easeFactor: word.easeFactor,
+          intervalDays: word.intervalDays,
+          repetition: word.repetition,
+          isFavorite: word.isFavorite,
+        })),
+      }),
+    });
 
-    const { error } = await this.supabase
-      .from('words')
-      .upsert(words.map(mapWordToInsertWithId), { onConflict: 'id', ignoreDuplicates: true });
-
-    if (error) throw new Error(`Failed to upsert words: ${error.message}`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || 'Failed to upsert words');
+    }
   }
 
   // ============ Words ============
 
   async createWords(words: WordInput[]): Promise<Word[]> {
-    const wordsToInsert = words.map(mapWordToInsert);
+    const response = await fetch('/api/words/create', {
+      method: 'POST',
+      headers: await this.getAuthHeaders(),
+      body: JSON.stringify({ words }),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.error || 'Failed to create words');
+    }
+
+    return (payload.words as Word[]) ?? [];
+  }
+
+  async getLexiconEntriesByIds(ids: string[]): Promise<LexiconEntry[]> {
+    if (ids.length === 0) return [];
 
     const { data, error } = await this.supabase
-      .from('words')
-      .insert(wordsToInsert)
-      .select();
+      .from('lexicon_entries')
+      .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at')
+      .in('id', ids);
 
-    if (error) throw new Error(`Failed to create words: ${error.message}`);
+    if (error) throw new Error(`Failed to get lexicon entries: ${error.message}`);
 
-    return (data as WordRow[]).map(mapWordFromRow);
+    return (data || []).map((row) => ({
+      id: row.id as string,
+      headword: row.headword as string,
+      normalizedHeadword: row.normalized_headword as string,
+      pos: row.pos as string,
+      cefrLevel: (row.cefr_level as string | null) ?? undefined,
+      datasetSources: (row.dataset_sources as string[] | null) ?? [],
+      translationJa: (row.translation_ja as string | null) ?? undefined,
+      translationSource: (row.translation_source as string | null) ?? undefined,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    }));
   }
 
   async getWords(projectId: string): Promise<Word[]> {

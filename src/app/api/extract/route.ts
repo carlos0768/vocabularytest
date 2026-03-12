@@ -5,6 +5,7 @@ import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { resolveWordsWithLexicon } from '@/lib/lexicon/resolver';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
 
 // Extraction modes
@@ -237,13 +238,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const resolved = await resolveWordsWithLexicon(result.data.words);
+
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
     return NextResponse.json({
       success: true,
-      words: result.data.words,
+      words: resolved.words,
       sourceLabels: ensureSourceLabels(result.data.sourceLabels),
+      lexiconEntries: resolved.lexiconEntries,
       scanInfo: {
         currentCount: scanData.current_count,
         limit: scanData.limit,

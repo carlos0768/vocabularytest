@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { resolveOrCreateLexiconEntry } from '@/lib/lexicon/resolver';
+import { RESOLVED_WORD_TEXT_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { mapWordFromRow, type WordRow as SharedWordRow } from '../../../../../shared/db';
 import {
   buildDefaultProjectTitle,
   normalizeEnglish,
@@ -85,7 +88,7 @@ const defaultDeps: CommitDeps = {
     const supabase = await createRouteHandlerClient(request);
     const { data, error } = await supabase
       .from('words')
-      .select('id,english,japanese')
+      .select(RESOLVED_WORD_TEXT_SELECT_COLUMNS)
       .eq('project_id', projectId)
       .limit(5000);
 
@@ -93,16 +96,29 @@ const defaultDeps: CommitDeps = {
       throw new Error(error.message || 'word_list_failed');
     }
 
-    return (data ?? []) as WordRow[];
+    return ((data ?? []) as SharedWordRow[]).map((row) => {
+      const word = mapWordFromRow(row);
+      return {
+        id: word.id,
+        english: word.english,
+        japanese: word.japanese,
+      };
+    });
   },
   async insertWord(request: NextRequest, projectId: string, english: string, japanese: string) {
     const supabase = await createRouteHandlerClient(request);
+    const lexiconEntry = await resolveOrCreateLexiconEntry({
+      english,
+      japaneseHint: japanese,
+      partOfSpeechTags: ['other'],
+    });
     const { data, error } = await supabase
       .from('words')
       .insert({
         project_id: projectId,
         english,
         japanese,
+        lexicon_entry_id: lexiconEntry?.id ?? null,
         distractors: [],
       })
       .select('id')

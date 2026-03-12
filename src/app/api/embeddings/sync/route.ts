@@ -4,6 +4,10 @@ import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  RESOLVED_WORD_TEXT_SELECT_COLUMNS,
+  resolveSelectedWordTexts,
+} from '@/lib/words/resolved';
 
 const BATCH_SIZE = 50; // 一度に処理する単語数
 const requestSchema = z.object({
@@ -88,7 +92,7 @@ export async function POST(request: NextRequest) {
       // 特定のwordIdが指定された場合
       const { data: words, error: wordsError } = await supabase
         .from('words')
-        .select('id, english, japanese')
+        .select(RESOLVED_WORD_TEXT_SELECT_COLUMNS)
         .in('id', body.wordIds)
         .is('embedding', null);
 
@@ -100,7 +104,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      wordsToProcess = words || [];
+      wordsToProcess = (words || []).map((word) => resolveSelectedWordTexts(word));
     } else {
       // embeddingがない単語をすべて取得
       const { data: words, error: wordsError } = await supabase.rpc(

@@ -8,6 +8,10 @@ import {
   toCacheRows,
 } from '@/lib/similarity/similar-cache';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS,
+  resolveSelectedWordTexts,
+} from '@/lib/words/resolved';
 
 const requestSchema = z.object({
   userId: z.string().uuid(),
@@ -116,14 +120,14 @@ const defaultDeps: RebuildDeps = {
 
     const { data: words, error: wordsError } = await client
       .from('words')
-      .select('id, project_id, english, japanese, embedding')
+      .select(RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS)
       .in('project_id', projectIds);
 
     if (wordsError) {
       throw new Error(`Failed to fetch user words: ${wordsError.message}`);
     }
 
-    return (words || []) as UserWordRow[];
+    return ((words || []) as UserWordRow[]).map((word) => resolveSelectedWordTexts(word));
   },
   async refreshCacheForSources(client, args) {
     const sourceWordIds = dedupeIds(args.sourceWordIds);
@@ -266,4 +270,3 @@ export async function handleSimilarCacheRebuildPost(
 export async function POST(request: NextRequest) {
   return handleSimilarCacheRebuildPost(request, defaultDeps);
 }
-

@@ -4,15 +4,16 @@ import fs from 'node:fs';
 import { WORDS_SELECT_COLUMNS } from './remote-repository';
 
 test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', () => {
-  const columns = WORDS_SELECT_COLUMNS.split(',').map((column) => column.trim());
+  assert.equal(WORDS_SELECT_COLUMNS.includes('embedding'), false);
 
-  assert.equal(columns.includes('embedding'), false);
-
-  const expectedColumns = [
+  const expectedFragments = [
     'id',
     'project_id',
     'english',
     'japanese',
+    'lexicon_entry_id',
+    'english_override',
+    'japanese_override',
     'distractors',
     'example_sentence',
     'example_sentence_ja',
@@ -30,9 +31,22 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'interval_days',
     'repetition',
     'is_favorite',
+    'lexicon_entries(',
+    'normalized_headword',
+    'cefr_level',
+    'dataset_sources',
+    'translation_ja',
+    'translation_source',
+    'updated_at',
   ];
 
-  assert.deepEqual(columns, expectedColumns);
+  for (const fragment of expectedFragments) {
+    assert.equal(
+      WORDS_SELECT_COLUMNS.includes(fragment),
+      true,
+      `WORDS_SELECT_COLUMNS should include ${fragment}`,
+    );
+  }
 });
 
 test('word read methods query with WORDS_SELECT_COLUMNS', () => {

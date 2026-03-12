@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS,
+  resolveSelectedWordTexts,
+} from '@/lib/words/resolved';
 
 const requestSchema = z.object({
   sourceWordId: z.string().uuid(),
@@ -91,7 +95,7 @@ const defaultDeps: SimilarDeps = {
   async getSourceWord(client, sourceWordId) {
     const { data, error } = await client
       .from('words')
-      .select('id, project_id, english, japanese, embedding')
+      .select(RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS)
       .eq('id', sourceWordId)
       .maybeSingle();
 
@@ -100,7 +104,7 @@ const defaultDeps: SimilarDeps = {
       return null;
     }
 
-    return data as SourceWordRow | null;
+    return data ? resolveSelectedWordTexts(data as SourceWordRow) : null;
   },
   async hasProjectOwnership(client, projectId, userId) {
     const { data, error } = await client
