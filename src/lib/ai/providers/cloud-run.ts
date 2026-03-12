@@ -7,6 +7,7 @@
  */
 
 import type { AIModelConfig } from '../config';
+import { normalizeGeminiModel } from '../gemini-model';
 import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
 import { recordApiCostEvent } from '@/lib/api-cost/recorder';
@@ -26,6 +27,9 @@ export class CloudRunProvider implements AIProvider {
 
   async generate(request: AIRequest): Promise<AIResponse> {
     const { systemPrompt, prompt, image, config } = request;
+    const normalizedModel = this.providerName === 'gemini'
+      ? normalizeGeminiModel(config.model)
+      : config.model;
 
     try {
       const response = await fetch(`${this.url}/generate`, {
@@ -36,7 +40,7 @@ export class CloudRunProvider implements AIProvider {
         },
         body: JSON.stringify({
           provider: this.providerName,
-          model: config.model,
+          model: normalizedModel,
           prompt,
           systemPrompt,
           image: image ? { base64: image.base64, mimeType: image.mimeType } : undefined,
@@ -56,7 +60,7 @@ export class CloudRunProvider implements AIProvider {
       if (!data.success) {
         await recordApiCostEvent({
           provider: `cloud-run-${this.providerName}`,
-          model: config.model,
+          model: normalizedModel,
           operation: 'ai_provider.generate',
           status: 'failed',
           metadata: {
@@ -71,7 +75,7 @@ export class CloudRunProvider implements AIProvider {
         : this.providerName;
       const modelUsed = typeof data.modelUsed === 'string'
         ? data.modelUsed
-        : config.model;
+        : normalizedModel;
       const usage = data.usage as {
         inputTokens?: number;
         outputTokens?: number;
@@ -90,6 +94,7 @@ export class CloudRunProvider implements AIProvider {
           fallback_reason: typeof data.fallbackReason === 'string' ? data.fallbackReason : undefined,
           requested_provider: this.providerName,
           requested_model: config.model,
+          normalized_model: normalizedModel,
         },
       });
 
@@ -97,7 +102,7 @@ export class CloudRunProvider implements AIProvider {
     } catch (error) {
       await recordApiCostEvent({
         provider: `cloud-run-${this.providerName}`,
-        model: request.config.model,
+        model: normalizedModel,
         operation: 'ai_provider.generate',
         status: 'failed',
         metadata: {

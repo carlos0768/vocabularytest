@@ -1,3 +1,5 @@
+import { DEFAULT_GEMINI_FLASH_MODEL, normalizeGeminiModel } from './gemini-model';
+
 /**
  * AI Configuration
  *
@@ -15,8 +17,9 @@ export type GeminiModel =
   | 'gemini-3-flash-preview';
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
-const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
-const QUESTION_GENERATION_MODEL: GeminiModel = 'gemini-2.0-flash-001';
+const EXTRACTION_MODEL: GeminiModel = DEFAULT_GEMINI_FLASH_MODEL;
+const QUESTION_GENERATION_MODEL: GeminiModel = DEFAULT_GEMINI_FLASH_MODEL;
+const OPENAI_MODEL: OpenAIModel = 'gpt-4o';
 
 export interface AIModelConfig {
   provider: AIProvider;
@@ -120,8 +123,10 @@ export function getAPIKey(provider: AIProvider): string | undefined {
 }
 
 export function setGlobalProvider(provider: AIProvider, model?: string): void {
-  const defaultModel = provider === 'openai' ? QUESTION_GENERATION_MODEL : EXTRACTION_MODEL;
-  const targetModel = model || defaultModel;
+  const defaultModel = provider === 'openai' ? OPENAI_MODEL : EXTRACTION_MODEL;
+  const targetModel = provider === 'gemini'
+    ? normalizeGeminiModel(model || defaultModel)
+    : model || defaultModel;
 
   AI_CONFIG.extraction.words.provider = provider;
   AI_CONFIG.extraction.words.model = targetModel;

@@ -6,6 +6,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import type { AIModelConfig } from '../config';
+import { normalizeGeminiModel } from '../gemini-model';
 import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
 import { recordApiCostEvent } from '@/lib/api-cost/recorder';
@@ -20,6 +21,7 @@ export class GeminiProvider implements AIProvider {
 
   async generate(request: AIRequest): Promise<AIResponse> {
     const { systemPrompt, prompt, image, images, config } = request;
+    const model = normalizeGeminiModel(config.model);
 
     try {
       const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
@@ -51,7 +53,7 @@ export class GeminiProvider implements AIProvider {
       }
 
       const response = await this.client.models.generateContent({
-        model: config.model,
+        model,
         contents: [
           {
             role: 'user',
@@ -68,7 +70,7 @@ export class GeminiProvider implements AIProvider {
       } | undefined;
       await recordApiCostEvent({
         provider: 'gemini',
-        model: config.model,
+        model,
         operation: 'ai_provider.generate',
         status: 'succeeded',
         inputTokens: usage?.promptTokenCount ?? null,
@@ -97,7 +99,7 @@ export class GeminiProvider implements AIProvider {
     } catch (error) {
       await recordApiCostEvent({
         provider: 'gemini',
-        model: request.config.model,
+        model,
         operation: 'ai_provider.generate',
         status: 'failed',
         metadata: {

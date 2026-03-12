@@ -13,6 +13,7 @@ import {
   GeminiFallbackRunner,
   loadFallbackConfigFromEnv,
 } from './fallback/runner.js';
+import { normalizeGeminiModel } from './gemini-model.js';
 import type { AppEnv, ProviderGenerateResult, ProviderUsage } from './fallback/types.js';
 
 const app = express();
@@ -103,6 +104,7 @@ function asProviderUsage(raw: unknown): ProviderUsage | undefined {
 }
 
 async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerateResult> {
+  const model = normalizeGeminiModel(body.model);
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
   const fullPrompt = body.systemPrompt ? `${body.systemPrompt}\n\n${body.prompt}` : body.prompt;
   parts.push({ text: fullPrompt });
@@ -127,7 +129,7 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
   }
 
   const response = await geminiClient.models.generateContent({
-    model: body.model,
+    model,
     contents: [{ role: 'user', parts }],
     config: generateConfig,
   });
@@ -156,7 +158,7 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
 
   return {
     content,
-    modelUsed: response.modelVersion || body.model,
+    modelUsed: response.modelVersion || model,
     usage,
   };
 }
