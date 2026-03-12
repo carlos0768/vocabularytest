@@ -16,7 +16,7 @@ export type GeminiModel =
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
 const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
-const QUESTION_GENERATION_MODEL: OpenAIModel = 'gpt-4o';
+const QUESTION_GENERATION_MODEL: GeminiModel = 'gemini-2.0-flash-001';
 
 export interface AIModelConfig {
   provider: AIProvider;
@@ -99,7 +99,7 @@ export const AI_CONFIG: AIConfig = {
       maxOutputTokens: 16384,
     },
     openai: {
-      provider: 'openai',
+      provider: 'gemini',
       model: QUESTION_GENERATION_MODEL,
       temperature: 0.7,
       maxOutputTokens: 16384,
