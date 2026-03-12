@@ -4,12 +4,14 @@
 import type {
   Project,
   Word,
+  LexiconEntry,
   Collection,
   CollectionProject,
   RelatedWord,
   UsagePattern,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
+import { normalizeLexiconDatasetSources } from '../lexicon';
 
 // ============ Default Values ============
 
@@ -100,6 +102,9 @@ export interface WordRow {
   project_id: string;
   english: string;
   japanese: string;
+  lexicon_entry_id?: string | null;
+  english_override?: string | null;
+  japanese_override?: string | null;
   distractors: string[];
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
@@ -117,12 +122,70 @@ export interface WordRow {
   interval_days?: number | null;
   repetition?: number | null;
   is_favorite?: boolean | null;
+  lexicon_entries?: LexiconEntryRow | LexiconEntryRow[] | null;
+}
+
+export interface LexiconEntryRow {
+  id: string;
+  headword: string;
+  normalized_headword: string;
+  pos: string;
+  cefr_level?: string | null;
+  dataset_sources?: string[] | null;
+  translation_ja?: string | null;
+  translation_source?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 function toNonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function resolveLexiconRow(
+  value: WordRow['lexicon_entries'],
+): LexiconEntryRow | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return value ?? null;
+}
+
+function resolveWordEnglish(row: WordRow): string {
+  return (
+    toNonEmptyString(row.english_override) ??
+    toNonEmptyString(resolveLexiconRow(row.lexicon_entries)?.headword) ??
+    row.english
+  );
+}
+
+function resolveWordJapanese(row: WordRow): string {
+  return (
+    toNonEmptyString(row.japanese_override) ??
+    toNonEmptyString(resolveLexiconRow(row.lexicon_entries)?.translation_ja) ??
+    row.japanese
+  );
+}
+
+function resolveWordCefrLevel(row: WordRow): string | undefined {
+  return toNonEmptyString(resolveLexiconRow(row.lexicon_entries)?.cefr_level) ?? undefined;
+}
+
+export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
+  return {
+    id: row.id,
+    headword: row.headword,
+    normalizedHeadword: row.normalized_headword,
+    pos: row.pos,
+    cefrLevel: row.cefr_level ?? undefined,
+    datasetSources: normalizeLexiconDatasetSources(row.dataset_sources ?? []),
+    translationJa: row.translation_ja ?? undefined,
+    translationSource: row.translation_source ?? undefined,
+    createdAt: row.created_at ?? new Date(0).toISOString(),
+    updatedAt: row.updated_at ?? new Date(0).toISOString(),
+  };
 }
 
 function normalizePartOfSpeechTags(value: unknown): string[] | undefined {
@@ -188,8 +251,10 @@ export function mapWordFromRow(row: WordRow): Word {
   return {
     id: row.id,
     projectId: row.project_id,
-    english: row.english,
-    japanese: row.japanese,
+    english: resolveWordEnglish(row),
+    japanese: resolveWordJapanese(row),
+    lexiconEntryId: row.lexicon_entry_id ?? undefined,
+    cefrLevel: resolveWordCefrLevel(row),
     distractors: row.distractors,
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
@@ -216,6 +281,7 @@ export function mapWordToInsert(word: WordInput): {
   project_id: string;
   english: string;
   japanese: string;
+  lexicon_entry_id?: string;
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
@@ -236,6 +302,7 @@ export function mapWordToInsert(word: WordInput): {
     project_id: word.projectId,
     english: word.english,
     japanese: word.japanese,
+    lexicon_entry_id: word.lexiconEntryId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
@@ -258,6 +325,7 @@ export function mapWordToInsertWithId(word: Word): {
   project_id: string;
   english: string;
   japanese: string;
+  lexicon_entry_id?: string;
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
@@ -281,6 +349,7 @@ export function mapWordToInsertWithId(word: Word): {
     project_id: word.projectId,
     english: word.english,
     japanese: word.japanese,
+    lexicon_entry_id: word.lexiconEntryId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
@@ -304,8 +373,15 @@ export function mapWordToInsertWithId(word: Word): {
 export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
 
-  if (updates.english !== undefined) updateData.english = updates.english;
-  if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
+  if (updates.english !== undefined) {
+    updateData.english = updates.english;
+    updateData.english_override = updates.english;
+  }
+  if (updates.japanese !== undefined) {
+    updateData.japanese = updates.japanese;
+    updateData.japanese_override = updates.japanese;
+  }
+  if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.status !== undefined) updateData.status = updates.status;
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;

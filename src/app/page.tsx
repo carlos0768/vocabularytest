@@ -26,6 +26,7 @@ import { getCachedSupabaseUserId } from '@/lib/supabase/session-cache';
 import { hasVisitedProject } from '@/lib/project-visit';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 import { mergeSourceLabels } from '../../shared/source-labels';
+import { mergeLexiconEntries } from '../../shared/lexicon';
 import {
   getCachedProjects,
   getCachedProjectWords,
@@ -38,7 +39,7 @@ import {
   invalidateHomeCache,
   restoreFromSessionStorage,
 } from '@/lib/home-cache';
-import type { Project, Word } from '@/types';
+import type { LexiconEntry, Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 // Dynamic imports for modals - loaded only when opened (not in initial bundle)
@@ -1062,6 +1063,7 @@ export default function HomePage() {
       // Save result to sessionStorage and navigate to confirm page
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
       sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(mergeSourceLabels(result.sourceLabels)));
+      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
       // Navigate first, then close processing modal
       // (closing modal before navigation causes a flash of the home screen)
       router.push('/scan/confirm');
@@ -1107,6 +1109,7 @@ export default function HomePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allWords: any[] = [];
       let allSourceLabels: string[] = [];
+      let allLexiconEntries: LexiconEntry[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -1168,6 +1171,7 @@ export default function HomePage() {
         // Merge words from this file
         allWords.push(...result.words);
         allSourceLabels = mergeSourceLabels(allSourceLabels, result.sourceLabels);
+        allLexiconEntries = mergeLexiconEntries(allLexiconEntries, result.lexiconEntries);
 
         // Mark current step as complete
         setProcessingSteps(prev => prev.map((s, idx) => ({
@@ -1184,6 +1188,7 @@ export default function HomePage() {
       // Save merged results to sessionStorage
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
       sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
+      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
 
       setProcessingSteps(prev => [
         ...prev.map(s => ({ ...s, status: 'complete' as const })),

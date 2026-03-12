@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './dexie';
-import type { Project, Word, WordRepository } from '@/types';
+import type { LexiconEntry, Project, Word, WordRepository } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 
@@ -167,6 +167,13 @@ export class LocalWordRepository implements WordRepository {
     const db = getDb();
     await db.projects.clear();
     await db.words.clear();
+    await db.lexiconEntries.clear();
+  }
+
+  async cacheLexiconEntries(entries: LexiconEntry[]): Promise<void> {
+    if (entries.length === 0) return;
+    const db = getDb();
+    await db.lexiconEntries.bulkPut(entries);
   }
 }
 

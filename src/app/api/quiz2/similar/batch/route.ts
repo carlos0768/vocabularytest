@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { fetchVectorSimilarWords } from '@/lib/similarity/vector-similar';
+import {
+  RESOLVED_WORD_TEXT_SELECT_COLUMNS,
+  RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS,
+  resolveSelectedWordTexts,
+} from '@/lib/words/resolved';
 
 const requestSchema = z.object({
   sourceWordIds: z.array(z.string().uuid()).min(1).max(2000),
@@ -80,14 +85,14 @@ const defaultDeps: BatchDeps = {
   async getSourceWords(client, sourceWordIds) {
     const { data, error } = await client
       .from('words')
-      .select('id, project_id, english, japanese, embedding')
+      .select(RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS)
       .in('id', sourceWordIds);
 
     if (error) {
       throw new Error(`Failed to load source words: ${error.message}`);
     }
 
-    return (data || []) as SourceWordRow[];
+    return ((data || []) as SourceWordRow[]).map((row) => resolveSelectedWordTexts(row));
   },
   async getOwnedProjectIds(client, projectIds, userId) {
     if (projectIds.length === 0) return new Set();
@@ -124,14 +129,14 @@ const defaultDeps: BatchDeps = {
 
     const { data, error } = await client
       .from('words')
-      .select('id, english, japanese')
+      .select(RESOLVED_WORD_TEXT_SELECT_COLUMNS)
       .in('id', wordIds);
 
     if (error) {
       throw new Error(`Failed to fetch cached similar words: ${error.message}`);
     }
 
-    return (data || []) as WordRow[];
+    return ((data || []) as WordRow[]).map((row) => resolveSelectedWordTexts(row));
   },
   async computeSimilarWords(client, args) {
     const vectorResults = await fetchVectorSimilarWords({

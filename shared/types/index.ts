@@ -19,11 +19,26 @@ export interface UsagePattern {
   register?: string;
 }
 
+export interface LexiconEntry {
+  id: string;
+  headword: string;
+  normalizedHeadword: string;
+  pos: string;
+  cefrLevel?: string;
+  datasetSources: string[];
+  translationJa?: string;
+  translationSource?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Word {
   id: string;
   projectId: string;
   english: string;
   japanese: string;
+  lexiconEntryId?: string;
+  cefrLevel?: string;
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence
@@ -81,6 +96,8 @@ export interface CollectionProject {
 export interface AIWordExtraction {
   english: string;
   japanese: string;
+  lexiconEntryId?: string;
+  cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
   exampleSentence?: string;
@@ -90,6 +107,7 @@ export interface AIWordExtraction {
 export interface AIResponse {
   words: AIWordExtraction[];
   sourceLabels: string[];
+  lexiconEntries?: LexiconEntry[];
 }
 
 // ============ Quiz Types ============

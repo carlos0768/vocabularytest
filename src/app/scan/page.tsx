@@ -20,6 +20,9 @@ import {
 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
+import { mergeSourceLabels } from '../../../shared/source-labels';
+import { mergeLexiconEntries } from '../../../shared/lexicon';
+import type { LexiconEntry } from '@/types';
 
 
 function ScanPageContent() {
@@ -357,6 +360,8 @@ function ScanPageContent() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allWords: any[] = [];
+      let allSourceLabels: string[] = [];
+      let allLexiconEntries: LexiconEntry[] = [];
       let lastScanInfo = null;
 
       for (let i = 0; i < scanFiles.length; i++) {
@@ -407,6 +412,8 @@ function ScanPageContent() {
 
         // Merge words from this file
         allWords.push(...result.words);
+        allSourceLabels = mergeSourceLabels(allSourceLabels, result.sourceLabels);
+        allLexiconEntries = mergeLexiconEntries(allLexiconEntries, result.lexiconEntries);
 
         // Mark current step as complete
         setProcessingSteps(prev => prev.map((s, idx) => ({
@@ -426,6 +433,8 @@ function ScanPageContent() {
 
       // Save merged results to sessionStorage
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
+      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
+      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
       if (projectId) {
         sessionStorage.setItem('scanvocab_existing_project_id', projectId);
       }
