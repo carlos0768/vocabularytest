@@ -1,4 +1,8 @@
-import { DEFAULT_GEMINI_FLASH_MODEL, normalizeGeminiModel } from './gemini-model';
+import {
+  DEFAULT_GEMINI_FLASH_MODEL,
+  DEFAULT_GEMINI_GENERATION_MODEL,
+  normalizeGeminiModel,
+} from './gemini-model';
 
 /**
  * AI Configuration
@@ -9,6 +13,7 @@ import { DEFAULT_GEMINI_FLASH_MODEL, normalizeGeminiModel } from './gemini-model
 
 export type AIProvider = 'gemini' | 'openai';
 export type GeminiModel =
+  | 'gemini-2.0-flash'
   | 'gemini-1.5-flash-002'
   | 'gemini-1.5-pro-002'
   | 'gemini-2.0-flash-001'
@@ -18,7 +23,7 @@ export type GeminiModel =
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
 const EXTRACTION_MODEL: GeminiModel = DEFAULT_GEMINI_FLASH_MODEL;
-const QUESTION_GENERATION_MODEL: GeminiModel = DEFAULT_GEMINI_FLASH_MODEL;
+const QUESTION_GENERATION_MODEL: GeminiModel = DEFAULT_GEMINI_GENERATION_MODEL;
 const OPENAI_MODEL: OpenAIModel = 'gpt-4o';
 
 export interface AIModelConfig {
