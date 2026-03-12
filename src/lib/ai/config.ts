@@ -15,7 +15,7 @@ export type GeminiModel =
   | 'gemini-3-flash-preview';
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
-const EXTRACTION_MODEL: GeminiModel = 'gemini-3-flash-preview';
+const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
 const QUESTION_GENERATION_MODEL: OpenAIModel = 'gpt-4o';
 
 export interface AIModelConfig {
@@ -49,44 +49,44 @@ export const AI_CONFIG: AIConfig = {
     words: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 1.0,
+      temperature: 0.7,
       maxOutputTokens: 16384,
     },
     idioms: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 1.0,
+      temperature: 0.7,
       maxOutputTokens: 16384,
     },
     eiken: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 1.0,
+      temperature: 0.7,
       maxOutputTokens: 16384,
     },
     circled: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 1.0,
+      temperature: 0.0,
       maxOutputTokens: 16384,
     },
     highlighted: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 1.0,
+      temperature: 0.3,
       maxOutputTokens: 8192,
     },
     grammar: {
       ocr: {
         provider: 'gemini',
         model: EXTRACTION_MODEL,
-        temperature: 1.0,
+        temperature: 0.3,
         maxOutputTokens: 8192,
       },
       analysis: {
         provider: 'gemini',
         model: EXTRACTION_MODEL,
-        temperature: 1.0,
+        temperature: 0.7,
         maxOutputTokens: 16384,
       },
     },
@@ -95,7 +95,7 @@ export const AI_CONFIG: AIConfig = {
     gemini: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
-      temperature: 1.0,
+      temperature: 0.7,
       maxOutputTokens: 16384,
     },
     openai: {

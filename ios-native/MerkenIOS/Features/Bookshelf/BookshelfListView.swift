@@ -177,8 +177,6 @@ struct BookshelfListView: View {
                                 }
                             }
 
-                            topSummaryWidgets
-                            overviewCard
                             bookshelvesSection
                         }
                         .padding(.horizontal, 16)

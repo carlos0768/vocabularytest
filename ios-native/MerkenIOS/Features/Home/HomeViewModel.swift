@@ -170,6 +170,49 @@ final class HomeViewModel: ObservableObject {
         wordsByProject[projectId]
     }
 
+    // MARK: - Netflix-style section data
+
+    /// Projects sorted by most recently reviewed (based on words' lastReviewedAt)
+    var recentProjects: [Project] {
+        projects.sorted { a, b in
+            let aDate = wordsByProject[a.id]?
+                .compactMap(\.lastReviewedAt)
+                .max() ?? a.createdAt
+            let bDate = wordsByProject[b.id]?
+                .compactMap(\.lastReviewedAt)
+                .max() ?? b.createdAt
+            return aDate > bDate
+        }
+    }
+
+    /// Projects grouped by sourceLabel (e.g. "鉄壁", "LEAP")
+    /// Returns labels sorted by project count descending, excluding generic "ノート"
+    var projectsBySourceLabel: [(label: String, projects: [Project])] {
+        var labelMap: [String: [Project]] = [:]
+        for project in projects {
+            for label in project.sourceLabels where label != "ノート" {
+                labelMap[label, default: []].append(project)
+            }
+        }
+        return labelMap
+            .filter { $0.value.count >= 1 }
+            .sorted { $0.value.count > $1.value.count }
+            .map { (label: $0.key, projects: $0.value) }
+    }
+
+    /// Projects sorted by number of non-mastered words (hardest first)
+    var hardestProjects: [Project] {
+        projects
+            .filter { wordsByProject[$0.id]?.isEmpty == false }
+            .sorted { a, b in
+                let aWords = wordsByProject[a.id] ?? []
+                let bWords = wordsByProject[b.id] ?? []
+                let aHard = aWords.filter { $0.status != .mastered }.count
+                let bHard = bWords.filter { $0.status != .mastered }.count
+                return aHard > bHard
+            }
+    }
+
     func toggleFavorite(projectId: String, using state: AppState) async {
         guard let index = projects.firstIndex(where: { $0.id == projectId }) else { return }
         let newValue = !projects[index].isFavorite

@@ -6,6 +6,7 @@ import { normalizeSourceLabels } from '../../../shared/source-labels';
 interface ProjectSourceLabelsProps {
   labels: string[];
   className?: string;
+  maxRows?: number;
 }
 
 const CHIP_GAP = 6;
@@ -49,7 +50,11 @@ function fitsWithinRows(widths: number[], containerWidth: number, maxRows: numbe
   return true;
 }
 
-function getVisibleLabels(labels: string[], containerWidth: number): { visible: string[]; hiddenCount: number } {
+function getVisibleLabels(
+  labels: string[],
+  containerWidth: number,
+  maxRows: number
+): { visible: string[]; hiddenCount: number } {
   if (containerWidth <= 0 || labels.length <= 1) {
     return { visible: labels, hiddenCount: 0 };
   }
@@ -64,7 +69,7 @@ function getVisibleLabels(labels: string[], containerWidth: number): { visible: 
       widths.push(measureChipWidth(`+${hiddenCount}`));
     }
 
-    if (fitsWithinRows(widths, containerWidth, 2)) {
+    if (fitsWithinRows(widths, containerWidth, maxRows)) {
       return {
         visible: labels.slice(0, visibleCount),
         hiddenCount,
@@ -75,7 +80,11 @@ function getVisibleLabels(labels: string[], containerWidth: number): { visible: 
   return { visible: [], hiddenCount: labels.length };
 }
 
-export function ProjectSourceLabels({ labels, className }: ProjectSourceLabelsProps) {
+export function ProjectSourceLabels({
+  labels,
+  className,
+  maxRows = 2,
+}: ProjectSourceLabelsProps) {
   const normalizedLabels = useMemo(() => normalizeSourceLabels(labels), [labels]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -99,8 +108,8 @@ export function ProjectSourceLabels({ labels, className }: ProjectSourceLabelsPr
   }, []);
 
   const { visible, hiddenCount } = useMemo(
-    () => getVisibleLabels(normalizedLabels, containerWidth),
-    [containerWidth, normalizedLabels]
+    () => getVisibleLabels(normalizedLabels, containerWidth, maxRows),
+    [containerWidth, maxRows, normalizedLabels]
   );
 
   if (normalizedLabels.length === 0) {

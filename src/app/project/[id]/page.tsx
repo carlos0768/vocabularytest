@@ -667,7 +667,16 @@ export default function ProjectDetailPage() {
                     <Icon name="menu_book" size={18} className="text-[var(--color-muted)]" />
                   )}
                 </div>
-                <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">{project.title}</h1>
+                <div className="min-w-0 flex flex-1 items-center gap-2">
+                  <h1 className="min-w-0 shrink text-lg font-bold text-[var(--color-foreground)] truncate">
+                    {project.title}
+                  </h1>
+                  <ProjectSourceLabels
+                    labels={project.sourceLabels}
+                    maxRows={1}
+                    className="min-w-0 flex-1"
+                  />
+                </div>
                 <button
                   onClick={handleOpenEditNameModal}
                   className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
@@ -682,7 +691,6 @@ export default function ProjectDetailPage() {
                   </span>
                 )}
               </div>
-              <ProjectSourceLabels labels={project.sourceLabels} className="mt-2" />
               <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
             </div>
             <div className="flex items-center gap-2">
