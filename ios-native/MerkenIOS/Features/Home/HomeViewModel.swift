@@ -170,47 +170,34 @@ final class HomeViewModel: ObservableObject {
         wordsByProject[projectId]
     }
 
-    // MARK: - Netflix-style section data
+    // MARK: - Home project ordering
 
-    /// Projects sorted by most recently reviewed (based on words' lastReviewedAt)
-    var recentProjects: [Project] {
+    /// Projects sorted by the number of favorite words (hardest first).
+    /// Ties fall back to due count, then recency.
+    var projectsSortedByFavoriteWordCount: [Project] {
         projects.sorted { a, b in
-            let aDate = wordsByProject[a.id]?
-                .compactMap(\.lastReviewedAt)
-                .max() ?? a.createdAt
-            let bDate = wordsByProject[b.id]?
-                .compactMap(\.lastReviewedAt)
-                .max() ?? b.createdAt
-            return aDate > bDate
+            let aFavoriteCount = wordsByProject[a.id]?.filter(\.isFavorite).count ?? 0
+            let bFavoriteCount = wordsByProject[b.id]?.filter(\.isFavorite).count ?? 0
+            if aFavoriteCount != bFavoriteCount {
+                return aFavoriteCount > bFavoriteCount
+            }
+
+            let aDueCount = dueCountByProject[a.id] ?? 0
+            let bDueCount = dueCountByProject[b.id] ?? 0
+            if aDueCount != bDueCount {
+                return aDueCount > bDueCount
+            }
+
+            let aRecent = wordsByProject[a.id]?.compactMap(\.lastReviewedAt).max() ?? a.createdAt
+            let bRecent = wordsByProject[b.id]?.compactMap(\.lastReviewedAt).max() ?? b.createdAt
+            return aRecent > bRecent
         }
     }
 
-    /// Projects grouped by sourceLabel (e.g. "鉄壁", "LEAP")
-    /// Returns labels sorted by project count descending, excluding generic "ノート"
-    var projectsBySourceLabel: [(label: String, projects: [Project])] {
-        var labelMap: [String: [Project]] = [:]
-        for project in projects {
-            for label in project.sourceLabels where label != "ノート" {
-                labelMap[label, default: []].append(project)
-            }
+    var projectsWithFavoriteWords: [Project] {
+        projectsSortedByFavoriteWordCount.filter { project in
+            (wordsByProject[project.id]?.contains { $0.isFavorite }) == true
         }
-        return labelMap
-            .filter { $0.value.count >= 1 }
-            .sorted { $0.value.count > $1.value.count }
-            .map { (label: $0.key, projects: $0.value) }
-    }
-
-    /// Projects sorted by number of non-mastered words (hardest first)
-    var hardestProjects: [Project] {
-        projects
-            .filter { wordsByProject[$0.id]?.isEmpty == false }
-            .sorted { a, b in
-                let aWords = wordsByProject[a.id] ?? []
-                let bWords = wordsByProject[b.id] ?? []
-                let aHard = aWords.filter { $0.status != .mastered }.count
-                let bHard = bWords.filter { $0.status != .mastered }.count
-                return aHard > bHard
-            }
     }
 
     func toggleFavorite(projectId: String, using state: AppState) async {

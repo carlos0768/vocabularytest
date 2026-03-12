@@ -425,7 +425,6 @@ struct HomeView: View {
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingSearch = false
-    @State private var selectedSourceLabel: String? = nil
     @State private var showingProjectList = false
     @State private var showingScan = false
     @State private var projectToDelete: Project?
@@ -553,25 +552,19 @@ struct HomeView: View {
                     errorSection
 
                     if !viewModel.projects.isEmpty || !pendingHomeScans.isEmpty {
-                        // 1. 最近やった単語帳
-                        projectRailSection(
-                            title: "最近やった単語帳",
-                            icon: "clock.arrow.circlepath",
-                            projects: viewModel.recentProjects
-                        )
+                        projectsSection
 
-                        // 2. 教材セクション（プルダウンで教材を切り替え）
-                        if !viewModel.projectsBySourceLabel.isEmpty {
-                            sourceLabelSection
-                        }
-
-                        // 3. 苦手な単語
-                        if !viewModel.favoriteWords.isEmpty {
+                        if !viewModel.projectsWithFavoriteWords.isEmpty {
                             favoriteWordsSection
                         }
 
-                        // 4. 本棚
-                        bookshelfLink
+                        if !viewModel.projects.isEmpty {
+                            allProjectsSection
+                        }
+                    }
+
+                    if appState.isPro {
+                        bookshelfSection
                     }
                 }
                 .padding(.horizontal, 16)
@@ -1231,16 +1224,18 @@ struct HomeView: View {
 
     private var displayedHomeProjects: [Project] {
         let remainingSlots = max(0, maxHomeProjectRailItems - displayedPendingHomeScans.count)
-        return Array(viewModel.projects.prefix(remainingSlots))
+        return Array(viewModel.projectsSortedByFavoriteWordCount.prefix(remainingSlots))
     }
 
     private var homeProjectRailCardWidth: CGFloat {
-        max(68, min(UIScreen.main.bounds.width * 0.19, 78))
+        max(104, min(UIScreen.main.bounds.width * 0.28, 118))
     }
 
     private var homeProjectRailThumbnailHeight: CGFloat {
-        homeProjectRailCardWidth * 1.28
+        homeProjectRailCardWidth * 1.18
     }
+
+    private var homeProjectRailSpacing: CGFloat { 12 }
 
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1249,7 +1244,7 @@ struct HomeView: View {
                 .foregroundStyle(MerkenTheme.primaryText)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 8) {
+                LazyHStack(alignment: .top, spacing: homeProjectRailSpacing) {
                     ForEach(displayedPendingHomeScans, id: \.jobId) { context in
                         homeGeneratingProjectRailCard(context)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1262,8 +1257,9 @@ struct HomeView: View {
                             .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
                     }
                 }
+                .padding(.horizontal, 2)
                 .padding(.trailing, 24)
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
             }
         }
         .animation(
@@ -1272,29 +1268,23 @@ struct HomeView: View {
         )
     }
 
-    // MARK: - Netflix-style Section Builder
-
-    private func projectRailSection(title: String, icon: String, projects: [Project]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                Text(title)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-            }
+    private var allProjectsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("すべての単語帳")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 8) {
-                    ForEach(projects) { project in
+                LazyHStack(alignment: .top, spacing: homeProjectRailSpacing) {
+                    ForEach(viewModel.projectsSortedByFavoriteWordCount) { project in
                         homeProjectRailCard(project)
                             .onTapGesture { detailProject = project }
                             .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
                     }
                 }
+                .padding(.horizontal, 2)
                 .padding(.trailing, 24)
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
             }
         }
     }
@@ -1313,165 +1303,18 @@ struct HomeView: View {
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 10) {
-                    ForEach(viewModel.favoriteWords.prefix(20), id: \.id) { word in
-                        favoriteWordChip(word)
+                LazyHStack(alignment: .top, spacing: homeProjectRailSpacing) {
+                    ForEach(Array(viewModel.projectsWithFavoriteWords.prefix(3))) { project in
+                        homeProjectRailCard(project)
+                            .onTapGesture { detailProject = project }
+                            .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
                     }
                 }
+                .padding(.horizontal, 2)
                 .padding(.trailing, 24)
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
             }
         }
-    }
-
-    private func favoriteWordChip(_ word: Word) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(word.english)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(1)
-            Text(word.japanese)
-                .font(.system(size: 12))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(minWidth: 90)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(MerkenTheme.border, lineWidth: 1)
-        )
-    }
-
-    // MARK: - Source Label Section (教材)
-
-    private var sourceLabelDisplayTitle: String {
-        selectedSourceLabel ?? viewModel.projectsBySourceLabel.first?.label ?? "教材"
-    }
-
-    private var sourceLabelProjects: [Project] {
-        let label = selectedSourceLabel ?? viewModel.projectsBySourceLabel.first?.label
-        guard let label else { return [] }
-        return viewModel.projectsBySourceLabel.first(where: { $0.label == label })?.projects ?? []
-    }
-
-    private var sourceLabelSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Menu {
-                Button {
-                    selectedSourceLabel = nil
-                } label: {
-                    HStack {
-                        Text("すべて")
-                        if selectedSourceLabel == nil {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-
-                ForEach(viewModel.projectsBySourceLabel, id: \.label) { group in
-                    Button {
-                        selectedSourceLabel = group.label
-                    } label: {
-                        HStack {
-                            Text(group.label)
-                            Text("\(group.projects.count)")
-                                .foregroundStyle(.secondary)
-                            if selectedSourceLabel == group.label {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                    Text(sourceLabelDisplayTitle)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-            }
-            .glassEffect(.regular.interactive(), in: .capsule)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 8) {
-                    if let selected = selectedSourceLabel {
-                        ForEach(sourceLabelProjects) { project in
-                            homeProjectRailCard(project)
-                                .onTapGesture { detailProject = project }
-                                .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
-                        }
-                    } else {
-                        // すべて: 全sourceLabel付きプロジェクトを表示
-                        ForEach(allSourceLabelProjects) { project in
-                            homeProjectRailCard(project)
-                                .onTapGesture { detailProject = project }
-                                .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
-                        }
-                    }
-                }
-                .padding(.trailing, 24)
-                .padding(.vertical, 2)
-            }
-            .animation(.easeInOut(duration: 0.25), value: selectedSourceLabel)
-        }
-    }
-
-    private var allSourceLabelProjects: [Project] {
-        var seen = Set<String>()
-        var result: [Project] = []
-        for group in viewModel.projectsBySourceLabel {
-            for project in group.projects where !seen.contains(project.id) {
-                seen.insert(project.id)
-                result.append(project)
-            }
-        }
-        return result
-    }
-
-    // MARK: - Bookshelf Link
-
-    private var bookshelfLink: some View {
-        Button {
-            showingBookshelfList = true
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                    .frame(width: 40, height: 40)
-                    .background(MerkenTheme.accentBlueLight, in: .rect(cornerRadius: 10))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("本棚")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("すべての単語帳を管理")
-                        .font(.system(size: 13))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-            .padding(14)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(MerkenTheme.border, lineWidth: 1.5)
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     private func homeProjectRailCard(_ project: Project) -> some View {
@@ -1481,44 +1324,50 @@ struct HomeView: View {
         let dueCount = viewModel.dueCountByProject[project.id] ?? 0
         let studyingCount = max(wordCount - masteredCount, 0)
 
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 10) {
             homeProjectRailThumbnail(project, height: homeProjectRailThumbnailHeight)
 
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text("\(wordCount)")
-                    .font(.system(size: 15, weight: .bold))
-                    .monospacedDigit()
+            VStack(alignment: .leading, spacing: 7) {
+                Text(project.title)
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
-                Text("語")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer(minLength: 2)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(wordCount)")
+                        .font(.system(size: 18, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("語")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
 
-                Text(homeProjectRailStatusText(
-                    wordCount: wordCount,
-                    masteredCount: masteredCount,
-                    dueCount: dueCount,
-                    studyingCount: studyingCount
-                ))
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(
-                    homeProjectRailStatusTint(
-                        wordCount: wordCount,
-                        masteredCount: masteredCount,
-                        dueCount: dueCount
+                HStack(spacing: 4) {
+                    compactProjectMetric(
+                        icon: "arrow.trianglehead.2.clockwise",
+                        text: "復習 \(dueCount)",
+                        tint: MerkenTheme.accentBlue
                     )
-                )
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+                    compactProjectMetric(
+                        icon: masteredCount == wordCount && wordCount > 0 ? "checkmark.seal.fill" : "sparkles",
+                        text: masteredCount == wordCount && wordCount > 0 ? "習得済" : "学習 \(studyingCount)",
+                        tint: masteredCount == wordCount && wordCount > 0 ? MerkenTheme.success : MerkenTheme.mutedText
+                    )
+                }
             }
         }
+        .padding(10)
         .frame(width: homeProjectRailCardWidth, alignment: .topLeading)
-        .contentShape(Rectangle())
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .shadow(color: Color.black.opacity(isDark ? 0.08 : 0.025), radius: 6, x: 0, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 22))
     }
 
     private func homeGeneratingProjectRailCard(_ context: PendingScanImportContext) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack {
                 if let iconBase64 = context.requestedProjectIconImage,
                    let uiImage = ImageCompressor.decodeBase64Image(iconBase64) {
@@ -1542,21 +1391,31 @@ struct HomeView: View {
             }
             .frame(height: homeProjectRailThumbnailHeight)
             .frame(maxWidth: .infinity)
-            .overlay(alignment: .bottomLeading) {
-                homeProjectRailTitleOverlay(title: context.requestedProjectTitle)
-            }
-            .clipShape(.rect(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(MerkenTheme.accentBlue.opacity(0.26), lineWidth: 1)
-            )
+            .clipShape(.rect(cornerRadius: 18))
 
-            Text("生成中")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(MerkenTheme.accentBlue)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(context.requestedProjectTitle)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("生成中...")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+
+                HStack(spacing: 4) {
+                    placeholderProjectStatusChip(width: 38)
+                    placeholderProjectStatusChip(width: 44)
+                }
+            }
         }
+        .padding(10)
         .frame(width: homeProjectRailCardWidth, alignment: .topLeading)
-        .contentShape(Rectangle())
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .shadow(color: MerkenTheme.accentBlue.opacity(isDark ? 0.12 : 0.05), radius: 6, x: 0, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 22))
     }
 
     @ViewBuilder
@@ -1571,7 +1430,7 @@ struct HomeView: View {
                 let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
                 bgColor
                 Text(String(project.title.prefix(1)))
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(.white)
             }
 
@@ -1584,69 +1443,31 @@ struct HomeView: View {
                     .padding(8)
             }
         }
-        .overlay(alignment: .bottomLeading) {
-            homeProjectRailTitleOverlay(title: project.title)
-        }
         .frame(height: height)
         .frame(maxWidth: .infinity)
-        .clipShape(.rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(MerkenTheme.border.opacity(project.isFavorite ? 0.35 : 1), lineWidth: project.isFavorite ? 1.4 : 1)
-        )
+        .clipShape(.rect(cornerRadius: 18))
     }
 
-    private func homeProjectRailTitleOverlay(title: String) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: [
-                    .clear,
-                    Color.black.opacity(0.06),
-                    Color.black.opacity(0.58)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+    private func placeholderProjectStatusChip(width: CGFloat) -> some View {
+        Capsule()
+            .fill(MerkenTheme.borderLight)
+            .frame(width: width, height: 22)
+    }
 
-            Text(title)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
+    private func compactProjectMetric(icon: String, text: String, tint: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 7)
-                .padding(.bottom, 7)
-                .padding(.top, 20)
         }
-    }
-
-    private func homeProjectRailStatusText(
-        wordCount: Int,
-        masteredCount: Int,
-        dueCount: Int,
-        studyingCount: Int
-    ) -> String {
-        if dueCount > 0 {
-            return "復習\(dueCount)"
-        }
-        if wordCount > 0, masteredCount == wordCount {
-            return "完了"
-        }
-        return "学習\(studyingCount)"
-    }
-
-    private func homeProjectRailStatusTint(
-        wordCount: Int,
-        masteredCount: Int,
-        dueCount: Int
-    ) -> Color {
-        if dueCount > 0 {
-            return MerkenTheme.accentBlue
-        }
-        if wordCount > 0, masteredCount == wordCount {
-            return MerkenTheme.success
-        }
-        return MerkenTheme.mutedText
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(MerkenTheme.background, in: Capsule())
     }
 
     // MARK: - Bookshelf Section
