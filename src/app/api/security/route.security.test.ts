@@ -6,6 +6,7 @@ import { handleSearchSemanticPost } from '@/app/api/search/semantic/route';
 import { handleQuiz2SimilarPost } from '@/app/api/quiz2/similar/route';
 import { handleQuiz2SimilarBatchPost } from '@/app/api/quiz2/similar/batch/route';
 import { handleSimilarCacheRebuildPost } from '@/app/api/similar-cache/rebuild/route';
+import { POST as processLexiconEnrichmentPost } from '@/app/api/lexicon-enrichment/process/route';
 import { POST as processScanJobPost } from '@/app/api/scan-jobs/process/route';
 import { POST as rebuildEmbeddingsPost } from '@/app/api/embeddings/rebuild/route';
 
@@ -362,6 +363,34 @@ test('scan-jobs/process returns 400 for non-uuid jobId', async () => {
       { authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
     );
     const res = await processScanJobPost(req);
+    assert.equal(res.status, 400);
+  } finally {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = original;
+  }
+});
+
+test('lexicon-enrichment/process returns 401 when worker auth header is invalid', async () => {
+  const original = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'svc-test-key';
+  try {
+    const req = jsonRequest('http://localhost/api/lexicon-enrichment/process', {});
+    const res = await processLexiconEnrichmentPost(req);
+    assert.equal(res.status, 401);
+  } finally {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = original;
+  }
+});
+
+test('lexicon-enrichment/process returns 400 for non-uuid jobId', async () => {
+  const original = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'svc-test-key';
+  try {
+    const req = jsonRequest(
+      'http://localhost/api/lexicon-enrichment/process',
+      { jobId: 'not-a-uuid' },
+      { authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+    );
+    const res = await processLexiconEnrichmentPost(req);
     assert.equal(res.status, 400);
   } finally {
     process.env.SUPABASE_SERVICE_ROLE_KEY = original;

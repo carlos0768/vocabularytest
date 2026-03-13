@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
@@ -18,6 +18,10 @@ import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { resolveWordsWithLexicon } from '@/lib/lexicon/resolver';
+import {
+  enqueueLexiconEnrichmentJob,
+  triggerLexiconEnrichmentProcessing,
+} from '@/lib/lexicon/enrichment-jobs';
 import {
   insertProjectWithSourceLabelsCompat,
   selectProjectWithSourceLabelsCompat,
@@ -642,6 +646,10 @@ export async function POST(request: NextRequest) {
       const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
       const resolvedLexicon = await resolveWordsWithLexicon(dedupedWords);
       const resolvedWords = resolvedLexicon.words;
+      console.log('[scan-jobs/process] Lexicon resolution metrics', {
+        jobId,
+        ...resolvedLexicon.metrics,
+      });
 
       if (saveMode === 'client_local') {
         const resultPayload: {
@@ -682,6 +690,27 @@ export async function POST(request: NextRequest) {
         };
         void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
         void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
+
+        after(async () => {
+          if (resolvedLexicon.pendingEnrichmentCandidates.length === 0) {
+            return;
+          }
+
+          try {
+            const enrichmentJobId = await enqueueLexiconEnrichmentJob(
+              'scan',
+              resolvedLexicon.pendingEnrichmentCandidates,
+            );
+            if (enrichmentJobId) {
+              await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
+            }
+          } catch (error) {
+            console.error('[scan-jobs/process] Failed to enqueue client-local lexicon enrichment', {
+              jobId,
+              error,
+            });
+          }
+        });
 
         return NextResponse.json({
           success: true,
@@ -838,7 +867,24 @@ export async function POST(request: NextRequest) {
       void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
       // Heavy/non-critical tasks run after completion update.
-      void (async () => {
+      after(async () => {
+        if (resolvedLexicon.pendingEnrichmentCandidates.length > 0) {
+          try {
+            const enrichmentJobId = await enqueueLexiconEnrichmentJob(
+              'scan',
+              resolvedLexicon.pendingEnrichmentCandidates,
+            );
+            if (enrichmentJobId) {
+              await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
+            }
+          } catch (error) {
+            console.error('[scan-jobs/process] Failed to enqueue lexicon enrichment', {
+              jobId,
+              error,
+            });
+          }
+        }
+
         if (insertedWordsArray.length === 0) return;
 
         if (aiEnabled) {
@@ -945,7 +991,7 @@ export async function POST(request: NextRequest) {
             console.error('Failed to trigger similar cache rebuild:', error);
           });
         }
-      })();
+      });
 
       return NextResponse.json({
         success: true,

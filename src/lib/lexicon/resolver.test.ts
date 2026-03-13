@@ -1,10 +1,10 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
+
 import {
   resolveOrCreateLexiconEntry,
   resolveWordsWithLexicon,
   type ResolveLexiconDeps,
-  type ValidatedTranslationCandidate,
 } from './resolver';
 
 type LexiconEntryRow = {
@@ -148,36 +148,6 @@ class FakeLexiconQuery {
   }
 }
 
-function createDeps(
-  supabase: FakeLexiconSupabase,
-  translateWord: ResolveLexiconDeps['translateWord'],
-  validateTranslationCandidate?: ResolveLexiconDeps['validateTranslationCandidate'],
-  translateWords?: ResolveLexiconDeps['translateWords'],
-): ResolveLexiconDeps {
-  return {
-    supabaseAdmin: supabase as unknown as ResolveLexiconDeps['supabaseAdmin'],
-    translateWord,
-    validateTranslationCandidate,
-    translateWords,
-  };
-}
-
-function acceptHint(normalizedJapanese?: string): ValidatedTranslationCandidate {
-  return {
-    useHint: true,
-    normalizedJapanese: normalizedJapanese ?? null,
-    suggestedJapanese: null,
-  };
-}
-
-function rejectHint(suggestedJapanese?: string): ValidatedTranslationCandidate {
-  return {
-    useHint: false,
-    normalizedJapanese: null,
-    suggestedJapanese: suggestedJapanese ?? null,
-  };
-}
-
 function createRow(
   overrides: Partial<LexiconEntryRow> & Pick<LexiconEntryRow, 'headword' | 'normalized_headword' | 'pos'>,
 ): LexiconEntryRow {
@@ -192,6 +162,22 @@ function createRow(
     translation_source: overrides.translation_source ?? null,
     created_at: overrides.created_at ?? new Date(0).toISOString(),
     updated_at: overrides.updated_at ?? new Date(0).toISOString(),
+  };
+}
+
+function createDeps(
+  supabase: FakeLexiconSupabase,
+  options?: {
+    translateWord?: ResolveLexiconDeps['translateWord'];
+    translateWords?: ResolveLexiconDeps['translateWords'];
+    validateTranslationCandidates?: ResolveLexiconDeps['validateTranslationCandidates'];
+  },
+): ResolveLexiconDeps {
+  return {
+    supabaseAdmin: supabase as unknown as ResolveLexiconDeps['supabaseAdmin'],
+    translateWord: options?.translateWord,
+    translateWords: options?.translateWords,
+    validateTranslationCandidates: options?.validateTranslationCandidates,
   };
 }
 
@@ -210,9 +196,11 @@ test('resolveOrCreateLexiconEntry reuses existing translation without AI fallbac
   let translateCalls = 0;
   const entry = await resolveOrCreateLexiconEntry(
     { english: 'Cat', partOfSpeechTags: ['noun'] },
-    createDeps(supabase, async () => {
-      translateCalls += 1;
-      return 'unused';
+    createDeps(supabase, {
+      translateWord: async () => {
+        translateCalls += 1;
+        return 'unused';
+      },
     }),
   );
 
@@ -235,14 +223,16 @@ test('resolveOrCreateLexiconEntry sanitizes verbose stored translations when reu
 
   const entry = await resolveOrCreateLexiconEntry(
     { english: 'antibiotics', partOfSpeechTags: ['noun'] },
-    createDeps(supabase, async () => 'unused'),
+    createDeps(supabase, {
+      translateWord: async () => 'unused',
+    }),
   );
 
   assert.equal(entry?.translationJa, '抗生物質');
   assert.equal(entry?.translationSource, 'ai');
 });
 
-test('resolveOrCreateLexiconEntry drops english-only JSON preamble translations', async () => {
+test('resolveOrCreateLexiconEntry replaces english-only JSON preamble translations via AI fallback', async () => {
   const supabase = new FakeLexiconSupabase([
     createRow({
       headword: 'engaged',
@@ -255,13 +245,19 @@ test('resolveOrCreateLexiconEntry drops english-only JSON preamble translations'
 
   const entry = await resolveOrCreateLexiconEntry(
     { english: 'engaged', partOfSpeechTags: ['adjective'] },
-    createDeps(supabase, async () => 'unused'),
+    createDeps(supabase, {
+      translateWord: async () => '従事している',
+    }),
   );
 
-  assert.equal(entry?.translationJa, undefined);
+  assert.equal(entry?.translationJa, '従事している');
+
+  const [persisted] = supabase.getRows();
+  assert.equal(persisted.translation_ja, '従事している');
+  assert.equal(persisted.translation_source, 'ai');
 });
 
-test('resolveOrCreateLexiconEntry fills missing translation from scan hint and persists it', async () => {
+test('resolveOrCreateLexiconEntry defers japanese hints instead of validating inline', async () => {
   const supabase = new FakeLexiconSupabase([
     createRow({
       headword: 'run',
@@ -272,33 +268,38 @@ test('resolveOrCreateLexiconEntry fills missing translation from scan hint and p
   ]);
 
   let translateCalls = 0;
+  let validationCalls = 0;
   const entry = await resolveOrCreateLexiconEntry(
     { english: 'run', japaneseHint: '走る', partOfSpeechTags: ['verb'] },
-    createDeps(
-      supabase,
-      async () => {
+    createDeps(supabase, {
+      translateWord: async () => {
         translateCalls += 1;
         return 'unused';
       },
-      async () => acceptHint('走る'),
-    ),
+      validateTranslationCandidates: async () => {
+        validationCalls += 1;
+        return new Map();
+      },
+    }),
   );
 
-  assert.equal(entry?.translationJa, '走る');
-  assert.equal(entry?.translationSource, 'scan');
+  assert.equal(entry?.translationJa, undefined);
   assert.equal(translateCalls, 0);
+  assert.equal(validationCalls, 0);
 
   const [persisted] = supabase.getRows();
-  assert.equal(persisted.translation_ja, '走る');
-  assert.equal(persisted.translation_source, 'scan');
+  assert.equal(persisted.translation_ja, null);
+  assert.equal(persisted.translation_source, null);
 });
 
 test('resolveOrCreateLexiconEntry creates and then reuses runtime rows with AI fallback', async () => {
   const supabase = new FakeLexiconSupabase();
   let translateCalls = 0;
-  const deps = createDeps(supabase, async () => {
-    translateCalls += 1;
-    return '思考プロセス: 1. 入力の理解 2. 最終出力: 本';
+  const deps = createDeps(supabase, {
+    translateWord: async () => {
+      translateCalls += 1;
+      return '思考プロセス: 1. 入力の理解 2. 最終出力: 本';
+    },
   });
 
   const first = await resolveOrCreateLexiconEntry(
@@ -318,7 +319,156 @@ test('resolveOrCreateLexiconEntry creates and then reuses runtime rows with AI f
   assert.equal(supabase.getRows().length, 1);
 });
 
-test('resolveWordsWithLexicon prefers a later scan hint over AI fallback for duplicate keys', async () => {
+test('resolveWordsWithLexicon skips AI and queue when master translation already exists', async () => {
+  const supabase = new FakeLexiconSupabase([
+    createRow({
+      headword: 'cat',
+      normalized_headword: 'cat',
+      pos: 'noun',
+      translation_ja: '猫',
+      translation_source: 'scan',
+    }),
+  ]);
+
+  let singleCalls = 0;
+  let batchCalls = 0;
+  let validationCalls = 0;
+  const result = await resolveWordsWithLexicon(
+    [
+      { english: 'cat', japanese: '猫', distractors: [], partOfSpeechTags: ['noun'] },
+    ],
+    createDeps(supabase, {
+      translateWord: async () => {
+        singleCalls += 1;
+        return 'unused';
+      },
+      translateWords: async () => {
+        batchCalls += 1;
+        return new Map();
+      },
+      validateTranslationCandidates: async () => {
+        validationCalls += 1;
+        return new Map();
+      },
+    }),
+  );
+
+  assert.equal(result.words[0]?.japanese, '猫');
+  assert.equal(result.pendingEnrichmentCandidates.length, 0);
+  assert.equal(result.metrics.syncTranslationCount, 0);
+  assert.equal(result.metrics.queuedHintValidationCount, 0);
+  assert.equal(singleCalls, 0);
+  assert.equal(batchCalls, 0);
+  assert.equal(validationCalls, 0);
+});
+
+test('resolveWordsWithLexicon queues hint validation for untranslated existing rows', async () => {
+  const supabase = new FakeLexiconSupabase([
+    createRow({
+      id: 'lex-run',
+      headword: 'run',
+      normalized_headword: 'run',
+      pos: 'verb',
+      translation_ja: null,
+    }),
+  ]);
+
+  let translateCalls = 0;
+  let validationCalls = 0;
+  const result = await resolveWordsWithLexicon(
+    [
+      { english: 'run', japanese: '走る', distractors: [], partOfSpeechTags: ['verb'] },
+    ],
+    createDeps(supabase, {
+      translateWord: async () => {
+        translateCalls += 1;
+        return 'unused';
+      },
+      validateTranslationCandidates: async () => {
+        validationCalls += 1;
+        return new Map();
+      },
+    }),
+  );
+
+  assert.equal(result.words[0]?.japanese, '走る');
+  assert.equal(result.words[0]?.lexiconEntryId, 'lex-run');
+  assert.equal(result.pendingEnrichmentCandidates.length, 1);
+  assert.equal(result.pendingEnrichmentCandidates[0]?.lexiconEntryId, 'lex-run');
+  assert.equal(result.pendingEnrichmentCandidates[0]?.japaneseHint, '走る');
+  assert.equal(result.metrics.syncTranslationCount, 0);
+  assert.equal(result.metrics.queuedHintValidationCount, 1);
+  assert.equal(translateCalls, 0);
+  assert.equal(validationCalls, 0);
+
+  const [persisted] = supabase.getRows();
+  assert.equal(persisted.translation_ja, null);
+});
+
+test('resolveWordsWithLexicon batches AI translations for words without japanese hints', async () => {
+  const supabase = new FakeLexiconSupabase();
+  let singleCalls = 0;
+  let batchCalls = 0;
+
+  const result = await resolveWordsWithLexicon(
+    [
+      { english: 'engaged', japanese: '', distractors: [], partOfSpeechTags: ['adjective'] },
+      { english: 'railroad', japanese: '', distractors: [], partOfSpeechTags: ['noun'] },
+    ],
+    createDeps(supabase, {
+      translateWord: async () => {
+        singleCalls += 1;
+        return 'should-not-run';
+      },
+      translateWords: async (inputs) => {
+        batchCalls += 1;
+        const map = new Map<string, string | null>();
+        for (const input of inputs) {
+          map.set(
+            `${input.english.toLowerCase()}::${input.pos}`,
+            input.english === 'engaged' ? '従事している' : '鉄道',
+          );
+        }
+        return map;
+      },
+    }),
+  );
+
+  assert.equal(batchCalls, 1);
+  assert.equal(singleCalls, 0);
+  assert.equal(result.words[0]?.japanese, '従事している');
+  assert.equal(result.words[1]?.japanese, '鉄道');
+  assert.equal(result.pendingEnrichmentCandidates.length, 0);
+  assert.equal(result.metrics.syncTranslationCount, 2);
+});
+
+test('resolveWordsWithLexicon creates runtime rows with null translation and queues hints', async () => {
+  const supabase = new FakeLexiconSupabase();
+  let translateCalls = 0;
+  const result = await resolveWordsWithLexicon(
+    [
+      { english: 'compose', japanese: '作曲する', distractors: [], partOfSpeechTags: ['verb'] },
+    ],
+    createDeps(supabase, {
+      translateWord: async () => {
+        translateCalls += 1;
+        return 'unused';
+      },
+    }),
+  );
+
+  assert.equal(translateCalls, 0);
+  assert.equal(result.words[0]?.japanese, '作曲する');
+  assert.ok(result.words[0]?.lexiconEntryId);
+  assert.equal(result.pendingEnrichmentCandidates.length, 1);
+
+  const [persisted] = supabase.getRows();
+  assert.equal(persisted.translation_ja, null);
+  assert.equal(persisted.translation_source, null);
+  assert.deepEqual(persisted.dataset_sources, ['runtime']);
+});
+
+test('resolveWordsWithLexicon prefers a later non-empty hint when earlier duplicate is blank', async () => {
   const supabase = new FakeLexiconSupabase();
   let translateCalls = 0;
   const result = await resolveWordsWithLexicon(
@@ -336,112 +486,19 @@ test('resolveWordsWithLexicon prefers a later scan hint over AI fallback for dup
         partOfSpeechTags: ['noun'],
       },
     ],
-    createDeps(
-      supabase,
-      async () => {
+    createDeps(supabase, {
+      translateWord: async () => {
         translateCalls += 1;
         return 'AI訳';
       },
-      async () => acceptHint('本'),
-    ),
+    }),
   );
 
   assert.equal(translateCalls, 0);
-  assert.equal(result.lexiconEntries.length, 1);
-  assert.equal(result.lexiconEntries[0]?.translationJa, '本');
-  assert.equal(result.lexiconEntries[0]?.translationSource, 'scan');
   assert.equal(result.words[0]?.japanese, '本');
   assert.equal(result.words[1]?.japanese, '本');
-});
-
-test('resolveWordsWithLexicon batches AI translations for words without japanese hints', async () => {
-  const supabase = new FakeLexiconSupabase();
-  let singleCalls = 0;
-  let batchCalls = 0;
-
-  const result = await resolveWordsWithLexicon(
-    [
-      { english: 'engaged', japanese: '', distractors: [], partOfSpeechTags: ['adjective'] },
-      { english: 'railroad', japanese: '', distractors: [], partOfSpeechTags: ['noun'] },
-    ],
-    createDeps(
-      supabase,
-      async () => {
-        singleCalls += 1;
-        return 'should-not-run';
-      },
-      undefined,
-      async (inputs) => {
-        batchCalls += 1;
-        const map = new Map<string, string | null>();
-        for (const input of inputs) {
-          map.set(`${input.english.toLowerCase()}::${input.pos}`, input.english === 'engaged' ? '従事している' : '鉄道');
-        }
-        return map;
-      },
-    ),
-  );
-
-  assert.equal(batchCalls, 1);
-  assert.equal(singleCalls, 0);
-  assert.equal(result.words[0]?.japanese, '従事している');
-  assert.equal(result.words[1]?.japanese, '鉄道');
-});
-
-test('resolveOrCreateLexiconEntry rejects invalid scan hint for master and uses AI fallback instead', async () => {
-  const supabase = new FakeLexiconSupabase([
-    createRow({
-      headword: 'spring',
-      normalized_headword: 'spring',
-      pos: 'noun',
-      translation_ja: null,
-    }),
-  ]);
-
-  let translateCalls = 0;
-  const entry = await resolveOrCreateLexiconEntry(
-    { english: 'spring', japaneseHint: '走る', partOfSpeechTags: ['noun'] },
-    createDeps(
-      supabase,
-      async () => {
-        translateCalls += 1;
-        return '春';
-      },
-      async () => rejectHint('春'),
-    ),
-  );
-
-  assert.equal(entry?.translationJa, '春');
-  assert.equal(entry?.translationSource, 'ai');
-  assert.equal(translateCalls, 0);
-
-  const [persisted] = supabase.getRows();
-  assert.equal(persisted.translation_ja, '春');
-  assert.equal(persisted.translation_source, 'ai');
-});
-
-test('resolveOrCreateLexiconEntry does not persist unvalidated scan hint when no validator or AI fallback is available', async () => {
-  const supabase = new FakeLexiconSupabase([
-    createRow({
-      headword: 'light',
-      normalized_headword: 'light',
-      pos: 'noun',
-      translation_ja: null,
-    }),
-  ]);
-
-  const entry = await resolveOrCreateLexiconEntry(
-    { english: 'light', japaneseHint: '走る', partOfSpeechTags: ['noun'] },
-    createDeps(
-      supabase,
-      async () => null,
-      async () => null,
-    ),
-  );
-
-  assert.equal(entry?.translationJa, undefined);
+  assert.equal(result.pendingEnrichmentCandidates.length, 1);
 
   const [persisted] = supabase.getRows();
   assert.equal(persisted.translation_ja, null);
-  assert.equal(persisted.translation_source, null);
 });

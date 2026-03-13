@@ -46,6 +46,10 @@ export interface AIConfig {
       analysis: AIModelConfig;
     };
   };
+  lexicon: {
+    translate: AIModelConfig;
+    validateHint: AIModelConfig;
+  };
   defaults: {
     gemini: AIModelConfig;
     openai: AIModelConfig;
@@ -97,6 +101,20 @@ export const AI_CONFIG: AIConfig = {
         temperature: 0.7,
         maxOutputTokens: 16384,
       },
+    },
+  },
+  lexicon: {
+    translate: {
+      provider: 'gemini',
+      model: EXTRACTION_MODEL,
+      temperature: 0.3,
+      maxOutputTokens: 8192,
+    },
+    validateHint: {
+      provider: 'gemini',
+      model: EXTRACTION_MODEL,
+      temperature: 0,
+      maxOutputTokens: 8192,
     },
   },
   defaults: {

@@ -1,7 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { resolveWordsWithLexicon } from '@/lib/lexicon/resolver';
+import {
+  enqueueLexiconEnrichmentJob,
+  triggerLexiconEnrichmentProcessing,
+} from '@/lib/lexicon/enrichment-jobs';
 import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
@@ -90,7 +94,20 @@ export async function POST(request: NextRequest) {
     const unresolvedWords = words.filter((word) => !word.lexiconEntryId);
     const resolvedLexicon = unresolvedWords.length > 0
       ? await resolveWordsWithLexicon(unresolvedWords)
-      : { words: [], lexiconEntries: [] };
+      : {
+          words: [],
+          lexiconEntries: [],
+          pendingEnrichmentCandidates: [],
+          metrics: {
+            syncTranslationCount: 0,
+            queuedHintValidationCount: 0,
+            resolverElapsedMs: 0,
+          },
+        };
+    console.log('[words/create] Lexicon resolution metrics', {
+      wordCount: unresolvedWords.length,
+      ...resolvedLexicon.metrics,
+    });
     const resolvedByInput = new Map<typeof unresolvedWords[number], typeof resolvedLexicon.words[number]>();
     unresolvedWords.forEach((word, index) => {
       const resolved = resolvedLexicon.words[index];
@@ -143,6 +160,24 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
+
+    after(async () => {
+      if (resolvedLexicon.pendingEnrichmentCandidates.length === 0) {
+        return;
+      }
+
+      try {
+        const enrichmentJobId = await enqueueLexiconEnrichmentJob(
+          'manual',
+          resolvedLexicon.pendingEnrichmentCandidates,
+        );
+        if (enrichmentJobId) {
+          await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
+        }
+      } catch (enqueueError) {
+        console.error('[words/create] Failed to enqueue lexicon enrichment', enqueueError);
+      }
+    });
 
     return NextResponse.json({
       success: true,
