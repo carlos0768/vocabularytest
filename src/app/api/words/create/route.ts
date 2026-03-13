@@ -101,6 +101,9 @@ export async function POST(request: NextRequest) {
           metrics: {
             syncTranslationCount: 0,
             queuedHintValidationCount: 0,
+            posInferredCount: 0,
+            olpReusedCount: 0,
+            runtimeCreatedCount: 0,
             resolverElapsedMs: 0,
           },
         };
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
         example_sentence: word.exampleSentence ?? null,
         example_sentence_ja: word.exampleSentenceJa ?? null,
         pronunciation: word.pronunciation ?? null,
-        part_of_speech_tags: word.partOfSpeechTags ?? null,
+        part_of_speech_tags: resolved?.partOfSpeechTags ?? word.partOfSpeechTags ?? null,
         related_words: word.relatedWords ?? null,
         usage_patterns: word.usagePatterns ?? null,
         insights_generated_at: word.insightsGeneratedAt ?? null,

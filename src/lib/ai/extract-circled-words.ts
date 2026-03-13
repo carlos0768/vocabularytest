@@ -82,7 +82,10 @@ function dedupeWords(data: ValidatedAIResponse): ValidatedAIResponse {
 
 function buildVerificationPrompt(words: ValidatedAIResponse['words']): string {
   const candidateList = words
-    .map((word, index) => `${index + 1}. english=${JSON.stringify(word.english)}, japanese=${JSON.stringify(word.japanese)}`)
+    .map((word, index) => (
+      `${index + 1}. english=${JSON.stringify(word.english)}, japanese=${JSON.stringify(word.japanese)}, ` +
+      `partOfSpeechTags=${JSON.stringify(word.partOfSpeechTags ?? [])}`
+    ))
     .join('\n');
 
   return `一次抽出の候補リストです。画像を再確認し、手書きの丸（○/楕円）で囲まれている候補だけを残してください。
@@ -100,7 +103,8 @@ ${candidateList}
   "words": [
     {
       "english": "word",
-      "japanese": "意味"
+      "japanese": "意味",
+      "partOfSpeechTags": ["noun"]
     }
   ]
 }`;

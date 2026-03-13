@@ -49,6 +49,7 @@ export interface AIConfig {
   lexicon: {
     translate: AIModelConfig;
     validateHint: AIModelConfig;
+    classifyPos: AIModelConfig;
   };
   defaults: {
     gemini: AIModelConfig;
@@ -111,6 +112,12 @@ export const AI_CONFIG: AIConfig = {
       maxOutputTokens: 8192,
     },
     validateHint: {
+      provider: 'gemini',
+      model: EXTRACTION_MODEL,
+      temperature: 0,
+      maxOutputTokens: 8192,
+    },
+    classifyPos: {
       provider: 'gemini',
       model: EXTRACTION_MODEL,
       temperature: 0,

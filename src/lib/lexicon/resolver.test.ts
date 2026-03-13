@@ -6,6 +6,7 @@ import {
   resolveWordsWithLexicon,
   type ResolveLexiconDeps,
 } from './resolver';
+import { buildPosClassificationKey } from './ai';
 
 type LexiconEntryRow = {
   id: string;
@@ -157,7 +158,7 @@ function createRow(
     normalized_headword: overrides.normalized_headword,
     pos: overrides.pos,
     cefr_level: overrides.cefr_level ?? null,
-    dataset_sources: overrides.dataset_sources ?? ['olp_cefrj'],
+    dataset_sources: overrides.dataset_sources ?? ['olp:cefrj-vocabulary-profile-1.5'],
     translation_ja: overrides.translation_ja ?? null,
     translation_source: overrides.translation_source ?? null,
     created_at: overrides.created_at ?? new Date(0).toISOString(),
@@ -171,6 +172,7 @@ function createDeps(
     translateWord?: ResolveLexiconDeps['translateWord'];
     translateWords?: ResolveLexiconDeps['translateWords'];
     validateTranslationCandidates?: ResolveLexiconDeps['validateTranslationCandidates'];
+    classifyPartOfSpeechBatch?: ResolveLexiconDeps['classifyPartOfSpeechBatch'];
   },
 ): ResolveLexiconDeps {
   return {
@@ -178,6 +180,7 @@ function createDeps(
     translateWord: options?.translateWord,
     translateWords: options?.translateWords,
     validateTranslationCandidates: options?.validateTranslationCandidates,
+    classifyPartOfSpeechBatch: options?.classifyPartOfSpeechBatch,
   };
 }
 
@@ -319,6 +322,42 @@ test('resolveOrCreateLexiconEntry creates and then reuses runtime rows with AI f
   assert.equal(supabase.getRows().length, 1);
 });
 
+test('resolveOrCreateLexiconEntry infers missing POS before reusing OLP rows', async () => {
+  const supabase = new FakeLexiconSupabase([
+    createRow({
+      id: 'lex-aware',
+      headword: 'aware',
+      normalized_headword: 'aware',
+      pos: 'adjective',
+      cefr_level: 'B1',
+      translation_ja: '気づいている',
+      translation_source: 'ai',
+    }),
+  ]);
+
+  let classifyCalls = 0;
+  const entry = await resolveOrCreateLexiconEntry(
+    { english: 'aware', japaneseHint: '' },
+    createDeps(supabase, {
+      classifyPartOfSpeechBatch: async (inputs) => {
+        classifyCalls += 1;
+        const map = new Map<string, 'adjective'>();
+        for (const input of inputs) {
+          map.set(buildPosClassificationKey(input.english, input.japaneseHint), 'adjective');
+        }
+        return map;
+      },
+      translateWord: async () => 'unused',
+    }),
+  );
+
+  assert.equal(entry?.id, 'lex-aware');
+  assert.equal(entry?.pos, 'adjective');
+  assert.equal(entry?.translationJa, '気づいている');
+  assert.equal(classifyCalls, 1);
+  assert.equal(supabase.getRows().length, 1);
+});
+
 test('resolveWordsWithLexicon skips AI and queue when master translation already exists', async () => {
   const supabase = new FakeLexiconSupabase([
     createRow({
@@ -357,9 +396,59 @@ test('resolveWordsWithLexicon skips AI and queue when master translation already
   assert.equal(result.pendingEnrichmentCandidates.length, 0);
   assert.equal(result.metrics.syncTranslationCount, 0);
   assert.equal(result.metrics.queuedHintValidationCount, 0);
+  assert.equal(result.metrics.posInferredCount, 0);
+  assert.equal(result.metrics.olpReusedCount, 1);
+  assert.equal(result.metrics.runtimeCreatedCount, 0);
   assert.equal(singleCalls, 0);
   assert.equal(batchCalls, 0);
   assert.equal(validationCalls, 0);
+});
+
+test('resolveWordsWithLexicon infers missing POS and reuses OLP entries instead of runtime rows', async () => {
+  const supabase = new FakeLexiconSupabase([
+    createRow({
+      id: 'lex-bright',
+      headword: 'bright',
+      normalized_headword: 'bright',
+      pos: 'adjective',
+      cefr_level: 'B1',
+      translation_ja: '明るい',
+      translation_source: 'ai',
+    }),
+  ]);
+
+  let classifyCalls = 0;
+  let batchTranslationCalls = 0;
+  const result = await resolveWordsWithLexicon(
+    [
+      { english: 'bright', japanese: '', distractors: [], partOfSpeechTags: [] },
+    ],
+    createDeps(supabase, {
+      classifyPartOfSpeechBatch: async (inputs) => {
+        classifyCalls += 1;
+        const map = new Map<string, 'adjective'>();
+        for (const input of inputs) {
+          map.set(buildPosClassificationKey(input.english, input.japaneseHint), 'adjective');
+        }
+        return map;
+      },
+      translateWords: async () => {
+        batchTranslationCalls += 1;
+        return new Map();
+      },
+    }),
+  );
+
+  assert.equal(result.words[0]?.lexiconEntryId, 'lex-bright');
+  assert.deepEqual(result.words[0]?.partOfSpeechTags, ['adjective']);
+  assert.equal(result.words[0]?.japanese, '明るい');
+  assert.equal(result.pendingEnrichmentCandidates.length, 0);
+  assert.equal(result.metrics.posInferredCount, 1);
+  assert.equal(result.metrics.olpReusedCount, 1);
+  assert.equal(result.metrics.runtimeCreatedCount, 0);
+  assert.equal(classifyCalls, 1);
+  assert.equal(batchTranslationCalls, 0);
+  assert.equal(supabase.getRows().length, 1);
 });
 
 test('resolveWordsWithLexicon queues hint validation for untranslated existing rows', async () => {
@@ -398,6 +487,9 @@ test('resolveWordsWithLexicon queues hint validation for untranslated existing r
   assert.equal(result.pendingEnrichmentCandidates[0]?.japaneseHint, '走る');
   assert.equal(result.metrics.syncTranslationCount, 0);
   assert.equal(result.metrics.queuedHintValidationCount, 1);
+  assert.equal(result.metrics.posInferredCount, 0);
+  assert.equal(result.metrics.olpReusedCount, 1);
+  assert.equal(result.metrics.runtimeCreatedCount, 0);
   assert.equal(translateCalls, 0);
   assert.equal(validationCalls, 0);
 
@@ -440,6 +532,9 @@ test('resolveWordsWithLexicon batches AI translations for words without japanese
   assert.equal(result.words[1]?.japanese, '鉄道');
   assert.equal(result.pendingEnrichmentCandidates.length, 0);
   assert.equal(result.metrics.syncTranslationCount, 2);
+  assert.equal(result.metrics.posInferredCount, 0);
+  assert.equal(result.metrics.olpReusedCount, 0);
+  assert.equal(result.metrics.runtimeCreatedCount, 2);
 });
 
 test('resolveWordsWithLexicon creates runtime rows with null translation and queues hints', async () => {
@@ -461,6 +556,9 @@ test('resolveWordsWithLexicon creates runtime rows with null translation and que
   assert.equal(result.words[0]?.japanese, '作曲する');
   assert.ok(result.words[0]?.lexiconEntryId);
   assert.equal(result.pendingEnrichmentCandidates.length, 1);
+  assert.equal(result.metrics.posInferredCount, 0);
+  assert.equal(result.metrics.olpReusedCount, 0);
+  assert.equal(result.metrics.runtimeCreatedCount, 1);
 
   const [persisted] = supabase.getRows();
   assert.equal(persisted.translation_ja, null);
@@ -498,6 +596,9 @@ test('resolveWordsWithLexicon prefers a later non-empty hint when earlier duplic
   assert.equal(result.words[0]?.japanese, '本');
   assert.equal(result.words[1]?.japanese, '本');
   assert.equal(result.pendingEnrichmentCandidates.length, 1);
+  assert.equal(result.metrics.posInferredCount, 0);
+  assert.equal(result.metrics.olpReusedCount, 0);
+  assert.equal(result.metrics.runtimeCreatedCount, 1);
 
   const [persisted] = supabase.getRows();
   assert.equal(persisted.translation_ja, null);

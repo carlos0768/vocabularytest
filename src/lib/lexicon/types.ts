@@ -16,6 +16,9 @@ export interface PendingLexiconEnrichmentCandidate {
 export interface LexiconResolveMetrics {
   syncTranslationCount: number;
   queuedHintValidationCount: number;
+  posInferredCount: number;
+  olpReusedCount: number;
+  runtimeCreatedCount: number;
   resolverElapsedMs: number;
 }
 

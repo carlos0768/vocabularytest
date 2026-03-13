@@ -1,6 +1,7 @@
 import { AI_CONFIG, type AIModelConfig, getAPIKeys } from '@/lib/ai/config';
 import { getProviderFromConfig, isCloudRunConfigured } from '@/lib/ai/providers';
 import {
+  LEXICON_POS_VALUES,
   normalizeHeadword,
   normalizeLexiconTranslation,
   type LexiconPos,
@@ -47,6 +48,44 @@ const TRANSLATION_HINT_VALIDATION_PROMPT = `あなたは英和辞典の品質チ
   ]
 }`;
 
+const PART_OF_SPEECH_CLASSIFICATION_PROMPT = `あなたは英和辞典の品詞分類器です。
+与えられた英単語・フレーズと日本語候補から、共有語彙マスタで使う主品詞を1つだけ厳密に決めてください。
+
+品詞候補:
+- noun
+- verb
+- adjective
+- adverb
+- idiom
+- phrasal_verb
+- preposition
+- conjunction
+- pronoun
+- determiner
+- interjection
+- auxiliary
+- other
+
+判定ルール:
+- 出力は JSON のみ
+- 1 項目につき pos は必ず 1 つだけ返す
+- 熟語は idiom、句動詞は phrasal_verb を優先する
+- be / do / have / modal auxiliary は auxiliary にする
+- 日本語候補がある場合は意味と品詞の整合を優先する
+- 日本語候補がなくても、最も一般的な辞書上の主品詞を返す
+- 不明な場合のみ other にする
+
+出力形式:
+{
+  "results": [
+    {
+      "english": "word",
+      "japaneseHint": "候補 or null",
+      "pos": "noun"
+    }
+  ]
+}`;
+
 const translationResponseSchema = z.object({
   japanese: z.string().trim().min(1),
 }).strict();
@@ -70,7 +109,15 @@ const batchValidationResponseSchema = z.object({
   }).strict()),
 }).strict();
 
-type LexiconAIKind = 'translate' | 'validateHint';
+const batchPosClassificationResponseSchema = z.object({
+  results: z.array(z.object({
+    english: z.string().trim().min(1),
+    japaneseHint: z.string().trim().nullable().optional(),
+    pos: z.enum(LEXICON_POS_VALUES),
+  }).strict()),
+}).strict();
+
+type LexiconAIKind = 'translate' | 'validateHint' | 'classifyPos';
 
 function getLexiconAIClient(
   kind: LexiconAIKind,
@@ -83,7 +130,9 @@ function getLexiconAIClient(
 
   const config = kind === 'translate'
     ? AI_CONFIG.lexicon.translate
-    : AI_CONFIG.lexicon.validateHint;
+    : kind === 'validateHint'
+      ? AI_CONFIG.lexicon.validateHint
+      : AI_CONFIG.lexicon.classifyPos;
 
   return {
     provider: getProviderFromConfig(config, apiKeys),
@@ -101,6 +150,13 @@ export function buildValidationKey(
   japaneseHint: string,
 ): string {
   return `${buildLexiconKey(english, pos)}::${normalizeLexiconTranslation(japaneseHint) ?? ''}`;
+}
+
+export function buildPosClassificationKey(
+  english: string,
+  japaneseHint?: string | null,
+): string {
+  return `${normalizeHeadword(english)}::${normalizeLexiconTranslation(japaneseHint) ?? ''}`;
 }
 
 export function extractJsonContent(content: string): string {
@@ -297,6 +353,64 @@ ${chunk.map((item, index) => `${index + 1}. 英語: ${item.english} / 品詞: ${
       }
     } catch (error) {
       console.warn('Failed to parse translation hint batch validation response:', error);
+    }
+  }
+
+  return results;
+}
+
+export async function classifyPartOfSpeechBatchWithAI(
+  inputs: Array<{ english: string; japaneseHint?: string | null }>,
+): Promise<Map<string, LexiconPos>> {
+  const aiClient = getLexiconAIClient('classifyPos');
+  const uniqueInputs = new Map<string, { english: string; japaneseHint: string | null }>();
+
+  for (const input of inputs) {
+    const english = input.english.trim();
+    if (!english) continue;
+    const japaneseHint = normalizeLexiconTranslation(input.japaneseHint);
+    const key = buildPosClassificationKey(english, japaneseHint);
+    if (!uniqueInputs.has(key)) {
+      uniqueInputs.set(key, { english, japaneseHint });
+    }
+  }
+
+  const results = new Map<string, LexiconPos>();
+  for (const key of uniqueInputs.keys()) {
+    results.set(key, 'other');
+  }
+
+  if (!aiClient || uniqueInputs.size === 0) {
+    return results;
+  }
+
+  for (const chunk of chunkArray(Array.from(uniqueInputs.values()), 50)) {
+    const prompt = `${PART_OF_SPEECH_CLASSIFICATION_PROMPT}
+
+対象一覧:
+${chunk.map((item, index) => (
+      `${index + 1}. english: ${item.english}, japaneseHint: ${item.japaneseHint ?? 'null'}`
+    )).join('\n')}`;
+
+    const result = await aiClient.provider.generateText(prompt, {
+      ...aiClient.config,
+      maxOutputTokens: Math.min(8192, Math.max(768, chunk.length * 72)),
+      responseFormat: 'json',
+    });
+
+    if (!result.success || !result.content?.trim()) {
+      continue;
+    }
+
+    try {
+      const parsed = batchPosClassificationResponseSchema.parse(JSON.parse(extractJsonContent(result.content)));
+      for (const item of parsed.results) {
+        const key = buildPosClassificationKey(item.english, item.japaneseHint);
+        if (!results.has(key)) continue;
+        results.set(key, item.pos);
+      }
+    } catch {
+      continue;
     }
   }
 

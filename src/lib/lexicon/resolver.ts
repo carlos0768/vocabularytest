@@ -10,6 +10,8 @@ import {
 } from '../../../shared/lexicon';
 import {
   buildLexiconKey,
+  buildPosClassificationKey,
+  classifyPartOfSpeechBatchWithAI,
   translateWithAI,
   translateWordsWithAI,
   validateTranslationCandidatesWithAI,
@@ -59,6 +61,8 @@ interface ResolveLexiconEntryResult {
   entry: LexiconEntry | null;
   pendingEnrichmentCandidate?: PendingLexiconEnrichmentCandidate;
   translatedSynchronously: boolean;
+  reusedOlpEntry: boolean;
+  createdRuntimeEntry: boolean;
 }
 
 export interface ResolveLexiconDeps {
@@ -70,6 +74,9 @@ export interface ResolveLexiconDeps {
   validateTranslationCandidates?: (
     inputs: Array<{ english: string; pos: LexiconPos; japaneseHint: string }>
   ) => Promise<Map<string, ValidatedTranslationCandidate | null>>;
+  classifyPartOfSpeechBatch?: (
+    inputs: Array<{ english: string; japaneseHint?: string | null }>
+  ) => Promise<Map<string, LexiconPos>>;
 }
 
 function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
@@ -89,6 +96,54 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
 
 function hasResolvedTranslation(row: LexiconEntryRow): boolean {
   return Boolean(normalizeLexiconTranslation(row.translation_ja));
+}
+
+function isOlpBackedRow(row: Pick<LexiconEntryRow, 'dataset_sources'>): boolean {
+  return (row.dataset_sources ?? []).some((source) => source.startsWith('olp:'));
+}
+
+function hasPartOfSpeechTags(tags?: string[] | null): boolean {
+  return Array.isArray(tags) && tags.length > 0;
+}
+
+async function inferMissingPartOfSpeechTags<T extends LexiconResolverInput>(
+  inputs: T[],
+  deps: ResolveLexiconDeps,
+): Promise<{ inputs: T[]; inferredCount: number }> {
+  const missingInputs = inputs.filter((input) => !hasPartOfSpeechTags(input.partOfSpeechTags));
+  if (missingInputs.length === 0) {
+    return { inputs, inferredCount: 0 };
+  }
+
+  const classifications = await (deps.classifyPartOfSpeechBatch ?? classifyPartOfSpeechBatchWithAI)(
+    missingInputs.map((input) => ({
+      english: input.english,
+      japaneseHint: input.japaneseHint,
+    })),
+  );
+
+  let inferredCount = 0;
+  const normalizedInputs = inputs.map((input) => {
+    if (hasPartOfSpeechTags(input.partOfSpeechTags)) {
+      return {
+        ...input,
+        japaneseHint: normalizeLexiconTranslation(input.japaneseHint) ?? undefined,
+      };
+    }
+
+    inferredCount += 1;
+    const inferredPos = classifications.get(buildPosClassificationKey(input.english, input.japaneseHint)) ?? 'other';
+    return {
+      ...input,
+      japaneseHint: normalizeLexiconTranslation(input.japaneseHint) ?? undefined,
+      partOfSpeechTags: [inferredPos],
+    };
+  });
+
+  return {
+    inputs: normalizedInputs,
+    inferredCount,
+  };
 }
 
 function createPendingEnrichmentCandidate(
@@ -138,6 +193,8 @@ async function updateTranslationIfMissing(
     return {
       entry: mapLexiconEntry(row),
       translatedSynchronously: false,
+      reusedOlpEntry: isOlpBackedRow(row),
+      createdRuntimeEntry: false,
     };
   }
 
@@ -148,6 +205,8 @@ async function updateTranslationIfMissing(
       entry: mapLexiconEntry(row),
       pendingEnrichmentCandidate: pendingCandidate,
       translatedSynchronously: false,
+      reusedOlpEntry: isOlpBackedRow(row),
+      createdRuntimeEntry: false,
     };
   }
 
@@ -157,6 +216,8 @@ async function updateTranslationIfMissing(
     return {
       entry: mapLexiconEntry(row),
       translatedSynchronously: false,
+      reusedOlpEntry: isOlpBackedRow(row),
+      createdRuntimeEntry: false,
     };
   }
 
@@ -177,6 +238,8 @@ async function updateTranslationIfMissing(
   return {
     entry: mapLexiconEntry(data),
     translatedSynchronously: true,
+    reusedOlpEntry: isOlpBackedRow(data),
+    createdRuntimeEntry: false,
   };
 }
 
@@ -186,6 +249,7 @@ function getResolverDeps(deps?: ResolveLexiconDeps) {
     translateWord: deps?.translateWord ?? translateWithAI,
     translateWords: deps?.translateWords ?? translateWordsWithAI,
     validateTranslationCandidates: deps?.validateTranslationCandidates ?? validateTranslationCandidatesWithAI,
+    classifyPartOfSpeechBatch: deps?.classifyPartOfSpeechBatch ?? classifyPartOfSpeechBatchWithAI,
   };
 }
 
@@ -194,18 +258,22 @@ async function resolveOrCreateLexiconEntryResult(
   deps?: ResolveLexiconDeps,
   existingRow?: LexiconEntryRow | null,
 ): Promise<ResolveLexiconEntryResult> {
-  const { supabaseAdmin, translateWord } = getResolverDeps(deps);
-  const headword = input.english.trim();
+  const resolverDeps = getResolverDeps(deps);
+  const { supabaseAdmin, translateWord } = resolverDeps;
+  const { inputs: [preparedInput] } = await inferMissingPartOfSpeechTags([input], resolverDeps);
+  const headword = preparedInput?.english.trim() ?? input.english.trim();
   const normalizedHeadword = normalizeHeadword(headword);
   if (!normalizedHeadword) {
     return {
       entry: null,
       translatedSynchronously: false,
+      reusedOlpEntry: false,
+      createdRuntimeEntry: false,
     };
   }
 
-  const pos = resolvePrimaryLexiconPos(input.partOfSpeechTags);
-  const japaneseHint = normalizeLexiconTranslation(input.japaneseHint);
+  const pos = resolvePrimaryLexiconPos(preparedInput?.partOfSpeechTags);
+  const japaneseHint = normalizeLexiconTranslation(preparedInput?.japaneseHint);
   const row = existingRow ?? await loadLexiconEntryRow(supabaseAdmin, normalizedHeadword, pos);
 
   if (row) {
@@ -241,6 +309,8 @@ async function resolveOrCreateLexiconEntryResult(
       entry: mapLexiconEntry(insertedRow),
       pendingEnrichmentCandidate: createPendingEnrichmentCandidate(insertedRow.id, headword, pos, japaneseHint),
       translatedSynchronously: Boolean(translation),
+      reusedOlpEntry: false,
+      createdRuntimeEntry: true,
     };
   }
 
@@ -270,9 +340,22 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
   metrics: LexiconResolveMetrics;
 }> {
   const startedAt = Date.now();
+  const resolverDeps = getResolverDeps(deps);
+  const { inputs: inferredResolverInputs, inferredCount } = await inferMissingPartOfSpeechTags(
+    words.map((word) => ({
+      english: word.english,
+      japaneseHint: word.japanese,
+      partOfSpeechTags: word.partOfSpeechTags,
+    })),
+    resolverDeps,
+  );
+  const preparedWords = words.map((word, index) => ({
+    ...word,
+    partOfSpeechTags: inferredResolverInputs[index]?.partOfSpeechTags ?? word.partOfSpeechTags ?? [],
+  }));
   const resolverInputs = new Map<string, LexiconResolverInput>();
 
-  for (const word of words) {
+  for (const word of preparedWords) {
     const normalizedHeadword = normalizeHeadword(word.english);
     if (!normalizedHeadword) continue;
     const pos = resolvePrimaryLexiconPos(word.partOfSpeechTags);
@@ -298,20 +381,20 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
     }
   }
 
-  const resolverDeps = getResolverDeps(deps);
   const existingRows = new Map<string, LexiconEntryRow | null>();
-
-  for (const [key, input] of resolverInputs.entries()) {
-    const pos = resolvePrimaryLexiconPos(input.partOfSpeechTags);
-    existingRows.set(
-      key,
-      await loadLexiconEntryRow(
-        resolverDeps.supabaseAdmin,
-        normalizeHeadword(input.english),
-        pos,
-      ),
-    );
-  }
+  await Promise.all(
+    Array.from(resolverInputs.entries()).map(async ([key, input]) => {
+      const pos = resolvePrimaryLexiconPos(input.partOfSpeechTags);
+      existingRows.set(
+        key,
+        await loadLexiconEntryRow(
+          resolverDeps.supabaseAdmin,
+          normalizeHeadword(input.english),
+          pos,
+        ),
+      );
+    }),
+  );
 
   const batchTranslationInputs = Array.from(resolverInputs.entries())
     .map(([key, input]) => ({
@@ -335,6 +418,7 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
     supabaseAdmin: resolverDeps.supabaseAdmin,
     translateWords: resolverDeps.translateWords,
     validateTranslationCandidates: resolverDeps.validateTranslationCandidates,
+    classifyPartOfSpeechBatch: resolverDeps.classifyPartOfSpeechBatch,
     translateWord: async (english, pos) => {
       const key = buildLexiconKey(english, pos);
       if (batchTranslationKeys.has(key)) {
@@ -346,6 +430,8 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
 
   const resolvedEntryMap = new Map<string, LexiconEntry>();
   const pendingCandidateMap = new Map<string, PendingLexiconEnrichmentCandidate>();
+  let olpReusedCount = 0;
+  let runtimeCreatedCount = 0;
 
   for (const [key, input] of resolverInputs.entries()) {
     const result = await resolveOrCreateLexiconEntryResult(
@@ -359,18 +445,24 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
     if (result.pendingEnrichmentCandidate) {
       pendingCandidateMap.set(result.pendingEnrichmentCandidate.lexiconEntryId, result.pendingEnrichmentCandidate);
     }
+    if (result.reusedOlpEntry) {
+      olpReusedCount += 1;
+    }
+    if (result.createdRuntimeEntry) {
+      runtimeCreatedCount += 1;
+    }
   }
 
-  const resolvedWords = words.map((word) => {
-    const normalizedHeadword = normalizeHeadword(word.english);
+  const resolvedWords = preparedWords.map((word) => {
     const pos = resolvePrimaryLexiconPos(word.partOfSpeechTags);
-    const key = buildLexiconKey(normalizedHeadword, pos);
+    const key = buildLexiconKey(word.english, pos);
     const entry = resolvedEntryMap.get(key);
     const mergedInput = resolverInputs.get(key);
     return {
       ...word,
       english: entry?.headword ?? word.english,
       japanese: entry?.translationJa ?? mergedInput?.japaneseHint ?? normalizeLexiconTranslation(word.japanese) ?? '',
+      partOfSpeechTags: mergedInput?.partOfSpeechTags ?? word.partOfSpeechTags ?? [],
       lexiconEntryId: entry?.id,
       cefrLevel: entry?.cefrLevel,
     };
@@ -383,6 +475,9 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
     metrics: {
       syncTranslationCount: batchTranslationInputs.length,
       queuedHintValidationCount: pendingCandidateMap.size,
+      posInferredCount: inferredCount,
+      olpReusedCount,
+      runtimeCreatedCount,
       resolverElapsedMs: Date.now() - startedAt,
     },
   };

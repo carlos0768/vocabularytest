@@ -165,7 +165,8 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
   "words": [
     {
       "english": "word",
-      "japanese": "意味"
+      "japanese": "意味",
+      "partOfSpeechTags": ["noun"]
     }
   ]
 }
@@ -182,7 +183,7 @@ export const CIRCLED_WORD_USER_PROMPT = `この画像から、ユーザーが手
 - 赤字注釈、太字、見出し
 - チェック、下線、ハイライトのみで丸囲みがない語
 
-丸が日本語側にある場合は、対応する英単語と日本語訳を返してください。日本語訳が画像にない場合は japanese に空文字 "" を返してください。訳の推測生成はしないでください。sourceLabels には物理教材名だけを入れ、"鉄壁" や "LEAP" のような具体的書名だけを返してください。"英語教材" や "参考書" のような一般名詞は返さず、教材名不明のノート画像なら ["ノート"] を返してください。`;
+丸が日本語側にある場合は、対応する英単語と日本語訳を返してください。日本語訳が画像にない場合は japanese に空文字 "" を返してください。訳の推測生成はしないでください。各語には最も適切な主分類を1つだけ partOfSpeechTags に入れてください。sourceLabels には物理教材名だけを入れ、"鉄壁" や "LEAP" のような具体的書名だけを返してください。"英語教材" や "参考書" のような一般名詞は返さず、教材名不明のノート画像なら ["ノート"] を返してください。`;
 
 export const CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT = `あなたは画像監査担当です。与えられた候補語リストから、手書きの丸（○/楕円）で囲まれている語だけを残してください。
 
@@ -196,7 +197,8 @@ export const CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT = `あなたは画像監査
   "words": [
     {
       "english": "word",
-      "japanese": "意味"
+      "japanese": "意味",
+      "partOfSpeechTags": ["noun"]
     }
   ]
 }
@@ -680,16 +682,18 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
   "words": [
     {
       "english": "look forward to",
-      "japanese": "〜を楽しみに待つ"
+      "japanese": "〜を楽しみに待つ",
+      "partOfSpeechTags": ["idiom"]
     }
   ]
 }
 
 注意:
 - 必ず上記のJSON形式のみを出力してください。
+- partOfSpeechTags は必須です。idiom または phrasal_verb を優先し、どうしても当てはまらない場合だけ other を使ってください。
 - 条件に合う表現がない場合は、空の配列 {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
-export const IDIOM_USER_PROMPT = `この画像から、動詞を含む熟語・句動詞・定型コロケーションのうち「意味を知らないと理解しにくい表現」だけを抽出してください。条件に合わない通常の語句は除外してください。日本語訳が画像に含まれていればそれを使い、画像に無ければ japanese は空文字 "" を返してください。訳の推測生成はしないでください。sourceLabels には物理教材名だけを入れ、"鉄壁" や "LEAP" のような具体的書名だけを返してください。"英語教材" や "参考書" のような一般名詞は返さず、教材名不明のノート画像なら ["ノート"] を返してください。`;
+export const IDIOM_USER_PROMPT = `この画像から、動詞を含む熟語・句動詞・定型コロケーションのうち「意味を知らないと理解しにくい表現」だけを抽出してください。条件に合わない通常の語句は除外してください。日本語訳が画像に含まれていればそれを使い、画像に無ければ japanese は空文字 "" を返してください。訳の推測生成はしないでください。各表現には最も適切な主分類を1つだけ partOfSpeechTags に入れてください。sourceLabels には物理教材名だけを入れ、"鉄壁" や "LEAP" のような具体的書名だけを返してください。"英語教材" や "参考書" のような一般名詞は返さず、教材名不明のノート画像なら ["ノート"] を返してください。`;
 
 // ============ Highlighted/Marker Word Extraction Prompts ============
 // Enhanced based on technical research for Gemini 2.5 Flash capabilities
