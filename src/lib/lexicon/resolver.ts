@@ -145,11 +145,7 @@ function getLexiconTextGenerationClient():
   const apiKeys = getAPIKeys();
 
   let config: AIModelConfig | null = null;
-  if (isCloudRunConfigured()) {
-    config = AI_CONFIG.defaults.openai;
-  } else if (apiKeys[AI_CONFIG.defaults.openai.provider]) {
-    config = AI_CONFIG.defaults.openai;
-  } else if (apiKeys[AI_CONFIG.defaults.gemini.provider]) {
+  if (isCloudRunConfigured() || apiKeys.gemini) {
     config = AI_CONFIG.defaults.gemini;
   } else if (apiKeys.openai) {
     config = AI_CONFIG.defaults.openai;
