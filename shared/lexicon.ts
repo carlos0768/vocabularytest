@@ -78,6 +78,10 @@ const VERBOSE_TRANSLATION_MARKERS = [
   '英語:',
   '品詞:',
   'useHint',
+  'thoughts:',
+  'think:',
+  'here is the json requested',
+  'json required',
 ];
 
 const JAPANESE_SPAN_REGEX = /[ぁ-んァ-ヶ一-龠々ー〜・]+(?:\s*[ぁ-んァ-ヶ一-龠々ー〜・]+)*/g;
@@ -151,11 +155,16 @@ function sanitizeLexiconTranslation(value: string): string {
     return '';
   }
 
-  const looksVerbose = VERBOSE_TRANSLATION_MARKERS.some((marker) => candidate.includes(marker))
+  const lowerCandidate = candidate.toLowerCase();
+  const looksVerbose = VERBOSE_TRANSLATION_MARKERS.some((marker) => lowerCandidate.includes(marker.toLowerCase()))
     || candidate.includes('{')
     || candidate.includes('}')
     || candidate.includes('->')
     || candidate.length > 60;
+
+  if (!/[\u3040-\u30ff\u3400-\u9fff]/.test(candidate) && looksVerbose) {
+    return '';
+  }
 
   if (looksVerbose) {
     const extracted = extractLastJapaneseSpan(candidate);
@@ -225,7 +234,7 @@ function extractLastJapaneseSpan(value: string): string | null {
   for (let index = matches.length - 1; index >= 0; index -= 1) {
     const candidate = dedupeRepeatedTranslation(matches[index]!.replace(/\s+/g, ' ').trim());
     if (!candidate) continue;
-    if (VERBOSE_TRANSLATION_MARKERS.some((marker) => candidate.includes(marker.replace(/[:：]/g, '')))) {
+    if (VERBOSE_TRANSLATION_MARKERS.some((marker) => candidate.toLowerCase().includes(marker.replace(/[:：]/g, '').toLowerCase()))) {
       continue;
     }
     return candidate;

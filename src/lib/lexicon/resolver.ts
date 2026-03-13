@@ -54,6 +54,14 @@ const translationResponseSchema = z.object({
   japanese: z.string().trim().min(1),
 }).strict();
 
+const batchTranslationResponseSchema = z.object({
+  translations: z.array(z.object({
+    english: z.string().trim().min(1),
+    pos: z.string().trim().min(1),
+    japanese: z.string().trim().nullable().optional(),
+  }).strict()),
+}).strict();
+
 export interface LexiconResolverInput {
   english: string;
   japaneseHint?: string | null;
@@ -86,6 +94,9 @@ interface LexiconEntryRow {
 export interface ResolveLexiconDeps {
   supabaseAdmin?: SupabaseClient;
   translateWord?: (english: string, pos: LexiconPos) => Promise<string | null>;
+  translateWords?: (
+    inputs: Array<{ english: string; pos: LexiconPos }>
+  ) => Promise<Map<string, string | null>>;
   validateTranslationCandidate?: (
     english: string,
     pos: LexiconPos,
@@ -114,6 +125,25 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
   };
 }
 
+function buildLexiconKey(english: string, pos: LexiconPos): string {
+  return `${normalizeHeadword(english)}::${pos}`;
+}
+
+function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
 async function translateWithAI(english: string, _pos: LexiconPos): Promise<string | null> {
   const aiClient = getLexiconTextGenerationClient();
   if (!aiClient) {
@@ -137,6 +167,73 @@ async function translateWithAI(english: string, _pos: LexiconPos): Promise<strin
   }
 
   return normalizeLexiconTranslation(result.content);
+}
+
+async function translateWordsWithAI(
+  inputs: Array<{ english: string; pos: LexiconPos }>,
+): Promise<Map<string, string | null>> {
+  const aiClient = getLexiconTextGenerationClient();
+  const uniqueInputs = new Map<string, { english: string; pos: LexiconPos }>();
+
+  for (const input of inputs) {
+    const english = input.english.trim();
+    if (!english) continue;
+    const key = buildLexiconKey(english, input.pos);
+    if (!uniqueInputs.has(key)) {
+      uniqueInputs.set(key, { english, pos: input.pos });
+    }
+  }
+
+  const results = new Map<string, string | null>();
+  for (const key of uniqueInputs.keys()) {
+    results.set(key, null);
+  }
+
+  if (!aiClient || uniqueInputs.size === 0) {
+    return results;
+  }
+
+  const items = Array.from(uniqueInputs.values());
+  const prompt = `あなたは英和辞典です。複数の英単語・フレーズの主要な日本語訳を返してください。
+
+ルール:
+- 出力はJSONのみ
+- 各項目について最も一般的な日本語訳を1つだけ返す
+- 動詞は「〜する」の形を優先する
+- 不明な場合は japanese を null にする
+- 説明文や前置きは禁止
+
+出力形式:
+{
+  "translations": [
+    { "english": "word", "pos": "noun", "japanese": "日本語訳 or null" }
+  ]
+}
+
+対象一覧:
+${items.map((item, index) => `${index + 1}. english: ${item.english}, pos: ${item.pos}`).join('\n')}`;
+
+  const result = await aiClient.provider.generateText(prompt, {
+    ...aiClient.config,
+    maxOutputTokens: Math.min(8192, Math.max(768, items.length * 96)),
+    responseFormat: 'json',
+  });
+
+  if (!result.success || !result.content?.trim()) {
+    return results;
+  }
+
+  try {
+    const parsed = batchTranslationResponseSchema.parse(JSON.parse(extractJsonContent(result.content)));
+    for (const item of parsed.translations) {
+      const key = buildLexiconKey(item.english, item.pos as LexiconPos);
+      if (!results.has(key)) continue;
+      results.set(key, normalizeLexiconTranslation(item.japanese));
+    }
+    return results;
+  } catch {
+    return results;
+  }
 }
 
 function getLexiconTextGenerationClient():
@@ -221,6 +318,7 @@ function getResolverDeps(deps?: ResolveLexiconDeps) {
   return {
     supabaseAdmin: deps?.supabaseAdmin ?? getSupabaseAdmin(),
     translateWord: deps?.translateWord ?? translateWithAI,
+    translateWords: deps?.translateWords ?? translateWordsWithAI,
     validateTranslationCandidate: deps?.validateTranslationCandidate ?? validateTranslationCandidateWithAI,
   };
 }
@@ -398,9 +496,33 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
     }
   }
 
+  const resolverDeps = getResolverDeps(deps);
+  const batchTranslationInputs = Array.from(resolverInputs.values())
+    .filter((input) => !normalizeLexiconTranslation(input.japaneseHint))
+    .map((input) => ({
+      english: input.english,
+      pos: resolvePrimaryLexiconPos(input.partOfSpeechTags),
+    }));
+  const batchedTranslations = await resolverDeps.translateWords(batchTranslationInputs);
+  const batchTranslationKeys = new Set(batchTranslationInputs.map((input) => buildLexiconKey(input.english, input.pos)));
+
+  const effectiveDeps: ResolveLexiconDeps = {
+    ...deps,
+    supabaseAdmin: resolverDeps.supabaseAdmin,
+    validateTranslationCandidate: resolverDeps.validateTranslationCandidate,
+    translateWords: resolverDeps.translateWords,
+    translateWord: async (english, pos) => {
+      const key = buildLexiconKey(english, pos);
+      if (batchTranslationKeys.has(key)) {
+        return batchedTranslations.get(key) ?? null;
+      }
+      return resolverDeps.translateWord(english, pos);
+    },
+  };
+
   const resolvedEntryMap = new Map<string, LexiconEntry>();
   for (const [key, input] of resolverInputs.entries()) {
-    const entry = await resolveOrCreateLexiconEntry(input, deps);
+    const entry = await resolveOrCreateLexiconEntry(input, effectiveDeps);
     if (entry) {
       resolvedEntryMap.set(key, entry);
     }

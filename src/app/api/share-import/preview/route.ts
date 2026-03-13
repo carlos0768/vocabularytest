@@ -14,6 +14,7 @@ import {
   extractRepresentativeEnglish,
   resolveAuthenticatedUser,
 } from '@/app/api/share-import/shared';
+import { normalizeLexiconTranslation } from '../../../../../shared/lexicon';
 
 const requestSchema = z.object({
   text: z.string().trim().min(1).max(1200),
@@ -72,10 +73,13 @@ const defaultDeps: PreviewDeps = {
     };
     const provider = getProviderFromConfig(config, { openai: openaiApiKey });
     const result = await provider.generateText(`${TRANSLATE_PROMPT}\n\n英語: ${english}`, config);
-    if (!result.success || !result.content?.trim()) {
+    const japanese = result.success
+      ? normalizeLexiconTranslation(result.content)
+      : null;
+    if (!result.success || !japanese) {
       throw new Error('translation_failed');
     }
-    return result.content.trim();
+    return japanese;
   },
   async translateToEnglish(japanese: string) {
     const openaiApiKey = process.env.OPENAI_API_KEY?.trim() || '';

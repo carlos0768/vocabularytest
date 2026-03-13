@@ -152,11 +152,13 @@ function createDeps(
   supabase: FakeLexiconSupabase,
   translateWord: ResolveLexiconDeps['translateWord'],
   validateTranslationCandidate?: ResolveLexiconDeps['validateTranslationCandidate'],
+  translateWords?: ResolveLexiconDeps['translateWords'],
 ): ResolveLexiconDeps {
   return {
     supabaseAdmin: supabase as unknown as ResolveLexiconDeps['supabaseAdmin'],
     translateWord,
     validateTranslationCandidate,
+    translateWords,
   };
 }
 
@@ -238,6 +240,25 @@ test('resolveOrCreateLexiconEntry sanitizes verbose stored translations when reu
 
   assert.equal(entry?.translationJa, '抗生物質');
   assert.equal(entry?.translationSource, 'ai');
+});
+
+test('resolveOrCreateLexiconEntry drops english-only JSON preamble translations', async () => {
+  const supabase = new FakeLexiconSupabase([
+    createRow({
+      headword: 'engaged',
+      normalized_headword: 'engaged',
+      pos: 'adjective',
+      translation_ja: 'Here is the JSON requested:',
+      translation_source: 'ai',
+    }),
+  ]);
+
+  const entry = await resolveOrCreateLexiconEntry(
+    { english: 'engaged', partOfSpeechTags: ['adjective'] },
+    createDeps(supabase, async () => 'unused'),
+  );
+
+  assert.equal(entry?.translationJa, undefined);
 });
 
 test('resolveOrCreateLexiconEntry fills missing translation from scan hint and persists it', async () => {
@@ -331,6 +352,40 @@ test('resolveWordsWithLexicon prefers a later scan hint over AI fallback for dup
   assert.equal(result.lexiconEntries[0]?.translationSource, 'scan');
   assert.equal(result.words[0]?.japanese, '本');
   assert.equal(result.words[1]?.japanese, '本');
+});
+
+test('resolveWordsWithLexicon batches AI translations for words without japanese hints', async () => {
+  const supabase = new FakeLexiconSupabase();
+  let singleCalls = 0;
+  let batchCalls = 0;
+
+  const result = await resolveWordsWithLexicon(
+    [
+      { english: 'engaged', japanese: '', distractors: [], partOfSpeechTags: ['adjective'] },
+      { english: 'railroad', japanese: '', distractors: [], partOfSpeechTags: ['noun'] },
+    ],
+    createDeps(
+      supabase,
+      async () => {
+        singleCalls += 1;
+        return 'should-not-run';
+      },
+      undefined,
+      async (inputs) => {
+        batchCalls += 1;
+        const map = new Map<string, string | null>();
+        for (const input of inputs) {
+          map.set(`${input.english.toLowerCase()}::${input.pos}`, input.english === 'engaged' ? '従事している' : '鉄道');
+        }
+        return map;
+      },
+    ),
+  );
+
+  assert.equal(batchCalls, 1);
+  assert.equal(singleCalls, 0);
+  assert.equal(result.words[0]?.japanese, '従事している');
+  assert.equal(result.words[1]?.japanese, '鉄道');
 });
 
 test('resolveOrCreateLexiconEntry rejects invalid scan hint for master and uses AI fallback instead', async () => {
