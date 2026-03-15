@@ -1,11 +1,11 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { resolveWordsWithLexicon } from '@/lib/lexicon/resolver';
 import {
-  enqueueLexiconEnrichmentJob,
-  triggerLexiconEnrichmentProcessing,
-} from '@/lib/lexicon/enrichment-jobs';
+  enqueueWordLexiconResolutionJobs,
+  needsWordLexiconResolution,
+  triggerWordLexiconResolutionProcessing,
+} from '@/lib/lexicon/word-resolution-jobs';
 import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
@@ -54,9 +54,31 @@ const requestSchema = z.object({
   words: z.array(wordInputSchema).min(1).max(200),
 }).strict();
 
-export async function POST(request: NextRequest) {
+interface WordsCreateDeps {
+  createClient?: typeof createRouteHandlerClient;
+  runAfter?: typeof after;
+  enqueueJobs?: typeof enqueueWordLexiconResolutionJobs;
+  triggerJobProcessing?: typeof triggerWordLexiconResolutionProcessing;
+}
+
+function getDeps(deps?: WordsCreateDeps) {
+  return {
+    createClient: deps?.createClient ?? createRouteHandlerClient,
+    runAfter: deps?.runAfter ?? after,
+    enqueueJobs: deps?.enqueueJobs ?? enqueueWordLexiconResolutionJobs,
+    triggerJobProcessing: deps?.triggerJobProcessing ?? triggerWordLexiconResolutionProcessing,
+  };
+}
+
+export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCreateDeps) {
   try {
-    const supabase = await createRouteHandlerClient(request);
+    const {
+      createClient,
+      runAfter,
+      enqueueJobs,
+      triggerJobProcessing,
+    } = getDeps(deps);
+    const supabase = await createClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const { data: { user }, error: authError } = bearerToken
@@ -91,48 +113,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '指定した単語帳にアクセスできません' }, { status: 403 });
     }
 
-    const unresolvedWords = words.filter((word) => !word.lexiconEntryId);
-    const resolvedLexicon = unresolvedWords.length > 0
-      ? await resolveWordsWithLexicon(unresolvedWords)
-      : {
-          words: [],
-          lexiconEntries: [],
-          pendingEnrichmentCandidates: [],
-          metrics: {
-            syncTranslationCount: 0,
-            queuedHintValidationCount: 0,
-            posInferredCount: 0,
-            olpReusedCount: 0,
-            runtimeCreatedCount: 0,
-            resolverElapsedMs: 0,
-          },
-        };
-    console.log('[words/create] Lexicon resolution metrics', {
-      wordCount: unresolvedWords.length,
-      ...resolvedLexicon.metrics,
-    });
-    const resolvedByInput = new Map<typeof unresolvedWords[number], typeof resolvedLexicon.words[number]>();
-    unresolvedWords.forEach((word, index) => {
-      const resolved = resolvedLexicon.words[index];
-      if (resolved) {
-        resolvedByInput.set(word, resolved);
-      }
-    });
-
     const defaultSR = getDefaultSpacedRepetitionFields();
     const rows = words.map((word) => {
-      const resolved = word.lexiconEntryId ? null : resolvedByInput.get(word);
-
       const row = {
         project_id: word.projectId,
-        english: resolved?.english ?? word.english,
-        japanese: resolved?.japanese ?? word.japanese,
-        lexicon_entry_id: word.lexiconEntryId ?? resolved?.lexiconEntryId ?? null,
+        english: word.english,
+        japanese: word.japanese,
+        lexicon_entry_id: word.lexiconEntryId ?? null,
         distractors: word.distractors,
         example_sentence: word.exampleSentence ?? null,
         example_sentence_ja: word.exampleSentenceJa ?? null,
         pronunciation: word.pronunciation ?? null,
-        part_of_speech_tags: resolved?.partOfSpeechTags ?? word.partOfSpeechTags ?? null,
+        part_of_speech_tags: word.partOfSpeechTags ?? null,
         related_words: word.relatedWords ?? null,
         usage_patterns: word.usagePatterns ?? null,
         insights_generated_at: word.insightsGeneratedAt ?? null,
@@ -164,31 +156,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    after(async () => {
-      if (resolvedLexicon.pendingEnrichmentCandidates.length === 0) {
+    runAfter(async () => {
+      const pendingWordIds = ((data ?? []) as WordRow[])
+        .filter((row) => needsWordLexiconResolution({
+          lexiconEntryId: row.lexicon_entry_id ?? null,
+          partOfSpeechTags: row.part_of_speech_tags,
+        }))
+        .map((row) => row.id);
+
+      if (pendingWordIds.length === 0) {
         return;
       }
 
       try {
-        const enrichmentJobId = await enqueueLexiconEnrichmentJob(
+        const jobIds = await enqueueJobs(
           'manual',
-          resolvedLexicon.pendingEnrichmentCandidates,
+          pendingWordIds,
         );
-        if (enrichmentJobId) {
-          await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
+        if (jobIds.length > 0) {
+          await Promise.all(
+            jobIds.map((jobId) => triggerJobProcessing(request.url, jobId)),
+          );
         }
-      } catch (enqueueError) {
-        console.error('[words/create] Failed to enqueue lexicon enrichment', enqueueError);
+      } catch (jobError) {
+        console.error('[words/create] Failed to enqueue word lexicon resolution', jobError);
       }
     });
 
     return NextResponse.json({
       success: true,
       words: ((data ?? []) as WordRow[]).map(mapWordFromRow),
-      lexiconEntries: resolvedLexicon.lexiconEntries,
+      lexiconEntries: [],
     });
   } catch (error) {
     console.error('Word create route error:', error);
     return NextResponse.json({ success: false, error: '単語の作成に失敗しました' }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleWordsCreatePost(request);
 }

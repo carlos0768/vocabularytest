@@ -17,11 +17,11 @@ import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { resolveWordsWithLexicon } from '@/lib/lexicon/resolver';
 import {
-  enqueueLexiconEnrichmentJob,
-  triggerLexiconEnrichmentProcessing,
-} from '@/lib/lexicon/enrichment-jobs';
+  enqueueWordLexiconResolutionJobs,
+  needsWordLexiconResolution,
+  triggerWordLexiconResolutionProcessing,
+} from '@/lib/lexicon/word-resolution-jobs';
 import {
   insertProjectWithSourceLabelsCompat,
   selectProjectWithSourceLabelsCompat,
@@ -424,7 +424,7 @@ export async function POST(request: NextRequest) {
       console.error('[scan-jobs/process] Failed to claim job:', claimError);
     }
 
-    let job = claimedJob;
+    const job = claimedJob;
     if (!job) {
       const { data: existingJob, error: jobError } = await getSupabaseAdmin()
       .from('scan_jobs')
@@ -644,12 +644,7 @@ export async function POST(request: NextRequest) {
       }
 
       const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
-      const resolvedLexicon = await resolveWordsWithLexicon(dedupedWords);
-      const resolvedWords = resolvedLexicon.words;
-      console.log('[scan-jobs/process] Lexicon resolution metrics', {
-        jobId,
-        ...resolvedLexicon.metrics,
-      });
+      const resolvedWords = dedupedWords;
 
       if (saveMode === 'client_local') {
         const resultPayload: {
@@ -658,13 +653,13 @@ export async function POST(request: NextRequest) {
           saveMode: ScanJobSaveMode;
           extractedWords: ProcessedExtractedWord[];
           sourceLabels: string[];
-          lexiconEntries: typeof resolvedLexicon.lexiconEntries;
+          lexiconEntries: unknown[];
         } = {
           wordCount: resolvedWords.length,
           saveMode,
           extractedWords: resolvedWords,
           sourceLabels: dedupedSourceLabels,
-          lexiconEntries: resolvedLexicon.lexiconEntries,
+          lexiconEntries: [],
         };
         if (warnings.length > 0) {
           resultPayload.warnings = warnings;
@@ -690,27 +685,6 @@ export async function POST(request: NextRequest) {
         };
         void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
         void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
-
-        after(async () => {
-          if (resolvedLexicon.pendingEnrichmentCandidates.length === 0) {
-            return;
-          }
-
-          try {
-            const enrichmentJobId = await enqueueLexiconEnrichmentJob(
-              'scan',
-              resolvedLexicon.pendingEnrichmentCandidates,
-            );
-            if (enrichmentJobId) {
-              await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
-            }
-          } catch (error) {
-            console.error('[scan-jobs/process] Failed to enqueue client-local lexicon enrichment', {
-              jobId,
-              error,
-            });
-          }
-        });
 
         return NextResponse.json({
           success: true,
@@ -868,17 +842,34 @@ export async function POST(request: NextRequest) {
 
       // Heavy/non-critical tasks run after completion update.
       after(async () => {
-        if (resolvedLexicon.pendingEnrichmentCandidates.length > 0) {
+        const pendingWordIds = insertedWordsArray
+          .filter((row: {
+            id: string;
+            lexicon_entry_id?: string | null;
+            part_of_speech_tags?: unknown;
+          }) =>
+            needsWordLexiconResolution({
+              lexiconEntryId: row.lexicon_entry_id ?? null,
+              partOfSpeechTags: row.part_of_speech_tags,
+            })
+          )
+          .map((row: { id: string }) => row.id);
+
+        if (pendingWordIds.length > 0) {
           try {
-            const enrichmentJobId = await enqueueLexiconEnrichmentJob(
+            const wordResolutionJobIds = await enqueueWordLexiconResolutionJobs(
               'scan',
-              resolvedLexicon.pendingEnrichmentCandidates,
+              pendingWordIds,
             );
-            if (enrichmentJobId) {
-              await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
+            if (wordResolutionJobIds.length > 0) {
+              await Promise.all(
+                wordResolutionJobIds.map((resolutionJobId) =>
+                  triggerWordLexiconResolutionProcessing(request.url, resolutionJobId),
+                ),
+              );
             }
           } catch (error) {
-            console.error('[scan-jobs/process] Failed to enqueue lexicon enrichment', {
+            console.error('[scan-jobs/process] Failed to enqueue word lexicon resolution', {
               jobId,
               error,
             });
