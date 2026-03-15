@@ -23,7 +23,7 @@ enum AuthServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidCredentials:
-            return "メールアドレスまたはパスワードが正しくありません。"
+            return "メールアドレスまたはパスワードが正しくありません。入力内容を確認して、もう一度お試しください。"
         case .missingSession:
             return "ログインセッションが見つかりません。"
         case .sessionExpired:

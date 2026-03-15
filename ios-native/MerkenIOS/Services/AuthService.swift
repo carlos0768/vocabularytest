@@ -62,6 +62,14 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
             || lower.contains("invalid_refresh_token")
     }
 
+    private static func isInvalidCredentialsMessage(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        return lower.contains("invalid login credentials")
+            || lower.contains("invalid_credentials")
+            || lower.contains("\"msg\":\"invalid login credentials\"")
+            || lower.contains("\"error_code\":\"invalid_credentials\"")
+    }
+
     func signIn(email: String, password: String) async throws {
         struct SignInBody: Encodable {
             let email: String
@@ -99,6 +107,9 @@ final class AuthService: ObservableObject, AuthServiceProtocol {
             self.session = session
             persist(session: session)
         } catch SupabaseClientError.unauthorized {
+            throw AuthServiceError.invalidCredentials
+        } catch SupabaseClientError.requestFailed(let code, let message)
+            where code == 400 && Self.isInvalidCredentialsMessage(message) {
             throw AuthServiceError.invalidCredentials
         } catch {
             throw AuthServiceError.network(error.localizedDescription)
