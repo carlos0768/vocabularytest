@@ -143,6 +143,7 @@ test('words/create inserts raw words, returns empty lexicon entries, and enqueue
       runAfter: (callback: () => void | Promise<void>) => {
         afterPromise = Promise.resolve(callback()).then(() => undefined);
       },
+      backfillWords: async (words) => words,
       enqueueJobs: async (source, wordIds) => {
         enqueued.push({ source, wordIds });
         return ['55555555-5555-4555-8555-555555555555'];
@@ -171,4 +172,64 @@ test('words/create inserts raw words, returns empty lexicon entries, and enqueue
     },
   ]);
   assert.deepEqual(triggered, ['55555555-5555-4555-8555-555555555555']);
+});
+
+test('words/create backfills blank japanese before insert', async () => {
+  const projectId = '11111111-1111-4111-8111-111111111111';
+  const createdAt = new Date('2026-03-15T00:00:00.000Z').toISOString();
+
+  const fakeClient = new FakeWordsCreateClient(
+    'user-1',
+    new Set([projectId]),
+    [
+      {
+        id: '66666666-6666-4666-8666-666666666666',
+        project_id: projectId,
+        english: 'springboard',
+        japanese: '出発点',
+        lexicon_entry_id: null,
+        distractors: [],
+        part_of_speech_tags: ['noun'],
+        created_at: createdAt,
+        status: 'new',
+        ease_factor: 2.5,
+        interval_days: 0,
+        repetition: 0,
+        is_favorite: false,
+        lexicon_entries: null,
+      },
+    ],
+  );
+
+  let afterPromise = Promise.resolve();
+
+  const response = await handleWordsCreatePost(
+    jsonRequest({
+      words: [
+        {
+          projectId,
+          english: 'springboard',
+          japanese: '',
+          partOfSpeechTags: ['noun'],
+        },
+      ],
+    }),
+    {
+      createClient: async () => fakeClient as never,
+      runAfter: (callback: () => void | Promise<void>) => {
+        afterPromise = Promise.resolve(callback()).then(() => undefined);
+      },
+      backfillWords: async (words) => words.map((word) => ({
+        ...word,
+        japanese: word.english === 'springboard' ? '出発点' : word.japanese,
+      })),
+      enqueueJobs: async () => [],
+      triggerJobProcessing: async () => undefined,
+    },
+  );
+
+  await afterPromise;
+
+  assert.equal(response.status, 200);
+  assert.equal(fakeClient.insertedRows[0]?.['japanese'], '出発点');
 });

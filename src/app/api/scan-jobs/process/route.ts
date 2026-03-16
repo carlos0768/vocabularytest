@@ -6,7 +6,6 @@ import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-w
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { extractWrongAnswersFromImage } from '@/lib/ai/extract-wrong-answers';
-import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
@@ -15,8 +14,8 @@ import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
-import { isActiveProSubscription } from '@/lib/subscription/status';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { backfillMissingJapaneseTranslations } from '@/lib/words/backfill-japanese';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
@@ -471,20 +470,6 @@ export async function POST(request: NextRequest) {
         throw new Error(`${providerLabel} APIキーが設定されていません`);
       }
 
-      const { data: subscription } = await getSupabaseAdmin()
-        .from('subscriptions')
-        .select('status, plan, pro_source, test_pro_expires_at, current_period_end')
-        .eq('user_id', job.user_id)
-        .single();
-
-      const isProUser = isActiveProSubscription({
-        status: subscription?.status,
-        plan: subscription?.plan,
-        proSource: subscription?.pro_source,
-        testProExpiresAt: subscription?.test_pro_expires_at,
-        currentPeriodEnd: subscription?.current_period_end,
-      });
-
       const { data: preference } = await getSupabaseAdmin()
         .from('user_preferences')
         .select('ai_enabled')
@@ -644,7 +629,7 @@ export async function POST(request: NextRequest) {
       }
 
       const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
-      const resolvedWords = dedupedWords;
+      const resolvedWords = await backfillMissingJapaneseTranslations(dedupedWords);
 
       if (saveMode === 'client_local') {
         const resultPayload: {
@@ -941,47 +926,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Generate embeddings for semantic search (best effort)
-        if (isProUser) {
-          try {
-            const texts = insertedWordsArray.map((w: { english: string; japanese: string }) =>
-              `${w.english} - ${w.japanese}`
-            );
-            const embeddings = await batchGenerateEmbeddings(texts);
-
-            await Promise.all(
-              insertedWordsArray.map((word: { id: string }, i: number) => {
-                if (!embeddings[i]) return Promise.resolve();
-                return getSupabaseAdmin().rpc('update_word_embedding', {
-                  word_id: word.id,
-                  new_embedding: embeddings[i],
-                });
-              })
-            );
-            console.log(`Generated embeddings for ${insertedWordsArray.length} words`);
-          } catch (embeddingError) {
-            console.error('Embedding generation failed (non-critical):', embeddingError);
-          }
-        }
-
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (serviceRoleKey) {
-          const rebuildUrl = new URL('/api/similar-cache/rebuild', request.url);
-          fetch(rebuildUrl.toString(), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${serviceRoleKey}`,
-            },
-            body: JSON.stringify({
-              userId: job.user_id,
-              mode: 'on_new_words',
-              newWordIds: insertedWordsArray.map((word: { id: string }) => word.id),
-            }),
-          }).catch((error) => {
-            console.error('Failed to trigger similar cache rebuild:', error);
-          });
-        }
       });
 
       return NextResponse.json({

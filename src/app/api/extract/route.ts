@@ -6,6 +6,7 @@ import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
+import { backfillMissingJapaneseTranslations } from '@/lib/words/backfill-japanese';
 
 // Extraction modes
 // - 'all': Extract all words
@@ -240,9 +241,11 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
+    const translatedWords = await backfillMissingJapaneseTranslations(result.data.words);
+
     return NextResponse.json({
       success: true,
-      words: result.data.words,
+      words: translatedWords,
       sourceLabels: ensureSourceLabels(result.data.sourceLabels),
       lexiconEntries: [],
       scanInfo: {

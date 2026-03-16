@@ -7,6 +7,7 @@ import {
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
 import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { backfillMissingJapaneseTranslations } from '@/lib/words/backfill-japanese';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { z } from 'zod';
@@ -59,6 +60,7 @@ interface WordsCreateDeps {
   runAfter?: typeof after;
   enqueueJobs?: typeof enqueueWordLexiconResolutionJobs;
   triggerJobProcessing?: typeof triggerWordLexiconResolutionProcessing;
+  backfillWords?: typeof backfillMissingJapaneseTranslations;
 }
 
 function getDeps(deps?: WordsCreateDeps) {
@@ -67,6 +69,7 @@ function getDeps(deps?: WordsCreateDeps) {
     runAfter: deps?.runAfter ?? after,
     enqueueJobs: deps?.enqueueJobs ?? enqueueWordLexiconResolutionJobs,
     triggerJobProcessing: deps?.triggerJobProcessing ?? triggerWordLexiconResolutionProcessing,
+    backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslations,
   };
 }
 
@@ -77,6 +80,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       runAfter,
       enqueueJobs,
       triggerJobProcessing,
+      backfillWords,
     } = getDeps(deps);
     const supabase = await createClient(request);
     const authHeader = request.headers.get('authorization');
@@ -113,8 +117,10 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: '指定した単語帳にアクセスできません' }, { status: 403 });
     }
 
+    const translatedWords = await backfillWords(words);
+
     const defaultSR = getDefaultSpacedRepetitionFields();
-    const rows = words.map((word) => {
+    const rows = translatedWords.map((word) => {
       const row = {
         project_id: word.projectId,
         english: word.english,
