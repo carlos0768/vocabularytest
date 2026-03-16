@@ -172,14 +172,19 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Home project ordering
 
-    /// Projects sorted by the number of favorite words (hardest first).
-    /// Ties fall back to due count, then recency.
-    var projectsSortedByFavoriteWordCount: [Project] {
+    /// Count of "struggled" words in a project: reviewed at least once but not yet mastered (easeFactor below default).
+    private func struggledWordCount(for projectId: String) -> Int {
+        guard let words = wordsByProject[projectId] else { return 0 }
+        return words.filter { $0.status == .review && $0.easeFactor < 2.5 }.count
+    }
+
+    /// Projects sorted by struggled word count descending, then due count, then recency.
+    var projectsSortedByStruggledCount: [Project] {
         projects.sorted { a, b in
-            let aFavoriteCount = wordsByProject[a.id]?.filter(\.isFavorite).count ?? 0
-            let bFavoriteCount = wordsByProject[b.id]?.filter(\.isFavorite).count ?? 0
-            if aFavoriteCount != bFavoriteCount {
-                return aFavoriteCount > bFavoriteCount
+            let aStruggled = struggledWordCount(for: a.id)
+            let bStruggled = struggledWordCount(for: b.id)
+            if aStruggled != bStruggled {
+                return aStruggled > bStruggled
             }
 
             let aDueCount = dueCountByProject[a.id] ?? 0
@@ -194,10 +199,9 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
-    var projectsWithFavoriteWords: [Project] {
-        projectsSortedByFavoriteWordCount.filter { project in
-            (wordsByProject[project.id]?.contains { $0.isFavorite }) == true
-        }
+    /// Projects that have at least one struggled word.
+    var projectsWithStruggledWords: [Project] {
+        projectsSortedByStruggledCount.filter { struggledWordCount(for: $0.id) > 0 }
     }
 
     func toggleFavorite(projectId: String, using state: AppState) async {

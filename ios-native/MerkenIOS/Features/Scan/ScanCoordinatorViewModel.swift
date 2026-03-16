@@ -132,7 +132,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private let quizPrefillBatchSize = 30
     private let quizPrefillMaxAttempts = 3
     private let sentenceQuizSize = 15
-    private let quiz2PrefillBatchSize = 200
 
     @Published private(set) var currentStep: FlowStep = .modeSelection
     @Published var editableWords: [EditableExtractedWord] = []
@@ -815,41 +814,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
     }
 
     private func prefillQuiz2Data(
-        createdWords: [Word],
-        appState: AppState,
-        bearerToken: String?
+        createdWords _: [Word],
+        appState _: AppState,
+        bearerToken _: String?
     ) async {
-        guard appState.isPro else { return }
-        guard !createdWords.isEmpty else { return }
-        guard let bearerToken else {
-            logger.warning("Skipping quiz2 warmup: missing access token")
-            return
-        }
-
-        let wordIds = createdWords.map(\.id)
-
-        do {
-            try await appState.webAPIClient.syncEmbeddings(
-                wordIds: wordIds,
-                limit: min(wordIds.count, 50),
-                bearerToken: bearerToken
-            )
-        } catch {
-            logger.warning("Embedding sync failed (non-critical): \(error.localizedDescription)")
-        }
-
-        let batches = chunkArray(wordIds, size: quiz2PrefillBatchSize)
-        for batch in batches {
-            do {
-                try await appState.webAPIClient.warmQuiz2Similar(
-                    sourceWordIds: batch,
-                    limit: 3,
-                    bearerToken: bearerToken
-                )
-            } catch {
-                logger.warning("Quiz2 warmup batch failed (non-critical): \(error.localizedDescription)")
-            }
-        }
+        logger.info("Skipping quiz2 warmup because embedding-backed similar features are disabled")
     }
 
     private func selectWordsForSentenceQuiz(_ words: [Word]) -> [Word] {
@@ -948,21 +917,11 @@ final class ScanCoordinatorViewModel: ObservableObject {
         return ResolvedScanSubmission(
             draft: draft,
             projectTitle: resolvedTitle,
-            projectIcon: validatedProjectIconBase64(from: draft.projectThumbnail),
+            projectIcon: nil,
             scanMode: draft.mode,
             eikenLevel: draft.eikenLevel,
             targetProjectId: draft.targetProjectId
         )
-    }
-
-    private func validatedProjectIconBase64(from image: UIImage?) -> String? {
-        guard let image else { return nil }
-        guard let base64 = ImageCompressor.generateThumbnailBase64(image) else { return nil }
-        guard base64.hasPrefix("data:image/"), base64.utf8.count <= 2_400_000 else {
-            logger.warning("Skipping project icon upload: invalid or oversized thumbnail payload")
-            return nil
-        }
-        return base64
     }
 
     private func updateProgress(
@@ -1107,13 +1066,8 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
             let projectId: String
             let projectDisplayTitle: String
-            let thumbnailBase64 = projectThumbnail.flatMap { ImageCompressor.generateThumbnailBase64($0) }
-
             if let existingId = targetProjectId {
                 try await ensureProjectOwnership(projectId: existingId, appState: appState)
-                if let thumbnailBase64, !thumbnailBase64.isEmpty {
-                    try await appState.activeRepository.updateProjectIcon(id: existingId, iconImage: thumbnailBase64)
-                }
                 projectId = existingId
                 projectDisplayTitle = targetProjectTitle ?? "単語帳"
             } else {
@@ -1130,7 +1084,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 let project = try await appState.activeRepository.createProject(
                     title: trimmedTitle,
                     userId: appState.activeUserId,
-                    iconImage: thumbnailBase64
+                    iconImage: nil
                 )
                 projectId = project.id
                 projectDisplayTitle = project.title

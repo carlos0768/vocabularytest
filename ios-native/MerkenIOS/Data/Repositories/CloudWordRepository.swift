@@ -115,15 +115,24 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         }
     }
 
-    func updateProjectIcon(id: String, iconImage: String) async throws {
+    func updateProjectIcon(id: String, iconImage: String?) async throws {
         let token = try await accessTokenProvider()
         let query = [URLQueryItem(name: "id", value: "eq.\(id)")]
 
         struct IconPatch: Encodable {
-            let iconImage: String
+            let iconImage: String?
 
             enum CodingKeys: String, CodingKey {
                 case iconImage = "icon_image"
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                if let iconImage {
+                    try container.encode(iconImage, forKey: .iconImage)
+                } else {
+                    try container.encodeNil(forKey: .iconImage)
+                }
             }
         }
 

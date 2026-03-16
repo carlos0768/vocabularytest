@@ -67,7 +67,7 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         try? await cacheStore.updateProjectTitle(id: id, title: title)
     }
 
-    func updateProjectIcon(id: String, iconImage: String) async throws {
+    func updateProjectIcon(id: String, iconImage: String?) async throws {
         try await cloudRepository.updateProjectIcon(id: id, iconImage: iconImage)
         try? await cacheStore.updateProjectIcon(id: id, iconImage: iconImage)
     }

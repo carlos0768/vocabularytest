@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import PhotosUI
 import UIKit
 
 struct ProjectDetailView: View {
@@ -42,6 +43,8 @@ struct ProjectDetailView: View {
     @State private var preselectedScanMode: ScanMode?
     @State private var preselectedEikenLevel: EikenLevel?
     @State private var preselectedScanSource: ScanSource?
+    @State private var showingProjectThumbnailPicker = false
+    @State private var selectedProjectThumbnailItem: PhotosPickerItem?
 
     init(project: Project) {
         self.project = project
@@ -53,11 +56,15 @@ struct ProjectDetailView: View {
         .project(project.id)
     }
 
+    private var resolvedProject: Project {
+        viewModel.projectMetadata ?? project
+    }
+
     private var thumbnailBackgroundColor: Color {
-        if project.iconImage != nil {
+        if resolvedProject.iconImage != nil {
             return Color(red: 0.15, green: 0.15, blue: 0.18)
         }
-        return MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+        return MerkenTheme.placeholderColor(for: resolvedProject.id, isDark: colorScheme == .dark)
     }
 
     private func triggerChartAnimation() {
@@ -148,6 +155,7 @@ struct ProjectDetailView: View {
             presented
                 .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm, actions: deleteAlertActions, message: deleteAlertMessage)
                 .alert("単語帳名を変更", isPresented: $showingRenameProject, actions: renameAlertActions, message: renameAlertMessage)
+                .photosPicker(isPresented: $showingProjectThumbnailPicker, selection: $selectedProjectThumbnailItem, matching: .images)
                 .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                     await viewModel.load(projectId: project.id, using: appState)
                     learningModeCounts = LearningModeUsageStore.counts(for: learningModeScope)
@@ -161,6 +169,12 @@ struct ProjectDetailView: View {
                 }
                 .onChange(of: viewModel.projectMetadata?.sourceLabels) { _, newValue in
                     displaySourceLabels = normalizeProjectSourceLabels(newValue)
+                }
+                .onChange(of: selectedProjectThumbnailItem) { _, newValue in
+                    guard let newValue else { return }
+                    Task {
+                        await applySelectedProjectThumbnail(newValue)
+                    }
                 }
                 .onChange(of: viewModel.words.count) { _ in
                     if viewModel.words.isEmpty {
@@ -289,7 +303,7 @@ struct ProjectDetailView: View {
     private func projectShareSheet() -> some View {
         if let preparedProjectShareURL {
             ProjectShareSheet(
-                project: project,
+                project: resolvedProject,
                 projectTitle: displayProjectTitle,
                 words: viewModel.words,
                 shareURL: preparedProjectShareURL
@@ -312,7 +326,7 @@ struct ProjectDetailView: View {
     }
 
     private func deleteAlertMessage() -> some View {
-        Text("「\(project.title)」と含まれる単語がすべて削除されます。この操作は取り消せません。")
+        Text("「\(displayProjectTitle)」と含まれる単語がすべて削除されます。この操作は取り消せません。")
     }
 
     private func renameAlertActions() -> some View {
@@ -457,6 +471,23 @@ struct ProjectDetailView: View {
                     } label: {
                         Label("手動追加", systemImage: "plus")
                     }
+
+                    Button {
+                        showingProjectThumbnailPicker = true
+                    } label: {
+                        Label(resolvedProject.iconImage == nil ? "画像を設定" : "画像を変更", systemImage: "photo")
+                    }
+
+                    if resolvedProject.iconImage != nil {
+                        Button {
+                            Task {
+                                await viewModel.updateProjectIcon(id: project.id, iconImage: nil, using: appState)
+                            }
+                        } label: {
+                            Label("単色に戻す", systemImage: "paintpalette")
+                        }
+                    }
+
                     Button {
                         showingBookshelfPicker = true
                     } label: {
@@ -512,7 +543,7 @@ struct ProjectDetailView: View {
     private func handleShare() async {
         do {
             if case .proCloud = appState.repositoryMode {
-                var shareId = project.shareId
+                var shareId = resolvedProject.shareId
                 if shareId == nil || shareId?.isEmpty == true {
                     shareId = try await appState.generateProjectShareId(projectId: project.id)
                 }
@@ -983,15 +1014,15 @@ struct ProjectDetailView: View {
 
     private var projectThumbnailHeader: some View {
         ZStack(alignment: .bottomLeading) {
-            if let iconImage = project.iconImage,
+            if let iconImage = resolvedProject.iconImage,
                let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
             } else {
-                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+                let bgColor = MerkenTheme.placeholderColor(for: resolvedProject.id, isDark: colorScheme == .dark)
                 bgColor
-                Text(String(project.title.prefix(1)))
+                Text(String(displayProjectTitle.prefix(1)))
                     .font(.system(size: 48, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
             }
@@ -1012,6 +1043,22 @@ struct ProjectDetailView: View {
         .frame(height: 300)
         .contentShape(Rectangle())
         .clipped()
+    }
+
+    private func applySelectedProjectThumbnail(_ item: PhotosPickerItem) async {
+        defer {
+            selectedProjectThumbnailItem = nil
+        }
+
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let uiImage = UIImage(data: data),
+              let base64 = ImageCompressor.generateThumbnailBase64(uiImage) else {
+            return
+        }
+
+        await viewModel.updateProjectIcon(id: project.id, iconImage: base64, using: appState)
+        await viewModel.load(projectId: project.id, using: appState)
+        triggerChartAnimation()
     }
 
     private var thumbnailMetadataOverlay: some View {

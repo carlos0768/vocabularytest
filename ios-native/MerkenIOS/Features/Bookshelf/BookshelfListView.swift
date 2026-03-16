@@ -239,10 +239,6 @@ struct BookshelfListView: View {
                 .font(.system(size: 31.2, weight: .black))
                 .foregroundStyle(MerkenTheme.primaryText)
                 .tracking(2)
-
-            Text("単語帳を束ねて、学習テーマごとにまとめて管理")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(MerkenTheme.secondaryText)
         }
     }
 
@@ -441,9 +437,6 @@ struct BookshelfListView: View {
         let mastered = stat?.masteredWordCount ?? 0
         let reviewing = stat?.reviewWordCount ?? 0
         let newWords = stat?.newWordCount ?? 0
-        let sharedCount = stat?.sharedProjectCount ?? 0
-        let pinnedCount = stat?.pinnedProjectCount ?? 0
-        let projectCount = stat?.projectCount ?? 0
         let masteryText = wordCount > 0 ? "\(Int((stat?.masteryRate ?? 0) * 100))%習得" : "まだ単語なし"
 
         return SolidCard(padding: 0) {
@@ -511,46 +504,6 @@ struct BookshelfListView: View {
                         animationProgress: chartAnimationProgress
                     )
                     .frame(height: 8)
-
-                    FlowLayout(spacing: 8) {
-                        BookshelfStatPill(
-                            icon: "square.stack.3d.up.fill",
-                            tint: MerkenTheme.chartBlue,
-                            text: "\(projectCount)冊"
-                        )
-                        if sharedCount > 0 {
-                            BookshelfStatPill(
-                                icon: "person.2.fill",
-                                tint: MerkenTheme.warning,
-                                text: "共有 \(sharedCount)"
-                            )
-                        }
-                        if pinnedCount > 0 {
-                            BookshelfStatPill(
-                                icon: "pin.fill",
-                                tint: MerkenTheme.danger,
-                                text: "ピン \(pinnedCount)"
-                            )
-                        }
-                    }
-
-                    FlowLayout(spacing: 8) {
-                        BookshelfStatPill(
-                            icon: "checkmark.circle.fill",
-                            tint: MerkenTheme.success,
-                            text: "習得 \(mastered)"
-                        )
-                        BookshelfStatPill(
-                            icon: "bolt.circle.fill",
-                            tint: MerkenTheme.chartBlue,
-                            text: "学習 \(reviewing)"
-                        )
-                        BookshelfStatPill(
-                            icon: "sparkles",
-                            tint: MerkenTheme.mutedText,
-                            text: "未学習 \(newWords)"
-                        )
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .layoutPriority(1)

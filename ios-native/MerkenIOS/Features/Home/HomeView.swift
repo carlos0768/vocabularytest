@@ -552,13 +552,13 @@ struct HomeView: View {
                     errorSection
 
                     if !viewModel.projects.isEmpty || !pendingHomeScans.isEmpty {
-                        projectsSection
-
-                        if !viewModel.projectsWithFavoriteWords.isEmpty {
+                        if !viewModel.projectsWithStruggledWords.isEmpty {
                             favoriteWordsSection
                         }
 
-                        if !viewModel.projects.isEmpty {
+                        projectsSection
+
+                        if !remainingProjects.isEmpty {
                             allProjectsSection
                         }
                     }
@@ -1224,7 +1224,7 @@ struct HomeView: View {
 
     private var displayedHomeProjects: [Project] {
         let remainingSlots = max(0, maxHomeProjectRailItems - displayedPendingHomeScans.count)
-        return Array(viewModel.projectsSortedByFavoriteWordCount.prefix(remainingSlots))
+        return Array(viewModel.projectsSortedByStruggledCount.prefix(remainingSlots))
     }
 
     private var homeProjectRailCardWidth: CGFloat {
@@ -1239,7 +1239,7 @@ struct HomeView: View {
 
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("単語帳")
+            Text("最近の単語帳")
                 .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
@@ -1268,6 +1268,11 @@ struct HomeView: View {
         )
     }
 
+    private var remainingProjects: [Project] {
+        let recentIds = Set(displayedHomeProjects.map(\.id))
+        return viewModel.projectsSortedByStruggledCount.filter { !recentIds.contains($0.id) }
+    }
+
     private var allProjectsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("すべての単語帳")
@@ -1276,7 +1281,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: homeProjectRailSpacing) {
-                    ForEach(viewModel.projectsSortedByFavoriteWordCount) { project in
+                    ForEach(remainingProjects) { project in
                         homeProjectRailCard(project)
                             .onTapGesture { detailProject = project }
                             .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
@@ -1304,7 +1309,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: homeProjectRailSpacing) {
-                    ForEach(Array(viewModel.projectsWithFavoriteWords.prefix(3))) { project in
+                    ForEach(Array(viewModel.projectsWithStruggledWords.prefix(3))) { project in
                         homeProjectRailCard(project)
                             .onTapGesture { detailProject = project }
                             .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
@@ -1320,10 +1325,6 @@ struct HomeView: View {
     private func homeProjectRailCard(_ project: Project) -> some View {
         let words = viewModel.preloadedWords(for: project.id) ?? []
         let wordCount = words.count
-        let masteredCount = words.filter { $0.status == .mastered }.count
-        let dueCount = viewModel.dueCountByProject[project.id] ?? 0
-        let studyingCount = max(wordCount - masteredCount, 0)
-
         return VStack(alignment: .leading, spacing: 10) {
             homeProjectRailThumbnail(project, height: homeProjectRailThumbnailHeight)
 
@@ -1343,19 +1344,6 @@ struct HomeView: View {
                     Text("語")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(MerkenTheme.secondaryText)
-                }
-
-                HStack(spacing: 4) {
-                    compactProjectMetric(
-                        icon: "arrow.trianglehead.2.clockwise",
-                        text: "復習 \(dueCount)",
-                        tint: MerkenTheme.accentBlue
-                    )
-                    compactProjectMetric(
-                        icon: masteredCount == wordCount && wordCount > 0 ? "checkmark.seal.fill" : "sparkles",
-                        text: masteredCount == wordCount && wordCount > 0 ? "習得済" : "学習 \(studyingCount)",
-                        tint: masteredCount == wordCount && wordCount > 0 ? MerkenTheme.success : MerkenTheme.mutedText
-                    )
                 }
             }
         }
@@ -1404,11 +1392,6 @@ struct HomeView: View {
                 Text("生成中...")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(MerkenTheme.accentBlue)
-
-                HStack(spacing: 4) {
-                    placeholderProjectStatusChip(width: 38)
-                    placeholderProjectStatusChip(width: 44)
-                }
             }
         }
         .padding(10)
@@ -1446,28 +1429,6 @@ struct HomeView: View {
         .frame(height: height)
         .frame(maxWidth: .infinity)
         .clipShape(.rect(cornerRadius: 18))
-    }
-
-    private func placeholderProjectStatusChip(width: CGFloat) -> some View {
-        Capsule()
-            .fill(MerkenTheme.borderLight)
-            .frame(width: width, height: 22)
-    }
-
-    private func compactProjectMetric(icon: String, text: String, tint: Color) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(tint)
-            Text(text)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background(MerkenTheme.background, in: Capsule())
     }
 
     // MARK: - Bookshelf Section

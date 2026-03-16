@@ -219,7 +219,7 @@ actor CloudOfflineCacheStore {
         try modelContext.save()
     }
 
-    func updateProjectIcon(id: String, iconImage: String, syncedAt: Date = .now) throws {
+    func updateProjectIcon(id: String, iconImage: String?, syncedAt: Date = .now) throws {
         guard let record = try fetchProjectRecord(id: id) else { return }
         record.iconImage = iconImage
         record.lastSyncedAt = syncedAt

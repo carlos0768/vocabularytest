@@ -27,13 +27,9 @@ private struct LiquidBarButtonStyle: ButtonStyle {
 struct RootTabView: View {
     @EnvironmentObject private var appState: AppState
 
-    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
-    @AppStorage("seenOnboardingVersion") private var seenOnboardingVersion = 0
-
     @State private var showingScanFlow = false
-    @State private var showingOnboarding = false
     @State private var showingSignInSheet = false
-    @State private var showingSignUpSheet = false
+    @State private var showingSignUpFlow = false
 
     private let tabItems: [RootTabItem] = [
         .init(tab: 0, title: "ホーム", systemImage: "house.fill"),
@@ -44,10 +40,6 @@ struct RootTabView: View {
 
     init() {
         UITabBar.appearance().isHidden = true
-    }
-
-    private var shouldShowOnboarding: Bool {
-        !hasSeenOnboarding || seenOnboardingVersion < OnboardingView.currentVersion
     }
 
     var body: some View {
@@ -84,16 +76,20 @@ struct RootTabView: View {
                 .toolbar(.hidden, for: .tabBar)
                 .safeAreaPadding(.bottom, appState.tabBarVisible ? 92 : 0)
             } else {
-                RootAuthLandingView(
-                    onGetStarted: {
-                        if shouldShowOnboarding {
-                            showingOnboarding = true
-                        } else {
-                            showingSignUpSheet = true
-                        }
-                    },
-                    onSignIn: { showingSignInSheet = true }
-                )
+                NavigationStack {
+                    RootAuthLandingView(
+                        onGetStarted: {
+                            showingSignUpFlow = true
+                        },
+                        onSignIn: { showingSignInSheet = true }
+                    )
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationDestination(isPresented: $showingSignUpFlow) {
+                        SignUpView()
+                            .environmentObject(appState)
+                    }
+                }
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -130,20 +126,6 @@ struct RootTabView: View {
         .sheet(isPresented: $showingSignInSheet) {
             RootSignInSheetView()
                 .environmentObject(appState)
-        }
-        .sheet(isPresented: $showingSignUpSheet) {
-            SignUpView()
-                .environmentObject(appState)
-        }
-        .fullScreenCover(isPresented: $showingOnboarding) {
-            OnboardingView(
-                onGetStarted: {
-                    showingSignUpSheet = true
-                },
-                onSignIn: {
-                    showingSignInSheet = true
-                }
-            )
         }
     }
 
@@ -277,22 +259,6 @@ private struct RootAuthLandingView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-
-                    HStack(spacing: 6) {
-                        Text("🇺🇸")
-                        Text("EN")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(MerkenTheme.surface, in: Capsule())
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-
                 Spacer(minLength: 24)
 
                 ZStack {
@@ -325,7 +291,7 @@ private struct RootAuthLandingView: View {
                                             Image(systemName: "camera.viewfinder")
                                                 .font(.system(size: 44, weight: .medium))
                                                 .foregroundStyle(MerkenTheme.accentBlue)
-                                            Text("Scan and build")
+                                            Text("スキャンして作成")
                                                 .font(.system(size: 18, weight: .bold))
                                                 .foregroundStyle(MerkenTheme.primaryText)
                                         }
@@ -339,13 +305,13 @@ private struct RootAuthLandingView: View {
                 Spacer(minLength: 28)
 
                 VStack(spacing: 20) {
-                    Text("English learning\nmade easy")
+                    Text("英語学習を\nもっと簡単に")
                         .font(.system(size: 34, weight: .black))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(MerkenTheme.primaryText)
 
                     Button(action: onGetStarted) {
-                        Text("Get Started")
+                        Text("はじめる")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -354,9 +320,9 @@ private struct RootAuthLandingView: View {
                     }
 
                     HStack(spacing: 6) {
-                        Text("Already have an account?")
+                        Text("すでにアカウントをお持ちですか？")
                             .foregroundStyle(MerkenTheme.secondaryText)
-                        Button("Sign In", action: onSignIn)
+                        Button("ログイン", action: onSignIn)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(MerkenTheme.primaryText)
                     }

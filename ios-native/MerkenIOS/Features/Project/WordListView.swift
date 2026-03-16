@@ -1,5 +1,11 @@
 import SwiftUI
 
+private enum WordListFilter: Hashable {
+    case all
+    case status(WordStatus)
+    case favorite
+}
+
 struct WordListView: View {
     let project: Project
     let contentScrollEnabled: Bool
@@ -11,7 +17,7 @@ struct WordListView: View {
     @State private var exportWord: Word?
     @State private var searchText = ""
 
-    @State private var selectedStatus: WordStatus?
+    @State private var selectedFilter: WordListFilter = .all
     private let initialStatus: WordStatus?
 
     private var headerTitle: String {
@@ -25,9 +31,17 @@ struct WordListView: View {
 
     private var filteredWords: [Word] {
         viewModel.words.filter { word in
-            // Status filter
-            if let status = selectedStatus, word.status != status {
-                return false
+            switch selectedFilter {
+            case .all:
+                break
+            case .status(let status):
+                if word.status != status {
+                    return false
+                }
+            case .favorite:
+                if !word.isFavorite {
+                    return false
+                }
             }
             // Search filter
             if !searchText.isEmpty {
@@ -66,8 +80,15 @@ struct WordListView: View {
                             emptyState
                         }
 
-                        ForEach(filteredWords) { word in
-                            wordRow(word)
+                        if !filteredWords.isEmpty {
+                            VStack(spacing: 0) {
+                                dividerLine
+
+                                ForEach(filteredWords) { word in
+                                    wordRow(word)
+                                    dividerLine
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
@@ -86,8 +107,8 @@ struct WordListView: View {
             WordExportSheet(sourceWord: word, currentProject: project)
         }
         .onAppear {
-            if selectedStatus == nil, let initialStatus {
-                selectedStatus = initialStatus
+            if case .all = selectedFilter, let initialStatus {
+                selectedFilter = .status(initialStatus)
             }
         }
         .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
@@ -159,25 +180,30 @@ struct WordListView: View {
     private var statusChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                statusChip(label: "すべて", status: nil)
-                statusChip(label: "新規", status: .new)
-                statusChip(label: "復習", status: .review)
-                statusChip(label: "習得", status: .mastered)
+                filterChip(label: "すべて", filter: .all)
+                filterChip(label: "新規", filter: .status(.new))
+                filterChip(label: "復習", filter: .status(.review))
+                filterChip(label: "習得", filter: .status(.mastered))
+                filterChip(label: "苦手", filter: .favorite)
             }
         }
     }
 
-    private func statusChip(label: String, status: WordStatus?) -> some View {
-        let isActive = selectedStatus == status
+    private func filterChip(label: String, filter: WordListFilter) -> some View {
+        let isActive = selectedFilter == filter
         let count: Int = {
-            if let s = status {
-                return viewModel.words.filter { $0.status == s }.count
+            switch filter {
+            case .all:
+                return viewModel.words.count
+            case .status(let status):
+                return viewModel.words.filter { $0.status == status }.count
+            case .favorite:
+                return viewModel.words.filter(\.isFavorite).count
             }
-            return viewModel.words.count
         }()
 
         return Button {
-            selectedStatus = status
+            selectedFilter = filter
         } label: {
             HStack(spacing: 4) {
                 Text(label)
@@ -224,18 +250,28 @@ struct WordListView: View {
     // MARK: - Word Row
 
     private func wordRow(_ word: Word) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(word.english)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
+        HStack(alignment: .center, spacing: 12) {
+            Text(word.english)
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                if let partOfSpeech = formattedPartOfSpeech(for: word) {
+                    Text(partOfSpeech)
+                        .font(.system(size: 14))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
                 Text(word.japanese)
-                    .font(.system(size: 14))
+                    .font(.system(size: 16))
                     .foregroundStyle(MerkenTheme.secondaryText)
-                    .lineLimit(1)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
             HStack(spacing: 12) {
                 Button {
                     Task {
@@ -276,18 +312,23 @@ struct WordListView: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
-        )
+        .padding(.vertical, 18)
+    }
+
+    private var dividerLine: some View {
+        Rectangle()
+            .fill(MerkenTheme.borderLight)
+            .frame(height: 1)
+            .frame(maxWidth: .infinity)
+    }
+
+    private func formattedPartOfSpeech(for word: Word) -> String? {
+        let parts = (word.partOfSpeechTags ?? []).compactMap { tag in
+            let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        guard !parts.isEmpty else { return nil }
+        return "(\(parts.joined(separator: "・")))"
     }
 
     // MARK: - Editor Sheet

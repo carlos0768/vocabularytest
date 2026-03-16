@@ -52,7 +52,7 @@ actor LocalWordRepository: WordRepositoryProtocol {
         try modelContext.save()
     }
 
-    func updateProjectIcon(id: String, iconImage: String) async throws {
+    func updateProjectIcon(id: String, iconImage: String?) async throws {
         guard let record = try fetchProjectRecord(id: id) else {
             throw RepositoryError.notFound
         }

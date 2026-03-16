@@ -166,6 +166,25 @@ final class ProjectDetailViewModel: ObservableObject {
         }
     }
 
+    func updateProjectIcon(id: String, iconImage: String?, using state: AppState) async {
+        do {
+            try await state.activeRepository.updateProjectIcon(id: id, iconImage: iconImage)
+            if var projectMetadata {
+                projectMetadata.iconImage = iconImage
+                self.projectMetadata = projectMetadata
+            }
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError {
+                errorMessage = nil
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Project icon update failed: \(error.localizedDescription)")
+        }
+    }
+
     func toggleFavorite(word: Word, projectId: String, using state: AppState) async {
         await updateWord(
             wordId: word.id,
