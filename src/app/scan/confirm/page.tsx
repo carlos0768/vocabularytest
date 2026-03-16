@@ -15,7 +15,7 @@ import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
 import type { AIWordExtraction, LexiconEntry, Word } from '@/types';
-import { ensureSourceLabels, mergeSourceLabels, normalizeSourceLabels } from '../../../../shared/source-labels';
+import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
@@ -25,7 +25,6 @@ interface EditableWord extends AIWordExtraction {
 
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
-const QUIZ2_PREFILL_BATCH_SIZE = 200;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   if (items.length === 0) return [];
@@ -370,44 +369,8 @@ export default function ConfirmPage() {
     });
   };
 
-  const prefillQuiz2Data = async (createdWords: Word[]) => {
-    if (!isPro || createdWords.length === 0) return;
-
-    const wordIds = createdWords.map((word) => word.id);
-    if (wordIds.length === 0) return;
-
-    const headers = await getAuthHeaders();
-
-    // 1) Create embeddings for just-created words.
-    // 2) Warm similar cache in batches so quiz2 opens with prepared data.
-    try {
-      await fetch('/api/embeddings/sync', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          wordIds,
-          limit: Math.min(wordIds.length, 50),
-        }),
-      });
-    } catch {
-      // Non-critical: quiz2 can still fallback to local similarity.
-    }
-
-    const batches = chunkArray(wordIds, QUIZ2_PREFILL_BATCH_SIZE);
-    for (const batch of batches) {
-      try {
-        await fetch('/api/quiz2/similar/batch', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            sourceWordIds: batch,
-            limit: 3,
-          }),
-        });
-      } catch {
-        // Non-critical: skip failed batch and continue.
-      }
-    }
+  const prefillQuiz2Data = async () => {
+    // Embedding-backed similar-word warmup is disabled to reduce DB I/O.
   };
 
   const handleSaveProject = async () => {
@@ -478,12 +441,12 @@ export default function ConfirmPage() {
         }))
       );
 
-      const quizReadyWords = aiEnabledForGeneration
-        ? await prefillQuizData(createdWords, repository.updateWord.bind(repository))
-        : createdWords;
+      if (aiEnabledForGeneration) {
+        await prefillQuizData(createdWords, repository.updateWord.bind(repository));
+      }
 
       // Pro users: warm quiz2 similarity data during save.
-      await prefillQuiz2Data(quizReadyWords);
+      await prefillQuiz2Data();
 
       // Clear session storage
       sessionStorage.removeItem('scanvocab_extracted_words');

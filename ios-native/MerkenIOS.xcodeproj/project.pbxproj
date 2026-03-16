@@ -120,6 +120,7 @@
 		E3F9E813DCAEEEC9A0CE1C7E /* Quiz2ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8DC682800769B5A8FF24B36 /* Quiz2ViewModel.swift */; };
 		E4AF1D1F6AFDE50AF7005414 /* ProjectSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D1B91F4FA0D910AD463493 /* ProjectSetupView.swift */; };
 		E87EE2A03CF3DA72D7C423E6 /* ScanNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC5806C97C31A6FD766783DC /* ScanNotificationService.swift */; };
+		E88B00A1B4C2D5E6F7A8B9C0 /* BackgroundUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E88B00A2B4C2D5E6F7A8B9C1 /* BackgroundUploadService.swift */; };
 		E993AFEE98A12595F31D0061 /* SignUpOTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93228EBC5FF2EE899CF0256B /* SignUpOTPView.swift */; };
 		EAF60A35EAA71B9346277668 /* MerkenIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1079907B021C4B320F0329 /* MerkenIOSApp.swift */; };
 		EBFB18F68270D0FE7BFB7D66 /* QuizEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D62B44A7683D7C1BF043E6 /* QuizEngineTests.swift */; };
@@ -305,6 +306,7 @@
 		E2B8A084EB8E09DB73041AEE /* MerkenShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MerkenShareExtension.entitlements; sourceTree = "<group>"; };
 		E7ED26D3452459533CE74952 /* ScanProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProcessingView.swift; sourceTree = "<group>"; };
 		EAFC4CF87875A694D2CBAA03 /* SemanticSearchDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchDTO.swift; sourceTree = "<group>"; };
+		E88B00A2B4C2D5E6F7A8B9C1 /* BackgroundUploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundUploadService.swift; sourceTree = "<group>"; };
 		EC5806C97C31A6FD766783DC /* ScanNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanNotificationService.swift; sourceTree = "<group>"; };
 		EF6F0F2F127AFD39A98C076D /* QuizEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizEngine.swift; sourceTree = "<group>"; };
 		F8D492636999D00FF08665C5 /* LocalRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRecords.swift; sourceTree = "<group>"; };
@@ -528,6 +530,7 @@
 				53062913A0AF81DD487C373B /* AuthService.swift */,
 				814A7CF70D4F3E1DC2EB6770 /* AuthServiceProtocol.swift */,
 				8570BEFEF7F7D0BD044AD165 /* GuestSessionStore.swift */,
+				E88B00A2B4C2D5E6F7A8B9C1 /* BackgroundUploadService.swift */,
 				1EFE8C168B7F3CED6C68ABC1 /* ImageCompressor.swift */,
 				410B28B95A71D3017B943659 /* QuizStatsStore.swift */,
 				EC5806C97C31A6FD766783DC /* ScanNotificationService.swift */,
@@ -1009,6 +1012,7 @@
 				DD00000000000001 /* ScanModeOverlay.swift in Sources */,
 				CF004965918E13212A60CBEE /* ScanModeSheet.swift in Sources */,
 				E87EE2A03CF3DA72D7C423E6 /* ScanNotificationService.swift in Sources */,
+				E88B00A1B4C2D5E6F7A8B9C0 /* BackgroundUploadService.swift in Sources */,
 				C43D4C56E52E03822790EEC1 /* ScanProcessingView.swift in Sources */,
 				BA024A6E34EB8AE537B3E75F /* SearchView.swift in Sources */,
 				182F673E075ACB143251C4D5 /* SearchViewModel.swift in Sources */,

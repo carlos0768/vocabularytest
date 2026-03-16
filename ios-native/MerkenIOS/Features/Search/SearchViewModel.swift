@@ -59,7 +59,7 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
-    func search(using state: AppState) {
+    func search(using _: AppState) {
         guard !searchText.isEmpty else {
             debounceTask?.cancel()
             results = []
@@ -71,64 +71,10 @@ final class SearchViewModel: ObservableObject {
         searchLocal()
         errorMessage = nil
 
-        guard state.isPro else {
-            debounceTask?.cancel()
-            return
-        }
-
-        searchSemanticDebounced(query: searchText, state: state)
-    }
-
-    // MARK: - Semantic Search (Pro)
-
-    private func searchSemanticDebounced(query: String, state: AppState) {
         debounceTask?.cancel()
-        debounceTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
-            guard !Task.isCancelled else { return }
-            await searchSemantic(query: query, state: state)
-        }
     }
 
-    private func searchSemantic(query: String, state: AppState) async {
-        let shouldShowLoading = results.isEmpty
-        if shouldShowLoading {
-            loading = true
-        }
-        defer {
-            if shouldShowLoading {
-                loading = false
-            }
-        }
-
-        do {
-            let apiResults = try await state.performWebAPIRequest { token in
-                try await state.webAPIClient.searchSemantic(query: query, bearerToken: token)
-            }
-
-            guard !Task.isCancelled else { return }
-            guard query == searchText else { return }
-
-            let semanticResults = apiResults.map { r in
-                SearchResult(
-                    id: r.id,
-                    english: r.english,
-                    japanese: r.japanese,
-                    projectId: r.projectId,
-                    projectTitle: r.projectTitle,
-                    similarity: r.similarity
-                )
-            }
-            mergeSemanticResults(semanticResults)
-            errorMessage = nil
-        } catch {
-            if error.isCancellationError || Task.isCancelled { return }
-            logger.error("Semantic search failed: \(error.localizedDescription)")
-            // Keep local results visible when semantic/API auth fails.
-        }
-    }
-
-    // MARK: - Local Keyword Search (Free / Guest)
+    // MARK: - Local Keyword Search
 
     private func searchLocal() {
         let query = searchText.lowercased().trimmingCharacters(in: .whitespaces)
@@ -164,33 +110,4 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
-    private func mergeSemanticResults(_ semanticResults: [SearchResult]) {
-        var merged = Dictionary(uniqueKeysWithValues: results.map { ($0.id, $0) })
-
-        for semantic in semanticResults {
-            if let current = merged[semantic.id] {
-                let combined = SearchResult(
-                    id: semantic.id,
-                    english: semantic.english,
-                    japanese: semantic.japanese,
-                    projectId: semantic.projectId,
-                    projectTitle: semantic.projectTitle.isEmpty ? current.projectTitle : semantic.projectTitle,
-                    similarity: max(current.similarity, semantic.similarity)
-                )
-                merged[semantic.id] = combined
-            } else {
-                merged[semantic.id] = semantic
-            }
-        }
-
-        results = merged.values.sorted { lhs, rhs in
-            if lhs.similarity == rhs.similarity {
-                return lhs.english.localizedCaseInsensitiveCompare(rhs.english) == .orderedAscending
-            }
-            return lhs.similarity > rhs.similarity
-        }
-        if results.count > 50 {
-            results = Array(results.prefix(50))
-        }
-    }
 }

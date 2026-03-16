@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { generateWordEmbedding } from '@/lib/embeddings';
+import {
+  isEmbeddingsEnabled,
+  SEMANTIC_SEARCH_DISABLED_MESSAGE,
+} from '@/lib/embeddings/feature';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
@@ -13,11 +17,13 @@ type SearchClient = Awaited<ReturnType<typeof createRouteHandlerClient>>;
 type SearchDeps = {
   createClient: (request: NextRequest) => Promise<SearchClient>;
   generateEmbedding: (query: string) => Promise<number[]>;
+  isFeatureEnabled?: () => boolean;
 };
 
 const defaultDeps: SearchDeps = {
   createClient: createRouteHandlerClient,
   generateEmbedding: generateWordEmbedding,
+  isFeatureEnabled: isEmbeddingsEnabled,
 };
 
 export async function handleSearchSemanticPost(
@@ -42,6 +48,14 @@ export async function handleSearchSemanticPost(
 
     if (authError || !user) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
+
+    if (!(deps.isFeatureEnabled?.() ?? isEmbeddingsEnabled())) {
+      return NextResponse.json({
+        results: [],
+        disabled: true,
+        message: SEMANTIC_SEARCH_DISABLED_MESSAGE,
+      });
     }
 
     // Generate embedding for the search query

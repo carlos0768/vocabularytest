@@ -1,124 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { batchGenerateEmbeddings } from '@/lib/embeddings';
 import { z } from 'zod';
 import {
-  RESOLVED_WORD_TEXT_SELECT_COLUMNS,
-  resolveSelectedWordTexts,
-} from '@/lib/words/resolved';
+  EMBEDDINGS_DISABLED_MESSAGE,
+  isEmbeddingsEnabled,
+} from '@/lib/embeddings/feature';
 
-const BATCH_SIZE = 100;
 const adminHeaderSchema = z.object({
   adminSecret: z.string().trim().min(1),
 }).strict();
 
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
-
-/**
- * POST /api/embeddings/rebuild
- *
- * 管理者用: 全ユーザーの全単語のembeddingを一括再生成
- * ADMIN_SECRET ヘッダーで認証
- */
 export async function POST(request: NextRequest) {
   try {
-    // Admin認証
     const adminSecret = request.headers.get('x-admin-secret');
     if (adminSecret === null) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
     const parsedHeader = adminHeaderSchema.safeParse({ adminSecret });
     if (!parsedHeader.success) {
       return NextResponse.json({ error: 'Invalid admin secret header' }, { status: 400 });
     }
+
     if (parsedHeader.data.adminSecret !== process.env.ADMIN_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = getAdminClient();
-
-    // embeddingがない全単語を取得
-    const { data: words, error } = await supabase
-      .from('words')
-      .select(RESOLVED_WORD_TEXT_SELECT_COLUMNS)
-      .is('embedding', null)
-      .not('english', 'is', null)
-      .neq('english', '')
-      .limit(BATCH_SIZE);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const resolvedWords = (words || []).map((word) => resolveSelectedWordTexts(word));
-
-    if (resolvedWords.length === 0) {
-      // 残り数を確認
-      const { count } = await supabase
-        .from('words')
-        .select('id', { count: 'exact', head: true })
-        .is('embedding', null);
-
+    if (!isEmbeddingsEnabled()) {
       return NextResponse.json({
         success: true,
-        message: 'すべての単語にembeddingが設定されています',
+        disabled: true,
+        message: EMBEDDINGS_DISABLED_MESSAGE,
         processed: 0,
-        remaining: count || 0,
+        failed: 0,
+        remaining: 0,
         done: true,
       });
     }
 
-    // バイリンガルテキストを生成
-    const texts = resolvedWords.map((w) => {
-      const en = w.english.trim();
-      const ja = w.japanese?.trim();
-      return ja ? `${en} ${ja}` : en;
-    });
-
-    // embedding生成
-    const embeddings = await batchGenerateEmbeddings(texts);
-
-    // DB更新
-    let successCount = 0;
-    let failureCount = 0;
-
-    for (let i = 0; i < resolvedWords.length; i++) {
-      const { error: updateError } = await supabase.rpc('update_word_embedding', {
-        word_id: resolvedWords[i].id,
-        new_embedding: embeddings[i],
-      });
-
-      if (updateError) {
-        failureCount++;
-      } else {
-        successCount++;
-      }
-    }
-
-    // 残り数を取得
-    const { count: remaining } = await supabase
-      .from('words')
-      .select('id', { count: 'exact', head: true })
-      .is('embedding', null);
-
-    return NextResponse.json({
-      success: true,
-      processed: successCount,
-      failed: failureCount,
-      remaining: remaining || 0,
-      done: (remaining || 0) === 0,
-    });
+    return NextResponse.json(
+      { error: 'Embedding rebuild implementation is unavailable' },
+      { status: 500 },
+    );
   } catch (error) {
     console.error('Embedding rebuild error:', error);
     return NextResponse.json(
       { error: '予期しないエラーが発生しました' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

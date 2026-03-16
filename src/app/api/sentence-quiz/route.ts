@@ -3,6 +3,7 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { generateWordEmbedding } from '@/lib/embeddings';
+import { isEmbeddingsEnabled } from '@/lib/embeddings/feature';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { AI_CONFIG } from '@/lib/ai/config';
@@ -43,8 +44,8 @@ const requestSchema = z.object({
       status: z.enum(['new', 'review', 'mastered']),
     }).strict(),
   ).min(1).max(15),
-  // 新機能: VectorDB検索を使うかどうか（デフォルトはtrue）
-  useVectorSearch: z.boolean().optional().default(true),
+  // Embedding依存の検索は既定で無効
+  useVectorSearch: z.boolean().optional().default(false),
 }).strict();
 
 // AIレスポンススキーマ（従来の穴埋め問題）
@@ -234,6 +235,10 @@ async function findSimilarUserWord(
   prediction: string,
   excludeWordIds: string[]
 ): Promise<VectorSearchResult | null> {
+  if (!isEmbeddingsEnabled()) {
+    return null;
+  }
+
   try {
     // 予測単語のembeddingを生成
     const embedding = await generateWordEmbedding(prediction);
@@ -746,6 +751,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { words, useVectorSearch } = parsed.data;
+    const shouldUseVectorSearch = useVectorSearch && isEmbeddingsEnabled();
 
     // ============================================
     // 4. CHECK OPENAI API KEY
@@ -774,7 +780,7 @@ export async function POST(request: NextRequest) {
 
       if (shouldUseFillIn) {
         // VectorDB検索を使う場合は複数空欄問題を生成
-        if (useVectorSearch) {
+        if (shouldUseVectorSearch) {
           const multiResult = await generateMultiFillInBlank(
             openai,
             supabase,

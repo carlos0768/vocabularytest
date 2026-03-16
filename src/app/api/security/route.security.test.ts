@@ -93,6 +93,7 @@ test('search semantic always uses authenticated user id', async () => {
       }),
     }) as never,
     generateEmbedding: async () => [0.1, 0.2, 0.3],
+    isFeatureEnabled: () => true,
   });
 
   const payload = await res.json();
@@ -168,6 +169,7 @@ test('quiz2 similar always uses authenticated user id', async () => {
         { id: 'word-2', english: 'glad', japanese: 'うれしい', similarity: 0.92 },
       ];
     },
+    isFeatureEnabled: () => true,
   });
 
   const payload = await res.json();
@@ -221,6 +223,7 @@ test('quiz2 similar returns empty results when source word has no embedding', as
       matchCalled = true;
       return [];
     },
+    isFeatureEnabled: () => true,
   });
 
   const payload = await res.json();
@@ -228,6 +231,32 @@ test('quiz2 similar returns empty results when source word has no embedding', as
   assert.equal(matchCalled, false);
   assert.deepEqual(payload.results, []);
   assert.equal(payload.source, 'vector');
+});
+
+test('search semantic returns empty results when feature is disabled', async () => {
+  let embeddingCalled = false;
+  const req = jsonRequest('http://localhost/api/search/semantic', {
+    query: 'dog',
+  });
+
+  const res = await handleSearchSemanticPost(req, {
+    createClient: async () => ({
+      auth: {
+        getUser: async () => ({ data: { user: { id: 'user-auth-1' } }, error: null }),
+      },
+    }) as never,
+    generateEmbedding: async () => {
+      embeddingCalled = true;
+      return [0.1, 0.2, 0.3];
+    },
+    isFeatureEnabled: () => false,
+  });
+
+  const payload = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(embeddingCalled, false);
+  assert.deepEqual(payload.results, []);
+  assert.equal(payload.disabled, true);
 });
 
 test('quiz2 similar batch rejects unexpected userId field (strict schema)', async () => {

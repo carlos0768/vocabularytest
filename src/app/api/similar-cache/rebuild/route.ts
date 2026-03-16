@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import {
+  isEmbeddingsEnabled,
+  SIMILAR_WORDS_DISABLED_MESSAGE,
+} from '@/lib/embeddings/feature';
+import {
   buildSimilarCandidatesForSource,
   collectImpactedExistingIds,
   SimilarSourceWord,
@@ -215,6 +219,15 @@ export async function handleSimilarCacheRebuildPost(
       invalidMessage: '無効なリクエスト形式です',
     });
     if (!parsed.ok) return parsed.response;
+
+    if (!isEmbeddingsEnabled()) {
+      return NextResponse.json({
+        success: true,
+        disabled: true,
+        message: SIMILAR_WORDS_DISABLED_MESSAGE,
+        processedSources: 0,
+      });
+    }
 
     const { userId, mode } = parsed.data;
     const client = deps.createAdminClient();

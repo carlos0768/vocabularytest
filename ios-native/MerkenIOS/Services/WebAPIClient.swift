@@ -1490,30 +1490,20 @@ actor WebAPIClient {
         request.setValue("false", forHTTPHeaderField: "x-upsert")
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("max-age=3600", forHTTPHeaderField: "cache-control")
-        request.timeoutInterval = 60
-        request.httpBody = imageData
+        request.timeoutInterval = 120
 
-        let data: Data
-        let response: URLResponse
+        // Use background upload service so uploads continue even if the app is suspended
         do {
-            (data, response) = try await urlSession.data(for: request)
+            _ = try await BackgroundUploadService.shared.upload(
+                imageData: imageData,
+                request: request
+            )
         } catch let error as URLError where error.code == .timedOut {
             throw WebAPIError.networkTimeout
+        } catch let error as WebAPIError {
+            throw error
         } catch {
             throw WebAPIError.serverError("アップロード通信エラー: \(error.localizedDescription)")
-        }
-
-        guard let http = response as? HTTPURLResponse else {
-            throw WebAPIError.serverError("アップロードレスポンスが不正です。")
-        }
-
-        guard (200 ... 299).contains(http.statusCode) else {
-            if http.statusCode == 401 {
-                throw WebAPIError.notAuthenticated
-            }
-            throw WebAPIError.serverError(
-                decodeErrorMessage(from: data, fallback: "画像アップロードに失敗しました。")
-            )
         }
     }
 }

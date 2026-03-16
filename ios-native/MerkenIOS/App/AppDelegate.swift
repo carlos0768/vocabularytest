@@ -14,7 +14,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        BackgroundUploadService.shared.activate()
         return true
+    }
+
+    /// Called when the system delivers events for a background URL session.
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        if identifier == BackgroundUploadService.sessionIdentifier {
+            BackgroundUploadService.shared.setSystemCompletionHandler(completionHandler)
+        }
     }
 
     /// Called when APNs returns a device token after successful registration.

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  isEmbeddingsEnabled,
+  SIMILAR_WORDS_DISABLED_MESSAGE,
+} from '@/lib/embeddings/feature';
 import { fetchVectorSimilarWords } from '@/lib/similarity/vector-similar';
 import {
   RESOLVED_WORD_TEXT_SELECT_COLUMNS,
@@ -61,6 +65,7 @@ type BatchDeps = {
     request: NextRequest,
     args: { userId: string; sourceWordIds: string[] },
   ) => void;
+  isFeatureEnabled?: () => boolean;
 };
 
 function dedupeIds(ids: string[]): string[] {
@@ -158,26 +163,10 @@ const defaultDeps: BatchDeps = {
     }));
   },
   triggerSingleWordRebuild(request, args) {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) return;
-    if (args.sourceWordIds.length === 0) return;
-
-    const rebuildUrl = new URL('/api/similar-cache/rebuild', request.url);
-    fetch(rebuildUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${serviceRoleKey}`,
-      },
-      body: JSON.stringify({
-        userId: args.userId,
-        mode: 'on_new_words',
-        newWordIds: args.sourceWordIds,
-      }),
-    }).catch((error) => {
-      console.error('Failed to trigger batched similar cache rebuild:', error);
-    });
+    void request;
+    void args;
   },
+  isFeatureEnabled: isEmbeddingsEnabled,
 };
 
 export async function handleQuiz2SimilarBatchPost(
@@ -210,6 +199,17 @@ export async function handleQuiz2SimilarBatchPost(
 
     if (ownedWords.length !== sourceWordIds.length) {
       return NextResponse.json({ error: 'この単語にアクセスできません' }, { status: 403 });
+    }
+
+    if (!(deps.isFeatureEnabled?.() ?? isEmbeddingsEnabled())) {
+      const resultsByWordId = Object.fromEntries(
+        sourceWordIds.map((sourceWordId) => [sourceWordId, [] as SimilarItem[]]),
+      );
+      return NextResponse.json({
+        resultsByWordId,
+        disabled: true,
+        message: SIMILAR_WORDS_DISABLED_MESSAGE,
+      });
     }
 
     const sourceWordMap = new Map(ownedWords.map((word) => [word.id, word]));

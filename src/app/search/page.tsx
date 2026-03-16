@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Icon, AppShell } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { EMBEDDINGS_ENABLED } from '@/lib/embeddings/feature';
 import type { SubscriptionStatus, Word } from '@/types';
 
 interface SemanticResult {
@@ -21,7 +22,7 @@ export default function SearchPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
-  const isSemanticSearchEnabled = subscriptionStatus === 'active';
+  const isSemanticSearchEnabled = EMBEDDINGS_ENABLED && subscriptionStatus === 'active';
   const authResolvingWithoutUser = authLoading && !user;
 
   // Semantic search state
@@ -65,7 +66,7 @@ export default function SearchPage() {
     return scored.slice(0, 50);
   }, []);
 
-  // Search with debounce (Pro: semantic search, Free: local keyword search)
+  // Search with debounce
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim() || !user) return;
 
@@ -169,13 +170,13 @@ export default function SearchPage() {
               <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />
             </div>
             <p className="text-[var(--color-muted)]">
-              意味や単語を入力すると
+              英語または日本語を入力すると
             </p>
             <p className="text-[var(--color-muted)]">
-              関連する英単語を見つけます
+              一致する単語を検索できます
             </p>
             <p className="text-xs text-[var(--color-muted)] mt-3">
-              例: 「子犬」→ puppy, dog, pet...
+              例: 「dog」, 「犬」
             </p>
           </div>
         ) : semanticLoading ? (
@@ -190,13 +191,13 @@ export default function SearchPage() {
         ) : semanticResults.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-[var(--color-muted)]">
-              「{searchQuery}」に関連する単語が見つかりません
+              「{searchQuery}」に一致する単語が見つかりません
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-[var(--color-muted)] mb-2">
-              {semanticResults.length}件の関連単語
+              {semanticResults.length}件の検索結果
             </p>
             {semanticResults.map((result) => (
               <div key={result.id} className="card p-4">

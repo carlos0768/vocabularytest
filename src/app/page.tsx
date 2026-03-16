@@ -849,7 +849,7 @@ export default function HomePage() {
 
     setManualWordSaving(true);
     try {
-      const createdWords = await repository.createWords([
+      await repository.createWords([
         {
           projectId: currentProject.id,
           english: manualWordEnglish.trim(),
@@ -870,18 +870,6 @@ export default function HomePage() {
       }
       loadWords();
       refreshWordCount();
-
-      // Generate embeddings for the new word in the background (Pro only)
-      if (isPro && user) {
-        fetch('/api/embeddings/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wordIds: createdWords.map((word) => word.id),
-            limit: Math.min(createdWords.length, 50),
-          }),
-        }).catch(() => {});
-      }
     } catch (error) {
       console.error('Failed to save manual word:', error);
       showToast({ message: '単語の保存に失敗しました', type: 'error' });

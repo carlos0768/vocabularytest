@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
+  isEmbeddingsEnabled,
+  SIMILAR_WORDS_DISABLED_MESSAGE,
+} from '@/lib/embeddings/feature';
+import {
   RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS,
   resolveSelectedWordTexts,
 } from '@/lib/words/resolved';
@@ -43,6 +47,7 @@ type SimilarDeps = {
   getSourceWord: (client: SimilarClient, sourceWordId: string) => Promise<SourceWordRow | null>;
   hasProjectOwnership: (client: SimilarClient, projectId: string, userId: string) => Promise<boolean>;
   matchSimilarWords: (client: SimilarClient, args: MatchArgs) => Promise<SimilarWordResult[]>;
+  isFeatureEnabled?: () => boolean;
 };
 
 function parseEmbedding(embedding: unknown): number[] | null {
@@ -141,6 +146,7 @@ const defaultDeps: SimilarDeps = {
       similarity: row.similarity,
     }));
   },
+  isFeatureEnabled: isEmbeddingsEnabled,
 };
 
 export async function handleQuiz2SimilarPost(
@@ -169,6 +175,15 @@ export async function handleQuiz2SimilarPost(
     const isOwner = await deps.hasProjectOwnership(client, sourceWord.project_id, userId);
     if (!isOwner) {
       return NextResponse.json({ error: 'この単語にアクセスできません' }, { status: 403 });
+    }
+
+    if (!(deps.isFeatureEnabled?.() ?? isEmbeddingsEnabled())) {
+      return NextResponse.json({
+        source: 'local',
+        results: [],
+        disabled: true,
+        message: SIMILAR_WORDS_DISABLED_MESSAGE,
+      });
     }
 
     const embedding = parseEmbedding(sourceWord.embedding);

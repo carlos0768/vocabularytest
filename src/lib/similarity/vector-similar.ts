@@ -1,3 +1,5 @@
+import { isEmbeddingsEnabled } from '@/lib/embeddings/feature';
+
 export interface VectorSimilarWord {
   id: string;
   english: string;
@@ -64,6 +66,10 @@ function toSafeSimilarity(value: unknown): number {
 }
 
 export async function fetchVectorSimilarWords(params: FetchVectorSimilarWordsParams): Promise<VectorSimilarWord[]> {
+  if (!isEmbeddingsEnabled()) {
+    return [];
+  }
+
   const embedding = parseEmbeddingVector(params.sourceEmbedding);
   if (!embedding) return [];
 
