@@ -26,8 +26,6 @@ struct HomePartOfSpeechWidget: Identifiable, Equatable {
 @MainActor
 final class HomeViewModel: ObservableObject {
     @Published private(set) var projects: [Project] = []
-    @Published private(set) var projectsLoaded = false
-    @Published private(set) var reviewMetricsLoaded = false
     @Published private(set) var totalWordCount: Int = 0
     @Published private(set) var dueWordCount: Int = 0
     @Published private(set) var dueWords: [Word] = []
@@ -67,17 +65,17 @@ final class HomeViewModel: ObservableObject {
     }
 
     private let logger = Logger(subsystem: "MerkenIOS", category: "HomeVM")
+    private var wordCountTask: Task<Void, Never>?
     private var lastLoadContext: String?
 
     func load(using state: AppState) async {
+        wordCountTask?.cancel()
         loading = true
         let loadContext = Self.loadContext(for: state)
 
         if lastLoadContext != loadContext {
             clearLoadedContent()
             lastLoadContext = loadContext
-        } else {
-            reviewMetricsLoaded = false
         }
 
         // Only show quiz stats when logged in (stats are from the cloud user)
@@ -97,34 +95,44 @@ final class HomeViewModel: ObservableObject {
             let userId = state.activeUserId
             let projects = try await repository.fetchProjects(userId: userId)
             self.projects = projects
-            self.projectsLoaded = true
             errorMessage = nil
-            let allWords = try await repository.fetchAllWords(userId: userId)
-
-            let total = allWords.count
-            let dueList = QuizEngine.wordsDueForReview(allWords)
-
-            totalWordCount = total
-            dueWordCount = dueList.count
-            dueWords = dueList
-            duePartOfSpeechCounts = Self.reviewPartOfSpeechCounts(for: dueList)
-            previewWord = dueList.first
-            masteredWordCount = allWords.filter { $0.status == .mastered }.count
-            favoriteWords = allWords.filter { $0.isFavorite }
-            allWordsFlat = allWords
-            let todayStart = Calendar.current.startOfDay(for: Date())
-            todayAddedWords = allWords.filter { $0.createdAt >= todayStart }
-            let grouped = Dictionary(grouping: allWords, by: \.projectId)
-                .mapValues { $0.sorted { $0.createdAt < $1.createdAt } }
-            wordsByProject = grouped
-
-            var dueCounts: [String: Int] = [:]
-            for (pid, words) in grouped {
-                dueCounts[pid] = QuizEngine.wordsDueForReview(words).count
-            }
-            dueCountByProject = dueCounts
-            reviewMetricsLoaded = true
             loading = false
+
+            // Single fetchAllWords instead of N+1 per-project queries
+            wordCountTask = Task { [weak self] in
+                guard !Task.isCancelled else { return }
+                do {
+                    let allWords = try await repository.fetchAllWords(userId: userId)
+                    guard !Task.isCancelled else { return }
+
+                    let total = allWords.count
+                    // Keep due-word behavior aligned with web SM-2 due filtering.
+                    let dueList = QuizEngine.wordsDueForReview(allWords)
+
+                    self?.totalWordCount = total
+                    self?.dueWordCount = dueList.count
+                    self?.dueWords = dueList
+                    self?.duePartOfSpeechCounts = Self.reviewPartOfSpeechCounts(for: dueList)
+                    self?.previewWord = dueList.first
+                    self?.masteredWordCount = allWords.filter { $0.status == .mastered }.count
+                    self?.favoriteWords = allWords.filter { $0.isFavorite }
+                    self?.allWordsFlat = allWords
+                    let todayStart = Calendar.current.startOfDay(for: Date())
+                    self?.todayAddedWords = allWords.filter { $0.createdAt >= todayStart }
+                    let grouped = Dictionary(grouping: allWords, by: \.projectId)
+                        .mapValues { $0.sorted { $0.createdAt < $1.createdAt } }
+                    self?.wordsByProject = grouped
+
+                    // Per-project due counts
+                    var dueCounts: [String: Int] = [:]
+                    for (pid, words) in grouped {
+                        dueCounts[pid] = QuizEngine.wordsDueForReview(words).count
+                    }
+                    self?.dueCountByProject = dueCounts
+                } catch {
+                    // skip on failure
+                }
+            }
         } catch {
             loading = false
             if error.isCancellationError {
@@ -138,8 +146,6 @@ final class HomeViewModel: ObservableObject {
 
     private func clearLoadedContent() {
         projects = []
-        projectsLoaded = false
-        reviewMetricsLoaded = false
         totalWordCount = 0
         dueWordCount = 0
         dueWords = []
@@ -168,40 +174,6 @@ final class HomeViewModel: ObservableObject {
 
     func preloadedWords(for projectId: String) -> [Word]? {
         wordsByProject[projectId]
-    }
-
-    // MARK: - Home project ordering
-
-    /// Count of "struggled" words in a project: reviewed at least once but not yet mastered (easeFactor below default).
-    private func struggledWordCount(for projectId: String) -> Int {
-        guard let words = wordsByProject[projectId] else { return 0 }
-        return words.filter { $0.status == .review && $0.easeFactor < 2.5 }.count
-    }
-
-    /// Projects sorted by struggled word count descending, then due count, then recency.
-    var projectsSortedByStruggledCount: [Project] {
-        projects.sorted { a, b in
-            let aStruggled = struggledWordCount(for: a.id)
-            let bStruggled = struggledWordCount(for: b.id)
-            if aStruggled != bStruggled {
-                return aStruggled > bStruggled
-            }
-
-            let aDueCount = dueCountByProject[a.id] ?? 0
-            let bDueCount = dueCountByProject[b.id] ?? 0
-            if aDueCount != bDueCount {
-                return aDueCount > bDueCount
-            }
-
-            let aRecent = wordsByProject[a.id]?.compactMap(\.lastReviewedAt).max() ?? a.createdAt
-            let bRecent = wordsByProject[b.id]?.compactMap(\.lastReviewedAt).max() ?? b.createdAt
-            return aRecent > bRecent
-        }
-    }
-
-    /// Projects that have at least one struggled word.
-    var projectsWithStruggledWords: [Project] {
-        projectsSortedByStruggledCount.filter { struggledWordCount(for: $0.id) > 0 }
     }
 
     func toggleFavorite(projectId: String, using state: AppState) async {

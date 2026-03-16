@@ -52,30 +52,33 @@ final class StatsViewModel: ObservableObject {
         }.count
     }
 
-    /// Build cumulative mastered word count for each of the last N days.
-    /// Uses `lastReviewedAt` for mastered words to estimate when mastery was achieved,
-    /// and `createdAt` for total word count growth.
-    static func buildMasteryHistory(allWords: [Word], days: Int) -> [MasteryDataPoint] {
-        let calendar = Calendar.current
+    /// Build daily newly-mastered word count for each of the last 7 days.
+    /// Shows how many words transitioned to mastered status on each day.
+    static func buildMasteryHistory(allWords: [Word], days: Int = 7) -> [MasteryDataPoint] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ja_JP")
         let today = calendar.startOfDay(for: Date())
-        let labelFormatter = DateFormatter()
-        labelFormatter.dateFormat = "M/d"
+        let weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"]
 
         return (0..<days).reversed().map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: today)!
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: date)!
 
-            // Words that existed by end of this day
-            let totalByDay = allWords.filter { $0.createdAt < endOfDay }.count
+            // Words that became mastered on this specific day (delta)
+            let newlyMastered = allWords.filter { word in
+                guard word.status == .mastered else { return false }
+                let proxyDate = masteryProxyDate(for: word)
+                return proxyDate >= date && proxyDate < endOfDay
+            }.count
 
-            // Words mastered by end of this day
-            let masteredByDay = masteredWordCount(before: endOfDay, allWords: allWords)
+            let weekdayIndex = calendar.component(.weekday, from: date) - 1
+            let label = weekdayLabels[weekdayIndex]
 
             return MasteryDataPoint(
                 date: date,
-                label: labelFormatter.string(from: date),
-                mastered: masteredByDay,
-                total: totalByDay
+                label: label,
+                mastered: newlyMastered,
+                total: 0
             )
         }
     }
@@ -170,8 +173,8 @@ final class StatsViewModel: ObservableObject {
                 weeklyAccuracy = []
             }
 
-            // Build mastery history (last 14 days)
-            masteryHistory = Self.buildMasteryHistory(allWords: allWords, days: 14)
+            // Build mastery history (last 7 days)
+            masteryHistory = Self.buildMasteryHistory(allWords: allWords)
 
             errorMessage = nil
         } catch {

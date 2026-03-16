@@ -446,13 +446,6 @@ struct ScanLaunchHeroView: View {
                 )
 
                 ZStack {
-                    ScanLaunchTargetReactionView(
-                        surface: surface,
-                        targetCenter: targetCenter,
-                        canvasSize: size,
-                        metrics: metrics
-                    )
-
                     ForEach(Array(previewImages.enumerated()), id: \.element.id) { index, item in
                         let layout = layoutForImage(at: index, total: previewImages.count)
                         let cardPosition = cardPosition(

@@ -116,7 +116,6 @@ struct StatsView: View {
 
                         sectionHeader(icon: "text.book.closed.fill", title: "単語統計")
                         wordStatsCard
-
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 100)
@@ -250,7 +249,7 @@ struct StatsView: View {
                 date: point.date,
                 label: point.label,
                 mastered: animatedInt(point.mastered, progress: chartRevealProgress),
-                total: 0
+                total: point.total
             )
         }
     }
@@ -526,16 +525,17 @@ struct StatsView: View {
     }
 
     private var masteryChart: some View {
+        let totalData = viewModel.masteryHistory
         let data = animatedMasteryHistory
-        let maxVal = max(data.map(\.mastered).max() ?? 1, 1)
+        let maxVal = max(data.map(\.total).max() ?? 1, 1)
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("習得した単語数の推移")
+                Text("暗記した単語数の推移")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                Text("今週")
+                Text("過去14日間")
                     .font(.system(size: 12))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
@@ -551,21 +551,50 @@ struct StatsView: View {
                     )
             } else {
                 Chart {
-                    ForEach(data) { point in
-                        BarMark(
-                            x: .value("曜日", point.label),
-                            y: .value("習得数", point.mastered)
+                    ForEach(totalData) { point in
+                        LineMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("合計", point.total),
+                            series: .value("series", "total")
                         )
-                        .foregroundStyle(MerkenTheme.success.opacity(0.8))
-                        .cornerRadius(4)
+                        .foregroundStyle(MerkenTheme.chartBlue.opacity(0.18 + (0.22 * chartRevealProgress)))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .interpolationMethod(.monotone)
+                    }
+
+                    ForEach(data) { point in
+                        AreaMark(
+                            x: .value("日付", point.date, unit: .day),
+                            yStart: .value("yStart", 0),
+                            yEnd: .value("習得", point.mastered)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [MerkenTheme.success.opacity(0.3), MerkenTheme.success.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .interpolationMethod(.monotone)
+                    }
+
+                    ForEach(data) { point in
+                        LineMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("習得", point.mastered),
+                            series: .value("series", "mastered")
+                        )
+                        .foregroundStyle(MerkenTheme.success)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                        .interpolationMethod(.monotone)
                     }
                 }
                 .chartYScale(domain: 0...maxVal)
                 .chartXAxis {
-                    AxisMarks { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(MerkenTheme.secondaryText)
+                    AxisMarks(values: .stride(by: .day, count: 3)) { value in
+                        AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
+                            .font(.system(size: 9))
+                            .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
                 .chartYAxis {
@@ -577,7 +606,7 @@ struct StatsView: View {
                             .foregroundStyle(MerkenTheme.mutedText)
                     }
                 }
-                .frame(height: UIScreen.main.bounds.height * 0.28)
+                .frame(height: UIScreen.main.bounds.height * 0.32)
                 .transaction { transaction in
                     transaction.animation = nil
                 }
@@ -586,13 +615,23 @@ struct StatsView: View {
                         .scaleEffect(x: max(chartRevealProgress, 0.001), y: 1, anchor: .leading)
                 )
 
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(MerkenTheme.success)
-                        .frame(width: 8, height: 8)
-                    Text("習得に変わった単語数")
-                        .font(.system(size: 11))
-                        .foregroundStyle(MerkenTheme.secondaryText)
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(MerkenTheme.success)
+                            .frame(width: 8, height: 8)
+                        Text("習得済み")
+                            .font(.system(size: 11))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(MerkenTheme.chartBlue.opacity(0.4))
+                            .frame(width: 8, height: 8)
+                        Text("総単語数")
+                            .font(.system(size: 11))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
                 }
             }
         }
