@@ -73,6 +73,8 @@ const EXTRACTION_TIMEOUT_MS = 4 * 60 * 1000 + 30 * 1000;
 const EXTRACTION_TIMEOUT_MINUTES = Math.round(EXTRACTION_TIMEOUT_MS / 60_000);
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
+const ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING = false;
+const ENABLE_POST_SCAN_QUIZ_PREFILL = false;
 const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
 type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
 const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
@@ -852,7 +854,7 @@ export async function POST(request: NextRequest) {
                 aiTranslatedWordIds,
               },
             );
-            if (wordResolutionJobIds.length > 0) {
+            if (ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING && wordResolutionJobIds.length > 0) {
               await Promise.all(
                 wordResolutionJobIds.map((resolutionJobId) =>
                   triggerWordLexiconResolutionProcessing(request.url, resolutionJobId),
@@ -869,7 +871,7 @@ export async function POST(request: NextRequest) {
 
         if (insertedWordsArray.length === 0) return;
 
-        if (aiEnabled) {
+        if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
           const quizSeedWords: QuizSeedWord[] = insertedWordsArray
             .filter((w: {
               distractors: unknown;

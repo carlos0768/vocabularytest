@@ -174,7 +174,7 @@ test('words/create inserts raw words, returns empty lexicon entries, and enqueue
       wordIds: [unresolvedWordId],
     },
   ]);
-  assert.deepEqual(triggered, ['55555555-5555-4555-8555-555555555555']);
+  assert.deepEqual(triggered, []);
 });
 
 test('words/create backfills blank japanese before insert', async () => {

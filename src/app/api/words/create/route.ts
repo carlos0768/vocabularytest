@@ -55,6 +55,8 @@ const requestSchema = z.object({
   words: z.array(wordInputSchema).min(1).max(200),
 }).strict();
 
+const ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING = false;
+
 interface WordsCreateDeps {
   createClient?: typeof createRouteHandlerClient;
   runAfter?: typeof after;
@@ -186,7 +188,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
             aiTranslatedWordIds,
           },
         );
-        if (jobIds.length > 0) {
+        if (ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING && jobIds.length > 0) {
           await Promise.all(
             jobIds.map((jobId) => triggerJobProcessing(request.url, jobId)),
           );
