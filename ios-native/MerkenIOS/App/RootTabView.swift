@@ -28,7 +28,7 @@ struct RootTabView: View {
     @EnvironmentObject private var appState: AppState
 
     @State private var showingScanFlow = false
-    @State private var showingSignInSheet = false
+    @State private var showingSignInFlow = false
     @State private var showingSignUpFlow = false
 
     private let tabItems: [RootTabItem] = [
@@ -81,12 +81,16 @@ struct RootTabView: View {
                         onGetStarted: {
                             showingSignUpFlow = true
                         },
-                        onSignIn: { showingSignInSheet = true }
+                        onSignIn: { showingSignInFlow = true }
                     )
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(isPresented: $showingSignUpFlow) {
                         SignUpView()
+                            .environmentObject(appState)
+                    }
+                    .navigationDestination(isPresented: $showingSignInFlow) {
+                        RootSignInView()
                             .environmentObject(appState)
                     }
                 }
@@ -123,10 +127,6 @@ struct RootTabView: View {
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: appState.scanBanner?.id)
         .animation(MerkenSpring.snappy, value: showingScanFlow)
-        .sheet(isPresented: $showingSignInSheet) {
-            RootSignInSheetView()
-                .environmentObject(appState)
-        }
     }
 
     private func closeScanFlow() {
@@ -335,73 +335,67 @@ private struct RootAuthLandingView: View {
     }
 }
 
-private struct RootSignInSheetView: View {
+private struct RootSignInView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
     @State private var password = ""
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppBackground()
+        ZStack {
+            AppBackground()
 
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("サインイン")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
+            VStack(alignment: .leading, spacing: 18) {
+                Text("サインイン")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
 
-                    TextField("メールアドレス", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .solidTextField(cornerRadius: 16)
+                TextField("メールアドレス", text: $email)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .solidTextField(cornerRadius: 16)
 
-                    SecureField("パスワード", text: $password)
-                        .solidTextField(cornerRadius: 16)
+                SecureField("パスワード", text: $password)
+                    .solidTextField(cornerRadius: 16)
 
-                    if let message = appState.authErrorMessage, !message.isEmpty {
-                        Text(message)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(MerkenTheme.danger)
-                    }
-
-                    Button {
-                        Task {
-                            await appState.signIn(email: email, password: password)
-                            if appState.isLoggedIn {
-                                dismiss()
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            if appState.isSigningIn {
-                                ProgressView()
-                                    .tint(.white)
-                            }
-                            Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.black, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    }
-                    .disabled(appState.isSigningIn)
-                    .opacity(appState.isSigningIn ? 0.7 : 1)
-
-                    Spacer()
+                if let message = appState.authErrorMessage, !message.isEmpty {
+                    Text(message)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(MerkenTheme.danger)
                 }
-                .padding(24)
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") {
-                        dismiss()
+
+                Button {
+                    Task {
+                        await appState.signIn(email: email, password: password)
+                        if appState.isLoggedIn {
+                            dismiss()
+                        }
                     }
+                } label: {
+                    HStack {
+                        if appState.isSigningIn {
+                            ProgressView()
+                                .tint(.white)
+                        }
+                        Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.black, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
+                .disabled(appState.isSigningIn)
+                .opacity(appState.isSigningIn ? 0.7 : 1)
+
+                Spacer()
             }
+            .padding(24)
         }
+        .navigationTitle("サインイン")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 }
 
