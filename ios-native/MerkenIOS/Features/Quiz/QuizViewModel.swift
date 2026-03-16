@@ -164,9 +164,10 @@ final class QuizViewModel: ObservableObject {
                 totalAnswered: questions.count,
                 correctAnswered: correctCount
             )
-            state.bumpDataVersion()
             Task(priority: .utility) { [weak self] in
-                await self?.flushPendingUpdatesIfNeeded(using: state)
+                guard let self else { return }
+                await self.flushPendingUpdatesIfNeeded(using: state)
+                state.bumpDataVersion()
             }
             return
         }
