@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import type { AIWordExtraction } from '@/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { LexiconTranslationSource } from '../../../shared/lexicon';
 
 import {
   resolveWordsWithLexicon,
@@ -16,6 +17,7 @@ const wordIdSchema = z.string().uuid();
 
 export const wordLexiconResolutionPayloadSchema = z.object({
   wordIds: z.array(wordIdSchema).min(1).max(MAX_WORD_IDS_PER_JOB),
+  aiTranslatedWordIds: z.array(wordIdSchema).max(MAX_WORD_IDS_PER_JOB).optional().default([]),
 }).strict();
 
 export type WordLexiconResolutionJobSource = 'scan' | 'manual';
@@ -44,10 +46,15 @@ interface LexiconPosRow {
 
 export interface WordLexiconResolutionDeps {
   supabaseAdmin?: SupabaseClient;
+  aiTranslatedWordIds?: string[];
   resolveWords?: (
-    words: Array<Pick<AIWordExtraction, 'english' | 'japanese' | 'distractors' | 'partOfSpeechTags'>>
+    words: Array<Pick<AIWordExtraction, 'english' | 'japanese' | 'distractors' | 'partOfSpeechTags'> & {
+      japaneseSource?: LexiconTranslationSource;
+    }>
   ) => Promise<{
-    words: ResolvedLexiconWord<Pick<AIWordExtraction, 'english' | 'japanese' | 'distractors' | 'partOfSpeechTags'>>[];
+    words: ResolvedLexiconWord<Pick<AIWordExtraction, 'english' | 'japanese' | 'distractors' | 'partOfSpeechTags'> & {
+      japaneseSource?: LexiconTranslationSource;
+    }>[];
     lexiconEntries: unknown[];
     pendingEnrichmentCandidates: PendingLexiconEnrichmentCandidate[];
     metrics: {
@@ -104,7 +111,7 @@ export function needsWordLexiconResolution(word: {
 export async function enqueueWordLexiconResolutionJobs(
   source: WordLexiconResolutionJobSource,
   wordIds: string[],
-  deps?: Pick<WordLexiconResolutionDeps, 'supabaseAdmin'>,
+  deps?: Pick<WordLexiconResolutionDeps, 'supabaseAdmin' | 'aiTranslatedWordIds'>,
 ): Promise<string[]> {
   const normalizedWordIds = normalizeWordIds(wordIds);
   if (normalizedWordIds.length === 0) {
@@ -112,11 +119,18 @@ export async function enqueueWordLexiconResolutionJobs(
   }
 
   const supabaseAdmin = deps?.supabaseAdmin ?? getSupabaseAdmin();
+  const aiTranslatedWordIdSet = new Set(
+    normalizeWordIds(deps?.aiTranslatedWordIds ?? [])
+      .filter((wordId) => normalizedWordIds.includes(wordId)),
+  );
   const rows = chunkArray(normalizedWordIds, MAX_WORD_IDS_PER_JOB).map((chunk) => ({
     status: 'pending',
     source,
     word_count: chunk.length,
-    payload: { wordIds: chunk },
+    payload: {
+      wordIds: chunk,
+      aiTranslatedWordIds: chunk.filter((wordId) => aiTranslatedWordIdSet.has(wordId)),
+    },
     error_message: null,
     attempt_count: 0,
     processing_started_at: null,
@@ -228,6 +242,7 @@ export async function processWordLexiconResolutionWords(
   const startedAt = Date.now();
   const normalizedWordIds = normalizeWordIds(wordIds);
   const { supabaseAdmin, resolveWords } = getDeps(deps);
+  const aiTranslatedWordIdSet = new Set(normalizeWordIds(deps?.aiTranslatedWordIds ?? []));
 
   if (normalizedWordIds.length === 0) {
     return {
@@ -285,6 +300,7 @@ export async function processWordLexiconResolutionWords(
         japanese: row.japanese,
         distractors: [],
         partOfSpeechTags: normalizePartOfSpeechTags(row.part_of_speech_tags),
+        japaneseSource: aiTranslatedWordIdSet.has(row.id) ? 'ai' : undefined,
       })),
     );
 

@@ -566,6 +566,32 @@ test('resolveWordsWithLexicon creates runtime rows with null translation and que
   assert.deepEqual(persisted.dataset_sources, ['runtime']);
 });
 
+test('resolveWordsWithLexicon persists AI-generated hints into runtime rows immediately', async () => {
+  const supabase = new FakeLexiconSupabase();
+
+  const result = await resolveWordsWithLexicon(
+    [
+      {
+        english: 'compose',
+        japanese: '作曲する',
+        japaneseSource: 'ai',
+        distractors: [],
+        partOfSpeechTags: ['verb'],
+      },
+    ],
+    createDeps(supabase),
+  );
+
+  assert.equal(result.words[0]?.japanese, '作曲する');
+  assert.equal(result.pendingEnrichmentCandidates.length, 0);
+  assert.equal(result.metrics.syncTranslationCount, 0);
+  assert.equal(result.metrics.runtimeCreatedCount, 1);
+
+  const [persisted] = supabase.getRows();
+  assert.equal(persisted.translation_ja, '作曲する');
+  assert.equal(persisted.translation_source, 'ai');
+});
+
 test('resolveWordsWithLexicon prefers a later non-empty hint when earlier duplicate is blank', async () => {
   const supabase = new FakeLexiconSupabase();
   let translateCalls = 0;

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { backfillMissingJapaneseTranslations } from './backfill-japanese';
+import {
+  backfillMissingJapaneseTranslations,
+  backfillMissingJapaneseTranslationsWithMetadata,
+} from './backfill-japanese';
 
 test('backfillMissingJapaneseTranslations fills blank japanese with translated values', async () => {
   const translated = await backfillMissingJapaneseTranslations(
@@ -59,4 +62,30 @@ test('backfillMissingJapaneseTranslations deduplicates translation requests by e
   assert.deepEqual(calls, [{ english: 'beeline', pos: 'noun' }]);
   assert.equal(translated[0]?.japanese, '一直線');
   assert.equal(translated[1]?.japanese, '一直線');
+});
+
+test('backfillMissingJapaneseTranslationsWithMetadata returns AI-backfilled indexes', async () => {
+  const result = await backfillMissingJapaneseTranslationsWithMetadata(
+    [
+      {
+        english: 'beeline',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+      },
+      {
+        english: 'went viral',
+        japanese: '話題になった',
+        distractors: [],
+        partOfSpeechTags: ['verb'],
+      },
+    ],
+    {
+      translateWords: async () => new Map([['beeline::noun', '一直線']]),
+    },
+  );
+
+  assert.deepEqual(result.aiBackfilledIndexes, [0]);
+  assert.equal(result.words[0]?.japanese, '一直線');
+  assert.equal(result.words[1]?.japanese, '話題になった');
 });

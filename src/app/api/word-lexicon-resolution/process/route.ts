@@ -171,6 +171,7 @@ async function processClaimedJob(
     const stats = await processWordLexiconResolutionWords(parsedPayload.wordIds, {
       supabaseAdmin,
       resolveWords,
+      aiTranslatedWordIds: parsedPayload.aiTranslatedWordIds,
     });
 
     await markJobCompleted(supabaseAdmin, job.id);

@@ -32,9 +32,14 @@ export interface LexiconResolverInput {
   english: string;
   japaneseHint?: string | null;
   partOfSpeechTags?: string[];
+  japaneseHintSource?: LexiconTranslationSource | null;
 }
 
-export type ResolvedLexiconWord<T extends AIWordExtraction = AIWordExtraction> = Omit<
+type ResolverWordInput = AIWordExtraction & {
+  japaneseSource?: LexiconTranslationSource;
+};
+
+export type ResolvedLexiconWord<T extends ResolverWordInput = ResolverWordInput> = Omit<
   T,
   'english' | 'japanese' | 'lexiconEntryId' | 'cefrLevel'
 > & {
@@ -187,6 +192,7 @@ async function loadLexiconEntryRow(
 async function updateTranslationIfMissing(
   row: LexiconEntryRow,
   japaneseHint: string | null,
+  japaneseHintSource: LexiconTranslationSource | null,
   deps?: ResolveLexiconDeps,
 ): Promise<ResolveLexiconEntryResult> {
   if (hasResolvedTranslation(row)) {
@@ -194,6 +200,30 @@ async function updateTranslationIfMissing(
       entry: mapLexiconEntry(row),
       translatedSynchronously: false,
       reusedOlpEntry: isOlpBackedRow(row),
+      createdRuntimeEntry: false,
+    };
+  }
+
+  if (japaneseHint && japaneseHintSource === 'ai') {
+    const { supabaseAdmin } = getResolverDeps(deps);
+    const { data, error } = await supabaseAdmin
+      .from('lexicon_entries')
+      .update({
+        translation_ja: japaneseHint,
+        translation_source: 'ai' as LexiconTranslationSource,
+      })
+      .eq('id', row.id)
+      .select('*')
+      .single<LexiconEntryRow>();
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Failed to persist AI hint translation');
+    }
+
+    return {
+      entry: mapLexiconEntry(data),
+      translatedSynchronously: true,
+      reusedOlpEntry: isOlpBackedRow(data),
       createdRuntimeEntry: false,
     };
   }
@@ -274,16 +304,20 @@ async function resolveOrCreateLexiconEntryResult(
 
   const pos = resolvePrimaryLexiconPos(preparedInput?.partOfSpeechTags);
   const japaneseHint = normalizeLexiconTranslation(preparedInput?.japaneseHint);
+  const japaneseHintSource = preparedInput?.japaneseHintSource ?? null;
   const row = existingRow ?? await loadLexiconEntryRow(supabaseAdmin, normalizedHeadword, pos);
 
   if (row) {
-    return updateTranslationIfMissing(row, japaneseHint, deps);
+    return updateTranslationIfMissing(row, japaneseHint, japaneseHintSource, deps);
   }
 
   let translation: string | null = null;
   let translationSource: LexiconTranslationSource | null = null;
 
-  if (!japaneseHint) {
+  if (japaneseHint && japaneseHintSource === 'ai') {
+    translation = japaneseHint;
+    translationSource = 'ai';
+  } else if (!japaneseHint) {
     translation = await translateWord(headword, pos);
     translationSource = translation ? 'ai' : null;
   }
@@ -307,7 +341,9 @@ async function resolveOrCreateLexiconEntryResult(
   if (!insertError && insertedRow) {
     return {
       entry: mapLexiconEntry(insertedRow),
-      pendingEnrichmentCandidate: createPendingEnrichmentCandidate(insertedRow.id, headword, pos, japaneseHint),
+      pendingEnrichmentCandidate: translation
+        ? undefined
+        : createPendingEnrichmentCandidate(insertedRow.id, headword, pos, japaneseHint),
       translatedSynchronously: Boolean(translation),
       reusedOlpEntry: false,
       createdRuntimeEntry: true,
@@ -319,7 +355,7 @@ async function resolveOrCreateLexiconEntryResult(
     throw new Error(insertError?.message || 'Failed to create lexicon entry');
   }
 
-  return updateTranslationIfMissing(conflictedRow, japaneseHint, deps);
+  return updateTranslationIfMissing(conflictedRow, japaneseHint, japaneseHintSource, deps);
 }
 
 export async function resolveOrCreateLexiconEntry(
@@ -330,7 +366,7 @@ export async function resolveOrCreateLexiconEntry(
   return result.entry;
 }
 
-export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
+export async function resolveWordsWithLexicon<T extends ResolverWordInput>(
   words: T[],
   deps?: ResolveLexiconDeps,
 ): Promise<{
@@ -368,12 +404,14 @@ export async function resolveWordsWithLexicon<T extends AIWordExtraction>(
         english: word.english,
         japaneseHint,
         partOfSpeechTags: word.partOfSpeechTags,
+        japaneseHintSource: word.japaneseSource ?? null,
       });
       continue;
     }
 
     if (!existing.japaneseHint && japaneseHint) {
       existing.japaneseHint = japaneseHint;
+      existing.japaneseHintSource = word.japaneseSource ?? null;
     }
 
     if ((!existing.partOfSpeechTags || existing.partOfSpeechTags.length === 0) && word.partOfSpeechTags?.length) {

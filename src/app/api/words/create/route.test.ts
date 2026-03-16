@@ -143,7 +143,10 @@ test('words/create inserts raw words, returns empty lexicon entries, and enqueue
       runAfter: (callback: () => void | Promise<void>) => {
         afterPromise = Promise.resolve(callback()).then(() => undefined);
       },
-      backfillWords: async (words) => words,
+      backfillWords: async (words) => ({
+        words,
+        aiBackfilledIndexes: [],
+      }),
       enqueueJobs: async (source, wordIds) => {
         enqueued.push({ source, wordIds });
         return ['55555555-5555-4555-8555-555555555555'];
@@ -219,10 +222,13 @@ test('words/create backfills blank japanese before insert', async () => {
       runAfter: (callback: () => void | Promise<void>) => {
         afterPromise = Promise.resolve(callback()).then(() => undefined);
       },
-      backfillWords: async (words) => words.map((word) => ({
-        ...word,
-        japanese: word.english === 'springboard' ? '出発点' : word.japanese,
-      })),
+      backfillWords: async (words) => ({
+        words: words.map((word) => ({
+          ...word,
+          japanese: word.english === 'springboard' ? '出発点' : word.japanese,
+        })),
+        aiBackfilledIndexes: [0],
+      }),
       enqueueJobs: async () => [],
       triggerJobProcessing: async () => undefined,
     },

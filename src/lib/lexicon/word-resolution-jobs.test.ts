@@ -185,6 +185,55 @@ test('processWordLexiconResolutionWords resolves unresolved words without overwr
   ]);
 });
 
+test('processWordLexiconResolutionWords marks AI-backfilled rows with japaneseSource=ai', async () => {
+  const wordId = 'aaaaaaaa-1111-4111-8111-111111111111';
+  const supabase = new FakeResolutionSupabase(
+    [
+      {
+        id: wordId,
+        english: 'springboard',
+        japanese: '出発点',
+        lexicon_entry_id: null,
+        part_of_speech_tags: ['noun'],
+      },
+    ],
+    [],
+  );
+
+  let receivedJapaneseSource: string | undefined;
+  await processWordLexiconResolutionWords([wordId], {
+    supabaseAdmin: supabase as never,
+    aiTranslatedWordIds: [wordId],
+    resolveWords: async (words) => {
+      receivedJapaneseSource = words[0]?.japaneseSource;
+      return {
+        words: [
+          {
+            english: 'springboard',
+            japanese: '出発点',
+            distractors: [],
+            partOfSpeechTags: ['noun'],
+            japaneseSource: words[0]?.japaneseSource,
+            lexiconEntryId: 'bbbbbbbb-2222-4222-8222-222222222222',
+          },
+        ],
+        lexiconEntries: [],
+        pendingEnrichmentCandidates: [],
+        metrics: {
+          syncTranslationCount: 0,
+          queuedHintValidationCount: 0,
+          posInferredCount: 0,
+          olpReusedCount: 0,
+          runtimeCreatedCount: 0,
+          resolverElapsedMs: 1,
+        },
+      };
+    },
+  });
+
+  assert.equal(receivedJapaneseSource, 'ai');
+});
+
 test('processWordLexiconResolutionWords backfills tags from lexicon entries without calling resolver', async () => {
   const wordId = '33333333-3333-4333-8333-333333333333';
   const lexiconEntryId = '44444444-4444-4444-8444-444444444444';

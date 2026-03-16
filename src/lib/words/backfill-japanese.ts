@@ -11,12 +11,20 @@ interface BackfillJapaneseDeps {
   translateWords?: typeof translateWordsWithAI;
 }
 
-export async function backfillMissingJapaneseTranslations<T extends BackfillableWord>(
+export interface BackfillJapaneseResult<T extends BackfillableWord> {
+  words: T[];
+  aiBackfilledIndexes: number[];
+}
+
+export async function backfillMissingJapaneseTranslationsWithMetadata<T extends BackfillableWord>(
   words: T[],
   deps?: BackfillJapaneseDeps,
-): Promise<T[]> {
+): Promise<BackfillJapaneseResult<T>> {
   if (words.length === 0) {
-    return words;
+    return {
+      words,
+      aiBackfilledIndexes: [],
+    };
   }
 
   const translateWords = deps?.translateWords ?? translateWordsWithAI;
@@ -36,12 +44,15 @@ export async function backfillMissingJapaneseTranslations<T extends Backfillable
   }
 
   if (pendingInputs.size === 0) {
-    return words.map((word) => {
-      const normalizedJapanese = normalizeLexiconTranslation(word.japanese) ?? '';
-      return normalizedJapanese === word.japanese
-        ? word
-        : { ...word, japanese: normalizedJapanese };
-    });
+    return {
+      words: words.map((word) => {
+        const normalizedJapanese = normalizeLexiconTranslation(word.japanese) ?? '';
+        return normalizedJapanese === word.japanese
+          ? word
+          : { ...word, japanese: normalizedJapanese };
+      }),
+      aiBackfilledIndexes: [],
+    };
   }
 
   let translations = new Map<string, string | null>();
@@ -51,7 +62,8 @@ export async function backfillMissingJapaneseTranslations<T extends Backfillable
     console.error('[backfill-japanese] Failed to translate missing Japanese values:', error);
   }
 
-  return words.map((word) => {
+  const aiBackfilledIndexes: number[] = [];
+  const translatedWords = words.map((word, index) => {
     const normalizedJapanese = normalizeLexiconTranslation(word.japanese) ?? '';
     if (normalizedJapanese) {
       return normalizedJapanese === word.japanese
@@ -69,9 +81,23 @@ export async function backfillMissingJapaneseTranslations<T extends Backfillable
         : { ...word, japanese: normalizedJapanese };
     }
 
+    aiBackfilledIndexes.push(index);
     return {
       ...word,
       japanese: translatedJapanese,
     };
   });
+
+  return {
+    words: translatedWords,
+    aiBackfilledIndexes,
+  };
+}
+
+export async function backfillMissingJapaneseTranslations<T extends BackfillableWord>(
+  words: T[],
+  deps?: BackfillJapaneseDeps,
+): Promise<T[]> {
+  const result = await backfillMissingJapaneseTranslationsWithMetadata(words, deps);
+  return result.words;
 }

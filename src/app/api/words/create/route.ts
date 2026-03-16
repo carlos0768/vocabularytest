@@ -7,7 +7,7 @@ import {
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
 import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
-import { backfillMissingJapaneseTranslations } from '@/lib/words/backfill-japanese';
+import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { z } from 'zod';
@@ -60,7 +60,7 @@ interface WordsCreateDeps {
   runAfter?: typeof after;
   enqueueJobs?: typeof enqueueWordLexiconResolutionJobs;
   triggerJobProcessing?: typeof triggerWordLexiconResolutionProcessing;
-  backfillWords?: typeof backfillMissingJapaneseTranslations;
+  backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
 }
 
 function getDeps(deps?: WordsCreateDeps) {
@@ -69,7 +69,7 @@ function getDeps(deps?: WordsCreateDeps) {
     runAfter: deps?.runAfter ?? after,
     enqueueJobs: deps?.enqueueJobs ?? enqueueWordLexiconResolutionJobs,
     triggerJobProcessing: deps?.triggerJobProcessing ?? triggerWordLexiconResolutionProcessing,
-    backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslations,
+    backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
   };
 }
 
@@ -117,7 +117,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: '指定した単語帳にアクセスできません' }, { status: 403 });
     }
 
-    const translatedWords = await backfillWords(words);
+    const { words: translatedWords, aiBackfilledIndexes } = await backfillWords(words);
 
     const defaultSR = getDefaultSpacedRepetitionFields();
     const rows = translatedWords.map((word) => {
@@ -162,6 +162,10 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    const aiTranslatedWordIds = aiBackfilledIndexes
+      .map((index) => ((data ?? []) as WordRow[])[index]?.id)
+      .filter((value): value is string => typeof value === 'string' && value.length > 0);
+
     runAfter(async () => {
       const pendingWordIds = ((data ?? []) as WordRow[])
         .filter((row) => needsWordLexiconResolution({
@@ -178,6 +182,9 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         const jobIds = await enqueueJobs(
           'manual',
           pendingWordIds,
+          {
+            aiTranslatedWordIds,
+          },
         );
         if (jobIds.length > 0) {
           await Promise.all(

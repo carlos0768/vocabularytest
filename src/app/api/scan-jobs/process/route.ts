@@ -15,7 +15,7 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { backfillMissingJapaneseTranslations } from '@/lib/words/backfill-japanese';
+import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
@@ -629,7 +629,7 @@ export async function POST(request: NextRequest) {
       }
 
       const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
-      const resolvedWords = await backfillMissingJapaneseTranslations(dedupedWords);
+      const { words: resolvedWords, aiBackfilledIndexes } = await backfillMissingJapaneseTranslationsWithMetadata(dedupedWords);
 
       if (saveMode === 'client_local') {
         const resultPayload: {
@@ -784,6 +784,9 @@ export async function POST(request: NextRequest) {
       }
 
       const insertedWordsArray = insertedWords ?? [];
+      const aiTranslatedWordIds = aiBackfilledIndexes
+        .map((index) => insertedWordsArray[index]?.id)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
       const resultPayload: {
         wordCount: number;
@@ -845,6 +848,9 @@ export async function POST(request: NextRequest) {
             const wordResolutionJobIds = await enqueueWordLexiconResolutionJobs(
               'scan',
               pendingWordIds,
+              {
+                aiTranslatedWordIds,
+              },
             );
             if (wordResolutionJobIds.length > 0) {
               await Promise.all(
