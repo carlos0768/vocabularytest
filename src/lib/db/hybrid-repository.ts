@@ -72,7 +72,21 @@ export class HybridWordRepository implements WordRepository {
       return;
     }
 
-    console.log('[HybridRepo] Starting full sync for user:', userId);
+    const lastSync = this.getLastSync();
+    const syncedUserId = this.getSyncedUserId();
+    const isFirstSync = !lastSync || syncedUserId !== userId;
+
+    if (isFirstSync) {
+      console.log('[HybridRepo] First sync (full) for user:', userId);
+      await this._fullSyncAll(userId);
+    } else {
+      console.log('[HybridRepo] Delta sync since:', new Date(lastSync).toISOString());
+      await this._deltaSync(userId, new Date(lastSync).toISOString());
+    }
+  }
+
+  /** Full sync: fetch everything from remote (first sync or user switch) */
+  private async _fullSyncAll(userId: string): Promise<void> {
     const db = getDb();
 
     try {
@@ -156,6 +170,87 @@ export class HybridWordRepository implements WordRepository {
     } catch (error) {
       console.error('[HybridRepo] Full sync failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Delta sync: fetch only changes since last sync.
+   * - Projects: fetch IDs (lightweight) for deletion detection + updated rows
+   * - Words: fetch only updated rows + IDs for deletion detection
+   * Reduces I/O from ~hundreds of IOPS to ~tens.
+   */
+  private async _deltaSync(userId: string, since: string): Promise<void> {
+    const db = getDb();
+
+    try {
+      // 1. Projects: get remote IDs + updated projects (2 lightweight queries)
+      const [remoteProjectIds, updatedProjects] = await Promise.all([
+        remoteRepository.getProjectIds(userId),
+        remoteRepository.getProjectsUpdatedSince(userId, since),
+      ]);
+
+      // 2. Detect deleted projects
+      const remoteProjectIdSet = new Set(remoteProjectIds);
+      const localProjects = await db.projects.where('userId').equals(userId).toArray();
+      const deletedProjectIds = localProjects
+        .map(p => p.id)
+        .filter(id => !remoteProjectIdSet.has(id));
+
+      // 3. Remove deleted projects + their words from local
+      if (deletedProjectIds.length > 0) {
+        await db.projects.bulkDelete(deletedProjectIds);
+        await db.words.where('projectId').anyOf(deletedProjectIds).delete();
+        console.log('[HybridRepo] Delta: removed', deletedProjectIds.length, 'deleted projects');
+      }
+
+      // 4. Upsert updated projects
+      if (updatedProjects.length > 0) {
+        await db.projects.bulkPut(updatedProjects);
+        console.log('[HybridRepo] Delta: upserted', updatedProjects.length, 'projects');
+      }
+
+      // 5. Words: get updated words + remote IDs for deletion detection
+      const activeProjectIds = remoteProjectIds.length > 0 ? remoteProjectIds : [];
+      const [updatedWords, remoteWordIds] = await Promise.all([
+        remoteRepository.getWordsUpdatedSince(activeProjectIds, since),
+        remoteRepository.getWordIdsByProjectIds(activeProjectIds),
+      ]);
+
+      // 6. Detect deleted words
+      const remoteWordIdSet = new Set(remoteWordIds);
+      const localWordIds = (await db.words.where('projectId').anyOf(activeProjectIds).primaryKeys()) as string[];
+      const deletedWordIds = localWordIds.filter(id => !remoteWordIdSet.has(id));
+
+      if (deletedWordIds.length > 0) {
+        await db.words.bulkDelete(deletedWordIds);
+        console.log('[HybridRepo] Delta: removed', deletedWordIds.length, 'deleted words');
+      }
+
+      // 7. Upsert updated words
+      if (updatedWords.length > 0) {
+        await db.words.bulkPut(updatedWords);
+        console.log('[HybridRepo] Delta: upserted', updatedWords.length, 'words');
+
+        // 8. Sync lexicon entries for updated words
+        const lexiconEntryIds = [...new Set(updatedWords.map(w => w.lexiconEntryId).filter(Boolean))] as string[];
+        if (lexiconEntryIds.length > 0) {
+          const lexiconEntries = await remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
+          if (lexiconEntries.length > 0) {
+            await db.lexiconEntries.bulkPut(lexiconEntries);
+          }
+        }
+      }
+
+      // 9. Update sync metadata
+      this.setLastSync(Date.now());
+      this.setSyncedUserId(userId);
+
+      const totalChanges = updatedProjects.length + updatedWords.length + deletedProjectIds.length + deletedWordIds.length;
+      console.log(`[HybridRepo] Delta sync complete: ${totalChanges} changes (${updatedProjects.length}P↑ ${updatedWords.length}W↑ ${deletedProjectIds.length}P↓ ${deletedWordIds.length}W↓)`);
+    } catch (error) {
+      console.error('[HybridRepo] Delta sync failed, falling back to full sync:', error);
+      // If delta sync fails, fall back to full sync
+      await this._fullSyncAll(userId);
     }
   }
 

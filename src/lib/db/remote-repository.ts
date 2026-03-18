@@ -84,6 +84,30 @@ export class RemoteWordRepository implements WordRepository {
     return (data as ProjectRow[]).map(mapProjectFromRow);
   }
 
+  /** Fetch only project IDs for a user (lightweight, for deletion detection) */
+  async getProjectIds(userId: string): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from('projects')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (error) throw new Error(`Failed to get project IDs: ${error.message}`);
+    return (data as { id: string }[]).map(r => r.id);
+  }
+
+  /** Fetch projects updated after a given timestamp */
+  async getProjectsUpdatedSince(userId: string, since: string): Promise<Project[]> {
+    const { data, error } = await this.supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('updated_at', since)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to get updated projects: ${error.message}`);
+    return (data as ProjectRow[]).map(mapProjectFromRow);
+  }
+
   async getProject(id: string): Promise<Project | undefined> {
     const { data, error } = await this.supabase
       .from('projects')
@@ -326,6 +350,33 @@ export class RemoteWordRepository implements WordRepository {
       }
     }
     return grouped;
+  }
+
+  /** Fetch words updated after a given timestamp (delta sync) */
+  async getWordsUpdatedSince(projectIds: string[], since: string): Promise<Word[]> {
+    if (projectIds.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from('words')
+      .select(WORDS_SELECT_COLUMNS)
+      .in('project_id', projectIds)
+      .gt('updated_at', since);
+
+    if (error) throw new Error(`Failed to get updated words: ${error.message}`);
+    return (data as WordRow[]).map(mapWordFromRow);
+  }
+
+  /** Fetch only word IDs for given projects (lightweight, for deletion detection) */
+  async getWordIdsByProjectIds(projectIds: string[]): Promise<string[]> {
+    if (projectIds.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from('words')
+      .select('id')
+      .in('project_id', projectIds);
+
+    if (error) throw new Error(`Failed to get word IDs: ${error.message}`);
+    return (data as { id: string }[]).map(r => r.id);
   }
 
   // ============ Share Methods ============
