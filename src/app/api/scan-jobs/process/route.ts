@@ -15,6 +15,7 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { generateExampleSentences } from '@/lib/ai/generate-example-sentences';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
@@ -689,6 +690,44 @@ export async function POST(request: NextRequest) {
       });
 
       if (saveMode === 'client_local') {
+        // --- Synchronous example sentence generation (client_local) ---
+        const wordsNeedingExamples = resolvedWords
+          .filter((w, i) => !w.exampleSentence)
+          .map((w, i) => ({
+            id: String(i), // client_local has no DB ids; use index as placeholder
+            english: w.english,
+            japanese: w.japanese,
+          }));
+
+        if (wordsNeedingExamples.length > 0) {
+          try {
+            const exampleResult = await generateExampleSentences(wordsNeedingExamples, apiKeys);
+            const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
+
+            let exIdx = 0;
+            for (const word of resolvedWords) {
+              if (!word.exampleSentence) {
+                const generated = exampleMap.get(String(exIdx));
+                if (generated) {
+                  word.exampleSentence = generated.exampleSentence;
+                  word.exampleSentenceJa = generated.exampleSentenceJa;
+                  if (!word.partOfSpeechTags?.length) {
+                    word.partOfSpeechTags = generated.partOfSpeechTags;
+                  }
+                }
+                exIdx++;
+              }
+            }
+
+            if (exampleResult.errors.length > 0) {
+              console.warn('[scan-jobs/process] Example generation partial errors (client_local):', exampleResult.errors);
+            }
+          } catch (exampleError) {
+            // Example generation failure should NOT fail the scan
+            console.error('[scan-jobs/process] Example generation failed (client_local), continuing without:', exampleError);
+          }
+        }
+
         const resultPayload: {
           wordCount: number;
           warnings?: string[];
@@ -844,6 +883,55 @@ export async function POST(request: NextRequest) {
       const aiTranslatedWordIds = resolvedWords
         .map((word, index) => (word.japaneseSource === 'ai' ? insertedWordsArray[index]?.id : null))
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+      // --- Synchronous example sentence generation (server_cloud) ---
+      const wordsForExampleGen = insertedWordsArray
+        .filter((w: { id: string; example_sentence: string | null; japanese: string }) =>
+          !w.example_sentence || w.example_sentence.trim().length === 0
+        )
+        .map((w: { id: string; english: string; japanese: string }) => ({
+          id: w.id,
+          english: w.english,
+          japanese: w.japanese,
+        }));
+
+      let exampleGenCount = 0;
+      if (wordsForExampleGen.length > 0) {
+        try {
+          const exampleResult = await generateExampleSentences(wordsForExampleGen, apiKeys);
+
+          if (exampleResult.examples.length > 0) {
+            // Batch update DB with generated examples
+            await Promise.all(
+              exampleResult.examples.map((ex) =>
+                getSupabaseAdmin()
+                  .from('words')
+                  .update({
+                    example_sentence: ex.exampleSentence,
+                    example_sentence_ja: ex.exampleSentenceJa,
+                    part_of_speech_tags: ex.partOfSpeechTags,
+                  })
+                  .eq('id', ex.wordId)
+              )
+            );
+            exampleGenCount = exampleResult.examples.length;
+          }
+
+          if (exampleResult.errors.length > 0) {
+            console.warn('[scan-jobs/process] Example generation partial errors:', exampleResult.errors);
+          }
+
+          console.log('[scan-jobs/process] Example generation completed', {
+            jobId,
+            requested: wordsForExampleGen.length,
+            generated: exampleGenCount,
+            elapsedMs: Date.now() - startedAt,
+          });
+        } catch (exampleError) {
+          // Example generation failure should NOT fail the scan
+          console.error('[scan-jobs/process] Example generation failed, continuing without:', exampleError);
+        }
+      }
 
       const resultPayload: {
         wordCount: number;
