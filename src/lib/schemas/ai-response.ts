@@ -8,27 +8,34 @@ import { normalizeSourceLabels } from '../../../shared/source-labels';
 export const AIWordSchema = z.object({
   english: z.string(),
   japanese: z.string().optional().default(''),
+  japaneseSource: z.string().optional(),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
   // Optional example sentence fields (Pro feature)
   exampleSentence: z.string().optional().nullable(),
   exampleSentenceJa: z.string().optional().nullable(),
 }).transform((word) => {
+  const { japaneseSource: rawJapaneseSource, ...rest } = word;
   // Sanitize japanese: treat "unknown", "不明", empty as missing
   const INVALID_JAPANESE = ['unknown', '不明', 'n/a', 'N/A', '-', '---', ''];
   const sanitizedJapanese = INVALID_JAPANESE.includes(word.japanese?.trim() ?? '')
     ? ''
     : word.japanese;
+  const japaneseSource = rawJapaneseSource === 'scan' || rawJapaneseSource === 'ai'
+    ? rawJapaneseSource
+    : undefined;
   return {
-  ...word,
-  english: word.english || '---',
-  japanese: sanitizedJapanese,
-  // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
-  distractors: word.distractors,
-  partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
-  exampleSentence: word.exampleSentence || undefined,
-  exampleSentenceJa: word.exampleSentenceJa || undefined,
-};});
+    ...rest,
+    english: word.english || '---',
+    japanese: sanitizedJapanese,
+    // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
+    distractors: word.distractors,
+    partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
+    exampleSentence: word.exampleSentence || undefined,
+    exampleSentenceJa: word.exampleSentenceJa || undefined,
+    ...(sanitizedJapanese && japaneseSource ? { japaneseSource } : {}),
+  };
+});
 
 export const AIResponseSchema = z.object({
   words: z.array(AIWordSchema).default([]),

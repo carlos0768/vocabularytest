@@ -33,6 +33,7 @@ export const HighlightedWordSchema = z.object({
   // Core word data
   english: z.string(),
   japanese: z.string(),
+  japaneseSource: z.string().optional(),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).default([]),
 
@@ -109,6 +110,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
   words: Array<{
     english: string;
     japanese: string;
+    japaneseSource?: 'scan' | 'ai';
     distractors: string[];
     partOfSpeechTags: string[];
     exampleSentence: string | undefined;
@@ -119,7 +121,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
   return {
     words: highlighted.words.map((word) => ({
       english: word.english || '---',
-      japanese: word.japanese || '---',
+      japanese: word.japanese ?? '',
       distractors: [
         word.distractors[0] || '選択肢1',
         word.distractors[1] || '選択肢2',
@@ -128,6 +130,9 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): {
       partOfSpeechTags: word.partOfSpeechTags ?? [],
       exampleSentence: word.exampleSentence ?? undefined,
       exampleSentenceJa: word.exampleSentenceJa ?? undefined,
+      ...(word.japaneseSource === 'scan' || word.japaneseSource === 'ai'
+        ? { japaneseSource: word.japaneseSource }
+        : {}),
     })),
     sourceLabels: normalizeSourceLabels(highlighted.sourceLabels),
   };

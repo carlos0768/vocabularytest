@@ -62,20 +62,42 @@ function normalizeEnglish(word: string): string {
   return word.trim().toLowerCase();
 }
 
+function preferJapaneseSource(
+  first?: string,
+  second?: string,
+): 'scan' | 'ai' | undefined {
+  if (first === 'scan' || second === 'scan') return 'scan';
+  if (first === 'ai' || second === 'ai') return 'ai';
+  return undefined;
+}
+
 function dedupeWords(data: ValidatedAIResponse): ValidatedAIResponse {
-  const seen = new Set<string>();
-  const uniqueWords: ValidatedAIResponse['words'] = [];
+  const wordMap = new Map<string, ValidatedAIResponse['words'][number]>();
 
   for (const word of data.words) {
     const key = `${normalizeEnglish(word.english)}::${word.japanese.trim()}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueWords.push(word);
+    const existing = wordMap.get(key);
+    if (!existing) {
+      wordMap.set(key, word);
+      continue;
     }
+
+    wordMap.set(key, {
+      ...existing,
+      distractors: existing.distractors.length >= word.distractors.length
+        ? existing.distractors
+        : word.distractors,
+      partOfSpeechTags: existing.partOfSpeechTags.length >= word.partOfSpeechTags.length
+        ? existing.partOfSpeechTags
+        : word.partOfSpeechTags,
+      japaneseSource: preferJapaneseSource(existing.japaneseSource, word.japaneseSource),
+      exampleSentence: existing.exampleSentence ?? word.exampleSentence,
+      exampleSentenceJa: existing.exampleSentenceJa ?? word.exampleSentenceJa,
+    });
   }
 
   return {
-    words: uniqueWords,
+    words: Array.from(wordMap.values()),
     sourceLabels: data.sourceLabels,
   };
 }
@@ -104,6 +126,7 @@ ${candidateList}
     {
       "english": "word",
       "japanese": "意味",
+      "japaneseSource": "scan",
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -227,11 +250,14 @@ export async function extractCircledWordsFromImage(
             const key = normalizeEnglish(word.english);
             if (!key || seenConfirmed.has(key)) continue;
             const matched = candidateMap.get(key);
-            if (matched) {
-              seenConfirmed.add(key);
-              confirmedWords.push(matched);
-            }
+          if (matched) {
+            seenConfirmed.add(key);
+            confirmedWords.push({
+              ...matched,
+              japaneseSource: preferJapaneseSource(matched.japaneseSource, word.japaneseSource),
+            });
           }
+        }
 
           console.log('Circled verification reduced candidates:', {
             before: circledWords.length,

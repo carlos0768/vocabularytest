@@ -62,6 +62,15 @@ function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function preferJapaneseSource(
+  first?: string,
+  second?: string,
+): 'scan' | 'ai' | undefined {
+  if (first === 'scan' || second === 'scan') return 'scan';
+  if (first === 'ai' || second === 'ai') return 'ai';
+  return undefined;
+}
+
 function parseHighlightedContent(content: string): {
   success: boolean;
   data?: HighlightedResponse;
@@ -279,20 +288,30 @@ function buildVerificationPrompt(words: HighlightedWord[]): string {
     ))
     .join('\n');
 
-  return `一次抽出候補です。画像を再確認し、条件を満たす候補だけを残してください。\n\n候補:\n${candidates}\n\n判定ルール:\n- 手書きのマーカー/下線が明確に確認できる候補のみ残す\n- 下線の場合は、線の真上にある単語のみ残す\n- 印刷赤字・印刷下線・下の行の単語は除外する\n- 候補リストにない単語は追加しない\n\n出力は次のJSONのみ:\n{\n  "words": [\n    {\n      "english": "word",\n      "japanese": "意味"\n    }\n  ]\n}`;
+  return `一次抽出候補です。画像を再確認し、条件を満たす候補だけを残してください。\n\n候補:\n${candidates}\n\n判定ルール:\n- 手書きのマーカー/下線が明確に確認できる候補のみ残す\n- 下線の場合は、線の真上にある単語のみ残す\n- 印刷赤字・印刷下線・下の行の単語は除外する\n- 候補リストにない単語は追加しない\n\n出力は次のJSONのみ:\n{\n  "words": [\n    {\n      "english": "word",\n      "japanese": "意味",\n      "japaneseSource": "scan"\n    }\n  ]\n}`;
 }
 
 function intersectVerifiedCandidates(
   candidates: HighlightedWord[],
   verifiedWords: ValidatedAIResponse['words']
 ): HighlightedWord[] {
-  const verifiedSet = new Set(
+  const verifiedMap = new Map(
     verifiedWords
-      .map((word) => normalizeText(word.english))
-      .filter((english) => english.length > 0)
+      .map((word) => [normalizeText(word.english), word] as const)
+      .filter(([english]) => english.length > 0)
   );
 
-  return candidates.filter((word) => verifiedSet.has(normalizeText(word.english)));
+  return candidates.flatMap((word) => {
+    const verified = verifiedMap.get(normalizeText(word.english));
+    if (!verified) {
+      return [];
+    }
+
+    return [{
+      ...word,
+      japaneseSource: preferJapaneseSource(word.japaneseSource, verified.japaneseSource),
+    }];
+  });
 }
 
 // Extracts only highlighted/marker words from an image using AI provider (Cloud Run or direct)

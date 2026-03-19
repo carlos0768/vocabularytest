@@ -211,7 +211,7 @@ export default function ConfirmPage() {
     setWords((prev) =>
       prev.map((w) =>
         w.tempId === tempId
-          ? { ...w, english, japanese, isEditing: false }
+          ? { ...w, english, japanese, japaneseSource: undefined, isEditing: false }
           : w
       )
     );
@@ -432,6 +432,7 @@ export default function ConfirmPage() {
           projectId: targetProjectId,
           english: w.english,
           japanese: w.japanese,
+          japaneseSource: w.japaneseSource,
           lexiconEntryId: w.lexiconEntryId,
           cefrLevel: w.cefrLevel,
           distractors: w.distractors,
