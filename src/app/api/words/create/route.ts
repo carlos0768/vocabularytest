@@ -8,6 +8,7 @@ import {
 } from '@/lib/lexicon/word-resolution-jobs';
 import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
+import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { z } from 'zod';
@@ -31,6 +32,7 @@ const wordInputSchema = z.object({
   projectId: z.string().uuid(),
   english: z.string().trim().min(1).max(200),
   japanese: z.string().trim().max(300).default(''),
+  japaneseSource: z.enum(['scan', 'ai']).optional(),
   lexiconEntryId: z.string().uuid().optional(),
   distractors: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
   exampleSentence: z.string().trim().max(500).optional(),
@@ -62,6 +64,7 @@ interface WordsCreateDeps {
   runAfter?: typeof after;
   enqueueJobs?: typeof enqueueWordLexiconResolutionJobs;
   triggerJobProcessing?: typeof triggerWordLexiconResolutionProcessing;
+  resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
 }
 
@@ -71,6 +74,7 @@ function getDeps(deps?: WordsCreateDeps) {
     runAfter: deps?.runAfter ?? after,
     enqueueJobs: deps?.enqueueJobs ?? enqueueWordLexiconResolutionJobs,
     triggerJobProcessing: deps?.triggerJobProcessing ?? triggerWordLexiconResolutionProcessing,
+    resolveImmediateWords: deps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst,
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
   };
 }
@@ -82,6 +86,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       runAfter,
       enqueueJobs,
       triggerJobProcessing,
+      resolveImmediateWords,
       backfillWords,
     } = getDeps(deps);
     const supabase = await createClient(request);
@@ -119,7 +124,22 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: '指定した単語帳にアクセスできません' }, { status: 403 });
     }
 
-    const { words: translatedWords, aiBackfilledIndexes } = await backfillWords(words);
+    const immediateResolution = await resolveImmediateWords(words);
+    const wordsNeedingBackfill = immediateResolution.words.filter((word) => word.japanese.trim().length === 0);
+    const { words: translatedWords, aiBackfilledIndexes } = wordsNeedingBackfill.length > 0
+      ? await backfillWords(immediateResolution.words)
+      : { words: immediateResolution.words, aiBackfilledIndexes: [] };
+
+    console.log('[words/create] Immediate resolution finished', {
+      requestedWordCount: words.length,
+      masterHitCount: immediateResolution.metrics.masterHitCount,
+      masterTranslationHitCount: immediateResolution.metrics.masterTranslationHitCount,
+      aiMissCount: immediateResolution.metrics.aiMissCount,
+      unresolvedAfterMasterFirst: wordsNeedingBackfill.length,
+      masterLookupElapsedMs: immediateResolution.metrics.lookupElapsedMs,
+      translationElapsedMs: immediateResolution.metrics.translationElapsedMs,
+      totalElapsedMs: immediateResolution.metrics.totalElapsedMs,
+    });
 
     const defaultSR = getDefaultSpacedRepetitionFields();
     const rows = translatedWords.map((word) => {
@@ -164,16 +184,23 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    const aiTranslatedWordIds = aiBackfilledIndexes
+    const aiTranslatedIndexes = new Set<number>([
+      ...aiBackfilledIndexes,
+      ...translatedWords
+        .map((word, index) => (word.japaneseSource === 'ai' ? index : -1))
+        .filter((index) => index >= 0),
+    ]);
+    const aiTranslatedWordIds = Array.from(aiTranslatedIndexes)
       .map((index) => ((data ?? []) as WordRow[])[index]?.id)
       .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
     runAfter(async () => {
+      const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
       const pendingWordIds = ((data ?? []) as WordRow[])
         .filter((row) => needsWordLexiconResolution({
           lexiconEntryId: row.lexicon_entry_id ?? null,
           partOfSpeechTags: row.part_of_speech_tags,
-        }))
+        }) || aiTranslatedWordIdSet.has(row.id))
         .map((row) => row.id);
 
       if (pendingWordIds.length === 0) {

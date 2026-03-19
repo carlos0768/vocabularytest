@@ -6,7 +6,8 @@ import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
-import { backfillMissingJapaneseTranslations } from '@/lib/words/backfill-japanese';
+import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
+import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 
 // Extraction modes
 // - 'all': Extract all words
@@ -62,11 +63,21 @@ export const __internal = {
   getMissingProviderKey,
 };
 
+function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
+  const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return !disabledModes.includes(mode);
+}
+
 // API Route: POST /api/extract
 // Extracts words from an uploaded image using configured AI provider
 // SECURITY: Requires authentication, enforces server-side scan limits
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   try {
     // ============================================
     // 1. AUTHENTICATION CHECK
@@ -241,11 +252,32 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
-    const translatedWords = await backfillMissingJapaneseTranslations(result.data.words);
+    const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
+    const resolved = masterFirstEnabled
+      ? await resolveImmediateWordsWithMasterFirst(result.data.words)
+      : null;
+    const rollbackResult = masterFirstEnabled
+      ? null
+      : await backfillMissingJapaneseTranslationsWithMetadata(result.data.words);
+    const extractedWords = resolved?.words ?? rollbackResult?.words ?? result.data.words;
+    const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
+
+    console.log('[extract] Success', {
+      mode,
+      masterFirstEnabled,
+      wordCount: extractedWords.length,
+      masterHitCount: resolved?.metrics.masterHitCount ?? 0,
+      masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
+      aiJapaneseCount,
+      masterLookupKeyCount: resolved?.metrics.lookupKeyCount ?? 0,
+      masterLookupElapsedMs: resolved?.metrics.lookupElapsedMs ?? 0,
+      translationElapsedMs: resolved?.metrics.translationElapsedMs ?? 0,
+      elapsedMs: Date.now() - startedAt,
+    });
 
     return NextResponse.json({
       success: true,
-      words: translatedWords,
+      words: extractedWords,
       sourceLabels: ensureSourceLabels(result.data.sourceLabels),
       lexiconEntries: [],
       scanInfo: {

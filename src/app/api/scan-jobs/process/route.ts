@@ -15,12 +15,13 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
+import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
+import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
   insertProjectWithSourceLabelsCompat,
   selectProjectWithSourceLabelsCompat,
@@ -60,6 +61,7 @@ type ExtractionLikeResult =
 interface ProcessedExtractedWord {
   english: string;
   japanese: string;
+  japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
   cefrLevel?: string;
   distractors: string[];
@@ -114,7 +116,18 @@ export const __internal = {
   getProvidersForMode,
   getMissingProviderKey,
   extractFromImage,
+  parseExtractedWords,
+  dedupeExtractedWords,
 };
+
+function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
+  const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return !disabledModes.includes(mode);
+}
 
 interface ExtractionHandlers {
   extractWordsFromImage: typeof extractWordsFromImage;
@@ -222,6 +235,19 @@ function firstNonEmpty(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeJapaneseSource(value: unknown): 'scan' | 'ai' | undefined {
+  return value === 'scan' || value === 'ai' ? value : undefined;
+}
+
+function preferJapaneseSource(
+  first?: 'scan' | 'ai',
+  second?: 'scan' | 'ai',
+): 'scan' | 'ai' | undefined {
+  if (first === 'scan' || second === 'scan') return 'scan';
+  if (first === 'ai' || second === 'ai') return 'ai';
+  return undefined;
+}
+
 function mergeDistractors(existing: string[], incoming: unknown): string[] {
   const merged: string[] = [];
   const seen = new Set<string>();
@@ -257,6 +283,7 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
     parsed.push({
       english,
       japanese: normalizedJapanese,
+      japaneseSource: normalizedJapanese ? normalizeJapaneseSource(word.japaneseSource) : undefined,
       distractors: mergeDistractors([], word.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
       exampleSentence: firstNonEmpty(word.exampleSentence),
@@ -282,6 +309,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
       deduped.push({
         english: source.english,
         japanese: source.japanese,
+        japaneseSource: source.japaneseSource,
         distractors: mergeDistractors([], source.distractors),
         partOfSpeechTags: normalizePartOfSpeechTags(source.partOfSpeechTags),
         exampleSentence: firstNonEmpty(source.exampleSentence),
@@ -294,6 +322,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
     deduped[existingIndex] = {
       english: existing.english,
       japanese: existing.japanese,
+      japaneseSource: preferJapaneseSource(existing.japaneseSource, source.japaneseSource),
       distractors: mergeDistractors(existing.distractors, source.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags([
         ...(existing.partOfSpeechTags ?? []),
@@ -396,6 +425,7 @@ async function extractFromImage(
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   try {
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
@@ -631,7 +661,32 @@ export async function POST(request: NextRequest) {
       }
 
       const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
-      const { words: resolvedWords, aiBackfilledIndexes } = await backfillMissingJapaneseTranslationsWithMetadata(dedupedWords);
+      const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
+      const resolvedResult = masterFirstEnabled
+        ? await resolveImmediateWordsWithMasterFirst(dedupedWords)
+        : null;
+      const rollbackResult = masterFirstEnabled
+        ? null
+        : await backfillMissingJapaneseTranslationsWithMetadata(dedupedWords);
+      const resolvedWords = resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords;
+      const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
+
+      console.log('[scan-jobs/process] Extraction finished', {
+        jobId,
+        mode,
+        masterFirstEnabled,
+        imageCount: imagePaths.length,
+        rawWordCount: allExtractedWords.length,
+        dedupedWordCount: dedupedWords.length,
+        wordCount: resolvedWords.length,
+        masterHitCount: resolvedResult?.metrics.masterHitCount ?? 0,
+        masterTranslationHitCount: resolvedResult?.metrics.masterTranslationHitCount ?? 0,
+        aiJapaneseCount,
+        masterLookupKeyCount: resolvedResult?.metrics.lookupKeyCount ?? 0,
+        masterLookupElapsedMs: resolvedResult?.metrics.lookupElapsedMs ?? 0,
+        translationElapsedMs: resolvedResult?.metrics.translationElapsedMs ?? 0,
+        elapsedMs: Date.now() - startedAt,
+      });
 
       if (saveMode === 'client_local') {
         const resultPayload: {
@@ -786,8 +841,8 @@ export async function POST(request: NextRequest) {
       }
 
       const insertedWordsArray = insertedWords ?? [];
-      const aiTranslatedWordIds = aiBackfilledIndexes
-        .map((index) => insertedWordsArray[index]?.id)
+      const aiTranslatedWordIds = resolvedWords
+        .map((word, index) => (word.japaneseSource === 'ai' ? insertedWordsArray[index]?.id : null))
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
       const resultPayload: {
@@ -832,12 +887,14 @@ export async function POST(request: NextRequest) {
 
       // Heavy/non-critical tasks run after completion update.
       after(async () => {
+        const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
         const pendingWordIds = insertedWordsArray
           .filter((row: {
             id: string;
             lexicon_entry_id?: string | null;
             part_of_speech_tags?: unknown;
           }) =>
+            aiTranslatedWordIdSet.has(row.id) ||
             needsWordLexiconResolution({
               lexiconEntryId: row.lexicon_entry_id ?? null,
               partOfSpeechTags: row.part_of_speech_tags,
