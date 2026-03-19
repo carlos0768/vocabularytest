@@ -277,6 +277,14 @@ export async function POST(request: NextRequest) {
     });
 
     // --- Synchronous example sentence generation ---
+    let exampleGenDiag: {
+      attempted: boolean;
+      wordsRequested: number;
+      wordsGenerated: number;
+      error?: string;
+      elapsedMs?: number;
+    } = { attempted: false, wordsRequested: 0, wordsGenerated: 0 };
+
     const wordsNeedingExamples = extractedWords
       .filter((w: { exampleSentence?: string }) => !w.exampleSentence)
       .map((w: { english?: string; japanese?: string }, i: number) => ({
@@ -287,8 +295,11 @@ export async function POST(request: NextRequest) {
       .filter((w: { english: string }) => w.english.length > 0);
 
     if (wordsNeedingExamples.length > 0) {
+      exampleGenDiag.attempted = true;
+      exampleGenDiag.wordsRequested = wordsNeedingExamples.length;
+      const exGenStart = Date.now();
+
       try {
-        const apiKeys = getAPIKeys();
         const exampleResult = await generateExampleSentences(wordsNeedingExamples, apiKeys);
         const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
 
@@ -308,14 +319,22 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        exampleGenDiag.wordsGenerated = exampleResult.examples.length;
+        exampleGenDiag.elapsedMs = Date.now() - exGenStart;
+
+        if (exampleResult.errors.length > 0) {
+          exampleGenDiag.error = exampleResult.errors.join('; ');
+        }
+
         console.log('[extract] Example generation completed', {
           requested: wordsNeedingExamples.length,
           generated: exampleResult.examples.length,
           errors: exampleResult.errors.length,
-          elapsedMs: Date.now() - startedAt,
+          elapsedMs: Date.now() - exGenStart,
         });
       } catch (exampleError) {
-        // Example generation failure should NOT fail the extraction
+        exampleGenDiag.error = exampleError instanceof Error ? exampleError.message : 'Unknown error';
+        exampleGenDiag.elapsedMs = Date.now() - exGenStart;
         console.error('[extract] Example generation failed, continuing without:', exampleError);
       }
     }
@@ -330,6 +349,7 @@ export async function POST(request: NextRequest) {
         limit: scanData.limit,
         isPro: scanData.is_pro,
       },
+      _debug: { exampleGeneration: exampleGenDiag },
     });
   } catch (error) {
     console.error('Extract API error:', error);
