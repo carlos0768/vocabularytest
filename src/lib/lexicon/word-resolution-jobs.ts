@@ -125,21 +125,16 @@ function getDeps(deps?: WordLexiconResolutionDeps) {
     }),
     updateMasterTranslations: deps?.updateMasterTranslations ?? (async (updates: MasterTranslationUpdate[]) => {
       if (updates.length === 0) return;
-      await Promise.all(
-        updates.map(async (update) => {
-          const { error } = await supabaseAdmin
-            .from('lexicon_entries')
-            .update({
-              translation_ja: update.translationJa,
-              translation_source: 'ai' as LexiconTranslationSource,
-            })
-            .eq('id', update.id);
+      const { error } = await supabaseAdmin.rpc('batch_update_lexicon_translations', {
+        updates: JSON.stringify(updates.map((u) => ({
+          id: u.id,
+          translation_ja: u.translationJa,
+        }))),
+      });
 
-          if (error) {
-            throw new Error(`Failed to update lexicon translation ${update.id}: ${error.message}`);
-          }
-        }),
-      );
+      if (error) {
+        throw new Error(`Failed to batch update lexicon translations: ${error.message}`);
+      }
     }),
   };
 }
@@ -302,18 +297,24 @@ async function loadLexiconRowsByIds(
   );
 }
 
-async function updateWordRow(
+interface WordRowUpdate {
+  id: string;
+  lexicon_entry_id?: string;
+  part_of_speech_tags?: string[];
+}
+
+async function batchUpdateWordRows(
   supabaseAdmin: SupabaseClient,
-  wordId: string,
-  updates: Record<string, unknown>,
+  updates: WordRowUpdate[],
 ): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from('words')
-    .update(updates)
-    .eq('id', wordId);
+  if (updates.length === 0) return;
+
+  const { error } = await supabaseAdmin.rpc('batch_update_word_lexicon_links', {
+    updates: JSON.stringify(updates),
+  });
 
   if (error) {
-    throw new Error(`Failed to update resolved word ${wordId}: ${error.message}`);
+    throw new Error(`Failed to batch update word lexicon links: ${error.message}`);
   }
 }
 
@@ -398,6 +399,7 @@ export async function processWordLexiconResolutionWords(
       .filter((value): value is string => Boolean(value)),
   );
 
+  const tagBackfillUpdates: WordRowUpdate[] = [];
   for (const row of rowsNeedingTagsFromLexicon) {
     const normalizedTags = normalizePartOfSpeechTags([
       lexiconPosMap.get(row.lexicon_entry_id ?? '') ?? '',
@@ -407,11 +409,10 @@ export async function processWordLexiconResolutionWords(
       continue;
     }
 
-    await updateWordRow(supabaseAdmin, row.id, {
-      part_of_speech_tags: normalizedTags,
-    });
+    tagBackfillUpdates.push({ id: row.id, part_of_speech_tags: normalizedTags });
     tagBackfilledCount += 1;
   }
+  await batchUpdateWordRows(supabaseAdmin, tagBackfillUpdates);
 
   const linkedAiRows = rows.filter((row) => Boolean(row.lexicon_entry_id) && aiTranslatedWordIdSet.has(row.id));
   const linkedLexiconRows = await loadLexiconRowsByIds(
@@ -557,13 +558,16 @@ export async function processWordLexiconResolutionWords(
     entryByKey = mapLexiconEntriesByKey(lexiconEntries);
   }
 
+  const finalUpdates: WordRowUpdate[] = [];
   for (const row of preparedRows) {
-    const updates: Record<string, unknown> = {};
+    const update: WordRowUpdate = { id: row.id };
     const entry = row.key ? entryByKey.get(row.key) : undefined;
+    let hasChanges = false;
 
     if (entry?.id) {
-      updates.lexicon_entry_id = entry.id;
+      update.lexicon_entry_id = entry.id;
       resolvedCount += 1;
+      hasChanges = true;
     }
 
     if (row.hadMissingTags) {
@@ -571,18 +575,20 @@ export async function processWordLexiconResolutionWords(
         ? normalizePartOfSpeechTags([entry.pos])
         : row.resolvedPartOfSpeechTags;
       if (normalizedTags.length > 0) {
-        updates.part_of_speech_tags = normalizedTags;
+        update.part_of_speech_tags = normalizedTags;
         tagBackfilledCount += 1;
+        hasChanges = true;
       }
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (!hasChanges) {
       skippedCount += 1;
       continue;
     }
 
-    await updateWordRow(supabaseAdmin, row.id, updates);
+    finalUpdates.push(update);
   }
+  await batchUpdateWordRows(supabaseAdmin, finalUpdates);
 
   return {
     wordCount: normalizedWordIds.length,

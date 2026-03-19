@@ -101,6 +101,35 @@ class FakeResolutionSupabase {
     throw new Error(`Unexpected table: ${table}`);
   }
 
+  async rpc(fnName: string, params: { updates: string }) {
+    const updates = JSON.parse(params.updates) as Array<Record<string, unknown>>;
+
+    if (fnName === 'batch_update_word_lexicon_links') {
+      for (const update of updates) {
+        const row = this.words.get(String(update.id));
+        if (!row) continue;
+        if (update.lexicon_entry_id != null) {
+          row.lexicon_entry_id = String(update.lexicon_entry_id);
+        }
+        if (update.part_of_speech_tags != null) {
+          row.part_of_speech_tags = update.part_of_speech_tags;
+        }
+      }
+      return { error: null };
+    }
+
+    if (fnName === 'batch_update_lexicon_translations') {
+      for (const update of updates) {
+        const row = this.lexiconEntries.get(String(update.id));
+        if (!row) continue;
+        row.translation_ja = String(update.translation_ja);
+      }
+      return { error: null };
+    }
+
+    return { error: { message: `Unknown RPC: ${fnName}` } };
+  }
+
   getWord(id: string): WordRow | undefined {
     const row = this.words.get(id);
     return row ? { ...row } : undefined;
