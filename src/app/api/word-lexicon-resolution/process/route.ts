@@ -4,10 +4,6 @@ import { z } from 'zod';
 
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
-  enqueueLexiconEnrichmentJob,
-  triggerLexiconEnrichmentProcessing,
-} from '@/lib/lexicon/enrichment-jobs';
-import {
   processWordLexiconResolutionWords,
   wordLexiconResolutionPayloadSchema,
   type WordLexiconResolutionDeps,
@@ -15,7 +11,7 @@ import {
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 const MAX_ATTEMPTS = 3;
-const MAX_JOBS_PER_REQUEST = 3;
+const MAX_JOBS_PER_REQUEST = 10;
 
 const requestSchema = z.object({
   jobId: z.string().uuid().optional(),
@@ -46,7 +42,10 @@ function getWorkerDeps(deps?: WorkerDeps) {
     supabaseAdmin: deps?.supabaseAdmin ?? getSupabaseAdmin(),
     maxJobsPerRequest: deps?.maxJobsPerRequest ?? MAX_JOBS_PER_REQUEST,
     maxAttempts: deps?.maxAttempts ?? MAX_ATTEMPTS,
-    resolveWords: deps?.resolveWords,
+    lookupEntries: deps?.lookupEntries,
+    classifyPartOfSpeechBatch: deps?.classifyPartOfSpeechBatch,
+    upsertRuntimeEntries: deps?.upsertRuntimeEntries,
+    updateMasterTranslations: deps?.updateMasterTranslations,
   };
 }
 
@@ -164,34 +163,26 @@ async function processClaimedJob(
   status: 'completed' | 'pending' | 'failed';
   stats: Awaited<ReturnType<typeof processWordLexiconResolutionWords>> | null;
 }> {
-  const { supabaseAdmin, resolveWords } = getWorkerDeps(deps);
+  const {
+    supabaseAdmin,
+    lookupEntries,
+    classifyPartOfSpeechBatch,
+    upsertRuntimeEntries,
+    updateMasterTranslations,
+  } = getWorkerDeps(deps);
 
   try {
     const parsedPayload = wordLexiconResolutionPayloadSchema.parse(job.payload);
     const stats = await processWordLexiconResolutionWords(parsedPayload.wordIds, {
       supabaseAdmin,
-      resolveWords,
+      lookupEntries,
+      classifyPartOfSpeechBatch,
+      upsertRuntimeEntries,
+      updateMasterTranslations,
       aiTranslatedWordIds: parsedPayload.aiTranslatedWordIds,
     });
 
     await markJobCompleted(supabaseAdmin, job.id);
-
-    if (stats.pendingEnrichmentCandidates.length > 0) {
-      after(async () => {
-        try {
-          const enrichmentJobId = await enqueueLexiconEnrichmentJob(
-            job.source,
-            stats.pendingEnrichmentCandidates,
-            { supabaseAdmin },
-          );
-          if (enrichmentJobId) {
-            await triggerLexiconEnrichmentProcessing(request.url, enrichmentJobId);
-          }
-        } catch (enqueueError) {
-          console.error('[word-lexicon-resolution/process] Failed to enqueue lexicon enrichment', enqueueError);
-        }
-      });
-    }
 
     console.log('[word-lexicon-resolution/process] Job completed', {
       jobId: job.id,
@@ -200,9 +191,8 @@ async function processClaimedJob(
       resolved_count: stats.resolvedCount,
       tag_backfilled_count: stats.tagBackfilledCount,
       skipped_count: stats.skippedCount,
-      enrichment_candidate_count: stats.pendingEnrichmentCandidates.length,
+      runtime_created_count: stats.runtimeCreatedCount,
       elapsed_ms: stats.elapsedMs,
-      has_resolve_override: Boolean(resolveWords),
     });
 
     return {
@@ -283,7 +273,7 @@ export async function handleWordLexiconResolutionProcessPost(
         resolvedCount: result.stats?.resolvedCount ?? 0,
         tagBackfilledCount: result.stats?.tagBackfilledCount ?? 0,
         skippedCount: result.stats?.skippedCount ?? 0,
-        enrichmentCandidateCount: result.stats?.pendingEnrichmentCandidates.length ?? 0,
+        runtimeCreatedCount: result.stats?.runtimeCreatedCount ?? 0,
         elapsedMs: result.stats?.elapsedMs ?? 0,
       })),
     });

@@ -17,6 +17,7 @@ type WordRow = {
 type LexiconEntryRow = {
   id: string;
   pos: string;
+  translation_ja?: string | null;
 };
 
 class FakeWordQuery {
@@ -106,13 +107,44 @@ class FakeResolutionSupabase {
   }
 }
 
+function createLexiconEntry(overrides: Partial<{
+  id: string;
+  headword: string;
+  normalizedHeadword: string;
+  pos: string;
+  translationJa?: string;
+  translationSource?: string;
+}>): {
+  id: string;
+  headword: string;
+  normalizedHeadword: string;
+  pos: string;
+  datasetSources: string[];
+  translationJa?: string;
+  translationSource?: string;
+  createdAt: string;
+  updatedAt: string;
+} {
+  return {
+    id: overrides.id ?? 'lex-seed',
+    headword: overrides.headword ?? 'word',
+    normalizedHeadword: overrides.normalizedHeadword ?? 'word',
+    pos: overrides.pos ?? 'noun',
+    datasetSources: ['runtime'],
+    translationJa: overrides.translationJa,
+    translationSource: overrides.translationSource,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
 test('needsWordLexiconResolution returns true only when linkage or tags are missing', () => {
   assert.equal(needsWordLexiconResolution({ lexiconEntryId: null, partOfSpeechTags: ['noun'] }), true);
   assert.equal(needsWordLexiconResolution({ lexiconEntryId: '11111111-1111-4111-8111-111111111111', partOfSpeechTags: [] }), true);
   assert.equal(needsWordLexiconResolution({ lexiconEntryId: '11111111-1111-4111-8111-111111111111', partOfSpeechTags: ['noun'] }), false);
 });
 
-test('processWordLexiconResolutionWords resolves unresolved words without overwriting stored text', async () => {
+test('processWordLexiconResolutionWords creates runtime entries and preserves stored text', async () => {
   const wordId = '11111111-1111-4111-8111-111111111111';
   const lexiconEntryId = '22222222-2222-4222-8222-222222222222';
   const supabase = new FakeResolutionSupabase(
@@ -128,64 +160,49 @@ test('processWordLexiconResolutionWords resolves unresolved words without overwr
     [],
   );
 
-  let resolveCalls = 0;
+  const lookupCalls: string[][] = [];
+  const upsertedEntries: Array<{
+    translation_ja: string | null;
+    translation_source: string | null;
+  }> = [];
   const stats = await processWordLexiconResolutionWords([wordId], {
     supabaseAdmin: supabase as never,
-    resolveWords: async (words) => {
-      resolveCalls += 1;
-      assert.equal(words.length, 1);
-      return {
-        words: [
-          {
-            english: 'go',
-            japanese: '行く',
-            distractors: [],
-            partOfSpeechTags: ['verb'],
-            lexiconEntryId,
-          },
-        ],
-        lexiconEntries: [],
-        pendingEnrichmentCandidates: [
-          {
-            lexiconEntryId,
-            english: 'go',
+    classifyPartOfSpeechBatch: async () => new Map([['went::行った', 'verb']]),
+    lookupEntries: async (keys) => {
+      lookupCalls.push(keys.map((key) => `${key.normalizedHeadword}::${key.pos}`));
+      return lookupCalls.length === 1
+        ? []
+        : [
+          createLexiconEntry({
+            id: lexiconEntryId,
+            headword: 'went',
+            normalizedHeadword: 'went',
             pos: 'verb',
-            japaneseHint: '行く',
-          },
-        ],
-        metrics: {
-          syncTranslationCount: 0,
-          queuedHintValidationCount: 0,
-          posInferredCount: 0,
-          olpReusedCount: 0,
-          runtimeCreatedCount: 0,
-          resolverElapsedMs: 1,
-        },
-      };
+          }),
+        ];
     },
+    upsertRuntimeEntries: async (entries) => {
+      upsertedEntries.push(...entries);
+    },
+    updateMasterTranslations: async () => undefined,
   });
 
   const updated = supabase.getWord(wordId);
-  assert.equal(resolveCalls, 1);
   assert.equal(updated?.english, 'went');
   assert.equal(updated?.japanese, '行った');
   assert.equal(updated?.lexicon_entry_id, lexiconEntryId);
   assert.deepEqual(updated?.part_of_speech_tags, ['verb']);
+  assert.equal(upsertedEntries.length, 1);
+  assert.equal(upsertedEntries[0]?.translation_ja, null);
   assert.equal(stats.wordCount, 1);
   assert.equal(stats.resolvedCount, 1);
   assert.equal(stats.tagBackfilledCount, 1);
   assert.equal(stats.skippedCount, 0);
-  assert.deepEqual(stats.pendingEnrichmentCandidates, [
-    {
-      lexiconEntryId,
-      english: 'go',
-      pos: 'verb',
-      japaneseHint: '行く',
-    },
-  ]);
+  assert.equal(stats.runtimeCreatedCount, 1);
+  assert.deepEqual(stats.pendingEnrichmentCandidates, []);
 });
 
-test('processWordLexiconResolutionWords marks AI-backfilled rows with japaneseSource=ai', async () => {
+test('processWordLexiconResolutionWords uses AI-translated japanese when creating runtime master rows', async () => {
   const wordId = 'aaaaaaaa-1111-4111-8111-111111111111';
   const supabase = new FakeResolutionSupabase(
     [
@@ -200,41 +217,69 @@ test('processWordLexiconResolutionWords marks AI-backfilled rows with japaneseSo
     [],
   );
 
-  let receivedJapaneseSource: string | undefined;
+  const upsertedEntries: Array<{
+    translation_ja: string | null;
+    translation_source: string | null;
+  }> = [];
   await processWordLexiconResolutionWords([wordId], {
     supabaseAdmin: supabase as never,
     aiTranslatedWordIds: [wordId],
-    resolveWords: async (words) => {
-      receivedJapaneseSource = words[0]?.japaneseSource;
-      return {
-        words: [
-          {
-            english: 'springboard',
-            japanese: '出発点',
-            distractors: [],
-            partOfSpeechTags: ['noun'],
-            japaneseSource: words[0]?.japaneseSource,
-            lexiconEntryId: 'bbbbbbbb-2222-4222-8222-222222222222',
-          },
-        ],
-        lexiconEntries: [],
-        pendingEnrichmentCandidates: [],
-        metrics: {
-          syncTranslationCount: 0,
-          queuedHintValidationCount: 0,
-          posInferredCount: 0,
-          olpReusedCount: 0,
-          runtimeCreatedCount: 0,
-          resolverElapsedMs: 1,
-        },
-      };
+    lookupEntries: async () => [],
+    upsertRuntimeEntries: async (entries) => {
+      upsertedEntries.push(...entries);
+    },
+    updateMasterTranslations: async () => undefined,
+  });
+
+  assert.equal(upsertedEntries.length, 1);
+  assert.equal(upsertedEntries[0]?.translation_ja, '出発点');
+  assert.equal(upsertedEntries[0]?.translation_source, 'ai');
+});
+
+test('processWordLexiconResolutionWords backfills missing master translation for linked ai words', async () => {
+  const wordId = 'bbbbbbbb-1111-4111-8111-111111111111';
+  const lexiconEntryId = 'cccccccc-2222-4222-8222-222222222222';
+  const supabase = new FakeResolutionSupabase(
+    [
+      {
+        id: wordId,
+        english: 'beeline',
+        japanese: '一直線',
+        lexicon_entry_id: lexiconEntryId,
+        part_of_speech_tags: ['noun'],
+      },
+    ],
+    [
+      {
+        id: lexiconEntryId,
+        pos: 'noun',
+        translation_ja: null,
+      },
+    ],
+  );
+
+  const updatedMasters: Array<{ id: string; translationJa: string }> = [];
+  const stats = await processWordLexiconResolutionWords([wordId], {
+    supabaseAdmin: supabase as never,
+    aiTranslatedWordIds: [wordId],
+    lookupEntries: async () => [],
+    updateMasterTranslations: async (updates) => {
+      updatedMasters.push(...updates);
     },
   });
 
-  assert.equal(receivedJapaneseSource, 'ai');
+  assert.deepEqual(updatedMasters, [
+    {
+      id: lexiconEntryId,
+      translationJa: '一直線',
+    },
+  ]);
+  assert.equal(stats.resolvedCount, 0);
+  assert.equal(stats.tagBackfilledCount, 0);
+  assert.equal(stats.skippedCount, 1);
 });
 
-test('processWordLexiconResolutionWords backfills tags from lexicon entries without calling resolver', async () => {
+test('processWordLexiconResolutionWords backfills tags from lexicon entries without creating runtime rows', async () => {
   const wordId = '33333333-3333-4333-8333-333333333333';
   const lexiconEntryId = '44444444-4444-4444-8444-444444444444';
   const supabase = new FakeResolutionSupabase(
@@ -251,26 +296,25 @@ test('processWordLexiconResolutionWords backfills tags from lexicon entries with
       {
         id: lexiconEntryId,
         pos: 'noun',
+        translation_ja: '本',
       },
     ],
   );
 
-  let resolveCalls = 0;
   const stats = await processWordLexiconResolutionWords([wordId], {
     supabaseAdmin: supabase as never,
-    resolveWords: async () => {
-      resolveCalls += 1;
-      throw new Error('resolver should not be called');
+    lookupEntries: async () => {
+      throw new Error('lookupEntries should not be called');
     },
   });
 
   const updated = supabase.getWord(wordId);
-  assert.equal(resolveCalls, 0);
   assert.equal(updated?.lexicon_entry_id, lexiconEntryId);
   assert.deepEqual(updated?.part_of_speech_tags, ['noun']);
   assert.equal(stats.resolvedCount, 0);
   assert.equal(stats.tagBackfilledCount, 1);
   assert.equal(stats.skippedCount, 0);
+  assert.equal(stats.runtimeCreatedCount, 0);
 });
 
 test('processWordLexiconResolutionWords skips deleted and already resolved words', async () => {
@@ -289,28 +333,13 @@ test('processWordLexiconResolutionWords skips deleted and already resolved words
     [],
   );
 
-  let resolveCalls = 0;
   const stats = await processWordLexiconResolutionWords([existingWordId, missingWordId], {
     supabaseAdmin: supabase as never,
-    resolveWords: async () => {
-      resolveCalls += 1;
-      return {
-        words: [],
-        lexiconEntries: [],
-        pendingEnrichmentCandidates: [],
-        metrics: {
-          syncTranslationCount: 0,
-          queuedHintValidationCount: 0,
-          posInferredCount: 0,
-          olpReusedCount: 0,
-          runtimeCreatedCount: 0,
-          resolverElapsedMs: 1,
-        },
-      };
+    lookupEntries: async () => {
+      throw new Error('lookupEntries should not be called');
     },
   });
 
-  assert.equal(resolveCalls, 0);
   assert.equal(stats.wordCount, 2);
   assert.equal(stats.resolvedCount, 0);
   assert.equal(stats.tagBackfilledCount, 0);

@@ -1,15 +1,25 @@
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import type { AIWordExtraction } from '@/types';
+import type { LexiconEntry } from '@/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import type { LexiconTranslationSource } from '../../../shared/lexicon';
 
 import {
-  resolveWordsWithLexicon,
-  type ResolvedLexiconWord,
-} from './resolver';
+  buildPosClassificationKey,
+  classifyPartOfSpeechBatchWithAI,
+} from './ai';
+import {
+  lookupLexiconEntriesByKeys,
+  type LexiconLookupKey,
+} from './master-first-scan';
 import type { PendingLexiconEnrichmentCandidate } from './types';
+import {
+  normalizeHeadword,
+  normalizeLexiconTranslation,
+  resolvePrimaryLexiconPos,
+  type LexiconPos,
+  type LexiconTranslationSource,
+} from '../../../shared/lexicon';
 
 const MAX_WORD_IDS_PER_JOB = 200;
 
@@ -29,6 +39,7 @@ export interface WordLexiconResolutionStats {
   skippedCount: number;
   pendingEnrichmentCandidates: PendingLexiconEnrichmentCandidate[];
   elapsedMs: number;
+  runtimeCreatedCount: number;
 }
 
 interface WordResolutionRow {
@@ -42,30 +53,41 @@ interface WordResolutionRow {
 interface LexiconPosRow {
   id: string;
   pos: string;
+  translation_ja?: string | null;
+}
+
+interface RuntimeLexiconEntryUpsert {
+  headword: string;
+  normalized_headword: string;
+  pos: LexiconPos;
+  cefr_level: null;
+  dataset_sources: string[];
+  translation_ja: string | null;
+  translation_source: LexiconTranslationSource | null;
+}
+
+interface MasterTranslationUpdate {
+  id: string;
+  translationJa: string;
+}
+
+interface PreparedUnresolvedRow extends WordResolutionRow {
+  normalizedHeadword: string;
+  pos: LexiconPos;
+  key: string | null;
+  resolvedPartOfSpeechTags: string[];
+  hadMissingTags: boolean;
 }
 
 export interface WordLexiconResolutionDeps {
   supabaseAdmin?: SupabaseClient;
   aiTranslatedWordIds?: string[];
-  resolveWords?: (
-    words: Array<Pick<AIWordExtraction, 'english' | 'japanese' | 'distractors' | 'partOfSpeechTags'> & {
-      japaneseSource?: LexiconTranslationSource;
-    }>
-  ) => Promise<{
-    words: ResolvedLexiconWord<Pick<AIWordExtraction, 'english' | 'japanese' | 'distractors' | 'partOfSpeechTags'> & {
-      japaneseSource?: LexiconTranslationSource;
-    }>[];
-    lexiconEntries: unknown[];
-    pendingEnrichmentCandidates: PendingLexiconEnrichmentCandidate[];
-    metrics: {
-      syncTranslationCount: number;
-      queuedHintValidationCount: number;
-      posInferredCount: number;
-      olpReusedCount: number;
-      runtimeCreatedCount: number;
-      resolverElapsedMs: number;
-    };
-  }>;
+  lookupEntries?: (keys: LexiconLookupKey[]) => Promise<LexiconEntry[]>;
+  classifyPartOfSpeechBatch?: (
+    inputs: Array<{ english: string; japaneseHint?: string | null }>
+  ) => Promise<Map<string, LexiconPos>>;
+  upsertRuntimeEntries?: (entries: RuntimeLexiconEntryUpsert[]) => Promise<void>;
+  updateMasterTranslations?: (updates: MasterTranslationUpdate[]) => Promise<void>;
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -77,10 +99,48 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+function normalizeUsableJapanese(value: string | null | undefined): string {
+  const normalized = normalizeLexiconTranslation(value) ?? '';
+  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(normalized) ? normalized : '';
+}
+
 function getDeps(deps?: WordLexiconResolutionDeps) {
+  const supabaseAdmin = deps?.supabaseAdmin ?? getSupabaseAdmin();
   return {
-    supabaseAdmin: deps?.supabaseAdmin ?? getSupabaseAdmin(),
-    resolveWords: deps?.resolveWords ?? resolveWordsWithLexicon,
+    supabaseAdmin,
+    lookupEntries: deps?.lookupEntries ?? ((keys: LexiconLookupKey[]) => lookupLexiconEntriesByKeys(keys, { supabaseAdmin })),
+    classifyPartOfSpeechBatch: deps?.classifyPartOfSpeechBatch ?? classifyPartOfSpeechBatchWithAI,
+    upsertRuntimeEntries: deps?.upsertRuntimeEntries ?? (async (entries: RuntimeLexiconEntryUpsert[]) => {
+      if (entries.length === 0) return;
+      const { error } = await supabaseAdmin
+        .from('lexicon_entries')
+        .upsert(entries, {
+          onConflict: 'normalized_headword,pos',
+          ignoreDuplicates: true,
+        });
+
+      if (error) {
+        throw new Error(`Failed to upsert runtime lexicon entries: ${error.message}`);
+      }
+    }),
+    updateMasterTranslations: deps?.updateMasterTranslations ?? (async (updates: MasterTranslationUpdate[]) => {
+      if (updates.length === 0) return;
+      await Promise.all(
+        updates.map(async (update) => {
+          const { error } = await supabaseAdmin
+            .from('lexicon_entries')
+            .update({
+              translation_ja: update.translationJa,
+              translation_source: 'ai' as LexiconTranslationSource,
+            })
+            .eq('id', update.id);
+
+          if (error) {
+            throw new Error(`Failed to update lexicon translation ${update.id}: ${error.message}`);
+          }
+        }),
+      );
+    }),
   };
 }
 
@@ -220,6 +280,28 @@ async function loadLexiconPosMap(
   );
 }
 
+async function loadLexiconRowsByIds(
+  supabaseAdmin: SupabaseClient,
+  lexiconEntryIds: string[],
+): Promise<Map<string, LexiconPosRow>> {
+  if (lexiconEntryIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('lexicon_entries')
+    .select('id, pos, translation_ja')
+    .in('id', lexiconEntryIds);
+
+  if (error) {
+    throw new Error(`Failed to load lexicon entries for translation backfill: ${error.message}`);
+  }
+
+  return new Map(
+    ((data ?? []) as LexiconPosRow[]).map((row) => [row.id, row]),
+  );
+}
+
 async function updateWordRow(
   supabaseAdmin: SupabaseClient,
   wordId: string,
@@ -235,13 +317,52 @@ async function updateWordRow(
   }
 }
 
+function prepareUnresolvedRows(
+  rows: WordResolutionRow[],
+  classifications: Map<string, LexiconPos>,
+): PreparedUnresolvedRow[] {
+  return rows.map((row) => {
+    const existingTags = normalizePartOfSpeechTags(row.part_of_speech_tags);
+    const hadMissingTags = existingTags.length === 0;
+    const inferredPos = hadMissingTags
+      ? (classifications.get(buildPosClassificationKey(row.english, row.japanese)) ?? 'other')
+      : resolvePrimaryLexiconPos(existingTags);
+    const resolvedPartOfSpeechTags = hadMissingTags ? [inferredPos] : existingTags;
+    const normalizedHeadword = normalizeHeadword(row.english);
+
+    return {
+      ...row,
+      normalizedHeadword,
+      pos: inferredPos,
+      key: normalizedHeadword ? `${normalizedHeadword}::${inferredPos}` : null,
+      resolvedPartOfSpeechTags,
+      hadMissingTags,
+    };
+  });
+}
+
+function mapLexiconEntriesByKey(entries: LexiconEntry[]): Map<string, LexiconEntry> {
+  return new Map(
+    entries.map((entry) => [
+      `${entry.normalizedHeadword}::${entry.pos}`,
+      entry,
+    ] as const),
+  );
+}
+
 export async function processWordLexiconResolutionWords(
   wordIds: string[],
   deps?: WordLexiconResolutionDeps,
 ): Promise<WordLexiconResolutionStats> {
   const startedAt = Date.now();
   const normalizedWordIds = normalizeWordIds(wordIds);
-  const { supabaseAdmin, resolveWords } = getDeps(deps);
+  const {
+    supabaseAdmin,
+    lookupEntries,
+    classifyPartOfSpeechBatch,
+    upsertRuntimeEntries,
+    updateMasterTranslations,
+  } = getDeps(deps);
   const aiTranslatedWordIdSet = new Set(normalizeWordIds(deps?.aiTranslatedWordIds ?? []));
 
   if (normalizedWordIds.length === 0) {
@@ -252,6 +373,7 @@ export async function processWordLexiconResolutionWords(
       skippedCount: 0,
       pendingEnrichmentCandidates: [],
       elapsedMs: Date.now() - startedAt,
+      runtimeCreatedCount: 0,
     };
   }
 
@@ -263,7 +385,6 @@ export async function processWordLexiconResolutionWords(
 
   let resolvedCount = 0;
   let tagBackfilledCount = 0;
-  const pendingEnrichmentCandidates: PendingLexiconEnrichmentCandidate[] = [];
   let skippedCount = normalizedWordIds.length - rows.length + alreadyResolvedCount;
 
   const rowsNeedingTagsFromLexicon = rows.filter((row) =>
@@ -292,48 +413,175 @@ export async function processWordLexiconResolutionWords(
     tagBackfilledCount += 1;
   }
 
-  const unresolvedRows = rows.filter((row) => !row.lexicon_entry_id);
-  if (unresolvedRows.length > 0) {
-    const result = await resolveWords(
-      unresolvedRows.map((row) => ({
-        english: row.english,
-        japanese: row.japanese,
-        distractors: [],
-        partOfSpeechTags: normalizePartOfSpeechTags(row.part_of_speech_tags),
-        japaneseSource: aiTranslatedWordIdSet.has(row.id) ? 'ai' : undefined,
-      })),
-    );
+  const linkedAiRows = rows.filter((row) => Boolean(row.lexicon_entry_id) && aiTranslatedWordIdSet.has(row.id));
+  const linkedLexiconRows = await loadLexiconRowsByIds(
+    supabaseAdmin,
+    linkedAiRows
+      .map((row) => row.lexicon_entry_id)
+      .filter((value): value is string => Boolean(value)),
+  );
 
-    pendingEnrichmentCandidates.push(...result.pendingEnrichmentCandidates);
-
-    for (const [index, row] of unresolvedRows.entries()) {
-      const resolvedWord = result.words[index];
-      if (!resolvedWord) {
-        skippedCount += 1;
-        continue;
-      }
-
-      const updates: Record<string, unknown> = {};
-      if (resolvedWord.lexiconEntryId) {
-        updates.lexicon_entry_id = resolvedWord.lexiconEntryId;
-        resolvedCount += 1;
-      }
-
-      if (normalizePartOfSpeechTags(row.part_of_speech_tags).length === 0) {
-        const normalizedTags = normalizePartOfSpeechTags(resolvedWord.partOfSpeechTags);
-        if (normalizedTags.length > 0) {
-          updates.part_of_speech_tags = normalizedTags;
-          tagBackfilledCount += 1;
+  const linkedMasterTranslationUpdates = Array.from(
+    new Map(
+      linkedAiRows.flatMap((row) => {
+        const lexiconRow = linkedLexiconRows.get(row.lexicon_entry_id ?? '');
+        if (!lexiconRow || normalizeUsableJapanese(lexiconRow.translation_ja)) {
+          return [];
         }
-      }
 
-      if (Object.keys(updates).length === 0) {
-        skippedCount += 1;
-        continue;
-      }
+        const translationJa = normalizeUsableJapanese(row.japanese);
+        if (!translationJa) {
+          return [];
+        }
 
-      await updateWordRow(supabaseAdmin, row.id, updates);
+        return [[lexiconRow.id, {
+          id: lexiconRow.id,
+          translationJa,
+        }] as const];
+      }),
+    ).values(),
+  );
+
+  if (linkedMasterTranslationUpdates.length > 0) {
+    await updateMasterTranslations(linkedMasterTranslationUpdates);
+  }
+
+  const unresolvedRows = rows.filter((row) => !row.lexicon_entry_id);
+  if (unresolvedRows.length === 0) {
+    return {
+      wordCount: normalizedWordIds.length,
+      resolvedCount,
+      tagBackfilledCount,
+      skippedCount,
+      pendingEnrichmentCandidates: [],
+      elapsedMs: Date.now() - startedAt,
+      runtimeCreatedCount: 0,
+    };
+  }
+
+  const rowsMissingTags = unresolvedRows.filter((row) => normalizePartOfSpeechTags(row.part_of_speech_tags).length === 0);
+  const classifications = rowsMissingTags.length > 0
+    ? await classifyPartOfSpeechBatch(
+      rowsMissingTags.map((row) => ({
+        english: row.english,
+        japaneseHint: row.japanese,
+      })),
+    )
+    : new Map<string, LexiconPos>();
+
+  const preparedRows = prepareUnresolvedRows(unresolvedRows, classifications);
+  const lookupKeys = Array.from(
+    new Map(
+      preparedRows
+        .filter((row) => row.key)
+        .map((row) => [
+          row.key as string,
+          {
+            normalizedHeadword: row.normalizedHeadword,
+            pos: row.pos,
+          },
+        ] as const),
+    ).values(),
+  );
+
+  const preferredEnglishByKey = new Map<string, string>();
+  const aiTranslationsByKey = new Map<string, string>();
+  for (const row of preparedRows) {
+    if (row.key && !preferredEnglishByKey.has(row.key)) {
+      preferredEnglishByKey.set(row.key, row.english.trim());
     }
+
+    if (!row.key || !aiTranslatedWordIdSet.has(row.id)) {
+      continue;
+    }
+
+    const normalizedJapanese = normalizeUsableJapanese(row.japanese);
+    if (!normalizedJapanese || aiTranslationsByKey.has(row.key)) {
+      continue;
+    }
+    aiTranslationsByKey.set(row.key, normalizedJapanese);
+  }
+
+  let lexiconEntries = await lookupEntries(lookupKeys);
+  let entryByKey = mapLexiconEntriesByKey(lexiconEntries);
+
+  const masterTranslationUpdates: MasterTranslationUpdate[] = [];
+  for (const entry of lexiconEntries) {
+    if (normalizeUsableJapanese(entry.translationJa)) {
+      continue;
+    }
+    const key = `${entry.normalizedHeadword}::${entry.pos}`;
+    const translationJa = aiTranslationsByKey.get(key);
+    if (!translationJa) {
+      continue;
+    }
+    masterTranslationUpdates.push({
+      id: entry.id,
+      translationJa,
+    });
+  }
+
+  if (masterTranslationUpdates.length > 0) {
+    await updateMasterTranslations(masterTranslationUpdates);
+    lexiconEntries = lexiconEntries.map((entry) => {
+      const update = masterTranslationUpdates.find((candidate) => candidate.id === entry.id);
+      return update
+        ? {
+          ...entry,
+          translationJa: update.translationJa,
+          translationSource: 'ai',
+        }
+        : entry;
+    });
+    entryByKey = mapLexiconEntriesByKey(lexiconEntries);
+  }
+
+  const missingKeys = lookupKeys.filter((key) => !entryByKey.has(`${key.normalizedHeadword}::${key.pos}`));
+  const runtimeEntries: RuntimeLexiconEntryUpsert[] = missingKeys.map((key) => {
+    const entryKey = `${key.normalizedHeadword}::${key.pos}`;
+    const translationJa = aiTranslationsByKey.get(entryKey) ?? null;
+    return {
+      headword: preferredEnglishByKey.get(entryKey) ?? key.normalizedHeadword,
+      normalized_headword: key.normalizedHeadword,
+      pos: key.pos,
+      cefr_level: null,
+      dataset_sources: ['runtime'],
+      translation_ja: translationJa,
+      translation_source: translationJa ? 'ai' : null,
+    };
+  });
+
+  if (runtimeEntries.length > 0) {
+    await upsertRuntimeEntries(runtimeEntries);
+    lexiconEntries = await lookupEntries(lookupKeys);
+    entryByKey = mapLexiconEntriesByKey(lexiconEntries);
+  }
+
+  for (const row of preparedRows) {
+    const updates: Record<string, unknown> = {};
+    const entry = row.key ? entryByKey.get(row.key) : undefined;
+
+    if (entry?.id) {
+      updates.lexicon_entry_id = entry.id;
+      resolvedCount += 1;
+    }
+
+    if (row.hadMissingTags) {
+      const normalizedTags = entry
+        ? normalizePartOfSpeechTags([entry.pos])
+        : row.resolvedPartOfSpeechTags;
+      if (normalizedTags.length > 0) {
+        updates.part_of_speech_tags = normalizedTags;
+        tagBackfilledCount += 1;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      skippedCount += 1;
+      continue;
+    }
+
+    await updateWordRow(supabaseAdmin, row.id, updates);
   }
 
   return {
@@ -341,7 +589,8 @@ export async function processWordLexiconResolutionWords(
     resolvedCount,
     tagBackfilledCount,
     skippedCount,
-    pendingEnrichmentCandidates,
+    pendingEnrichmentCandidates: [],
     elapsedMs: Date.now() - startedAt,
+    runtimeCreatedCount: runtimeEntries.length,
   };
 }
