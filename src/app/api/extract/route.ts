@@ -8,6 +8,7 @@ import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
+import { generateExampleSentences } from '@/lib/ai/generate-example-sentences';
 
 // Extraction modes
 // - 'all': Extract all words
@@ -262,7 +263,7 @@ export async function POST(request: NextRequest) {
     const extractedWords = resolved?.words ?? rollbackResult?.words ?? result.data.words;
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
-    console.log('[extract] Success', {
+    console.log('[extract] Extraction done', {
       mode,
       masterFirstEnabled,
       wordCount: extractedWords.length,
@@ -274,6 +275,50 @@ export async function POST(request: NextRequest) {
       translationElapsedMs: resolved?.metrics.translationElapsedMs ?? 0,
       elapsedMs: Date.now() - startedAt,
     });
+
+    // --- Synchronous example sentence generation ---
+    const wordsNeedingExamples = extractedWords
+      .filter((w: { exampleSentence?: string }) => !w.exampleSentence)
+      .map((w: { english?: string; japanese?: string }, i: number) => ({
+        id: String(i),
+        english: (w as Record<string, unknown>).english as string || '',
+        japanese: (w as Record<string, unknown>).japanese as string || '',
+      }))
+      .filter((w: { english: string }) => w.english.length > 0);
+
+    if (wordsNeedingExamples.length > 0) {
+      try {
+        const apiKeys = getAPIKeys();
+        const exampleResult = await generateExampleSentences(wordsNeedingExamples, apiKeys);
+        const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
+
+        let exIdx = 0;
+        for (const word of extractedWords) {
+          const w = word as Record<string, unknown>;
+          if (!w.exampleSentence) {
+            const generated = exampleMap.get(String(exIdx));
+            if (generated) {
+              w.exampleSentence = generated.exampleSentence;
+              w.exampleSentenceJa = generated.exampleSentenceJa;
+              if (!Array.isArray(w.partOfSpeechTags) || (w.partOfSpeechTags as string[]).length === 0) {
+                w.partOfSpeechTags = generated.partOfSpeechTags;
+              }
+            }
+            exIdx++;
+          }
+        }
+
+        console.log('[extract] Example generation completed', {
+          requested: wordsNeedingExamples.length,
+          generated: exampleResult.examples.length,
+          errors: exampleResult.errors.length,
+          elapsedMs: Date.now() - startedAt,
+        });
+      } catch (exampleError) {
+        // Example generation failure should NOT fail the extraction
+        console.error('[extract] Example generation failed, continuing without:', exampleError);
+      }
+    }
 
     return NextResponse.json({
       success: true,
