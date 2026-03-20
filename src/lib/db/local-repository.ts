@@ -328,12 +328,12 @@ export class LocalWordRepository implements WordRepository {
 
     for (const cid of collectionIds) {
       const pids = (grouped[cid] || []).slice(0, 3);
-      result[cid] = pids
-        .map((pid) => {
-          const p = projectMap.get(pid);
-          return p ? { id: p.id, title: p.title, iconImage: p.iconImage } : null;
-        })
-        .filter((x): x is { id: string; title: string; iconImage?: string } => x !== null);
+      const previews: { id: string; title: string; iconImage?: string }[] = [];
+      for (const pid of pids) {
+        const p = projectMap.get(pid);
+        if (p) previews.push({ id: p.id, title: p.title, iconImage: p.iconImage });
+      }
+      result[cid] = previews;
     }
 
     return result;
