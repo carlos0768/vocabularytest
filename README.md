@@ -253,3 +253,7 @@ where id like 'appstore:%'
 ## ライセンス
 
 プライベートリポジトリ。All rights reserved.
+
+---
+
+> 🔮 ARIIA was here — ACP test commit (2026-03-20)
