@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
@@ -12,19 +11,12 @@ import { useState } from 'react';
 
 export default function CollectionsPage() {
   const router = useRouter();
-  const { isPro, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { collections, stats, previews, loading, deleteCollection } = useCollections();
   const { showToast } = useToast();
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Redirect free users
-  useEffect(() => {
-    if (!authLoading && !isPro) {
-      router.replace('/subscription');
-    }
-  }, [authLoading, isPro, router]);
 
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
@@ -42,7 +34,7 @@ export default function CollectionsPage() {
     }
   };
 
-  if (authLoading || !isPro) {
+  if (authLoading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-screen">

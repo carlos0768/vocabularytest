@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { localRepository } from '@/lib/db/local-repository';
 import type { Collection, CollectionProject } from '@/types';
 
 export type CollectionStats = Record<string, { projectCount: number; wordCount: number; masteredCount: number }>;
@@ -14,6 +15,7 @@ interface CollectionsPayload {
   previews: CollectionPreviews;
 }
 
+// Cache for remote (Pro) only
 let collectionsCache: { userId: string; payload: CollectionsPayload } | null = null;
 let collectionsInFlight: { userId: string; promise: Promise<CollectionsPayload> } | null = null;
 
@@ -39,7 +41,7 @@ function patchCachedPayload(userId: string, updater: (payload: CollectionsPayloa
   };
 }
 
-async function fetchCollectionsPayload(userId: string): Promise<CollectionsPayload> {
+async function fetchRemotePayload(userId: string): Promise<CollectionsPayload> {
   if (collectionsInFlight && collectionsInFlight.userId === userId) {
     return collectionsInFlight.promise;
   }
@@ -50,17 +52,13 @@ async function fetchCollectionsPayload(userId: string): Promise<CollectionsPaylo
       return { collections: data, stats: {}, previews: {} };
     }
 
-    const ids = data.map((collection) => collection.id);
+    const ids = data.map((c) => c.id);
     const [stats, previews] = await Promise.all([
       remoteRepository.getCollectionStats(ids),
       remoteRepository.getCollectionPreviews(ids),
     ]);
 
-    return {
-      collections: data,
-      stats,
-      previews,
-    };
+    return { collections: data, stats, previews };
   })();
 
   collectionsInFlight = { userId, promise };
@@ -74,10 +72,26 @@ async function fetchCollectionsPayload(userId: string): Promise<CollectionsPaylo
   }
 }
 
+async function fetchLocalPayload(userId: string): Promise<CollectionsPayload> {
+  const data = await localRepository.getCollections(userId);
+  if (data.length === 0) {
+    return { collections: data, stats: {}, previews: {} };
+  }
+
+  const ids = data.map((c) => c.id);
+  const [stats, previews] = await Promise.all([
+    localRepository.getCollectionStats(ids),
+    localRepository.getCollectionPreviews(ids),
+  ]);
+
+  return { collections: data, stats, previews };
+}
+
 export function useCollections() {
   const { user, isPro, loading: authLoading } = useAuth();
   const userId = user?.id ?? null;
-  const initialPayload = userId ? getCachedPayload(userId) : null;
+  // Only use cache for Pro (remote) users
+  const initialPayload = (userId && isPro) ? getCachedPayload(userId) : null;
 
   const [collections, setCollections] = useState<Collection[]>(() => initialPayload?.collections ?? []);
   const [stats, setStats] = useState<CollectionStats>(() => initialPayload?.stats ?? {});
@@ -93,7 +107,7 @@ export function useCollections() {
   const loadCollections = useCallback(async (force = false) => {
     if (authLoading) return;
 
-    if (!isPro || !userId) {
+    if (!userId) {
       setCollections([]);
       setStats({});
       setPreviews({});
@@ -102,22 +116,36 @@ export function useCollections() {
       return;
     }
 
-    const cached = force ? null : getCachedPayload(userId);
-    if (cached) {
-      applyPayload(cached);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+    if (isPro) {
+      // Pro: remote (Supabase)
+      const cached = force ? null : getCachedPayload(userId);
+      if (cached) {
+        applyPayload(cached);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      const payload = await fetchCollectionsPayload(userId);
-      setCachedPayload(userId, payload);
-      applyPayload(payload);
-    } catch (e) {
-      console.error('Failed to load collections:', e);
-    } finally {
-      setLoading(false);
+      try {
+        const payload = await fetchRemotePayload(userId);
+        setCachedPayload(userId, payload);
+        applyPayload(payload);
+      } catch (e) {
+        console.error('Failed to load collections:', e);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Free: local (IndexedDB)
+      setLoading(true);
+      try {
+        const payload = await fetchLocalPayload(userId);
+        applyPayload(payload);
+      } catch (e) {
+        console.error('Failed to load local collections:', e);
+      } finally {
+        setLoading(false);
+      }
     }
   }, [applyPayload, authLoading, isPro, userId]);
 
@@ -131,63 +159,70 @@ export function useCollections() {
     async (name: string, description?: string): Promise<Collection | null> => {
       if (!userId) return null;
       try {
-        const collection = await remoteRepository.createCollection({
-          userId,
-          name,
-          description,
-        });
+        const collection = isPro
+          ? await remoteRepository.createCollection({ userId, name, description })
+          : await localRepository.createCollection({ userId, name, description });
+
         setCollections((prev) => [collection, ...prev]);
-        patchCachedPayload(userId, (payload) => ({
-          ...payload,
-          collections: [collection, ...payload.collections],
-          stats: {
-            ...payload.stats,
-            [collection.id]: { projectCount: 0, wordCount: 0, masteredCount: 0 },
-          },
-          previews: {
-            ...payload.previews,
-            [collection.id]: [],
-          },
-        }));
+
+        if (isPro) {
+          patchCachedPayload(userId, (payload) => ({
+            ...payload,
+            collections: [collection, ...payload.collections],
+            stats: { ...payload.stats, [collection.id]: { projectCount: 0, wordCount: 0, masteredCount: 0 } },
+            previews: { ...payload.previews, [collection.id]: [] },
+          }));
+        }
+
         return collection;
       } catch (e) {
         console.error('Failed to create collection:', e);
         return null;
       }
     },
-    [userId]
+    [userId, isPro]
   );
 
   const updateCollection = useCallback(
     async (id: string, updates: Partial<Pick<Collection, 'name' | 'description'>>): Promise<boolean> => {
       try {
-        await remoteRepository.updateCollection(id, updates);
+        if (isPro) {
+          await remoteRepository.updateCollection(id, updates);
+        } else {
+          await localRepository.updateCollection(id, updates);
+        }
+
         setCollections((prev) =>
           prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c))
         );
-        if (userId) {
+
+        if (isPro && userId) {
           patchCachedPayload(userId, (payload) => ({
             ...payload,
-            collections: payload.collections.map((collection) =>
-              collection.id === id
-                ? { ...collection, ...updates, updatedAt: new Date().toISOString() }
-                : collection
+            collections: payload.collections.map((c) =>
+              c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
             ),
           }));
         }
+
         return true;
       } catch (e) {
         console.error('Failed to update collection:', e);
         return false;
       }
     },
-    [userId]
+    [isPro, userId]
   );
 
   const deleteCollection = useCallback(
     async (id: string): Promise<boolean> => {
       try {
-        await remoteRepository.deleteCollection(id);
+        if (isPro) {
+          await remoteRepository.deleteCollection(id);
+        } else {
+          await localRepository.deleteCollection(id);
+        }
+
         setCollections((prev) => prev.filter((c) => c.id !== id));
         setStats((prev) => {
           const next = { ...prev };
@@ -199,7 +234,8 @@ export function useCollections() {
           delete next[id];
           return next;
         });
-        if (userId) {
+
+        if (isPro && userId) {
           patchCachedPayload(userId, (payload) => {
             const nextStats = { ...payload.stats };
             delete nextStats[id];
@@ -207,57 +243,68 @@ export function useCollections() {
             delete nextPreviews[id];
             return {
               ...payload,
-              collections: payload.collections.filter((collection) => collection.id !== id),
+              collections: payload.collections.filter((c) => c.id !== id),
               stats: nextStats,
               previews: nextPreviews,
             };
           });
         }
+
         return true;
       } catch (e) {
         console.error('Failed to delete collection:', e);
         return false;
       }
     },
-    [userId]
+    [isPro, userId]
   );
 
   const getCollectionProjects = useCallback(
     async (collectionId: string): Promise<CollectionProject[]> => {
       try {
-        return await remoteRepository.getCollectionProjects(collectionId);
+        return isPro
+          ? await remoteRepository.getCollectionProjects(collectionId)
+          : await localRepository.getCollectionProjects(collectionId);
       } catch (e) {
         console.error('Failed to get collection projects:', e);
         return [];
       }
     },
-    []
+    [isPro]
   );
 
   const addProjectsToCollection = useCallback(
     async (collectionId: string, projectIds: string[]): Promise<boolean> => {
       try {
-        await remoteRepository.addProjectsToCollection(collectionId, projectIds);
+        if (isPro) {
+          await remoteRepository.addProjectsToCollection(collectionId, projectIds);
+        } else {
+          await localRepository.addProjectsToCollection(collectionId, projectIds);
+        }
         return true;
       } catch (e) {
         console.error('Failed to add projects to collection:', e);
         return false;
       }
     },
-    []
+    [isPro]
   );
 
   const removeProjectFromCollection = useCallback(
     async (collectionId: string, projectId: string): Promise<boolean> => {
       try {
-        await remoteRepository.removeProjectFromCollection(collectionId, projectId);
+        if (isPro) {
+          await remoteRepository.removeProjectFromCollection(collectionId, projectId);
+        } else {
+          await localRepository.removeProjectFromCollection(collectionId, projectId);
+        }
         return true;
       } catch (e) {
         console.error('Failed to remove project from collection:', e);
         return false;
       }
     },
-    []
+    [isPro]
   );
 
   return {

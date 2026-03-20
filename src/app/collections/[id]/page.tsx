@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { localRepository } from '@/lib/db/local-repository';
 import type { Collection, Project, Word } from '@/types';
 
 interface ProjectWithStats extends Project {
@@ -54,13 +55,13 @@ export default function CollectionDetailPage() {
   const canUseAiFeatures = aiEnabled !== false;
 
   const loadData = useCallback(async () => {
-    if (!user || !isPro) return;
+    if (!user) return;
 
     try {
       setLoading(true);
 
       const [col, colProjects] = await Promise.all([
-        remoteRepository.getCollection(collectionId),
+        isPro ? remoteRepository.getCollection(collectionId) : localRepository.getCollection(collectionId),
         getCollectionProjects(collectionId),
       ]);
 
@@ -81,8 +82,8 @@ export default function CollectionDetailPage() {
 
       const projectIds = colProjects.map((cp) => cp.projectId);
       const [projects, wordsByProject] = await Promise.all([
-        Promise.all(projectIds.map((id) => remoteRepository.getProject(id))),
-        remoteRepository.getAllWordsByProjectIds(projectIds),
+        Promise.all(projectIds.map((id) => isPro ? remoteRepository.getProject(id) : localRepository.getProject(id))),
+        isPro ? remoteRepository.getAllWordsByProjectIds(projectIds) : localRepository.getAllWordsByProjectIds(projectIds),
       ]);
 
       const validProjects = projects.filter((p): p is Project => p !== undefined);
@@ -118,12 +119,10 @@ export default function CollectionDetailPage() {
   }, [user, isPro, collectionId, getCollectionProjects, router]);
 
   useEffect(() => {
-    if (!authLoading && isPro) {
+    if (!authLoading && user) {
       loadData();
-    } else if (!authLoading && !isPro) {
-      router.replace('/subscription');
     }
-  }, [authLoading, isPro, loadData, router]);
+  }, [authLoading, user, loadData]);
 
   const stats = useMemo(() => {
     const total = allWords.length;
@@ -236,13 +235,21 @@ export default function CollectionDetailPage() {
   };
 
   const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
-    await remoteRepository.updateWord(wordId, { english, japanese });
+    if (isPro) {
+      await remoteRepository.updateWord(wordId, { english, japanese });
+    } else {
+      await localRepository.updateWord(wordId, { english, japanese });
+    }
     setAllWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w)));
     setEditingWordId(null);
   };
 
   const handleDeleteWord = async (wordId: string) => {
-    await remoteRepository.deleteWord(wordId);
+    if (isPro) {
+      await remoteRepository.deleteWord(wordId);
+    } else {
+      await localRepository.deleteWord(wordId);
+    }
     setAllWords((prev) => prev.filter((w) => w.id !== wordId));
     showToast({ message: '単語を削除しました', type: 'success' });
   };
@@ -251,14 +258,20 @@ export default function CollectionDetailPage() {
     const word = allWords.find((w) => w.id === wordId);
     if (!word) return;
     const newFav = !word.isFavorite;
-    await remoteRepository.updateWord(wordId, { isFavorite: newFav });
+    if (isPro) {
+      await remoteRepository.updateWord(wordId, { isFavorite: newFav });
+    } else {
+      await localRepository.updateWord(wordId, { isFavorite: newFav });
+    }
     setAllWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFav } : w)));
   };
 
   const openAddModal = async () => {
     if (!user) return;
     try {
-      const all = await remoteRepository.getProjects(user.id);
+      const all = isPro
+        ? await remoteRepository.getProjects(user.id)
+        : await localRepository.getProjects(user.id);
       setAllUserProjects(all);
       setAddSelectedIds(new Set());
       setShowAddModal(true);
