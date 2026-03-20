@@ -173,6 +173,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const SCAN_TIMING_SHEET_URL = process.env.SCAN_TIMING_SHEET_URL;
+
+async function logTimingToSheet(
+  timing: Record<string, unknown>,
+  jobId: string,
+  userId: string,
+  status: string
+): Promise<void> {
+  if (!SCAN_TIMING_SHEET_URL) return;
+
+  await fetch(SCAN_TIMING_SHEET_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timestamp: new Date().toISOString(),
+      jobId,
+      userId,
+      scanMode: timing.scanMode ?? '',
+      imageCount: timing.imageCount ?? 0,
+      wordCount: timing.wordCount ?? 0,
+      totalMs: timing.totalMs ?? 0,
+      imageDownloadMs: timing.imageDownloadMs ?? 0,
+      aiExtractionMs: timing.aiExtractionMs ?? 0,
+      parseValidationMs: timing.parseValidationMs ?? 0,
+      exampleGenerationMs: timing.exampleGenerationMs ?? 0,
+      dbInsertMs: timing.dbInsertMs ?? 0,
+      model: timing.model ?? '',
+      status,
+    }),
+  });
+}
+
 interface QuizSeedWord {
   id: string;
   english: string;
@@ -647,6 +679,10 @@ export async function POST(request: NextRequest) {
         await sendScanJobPushNotifications(getSupabaseAdmin(), failParams1);
         void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams1).catch(e => console.error('[APNs] fail push failed:', e));
 
+        void logTimingToSheet(timing, jobId, job.user_id, 'failed').catch(e =>
+          console.error('[timing-sheet] Failed to log:', e)
+        );
+
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
 
@@ -884,6 +920,11 @@ export async function POST(request: NextRequest) {
       void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
       void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
+      // Log timing to Google Spreadsheet (fire-and-forget)
+      void logTimingToSheet(timing, jobId, job.user_id, 'completed').catch(e =>
+        console.error('[timing-sheet] Failed to log:', e)
+      );
+
       // Heavy/non-critical tasks run after completion update.
       void (async () => {
         if (insertedWordsArray.length === 0) return;
@@ -963,6 +1004,10 @@ export async function POST(request: NextRequest) {
       };
       await sendScanJobPushNotifications(getSupabaseAdmin(), failParams2);
       void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams2).catch(e => console.error('[APNs] fail push failed:', e));
+
+      void logTimingToSheet(timing, jobId, job.user_id, 'failed').catch(e =>
+        console.error('[timing-sheet] Failed to log:', e)
+      );
 
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
     }
