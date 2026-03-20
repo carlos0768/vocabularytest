@@ -292,31 +292,65 @@ async function logTimingToSheet(
   });
 }
 
-async function logGcpTimingToSheet(
+async function flushTimingLogs(
   entries: CloudRunTimingEntry[],
   baseTiming: TimingMetrics,
   jobId: string,
   userId: string,
   status: string
 ): Promise<void> {
+  const tasks: Array<Promise<void>> = [
+    logTimingToSheet(baseTiming, jobId, userId, status),
+  ];
   const summary = summarizeCloudRunTimingEntries(entries);
-  if (summary.requestCount === 0) return;
 
-  const gcpTiming = createTimingMetrics();
-  gcpTiming.totalMs = summary.totalMs;
-  gcpTiming.aiExtractionMs = summary.aiExtractionMs;
-  gcpTiming.exampleGenerationMs = summary.exampleGenerationMs;
-  gcpTiming.imageCount = baseTiming.imageCount;
-  gcpTiming.wordCount = baseTiming.wordCount;
-  gcpTiming.scanMode = baseTiming.scanMode;
-  gcpTiming.model = summary.model || baseTiming.model;
+  if (summary.requestCount === 0) {
+    console.warn('[timing-sheet-gcp] No Cloud Run timing entries collected', {
+      jobId,
+      status,
+      scanMode: baseTiming.scanMode,
+      imageCount: baseTiming.imageCount,
+      wordCount: baseTiming.wordCount,
+    });
+  } else {
+    console.log('[timing-sheet-gcp] Logging Cloud Run timing', {
+      jobId,
+      status,
+      requestCount: summary.requestCount,
+      totalMs: summary.totalMs,
+      aiExtractionMs: summary.aiExtractionMs,
+      exampleGenerationMs: summary.exampleGenerationMs,
+      model: summary.model,
+    });
 
-  await logTimingToSheet(gcpTiming, jobId, userId, status, {
-    sheetUrl: SCAN_TIMING_GCP_SHEET_URL,
-    sheetName: SCAN_TIMING_GCP_SHEET_NAME,
-    startedAt: summary.startedAt,
-    endedAt: summary.endedAt,
-  });
+    const gcpTiming = createTimingMetrics();
+    gcpTiming.totalMs = summary.totalMs;
+    gcpTiming.aiExtractionMs = summary.aiExtractionMs;
+    gcpTiming.exampleGenerationMs = summary.exampleGenerationMs;
+    gcpTiming.imageCount = baseTiming.imageCount;
+    gcpTiming.wordCount = baseTiming.wordCount;
+    gcpTiming.scanMode = baseTiming.scanMode;
+    gcpTiming.model = summary.model || baseTiming.model;
+
+    tasks.push(
+      logTimingToSheet(gcpTiming, jobId, userId, status, {
+        sheetUrl: SCAN_TIMING_GCP_SHEET_URL,
+        sheetName: SCAN_TIMING_GCP_SHEET_NAME,
+        startedAt: summary.startedAt,
+        endedAt: summary.endedAt,
+      })
+    );
+  }
+
+  const results = await Promise.allSettled(tasks);
+  for (const [index, result] of results.entries()) {
+    if (result.status === 'fulfilled') continue;
+    if (index === 0) {
+      console.error('[timing-sheet] Failed to log:', result.reason);
+      continue;
+    }
+    console.error('[timing-sheet-gcp] Failed to log:', result.reason);
+  }
 }
 
 interface QuizSeedWord {
@@ -796,12 +830,7 @@ export async function POST(request: NextRequest) {
         await sendScanJobPushNotifications(getSupabaseAdmin(), failParams1);
         void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams1).catch(e => console.error('[APNs] fail push failed:', e));
 
-        void logTimingToSheet(timing, jobId, job.user_id, 'failed').catch(e =>
-          console.error('[timing-sheet] Failed to log:', e)
-        );
-        void logGcpTimingToSheet(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed').catch(e =>
-          console.error('[timing-sheet-gcp] Failed to log:', e)
-        );
+        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
 
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
@@ -923,12 +952,7 @@ export async function POST(request: NextRequest) {
         void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
         void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
 
-        void logTimingToSheet(timing, jobId, job.user_id, 'completed').catch(e =>
-          console.error('[timing-sheet] Failed to log:', e)
-        );
-        void logGcpTimingToSheet(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed').catch(e =>
-          console.error('[timing-sheet-gcp] Failed to log:', e)
-        );
+        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
 
         return NextResponse.json({
           success: true,
@@ -1214,13 +1238,7 @@ export async function POST(request: NextRequest) {
       void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
       void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
-      // Log timing to Google Spreadsheet (fire-and-forget)
-      void logTimingToSheet(timing, jobId, job.user_id, 'completed').catch(e =>
-        console.error('[timing-sheet] Failed to log:', e)
-      );
-      void logGcpTimingToSheet(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed').catch(e =>
-        console.error('[timing-sheet-gcp] Failed to log:', e)
-      );
+      await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
 
       // Heavy/non-critical tasks run after completion update.
       after(async () => {
@@ -1362,12 +1380,7 @@ export async function POST(request: NextRequest) {
         await sendScanJobPushNotifications(getSupabaseAdmin(), failParams2);
         void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams2).catch(e => console.error('[APNs] fail push failed:', e));
 
-        void logTimingToSheet(timing, jobId, job.user_id, 'failed').catch(e =>
-          console.error('[timing-sheet] Failed to log:', e)
-        );
-        void logGcpTimingToSheet(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed').catch(e =>
-          console.error('[timing-sheet-gcp] Failed to log:', e)
-        );
+        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
 
         return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
       }
