@@ -200,7 +200,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const startedAt = Date.now();
+    let aiExtractionMs = 0;
+
     let result;
+    const aiStart = Date.now();
     if (mode === 'wrong') {
       // Wrong answer mode: OCR + analysis for vocabulary test mistakes
       result = await extractWrongAnswersFromImage(image, apiKeys);
@@ -228,6 +232,7 @@ export async function POST(request: NextRequest) {
         includeExamples: false,
       });
     }
+    aiExtractionMs = Date.now() - aiStart;
 
     if (!result.success) {
       return NextResponse.json(
@@ -246,6 +251,14 @@ export async function POST(request: NextRequest) {
         currentCount: scanData.current_count,
         limit: scanData.limit,
         isPro: scanData.is_pro,
+      },
+      _debug: {
+        timing: {
+          totalMs: Date.now() - startedAt,
+          aiExtractionMs,
+          lexiconResolutionMs: 0,
+          exampleGenerationMs: 0,
+        },
       },
     });
   } catch (error) {

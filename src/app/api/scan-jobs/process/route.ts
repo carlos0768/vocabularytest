@@ -434,6 +434,21 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKeys = getAPIKeys();
+    const startedAt = Date.now();
+    const timing = {
+      totalMs: 0,
+      imageDownloadMs: 0,
+      aiExtractionMs: 0,
+      parseValidationMs: 0,
+      lexiconResolutionMs: 0,
+      exampleGenerationMs: 0,
+      dbInsertMs: 0,
+      imageCount: 0,
+      wordCount: 0,
+      scanMode: '',
+      model: AI_CONFIG.extraction.words.model,
+      perImage: [] as Array<{ downloadMs: number; extractionMs: number }>,
+    };
 
     try {
       // Collect all image paths (support both single and multiple)
@@ -449,6 +464,8 @@ export async function POST(request: NextRequest) {
       }
 
       const mode = job.scan_mode as ExtractMode;
+      timing.scanMode = mode;
+
       const missingProviderKey = getMissingProviderKey(mode, apiKeys);
       if (missingProviderKey) {
         const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
@@ -502,9 +519,11 @@ export async function POST(request: NextRequest) {
         const imagePath = imagePaths[pageIndex];
         const pageLabel = `ページ${pageIndex + 1}`;
 
+        const dlStart = Date.now();
         const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
           .from('scan-images')
           .download(imagePath);
+        const dlMs = Date.now() - dlStart;
 
         if (downloadError || !imageData) {
           console.error(`Failed to download image ${imagePath}:`, downloadError);
@@ -524,11 +543,17 @@ export async function POST(request: NextRequest) {
         const base64Image = `data:${mimeType};base64,${base64}`;
 
         try {
+          const exStart = Date.now();
           const extractionResult = await withTimeout(
             extractFromImage(base64Image, mode, job.eiken_level, apiKeys),
             EXTRACTION_TIMEOUT_MS,
             `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
           );
+          const exMs = Date.now() - exStart;
+
+          timing.perImage.push({ downloadMs: dlMs, extractionMs: exMs });
+          timing.imageDownloadMs += dlMs;
+          timing.aiExtractionMs += exMs;
 
           const { result, warningCode } = extractionResult;
 
@@ -592,15 +617,21 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const parseStart = Date.now();
       const dedupedWords = dedupeExtractedWords(allExtractedWords);
+      timing.parseValidationMs = Date.now() - parseStart;
 
       if (dedupedWords.length === 0) {
         const errorMessage = firstExtractionError || 'No words found in any image';
+        timing.totalMs = Date.now() - startedAt;
+        timing.imageCount = imagePaths.length;
+        timing.wordCount = 0;
         await getSupabaseAdmin()
           .from('scan_jobs')
           .update({
             status: 'failed',
             error_message: errorMessage,
+            timing_metrics: timing,
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -636,12 +667,17 @@ export async function POST(request: NextRequest) {
           resultPayload.warnings = warnings;
         }
 
+        timing.totalMs = Date.now() - startedAt;
+        timing.imageCount = imagePaths.length;
+        timing.wordCount = dedupedWords.length;
+
         await getSupabaseAdmin()
           .from('scan_jobs')
           .update({
             status: 'completed',
             project_id: null,
             result: JSON.stringify(resultPayload),
+            timing_metrics: timing,
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -727,10 +763,12 @@ export async function POST(request: NextRequest) {
         part_of_speech_tags: word.partOfSpeechTags,
       }));
 
+      const dbInsertStart = Date.now();
       const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
         .from('words')
         .insert(wordsToInsert)
         .select('id, english, japanese, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
+      timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {
         if (createdNewProject) {
@@ -758,6 +796,7 @@ export async function POST(request: NextRequest) {
         resultPayload.warnings = warnings;
       }
 
+      const exampleGenStart = Date.now();
       if (aiEnabled) {
         const quizSeedWords: QuizSeedWord[] = insertedWordsArray
           .filter((w: {
@@ -817,6 +856,11 @@ export async function POST(request: NextRequest) {
           resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
         }
       }
+      timing.exampleGenerationMs = Date.now() - exampleGenStart;
+
+      timing.totalMs = Date.now() - startedAt;
+      timing.imageCount = imagePaths.length;
+      timing.wordCount = dedupedWords.length;
 
       await getSupabaseAdmin()
         .from('scan_jobs')
@@ -824,6 +868,7 @@ export async function POST(request: NextRequest) {
           status: 'completed',
           project_id: projectId,
           result: JSON.stringify(resultPayload),
+          timing_metrics: timing,
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
@@ -896,11 +941,14 @@ export async function POST(request: NextRequest) {
     } catch (processingError) {
       console.error('Processing error:', processingError);
 
+      timing.totalMs = Date.now() - startedAt;
+
       await getSupabaseAdmin()
         .from('scan_jobs')
         .update({
           status: 'failed',
           error_message: processingError instanceof Error ? processingError.message : 'Processing failed',
+          timing_metrics: timing,
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
