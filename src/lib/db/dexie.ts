@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { LexiconEntry, Project, Word } from '@/types';
+import type { LexiconEntry, Project, Word, Collection, CollectionProject } from '@/types';
 
 // Sync Queue item for offline changes
 export interface SyncQueueItem {
@@ -20,6 +20,8 @@ export class WordSnapDB extends Dexie {
   words!: EntityTable<Word, 'id'>;
   lexiconEntries!: EntityTable<LexiconEntry, 'id'>;
   syncQueue!: EntityTable<SyncQueueItem, 'id'>;
+  collections!: EntityTable<Collection, 'id'>;
+  collectionProjects!: EntityTable<CollectionProject & { id?: number }, 'id'>;
 
   constructor() {
     super('WordSnapDB');
@@ -62,12 +64,14 @@ export class WordSnapDB extends Dexie {
       syncQueue: '++id, table, entityId, createdAt',
     });
 
-    // Version 7: Add local lexicon cache
+    // Version 7: Add collections, collectionProjects, and local lexicon cache
     this.version(7).stores({
       projects: 'id, userId, createdAt, isFavorite',
       words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite, lexiconEntryId',
       lexiconEntries: 'id, normalizedHeadword, pos, cefrLevel',
       syncQueue: '++id, table, entityId, createdAt',
+      collections: 'id, userId, createdAt',
+      collectionProjects: '++id, [collectionId+projectId], collectionId, projectId',
     });
   }
 }

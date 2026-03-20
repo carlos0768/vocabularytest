@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { localRepository } from '@/lib/db/local-repository';
 import type { Project } from '@/types';
 
 export default function NewCollectionPage() {
@@ -22,19 +23,14 @@ export default function NewCollectionPage() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Redirect free users
-  useEffect(() => {
-    if (!authLoading && !isPro) {
-      router.replace('/subscription');
-    }
-  }, [authLoading, isPro, router]);
-
-  // Load user's projects
+  // Load user's projects (Pro: remote, Free: local)
   useEffect(() => {
     if (!user || authLoading) return;
     (async () => {
       try {
-        const data = await remoteRepository.getProjects(user.id);
+        const data = isPro
+          ? await remoteRepository.getProjects(user.id)
+          : await localRepository.getProjects(user.id);
         setProjects(data);
       } catch (e) {
         console.error('Failed to load projects:', e);
@@ -42,7 +38,7 @@ export default function NewCollectionPage() {
         setLoadingProjects(false);
       }
     })();
-  }, [user, authLoading]);
+  }, [user, authLoading, isPro]);
 
   const toggleProject = (id: string) => {
     setSelectedIds((prev) => {
@@ -83,7 +79,7 @@ export default function NewCollectionPage() {
     }
   };
 
-  if (authLoading || !isPro) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />

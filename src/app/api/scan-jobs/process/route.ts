@@ -201,6 +201,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const SCAN_TIMING_SHEET_URL = process.env.SCAN_TIMING_SHEET_URL;
+
+async function logTimingToSheet(
+  timing: Record<string, unknown>,
+  jobId: string,
+  userId: string,
+  status: string
+): Promise<void> {
+  if (!SCAN_TIMING_SHEET_URL) return;
+
+  await fetch(SCAN_TIMING_SHEET_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timestamp: new Date().toISOString(),
+      jobId,
+      userId,
+      scanMode: timing.scanMode ?? '',
+      imageCount: timing.imageCount ?? 0,
+      wordCount: timing.wordCount ?? 0,
+      totalMs: timing.totalMs ?? 0,
+      imageDownloadMs: timing.imageDownloadMs ?? 0,
+      aiExtractionMs: timing.aiExtractionMs ?? 0,
+      parseValidationMs: timing.parseValidationMs ?? 0,
+      exampleGenerationMs: timing.exampleGenerationMs ?? 0,
+      dbInsertMs: timing.dbInsertMs ?? 0,
+      model: timing.model ?? '',
+      status,
+    }),
+  });
+}
+
 interface QuizSeedWord {
   id: string;
   english: string;
@@ -482,6 +514,21 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKeys = getAPIKeys();
+    const startedAt = Date.now();
+    const timing = {
+      totalMs: 0,
+      imageDownloadMs: 0,
+      aiExtractionMs: 0,
+      parseValidationMs: 0,
+      lexiconResolutionMs: 0,
+      exampleGenerationMs: 0,
+      dbInsertMs: 0,
+      imageCount: 0,
+      wordCount: 0,
+      scanMode: '',
+      model: AI_CONFIG.extraction.words.model,
+      perImage: [] as Array<{ downloadMs: number; extractionMs: number }>,
+    };
 
     try {
       // Collect all image paths (support both single and multiple)
@@ -497,6 +544,8 @@ export async function POST(request: NextRequest) {
       }
 
       const mode = job.scan_mode as ExtractMode;
+      timing.scanMode = mode;
+
       const missingProviderKey = getMissingProviderKey(mode, apiKeys);
       if (missingProviderKey) {
         const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
@@ -538,9 +587,11 @@ export async function POST(request: NextRequest) {
         const imagePath = imagePaths[pageIndex];
         const pageLabel = `ページ${pageIndex + 1}`;
 
+        const dlStart = Date.now();
         const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
           .from('scan-images')
           .download(imagePath);
+        const dlMs = Date.now() - dlStart;
 
         if (downloadError || !imageData) {
           console.error(`Failed to download image ${imagePath}:`, downloadError);
@@ -560,11 +611,17 @@ export async function POST(request: NextRequest) {
         const base64Image = `data:${mimeType};base64,${base64}`;
 
         try {
+          const exStart = Date.now();
           const extractionResult = await withTimeout(
             extractFromImage(base64Image, mode, job.eiken_level, apiKeys),
             EXTRACTION_TIMEOUT_MS,
             `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
           );
+          const exMs = Date.now() - exStart;
+
+          timing.perImage.push({ downloadMs: dlMs, extractionMs: exMs });
+          timing.imageDownloadMs += dlMs;
+          timing.aiExtractionMs += exMs;
 
           const { result, warningCode } = extractionResult;
 
@@ -633,11 +690,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const parseStart = Date.now();
       const dedupedWords = dedupeExtractedWords(allExtractedWords);
       const dedupedSourceLabels = ensureSourceLabels(allSourceLabels);
+      timing.parseValidationMs = Date.now() - parseStart;
 
       if (dedupedWords.length === 0) {
         const errorMessage = firstExtractionError || 'No words found in any image';
+        timing.totalMs = Date.now() - startedAt;
+        timing.imageCount = imagePaths.length;
+        timing.wordCount = 0;
         await getSupabaseAdmin()
           .from('scan_jobs')
           .update({
@@ -657,6 +719,10 @@ export async function POST(request: NextRequest) {
         };
         await sendScanJobPushNotifications(getSupabaseAdmin(), failParams1);
         void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams1).catch(e => console.error('[APNs] fail push failed:', e));
+
+        void logTimingToSheet(timing, jobId, job.user_id, 'failed').catch(e =>
+          console.error('[timing-sheet] Failed to log:', e)
+        );
 
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
@@ -745,6 +811,10 @@ export async function POST(request: NextRequest) {
         if (warnings.length > 0) {
           resultPayload.warnings = warnings;
         }
+
+        timing.totalMs = Date.now() - startedAt;
+        timing.imageCount = imagePaths.length;
+        timing.wordCount = dedupedWords.length;
 
         await getSupabaseAdmin()
           .from('scan_jobs')
@@ -867,10 +937,12 @@ export async function POST(request: NextRequest) {
         part_of_speech_tags: word.partOfSpeechTags,
       }));
 
+      const dbInsertStart = Date.now();
       const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
         .from('words')
         .insert(wordsToInsert)
         .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
+      timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {
         if (createdNewProject) {
@@ -952,6 +1024,73 @@ export async function POST(request: NextRequest) {
         resultPayload.warnings = warnings;
       }
 
+
+      const exampleGenStart = Date.now();
+      if (aiEnabled) {
+        const quizSeedWords: QuizSeedWord[] = insertedWordsArray
+          .filter((w: {
+            distractors: unknown;
+            example_sentence: string | null;
+            example_sentence_ja: string | null;
+            part_of_speech_tags: unknown;
+          }) =>
+            !hasValidDistractors(w.distractors) ||
+            !hasExampleSentence(w.example_sentence) ||
+            !hasPartOfSpeechTags(w.part_of_speech_tags)
+          )
+          .map((w: { id: string; english: string; japanese: string }) => ({
+            id: w.id,
+            english: w.english,
+            japanese: w.japanese,
+          }));
+
+        let quizPrefillSucceeded = 0;
+        const quizPrefillFailedWordIds = new Set<string>();
+
+        for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
+          const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
+
+          if (results.length > 0) {
+            try {
+              await Promise.all(
+                results.map((item) =>
+                  getSupabaseAdmin()
+                    .from('words')
+                    .update({
+                      distractors: item.distractors,
+                      example_sentence: item.exampleSentence || null,
+                      example_sentence_ja: item.exampleSentenceJa || null,
+                      part_of_speech_tags: item.partOfSpeechTags,
+                    })
+                    .eq('id', item.wordId)
+                )
+              );
+              quizPrefillSucceeded += results.length;
+            } catch (persistError) {
+              console.error('Failed to persist quiz prefill batch:', persistError);
+              for (const item of results) {
+                quizPrefillFailedWordIds.add(item.wordId);
+              }
+            }
+          }
+
+          for (const failedWordId of failedWordIds) {
+            quizPrefillFailedWordIds.add(failedWordId);
+          }
+        }
+
+        if (quizSeedWords.length > 0) {
+          resultPayload.quizPrefillRequested = quizSeedWords.length;
+          resultPayload.quizPrefillSucceeded = quizPrefillSucceeded;
+          resultPayload.quizPrefillFailed = quizPrefillFailedWordIds.size;
+        }
+      }
+      timing.exampleGenerationMs = Date.now() - exampleGenStart;
+
+      timing.totalMs = Date.now() - startedAt;
+      timing.imageCount = imagePaths.length;
+      timing.wordCount = dedupedWords.length;
+
       await getSupabaseAdmin()
         .from('scan_jobs')
         .update({
@@ -972,6 +1111,11 @@ export async function POST(request: NextRequest) {
       };
       void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
       void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
+
+      // Log timing to Google Spreadsheet (fire-and-forget)
+      void logTimingToSheet(timing, jobId, job.user_id, 'completed').catch(e =>
+        console.error('[timing-sheet] Failed to log:', e)
+      );
 
       // Heavy/non-critical tasks run after completion update.
       after(async () => {
@@ -1091,6 +1235,8 @@ export async function POST(request: NextRequest) {
     } catch (processingError) {
       console.error('Processing error:', processingError);
 
+      timing.totalMs = Date.now() - startedAt;
+
       await getSupabaseAdmin()
         .from('scan_jobs')
         .update({
@@ -1110,6 +1256,10 @@ export async function POST(request: NextRequest) {
       };
       await sendScanJobPushNotifications(getSupabaseAdmin(), failParams2);
       void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams2).catch(e => console.error('[APNs] fail push failed:', e));
+
+      void logTimingToSheet(timing, jobId, job.user_id, 'failed').catch(e =>
+        console.error('[timing-sheet] Failed to log:', e)
+      );
 
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
     }

@@ -1,0 +1,21 @@
+name: Deploy Notification
+
+on:
+  deployment_status:
+
+jobs:
+  notify:
+    if: >-
+      github.event.deployment_status.state == 'success' ||
+      github.event.deployment_status.state == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "<@U0AG95M00ER> デプロイ ${{ github.event.deployment_status.state == 'success' && '✅ 成功' || '❌ 失敗' }}\nブランチ: `${{ github.event.deployment.ref }}`\nCommit: `${{ github.sha }}`\nPreview: ${{ github.event.deployment_status.target_url || 'N/A' }}"
+            }

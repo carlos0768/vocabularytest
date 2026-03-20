@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 final class TimeAttackViewModel: ObservableObject {
@@ -18,12 +19,13 @@ final class TimeAttackViewModel: ObservableObject {
     @Published private(set) var score = 0
     @Published private(set) var totalAnswered = 0
     @Published private(set) var currentWord: Word?
-    @Published private(set) var choices: [String] = []
     @Published private(set) var feedbackColor: Color? = nil
     @Published private(set) var bestScore: Int = 0
-    @Published private(set) var lastAnsweredChoice: String? = nil
     @Published private(set) var lastAnswerCorrect: Bool = false
+    @Published private(set) var showingFeedback: Bool = false
+    @Published private(set) var correctAnswer: String? = nil
     @Published var selectedDuration: TimerDuration = .sixty
+    @Published var inputText: String = ""
 
     private var words: [Word] = []
     private var usedIndices: Set<Int> = []
@@ -66,29 +68,40 @@ final class TimeAttackViewModel: ObservableObject {
         totalResponseTime = 0
         usedIndices = []
         feedbackColor = nil
+        showingFeedback = false
+        correctAnswer = nil
+        inputText = ""
         stage = .playing
         nextQuestion()
         startTimer()
     }
 
-    func answer(_ choice: String) {
-        guard let word = currentWord else { return }
+    func answer(_ text: String) {
+        guard let word = currentWord, !showingFeedback else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
         let responseTime = Date.now.timeIntervalSince(questionStartTime)
         totalResponseTime += responseTime
         totalAnswered += 1
 
-        let isCorrect = choice == word.japanese
-        lastAnsweredChoice = choice
+        let isCorrect = trimmed == word.japanese
         lastAnswerCorrect = isCorrect
+        showingFeedback = true
 
         if isCorrect {
             score += 1
+            correctAnswer = nil
+        } else {
+            correctAnswer = word.japanese
         }
 
         // Next question after brief delay
-        let delay = isCorrect ? 0.4 : 0.7
+        let delay = isCorrect ? 0.4 : 1.2
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.lastAnsweredChoice = nil
+            self?.showingFeedback = false
+            self?.correctAnswer = nil
+            self?.inputText = ""
             self?.nextQuestion()
         }
     }
@@ -116,21 +129,6 @@ final class TimeAttackViewModel: ObservableObject {
         usedIndices.insert(index)
         let word = words[index]
         currentWord = word
-
-        // Build choices: correct + 3 distractors
-        var options = [word.japanese]
-        let distractors = word.distractors.prefix(3)
-        options.append(contentsOf: distractors)
-
-        // If not enough distractors, pick random japanese from other words
-        while options.count < 4 {
-            let randomWord = words.randomElement()
-            if let rw = randomWord, !options.contains(rw.japanese) {
-                options.append(rw.japanese)
-            }
-        }
-
-        choices = options.shuffled()
         questionStartTime = .now
     }
 
@@ -166,13 +164,6 @@ final class TimeAttackViewModel: ObservableObject {
         }
     }
 
-    private func flashFeedback(_ color: Color, duration: Double) {
-        feedbackColor = color
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
-            self?.feedbackColor = nil
-        }
-    }
-
     // MARK: - Best Score Persistence
 
     private var bestScoreKey: String { "timeAttack_bestScore" }
@@ -185,6 +176,3 @@ final class TimeAttackViewModel: ObservableObject {
         UserDefaults.standard.set(bestScore, forKey: bestScoreKey)
     }
 }
-
-// Make Color available
-import SwiftUI

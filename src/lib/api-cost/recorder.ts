@@ -12,6 +12,7 @@ export type ApiCostEventInput = {
   status?: EventStatus;
   inputTokens?: number | null;
   outputTokens?: number | null;
+  thinkingTokens?: number | null;
   totalTokens?: number | null;
   estimatedCostUsd?: number | null;
   estimatedCostJpy?: number | null;
@@ -76,6 +77,7 @@ export async function recordApiCostEvent(input: ApiCostEventInput): Promise<void
 
     const inputTokens = sanitizeTokenCount(input.inputTokens);
     const outputTokens = sanitizeTokenCount(input.outputTokens);
+    const thinkingTokens = sanitizeTokenCount(input.thinkingTokens);
     const totalTokens = sanitizeTokenCount(
       input.totalTokens ?? (
         inputTokens !== null || outputTokens !== null
@@ -89,6 +91,7 @@ export async function recordApiCostEvent(input: ApiCostEventInput): Promise<void
       model,
       inputTokens,
       outputTokens,
+      thinkingTokens,
       totalTokens,
     });
 
@@ -104,6 +107,7 @@ export async function recordApiCostEvent(input: ApiCostEventInput): Promise<void
     const metadata = normalizeMetadata({
       ...input.metadata,
       pricing_found: estimated.pricingFound,
+      ...(thinkingTokens !== null ? { thinking_tokens: thinkingTokens } : {}),
     });
 
     const { error } = await client.from('api_cost_events').insert({

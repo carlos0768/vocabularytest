@@ -22,8 +22,8 @@ export type GeminiModel =
   | 'gemini-3-flash-preview';
 export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
-const EXTRACTION_MODEL: GeminiModel = DEFAULT_GEMINI_FLASH_MODEL;
-const QUESTION_GENERATION_MODEL: GeminiModel = DEFAULT_GEMINI_GENERATION_MODEL;
+const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
+const QUESTION_GENERATION_MODEL: GeminiModel = 'gemini-2.0-flash-001';
 const OPENAI_MODEL: OpenAIModel = 'gpt-4o';
 
 export interface AIModelConfig {
