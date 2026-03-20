@@ -216,6 +216,8 @@ async function logTimingToSheet(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       timestamp: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      startedAt: new Date(Date.now() - (timing.totalMs as number || 0)).toISOString(),
       jobId,
       userId,
       scanMode: timing.scanMode ?? '',
