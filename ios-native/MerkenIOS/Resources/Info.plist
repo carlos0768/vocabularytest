@@ -49,5 +49,7 @@
 	</array>
 	<key>WEB_API_BASE_URL</key>
 	<string>https://www.merken.jp</string>
+	<key>CLOUDFLARE_FEEDBACK_ENDPOINT_URL</key>
+	<string>https://www.merken.jp/api/feedback</string>
 </dict>
 </plist>

@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showingSignUp = false
+    @State private var showingRequestFeedback = false
     @State private var showingContact = false
     @State private var showingTerms = false
     @State private var showingPrivacy = false
@@ -54,6 +55,10 @@ struct SettingsView: View {
 
                         // Support
                         settingsGroup {
+                            settingsNavRow(icon: "paperplane", title: "ご要望を送る") {
+                                showingRequestFeedback = true
+                            }
+                            settingsDivider
                             settingsNavRow(icon: "envelope", title: "お問い合わせ") {
                                 showingContact = true
                             }
@@ -89,6 +94,10 @@ struct SettingsView: View {
 
                         // Support
                         settingsGroup {
+                            settingsNavRow(icon: "paperplane", title: "ご要望を送る") {
+                                showingRequestFeedback = true
+                            }
+                            settingsDivider
                             settingsNavRow(icon: "envelope", title: "お問い合わせ") {
                                 showingContact = true
                             }
@@ -126,6 +135,9 @@ struct SettingsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showingContact) {
             ContactView()
+        }
+        .navigationDestination(isPresented: $showingRequestFeedback) {
+            RequestFeedbackView()
         }
         .navigationDestination(isPresented: $showingTerms) {
             TermsView()
