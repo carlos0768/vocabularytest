@@ -11,6 +11,34 @@ import { normalizeGeminiModel } from '../gemini-model';
 import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
 import { recordApiCostEvent } from '@/lib/api-cost/recorder';
+import { recordCloudRunTiming } from './cloud-run-timing';
+
+interface CloudRunTimingPayload {
+  elapsedMs?: unknown;
+  startedAt?: unknown;
+  endedAt?: unknown;
+}
+
+interface CloudRunResponsePayload {
+  success?: unknown;
+  error?: unknown;
+  content?: unknown;
+  providerUsed?: unknown;
+  modelUsed?: unknown;
+  usage?: unknown;
+  fallbackReason?: unknown;
+  timing?: unknown;
+}
+
+function parseCloudRunTimingPayload(payload: unknown): CloudRunTimingPayload | null {
+  if (!payload || typeof payload !== 'object') return null;
+  return payload as CloudRunTimingPayload;
+}
+
+function parseCloudRunResponsePayload(payload: unknown): CloudRunResponsePayload | null {
+  if (!payload || typeof payload !== 'object') return null;
+  return payload as CloudRunResponsePayload;
+}
 
 export class CloudRunProvider implements AIProvider {
   readonly name: string;
@@ -50,24 +78,57 @@ export class CloudRunProvider implements AIProvider {
         }),
       });
 
+      const rawData = await response.json().catch(() => null);
+      const data = parseCloudRunResponsePayload(rawData);
+      const timing = parseCloudRunTimingPayload(data?.timing);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        if (
+          typeof timing?.elapsedMs === 'number' &&
+          typeof timing.startedAt === 'string' &&
+          typeof timing.endedAt === 'string'
+        ) {
+          recordCloudRunTiming({
+            provider: this.providerName,
+            model: normalizedModel,
+            elapsedMs: timing.elapsedMs,
+            startedAt: timing.startedAt,
+            endedAt: timing.endedAt,
+          });
+        }
+        const errorMessage = typeof data?.error === 'string'
+          ? data.error
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-
-      if (!data.success) {
+      if (data?.success !== true) {
+        if (
+          typeof timing?.elapsedMs === 'number' &&
+          typeof timing.startedAt === 'string' &&
+          typeof timing.endedAt === 'string'
+        ) {
+          recordCloudRunTiming({
+            provider: this.providerName,
+            model: normalizedModel,
+            elapsedMs: timing.elapsedMs,
+            startedAt: timing.startedAt,
+            endedAt: timing.endedAt,
+          });
+        }
         await recordApiCostEvent({
           provider: `cloud-run-${this.providerName}`,
           model: normalizedModel,
           operation: 'ai_provider.generate',
           status: 'failed',
           metadata: {
-            error: typeof data.error === 'string' ? data.error.slice(0, 300) : 'cloud_run_failed',
+            error: typeof data?.error === 'string' ? data.error.slice(0, 300) : 'cloud_run_failed',
           },
         });
-        return { success: false, error: data.error || 'AI processing failed' };
+        return {
+          success: false,
+          error: typeof data?.error === 'string' ? data.error : 'AI processing failed',
+        };
       }
 
       const providerUsed = data.providerUsed === 'openai' || data.providerUsed === 'gemini'
@@ -76,6 +137,19 @@ export class CloudRunProvider implements AIProvider {
       const modelUsed = typeof data.modelUsed === 'string'
         ? data.modelUsed
         : normalizedModel;
+      if (
+        typeof timing?.elapsedMs === 'number' &&
+        typeof timing.startedAt === 'string' &&
+        typeof timing.endedAt === 'string'
+      ) {
+        recordCloudRunTiming({
+          provider: providerUsed,
+          model: modelUsed,
+          elapsedMs: timing.elapsedMs,
+          startedAt: timing.startedAt,
+          endedAt: timing.endedAt,
+        });
+      }
       const usage = data.usage as {
         inputTokens?: number;
         outputTokens?: number;
@@ -98,7 +172,10 @@ export class CloudRunProvider implements AIProvider {
         },
       });
 
-      return { success: true, content: data.content };
+      return {
+        success: true,
+        content: typeof data.content === 'string' ? data.content : '',
+      };
     } catch (error) {
       await recordApiCostEvent({
         provider: `cloud-run-${this.providerName}`,

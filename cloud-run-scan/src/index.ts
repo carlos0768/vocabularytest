@@ -87,6 +87,15 @@ interface GenerateRequest {
   env?: AppEnv;
 }
 
+function buildTimingPayload(startedAtMs: number) {
+  const endedAt = new Date();
+  return {
+    startedAt: new Date(startedAtMs).toISOString(),
+    endedAt: endedAt.toISOString(),
+    elapsedMs: endedAt.getTime() - startedAtMs,
+  };
+}
+
 function normalizeAppEnv(value: string | undefined, fallback: AppEnv): AppEnv {
   return value === 'stg' || value === 'prod' ? value : fallback;
 }
@@ -248,9 +257,9 @@ app.post('/generate', async (req, res) => {
         },
       );
 
-      const elapsed = Date.now() - startTime;
+      const timing = buildTimingPayload(startTime);
       console.log(
-        `[generate] id=${requestId} provider=${result.provider} completed in ${elapsed}ms` +
+        `[generate] id=${requestId} provider=${result.provider} completed in ${timing.elapsedMs}ms` +
           (result.fallbackReason ? ` reason=${result.fallbackReason}` : ''),
       );
 
@@ -261,34 +270,41 @@ app.post('/generate', async (req, res) => {
         modelUsed: result.modelUsed,
         usage: result.usage,
         fallbackReason: result.fallbackReason,
+        timing,
       });
       return;
     }
 
     if (provider === 'openai') {
       const result = await runOpenAIRequest(body);
-      const elapsed = Date.now() - startTime;
-      console.log(`[generate] id=${requestId} provider=openai completed in ${elapsed}ms`);
+      const timing = buildTimingPayload(startTime);
+      console.log(`[generate] id=${requestId} provider=openai completed in ${timing.elapsedMs}ms`);
       res.json({
         success: true,
         content: result.content,
         providerUsed: 'openai',
         modelUsed: result.modelUsed,
         usage: result.usage,
+        timing,
       });
       return;
     }
 
-    res.status(400).json({ success: false, error: `Unknown provider: ${provider}` });
+    res.status(400).json({
+      success: false,
+      error: `Unknown provider: ${provider}`,
+      timing: buildTimingPayload(startTime),
+    });
   } catch (error: unknown) {
-    const elapsed = Date.now() - startTime;
+    const timing = buildTimingPayload(startTime);
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[generate] id=${requestId} error after ${elapsed}ms:`, errMsg);
+    console.error(`[generate] id=${requestId} error after ${timing.elapsedMs}ms:`, errMsg);
 
     // Forward error details so Vercel-side can classify them
     res.status(500).json({
       success: false,
       error: errMsg,
+      timing,
     });
   }
 });

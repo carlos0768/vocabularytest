@@ -8,3 +8,7 @@ test('runGeminiRequest does not force thinkingConfig', () => {
   assert.equal(source.includes('thinkingConfig'), false);
   assert.equal(source.includes('thinkingBudget'), false);
 });
+
+test('generate responses include timing payloads', () => {
+  assert.equal(source.includes('timing: buildTimingPayload(startTime)'), true);
+});
