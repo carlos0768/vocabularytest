@@ -663,7 +663,6 @@ export async function POST(request: NextRequest) {
           .update({
             status: 'failed',
             error_message: errorMessage,
-            timing_metrics: timing,
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -713,7 +712,6 @@ export async function POST(request: NextRequest) {
             status: 'completed',
             project_id: null,
             result: JSON.stringify(resultPayload),
-            timing_metrics: timing,
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -904,7 +902,6 @@ export async function POST(request: NextRequest) {
           status: 'completed',
           project_id: projectId,
           result: JSON.stringify(resultPayload),
-          timing_metrics: timing,
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
@@ -989,7 +986,6 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'failed',
           error_message: processingError instanceof Error ? processingError.message : 'Processing failed',
-          timing_metrics: timing,
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
