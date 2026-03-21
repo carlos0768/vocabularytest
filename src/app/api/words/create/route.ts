@@ -228,7 +228,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
     return NextResponse.json({
       success: true,
       words: ((data ?? []) as WordRow[]).map(mapWordFromRow),
-      lexiconEntries: [],
+      lexiconEntries: immediateResolution.lexiconEntries,
     });
   } catch (error) {
     console.error('Word create route error:', error);

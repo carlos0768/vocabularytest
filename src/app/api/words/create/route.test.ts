@@ -78,10 +78,10 @@ function runAfterImmediately(task: unknown, setAfterPromise: (promise: Promise<v
   setAfterPromise(promise);
 }
 
-function createImmediateResolutionResult<T>(words: T[]) {
+function createImmediateResolutionResult<T>(words: T[], lexiconEntries: unknown[] = []) {
   return {
     words,
-    lexiconEntries: [],
+    lexiconEntries,
     metrics: {
       lookupKeyCount: 0,
       masterHitCount: 0,
@@ -94,12 +94,20 @@ function createImmediateResolutionResult<T>(words: T[]) {
   };
 }
 
-test('words/create inserts raw words, returns empty lexicon entries, and enqueues unresolved ids only', async () => {
+test('words/create inserts raw words, returns resolved lexicon entries, and enqueues unresolved ids only', async () => {
   const projectId = '11111111-1111-4111-8111-111111111111';
   const preservedLexiconEntryId = '22222222-2222-4222-8222-222222222222';
   const resolvedWordId = '33333333-3333-4333-8333-333333333333';
   const unresolvedWordId = '44444444-4444-4444-8444-444444444444';
   const createdAt = new Date('2026-03-15T00:00:00.000Z').toISOString();
+  const expectedLexiconEntries = [
+    {
+      id: 'lex-1',
+      headword: 'book',
+      normalizedHeadword: 'book',
+      pos: 'noun',
+    },
+  ];
 
   const fakeClient = new FakeWordsCreateClient(
     'user-1',
@@ -169,7 +177,7 @@ test('words/create inserts raw words, returns empty lexicon entries, and enqueue
           afterPromise = promise;
         });
       },
-      resolveImmediateWords: async (words) => createImmediateResolutionResult(words),
+      resolveImmediateWords: async (words) => createImmediateResolutionResult(words, expectedLexiconEntries),
       backfillWords: async (words) => ({
         words,
         aiBackfilledIndexes: [],
@@ -191,7 +199,7 @@ test('words/create inserts raw words, returns empty lexicon entries, and enqueue
 
   assert.equal(response.status, 200);
   const payload = await response.json();
-  assert.deepEqual(payload.lexiconEntries, []);
+  assert.deepEqual(payload.lexiconEntries, expectedLexiconEntries);
   assert.equal(payload.words.length, 2);
   assert.equal(payload.words[0].lexiconEntryId, preservedLexiconEntryId);
   assert.equal(fakeClient.insertedRows[0]?.['lexicon_entry_id'], preservedLexiconEntryId);
