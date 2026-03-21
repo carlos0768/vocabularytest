@@ -80,6 +80,9 @@ const CONTENT_RULES: ContentRule[] = [
   },
 ];
 
+// Threshold: at least one rule match required to flag change as DB-related
+const DB_DETECTION_MIN_MATCHES = 1;
+
 export function detectDbRelatedChanges(changedFiles: ChangedFile[]): DbDetectionResult {
   const matches: DetectionMatch[] = [];
 
@@ -110,7 +113,7 @@ export function detectDbRelatedChanges(changedFiles: ChangedFile[]): DbDetection
 
   const uniqueDbPaths = new Set(matches.map((m) => m.path));
   return {
-    isDbRelated: matches.length > 0,
+    isDbRelated: matches.length >= DB_DETECTION_MIN_MATCHES,
     matches,
     changedFileCount: changedFiles.length,
     dbChangedFileCount: uniqueDbPaths.size,
