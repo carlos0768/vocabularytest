@@ -1,0 +1,78 @@
+name: DB IO Investigation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'supabase/migrations/**'
+      - 'src/lib/db/**'
+      - 'src/app/api/**'
+      - 'scripts/**/*.sql'
+      - 'security/**/*.sql'
+      - '**/schema.prisma'
+      - '.github/workflows/db-io-investigation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Build payload from PR files
+        id: payload
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const perPage = 100;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: perPage,
+            });
+
+            const changedFiles = files.slice(0, 500).map((f) => ({
+              path: f.filename,
+              changeType: f.status,
+              additions: f.additions,
+              deletions: f.deletions,
+              patch: f.patch,
+            }));
+
+            const body = {
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              prNumber: context.payload.pull_request.number,
+              prUrl: context.payload.pull_request.html_url,
+              commitSha: context.payload.pull_request.head.sha,
+              actor: context.actor,
+              triggeredAt: new Date().toISOString(),
+              source: 'github-actions',
+              changedFiles,
+            };
+
+            const encoded = Buffer.from(JSON.stringify(body), 'utf8').toString('base64');
+            core.setOutput('json_base64', encoded);
+
+      - name: Invoke DB investigation service
+        env:
+          DB_INVESTIGATION_URL: ${{ secrets.DB_INVESTIGATION_URL }}
+          DB_INVESTIGATION_AUTH_TOKEN: ${{ secrets.DB_INVESTIGATION_AUTH_TOKEN }}
+          PAYLOAD_BASE64: ${{ steps.payload.outputs.json_base64 }}
+        run: |
+          if [ -z "$DB_INVESTIGATION_URL" ] || [ -z "$DB_INVESTIGATION_AUTH_TOKEN" ]; then
+            echo "Missing required secrets: DB_INVESTIGATION_URL and/or DB_INVESTIGATION_AUTH_TOKEN"
+            exit 1
+          fi
+
+          payload=$(printf "%s" "$PAYLOAD_BASE64" | base64 --decode)
+
+          curl -sS -X POST "${DB_INVESTIGATION_URL}/investigate" \
+            -H "Authorization: Bearer ${DB_INVESTIGATION_AUTH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "X-Request-Id: gh-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --data "$payload"
