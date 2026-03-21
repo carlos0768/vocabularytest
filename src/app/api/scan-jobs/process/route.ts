@@ -921,7 +921,7 @@ export async function POST(request: NextRequest) {
           saveMode,
           extractedWords: resolvedWords,
           sourceLabels: dedupedSourceLabels,
-          lexiconEntries: [],
+          lexiconEntries: resolvedResult?.lexiconEntries ?? [],
         };
         if (warnings.length > 0) {
           resultPayload.warnings = warnings;

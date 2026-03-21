@@ -348,7 +348,7 @@ export async function POST(request: NextRequest) {
       success: true,
       words: extractedWords,
       sourceLabels: ensureSourceLabels(result.data.sourceLabels),
-      lexiconEntries: [],
+      lexiconEntries: resolved?.lexiconEntries ?? [],
       scanInfo: {
         currentCount: scanData.current_count,
         limit: scanData.limit,
