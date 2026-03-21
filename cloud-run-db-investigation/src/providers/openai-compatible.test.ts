@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KimiProvider } from './kimi.js';
+import { OpenAiCompatibleProvider } from './openai-compatible.js';
 import type { InvestigationRequest, DbDetectionResult } from '../types.js';
 
 // Mock fetch for testing
@@ -21,12 +21,12 @@ global.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
           finish_reason: 'stop',
           message: {
             content: JSON.stringify({
-              summary: 'Test assessment',
+              summary: 'テスト評価',
               riskScore: 65,
               riskLevel: 'high',
               ioBudgetExhaustionRisk: 60,
-              factors: ['Factor 1', 'Factor 2'],
-              recommendations: ['Rec 1'],
+              factors: ['要因1', '要因2'],
+              recommendations: ['推奨事項1'],
             }),
           },
         }],
@@ -74,12 +74,12 @@ global.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
               function: {
                 name: 'generate_assessment_output',
                 arguments: JSON.stringify({
-                  summary: 'Test assessment',
+                  summary: 'テスト評価',
                   riskScore: 65,
                   riskLevel: 'high',
                   ioBudgetExhaustionRisk: 60,
-                  factors: ['Factor 1', 'Factor 2'],
-                  recommendations: ['Rec 1'],
+                  factors: ['要因1', '要因2'],
+                  recommendations: ['推奨事項1'],
                 }),
               },
             },
@@ -90,21 +90,21 @@ global.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
   } as Response;
 };
 
-test('KimiProvider has correct name', () => {
-  const provider = new KimiProvider({
+test('OpenAiCompatibleProvider has correct name', () => {
+  const provider = new OpenAiCompatibleProvider({
     endpoint: 'https://api.test.com',
     apiKey: 'test-key',
-    model: 'kimi-test',
+    model: 'gpt-4o',
   });
   
-  assert.equal(provider.name, 'kimi');
+  assert.equal(provider.name, 'openai-compatible');
 });
 
-test('KimiProvider assess returns assessment from tool calls', async () => {
-  const provider = new KimiProvider({
+test('OpenAiCompatibleProvider assess returns assessment from tool calls', async () => {
+  const provider = new OpenAiCompatibleProvider({
     endpoint: 'https://api.test.com',
     apiKey: 'test-key',
-    model: 'kimi-test',
+    model: 'gpt-4o',
   });
   
   const request: InvestigationRequest = {
@@ -136,7 +136,7 @@ test('KimiProvider assess returns assessment from tool calls', async () => {
   
   const result = await provider.assess({ request, detection });
   
-  assert.equal(result.provider, 'kimi');
+  assert.equal(result.provider, 'openai-compatible');
   assert.equal(result.riskLevel, 'high');
   assert.equal(result.riskScore, 65);
   assert.equal(result.ioBudgetExhaustionRisk, 60);
@@ -144,17 +144,17 @@ test('KimiProvider assess returns assessment from tool calls', async () => {
   assert.ok(Array.isArray(result.recommendations));
 });
 
-test('KimiProvider handles API errors gracefully', async () => {
+test('OpenAiCompatibleProvider handles API errors gracefully', async () => {
   // Override fetch to simulate error
   const originalFetch = global.fetch;
   global.fetch = async (): Promise<Response> => {
     throw new Error('Network error');
   };
   
-  const provider = new KimiProvider({
+  const provider = new OpenAiCompatibleProvider({
     endpoint: 'https://api.test.com',
     apiKey: 'test-key',
-    model: 'kimi-test',
+    model: 'gpt-4o',
   });
   
   const request: InvestigationRequest = {

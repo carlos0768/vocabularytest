@@ -1,7 +1,7 @@
 import type { RiskAssessmentProvider } from './types.js';
 import type { DbDetectionResult, InvestigationRequest, IoRiskAssessment, RiskLevel } from '../types.js';
 
-interface KimiConfig {
+interface OpenAiCompatibleConfig {
   endpoint: string;
   apiKey: string;
   model: string;
@@ -110,7 +110,7 @@ const TOOLS = [
         properties: {
           summary: {
             type: 'string',
-            description: 'Brief summary of the assessment',
+            description: 'Brief summary of the assessment (in Japanese)',
           },
           riskScore: {
             type: 'number',
@@ -128,12 +128,12 @@ const TOOLS = [
           factors: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Key risk factors identified',
+            description: 'Key risk factors identified (in Japanese)',
           },
           recommendations: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Actionable recommendations',
+            description: 'Actionable recommendations (in Japanese)',
           },
         },
         required: ['summary', 'riskScore', 'riskLevel', 'ioBudgetExhaustionRisk', 'factors', 'recommendations'],
@@ -142,16 +142,16 @@ const TOOLS = [
   },
 ];
 
-export class KimiProvider implements RiskAssessmentProvider {
-  readonly name = 'kimi';
+export class OpenAiCompatibleProvider implements RiskAssessmentProvider {
+  readonly name = 'openai-compatible';
 
-  constructor(private readonly config: KimiConfig) {}
+  constructor(private readonly config: OpenAiCompatibleConfig) {}
 
   async assess(input: { request: InvestigationRequest; detection: DbDetectionResult }): Promise<IoRiskAssessment> {
     try {
       return await this.performAssessment(input);
     } catch (error) {
-      console.error('[KimiProvider] Assessment failed, using fallback:', error instanceof Error ? error.message : String(error));
+      console.error('[OpenAiCompatibleProvider] Assessment failed, using fallback:', error instanceof Error ? error.message : String(error));
       return this.fallbackAssessment(input.detection);
     }
   }
@@ -162,21 +162,23 @@ export class KimiProvider implements RiskAssessmentProvider {
     const messages: Message[] = [
       {
         role: 'system',
-        content: `You are a database risk assessment specialist. Analyze code changes for potential database IO risks.
+        content: `あなたはデータベースリスク評価の専門家です。コード変更におけるデータベースIOリスクを分析してください。
 
-Your task is to:
-1. Analyze each changed file for DB-related risks using the analyze_file_risk tool
-2. Calculate aggregated risk metrics using calculate_risk_metrics
-3. Generate a final assessment using generate_assessment_output
+タスク:
+1. analyze_file_riskツールを使用して、変更された各ファイルのDB関連リスクを分析
+2. calculate_risk_metricsを使用して集計リスクを計算
+3. generate_assessment_outputを使用して最終評価を生成
 
-Risk factors to consider:
-- Migration files (high risk)
-- Schema changes (high risk)
-- Index operations (medium-high risk)
-- Query pattern changes (medium risk)
-- RLS/policy changes (medium risk)
+考慮すべきリスク要因:
+- マイグレーションファイル（高リスク）
+- スキーマ変更（高リスク）
+- インデックス操作（中〜高リスク）
+- クエリパターン変更（中リスク）
+- RLS/ポリシー変更（中リスク）
 
-Always use the tools provided to complete your assessment. Do not respond with raw text - always use the tools.`,
+重要: summary、factors、recommendationsは必ず日本語で出力してください。
+
+提供されたツールを使用して評価を完了させてください。生テキストではなく、常にツールを使用してください。`,
       },
       {
         role: 'user',
@@ -249,7 +251,7 @@ ${filesInfo}
 Changed files details:
 ${changedFilesDetails}
 
-Please analyze these changes and provide a risk assessment using the available tools.`;
+これらの変更を分析し、リスク評価を提供してください（日本語で出力）。`;
   }
 
   private async callChatApi(messages: Message[]): Promise<{
@@ -278,14 +280,14 @@ Please analyze these changes and provide a risk assessment using the available t
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Kimi API error: ${response.status} ${text}`);
+      throw new Error(`OpenAI-compatible API error: ${response.status} ${text}`);
     }
 
     const data = await response.json();
     const choice = data.choices?.[0];
     
     if (!choice) {
-      throw new Error('No choices in Kimi API response');
+      throw new Error('No choices in API response');
     }
 
     return {
@@ -395,7 +397,7 @@ Please analyze these changes and provide a risk assessment using the available t
     recommendations: string[];
   }): IoRiskAssessment {
     return {
-      provider: 'kimi',
+      provider: 'openai-compatible',
       summary: args.summary,
       riskScore: Math.max(0, Math.min(100, args.riskScore)),
       riskLevel: args.riskLevel,
@@ -414,8 +416,8 @@ Please analyze these changes and provide a risk assessment using the available t
       
       if (parsed.riskScore !== undefined && parsed.riskLevel) {
         return {
-          provider: 'kimi',
-          summary: parsed.summary || 'AI-generated assessment',
+          provider: 'openai-compatible',
+          summary: parsed.summary || 'AIによる評価',
           riskScore: Math.max(0, Math.min(100, parsed.riskScore)),
           riskLevel: parsed.riskLevel,
           ioBudgetExhaustionRisk: Math.max(0, Math.min(100, parsed.ioBudgetExhaustionRisk || parsed.riskScore)),
@@ -433,6 +435,6 @@ Please analyze these changes and provide a risk assessment using the available t
     // Import dynamically to avoid circular dependency
     const { buildHeuristicAssessment } = await import('../risk-scorer.js');
     const result = buildHeuristicAssessment(detection);
-    return { ...result, provider: 'kimi-fallback' };
+    return { ...result, provider: 'openai-compatible-fallback' };
   }
 }

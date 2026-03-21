@@ -69,3 +69,51 @@ test('scan-jobs highlighted mode resolves provider from highlighted config', () 
   const providers = __internal.getProvidersForMode('highlighted');
   assert.deepEqual(providers, [AI_CONFIG.extraction.highlighted.provider]);
 });
+
+test('flattenWordsByPageOrder preserves page order deterministically', () => {
+  const flattened = __internal.flattenWordsByPageOrder([
+    [
+      {
+        english: 'alpha',
+        japanese: 'a',
+        distractors: [],
+        partOfSpeechTags: [],
+        exampleSentence: null,
+        exampleSentenceJa: null,
+      },
+    ],
+    [
+      {
+        english: 'bravo',
+        japanese: 'b',
+        distractors: [],
+        partOfSpeechTags: [],
+        exampleSentence: null,
+        exampleSentenceJa: null,
+      },
+      {
+        english: 'charlie',
+        japanese: 'c',
+        distractors: [],
+        partOfSpeechTags: [],
+        exampleSentence: null,
+        exampleSentenceJa: null,
+      },
+    ],
+    [
+      {
+        english: 'delta',
+        japanese: 'd',
+        distractors: [],
+        partOfSpeechTags: [],
+        exampleSentence: null,
+        exampleSentenceJa: null,
+      },
+    ],
+  ]);
+
+  assert.deepEqual(
+    flattened.map((word) => word.english),
+    ['alpha', 'bravo', 'charlie', 'delta']
+  );
+});

@@ -20,6 +20,33 @@ export interface ExtractionOptions {
   eikenLevel?: string | null; // EIKEN level filter
 }
 
+const READING_ORDER_INSTRUCTION =
+  'Return words in reading order within the image: top-to-bottom, and left-to-right for words on the same line/height.';
+
+function buildWordExtractionPrompts(options: ExtractionOptions): {
+  systemPrompt: string;
+  userPrompt: string;
+} {
+  const { includeExamples = false, eikenLevel = null } = options;
+  const baseSystemPrompt = includeExamples
+    ? WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT
+    : WORD_EXTRACTION_SYSTEM_PROMPT;
+  const eikenInstruction = getEikenFilterInstruction(eikenLevel);
+  const orderingInstruction = `\n\n${READING_ORDER_INSTRUCTION}`;
+
+  return {
+    systemPrompt: `${baseSystemPrompt}${eikenInstruction}${orderingInstruction}`,
+    userPrompt: `${
+      includeExamples ? USER_PROMPT_WITH_EXAMPLES_TEMPLATE : USER_PROMPT_TEMPLATE
+    }${orderingInstruction}`,
+  };
+}
+
+export const __internal = {
+  READING_ORDER_INSTRUCTION,
+  buildWordExtractionPrompts,
+};
+
 // Extracts words from an image using AI provider (configured in config.ts)
 // Returns validated word data or an error message
 export async function extractWordsFromImage(
@@ -48,20 +75,7 @@ export async function extractWordsFromImage(
   });
 
   const provider = getProviderFromConfig(config, apiKeys);
-  const { includeExamples = false, eikenLevel = null } = options;
-
-  // Select prompts based on whether examples are requested (Pro feature)
-  const baseSystemPrompt = includeExamples
-    ? WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT
-    : WORD_EXTRACTION_SYSTEM_PROMPT;
-
-  // Add EIKEN filter instruction if level is specified
-  const eikenInstruction = getEikenFilterInstruction(eikenLevel);
-  const systemPrompt = baseSystemPrompt + eikenInstruction;
-
-  const userPrompt = includeExamples
-    ? USER_PROMPT_WITH_EXAMPLES_TEMPLATE
-    : USER_PROMPT_TEMPLATE;
+  const { systemPrompt, userPrompt } = buildWordExtractionPrompts(options);
 
   // Prepare image for provider
   const image = prepareImageForProvider(imageBase64);

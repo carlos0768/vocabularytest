@@ -1,0 +1,14 @@
+﻿{
+  "name": "vercel-log-drain",
+  "version": "1.0.0",
+  "description": "Cloud Run service for Vercel Log Drain error alerts to Slack",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.10.0",
+    "express": "^4.21.2"
+  }
+}

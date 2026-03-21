@@ -100,6 +100,7 @@ export const __internal = {
   getProvidersForMode,
   getMissingProviderKey,
   extractFromImage,
+  flattenWordsByPageOrder,
 };
 
 interface ExtractionHandlers {
@@ -322,6 +323,14 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
   return deduped;
 }
 
+function flattenWordsByPageOrder(wordsByPage: ProcessedExtractedWord[][]): ProcessedExtractedWord[] {
+  const ordered: ProcessedExtractedWord[] = [];
+  for (const words of wordsByPage) {
+    ordered.push(...words);
+  }
+  return ordered;
+}
+
 async function generateQuizContentWithRetry(words: QuizSeedWord[]): Promise<{
   results: QuizContentResult[];
   failedWordIds: string[];
@@ -525,7 +534,10 @@ export async function POST(request: NextRequest) {
         .maybeSingle<{ ai_enabled: boolean | null }>();
       const aiEnabled = preference?.ai_enabled !== false;
 
-      const allExtractedWords: ProcessedExtractedWord[] = [];
+      const extractedWordsByPage: ProcessedExtractedWord[][] = Array.from(
+        { length: imagePaths.length },
+        () => []
+      );
       let firstExtractionError: string | null = null;
       const warningCodes = new Set<ExtractionWarningCode>();
       const pageWarnings: string[] = [];
@@ -612,7 +624,9 @@ export async function POST(request: NextRequest) {
 
         const batchResults = await Promise.allSettled(batchIndices.map(i => processOneImage(i)));
 
-        for (const settledResult of batchResults) {
+        for (let batchOffset = 0; batchOffset < batchResults.length; batchOffset += 1) {
+          const pageIndex = batchIndices[batchOffset];
+          const settledResult = batchResults[batchOffset];
           if (settledResult.status === 'rejected') {
             console.error('Unexpected batch rejection:', settledResult.reason);
             if (!firstExtractionError) {
@@ -645,12 +659,13 @@ export async function POST(request: NextRequest) {
             void sendScanJobApnsNotifications(getSupabaseAdmin(), warningParams).catch(e => console.error('[APNs] warning push failed:', e));
           }
 
-          allExtractedWords.push(...words);
+          extractedWordsByPage[pageIndex].push(...words);
         }
       }
 
       const parseStart = Date.now();
-      const dedupedWords = dedupeExtractedWords(allExtractedWords);
+      const orderedExtractedWords = flattenWordsByPageOrder(extractedWordsByPage);
+      const dedupedWords = dedupeExtractedWords(orderedExtractedWords);
       timing.parseValidationMs = Date.now() - parseStart;
 
       if (dedupedWords.length === 0) {

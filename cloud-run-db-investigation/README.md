@@ -5,7 +5,7 @@ Security-first, stateless investigation pipeline focused only on DB-related code
 ## Scope
 - Input: PR/commit change metadata from GitHub webhook or GitHub Actions.
 - Trigger: Runs assessment only when DB-related rules match (`src/rules/db-rules.ts`).
-- Output: Structured result suitable for Notion database `DBí≤ç∏`.
+- Output: Structured result suitable for Notion database `DBË™øÊüª`.
 
 ## API
 - `GET /health`
@@ -31,16 +31,18 @@ Request body:
 
 ## Required Environment Variables
 - `WEBHOOK_AUTH_TOKEN` (required)
-- `INVESTIGATION_PROVIDER` (`heuristic` default, or `kimi`)
+- `INVESTIGATION_PROVIDER` (`heuristic` default, or `openai-compatible`)
 - `NOTION_API_KEY` (optional, required to write results)
 - `NOTION_DATABASE_ID` (optional, required to write results)
 
-Kimi provider placeholder:
-- `KIMI_ENDPOINT`
-- `KIMI_API_KEY`
-- `KIMI_MODEL`
+OpenAI-compatible provider (uses standard OpenAI API format):
+- `OPENAI_COMPATIBLE_ENDPOINT` - e.g., `https://api.openai.com/v1` or your proxy
+- `OPENAI_COMPATIBLE_API_KEY`
+- `OPENAI_COMPATIBLE_MODEL` (default: `gpt-4o`)
 
-## Notion Mapping (`DBí≤ç∏`)
+Legacy compatibility: `KIMI_ENDPOINT`, `KIMI_API_KEY`, `KIMI_MODEL` are also supported as fallbacks.
+
+## Notion Mapping (`DBË™øÊüª`)
 Expected property names in the Notion database:
 - `Name` (title)
 - `Repository` (rich_text)
@@ -59,6 +61,8 @@ Expected property names in the Notion database:
 - `RuleMatches` (rich_text)
 - `Recommendations` (rich_text)
 
+Note: Assessment summary, factors, and recommendations are written in Japanese when using the `openai-compatible` provider.
+
 ## Security Notes
 - Service is stateless and performs no filesystem writes.
 - Endpoint access is blocked unless bearer token matches `WEBHOOK_AUTH_TOKEN`.
@@ -68,7 +72,7 @@ Expected property names in the Notion database:
     - Secret Manager accessor to specific secrets used by this service.
     - Cloud Logging write (default).
   - Do not grant GitHub/Supabase/Vercel mutating permissions.
-- Notion key should only be granted access to `DBí≤ç∏` database.
+- Notion key should only be granted access to `DBË™øÊüª` database.
 - Prefer private ingress + authenticated caller (GitHub OIDC proxy/service account) in production; bearer token is baseline control for MVP.
 
 ## Local Commands
