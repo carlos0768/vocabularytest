@@ -25,12 +25,7 @@ const navItems: NavItem[] = [
     label: '単語帳',
     matchPaths: ['/projects', '/project'],
   },
-  {
-    href: '/collections',
-    icon: 'shelves',
-    label: '本棚',
-    matchPaths: ['/collections'],
-  },
+
   {
     href: '/search',
     icon: 'search',

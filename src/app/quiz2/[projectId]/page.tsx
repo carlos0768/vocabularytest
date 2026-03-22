@@ -91,11 +91,7 @@ export default function Quiz2Page() {
     }
 
     if (isCollectionMode) {
-      if (collectionId) {
-        router.push(`/collections/${collectionId}`);
-      } else {
-        router.push('/collections');
-      }
+      router.push('/');
       return;
     }
 
