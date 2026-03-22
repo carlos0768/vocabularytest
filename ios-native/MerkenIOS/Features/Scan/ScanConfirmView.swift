@@ -144,7 +144,28 @@ struct ScanConfirmView: View {
 
     private var projectTitleSection: some View {
         Group {
-            if targetProjectTitle == nil {
+            if let targetProjectTitle {
+                SolidPane {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("保存先")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: "book.closed.fill")
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                            Text(targetProjectTitle)
+                                .font(.headline)
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .lineLimit(2)
+                        }
+
+                        Text("この単語帳に追加して保存します。")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
+            } else {
                 SolidPane {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("プロジェクト名")
