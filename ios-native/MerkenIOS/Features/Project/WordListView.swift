@@ -52,18 +52,6 @@ struct WordListView: View {
         }
     }
 
-    private var groupedFilteredWordsByDate: [(date: Date, words: [Word])] {
-        let calendar = Calendar.current
-        let sorted = filteredWords.sorted { $0.createdAt > $1.createdAt }
-        let grouped = Dictionary(grouping: sorted) { word in
-            calendar.startOfDay(for: word.createdAt)
-        }
-
-        return grouped
-            .map { (date: $0.key, words: $0.value) }
-            .sorted { $0.date > $1.date }
-    }
-
     init(project: Project, contentScrollEnabled: Bool = true, initialStatus: WordStatus? = nil) {
         self.project = project
         self.contentScrollEnabled = contentScrollEnabled
@@ -88,23 +76,17 @@ struct WordListView: View {
                         statusChips
 
                         // Words
-                        if groupedFilteredWordsByDate.isEmpty {
+                        if filteredWords.isEmpty {
                             emptyState
                         }
 
-                        if !groupedFilteredWordsByDate.isEmpty {
+                        if !filteredWords.isEmpty {
                             VStack(spacing: 0) {
-                                ForEach(Array(groupedFilteredWordsByDate.enumerated()), id: \.element.date) { index, group in
-                                    if index > 0 {
-                                        groupDividerLine
-                                    }
+                                dividerLine
 
+                                ForEach(filteredWords) { word in
+                                    wordRow(word)
                                     dividerLine
-
-                                    ForEach(group.words) { word in
-                                        wordRow(word)
-                                        dividerLine
-                                    }
                                 }
                             }
                         }
@@ -337,13 +319,6 @@ struct WordListView: View {
         Rectangle()
             .fill(MerkenTheme.borderLight)
             .frame(height: 1)
-            .frame(maxWidth: .infinity)
-    }
-
-    private var groupDividerLine: some View {
-        Rectangle()
-            .fill(MerkenTheme.border)
-            .frame(height: 3)
             .frame(maxWidth: .infinity)
     }
 

@@ -24,7 +24,7 @@ struct DayMasteryStory: Identifiable, Equatable {
     var title: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M朁E日(E)"
+        formatter.dateFormat = "M月d日(E)"
         return formatter.string(from: date)
     }
 }
@@ -134,12 +134,12 @@ private struct HomeMasteryStoryView: View {
                         title: "今回の記録",
                         rows: [
                             ("checkmark.circle.fill", "習得時刻", masteryTime(for: word), Color.green),
-                            ("sparkles", "達�E枚数", "\(index + 1) / \(story.words.count)", MerkenTheme.warning)
+                            ("sparkles", "達成枚数", "\(index + 1) / \(story.words.count)", MerkenTheme.warning)
                         ]
                     )
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("習得した単誁E)
+                        Text("習得した単語")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(ticketSecondaryTextColor)
 
@@ -159,7 +159,7 @@ private struct HomeMasteryStoryView: View {
                         ticketInfoSection(
                             title: "補足",
                             rows: [
-                                ("tag.fill", "品詁E, partOfSpeech, MerkenTheme.accentBlue)
+                                ("tag.fill", "品詞", partOfSpeech, MerkenTheme.accentBlue)
                             ]
                         )
                     }
@@ -190,7 +190,7 @@ private struct HomeMasteryStoryView: View {
                 .padding(.bottom, 28)
             }
         } footer: {
-            ticketActionButton(title: index == story.words.count - 1 ? "閉じめE : "次の単誁E) {
+            ticketActionButton(title: index == story.words.count - 1 ? "閉じる" : "次の単語") {
                 advance(from: index)
             }
         }
@@ -204,11 +204,11 @@ private struct HomeMasteryStoryView: View {
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundStyle(ticketPrimaryTextColor)
 
-                    Text("こ�E日に習得した単語�Eまだありません、E)
+                    Text("この日に習得した単語はまだありません。")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(ticketPrimaryTextColor)
 
-                    Text("次の復習で習得した単語が出ると、ここにスト�Eリーとして残ります、E)
+                    Text("次の復習で習得した単語が出ると、ここにストーリーとして残ります。")
                         .font(.system(size: 17))
                         .foregroundStyle(ticketSecondaryTextColor)
                         .lineSpacing(4)
@@ -219,7 +219,7 @@ private struct HomeMasteryStoryView: View {
                 .padding(.bottom, 28)
             }
         } footer: {
-            ticketActionButton(title: "閉じめE) {
+            ticketActionButton(title: "閉じる") {
                 dismiss()
             }
         }
@@ -527,6 +527,8 @@ struct HomeView: View {
                         studyModesSection
 
                         heroBlock
+
+                        homeLearningStateSection
                     }
 
                     errorSection
@@ -553,13 +555,13 @@ struct HomeView: View {
         if let errorMessage = viewModel.errorMessage {
             SolidCard {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("チE�Eタの取得に失敗しました", systemImage: "exclamationmark.triangle.fill")
+                    Label("データの取得に失敗しました", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(MerkenTheme.warning)
                         .font(.headline)
                     Text(errorMessage)
                         .font(.subheadline)
                         .foregroundStyle(MerkenTheme.secondaryText)
-                    Button("再試衁E) {
+                    Button("再試行") {
                         Task { await viewModel.load(using: appState) }
                     }
                     .buttonStyle(PrimaryGlassButton())
@@ -589,11 +591,11 @@ struct HomeView: View {
                         .font(.title3.bold())
                         .foregroundStyle(MerkenTheme.primaryText)
 
-                    TextField("侁E TOEIC 重要単誁E, text: $newProjectTitle)
+                    TextField("例: TOEIC 重要単語", text: $newProjectTitle)
                         .textFieldStyle(.plain)
                         .solidTextField(cornerRadius: 16)
 
-                    Button("作�E") {
+                    Button("作成") {
                         Task {
                             await viewModel.createProject(title: newProjectTitle, using: appState)
                             if viewModel.errorMessage == nil {
@@ -659,7 +661,7 @@ struct HomeView: View {
                     reviewProgressRing
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の目樁E)
+                        Text("今日の目標")
                             .font(.system(size: 13))
                             .foregroundStyle(MerkenTheme.secondaryText)
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -670,14 +672,14 @@ struct HomeView: View {
                                 .minimumScaleFactor(0.55)
                                 .allowsTightening(true)
                                 .foregroundStyle(MerkenTheme.accentBlue)
-                            Text("語を復翁E)
+                            Text("語を復習")
                                 .font(.system(size: 16, weight: .medium))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
                                 .foregroundStyle(MerkenTheme.primaryText)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完亁E)
+                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完了")
                             .font(.system(size: 13, weight: .medium))
                             .monospacedDigit()
                             .lineLimit(1)
@@ -709,7 +711,7 @@ struct HomeView: View {
                                 .frame(width: 56, height: 56)
                                 .background(MerkenTheme.accentBlue, in: .circle)
                         }
-                        .accessibilityLabel("復翁E)
+                        .accessibilityLabel("復習")
                     }
                 }
             } else if reviewTargetCount > 0 {
@@ -717,13 +719,13 @@ struct HomeView: View {
                     reviewProgressRing
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の復翁E)
+                        Text("今日の復習")
                             .font(.system(size: 13))
                             .foregroundStyle(MerkenTheme.secondaryText)
-                        Text("完亁E��ました")
+                        Text("完了しました")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(MerkenTheme.primaryText)
-                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完亁E)
+                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完了")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(MerkenTheme.secondaryText)
                     }
@@ -731,7 +733,7 @@ struct HomeView: View {
                     Spacer()
                 }
             } else {
-                // No due words  Eshow encouragement
+                // No due words — show encouragement
                 HStack(spacing: 12) {
                     Image(systemName: focusBannerIcon)
                         .font(.title3)
@@ -762,6 +764,106 @@ struct HomeView: View {
                 .offset(y: 3)
         )
     }
+
+    private var homeLearningStateSection: some View {
+        let total = viewModel.allWordsFlat.count
+        let masteredCount = viewModel.allWordsFlat.filter { $0.status == .mastered }.count
+        let reviewCount = viewModel.allWordsFlat.filter { $0.status == .review }.count
+        let newCount = viewModel.allWordsFlat.filter { $0.status == .new }.count
+
+        return HStack(alignment: .top, spacing: 10) {
+            homeLearningStateCard(
+                label: "習得",
+                count: masteredCount,
+                total: total,
+                color: MerkenTheme.success,
+                icon: "checkmark.seal.fill"
+            )
+
+            homeLearningStateCard(
+                label: "学習中",
+                count: reviewCount,
+                total: total,
+                color: MerkenTheme.accentBlue,
+                icon: "arrow.trianglehead.2.clockwise"
+            )
+
+            homeLearningStateCard(
+                label: "未学習",
+                count: newCount,
+                total: total,
+                color: MerkenTheme.mutedText,
+                icon: "sparkle"
+            )
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private func homeLearningStateCard(
+        label: String,
+        count: Int,
+        total: Int,
+        color: Color,
+        icon: String
+    ) -> some View {
+        let progress: CGFloat = total > 0 ? CGFloat(count) / CGFloat(total) : 0
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("\(count)")
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("/\(total)語")
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+            .font(.system(size: 21, weight: .bold))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .allowsTightening(true)
+
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 2)
+
+            ZStack {
+                Circle()
+                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        color,
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            .frame(width: 54, height: 54)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 120)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
     private var reviewProgressRing: some View {
         ZStack {
             Circle()
@@ -778,7 +880,7 @@ struct HomeView: View {
                 Text("\(Int(reviewCompletionProgress * 100))%")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
-                Text("完亁E)
+                Text("完了")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(MerkenTheme.secondaryText)
             }
@@ -928,7 +1030,7 @@ struct HomeView: View {
                                 preloadedWords: viewModel.dueWords.isEmpty ? viewModel.preloadedWords(for: firstProject.id) : viewModel.dueWords
                             )
                         } label: {
-                            Label("フラチE��ュカードで勉強", systemImage: "rectangle.portrait.on.rectangle.portrait")
+                            Label("フラッシュカードで勉強", systemImage: "rectangle.portrait.on.rectangle.portrait")
                         }
                     } label: {
                         Image(systemName: "ellipsis")
@@ -943,7 +1045,7 @@ struct HomeView: View {
                 }
             }
 
-            Text("\(viewModel.dueWordCount)語�E英単語を復習しましょぁE)
+            Text("\(viewModel.dueWordCount)語の英単語を復習しましょう")
                 .font(.system(size: 14))
                 .foregroundStyle(MerkenTheme.secondaryText)
 
@@ -966,7 +1068,7 @@ struct HomeView: View {
                         )
                     }
                 } label: {
-                    Text("復習すめE)
+                    Text("復習する")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -1026,7 +1128,7 @@ struct HomeView: View {
                         )
                     }
                 } label: {
-                    Text("復翁E)
+                    Text("復習")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)
@@ -1059,17 +1161,17 @@ struct HomeView: View {
     private var miniStatsRow: some View {
         HStack(spacing: 0) {
             if viewModel.streakDays > 0 {
-                miniStat(icon: "flame.fill", value: "\(viewModel.streakDays)日", label: "連綁E)
+                miniStat(icon: "flame.fill", value: "\(viewModel.streakDays)日", label: "連続")
             }
             if viewModel.todayAnswered > 0 {
                 if viewModel.streakDays > 0 { miniStatDivider }
                 miniStat(icon: "checkmark.circle", value: "\(viewModel.accuracyPercent)%", label: "正答率")
                 miniStatDivider
-                miniStat(icon: "graduationcap", value: "\(viewModel.totalWordCount)", label: "習征E)
+                miniStat(icon: "graduationcap", value: "\(viewModel.totalWordCount)", label: "習得")
             }
             if viewModel.dueWordCount > 0 {
                 miniStatDivider
-                miniStat(icon: "clock", value: "\(viewModel.dueWordCount)", label: "復習征E��")
+                miniStat(icon: "clock", value: "\(viewModel.dueWordCount)", label: "復習待ち")
             }
         }
         .padding(.vertical, 10)
@@ -1126,7 +1228,7 @@ struct HomeView: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
-            Text("右下�Eスキャンボタンから\nノ�Eトやプリントを撮影しましょぁE��E)
+            Text("右下のスキャンボタンから\nノートやプリントを撮影しましょう。")
                 .font(.system(size: 14))
                 .foregroundStyle(MerkenTheme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -1167,24 +1269,6 @@ struct HomeView: View {
 
                 Button {
                     MerkenHaptic.selection()
-                    showingScan = true
-                } label: {
-                    Label("スキャン", systemImage: "camera")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(MerkenTheme.surface, in: Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(MerkenTheme.border, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-
-
-                Button {
-                    MerkenHaptic.selection()
                     showingCreateProjectSheet = true
                 } label: {
                     Label("追加", systemImage: "plus")
@@ -1207,7 +1291,7 @@ struct HomeView: View {
                         Text("まだ単語帳がありません")
                             .font(.headline)
                             .foregroundStyle(MerkenTheme.primaryText)
-                        Text("右上�E追加から新しい単語帳を作�Eしてください、E)
+                        Text("右上の追加から新しい単語帳を作成してください。")
                             .font(.subheadline)
                             .foregroundStyle(MerkenTheme.secondaryText)
                     }
@@ -1247,7 +1331,7 @@ struct HomeView: View {
 
     private var studyModesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("学習モーチE)
+            Text("学習モード")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
 
@@ -1266,7 +1350,7 @@ struct HomeView: View {
                                 .foregroundStyle(MerkenTheme.primaryText)
                                 .lineLimit(1)
 
-                            Text("\(words.count)誁E)
+                            Text("\(words.count)語")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(MerkenTheme.accentBlue)
                                 .padding(.horizontal, 8)
@@ -1285,8 +1369,8 @@ struct HomeView: View {
                     homeStudyModeCard(
                         icon: "rectangle.portrait.on.rectangle.portrait",
                         iconColor: MerkenTheme.accentBlue,
-                        title: "フラチE��ュカーチE,
-                        subtitle: "カードで復翁E,
+                        title: "フラッシュカード",
+                        subtitle: "カードで復習",
                         disabled: words.isEmpty
                     ) {
                         flashcardDestination = FlashcardDestination(project: project, preloadedWords: words)
@@ -1305,7 +1389,7 @@ struct HomeView: View {
                     homeStudyModeCard(
                         icon: "square.grid.2x2",
                         iconColor: MerkenTheme.warning,
-                        title: "マッチE,
+                        title: "マッチ",
                         subtitle: "ペアを見つける",
                         disabled: words.count < 4
                     ) {
@@ -1313,7 +1397,7 @@ struct HomeView: View {
                     }
 
                     if words.count < 4 {
-                        Text("マッチ�E4語以上で開始できます、E)
+                        Text("マッチは4語以上で開始できます。")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(MerkenTheme.secondaryText)
                             .padding(.horizontal, 4)
@@ -1321,7 +1405,7 @@ struct HomeView: View {
                 }
             } else {
                 SolidCard {
-                    Text("単語帳を作�Eすると学習モードを使えます、E)
+                    Text("単語帳を作成すると学習モードを使えます。")
                         .font(.subheadline)
                         .foregroundStyle(MerkenTheme.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1442,9 +1526,9 @@ struct HomeView: View {
             featuredProjectWordCount(wordCount)
 
             HStack(spacing: 8) {
-                compactProjectMetric(icon: "checkmark.circle.fill", text: "習征E\(masteredCount)", tint: MerkenTheme.success)
-                compactProjectMetric(icon: "bolt.circle.fill", text: "学翁E\(reviewCount)", tint: MerkenTheme.accentBlue)
-                compactProjectMetric(icon: "sparkles", text: "未学翁E\(newCount)", tint: MerkenTheme.mutedText)
+                compactProjectMetric(icon: "checkmark.circle.fill", text: "習得 \(masteredCount)", tint: MerkenTheme.success)
+                compactProjectMetric(icon: "bolt.circle.fill", text: "学習 \(reviewCount)", tint: MerkenTheme.accentBlue)
+                compactProjectMetric(icon: "sparkles", text: "未学習 \(newCount)", tint: MerkenTheme.mutedText)
             }
         }
         .padding(.horizontal, 12)
@@ -1458,7 +1542,7 @@ struct HomeView: View {
                 .font(.system(size: 24, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(MerkenTheme.primaryText)
-            Text("誁E)
+            Text("語")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(MerkenTheme.secondaryText)
         }
@@ -1486,7 +1570,7 @@ struct HomeView: View {
     private var bookshelfSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("本棁E)
+                Text("本棚")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
@@ -1506,10 +1590,10 @@ struct HomeView: View {
                         Image(systemName: "books.vertical.fill")
                             .font(.system(size: 32))
                             .foregroundStyle(MerkenTheme.accentBlue)
-                        Text("本棚を作ろぁE)
+                        Text("本棚を作ろう")
                             .font(.headline)
                             .foregroundStyle(MerkenTheme.primaryText)
-                        Text("褁E��の単語帳をまとめて管琁E�E学習できまぁE)
+                        Text("複数の単語帳をまとめて管理・学習できます")
                             .font(.caption)
                             .foregroundStyle(MerkenTheme.mutedText)
                             .multilineTextAlignment(.center)
@@ -1519,7 +1603,7 @@ struct HomeView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "plus")
                                     .font(.subheadline.bold())
-                                Text("本棚を作�E")
+                                Text("本棚を作成")
                                     .font(.subheadline.bold())
                             }
                         }
@@ -1560,7 +1644,7 @@ struct HomeView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
 
-                Text(projectCount > 0 ? "\(projectCount)冊�E単語帳" : "単語帳を追加して使ぁE��めめE)
+                Text(projectCount > 0 ? "\(projectCount)冊の単語帳" : "単語帳を追加して使い始める")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(MerkenTheme.mutedText)
                     .multilineTextAlignment(.center)
@@ -1694,7 +1778,7 @@ struct HomeView: View {
 
     private var focusBannerHeading: String {
         if viewModel.dueWordCount > 0 {
-            return "\(viewModel.dueWordCount)語�E復習征E��"
+            return "\(viewModel.dueWordCount)語の復習待ち"
         } else if viewModel.todayAnswered > 0 {
             return "今日 \(viewModel.todayAnswered)問クリア"
         } else {
@@ -1704,9 +1788,9 @@ struct HomeView: View {
 
     private var focusBannerSubheading: String {
         if viewModel.dueWordCount > 0 {
-            return "タチE�Eして復習を開姁E
+            return "タップして復習を開始"
         } else if viewModel.todayAnswered > 0 {
-            return "調子いぁE�E�E�続けよう"
+            return "調子いいね！続けよう"
         } else {
             return "クイズに挑戦して単語を覚えよう"
         }
@@ -1795,8 +1879,8 @@ private struct HomeAlertModifier: ViewModifier {
                     set: { if !$0 { projectToRename = nil; renameProjectTitle = "" } }
                 )
             ) {
-                TextField("単語帳吁E, text: $renameProjectTitle)
-                Button("保孁E) {
+                TextField("単語帳名", text: $renameProjectTitle)
+                Button("保存") {
                     guard let project = projectToRename else { return }
                     let nextTitle = renameProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                     Task { await viewModel.renameProject(id: project.id, title: nextTitle, using: appState) }
@@ -1810,11 +1894,11 @@ private struct HomeAlertModifier: ViewModifier {
                 }
             } message: {
                 if let project = projectToRename {
-                    Text("「\(project.title)」�E名前を変更します、E)
+                    Text("「\(project.title)」の名前を変更します。")
                 }
             }
             .confirmationDialog(
-                "操作を選抁E,
+                "操作を選択",
                 isPresented: Binding(
                     get: { projectForActions != nil },
                     set: { if !$0 { projectForActions = nil } }
@@ -1830,7 +1914,7 @@ private struct HomeAlertModifier: ViewModifier {
                             renameProjectTitle = target.title
                         }
                     }
-                    Button(project.isFavorite ? "お気に入り解除" : "お気に入めE) {
+                    Button(project.isFavorite ? "お気に入り解除" : "お気に入り") {
                         let target = project
                         projectForActions = nil
                         Task { await viewModel.toggleFavorite(projectId: target.id, using: appState) }
@@ -1843,11 +1927,11 @@ private struct HomeAlertModifier: ViewModifier {
                 Button("キャンセル", role: .cancel) { projectForActions = nil }
             } message: {
                 if let project = projectForActions {
-                    Text("「\(project.title)、E)
+                    Text("「\(project.title)」")
                 }
             }
             .confirmationDialog(
-                "「\(projectToDelete?.title ?? "")」を削除しますか�E�E,
+                "「\(projectToDelete?.title ?? "")」を削除しますか？",
                 isPresented: Binding(
                     get: { projectToDelete != nil },
                     set: { if !$0 { projectToDelete = nil } }
@@ -1901,4 +1985,3 @@ private struct HomeLifecycleModifier: ViewModifier {
             }
     }
 }
-
