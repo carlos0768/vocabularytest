@@ -50,6 +50,7 @@ struct WordListView: View {
             }
             return true
         }
+        .sorted { $0.createdAt > $1.createdAt }
     }
 
     init(project: Project, contentScrollEnabled: Bool = true, initialStatus: WordStatus? = nil) {
@@ -84,9 +85,25 @@ struct WordListView: View {
                             VStack(spacing: 0) {
                                 dividerLine
 
-                                ForEach(filteredWords) { word in
-                                    wordRow(word)
-                                    dividerLine
+                                let grouped = Dictionary(grouping: filteredWords) { word in
+                                    Calendar.current.startOfDay(for: word.createdAt)
+                                }
+                                let sortedDates = grouped.keys.sorted(by: >)
+
+                                ForEach(Array(sortedDates.enumerated()), id: \.element) { dateIndex, date in
+                                    let wordsForDate = grouped[date] ?? []
+
+                                    if dateIndex > 0 {
+                                        Rectangle()
+                                            .fill(MerkenTheme.border)
+                                            .frame(height: 3)
+                                            .frame(maxWidth: .infinity)
+                                    }
+
+                                    ForEach(wordsForDate) { word in
+                                        wordRow(word)
+                                        dividerLine
+                                    }
                                 }
                             }
                         }
