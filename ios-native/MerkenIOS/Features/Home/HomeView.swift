@@ -355,32 +355,6 @@ private struct FlashcardDestination: Hashable {
     }
 }
 
-private struct Quiz2Destination: Hashable {
-    let project: Project
-    let preloadedWords: [Word]?
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(project)
-    }
-
-    static func == (lhs: Quiz2Destination, rhs: Quiz2Destination) -> Bool {
-        lhs.project == rhs.project
-    }
-}
-
-private struct MatchGameDestination: Hashable {
-    let project: Project
-    let words: [Word]
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(project)
-    }
-
-    static func == (lhs: MatchGameDestination, rhs: MatchGameDestination) -> Bool {
-        lhs.project == rhs.project
-    }
-}
-
 private struct SentenceQuizDestination: Hashable {
     let project: Project
 }
@@ -401,14 +375,10 @@ struct HomeView: View {
 
     @State private var quizDestination: QuizDestination?
     @State private var flashcardDestination: FlashcardDestination?
-    @State private var quiz2Destination: Quiz2Destination?
-    @State private var matchGameDestination: MatchGameDestination?
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingProjectList = false
     @State private var showingScan = false
-    @State private var showingCreateProjectSheet = false
-    @State private var newProjectTitle = ""
     @State private var projectToDelete: Project?
     @State private var projectToRename: Project?
     @State private var renameProjectTitle = ""
@@ -435,8 +405,6 @@ struct HomeView: View {
                 selectedDayStory: $selectedDayStory,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
-                quiz2Destination: $quiz2Destination,
-                matchGameDestination: $matchGameDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject,
                 selectedCollection: $selectedCollection,
@@ -458,16 +426,9 @@ struct HomeView: View {
                 bookshelfVM: bookshelfVM,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
-                quiz2Destination: $quiz2Destination,
-                matchGameDestination: $matchGameDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject
             ))
-            .sheet(isPresented: $showingCreateProjectSheet) {
-                createProjectSheet
-                    .presentationDetents([.height(280)])
-                    .presentationDragIndicator(.visible)
-            }
     }
 
     private var homeGeometryLayer: some View {
@@ -498,7 +459,18 @@ struct HomeView: View {
             )
             .ignoresSafeArea()
 
-            homeScrollContent
+            VStack(spacing: 0) {
+                if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
+                    VStack(alignment: .leading, spacing: 18) {
+                        homeLogoTitle
+                        emptyStateSection
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                } else {
+                    homeScrollContent
+                }
+            }
         }
     }
 
@@ -520,18 +492,20 @@ struct HomeView: View {
 
                     homeLogoTitle
 
-                    projectsSection
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    heroBlock
 
-                    if shouldShowLearningOverview {
-                        studyModesSection
-
-                        heroBlock
-
-                        homeLearningStateSection
-                    }
+                    homeLearningStateSection
 
                     errorSection
+
+                    if !viewModel.projects.isEmpty {
+                        projectsSection
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    if appState.isPro {
+                        bookshelfSection
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 2)
@@ -575,43 +549,6 @@ struct HomeView: View {
             .font(.system(size: 31.2, weight: .black))
             .foregroundStyle(MerkenTheme.primaryText)
             .tracking(2)
-    }
-
-    private var shouldShowLearningOverview: Bool {
-        !viewModel.projects.isEmpty || viewModel.totalWordCount > 0 || viewModel.todayAnswered > 0
-    }
-
-    private var createProjectSheet: some View {
-        NavigationStack {
-            ZStack {
-                AppBackground()
-
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("新しい単語帳")
-                        .font(.title3.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-
-                    TextField("例: TOEIC 重要単語", text: $newProjectTitle)
-                        .textFieldStyle(.plain)
-                        .solidTextField(cornerRadius: 16)
-
-                    Button("作成") {
-                        Task {
-                            await viewModel.createProject(title: newProjectTitle, using: appState)
-                            if viewModel.errorMessage == nil {
-                                newProjectTitle = ""
-                                showingCreateProjectSheet = false
-                            }
-                        }
-                    }
-                    .buttonStyle(PrimaryGlassButton())
-                    .disabled(newProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                    Spacer()
-                }
-                .padding(16)
-            }
-        }
     }
 
     private func homeHeaderGlassCover(safeAreaTop: CGFloat) -> some View {
@@ -1261,201 +1198,31 @@ struct HomeView: View {
 
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Section header
             HStack {
                 Text("単語帳")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-
-                Button {
-                    MerkenHaptic.selection()
-                    showingCreateProjectSheet = true
-                } label: {
-                    Label("追加", systemImage: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(MerkenTheme.surface, in: Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(MerkenTheme.border, lineWidth: 1)
-                        )
+                if viewModel.projects.count > 3 {
+                    Button { showingProjectList = true } label: {
+                        Text("すべて見る")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
                 }
-                .buttonStyle(.plain)
             }
 
-            if viewModel.projects.isEmpty {
-                SolidCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("まだ単語帳がありません")
-                            .font(.headline)
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text("右上の追加から新しい単語帳を作成してください。")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            } else {
-                VStack(spacing: 12) {
-                    ForEach(Array(viewModel.projects.prefix(3))) { project in
-                        featuredProjectCard(project)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .onTapGesture { detailProject = project }
-                            .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
-                    }
-
-                    if viewModel.projects.count > 3 {
-                        Button {
-                            showingProjectList = true
-                        } label: {
-                            Text("すべて見る")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(MerkenTheme.border, lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
+            VStack(spacing: 12) {
+                ForEach(Array(viewModel.projects.prefix(3))) { project in
+                    featuredProjectCard(project)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .onTapGesture { detailProject = project }
+                        .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
                 }
             }
         }
         .animation(MerkenSpring.gentle, value: Array(viewModel.projects.prefix(3).map(\.id)))
-    }
-
-    private var studyModesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("学習モード")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-
-            if let project = viewModel.projects.first {
-                let words = viewModel.preloadedWords(for: project.id) ?? []
-
-                VStack(alignment: .leading, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("対象の単語帳")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(project.title)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                                .lineLimit(1)
-
-                            Text("\(words.count)語")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(MerkenTheme.border, lineWidth: 1)
-                    )
-
-                    homeStudyModeCard(
-                        icon: "rectangle.portrait.on.rectangle.portrait",
-                        iconColor: MerkenTheme.accentBlue,
-                        title: "フラッシュカード",
-                        subtitle: "カードで復習",
-                        disabled: words.isEmpty
-                    ) {
-                        flashcardDestination = FlashcardDestination(project: project, preloadedWords: words)
-                    }
-
-                    homeStudyModeCard(
-                        icon: "scope",
-                        iconColor: MerkenTheme.success,
-                        title: "自己評価",
-                        subtitle: "思い出して評価",
-                        disabled: words.isEmpty
-                    ) {
-                        quiz2Destination = Quiz2Destination(project: project, preloadedWords: words)
-                    }
-
-                    homeStudyModeCard(
-                        icon: "square.grid.2x2",
-                        iconColor: MerkenTheme.warning,
-                        title: "マッチ",
-                        subtitle: "ペアを見つける",
-                        disabled: words.count < 4
-                    ) {
-                        matchGameDestination = MatchGameDestination(project: project, words: words)
-                    }
-
-                    if words.count < 4 {
-                        Text("マッチは4語以上で開始できます。")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                            .padding(.horizontal, 4)
-                    }
-                }
-            } else {
-                SolidCard {
-                    Text("単語帳を作成すると学習モードを使えます。")
-                        .font(.subheadline)
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-    }
-
-    private func homeStudyModeCard(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        subtitle: String,
-        disabled: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(iconColor)
-                    .frame(width: 34, height: 34)
-                    .background(MerkenTheme.background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text(subtitle)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(MerkenTheme.border, lineWidth: 1)
-            )
-            .opacity(disabled ? 0.55 : 1)
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
     }
 
     // MARK: Featured Project Card (full-width, with circular progress)
@@ -1803,8 +1570,6 @@ private struct HomeNavigationModifier: ViewModifier {
     @Binding var selectedDayStory: DayMasteryStory?
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
-    @Binding var quiz2Destination: Quiz2Destination?
-    @Binding var matchGameDestination: MatchGameDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
     @Binding var selectedCollection: Collection?
@@ -1828,12 +1593,6 @@ private struct HomeNavigationModifier: ViewModifier {
             }
             .navigationDestination(item: $flashcardDestination) { dest in
                 FlashcardView(project: dest.project, preloadedWords: dest.preloadedWords, showDismissButton: false)
-            }
-            .navigationDestination(item: $quiz2Destination) { dest in
-                Quiz2View(project: dest.project, preloadedWords: dest.preloadedWords)
-            }
-            .navigationDestination(item: $matchGameDestination) { dest in
-                MatchGameView(project: dest.project, words: dest.words)
             }
             .navigationDestination(item: $sentenceQuizDestination) { dest in
                 SentenceQuizView(project: dest.project)
@@ -1957,16 +1716,12 @@ private struct HomeLifecycleModifier: ViewModifier {
     let bookshelfVM: BookshelfListViewModel
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
-    @Binding var quiz2Destination: Quiz2Destination?
-    @Binding var matchGameDestination: MatchGameDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
 
     private var isShowingNestedDestination: Bool {
         quizDestination != nil ||
         flashcardDestination != nil ||
-        quiz2Destination != nil ||
-        matchGameDestination != nil ||
         sentenceQuizDestination != nil ||
         detailProject != nil
     }
