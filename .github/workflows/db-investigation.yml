@@ -1,0 +1,87 @@
+name: DB Investigation on Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files with patches
+        id: changes
+        run: |
+          # Get changed files between HEAD~1 and HEAD
+          FILES_JSON=$(git diff HEAD~1 HEAD --name-status --diff-filter=ADMR | while IFS=$'\t' read -r status file; do
+            case "$status" in
+              A) change_type="added" ;;
+              D) change_type="removed" ;;
+              M) change_type="modified" ;;
+              R*) change_type="renamed" ;;
+              *) change_type="modified" ;;
+            esac
+            # Get patch content (truncated to 2000 chars to avoid payload limits)
+            patch=$(git diff HEAD~1 HEAD -- "$file" 2>/dev/null | head -c 2000 | jq -Rs .)
+            echo "{\"path\":\"$file\",\"changeType\":\"$change_type\",\"patch\":$patch}"
+          done | jq -s .)
+
+          echo "files_json<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES_JSON" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          FILE_COUNT=$(echo "$FILES_JSON" | jq length)
+          echo "file_count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "Found $FILE_COUNT changed files"
+
+      - name: Call DB Investigation endpoint
+        if: steps.changes.outputs.file_count != '0'
+        env:
+          WEBHOOK_TOKEN: ${{ secrets.DB_INVESTIGATION_WEBHOOK_TOKEN }}
+          CLOUD_RUN_URL: ${{ secrets.DB_INVESTIGATION_URL }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg repo "${{ github.repository }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg triggered "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson files '${{ steps.changes.outputs.files_json }}' \
+            '{
+              repository: $repo,
+              commitSha: $sha,
+              actor: $actor,
+              triggeredAt: $triggered,
+              source: "github-actions",
+              changedFiles: $files
+            }')
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${CLOUD_RUN_URL}/investigate" \
+            -H "Authorization: Bearer ${WEBHOOK_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            --max-time 120)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::warning::DB Investigation returned HTTP $HTTP_CODE"
+          fi
+
+          # Check if it was skipped (no DB changes)
+          SKIPPED=$(echo "$BODY" | jq -r '.skipped // false' 2>/dev/null)
+          if [ "$SKIPPED" = "true" ]; then
+            echo "✅ No DB-related changes detected, investigation skipped"
+          else
+            RISK=$(echo "$BODY" | jq -r '.assessment.riskLevel // "unknown"' 2>/dev/null)
+            SCORE=$(echo "$BODY" | jq -r '.assessment.riskScore // "?"' 2>/dev/null)
+            echo "🔍 Risk Level: $RISK (score: $SCORE)"
+          fi
