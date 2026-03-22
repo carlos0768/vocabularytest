@@ -987,6 +987,7 @@ export default function HomePage() {
       sessionStorage.removeItem('scanvocab_project_icon');
       processMultipleImages(scanFiles);
     } else {
+      sessionStorage.removeItem('scanvocab_existing_project_id');
       setShowProjectNameModal(true);
     }
   };

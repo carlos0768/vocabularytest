@@ -28,7 +28,12 @@ import type { LexiconEntry } from '@/types';
 function ScanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const projectId = searchParams.get('projectId');
+  const projectIdFromQuery = searchParams.get('projectId');
+  const existingProjectId =
+    projectIdFromQuery ??
+    (typeof window !== 'undefined'
+      ? sessionStorage.getItem('scanvocab_existing_project_id')
+      : null);
   const { isPro, isAuthenticated } = useAuth();
   const {
     aiEnabled,
@@ -127,6 +132,12 @@ function ScanPageContent() {
       setSelectedEiken(null);
     }
   }, [selectedMode]);
+
+  useEffect(() => {
+    if (projectIdFromQuery) {
+      sessionStorage.setItem('scanvocab_existing_project_id', projectIdFromQuery);
+    }
+  }, [projectIdFromQuery]);
 
   const getImageProfile = useCallback((): ImageProcessingProfile => (
     selectedMode === 'highlighted' ? 'highlighted' : 'default'
@@ -312,6 +323,12 @@ function ScanPageContent() {
       }
     }
 
+    if (existingProjectId) {
+      sessionStorage.setItem('scanvocab_existing_project_id', existingProjectId);
+    } else {
+      sessionStorage.removeItem('scanvocab_existing_project_id');
+    }
+
     // Pro users: always use background processing.
     if (isPro) {
       if (scanFiles.length > 20) {
@@ -323,12 +340,13 @@ function ScanPageContent() {
         return;
       }
 
-      if (projectId) {
+      if (existingProjectId) {
         // Adding to existing project: skip project name modal, start background upload directly
-        handleBackgroundUpload(scanFiles, '', undefined, effectiveAiPreference, projectId);
+        handleBackgroundUpload(scanFiles, '', undefined, effectiveAiPreference, existingProjectId);
         return;
       }
 
+      sessionStorage.removeItem('scanvocab_existing_project_id');
       const now = new Date();
       const defaultName = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
       setProjectName(defaultName);
@@ -435,8 +453,10 @@ function ScanPageContent() {
       sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
       sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
       sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
-      if (projectId) {
-        sessionStorage.setItem('scanvocab_existing_project_id', projectId);
+      if (existingProjectId) {
+        sessionStorage.setItem('scanvocab_existing_project_id', existingProjectId);
+      } else {
+        sessionStorage.removeItem('scanvocab_existing_project_id');
       }
 
       setProcessingSteps(prev => [
@@ -470,7 +490,7 @@ function ScanPageContent() {
     isPro,
     isAuthenticated,
     isAtLimit,
-    projectId,
+    existingProjectId,
     router,
     showToast,
     selectedMode,
@@ -590,7 +610,7 @@ function ScanPageContent() {
               <Icon name="photo_camera" size={32} className="text-[var(--color-primary)]" />
             </div>
             <h1 className="text-lg font-bold text-[var(--color-foreground)] mb-1">
-              {projectId ? '単語を追加' : '写真から単語を抽出'}
+              {existingProjectId ? '単語を追加' : '写真から単語を抽出'}
             </h1>
             <p className="text-sm text-[var(--color-muted)] mb-4">
               タップして写真を選択、またはカメラで撮影
