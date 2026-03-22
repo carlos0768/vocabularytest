@@ -17,7 +17,18 @@ jobs:
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{
-              "channel": "C0AMSTQ19UZ",
-              "text": "<@D0ANXAG92BA> 実機にインストール\nブランチ: `'"${{ github.event.deployment.ref }}"'`\nCommit: `'"${{ github.sha }}"'`\nPreview: '"${{ github.event.deployment_status.target_url || 'N/A' }}"'"
-            }'
+            -d "{
+              \"channel\": \"C0AMSTQ19UZ\",
+              \"text\": \"<@D0ANXAG92BA> 実機にインストール\nブランチ: \`${{ github.event.deployment.ref }}\`\nCommit: \`${{ github.sha }}\`\nPreview: ${{ github.event.deployment_status.target_url || 'N/A' }}\"
+            }"
+
+  debug:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug deployment info
+        run: |
+          echo "deployment.ref: ${{ github.event.deployment.ref }}"
+          echo "deployment_status.state: ${{ github.event.deployment_status.state }}"
+          echo "head_branch: ${{ github.head_ref || github.ref_name }}"
+          echo "contains ios: ${{ contains(github.event.deployment.ref, 'ios') }}"
