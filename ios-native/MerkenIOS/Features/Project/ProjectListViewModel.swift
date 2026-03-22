@@ -18,7 +18,9 @@ final class ProjectListViewModel: ObservableObject {
         defer { loading = false }
 
         do {
-            projects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
+            projects = try await state.activeRepository
+                .fetchProjects(userId: state.activeUserId)
+                .sorted { $0.createdAt > $1.createdAt }
 
             // Fetch all words to compute per-project counts
             let allWords = try await state.activeRepository.fetchAllWords(userId: state.activeUserId)
