@@ -11,11 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Notify iOS channel
-        uses: slackapi/slack-github-action@v2
-        with:
-          webhook: ${{ secrets.SLACK_IOS_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "<@D0ANXAG92BA> 実機にインストール\nブランチ: `${{ github.event.deployment.ref }}`\nCommit: `${{ github.sha }}`\nPreview: ${{ github.event.deployment_status.target_url || 'N/A' }}"
-            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "channel": "C0AMSTQ19UZ",
+              "text": "<@D0ANXAG92BA> 実機にインストール\nブランチ: `'"${{ github.event.deployment.ref }}"'`\nCommit: `'"${{ github.sha }}"'`\nPreview: '"${{ github.event.deployment_status.target_url || 'N/A' }}"'"
+            }'
