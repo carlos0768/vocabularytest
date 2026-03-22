@@ -19,5 +19,5 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{
               \"channel\": \"C0AMSTQ19UZ\",
-              \"text\": \"<@D0ANXAG92BA> 実機にインストール\nブランチ: \`${BRANCH}\`\nCommit: \`${SHA}\`\"
+              \"text\": \"<@U0AN10SRV0W> 実機にインストール\nブランチ: \`${BRANCH}\`\nCommit: \`${SHA}\`\"
             }"
