@@ -39,6 +39,7 @@ jobs:
           echo "Found $FILE_COUNT changed files"
 
       - name: Call DB Investigation endpoint
+        id: investigate
         if: steps.changes.outputs.file_count != '0'
         env:
           WEBHOOK_TOKEN: ${{ secrets.DB_INVESTIGATION_WEBHOOK_TOKEN }}
@@ -76,12 +77,71 @@ jobs:
             echo "::warning::DB Investigation returned HTTP $HTTP_CODE"
           fi
 
-          # Check if it was skipped (no DB changes)
+          # Save outputs for Slack notification
           SKIPPED=$(echo "$BODY" | jq -r '.skipped // false' 2>/dev/null)
+          echo "skipped=$SKIPPED" >> "$GITHUB_OUTPUT"
+
           if [ "$SKIPPED" = "true" ]; then
             echo "✅ No DB-related changes detected, investigation skipped"
           else
             RISK=$(echo "$BODY" | jq -r '.assessment.riskLevel // "unknown"' 2>/dev/null)
             SCORE=$(echo "$BODY" | jq -r '.assessment.riskScore // "?"' 2>/dev/null)
+            SUMMARY=$(echo "$BODY" | jq -r '.assessment.summary // ""' 2>/dev/null)
+            FACTORS=$(echo "$BODY" | jq -r '(.assessment.factors // []) | map("• " + .) | join("\n")' 2>/dev/null)
+            NOTION_PAGE=$(echo "$BODY" | jq -r '.notion.pageId // ""' 2>/dev/null)
+            NOTION_WRITTEN=$(echo "$BODY" | jq -r '.notion.written // false' 2>/dev/null)
+            DB_FILES=$(echo "$BODY" | jq -r '(.detection.matches // []) | map(.path) | unique | join(", ")' 2>/dev/null)
+
+            echo "risk=$RISK" >> "$GITHUB_OUTPUT"
+            echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+            echo "notion_written=$NOTION_WRITTEN" >> "$GITHUB_OUTPUT"
+            echo "notion_page=$NOTION_PAGE" >> "$GITHUB_OUTPUT"
+            echo "db_files=$DB_FILES" >> "$GITHUB_OUTPUT"
+
+            # Multi-line outputs
+            echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$SUMMARY" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+
+            echo "factors<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$FACTORS" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+
             echo "🔍 Risk Level: $RISK (score: $SCORE)"
           fi
+
+      - name: Notify Slack
+        if: steps.investigate.outputs.skipped == 'false'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          RISK="${{ steps.investigate.outputs.risk }}"
+          SCORE="${{ steps.investigate.outputs.score }}"
+          NOTION_WRITTEN="${{ steps.investigate.outputs.notion_written }}"
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+
+          # Risk level emoji
+          case "$RISK" in
+            critical) EMOJI="🔴" ;;
+            high)     EMOJI="🟠" ;;
+            medium)   EMOJI="🟡" ;;
+            low)      EMOJI="🟢" ;;
+            *)        EMOJI="⚪" ;;
+          esac
+
+          # Build Slack message
+          NOTION_LINE=""
+          if [ "$NOTION_WRITTEN" = "true" ]; then
+            NOTION_LINE="\n📝 Notion: 記録済み"
+          fi
+
+          TEXT="${EMOJI} *DB Investigation* — Risk: *${RISK}* (score: ${SCORE})\nCommit: \`${SHORT_SHA}\` by ${{ github.actor }}\nFiles: ${{ steps.investigate.outputs.db_files }}${NOTION_LINE}\n\n${{ steps.investigate.outputs.summary }}"
+
+          SLACK_PAYLOAD=$(jq -n --arg text "$TEXT" '{ text: $text }')
+
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$SLACK_PAYLOAD"
+
+          echo "✅ Slack notification sent"
