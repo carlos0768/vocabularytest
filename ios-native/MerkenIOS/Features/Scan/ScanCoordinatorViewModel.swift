@@ -503,7 +503,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 let context = PendingScanImportContext(
                     jobId: response.jobId,
                     source: scanDraft.targetProjectId == nil ? .homeOrProjectList : .projectDetail,
-                    localTargetProjectId: response.saveMode == .clientLocal ? scanDraft.targetProjectId : nil,
+                    localTargetProjectId: scanDraft.targetProjectId,
                     requestedProjectTitle: submission.projectTitle,
                     requestedProjectIconImage: submission.projectIcon,
                     createdAt: .now
