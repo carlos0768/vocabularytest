@@ -3,8 +3,11 @@ name: iOS Branch → Install Notification
 on:
   push:
     branches:
-      - '**ios**'
-      - '**iOS**'
+      - '**/ios*'
+      - '**/iOS*'
+      - 'ios*'
+      - 'iOS*'
+      - '*ios*'
 
 jobs:
   notify-ios:
