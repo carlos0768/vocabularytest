@@ -1,38 +1,26 @@
-name: iOS Deploy → Install Notification
+name: iOS Branch → Install Notification
 
 on:
-  deployment_status:
+  push:
+    branches:
+      - '**ios**'
+      - '**iOS**'
 
 jobs:
   notify-ios:
-    if: >-
-      github.event.deployment_status.state == 'success' &&
-      contains(github.event.deployment_status.environment, 'ios')
     runs-on: ubuntu-latest
     steps:
       - name: Notify iOS channel
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          DEPLOY_ENV: ${{ github.event.deployment_status.environment }}
-          DEPLOY_URL: ${{ github.event.deployment_status.target_url }}
-          DEPLOY_SHA: ${{ github.sha }}
         run: |
-          curl -s -X POST https://slack.com/api/chat.postMessage \
+          BRANCH="${GITHUB_REF_NAME}"
+          SHA="${GITHUB_SHA:0:7}"
+          RESP=$(curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{
               \"channel\": \"C0AMSTQ19UZ\",
-              \"text\": \"<@D0ANXAG92BA> 実機にインストール\nEnvironment: \`${DEPLOY_ENV}\`\nCommit: \`${DEPLOY_SHA}\`\nPreview: ${DEPLOY_URL}\"
-            }"
-
-  debug:
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug deployment info
-        run: |
-          echo "deployment.ref: ${{ github.event.deployment.ref }}"
-          echo "deployment_status.state: ${{ github.event.deployment_status.state }}"
-          echo "deployment_status.environment: ${{ github.event.deployment_status.environment }}"
-          echo "deployment.environment: ${{ github.event.deployment.environment }}"
-          echo "deployment.payload: ${{ toJSON(github.event.deployment.payload) }}"
+              \"text\": \"<@D0ANXAG92BA> 実機にインストール\nブランチ: \`${BRANCH}\`\nCommit: \`${SHA}\`\"
+            }")
+          echo "$RESP" | jq .ok
