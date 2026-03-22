@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Fragment, useState, useMemo } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui';
 import type { Word } from '@/types';
@@ -121,6 +121,18 @@ interface WordListProps {
   onScanClick?: () => void;
   showProjectName?: boolean;
   listMaxHeightClassName?: string;
+  groupByCreatedMinute?: boolean;
+}
+
+function getMinuteBucket(createdAt?: string | null): string {
+  if (!createdAt) return 'unknown';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return 'unknown';
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day} ${hours}:${minutes}`;
 }
 
 export function WordList({
@@ -135,6 +147,7 @@ export function WordList({
   onScanClick,
   showProjectName = false,
   listMaxHeightClassName,
+  groupByCreatedMinute = false,
 }: WordListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -149,6 +162,22 @@ export function WordList({
         word.japanese.toLowerCase().includes(query)
     );
   }, [words, searchQuery]);
+
+  const rowsWithBatchSeparators = useMemo(() => {
+    return filteredWords.map((word, index) => {
+      if (!groupByCreatedMinute) {
+        return { word, showDivider: false, batchLabel: '' };
+      }
+
+      const currentBatch = getMinuteBucket(word.createdAt);
+      const previousBatch = index > 0 ? getMinuteBucket(filteredWords[index - 1].createdAt) : null;
+      return {
+        word,
+        showDivider: index > 0 && currentBatch !== previousBatch,
+        batchLabel: currentBatch === 'unknown' ? '作成日時不明' : `${currentBatch} 追加`,
+      };
+    });
+  }, [filteredWords, groupByCreatedMinute]);
 
   return (
     <div className="space-y-3">
@@ -245,18 +274,25 @@ export function WordList({
         ) : filteredWords.length === 0 ? (
           <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
         ) : (
-          filteredWords.map((word) => (
-            <WordItem
-              key={word.id}
-              word={word}
-              isEditing={editingWordId === word.id}
-              onEdit={() => onEditStart(word.id)}
-              onCancel={onEditCancel}
-              onSave={(english, japanese) => onSave(word.id, english, japanese)}
-              onDelete={() => onDelete(word.id)}
-              onToggleFavorite={() => onToggleFavorite(word.id)}
-              showProjectName={showProjectName}
-            />
+          rowsWithBatchSeparators.map(({ word, showDivider, batchLabel }) => (
+            <Fragment key={word.id}>
+              {showDivider && (
+                <div className="pt-2">
+                  <div className="border-t-[3px] border-[var(--color-border)]" />
+                  <p className="mt-1 text-[11px] text-[var(--color-muted)]">{batchLabel}</p>
+                </div>
+              )}
+              <WordItem
+                word={word}
+                isEditing={editingWordId === word.id}
+                onEdit={() => onEditStart(word.id)}
+                onCancel={onEditCancel}
+                onSave={(english, japanese) => onSave(word.id, english, japanese)}
+                onDelete={() => onDelete(word.id)}
+                onToggleFavorite={() => onToggleFavorite(word.id)}
+                showProjectName={showProjectName}
+              />
+            </Fragment>
           ))
         )}
       </div>

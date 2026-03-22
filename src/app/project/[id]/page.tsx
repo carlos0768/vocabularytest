@@ -855,6 +855,7 @@ export default function ProjectDetailPage() {
                 onAddClick={() => setShowManualWordModal(true)}
                 onScanClick={() => setShowScanModeModal(true)}
                 listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
+                groupByCreatedMinute
               />
             ) : (
               <div className="card p-4 text-sm text-[var(--color-muted)] flex items-center gap-2">
