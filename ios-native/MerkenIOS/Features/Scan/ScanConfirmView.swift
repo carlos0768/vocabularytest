@@ -160,6 +160,10 @@ struct ScanConfirmView: View {
                                 .lineLimit(2)
                         }
 
+                        Text("現在 \(currentWordCount)語 / 今回 \(selectedCount)語を追加")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.secondaryText)
+
                         Text("この単語帳に追加して保存します。")
                             .font(.caption)
                             .foregroundStyle(MerkenTheme.secondaryText)
