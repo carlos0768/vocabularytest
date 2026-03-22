@@ -2,15 +2,10 @@ name: iOS Branch → Install Notification
 
 on:
   push:
-    branches:
-      - '**/ios*'
-      - '**/iOS*'
-      - 'ios*'
-      - 'iOS*'
-      - '*ios*'
 
 jobs:
   notify-ios:
+    if: contains(github.ref_name, 'ios') || contains(github.ref_name, 'iOS')
     runs-on: ubuntu-latest
     steps:
       - name: Notify iOS channel
