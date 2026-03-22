@@ -34,7 +34,6 @@ struct RootTabView: View {
     private let tabItems: [RootTabItem] = [
         .init(tab: 0, title: "ホーム", systemImage: "house.fill"),
         .init(tab: 3, title: "進歩", systemImage: "chart.bar.fill"),
-        .init(tab: 1, title: "本棚", systemImage: "books.vertical.fill"),
         .init(tab: 4, title: "設定", systemImage: "gearshape.fill")
     ]
 
@@ -61,16 +60,15 @@ struct RootTabView: View {
                     .tag(3)
 
                     NavigationStack {
-                        BookshelfListView()
-                    }
-                    .toolbar(.hidden, for: .tabBar)
-                    .tag(1)
-
-                    NavigationStack {
                         SettingsView()
                     }
                     .toolbar(.hidden, for: .tabBar)
                     .tag(4)
+                }
+                .onAppear {
+                    if appState.selectedTab == 1 {
+                        appState.selectedTab = 0
+                    }
                 }
                 .tint(MerkenTheme.accentBlue)
                 .toolbar(.hidden, for: .tabBar)
