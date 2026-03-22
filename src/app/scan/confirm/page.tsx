@@ -157,6 +157,11 @@ export default function ConfirmPage() {
   const [existingProjectId, setExistingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
+  const sessionExistingProjectId =
+    typeof window !== 'undefined'
+      ? sessionStorage.getItem('scanvocab_existing_project_id')
+      : null;
+  const effectiveExistingProjectId = existingProjectId ?? sessionExistingProjectId;
 
   // Check if adding these words would exceed limit
   const { wouldExceed, excessCount, availableSlots } = canAddWords(words.filter(w => w.isSelected).length);
@@ -164,7 +169,13 @@ export default function ConfirmPage() {
   const showLimitWarning = !isPro && wouldExceed;
 
   // Check if adding to existing project
-  const isAddingToExisting = !!existingProjectId;
+  const isAddingToExisting = !!effectiveExistingProjectId;
+
+  useEffect(() => {
+    if (!existingProjectId && sessionExistingProjectId) {
+      setExistingProjectId(sessionExistingProjectId);
+    }
+  }, [existingProjectId, sessionExistingProjectId]);
 
   // Use useLayoutEffect to check data before paint
   useLayoutEffect(() => {
@@ -402,17 +413,17 @@ export default function ConfirmPage() {
 
       let targetProjectId: string;
 
-      if (isAddingToExisting && existingProjectId) {
-        const existingProject = await repository.getProject(existingProjectId);
+      if (isAddingToExisting && effectiveExistingProjectId) {
+        const existingProject = await repository.getProject(effectiveExistingProjectId);
         if (!existingProject || existingProject.userId !== userId) {
           throw new Error('選択した単語帳へのアクセス権がありません');
         }
         const mergedSourceLabels = mergeSourceLabels(existingProject.sourceLabels, initialData.sourceLabels);
         if (mergedSourceLabels.length !== existingProject.sourceLabels.length) {
-          await repository.updateProject(existingProjectId, { sourceLabels: mergedSourceLabels });
+          await repository.updateProject(effectiveExistingProjectId, { sourceLabels: mergedSourceLabels });
         }
         // Add to existing project
-        targetProjectId = existingProjectId;
+        targetProjectId = effectiveExistingProjectId;
       } else {
         // Create new project
         const project = await repository.createProject({
@@ -487,8 +498,8 @@ export default function ConfirmPage() {
       invalidateHomeCache();
 
       // Navigate back: to the project page if adding to existing, otherwise home
-      if (isAddingToExisting && existingProjectId) {
-        router.push(`/project/${existingProjectId}`);
+      if (isAddingToExisting && effectiveExistingProjectId) {
+        router.push(`/project/${effectiveExistingProjectId}`);
       } else {
         router.push('/');
       }
