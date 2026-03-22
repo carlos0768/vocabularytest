@@ -1167,6 +1167,24 @@ struct HomeView: View {
 
                 Button {
                     MerkenHaptic.selection()
+                    showingScan = true
+                } label: {
+                    Label("スキャン", systemImage: "camera")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(MerkenTheme.surface, in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(MerkenTheme.border, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+
+                Button {
+                    MerkenHaptic.selection()
                     showingCreateProjectSheet = true
                 } label: {
                     Label("追加", systemImage: "plus")
