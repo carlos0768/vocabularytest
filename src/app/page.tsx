@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
+import { StudyModeCard } from '@/components/home/StudyModeCard';
 import { ProjectBookTile } from '@/components/project/ProjectBookTile';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';
@@ -640,6 +641,8 @@ export default function HomePage() {
     : showAllProjects
     ? allProjectsWords
     : words;
+  const studyProject = currentProject ?? projects[0] ?? null;
+  const studyReturnPath = encodeURIComponent('/');
 
   // Navigation
   const selectProject = (index: number) => {
@@ -1598,6 +1601,59 @@ export default function HomePage() {
                     })}
                 </div>
               </>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">学習モード</h2>
+                <p className="mt-1 text-sm text-[var(--color-foreground)]">
+                  {studyProject ? `${studyProject.title}ですぐに学習` : '単語帳を追加すると学習モードを選べます'}
+                </p>
+              </div>
+              {studyProject && (
+                <Link href={`/project/${studyProject.id}`} className="text-xs font-semibold text-[var(--color-primary)]">
+                  単語帳を見る
+                </Link>
+              )}
+            </div>
+            {studyProject ? (
+              <div className="grid gap-3">
+                <StudyModeCard
+                  title="フラッシュカード"
+                  description="1枚ずつめくって覚える"
+                  icon="style"
+                  href={isPro ? `/flashcard/${studyProject.id}?from=${studyReturnPath}` : '/subscription'}
+                  variant="blue"
+                  badge={!isPro ? 'Pro' : undefined}
+                  layout="horizontal"
+                  styleMode="home"
+                />
+                <StudyModeCard
+                  title="自己評価"
+                  description="わかる・あいまいを自分で判定"
+                  icon="psychology"
+                  href={isPro ? `/quiz2/${studyProject.id}?from=${studyReturnPath}` : '/subscription'}
+                  variant="green"
+                  badge={!isPro ? 'Pro' : undefined}
+                  layout="horizontal"
+                  styleMode="home"
+                />
+                <StudyModeCard
+                  title="マッチ"
+                  description="英語と意味をすばやく照合"
+                  icon="quiz"
+                  href={`/quiz/${studyProject.id}?from=${studyReturnPath}`}
+                  variant="primary"
+                  layout="horizontal"
+                  styleMode="home"
+                />
+              </div>
+            ) : (
+              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
+                まずは単語帳を追加してください。
+              </div>
             )}
           </section>
         </main>
