@@ -17,8 +17,7 @@ import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
-import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
-import { getWordsDueForReview } from '@/lib/spaced-repetition';
+import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, type WrongAnswer } from '@/lib/utils';
 import { prefetchStats } from '@/lib/stats-cache';
 import { expandFilesForScan, isPdfFile, processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
@@ -132,13 +131,6 @@ export default function HomePage() {
   const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
   const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
   const [totalWords, setTotalWords] = useState(() => getCachedTotalWords());
-
-  // Daily learning stats (localStorage sync read, no API call)
-  const dailyStats = useMemo(() => getDailyStats(), []);
-  const streakDays = useMemo(() => getStreakDays(), []);
-  const accuracyPercent = dailyStats.todayCount > 0
-    ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
-    : 0;
 
   // Start with loading=false if cache is already populated (in-memory or sessionStorage)
   const [loading, setLoading] = useState(() => !getHasLoaded());
@@ -640,16 +632,6 @@ export default function HomePage() {
   const allProjectsWords = useMemo(() => {
     return Object.values(getCachedProjectWords()).flat();
   }, [projects, words]); // Recalculate when projects or words change
-
-  const reviewDueWords = useMemo(
-    () => getWordsDueForReview(allProjectsWords),
-    [allProjectsWords]
-  );
-  const reviewDueCount = reviewDueWords.length;
-  const reviewSeedProjectId = currentProject?.id ?? projects[0]?.id ?? null;
-  const reviewQuizHref = reviewSeedProjectId
-    ? `/quiz/${reviewSeedProjectId}?review=1&count=${reviewDueCount}&from=${encodeURIComponent('/')}`
-    : '/projects';
 
   const filteredWords = showWrongAnswers
     ? wrongAnswerWords
@@ -1552,163 +1534,70 @@ export default function HomePage() {
 
         {/* Main content */}
         <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-6 pb-8 w-full space-y-5">
-          {/* === Hero Section === */}
-          <section>
-            <div className="rounded-2xl bg-[var(--color-hero)] p-5 lg:p-6 text-white dark:border dark:border-[var(--color-border)]">
-              {/* Tier A: ストリーク + 動機付け */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center shrink-0">
-                  <Icon name="local_fire_department" size={24} filled className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-lg font-bold font-display">
-                    {streakDays > 0
-                      ? `${streakDays}日連続学習中`
-                      : dailyStats.todayCount > 0
-                      ? '今日も頑張っています'
-                      : '今日の学習を始めよう'}
-                  </p>
-                  <p className="text-sm text-white/70 dark:text-white/55">
-                    {dailyStats.todayCount > 0
-                      ? `今日 ${dailyStats.todayCount}問回答`
-                      : 'クイズに挑戦して単語を覚えよう'}
-                  </p>
-                </div>
+          <section className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--color-foreground)] font-display">単語帳一覧</h2>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">
+                  新しい単語帳を追加して、そのまま学習を始められます
+                </p>
               </div>
-
-              {/* Tier B: コンパクトスタット（活動ある時のみ） */}
-              {dailyStats.todayCount > 0 && (
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
-                    <Icon name="check_circle" size={16} />
-                    {accuracyPercent}% 正答率
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
-                    <Icon name="school" size={16} />
-                    {dailyStats.masteredCount} 習得
-                  </span>
-                  {reviewDueCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
-                      <Icon name="schedule" size={16} />
-                      {reviewDueCount} 復習待ち
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Tier C: プライマリCTA */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                {reviewDueCount > 0 ? (
-                  <Link
-                    href={reviewQuizHref}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--color-hero-btn)] text-[var(--color-hero-btn-text)] font-bold text-sm border-b-[3px] border-[var(--color-hero-btn-border)] active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
-                  >
-                    <Icon name="replay" size={20} />
-                    復習を始める ({reviewDueCount}問)
-                  </Link>
-                ) : (
-                  projects.length > 0 && totalWords > 0 && (
-                    <Link
-                      href={`/quiz/${projects[0].id}?from=${encodeURIComponent('/')}`}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--color-hero-btn)] text-[var(--color-hero-btn-text)] font-bold text-sm border-b-[3px] border-[var(--color-hero-btn-border)] active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
-                    >
-                      <Icon name="quiz" size={20} />
-                      クイズに挑戦
-                    </Link>
-                  )
-                )}
-                {wrongAnswers.length > 0 && (
-                  <button
-                    onClick={() => setShowWrongAnswers(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 dark:bg-white/10 text-white font-bold text-sm border-b-[3px] border-white/10 dark:border-white/5 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
-                  >
-                    <Icon name="error" size={20} />
-                    間違え一覧 ({wrongAnswers.length})
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Quick links */}
-          <section>
-            <div className="grid grid-cols-4 gap-2">
               <button
                 onClick={() => handleScanButtonClick(false)}
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
+                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white border-b-[3px] border-[var(--color-primary-dark)] active:border-b-0 active:translate-y-[3px] transition-all"
               >
-                <div className="w-11 h-11 rounded-xl bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-                  <Icon name="photo_camera" size={22} className="text-sky-600 dark:text-sky-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">スキャン</span>
+                <Icon name="add" size={18} />
+                追加
               </button>
-              <Link
-                href="/search"
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-500/15 flex items-center justify-center">
-                  <Icon name="search" size={22} className="text-slate-600 dark:text-slate-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">検索</span>
-              </Link>
-              <Link
-                href="/favorites"
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
-                  <Icon name="flag" size={22} className="text-amber-600 dark:text-amber-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">苦手単語</span>
-              </Link>
-              <Link
-                href="/projects"
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-500/15 flex items-center justify-center">
-                  <Icon name="folder" size={22} className="text-teal-600 dark:text-teal-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">単語帳</span>
-              </Link>
-            </div>
-          </section>
-
-          {/* Recent projects */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">最近の単語帳</h2>
-              <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
             </div>
             {projects.length === 0 ? (
-              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                まだ単語帳がありません。スキャンから始めましょう。
+              <div className="card p-6 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
+                  <Icon name="menu_book" size={24} className="text-[var(--color-primary)]" />
+                </div>
+                <h3 className="mt-4 text-base font-bold text-[var(--color-foreground)]">まだ単語帳がありません</h3>
+                <p className="mt-2 text-sm text-[var(--color-muted)]">
+                  ノートやプリントを読み取って最初の単語帳を作りましょう。
+                </p>
+                <button
+                  onClick={() => handleScanButtonClick(false)}
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white border-b-[3px] border-[var(--color-primary-dark)] active:border-b-0 active:translate-y-[3px] transition-all"
+                >
+                  <Icon name="photo_camera" size={18} />
+                  単語帳を追加
+                </button>
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {[...projects]
-                  .sort((a, b) => {
-                    if (a.isFavorite && !b.isFavorite) return -1;
-                    if (!a.isFavorite && b.isFavorite) return 1;
-                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                  })
-                  .slice(0, 8)
-                  .map((project, index) => {
-                    const projectWords = getCachedProjectWords()[project.id] || [];
-                    const mastered = projectWords.filter((w) => w.status === 'mastered').length;
-                    const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
-                    return (
-                      <div key={project.id} className={index >= 6 ? 'hidden lg:block' : ''}>
-                        <ProjectBookTile
-                          project={project}
-                          wordCount={projectWords.length}
-                          masteredCount={mastered}
-                          progress={progress}
-                          onDelete={(id) => handleDeleteProject(id)}
-                          onToggleFavorite={handleToggleProjectFavorite}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-[var(--color-muted)]">{projects.length}冊の単語帳</p>
+                  <Link href="/projects" className="text-xs font-semibold text-[var(--color-primary)]">
+                    すべて見る
+                  </Link>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {[...projects]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .slice(0, 8)
+                    .map((project, index) => {
+                      const projectWords = getCachedProjectWords()[project.id] || [];
+                      const mastered = projectWords.filter((w) => w.status === 'mastered').length;
+                      const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
+                      return (
+                        <div key={project.id} className={index >= 6 ? 'hidden lg:block' : ''}>
+                          <ProjectBookTile
+                            project={project}
+                            wordCount={projectWords.length}
+                            masteredCount={mastered}
+                            progress={progress}
+                            onDelete={(id) => handleDeleteProject(id)}
+                            onToggleFavorite={handleToggleProjectFavorite}
+                          />
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
             )}
           </section>
         </main>
