@@ -94,7 +94,7 @@ final class HomeViewModel: ObservableObject {
             let repository = state.activeRepository
             let userId = state.activeUserId
             let projects = try await repository.fetchProjects(userId: userId)
-            self.projects = projects
+            self.projects = projects.sorted { $0.createdAt > $1.createdAt }
             errorMessage = nil
             loading = false
 
