@@ -1338,7 +1338,34 @@ struct HomeView: View {
             if let project = viewModel.projects.first {
                 let words = viewModel.preloadedWords(for: project.id) ?? []
 
-                VStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("対象の単語帳")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(project.title)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(MerkenTheme.primaryText)
+                                .lineLimit(1)
+
+                            Text("\(words.count)語")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(MerkenTheme.border, lineWidth: 1)
+                    )
+
                     homeStudyModeCard(
                         icon: "rectangle.portrait.on.rectangle.portrait",
                         iconColor: MerkenTheme.accentBlue,
@@ -1367,6 +1394,13 @@ struct HomeView: View {
                         disabled: words.count < 4
                     ) {
                         matchGameDestination = MatchGameDestination(project: project, words: words)
+                    }
+
+                    if words.count < 4 {
+                        Text("マッチは4語以上で開始できます。")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .padding(.horizontal, 4)
                     }
                 }
             } else {
