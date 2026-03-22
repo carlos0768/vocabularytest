@@ -144,6 +144,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
     const defaultSR = getDefaultSpacedRepetitionFields();
     const rows = translatedWords.map((word) => {
       const row = {
+        user_id: user.id,
         project_id: word.projectId,
         english: word.english,
         japanese: word.japanese,

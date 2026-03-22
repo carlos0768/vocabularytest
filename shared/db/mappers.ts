@@ -100,6 +100,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
 export interface WordRow {
   id: string;
   project_id: string;
+  user_id?: string;
   english: string;
   japanese: string;
   lexicon_entry_id?: string | null;
