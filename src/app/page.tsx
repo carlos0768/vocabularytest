@@ -131,6 +131,7 @@ export default function HomePage() {
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>(() => getWrongAnswers());
   const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
   const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
+  const [homeProjectSort, setHomeProjectSort] = useState<'newest' | 'name'>('newest');
   const [totalWords, setTotalWords] = useState(() => getCachedTotalWords());
 
   // Start with loading=false if cache is already populated (in-memory or sessionStorage)
@@ -641,7 +642,17 @@ export default function HomePage() {
     : showAllProjects
     ? allProjectsWords
     : words;
-  const studyProject = currentProject ?? projects[0] ?? null;
+  const sortedHomeProjects = useMemo(() => {
+    const sorted = [...projects];
+    sorted.sort((a, b) => {
+      if (homeProjectSort === 'name') {
+        return a.title.localeCompare(b.title, 'ja');
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return sorted;
+  }, [homeProjectSort, projects]);
+  const studyProject = currentProject ?? sortedHomeProjects[0] ?? null;
   const studyReturnPath = encodeURIComponent('/');
 
   // Navigation
@@ -1578,9 +1589,27 @@ export default function HomePage() {
                     すべて見る
                   </Link>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { key: 'newest', label: '新しく追加した順', icon: 'schedule' },
+                    { key: 'name', label: '名前順', icon: 'sort_by_alpha' },
+                  ] as const).map(({ key, label, icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => setHomeProjectSort(key)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                        homeProjectSort === key
+                          ? 'bg-[var(--color-primary)] text-white border-b-[3px] border-[var(--color-primary-dark)] active:border-b-0 active:translate-y-[3px]'
+                          : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-2 border-[var(--color-border)] border-b-[3px] active:border-b-[2px] active:translate-y-[1px]'
+                      }`}
+                    >
+                      <Icon name={icon} size={14} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {[...projects]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  {sortedHomeProjects
                     .slice(0, 8)
                     .map((project, index) => {
                       const projectWords = getCachedProjectWords()[project.id] || [];
