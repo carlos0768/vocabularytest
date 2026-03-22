@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
@@ -129,6 +129,9 @@ export default function ConfirmPage() {
   const { isPro, subscription, user } = useAuth();
   const { aiEnabled: accountAiEnabled } = useUserPreferences();
   const { showToast } = useToast();
+  const subscriptionStatus = subscription?.status || 'free';
+  const repository = useMemo(() => getRepository(subscriptionStatus), [subscriptionStatus]);
+  const userId = user ? user.id : getGuestUserId();
 
   // Initialize state synchronously with sessionStorage data
   const [initialData] = useState(getInitialData);
@@ -156,6 +159,8 @@ export default function ConfirmPage() {
 
   const [existingProjectId, setExistingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
+  const [savePhase, setSavePhase] = useState<'saving' | 'finalizing'>('saving');
+  const [targetProjectName, setTargetProjectName] = useState(initialData.projectName ?? '');
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
 
   // Check if adding these words would exceed limit
@@ -175,6 +180,28 @@ export default function ConfirmPage() {
       setShouldRedirect(true);
     }
   }, [initialData.words]);
+
+  useEffect(() => {
+    if (!existingProjectId) {
+      setTargetProjectName(initialData.projectName ?? '');
+      return;
+    }
+
+    let cancelled = false;
+    repository.getProject(existingProjectId)
+      .then((project) => {
+        if (!cancelled && project) {
+          setTargetProjectName(project.title);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load target project:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [existingProjectId, initialData.projectName, repository]);
 
   // Handle redirect in a separate effect to show toast
   useEffect(() => {
@@ -394,16 +421,14 @@ export default function ConfirmPage() {
     }
 
     setSaving(true);
+    setSavePhase('saving');
     try {
-      // Get repository and userId
-      const subscriptionStatus = subscription?.status || 'free';
-      const repository = getRepository(subscriptionStatus);
-      const userId = user ? user.id : getGuestUserId();
 
       let targetProjectId: string;
 
       if (isAddingToExisting && existingProjectId) {
         const existingProject = await repository.getProject(existingProjectId);
+        setTargetProjectName(existingProject?.title ?? targetProjectName);
         if (!existingProject || existingProject.userId !== userId) {
           throw new Error('選択した単語帳へのアクセス権がありません');
         }
@@ -421,6 +446,7 @@ export default function ConfirmPage() {
           sourceLabels: initialData.sourceLabels,
           iconImage: initialData.projectIcon ?? undefined,
         });
+        setTargetProjectName(project.title);
         targetProjectId = project.id;
       }
 
@@ -442,6 +468,7 @@ export default function ConfirmPage() {
         }))
       );
 
+      setSavePhase('finalizing');
       if (aiEnabledForGeneration) {
         await prefillQuizData(createdWords, repository.updateWord.bind(repository));
       }
@@ -498,6 +525,7 @@ export default function ConfirmPage() {
       alert(`保存に失敗しました: ${errorMessage}`);
     } finally {
       setSaving(false);
+      setSavePhase('saving');
     }
   };
 
@@ -581,6 +609,27 @@ export default function ConfirmPage() {
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-6">
+        <div className="mb-4 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary-light)]">
+              <Icon name={isAddingToExisting ? 'folder' : 'add_circle'} size={20} className="text-[var(--color-primary)]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-[var(--color-muted)]">
+                {isAddingToExisting ? '追加先の単語帳' : '保存先の単語帳'}
+              </p>
+              <p className="mt-1 truncate text-sm font-bold text-[var(--color-foreground)]">
+                {isAddingToExisting
+                  ? (targetProjectName || '単語帳を確認中...')
+                  : (projectTitle.trim() || '新しい単語帳を作成')}
+              </p>
+              <p className="mt-1 text-xs text-[var(--color-muted)]">
+                {selectedCount}語を保存します
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Project title input - only for new projects */}
         {!isAddingToExisting && (
           <div className="mb-6">
@@ -670,8 +719,28 @@ export default function ConfirmPage() {
               {excessCount}語減らしてください
             </p>
           )}
+          <p className="mt-2 text-center text-xs text-[var(--color-muted)]">
+            保存先: {isAddingToExisting ? (targetProjectName || '単語帳を確認中...') : (projectTitle.trim() || '新しい単語帳')}
+          </p>
         </div>
       </div>
+      {saving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
+              <div className="h-7 w-7 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)] animate-spin" />
+            </div>
+            <h2 className="mt-4 text-center text-base font-bold text-[var(--color-foreground)]">
+              {targetProjectName ? `${targetProjectName}に保存中` : '保存中'}
+            </h2>
+            <p className="mt-2 text-center text-sm text-[var(--color-muted)]">
+              {savePhase === 'saving'
+                ? '単語と単語帳の内容を保存しています。'
+                : 'クイズ用データを整えて、学習を始めやすくしています。'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
