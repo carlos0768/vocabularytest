@@ -406,7 +406,6 @@ struct ProjectDetailView: View {
                 }
             }
 
-            projectStatsSection
             contentPagerSection
         }
         .padding(20)
@@ -1095,119 +1094,6 @@ struct ProjectDetailView: View {
         .padding(.horizontal, 24)
         .padding(.bottom, 30)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-    }
-
-    // MARK: - Word Stats
-
-    private var projectStatsSection: some View {
-        let words = viewModel.words
-        let masteredCount = words.filter { $0.status == .mastered }.count
-        let reviewCount = words.filter { $0.status == .review }.count
-        let newCount = words.filter { $0.status == .new }.count
-        let total = words.count
-
-        return HStack(alignment: .top, spacing: 10) {
-            Button {
-                filteredWordListStatus = .mastered
-                showingFilteredWordList = true
-            } label: {
-                masteryCard(
-                    label: "習得",
-                    count: masteredCount,
-                    total: total,
-                    color: MerkenTheme.success,
-                    icon: "checkmark.seal.fill"
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                filteredWordListStatus = .review
-                showingFilteredWordList = true
-            } label: {
-                masteryCard(
-                    label: "学習中",
-                    count: reviewCount,
-                    total: total,
-                    color: MerkenTheme.accentBlue,
-                    icon: "arrow.trianglehead.2.clockwise"
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                filteredWordListStatus = .new
-                showingFilteredWordList = true
-            } label: {
-                masteryCard(
-                    label: "未学習",
-                    count: newCount,
-                    total: total,
-                    color: MerkenTheme.mutedText,
-                    icon: "sparkle"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func masteryCard(label: String, count: Int, total: Int, color: Color, icon: String) -> some View {
-        let progress: CGFloat = total > 0 ? CGFloat(count) / CGFloat(total) : 0
-
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("\(count)")
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text("/\(total)語")
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
-            .font(.system(size: 21, weight: .bold))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .allowsTightening(true)
-
-            Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-
-            Spacer(minLength: 2)
-
-            ZStack {
-                Circle()
-                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
-
-                Circle()
-                    .trim(from: 0, to: animatedChartProgress(progress))
-                    .stroke(
-                        color,
-                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(color)
-            }
-            .frame(width: 54, height: 54)
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 11)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 120)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
-        )
     }
 
     private var contentPagerSection: some View {
