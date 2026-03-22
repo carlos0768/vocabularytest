@@ -1,0 +1,21 @@
+name: iOS Deploy → Install Notification
+
+on:
+  deployment_status:
+
+jobs:
+  notify-ios:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment.ref, 'ios')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify iOS channel
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_IOS_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "<@D0ANXAG92BA> 実機にインストール\nブランチ: `${{ github.event.deployment.ref }}`\nCommit: `${{ github.sha }}`\nPreview: ${{ github.event.deployment_status.target_url || 'N/A' }}"
+            }
