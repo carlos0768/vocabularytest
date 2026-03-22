@@ -30,7 +30,6 @@ struct ProjectDetailView: View {
     @State private var showingCreateBookshelf = false
     @State private var weakWordsFlashcard: Project?
     @State private var showFullScreenWord = false
-    @State private var contentPage = 0
     @State private var filteredWordListStatus: WordStatus?
     @State private var showingFilteredWordList = false
     @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
@@ -159,7 +158,6 @@ struct ProjectDetailView: View {
                 .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                     await viewModel.load(projectId: project.id, using: appState)
                     learningModeCounts = LearningModeUsageStore.counts(for: learningModeScope)
-                    contentPage = 0
                     triggerChartAnimation()
                 }
                 .onChange(of: viewModel.projectMetadata?.title) { _, newValue in
@@ -188,7 +186,6 @@ struct ProjectDetailView: View {
                 }
                 .onAppear {
                     appState.tabBarVisible = false
-                    contentPage = 0
                     triggerChartAnimation()
                 }
                 .onDisappear {
@@ -406,7 +403,7 @@ struct ProjectDetailView: View {
                 }
             }
 
-            contentPagerSection
+            contentSection
         }
         .padding(20)
         .padding(.bottom, 28)
@@ -1096,33 +1093,25 @@ struct ProjectDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
     }
 
-    private var contentPagerSection: some View {
-        VStack(spacing: 10) {
-            TabView(selection: $contentPage) {
-                wordsSection
-                    .tag(0)
-
-                learningModesSection
-                    .tag(1)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: contentPageHeight)
-
-            HStack(spacing: 6) {
-                ForEach(0..<2, id: \.self) { page in
-                    Circle()
-                        .fill(contentPage == page ? MerkenTheme.accentBlue : MerkenTheme.borderLight)
-                        .frame(width: 6, height: 6)
-                }
-            }
+    private var contentSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            actionButtonsSection
+            wordsSection
+            learningModesSection
         }
     }
 
-    private var contentPageHeight: CGFloat {
-        viewModel.words.count >= 4 ? 340 : 252
-    }
+    private var actionButtonsSection: some View {
+        HStack(spacing: 10) {
+            compactActionButton(icon: "camera", title: "スキャン") {
+                showingScanModeSheet = true
+            }
 
-    // MARK: - Learning Modes / Words Pages
+            compactActionButton(icon: "plus", title: "単語追加") {
+                editorMode = .create
+            }
+        }
+    }
 
     private var learningModesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1131,6 +1120,16 @@ struct ProjectDetailView: View {
                 .foregroundStyle(MerkenTheme.primaryText)
 
             VStack(spacing: 10) {
+                learningModeCard(
+                    icon: "rectangle.portrait.on.rectangle.portrait",
+                    iconColor: MerkenTheme.accentBlue,
+                    title: "フラッシュカード",
+                    subtitle: "カードで連続復習",
+                    count: nil
+                ) {
+                    flashcardDestination = project
+                }
+
                 learningModeCard(
                     icon: "scope",
                     iconColor: MerkenTheme.success,
@@ -1167,57 +1166,23 @@ struct ProjectDetailView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var wordsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("単語")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-
-            VStack(spacing: 10) {
-                wordActionCard(
-                    icon: "list.bullet",
-                    iconColor: MerkenTheme.primaryText,
-                    title: "単語一覧",
-                    subtitle: "一覧で確認して編集"
-                ) {
-                    showingWordList = true
-                }
-
-                wordActionCard(
-                    icon: "rectangle.portrait.on.rectangle.portrait",
-                    iconColor: .white,
-                    title: "フラッシュカード",
-                    subtitle: "カードで連続復習",
-                    isPrimary: true
-                ) {
-                    flashcardDestination = project
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, count: Int, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            showingWordList = true
+        } label: {
             HStack(spacing: 14) {
-                IconBadge(systemName: icon, color: iconColor, size: 48)
+                IconBadge(systemName: "list.bullet", color: MerkenTheme.primaryText, size: 48)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
+                Text("単語一覧")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Spacer()
 
                 HStack(spacing: 10) {
-                    Text("\(count)回")
+                    Text("\(viewModel.words.count)")
                         .font(.system(size: 13, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(MerkenTheme.accentBlue)
@@ -1246,61 +1211,85 @@ struct ProjectDetailView: View {
                     .offset(y: 3)
             )
         }
+        .buttonStyle(.plain)
     }
 
-    private func wordActionCard(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        subtitle: String,
-        isPrimary: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
+    private func compactActionButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(MerkenTheme.primaryText)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(MerkenTheme.surface, in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(MerkenTheme.border, lineWidth: 1.5)
+            )
+            .background(
+                Capsule()
+                    .fill(MerkenTheme.border)
+                    .offset(y: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, count: Int?, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(isPrimary ? Color.white : iconColor)
-                    .frame(width: 48, height: 48)
-                    .background(
-                        isPrimary ? Color.white.opacity(0.14) : MerkenTheme.surfaceAlt,
-                        in: .circle
-                    )
+                IconBadge(systemName: icon, color: iconColor, size: 48)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(isPrimary ? Color.white : MerkenTheme.primaryText)
+                        .foregroundStyle(MerkenTheme.primaryText)
                     Text(subtitle)
                         .font(.system(size: 13))
-                        .foregroundStyle(isPrimary ? Color.white.opacity(0.76) : MerkenTheme.mutedText)
+                        .foregroundStyle(MerkenTheme.mutedText)
                 }
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(isPrimary ? Color.white.opacity(0.78) : MerkenTheme.mutedText)
-                    .frame(width: 14)
+                HStack(spacing: 10) {
+                    if let count {
+                        Text("\(count)")
+                            .font(.system(size: 13, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .frame(width: 14)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                isPrimary ? AnyShapeStyle(MerkenTheme.accentBlue) : AnyShapeStyle(MerkenTheme.surface),
-                in: .rect(cornerRadius: 16)
-            )
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isPrimary ? Color.clear : MerkenTheme.border, lineWidth: 1.5)
+                    .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isPrimary ? MerkenTheme.accentBlue.opacity(0.2) : MerkenTheme.border)
+                    .fill(MerkenTheme.border)
                     .offset(y: 3)
             )
         }
     }
-
     // MARK: - Word List (compact summary → navigates to full list)
 
     @ViewBuilder
