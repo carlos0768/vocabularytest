@@ -407,6 +407,8 @@ struct HomeView: View {
     @State private var detailProject: Project?
     @State private var showingProjectList = false
     @State private var showingScan = false
+    @State private var showingCreateProjectSheet = false
+    @State private var newProjectTitle = ""
     @State private var projectToDelete: Project?
     @State private var projectToRename: Project?
     @State private var renameProjectTitle = ""
@@ -461,6 +463,11 @@ struct HomeView: View {
                 sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject
             ))
+            .sheet(isPresented: $showingCreateProjectSheet) {
+                createProjectSheet
+                    .presentationDetents([.height(280)])
+                    .presentationDragIndicator(.visible)
+            }
     }
 
     private var homeGeometryLayer: some View {
@@ -491,18 +498,7 @@ struct HomeView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
-                    VStack(alignment: .leading, spacing: 18) {
-                        homeLogoTitle
-                        emptyStateSection
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                } else {
-                    homeScrollContent
-                }
-            }
+            homeScrollContent
         }
     }
 
@@ -527,11 +523,13 @@ struct HomeView: View {
                     projectsSection
                         .transition(.move(edge: .bottom).combined(with: .opacity))
 
-                    studyModesSection
+                    if shouldShowLearningOverview {
+                        studyModesSection
 
-                    heroBlock
+                        heroBlock
 
-                    homeLearningStateSection
+                        homeLearningStateSection
+                    }
 
                     errorSection
                 }
@@ -577,6 +575,43 @@ struct HomeView: View {
             .font(.system(size: 31.2, weight: .black))
             .foregroundStyle(MerkenTheme.primaryText)
             .tracking(2)
+    }
+
+    private var shouldShowLearningOverview: Bool {
+        !viewModel.projects.isEmpty || viewModel.totalWordCount > 0 || viewModel.todayAnswered > 0
+    }
+
+    private var createProjectSheet: some View {
+        NavigationStack {
+            ZStack {
+                AppBackground()
+
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("新しい単語帳")
+                        .font(.title3.bold())
+                        .foregroundStyle(MerkenTheme.primaryText)
+
+                    TextField("例: TOEIC 重要単語", text: $newProjectTitle)
+                        .textFieldStyle(.plain)
+                        .solidTextField(cornerRadius: 16)
+
+                    Button("作成") {
+                        Task {
+                            await viewModel.createProject(title: newProjectTitle, using: appState)
+                            if viewModel.errorMessage == nil {
+                                newProjectTitle = ""
+                                showingCreateProjectSheet = false
+                            }
+                        }
+                    }
+                    .buttonStyle(PrimaryGlassButton())
+                    .disabled(newProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Spacer()
+                }
+                .padding(16)
+            }
+        }
     }
 
     private func homeHeaderGlassCover(safeAreaTop: CGFloat) -> some View {
@@ -1234,7 +1269,7 @@ struct HomeView: View {
 
                 Button {
                     MerkenHaptic.selection()
-                    showingScan = true
+                    showingCreateProjectSheet = true
                 } label: {
                     Label("追加", systemImage: "plus")
                         .font(.system(size: 14, weight: .semibold))

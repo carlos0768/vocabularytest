@@ -176,6 +176,27 @@ final class HomeViewModel: ObservableObject {
         wordsByProject[projectId]
     }
 
+    func createProject(title: String, using state: AppState) async {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+
+        do {
+            let created = try await state.activeRepository.createProject(
+                title: trimmedTitle,
+                userId: state.activeUserId,
+                iconImage: nil
+            )
+            projects.insert(created, at: 0)
+            projects.sort { $0.createdAt > $1.createdAt }
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("Project create failed: \(error.localizedDescription)")
+        }
+    }
+
     func toggleFavorite(projectId: String, using state: AppState) async {
         guard let index = projects.firstIndex(where: { $0.id == projectId }) else { return }
         let newValue = !projects[index].isFavorite
