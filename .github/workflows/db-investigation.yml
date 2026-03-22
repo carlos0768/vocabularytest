@@ -16,8 +16,8 @@ jobs:
       - name: Get changed files with patches
         id: changes
         run: |
-          # Get changed files between HEAD~1 and HEAD
-          FILES_JSON=$(git diff HEAD~1 HEAD --name-status --diff-filter=ADMR | while IFS=$'\t' read -r status file; do
+          # Get changed files between HEAD~1 and HEAD, save to temp file
+          git diff HEAD~1 HEAD --name-status --diff-filter=ADMR | while IFS=$'\t' read -r status file; do
             case "$status" in
               A) change_type="added" ;;
               D) change_type="removed" ;;
@@ -25,16 +25,11 @@ jobs:
               R*) change_type="renamed" ;;
               *) change_type="modified" ;;
             esac
-            # Get patch content (truncated to 2000 chars to avoid payload limits)
             patch=$(git diff HEAD~1 HEAD -- "$file" 2>/dev/null | head -c 2000 | jq -Rs .)
             echo "{\"path\":\"$file\",\"changeType\":\"$change_type\",\"patch\":$patch}"
-          done | jq -s .)
+          done | jq -s . > /tmp/changed_files.json
 
-          echo "files_json<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$FILES_JSON" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-          FILE_COUNT=$(echo "$FILES_JSON" | jq length)
+          FILE_COUNT=$(jq length /tmp/changed_files.json)
           echo "file_count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
           echo "Found $FILE_COUNT changed files"
 
@@ -45,26 +40,27 @@ jobs:
           WEBHOOK_TOKEN: ${{ secrets.DB_INVESTIGATION_WEBHOOK_TOKEN }}
           CLOUD_RUN_URL: ${{ secrets.DB_INVESTIGATION_URL }}
         run: |
-          PAYLOAD=$(jq -n \
+          # Build payload using temp file to avoid shell escaping issues
+          jq -n \
             --arg repo "${{ github.repository }}" \
             --arg sha "${{ github.sha }}" \
             --arg actor "${{ github.actor }}" \
             --arg triggered "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --argjson files '${{ steps.changes.outputs.files_json }}' \
+            --slurpfile files /tmp/changed_files.json \
             '{
               repository: $repo,
               commitSha: $sha,
               actor: $actor,
               triggeredAt: $triggered,
               source: "github-actions",
-              changedFiles: $files
-            }')
+              changedFiles: $files[0]
+            }' > /tmp/payload.json
 
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "${CLOUD_RUN_URL}/investigate" \
             -H "Authorization: Bearer ${WEBHOOK_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
+            -d @/tmp/payload.json \
             --max-time 120)
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
@@ -73,11 +69,13 @@ jobs:
           echo "HTTP Status: $HTTP_CODE"
           echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
 
+          # Save response for next step
+          echo "$BODY" > /tmp/response.json
+
           if [ "$HTTP_CODE" -ge 400 ]; then
             echo "::warning::DB Investigation returned HTTP $HTTP_CODE"
           fi
 
-          # Save outputs for Slack notification
           SKIPPED=$(echo "$BODY" | jq -r '.skipped // false' 2>/dev/null)
           echo "skipped=$SKIPPED" >> "$GITHUB_OUTPUT"
 
@@ -86,27 +84,6 @@ jobs:
           else
             RISK=$(echo "$BODY" | jq -r '.assessment.riskLevel // "unknown"' 2>/dev/null)
             SCORE=$(echo "$BODY" | jq -r '.assessment.riskScore // "?"' 2>/dev/null)
-            SUMMARY=$(echo "$BODY" | jq -r '.assessment.summary // ""' 2>/dev/null)
-            FACTORS=$(echo "$BODY" | jq -r '(.assessment.factors // []) | map("• " + .) | join("\n")' 2>/dev/null)
-            NOTION_PAGE=$(echo "$BODY" | jq -r '.notion.pageId // ""' 2>/dev/null)
-            NOTION_WRITTEN=$(echo "$BODY" | jq -r '.notion.written // false' 2>/dev/null)
-            DB_FILES=$(echo "$BODY" | jq -r '(.detection.matches // []) | map(.path) | unique | join(", ")' 2>/dev/null)
-
-            echo "risk=$RISK" >> "$GITHUB_OUTPUT"
-            echo "score=$SCORE" >> "$GITHUB_OUTPUT"
-            echo "notion_written=$NOTION_WRITTEN" >> "$GITHUB_OUTPUT"
-            echo "notion_page=$NOTION_PAGE" >> "$GITHUB_OUTPUT"
-            echo "db_files=$DB_FILES" >> "$GITHUB_OUTPUT"
-
-            # Multi-line outputs
-            echo "summary<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$SUMMARY" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
-
-            echo "factors<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$FACTORS" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
-
             echo "🔍 Risk Level: $RISK (score: $SCORE)"
           fi
 
@@ -115,9 +92,14 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          RISK="${{ steps.investigate.outputs.risk }}"
-          SCORE="${{ steps.investigate.outputs.score }}"
-          NOTION_WRITTEN="${{ steps.investigate.outputs.notion_written }}"
+          BODY=$(cat /tmp/response.json)
+
+          RISK=$(echo "$BODY" | jq -r '.assessment.riskLevel // "unknown"')
+          SCORE=$(echo "$BODY" | jq -r '.assessment.riskScore // "?"')
+          SUMMARY=$(echo "$BODY" | jq -r '.assessment.summary // ""')
+          NOTION_WRITTEN=$(echo "$BODY" | jq -r '.notion.written // false')
+          DB_FILES=$(echo "$BODY" | jq -r '(.detection.matches // []) | map(.path) | unique | join(", ")')
+
           SHA="${{ github.sha }}"
           SHORT_SHA="${SHA:0:7}"
 
@@ -130,18 +112,16 @@ jobs:
             *)        EMOJI="⚪" ;;
           esac
 
-          # Build Slack message
           NOTION_LINE=""
           if [ "$NOTION_WRITTEN" = "true" ]; then
             NOTION_LINE="\n📝 Notion: 記録済み"
           fi
 
-          TEXT="${EMOJI} *DB Investigation* — Risk: *${RISK}* (score: ${SCORE})\nCommit: \`${SHORT_SHA}\` by ${{ github.actor }}\nFiles: ${{ steps.investigate.outputs.db_files }}${NOTION_LINE}\n\n${{ steps.investigate.outputs.summary }}"
+          TEXT="${EMOJI} *DB Investigation* — Risk: *${RISK}* (score: ${SCORE})\nCommit: \`${SHORT_SHA}\` by ${{ github.actor }}\nFiles: ${DB_FILES}${NOTION_LINE}\n\n${SUMMARY}"
 
-          SLACK_PAYLOAD=$(jq -n --arg text "$TEXT" '{ text: $text }')
-
-          curl -s -X POST "$SLACK_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "$SLACK_PAYLOAD"
+          jq -n --arg text "$TEXT" '{ text: $text }' | \
+            curl -s -X POST "$SLACK_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d @-
 
           echo "✅ Slack notification sent"
