@@ -14,11 +14,10 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           SHA="${GITHUB_SHA:0:7}"
-          RESP=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+          curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{
               \"channel\": \"C0AMSTQ19UZ\",
               \"text\": \"<@D0ANXAG92BA> 実機にインストール\nブランチ: \`${BRANCH}\`\nCommit: \`${SHA}\`\"
-            }")
-          echo "$RESP" | jq .ok
+            }"
