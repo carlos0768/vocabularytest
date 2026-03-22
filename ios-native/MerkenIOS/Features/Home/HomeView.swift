@@ -355,6 +355,32 @@ private struct FlashcardDestination: Hashable {
     }
 }
 
+private struct Quiz2Destination: Hashable {
+    let project: Project
+    let preloadedWords: [Word]?
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(project)
+    }
+
+    static func == (lhs: Quiz2Destination, rhs: Quiz2Destination) -> Bool {
+        lhs.project == rhs.project
+    }
+}
+
+private struct MatchGameDestination: Hashable {
+    let project: Project
+    let words: [Word]
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(project)
+    }
+
+    static func == (lhs: MatchGameDestination, rhs: MatchGameDestination) -> Bool {
+        lhs.project == rhs.project
+    }
+}
+
 private struct SentenceQuizDestination: Hashable {
     let project: Project
 }
@@ -375,6 +401,8 @@ struct HomeView: View {
 
     @State private var quizDestination: QuizDestination?
     @State private var flashcardDestination: FlashcardDestination?
+    @State private var quiz2Destination: Quiz2Destination?
+    @State private var matchGameDestination: MatchGameDestination?
     @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingProjectList = false
@@ -405,6 +433,8 @@ struct HomeView: View {
                 selectedDayStory: $selectedDayStory,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
+                quiz2Destination: $quiz2Destination,
+                matchGameDestination: $matchGameDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject,
                 selectedCollection: $selectedCollection,
@@ -426,6 +456,8 @@ struct HomeView: View {
                 bookshelfVM: bookshelfVM,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
+                quiz2Destination: $quiz2Destination,
+                matchGameDestination: $matchGameDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject
             ))
@@ -494,6 +526,8 @@ struct HomeView: View {
 
                     projectsSection
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+
+                    studyModesSection
 
                     heroBlock
 
@@ -1260,6 +1294,101 @@ struct HomeView: View {
         .animation(MerkenSpring.gentle, value: Array(viewModel.projects.prefix(3).map(\.id)))
     }
 
+    private var studyModesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("学習モード")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+
+            if let project = viewModel.projects.first {
+                let words = viewModel.preloadedWords(for: project.id) ?? []
+
+                VStack(spacing: 10) {
+                    homeStudyModeCard(
+                        icon: "rectangle.portrait.on.rectangle.portrait",
+                        iconColor: MerkenTheme.accentBlue,
+                        title: "フラッシュカード",
+                        subtitle: "カードで復習",
+                        disabled: words.isEmpty
+                    ) {
+                        flashcardDestination = FlashcardDestination(project: project, preloadedWords: words)
+                    }
+
+                    homeStudyModeCard(
+                        icon: "scope",
+                        iconColor: MerkenTheme.success,
+                        title: "自己評価",
+                        subtitle: "思い出して評価",
+                        disabled: words.isEmpty
+                    ) {
+                        quiz2Destination = Quiz2Destination(project: project, preloadedWords: words)
+                    }
+
+                    homeStudyModeCard(
+                        icon: "square.grid.2x2",
+                        iconColor: MerkenTheme.warning,
+                        title: "マッチ",
+                        subtitle: "ペアを見つける",
+                        disabled: words.count < 4
+                    ) {
+                        matchGameDestination = MatchGameDestination(project: project, words: words)
+                    }
+                }
+            } else {
+                SolidCard {
+                    Text("単語帳を作成すると学習モードを使えます。")
+                        .font(.subheadline)
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func homeStudyModeCard(
+        icon: String,
+        iconColor: Color,
+        title: String,
+        subtitle: String,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 34, height: 34)
+                    .background(MerkenTheme.background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text(subtitle)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(MerkenTheme.border, lineWidth: 1)
+            )
+            .opacity(disabled ? 0.55 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+    }
+
     // MARK: Featured Project Card (full-width, with circular progress)
 
     private func featuredProjectCard(_ project: Project) -> some View {
@@ -1605,6 +1734,8 @@ private struct HomeNavigationModifier: ViewModifier {
     @Binding var selectedDayStory: DayMasteryStory?
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
+    @Binding var quiz2Destination: Quiz2Destination?
+    @Binding var matchGameDestination: MatchGameDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
     @Binding var selectedCollection: Collection?
@@ -1628,6 +1759,12 @@ private struct HomeNavigationModifier: ViewModifier {
             }
             .navigationDestination(item: $flashcardDestination) { dest in
                 FlashcardView(project: dest.project, preloadedWords: dest.preloadedWords, showDismissButton: false)
+            }
+            .navigationDestination(item: $quiz2Destination) { dest in
+                Quiz2View(project: dest.project, preloadedWords: dest.preloadedWords)
+            }
+            .navigationDestination(item: $matchGameDestination) { dest in
+                MatchGameView(project: dest.project, words: dest.words)
             }
             .navigationDestination(item: $sentenceQuizDestination) { dest in
                 SentenceQuizView(project: dest.project)
@@ -1751,12 +1888,16 @@ private struct HomeLifecycleModifier: ViewModifier {
     let bookshelfVM: BookshelfListViewModel
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
+    @Binding var quiz2Destination: Quiz2Destination?
+    @Binding var matchGameDestination: MatchGameDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
 
     private var isShowingNestedDestination: Bool {
         quizDestination != nil ||
         flashcardDestination != nil ||
+        quiz2Destination != nil ||
+        matchGameDestination != nil ||
         sentenceQuizDestination != nil ||
         detailProject != nil
     }
