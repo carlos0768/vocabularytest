@@ -57,7 +57,7 @@ const requestSchema = z.object({
   words: z.array(wordInputSchema).min(1).max(200),
 }).strict();
 
-const ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING = false;
+const ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING = true;
 
 interface WordsCreateDeps {
   createClient?: typeof createRouteHandlerClient;
