@@ -46,7 +46,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'words' | 'lastUsed'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'added' | 'words' | 'lastUsed'>('newest');
 
   const { showToast } = useToast();
   const { refresh: refreshWordCount } = useWordCount();
@@ -203,12 +203,12 @@ export default function ProjectsPage() {
   }, [authLoading, isPro, user, repository]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const favorites = projects.filter((project) => project.isFavorite);
-  const filtered = useMemo(() => {
-    const base = projects.filter((project) =>
-      project.title.toLowerCase().includes(query.toLowerCase())
-    );
-    return [...base].sort((a, b) => {
+  const sortedProjects = useMemo(() => {
+    return [...projects].sort((a, b) => {
       switch (sortBy) {
+        case 'added':
+          // TODO: lastWordAddedAt tracking - currently fallback to createdAt.
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case 'words':
           return b.totalWords - a.totalWords;
         case 'lastUsed': {
@@ -221,7 +221,13 @@ export default function ProjectsPage() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
-  }, [projects, query, sortBy]);
+  }, [projects, sortBy]);
+
+  const filtered = useMemo(() => {
+    return sortedProjects.filter((project) =>
+      project.title.toLowerCase().includes(query.toLowerCase())
+    );
+  }, [sortedProjects, query]);
 
   return (
     <AppShell>
@@ -243,6 +249,79 @@ export default function ProjectsPage() {
       </header>
 
       <main className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--color-muted)]">単語帳一覧</h2>
+            <span className="text-xs text-[var(--color-muted)]">{projects.length}件</span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {sortedProjects.map((project) => (
+              <Link
+                key={project.id}
+                href={`/project/${project.id}`}
+                className="shrink-0 w-36 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 hover:border-[var(--color-primary)]/40 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="w-9 h-9 rounded-[var(--radius-md)] bg-[var(--color-primary-light)] flex items-center justify-center overflow-hidden">
+                    {project.iconImage ? (
+                      <span
+                        className="block w-full h-full bg-cover bg-center"
+                        style={{ backgroundImage: `url(${project.iconImage})` }}
+                      />
+                    ) : (
+                      <Icon name="menu_book" size={16} className="text-[var(--color-primary)]" />
+                    )}
+                  </div>
+                  {project.isFavorite && (
+                    <Icon name="push_pin" size={14} className="text-[var(--color-warning)]" />
+                  )}
+                </div>
+                <p className="mt-2 text-sm font-semibold text-[var(--color-foreground)] line-clamp-2 min-h-[2.5rem]">
+                  {project.title}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  {project.totalWords}語
+                </p>
+              </Link>
+            ))}
+            <Link
+              href="/scan"
+              className="shrink-0 w-28 rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--color-primary)]/40 bg-[var(--color-primary-light)]/50 p-3 flex flex-col items-center justify-center gap-1 text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
+            >
+              <Icon name="add" size={20} />
+              <span className="text-sm font-semibold">＋追加</span>
+            </Link>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-[var(--color-muted)]">学習モード</h2>
+          <div className="grid grid-cols-3 gap-2.5">
+            <Link
+              href="/flashcard"
+              className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-left hover:border-[var(--color-primary)]/40 transition-colors"
+            >
+              <Icon name="style" size={18} className="text-[var(--color-primary)]" />
+              <p className="mt-2 text-sm font-semibold text-[var(--color-foreground)]">フラッシュカード</p>
+            </Link>
+            <Link
+              href="/quiz"
+              className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-left hover:border-[var(--color-primary)]/40 transition-colors"
+            >
+              <Icon name="quiz" size={18} className="text-[var(--color-primary)]" />
+              <p className="mt-2 text-sm font-semibold text-[var(--color-foreground)]">自己評価</p>
+            </Link>
+            <button
+              type="button"
+              disabled
+              className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-border-light)] p-3 text-left opacity-70 cursor-not-allowed"
+            >
+              <Icon name="link" size={18} className="text-[var(--color-muted)]" />
+              <p className="mt-2 text-sm font-semibold text-[var(--color-muted)]">マッチ</p>
+            </button>
+          </div>
+        </section>
+
         <div className="space-y-3">
           <div className="relative">
             <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
@@ -257,6 +336,7 @@ export default function ProjectsPage() {
           <div className="flex gap-2">
             {([
               { key: 'newest', label: '新しい順', icon: 'schedule' },
+              { key: 'added', label: '新しく入れた順', icon: 'playlist_add' },
               { key: 'words', label: '単語が多い順', icon: 'sort' },
               { key: 'lastUsed', label: '最近使った順', icon: 'history' },
             ] as const).map(({ key, label, icon }) => (
