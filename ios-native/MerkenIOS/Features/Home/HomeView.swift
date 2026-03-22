@@ -492,14 +492,20 @@ struct HomeView: View {
 
                     homeLogoTitle
 
-                    projectsSection
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-
                     heroBlock
 
                     homeLearningStateSection
 
                     errorSection
+
+                    if !viewModel.projects.isEmpty {
+                        projectsSection
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    if appState.isPro {
+                        bookshelfSection
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 2)
@@ -1192,68 +1198,27 @@ struct HomeView: View {
 
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Section header
             HStack {
                 Text("単語帳")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-
-                Button {
-                    MerkenHaptic.selection()
-                    showingScan = true
-                } label: {
-                    Label("追加", systemImage: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(MerkenTheme.surface, in: Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(MerkenTheme.border, lineWidth: 1)
-                        )
+                if viewModel.projects.count > 3 {
+                    Button { showingProjectList = true } label: {
+                        Text("すべて見る")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
                 }
-                .buttonStyle(.plain)
             }
 
-            if viewModel.projects.isEmpty {
-                SolidCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("まだ単語帳がありません")
-                            .font(.headline)
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text("右上の追加から新しい単語帳を作成してください。")
-                            .font(.subheadline)
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            } else {
-                VStack(spacing: 12) {
-                    ForEach(Array(viewModel.projects.prefix(3))) { project in
-                        featuredProjectCard(project)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .onTapGesture { detailProject = project }
-                            .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
-                    }
-
-                    if viewModel.projects.count > 3 {
-                        Button {
-                            showingProjectList = true
-                        } label: {
-                            Text("すべて見る")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(MerkenTheme.border, lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
+            VStack(spacing: 12) {
+                ForEach(Array(viewModel.projects.prefix(3))) { project in
+                    featuredProjectCard(project)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .onTapGesture { detailProject = project }
+                        .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
                 }
             }
         }
