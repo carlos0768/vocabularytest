@@ -20,8 +20,7 @@ struct ProjectDetailView: View {
     @State private var preparedProjectShareURL: URL?
     @State private var showingProjectShareSheet = false
     @State private var showingDeleteConfirm = false
-    @State private var showingBookshelfPicker = false
-    @State private var showingCreateBookshelf = false
+
     @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
     @State private var scrollOffset: CGFloat = 0
     @State private var chartAnimationProgress: Double = 0
@@ -103,17 +102,6 @@ struct ProjectDetailView: View {
                     MatchGameView(project: project, words: viewModel.words)
                 }
                 .sheet(isPresented: $showingProjectShareSheet, content: projectShareSheet)
-                .sheet(isPresented: $showingBookshelfPicker) {
-                    AddToBookshelfSheet(projectId: project.id)
-                        .environmentObject(appState)
-                }
-                .sheet(isPresented: $showingCreateBookshelf) {
-                    CreateBookshelfSheet(onComplete: {})
-                        .environmentObject(appState)
-                        .presentationDetents([.medium, .large])
-                        .presentationDragIndicator(.visible)
-                        .presentationContentInteraction(.resizes)
-                }
         )
 
         return AnyView(
@@ -494,12 +482,6 @@ struct ProjectDetailView: View {
                         } label: {
                             Label("単色に戻す", systemImage: "paintpalette")
                         }
-                    }
-
-                    Button {
-                        showingBookshelfPicker = true
-                    } label: {
-                        Label("本棚に追加", systemImage: "books.vertical")
                     }
 
                     Divider()
