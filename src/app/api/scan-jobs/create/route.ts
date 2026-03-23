@@ -185,7 +185,9 @@ export async function POST(request: NextRequest) {
       clientPlatform === 'ios' && !isProUser ? 'client_local' : 'server_cloud';
 
     let validatedTargetProjectId: string | null = null;
-    if (saveMode === 'server_cloud' && targetProjectId) {
+    if (targetProjectId) {
+      // Validate targetProjectId regardless of saveMode so that
+      // client_local (iOS free) can also add words to existing projects.
       const { data: project, error: projectError } = await getSupabaseAdmin()
         .from('projects')
         .select('id')
