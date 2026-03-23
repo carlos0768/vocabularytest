@@ -1,5 +1,4 @@
 import SwiftUI
-import AVFoundation
 import PhotosUI
 import UIKit
 
@@ -23,7 +22,6 @@ struct ProjectDetailView: View {
     @State private var showingDeleteConfirm = false
     @State private var showingBookshelfPicker = false
     @State private var showingCreateBookshelf = false
-    @State private var weakWordsFlashcard: Project?
     @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
     @State private var scrollOffset: CGFloat = 0
     @State private var chartAnimationProgress: Double = 0
@@ -98,7 +96,6 @@ struct ProjectDetailView: View {
                 }
                 .fullScreenCover(isPresented: $showingWordList, content: wordListSheet)
                 .fullScreenCover(item: $flashcardDestination, content: flashcardSheet)
-                .fullScreenCover(item: $weakWordsFlashcard, content: weakFlashcardSheet)
                 .navigationDestination(item: $quiz2Destination) { project in
                     Quiz2View(project: project, preloadedWords: viewModel.words)
                 }
@@ -224,12 +221,6 @@ struct ProjectDetailView: View {
     private func flashcardSheet(project: Project) -> some View {
         NavigationStack {
             FlashcardView(project: project, preloadedWords: viewModel.words)
-        }
-    }
-
-    private func weakFlashcardSheet(project: Project) -> some View {
-        NavigationStack {
-            FlashcardView(project: project, preloadedWords: weakWords)
         }
     }
 
@@ -568,21 +559,6 @@ struct ProjectDetailView: View {
         }
 
         showingProjectShareSheet = preparedProjectShareURL != nil
-    }
-
-    private func speakWord(_ text: String) {
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.45
-        AVSpeechSynthesizer().speak(utterance)
-    }
-
-    // MARK: - Weak Words (苦手な単語)
-
-    private var weakWords: [Word] {
-        viewModel.words.filter { word in
-            word.status == .review || word.easeFactor < 2.5
-        }
     }
 
     // MARK: - Project Thumbnail Header
