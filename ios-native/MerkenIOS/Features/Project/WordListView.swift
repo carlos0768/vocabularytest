@@ -6,6 +6,12 @@ private enum WordListFilter: Hashable {
     case favorite
 }
 
+private enum WordSortOrder: String, CaseIterable {
+    case createdAsc = "入力順"
+    case createdDesc = "新しい順"
+    case alphabetical = "ABC順"
+}
+
 struct WordListView: View {
     let project: Project
     let contentScrollEnabled: Bool
@@ -18,6 +24,7 @@ struct WordListView: View {
     @State private var searchText = ""
 
     @State private var selectedFilter: WordListFilter = .all
+    @State private var selectedSort: WordSortOrder = .createdAsc
     private let initialStatus: WordStatus?
 
     private var headerTitle: String {
@@ -30,7 +37,7 @@ struct WordListView: View {
     }
 
     private var filteredWords: [Word] {
-        viewModel.words.filter { word in
+        let filtered = viewModel.words.filter { word in
             switch selectedFilter {
             case .all:
                 break
@@ -50,6 +57,30 @@ struct WordListView: View {
             }
             return true
         }
+
+        switch selectedSort {
+        case .createdAsc:
+            return filtered.sorted { $0.createdAt < $1.createdAt }
+        case .createdDesc:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .alphabetical:
+            return filtered.sorted { $0.english.localizedCaseInsensitiveCompare($1.english) == .orderedAscending }
+        }
+    }
+
+    /// Whether to show time-based group dividers (only for createdAt sorts)
+    private var showTimeDividers: Bool {
+        selectedSort == .createdAsc || selectedSort == .createdDesc
+    }
+
+    /// Returns true if a thick divider should appear before the word at the given index
+    private func shouldShowGroupDivider(at index: Int) -> Bool {
+        guard showTimeDividers, index > 0 else { return false }
+        let words = filteredWords
+        let threshold: TimeInterval = 5 * 60 // 5 minutes
+        let prev = words[index - 1]
+        let current = words[index]
+        return abs(current.createdAt.timeIntervalSince(prev.createdAt)) > threshold
     }
 
     init(project: Project, contentScrollEnabled: Bool = true, initialStatus: WordStatus? = nil) {
@@ -72,8 +103,9 @@ struct WordListView: View {
                         // Search
                         searchBar
 
-                        // Status filter chips
+                        // Status filter chips + sort picker
                         statusChips
+                        sortPicker
 
                         // Words
                         if filteredWords.isEmpty {
@@ -81,10 +113,14 @@ struct WordListView: View {
                         }
 
                         if !filteredWords.isEmpty {
+                            let words = filteredWords
                             VStack(spacing: 0) {
                                 dividerLine
 
-                                ForEach(filteredWords) { word in
+                                ForEach(Array(words.enumerated()), id: \.element.id) { index, word in
+                                    if shouldShowGroupDivider(at: index) {
+                                        groupDividerLine
+                                    }
                                     wordRow(word)
                                     dividerLine
                                 }
@@ -227,6 +263,32 @@ struct WordListView: View {
                 )
             )
         }
+    }
+
+    // MARK: - Sort Picker
+
+    private var sortPicker: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MerkenTheme.mutedText)
+
+            Picker("並び替え", selection: $selectedSort) {
+                ForEach(WordSortOrder.allCases, id: \.self) { order in
+                    Text(order.rawValue).tag(order)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    // MARK: - Group Divider
+
+    private var groupDividerLine: some View {
+        Rectangle()
+            .fill(MerkenTheme.border)
+            .frame(height: 3)
+            .padding(.vertical, 8)
     }
 
     // MARK: - Empty State
