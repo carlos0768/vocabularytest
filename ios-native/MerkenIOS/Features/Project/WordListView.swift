@@ -313,27 +313,19 @@ struct WordListView: View {
 
     private func wordRow(_ word: Word) -> some View {
         HStack(alignment: .center, spacing: 12) {
+            // English word — large and bold
             Text(word.english)
-                .font(.system(size: 19, weight: .medium))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(2)
 
-            VStack(alignment: .leading, spacing: 4) {
-                if let partOfSpeech = formattedPartOfSpeech(for: word) {
-                    Text(partOfSpeech)
-                        .font(.system(size: 14))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-                Text(word.japanese)
-                    .font(.system(size: 16))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
+            // (品詞) 訳 — inline on one line, wrapping within this column
+            inlineDefinition(for: word)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
 
+            // Action icons: ♡ ✏️ ⋯
             HStack(spacing: 12) {
                 Button {
                     Task {
@@ -375,6 +367,72 @@ struct WordListView: View {
             }
         }
         .padding(.vertical, 18)
+    }
+
+    /// Renders "(品詞) 訳" inline. Part of speech is muted, definition is secondary text.
+    /// When translation is long, only the translation part wraps.
+    private func inlineDefinition(for word: Word) -> some View {
+        let pos = formattedPartOfSpeech(for: word)
+        let japanesePos = pos.map { posTagsToJapanese($0) } ?? nil
+
+        return Group {
+            if let japanesePos {
+                (Text(japanesePos + " ")
+                    .font(.system(size: 15))
+                    .foregroundColor(MerkenTheme.mutedText)
+                 +
+                 Text(word.japanese)
+                    .font(.system(size: 15))
+                    .foregroundColor(MerkenTheme.secondaryText)
+                )
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+            } else {
+                Text(word.japanese)
+                    .font(.system(size: 15))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+    }
+
+    /// Convert English POS tags to Japanese abbreviations
+    private func posTagsToJapanese(_ posString: String) -> String {
+        // posString is like "(noun)" or "(noun・verb)" or "(adjective)"
+        let mapping: [String: String] = [
+            "noun": "名",
+            "verb": "動",
+            "adjective": "形",
+            "adverb": "副",
+            "preposition": "前",
+            "conjunction": "接",
+            "pronoun": "代",
+            "interjection": "感",
+            "determiner": "限",
+            "auxiliary": "助",
+            "名詞": "名",
+            "動詞": "動",
+            "形容詞": "形",
+            "副詞": "副",
+            "前置詞": "前",
+            "接続詞": "接",
+            "代名詞": "代",
+            "感動詞": "感",
+        ]
+
+        // Strip parentheses
+        var inner = posString
+        if inner.hasPrefix("(") && inner.hasSuffix(")") {
+            inner = String(inner.dropFirst().dropLast())
+        }
+
+        let parts = inner.split(separator: "・").map { part in
+            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return mapping[trimmed] ?? String(part)
+        }
+
+        return "(\(parts.joined(separator: ";")))"
     }
 
     private var dividerLine: some View {
