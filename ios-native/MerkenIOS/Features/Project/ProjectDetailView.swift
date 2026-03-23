@@ -353,26 +353,34 @@ struct ProjectDetailView: View {
     // MARK: - Word Actions Section
 
     private var wordActionsSection: some View {
-        VStack(spacing: 10) {
-            wordActionCard(
-                icon: "list.bullet",
-                iconColor: MerkenTheme.primaryText,
-                title: "単語一覧",
-                subtitle: "一覧で確認して編集"
-            ) {
-                showingWordList = true
-            }
+        GeometryReader { proxy in
+            let spacing: CGFloat = 10
+            let side = (proxy.size.width - spacing) / 2
+            HStack(spacing: spacing) {
+                wordActionSquare(
+                    icon: "list.bullet",
+                    iconColor: MerkenTheme.primaryText,
+                    title: "単語一覧",
+                    subtitle: "一覧で確認",
+                    isPrimary: false,
+                    size: side
+                ) {
+                    showingWordList = true
+                }
 
-            wordActionCard(
-                icon: "plus.circle",
-                iconColor: .white,
-                title: "追加",
-                subtitle: "スキャンで単語を追加",
-                isPrimary: true
-            ) {
-                showingScanModeSheet = true
+                wordActionSquare(
+                    icon: "plus.circle",
+                    iconColor: .white,
+                    title: "追加",
+                    subtitle: "スキャンで追加",
+                    isPrimary: true,
+                    size: side
+                ) {
+                    showingScanModeSheet = true
+                }
             }
         }
+        .frame(height: (UIScreen.main.bounds.width - 40 - 10) / 2) // (screen - padding*2 - spacing) / 2
     }
 
     // MARK: - Learning Modes Section
@@ -698,53 +706,50 @@ struct ProjectDetailView: View {
         }
     }
 
-    private func wordActionCard(
+    private func wordActionSquare(
         icon: String,
         iconColor: Color,
         title: String,
         subtitle: String,
         isPrimary: Bool = false,
+        size: CGFloat,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            VStack(spacing: 12) {
+                Spacer(minLength: 0)
+
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: 28, weight: .medium))
                     .foregroundStyle(isPrimary ? Color.white : iconColor)
-                    .frame(width: 48, height: 48)
+                    .frame(width: 56, height: 56)
                     .background(
                         isPrimary ? Color.white.opacity(0.14) : MerkenTheme.surfaceAlt,
                         in: .circle
                     )
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(spacing: 3) {
                     Text(title)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(isPrimary ? Color.white : MerkenTheme.primaryText)
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.system(size: 12))
                         .foregroundStyle(isPrimary ? Color.white.opacity(0.76) : MerkenTheme.mutedText)
                 }
 
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(isPrimary ? Color.white.opacity(0.78) : MerkenTheme.mutedText)
-                    .frame(width: 14)
+                Spacer(minLength: 0)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: size, height: size)
             .background(
                 isPrimary ? AnyShapeStyle(MerkenTheme.accentBlue) : AnyShapeStyle(MerkenTheme.surface),
-                in: .rect(cornerRadius: 16)
+                in: .rect(cornerRadius: 20)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(isPrimary ? Color.clear : MerkenTheme.border, lineWidth: 1.5)
             )
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20)
                     .fill(isPrimary ? MerkenTheme.accentBlue.opacity(0.2) : MerkenTheme.border)
                     .offset(y: 3)
             )
