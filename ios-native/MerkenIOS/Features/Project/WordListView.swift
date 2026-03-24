@@ -313,17 +313,17 @@ struct WordListView: View {
 
     private func wordRow(_ word: Word) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            // English word — large and bold
-            Text(word.english)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .lineLimit(2)
+            // English word — prominent and bold
+            VStack(alignment: .leading, spacing: 4) {
+                Text(word.english)
+                    .font(.system(size: 20, weight: .heavy))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(2)
 
-            // (品詞) 訳 — inline on one line, wrapping within this column
-            inlineDefinition(for: word)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
+                // (品詞) 訳 — below the English word
+                inlineDefinition(for: word)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // Action icons: ♡ ✏️ ⋯
             HStack(spacing: 12) {
