@@ -314,34 +314,23 @@ struct WordListView: View {
     private func wordRow(_ word: Word) -> some View {
         HStack(alignment: .center, spacing: 12) {
             // English word — prominent and bold
-            VStack(alignment: .leading, spacing: 4) {
-                Text(word.english)
-                    .font(.system(size: 20, weight: .heavy))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
+            Text(word.english)
+                .font(.system(size: 20, weight: .heavy))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .layoutPriority(1)
 
-                // (品詞) 訳 — below the English word
-                inlineDefinition(for: word)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // (品詞) 訳 — right of English word
+            inlineDefinition(for: word)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Action icons: ♡ ✏️ ⋯
-            HStack(spacing: 12) {
-                Button {
-                    Task {
-                        await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
-                    }
-                } label: {
-                    Image(systemName: word.isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 14))
-                        .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
-                }
-
+            // Action icons: ✏️ ⋯ (heart removed)
+            HStack(spacing: 16) {
                 Button {
                     editorMode = .edit(existing: word)
                 } label: {
                     Image(systemName: "pencil")
-                        .font(.system(size: 14))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
 
@@ -350,6 +339,17 @@ struct WordListView: View {
                         exportWord = word
                     } label: {
                         Label("別の単語帳にエクスポート", systemImage: "square.and.arrow.up")
+                    }
+
+                    Button {
+                        Task {
+                            await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
+                        }
+                    } label: {
+                        Label(
+                            word.isFavorite ? "苦手を解除" : "苦手に追加",
+                            systemImage: word.isFavorite ? "heart.slash" : "heart"
+                        )
                     }
 
                     Button(role: .destructive) {
@@ -361,7 +361,7 @@ struct WordListView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
