@@ -73,11 +73,12 @@ struct WordListView: View {
         selectedSort == .createdAsc || selectedSort == .createdDesc
     }
 
-    /// Returns true if a thick divider should appear before the word at the given index
+    /// Returns true if a thick divider should appear before the word at the given index.
+    /// Uses a 10-second threshold to separate different images within the same scan session.
     private func shouldShowGroupDivider(at index: Int) -> Bool {
         guard showTimeDividers, index > 0 else { return false }
         let words = filteredWords
-        let threshold: TimeInterval = 5 * 60 // 5 minutes
+        let threshold: TimeInterval = 10 // 10 seconds — separates individual images
         let prev = words[index - 1]
         let current = words[index]
         return abs(current.createdAt.timeIntervalSince(prev.createdAt)) > threshold
@@ -103,8 +104,7 @@ struct WordListView: View {
                         // Search
                         searchBar
 
-                        // Status filter chips + sort picker
-                        statusChips
+                        // Sort picker (status chips removed — filtering via home stats)
                         sortPicker
 
                         // Words
@@ -270,7 +270,7 @@ struct WordListView: View {
     private var sortPicker: some View {
         HStack(spacing: 6) {
             Image(systemName: "arrow.up.arrow.down")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(MerkenTheme.mutedText)
 
             Picker("並び替え", selection: $selectedSort) {
@@ -280,6 +280,7 @@ struct WordListView: View {
             }
             .pickerStyle(.segmented)
         }
+        .padding(.vertical, 4) // ~1.2x taller
     }
 
     // MARK: - Group Divider
