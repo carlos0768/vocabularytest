@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 // ---------- Types ----------
 
@@ -104,6 +105,49 @@ export async function generateExampleSentences(
   }
 
   return { examples: allExamples, errors };
+}
+
+/**
+ * 生成した例文を lexicon_entries (マスターDB) にも保存する。
+ * word の lexicon_entry_id が存在し、かつ lexicon_entries 側に例文がない場合のみ更新。
+ */
+export async function saveExamplesToLexicon(
+  wordExamples: Array<{
+    lexiconEntryId: string;
+    exampleSentence: string;
+    exampleSentenceJa: string;
+  }>,
+): Promise<{ updated: number; errors: number }> {
+  if (wordExamples.length === 0) return { updated: 0, errors: 0 };
+
+  const supabaseAdmin = getSupabaseAdmin();
+  let updated = 0;
+  let errors = 0;
+
+  for (const item of wordExamples) {
+    try {
+      const { error } = await supabaseAdmin
+        .from('lexicon_entries')
+        .update({
+          example_sentence: item.exampleSentence,
+          example_sentence_ja: item.exampleSentenceJa,
+        })
+        .eq('id', item.lexiconEntryId)
+        .is('example_sentence', null); // Only update if no example yet
+
+      if (error) {
+        console.error(`[saveExamplesToLexicon] Failed for ${item.lexiconEntryId}:`, error);
+        errors++;
+      } else {
+        updated++;
+      }
+    } catch (e) {
+      console.error(`[saveExamplesToLexicon] Exception for ${item.lexiconEntryId}:`, e);
+      errors++;
+    }
+  }
+
+  return { updated, errors };
 }
 
 async function generateBatch(

@@ -5,6 +5,7 @@ import { getProvider } from '@/lib/ai/providers';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import {
   checkAndIncrementFeatureUsage,
   isAiUsageLimitsEnabled,
@@ -276,6 +277,38 @@ export async function POST(request: NextRequest) {
       }
     } else {
       successCount = parsedResponse.examples.length;
+    }
+
+    // ============================================
+    // 5.5 SAVE TO LEXICON MASTER (best-effort)
+    // ============================================
+    if (isLoggedIn) {
+      // Fetch lexicon_entry_id for the words we just generated examples for
+      const generatedWordIds = parsedResponse.examples.map(ex => ex.wordId);
+      const { data: wordsWithLexicon } = await supabase
+        .from('words')
+        .select('id, lexicon_entry_id')
+        .in('id', generatedWordIds)
+        .not('lexicon_entry_id', 'is', null);
+
+      if (wordsWithLexicon && wordsWithLexicon.length > 0) {
+        const lexiconUpdates = wordsWithLexicon
+          .map(w => {
+            const example = parsedResponse.examples.find(ex => ex.wordId === w.id);
+            if (!example || !w.lexicon_entry_id) return null;
+            return {
+              lexiconEntryId: w.lexicon_entry_id,
+              exampleSentence: example.exampleSentence,
+              exampleSentenceJa: example.exampleSentenceJa,
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null);
+
+        if (lexiconUpdates.length > 0) {
+          const lexResult = await saveExamplesToLexicon(lexiconUpdates);
+          console.log('[generate-examples] Lexicon master update:', lexResult);
+        }
+      }
     }
 
     // ============================================

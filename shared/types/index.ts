@@ -28,6 +28,8 @@ export interface LexiconEntry {
   datasetSources: string[];
   translationJa?: string;
   translationSource?: string;
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
   createdAt: string;
   updatedAt: string;
 }
