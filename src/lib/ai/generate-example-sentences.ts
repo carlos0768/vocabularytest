@@ -90,17 +90,26 @@ export async function generateExampleSentences(
   const allExamples: GeneratedExample[] = [];
   const errors: string[] = [];
 
-  // Batch into groups of BATCH_SIZE
+  // Run batches with concurrency limit of 3
+  const CONCURRENCY = 3;
+  const batches: ExampleSeedWord[][] = [];
   for (let i = 0; i < words.length; i += BATCH_SIZE) {
-    const batch = words.slice(i, i + BATCH_SIZE);
+    batches.push(words.slice(i, i + BATCH_SIZE));
+  }
 
-    try {
-      const batchResult = await generateBatch(batch, apiKeys);
-      allExamples.push(...batchResult);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[generate-example-sentences] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, msg);
-      errors.push(msg);
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    const chunk = batches.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map(batch => generateBatch(batch, apiKeys)),
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allExamples.push(...result.value);
+      } else {
+        const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+        console.error('[generate-example-sentences] Batch failed:', msg);
+        errors.push(msg);
+      }
     }
   }
 

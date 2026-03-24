@@ -164,40 +164,6 @@ async function lookupLexiconEntriesByKeysDirect(
     .filter((entry) => requested.has(buildLexiconKey(entry.normalizedHeadword, entry.pos as LexiconPos)));
 }
 
-async function hydrateLexiconExamples(
-  supabaseAdmin: SupabaseClient,
-  entries: LexiconEntry[],
-): Promise<LexiconEntry[]> {
-  if (entries.length === 0) {
-    return entries;
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('lexicon_entries')
-    .select('id, example_sentence, example_sentence_ja')
-    .in('id', entries.map((entry) => entry.id));
-
-  if (error || !Array.isArray(data)) {
-    return entries;
-  }
-
-  const examplesById = new Map(
-    data.map((row) => [
-      row.id as string,
-      {
-        exampleSentence: (row.example_sentence as string | null) ?? undefined,
-        exampleSentenceJa: (row.example_sentence_ja as string | null) ?? undefined,
-      },
-    ] as const),
-  );
-
-  return entries.map((entry) => ({
-    ...entry,
-    exampleSentence: entry.exampleSentence ?? examplesById.get(entry.id)?.exampleSentence,
-    exampleSentenceJa: entry.exampleSentenceJa ?? examplesById.get(entry.id)?.exampleSentenceJa,
-  }));
-}
-
 export async function lookupLexiconEntriesByKeys(
   keys: LexiconLookupKey[],
   deps?: Pick<ResolveImmediateWordsDeps, 'lookupEntries' | 'supabaseAdmin'>,
@@ -229,8 +195,7 @@ export async function lookupLexiconEntriesByKeys(
   });
 
   if (!rpcResult.error && Array.isArray(rpcResult.data)) {
-    const rpcEntries = (rpcResult.data as LexiconEntryRow[]).map(mapLexiconEntry);
-    return hydrateLexiconExamples(supabaseAdmin, rpcEntries);
+    return (rpcResult.data as LexiconEntryRow[]).map(mapLexiconEntry);
   }
 
   if (rpcResult.error) {
