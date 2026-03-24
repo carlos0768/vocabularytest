@@ -71,7 +71,7 @@ function WordItem({
   return (
     <div className="card p-4 flex items-center justify-between">
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-[var(--color-foreground)] truncate">{word.english}</p>
+        <p className="font-bold text-[var(--color-foreground)] truncate">{word.english}</p>
         <p className="text-sm text-[var(--color-muted)] truncate">{word.japanese}</p>
         {showProjectName && word.projectTitle && (
           <p className="text-xs text-[var(--color-primary)] mt-1 truncate">{word.projectTitle}</p>
