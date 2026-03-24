@@ -33,6 +33,8 @@ struct ProjectDetailView: View {
     @State private var preselectedScanSource: ScanSource?
     @State private var showingProjectThumbnailPicker = false
     @State private var selectedProjectThumbnailItem: PhotosPickerItem?
+    @State private var filteredWordListStatus: WordStatus?
+    @State private var showingFilteredWordList = false
 
     init(project: Project) {
         self.project = project
@@ -94,6 +96,7 @@ struct ProjectDetailView: View {
                         .ignoresSafeArea()
                 }
                 .fullScreenCover(isPresented: $showingWordList, content: wordListSheet)
+                .fullScreenCover(isPresented: $showingFilteredWordList, content: filteredWordListSheet)
                 .fullScreenCover(item: $flashcardDestination, content: flashcardSheet)
                 .navigationDestination(item: $quiz2Destination) { project in
                     Quiz2View(project: project, preloadedWords: viewModel.words)
@@ -136,7 +139,8 @@ struct ProjectDetailView: View {
                     if flashcardDestination == nil &&
                        quiz2Destination == nil &&
                        !showMatchGame &&
-                       !showingWordList {
+                       !showingWordList &&
+                       !showingFilteredWordList {
                         appState.tabBarVisible = true
                     }
                 }
@@ -206,6 +210,23 @@ struct ProjectDetailView: View {
         }
     }
 
+    private func filteredWordListSheet() -> some View {
+        NavigationStack {
+            WordListView(project: project, initialStatus: filteredWordListStatus)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            showingFilteredWordList = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                        }
+                    }
+                }
+        }
+    }
+
     private func flashcardSheet(project: Project) -> some View {
         NavigationStack {
             FlashcardView(project: project, preloadedWords: viewModel.words)
@@ -265,9 +286,15 @@ struct ProjectDetailView: View {
     }
 
     private var rootContent: some View {
-        ZStack {
-            backgroundLayers
-            scrollContent
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                ZStack {
+                    backgroundLayers
+                    scrollContent
+                }
+            }
+
+            bottomActionBar
         }
     }
 
@@ -319,14 +346,14 @@ struct ProjectDetailView: View {
                 }
             }
 
-            // Word actions: 単語一覧 + 追加
-            wordActionsSection
+            // Status widgets: 習得 / 学習中 / 未学習
+            projectStatsSection
 
             // Learning modes: フラッシュカード / 自己評価 / マッチ
             learningModesSection
         }
         .padding(20)
-        .padding(.bottom, 28)
+        .padding(.bottom, 100) // extra space for bottom bar
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
@@ -338,37 +365,168 @@ struct ProjectDetailView: View {
         .padding(.top, -100)
     }
 
-    // MARK: - Word Actions Section
+    // MARK: - Project Stats Section (習得 / 学習中 / 未学習)
 
-    private var wordActionsSection: some View {
-        GeometryReader { proxy in
-            let spacing: CGFloat = 10
-            let side = (proxy.size.width - spacing) / 2
-            HStack(spacing: spacing) {
-                wordActionSquare(
-                    icon: "list.bullet",
-                    iconColor: MerkenTheme.primaryText,
-                    title: "単語一覧",
-                    subtitle: "一覧で確認",
-                    isPrimary: false,
-                    size: side
-                ) {
-                    showingWordList = true
-                }
+    private var projectStatsSection: some View {
+        let words = viewModel.words
+        let masteredCount = words.filter { $0.status == .mastered }.count
+        let reviewCount = words.filter { $0.status == .review }.count
+        let newCount = words.filter { $0.status == .new }.count
+        let total = words.count
 
-                wordActionSquare(
-                    icon: "plus.circle",
-                    iconColor: .white,
-                    title: "追加",
-                    subtitle: "スキャンで追加",
-                    isPrimary: true,
-                    size: side
-                ) {
-                    showingScanModeSheet = true
+        return HStack(alignment: .top, spacing: 10) {
+            Button {
+                filteredWordListStatus = .mastered
+                showingFilteredWordList = true
+            } label: {
+                masteryCard(
+                    label: "習得",
+                    count: masteredCount,
+                    total: total,
+                    color: MerkenTheme.success,
+                    icon: "checkmark.seal.fill"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                filteredWordListStatus = .review
+                showingFilteredWordList = true
+            } label: {
+                masteryCard(
+                    label: "学習中",
+                    count: reviewCount,
+                    total: total,
+                    color: MerkenTheme.accentBlue,
+                    icon: "arrow.trianglehead.2.clockwise"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                filteredWordListStatus = .new
+                showingFilteredWordList = true
+            } label: {
+                masteryCard(
+                    label: "未学習",
+                    count: newCount,
+                    total: total,
+                    color: MerkenTheme.mutedText,
+                    icon: "sparkle"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func masteryCard(label: String, count: Int, total: Int, color: Color, icon: String) -> some View {
+        let progress: CGFloat = total > 0 ? CGFloat(count) / CGFloat(total) : 0
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("\(count)")
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("/\(total)語")
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+            .font(.system(size: 21, weight: .bold))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .allowsTightening(true)
+
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 2)
+
+            ZStack {
+                Circle()
+                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
+
+                Circle()
+                    .trim(from: 0, to: animatedChartProgress(progress))
+                    .stroke(
+                        color,
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            .frame(width: 54, height: 54)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 120)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(MerkenTheme.border)
+                .offset(y: 3)
+        )
+    }
+
+    private func animatedChartProgress(_ progress: CGFloat) -> CGFloat {
+        progress * chartAnimationProgress
+    }
+
+    // MARK: - Bottom Action Bar
+
+    private var bottomActionBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                showingWordList = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("単語一覧")
+                        .font(.system(size: 15, weight: .semibold))
                 }
+                .foregroundStyle(MerkenTheme.primaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(MerkenTheme.border, lineWidth: 1.5)
+                )
+            }
+
+            Button {
+                showingScanModeSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .bold))
+                    Text("追加")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
             }
         }
-        .frame(height: (UIScreen.main.bounds.width - 40 - 10) / 2) // (screen - padding*2 - spacing) / 2
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(
+            MerkenTheme.background
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: -4)
+        )
     }
 
     // MARK: - Learning Modes Section
@@ -683,56 +841,6 @@ struct ProjectDetailView: View {
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(MerkenTheme.border)
-                    .offset(y: 3)
-            )
-        }
-    }
-
-    private func wordActionSquare(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        subtitle: String,
-        isPrimary: Bool = false,
-        size: CGFloat,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                Spacer(minLength: 0)
-
-                Image(systemName: icon)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(isPrimary ? Color.white : iconColor)
-                    .frame(width: 56, height: 56)
-                    .background(
-                        isPrimary ? Color.white.opacity(0.14) : MerkenTheme.surfaceAlt,
-                        in: .circle
-                    )
-
-                VStack(spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(isPrimary ? Color.white : MerkenTheme.primaryText)
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(isPrimary ? Color.white.opacity(0.76) : MerkenTheme.mutedText)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .frame(width: size, height: size)
-            .background(
-                isPrimary ? AnyShapeStyle(MerkenTheme.accentBlue) : AnyShapeStyle(MerkenTheme.surface),
-                in: .rect(cornerRadius: 20)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(isPrimary ? Color.clear : MerkenTheme.border, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(isPrimary ? MerkenTheme.accentBlue.opacity(0.2) : MerkenTheme.border)
                     .offset(y: 3)
             )
         }
