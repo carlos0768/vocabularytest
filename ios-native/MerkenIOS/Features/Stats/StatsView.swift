@@ -527,7 +527,9 @@ struct StatsView: View {
     private var masteryChart: some View {
         let totalData = viewModel.masteryHistory
         let data = animatedMasteryHistory
-        let maxVal = max(data.map(\.total).max() ?? 1, 1)
+        let maxTotal = data.map(\.total).max() ?? 0
+        let maxMastered = data.map(\.mastered).max() ?? 0
+        let maxVal = max(max(maxTotal, maxMastered), 1)
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
