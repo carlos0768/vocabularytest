@@ -28,12 +28,16 @@ struct WordListView: View {
     private let initialStatus: WordStatus?
 
     private var headerTitle: String {
-        switch initialStatus {
-        case .mastered: return "習得済みの単語"
-        case .review: return "学習中の単語"
-        case .new: return "未学習の単語"
-        case nil: return "単語一覧"
+        if initialStatus != nil {
+            // Dynamic based on current selected filter
+            switch selectedFilter {
+            case .status(.mastered): return "習得済みの単語"
+            case .status(.review): return "学習中の単語"
+            case .status(.new): return "未学習の単語"
+            default: return "単語一覧"
+            }
         }
+        return "単語一覧"
     }
 
     private var filteredWords: [Word] {
@@ -104,8 +108,12 @@ struct WordListView: View {
                         // Search
                         searchBar
 
-                        // Sort picker (status chips removed — filtering via home stats)
-                        sortPicker
+                        // Show status tabs when opened from stats widget, sort picker otherwise
+                        if initialStatus != nil {
+                            statusFilterTabs
+                        } else {
+                            sortPicker
+                        }
 
                         // Words
                         if filteredWords.isEmpty {
@@ -281,6 +289,42 @@ struct WordListView: View {
             .pickerStyle(.segmented)
         }
         .padding(.vertical, 4) // ~1.2x taller
+    }
+
+    // MARK: - Status Filter Tabs (for filtered word list from stats widgets)
+
+    private var statusFilterTabs: some View {
+        HStack(spacing: 0) {
+            statusTab(label: "習得", status: .mastered, color: MerkenTheme.success)
+            statusTab(label: "学習中", status: .review, color: MerkenTheme.accentBlue)
+            statusTab(label: "未学習", status: .new, color: MerkenTheme.mutedText)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func statusTab(label: String, status: WordStatus, color: Color) -> some View {
+        let isActive: Bool = {
+            if case .status(let s) = selectedFilter {
+                return s == status
+            }
+            return false
+        }()
+
+        return Button {
+            selectedFilter = .status(status)
+        } label: {
+            VStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 15, weight: isActive ? .bold : .medium))
+                    .foregroundStyle(isActive ? color : MerkenTheme.secondaryText)
+
+                Rectangle()
+                    .fill(isActive ? color : Color.clear)
+                    .frame(height: 3)
+                    .clipShape(.rect(cornerRadius: 1.5))
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 
     // MARK: - Group Divider
