@@ -8,7 +8,7 @@ import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
-import { generateExampleSentences } from '@/lib/ai/generate-example-sentences';
+import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 
 // Extraction modes
 // - 'all': Extract all words
@@ -337,6 +337,31 @@ export async function POST(request: NextRequest) {
           errors: exampleResult.errors.length,
           elapsedMs: Date.now() - exGenStart,
         });
+
+        // Save examples to lexicon master (best-effort, non-blocking)
+        try {
+          if (resolved?.lexiconEntries && resolved.lexiconEntries.length > 0) {
+            const lexiconMap = new Map(resolved.lexiconEntries.map(le => [le.headword.toLowerCase(), le.id]));
+            const lexiconUpdates = extractedWords
+              .filter((w: any) => w.exampleSentence && w.english)
+              .map((w: any) => {
+                const lexId = lexiconMap.get(String(w.english).toLowerCase());
+                if (!lexId) return null;
+                return {
+                  lexiconEntryId: lexId,
+                  exampleSentence: w.exampleSentence as string,
+                  exampleSentenceJa: (w.exampleSentenceJa as string) || '',
+                };
+              })
+              .filter((x): x is NonNullable<typeof x> => x !== null);
+
+            if (lexiconUpdates.length > 0) {
+              await saveExamplesToLexicon(lexiconUpdates);
+            }
+          }
+        } catch (lexSaveError) {
+          console.error('[extract] Lexicon example save failed (non-critical):', lexSaveError);
+        }
       } catch (exampleError) {
         exampleGenDiag.error = exampleError instanceof Error ? exampleError.message : 'Unknown error';
         exampleGenDiag.elapsedMs = Date.now() - exGenStart;

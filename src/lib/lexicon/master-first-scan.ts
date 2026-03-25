@@ -25,6 +25,8 @@ interface LexiconEntryRow {
   dataset_sources: string[] | null;
   translation_ja: string | null;
   translation_source: string | null;
+  example_sentence: string | null;
+  example_sentence_ja: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -97,6 +99,8 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
     datasetSources: row.dataset_sources ?? [],
     translationJa: normalizeLexiconTranslation(row.translation_ja) ?? undefined,
     translationSource: row.translation_source ?? undefined,
+    exampleSentence: row.example_sentence ?? undefined,
+    exampleSentenceJa: row.example_sentence_ja ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -146,7 +150,7 @@ async function lookupLexiconEntriesByKeysDirect(
 
   const { data, error } = await supabaseAdmin
     .from('lexicon_entries')
-    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at')
+    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, example_sentence, example_sentence_ja, created_at, updated_at')
     .in('normalized_headword', normalizedHeadwords)
     .in('pos', positions);
 
@@ -315,6 +319,12 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
   const resolvedWords = preparedWords.map((word) => {
     const entry = word.key ? entryByKey.get(word.key) : undefined;
     const masterTranslation = normalizeUsableJapanese(entry?.translationJa);
+    const masterExampleSentence = typeof entry?.exampleSentence === 'string'
+      ? entry.exampleSentence.trim()
+      : '';
+    const masterExampleSentenceJa = typeof entry?.exampleSentenceJa === 'string'
+      ? entry.exampleSentenceJa.trim()
+      : '';
     const preferredJapanese = word.key ? preferredJapaneseByKey.get(word.key) : undefined;
     const aiTranslation = word.key ? aiTranslationsByKey.get(word.key) : undefined;
 
@@ -348,6 +358,8 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       lexiconEntryId: entry?.id ?? word.original.lexiconEntryId,
       cefrLevel: entry?.cefrLevel ?? word.original.cefrLevel,
       partOfSpeechTags: word.partOfSpeechTags,
+      exampleSentence: word.original.exampleSentence ?? (masterExampleSentence || undefined),
+      exampleSentenceJa: word.original.exampleSentenceJa ?? (masterExampleSentenceJa || undefined),
     };
   });
 
