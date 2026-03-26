@@ -1113,37 +1113,40 @@ export async function POST(request: NextRequest) {
             console.warn('[scan-jobs/process] Example generation partial errors:', exampleResult.errors);
           }
 
-          // Save examples to lexicon master DB (best-effort)
+          // Save examples to lexicon master DB (best-effort, non-blocking)
           if (exampleResult.examples.length > 0) {
-            try {
-              const generatedWordIds = exampleResult.examples.map(ex => ex.wordId);
-              const { data: wordsWithLexicon } = await getSupabaseAdmin()
-                .from('words')
-                .select('id, lexicon_entry_id')
-                .in('id', generatedWordIds)
-                .not('lexicon_entry_id', 'is', null);
+            const examplesSnapshot = [...exampleResult.examples];
+            after(async () => {
+              try {
+                const generatedWordIds = examplesSnapshot.map(ex => ex.wordId);
+                const { data: wordsWithLexicon } = await getSupabaseAdmin()
+                  .from('words')
+                  .select('id, lexicon_entry_id')
+                  .in('id', generatedWordIds)
+                  .not('lexicon_entry_id', 'is', null);
 
-              if (wordsWithLexicon && wordsWithLexicon.length > 0) {
-                const lexiconUpdates = wordsWithLexicon
-                  .map(w => {
-                    const example = exampleResult.examples.find(ex => ex.wordId === w.id);
-                    if (!example || !w.lexicon_entry_id) return null;
-                    return {
-                      lexiconEntryId: w.lexicon_entry_id,
-                      exampleSentence: example.exampleSentence,
-                      exampleSentenceJa: example.exampleSentenceJa,
-                    };
-                  })
-                  .filter((x): x is NonNullable<typeof x> => x !== null);
+                if (wordsWithLexicon && wordsWithLexicon.length > 0) {
+                  const lexiconUpdates = wordsWithLexicon
+                    .map(w => {
+                      const example = examplesSnapshot.find(ex => ex.wordId === w.id);
+                      if (!example || !w.lexicon_entry_id) return null;
+                      return {
+                        lexiconEntryId: w.lexicon_entry_id,
+                        exampleSentence: example.exampleSentence,
+                        exampleSentenceJa: example.exampleSentenceJa,
+                      };
+                    })
+                    .filter((x): x is NonNullable<typeof x> => x !== null);
 
-                if (lexiconUpdates.length > 0) {
-                  const lexResult = await saveExamplesToLexicon(lexiconUpdates);
-                  console.log('[scan-jobs/process] Lexicon master example update:', lexResult);
+                  if (lexiconUpdates.length > 0) {
+                    const lexResult = await saveExamplesToLexicon(lexiconUpdates);
+                    console.log('[scan-jobs/process] Lexicon master example update:', lexResult);
+                  }
                 }
+              } catch (lexSaveError) {
+                console.error('[scan-jobs/process] Lexicon example save failed (non-critical):', lexSaveError);
               }
-            } catch (lexSaveError) {
-              console.error('[scan-jobs/process] Lexicon example save failed (non-critical):', lexSaveError);
-            }
+            });
           }
 
           console.log('[scan-jobs/process] Example generation completed', {
