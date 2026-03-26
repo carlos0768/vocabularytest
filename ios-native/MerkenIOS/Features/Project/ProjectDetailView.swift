@@ -11,6 +11,7 @@ struct ProjectDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var flashcardDestination: Project?
+    @State private var quizDestination: Project?
     @State private var quiz2Destination: Project?
     @State private var showingScan = false
     @State private var showingScanModeSheet = false
@@ -98,6 +99,9 @@ struct ProjectDetailView: View {
                 .fullScreenCover(isPresented: $showingWordList, content: wordListSheet)
                 .fullScreenCover(isPresented: $showingFilteredWordList, content: filteredWordListSheet)
                 .fullScreenCover(item: $flashcardDestination, content: flashcardSheet)
+                .navigationDestination(item: $quizDestination) { project in
+                    QuizView(project: project, preloadedWords: viewModel.words, skipSetup: true)
+                }
                 .navigationDestination(item: $quiz2Destination) { project in
                     Quiz2View(project: project, preloadedWords: viewModel.words)
                 }
@@ -137,6 +141,7 @@ struct ProjectDetailView: View {
                 }
                 .onDisappear {
                     if flashcardDestination == nil &&
+                       quizDestination == nil &&
                        quiz2Destination == nil &&
                        !showMatchGame &&
                        !showingWordList &&
@@ -485,39 +490,57 @@ struct ProjectDetailView: View {
     // MARK: - Bottom Action Bar
 
     private var bottomActionBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
+            // Circular flashcard icon button
             Button {
-                showingWordList = true
+                flashcardDestination = project
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "list.bullet")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("単語一覧")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .foregroundStyle(MerkenTheme.primaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(MerkenTheme.border, lineWidth: 1.5)
-                )
+                Image(systemName: "rectangle.portrait.on.rectangle.portrait")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                    .frame(width: 48, height: 48)
+                    .background(Color.clear)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(MerkenTheme.accentBlue, lineWidth: 2)
+                    )
             }
 
+            // "＋ 問題追加" pill button
             Button {
                 showingScanModeSheet = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
                         .font(.system(size: 15, weight: .bold))
-                    Text("追加")
+                    Text("問題追加")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(MerkenTheme.primaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.surface, in: .capsule)
+                .overlay(
+                    Capsule()
+                        .stroke(MerkenTheme.border, lineWidth: 1.5)
+                )
+            }
+
+            // "▶ テスト" pill button
+            Button {
+                quizDestination = project
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("テスト")
                         .font(.system(size: 15, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+                .background(MerkenTheme.accentBlue, in: .capsule)
             }
         }
         .padding(.horizontal, 20)
