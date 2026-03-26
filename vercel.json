@@ -6,7 +6,13 @@
     "src/app/api/extract/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/scan-jobs/process/route.ts": {
+      "maxDuration": 120
+    },
     "src/app/api/sentence-quiz/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/generate-examples/route.ts": {
       "maxDuration": 60
     },
     "src/app/api/regenerate-distractors/route.ts": {
