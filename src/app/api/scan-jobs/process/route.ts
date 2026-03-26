@@ -1213,17 +1213,24 @@ export async function POST(request: NextRequest) {
             if (results.length > 0) {
               try {
                 await Promise.all(
-                  results.map((item) =>
-                    getSupabaseAdmin()
+                  results.map((item) => {
+                    // Only include example fields if quiz content actually has them
+                    // to avoid overwriting examples generated in the previous step
+                    const updatePayload: Record<string, unknown> = {
+                      distractors: item.distractors,
+                      part_of_speech_tags: item.partOfSpeechTags,
+                    };
+                    if (item.exampleSentence) {
+                      updatePayload.example_sentence = item.exampleSentence;
+                    }
+                    if (item.exampleSentenceJa) {
+                      updatePayload.example_sentence_ja = item.exampleSentenceJa;
+                    }
+                    return getSupabaseAdmin()
                       .from('words')
-                      .update({
-                        distractors: item.distractors,
-                        example_sentence: item.exampleSentence || null,
-                        example_sentence_ja: item.exampleSentenceJa || null,
-                        part_of_speech_tags: item.partOfSpeechTags,
-                      })
-                      .eq('id', item.wordId)
-                  )
+                      .update(updatePayload)
+                      .eq('id', item.wordId);
+                  })
                 );
                 quizPrefillSucceeded += results.length;
               } catch (persistError) {
@@ -1347,17 +1354,22 @@ export async function POST(request: NextRequest) {
               if (results.length > 0) {
                 try {
                   await Promise.all(
-                    results.map((item) =>
-                      getSupabaseAdmin()
+                    results.map((item) => {
+                      const updatePayload: Record<string, unknown> = {
+                        distractors: item.distractors,
+                        part_of_speech_tags: item.partOfSpeechTags,
+                      };
+                      if (item.exampleSentence) {
+                        updatePayload.example_sentence = item.exampleSentence;
+                      }
+                      if (item.exampleSentenceJa) {
+                        updatePayload.example_sentence_ja = item.exampleSentenceJa;
+                      }
+                      return getSupabaseAdmin()
                         .from('words')
-                        .update({
-                          distractors: item.distractors,
-                          example_sentence: item.exampleSentence || null,
-                          example_sentence_ja: item.exampleSentenceJa || null,
-                          part_of_speech_tags: item.partOfSpeechTags,
-                        })
-                        .eq('id', item.wordId)
-                    )
+                        .update(updatePayload)
+                        .eq('id', item.wordId);
+                    })
                   );
                   quizPrefillSucceeded += results.length;
                 } catch (persistError) {
