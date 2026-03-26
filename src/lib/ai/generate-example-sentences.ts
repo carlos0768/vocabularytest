@@ -68,15 +68,16 @@ const SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語
   ]
 }`;
 
-const BATCH_SIZE = 30;
+const BATCH_SIZE = 10;
 
 // ---------- Core ----------
 
 /**
  * 単語リストに対して例文を生成する。
  *
- * - 30語ずつバッチ処理
+ * - 10語ずつバッチ処理（AIの生成漏れを防ぐ）
  * - 各バッチのAIエラーは収集するが、他バッチは続行
+ * - 生成漏れの単語は自動リトライ（最大2回）
  * - DB保存は行わない（呼び出し側の責任）
  */
 export async function generateExampleSentences(
@@ -90,27 +91,48 @@ export async function generateExampleSentences(
   const allExamples: GeneratedExample[] = [];
   const errors: string[] = [];
 
-  // Run batches with concurrency limit of 3
-  const CONCURRENCY = 3;
-  const batches: ExampleSeedWord[][] = [];
-  for (let i = 0; i < words.length; i += BATCH_SIZE) {
-    batches.push(words.slice(i, i + BATCH_SIZE));
-  }
+  const MAX_ATTEMPTS = 2;
+  let remainingWords = [...words];
 
-  for (let i = 0; i < batches.length; i += CONCURRENCY) {
-    const chunk = batches.slice(i, i + CONCURRENCY);
-    const results = await Promise.allSettled(
-      chunk.map(batch => generateBatch(batch, apiKeys)),
-    );
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        allExamples.push(...result.value);
-      } else {
-        const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
-        console.error('[generate-example-sentences] Batch failed:', msg);
-        errors.push(msg);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS && remainingWords.length > 0; attempt++) {
+    const generatedIds = new Set<string>();
+
+    // Run batches with concurrency limit of 3
+    const CONCURRENCY = 3;
+    const batches: ExampleSeedWord[][] = [];
+    for (let i = 0; i < remainingWords.length; i += BATCH_SIZE) {
+      batches.push(remainingWords.slice(i, i + BATCH_SIZE));
+    }
+
+    for (let i = 0; i < batches.length; i += CONCURRENCY) {
+      const chunk = batches.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        chunk.map(batch => generateBatch(batch, apiKeys)),
+      );
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          for (const ex of result.value) {
+            generatedIds.add(ex.wordId);
+          }
+          allExamples.push(...result.value);
+        } else {
+          const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+          console.error(`[generate-example-sentences] Batch failed (attempt ${attempt + 1}):`, msg);
+          errors.push(msg);
+        }
       }
     }
+
+    // Check for missing words and retry
+    remainingWords = remainingWords.filter(w => !generatedIds.has(w.id));
+    if (remainingWords.length > 0 && attempt < MAX_ATTEMPTS - 1) {
+      console.log(`[generate-example-sentences] Retrying ${remainingWords.length} missing words (attempt ${attempt + 2})`);
+    }
+  }
+
+  if (remainingWords.length > 0) {
+    console.warn(`[generate-example-sentences] ${remainingWords.length} words still missing after ${MAX_ATTEMPTS} attempts:`,
+      remainingWords.map(w => w.english).join(', '));
   }
 
   return { examples: allExamples, errors };
