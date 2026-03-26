@@ -15,7 +15,7 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { generateExampleSentences } from '@/lib/ai/generate-example-sentences';
+import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
@@ -1111,6 +1111,42 @@ export async function POST(request: NextRequest) {
 
           if (exampleResult.errors.length > 0) {
             console.warn('[scan-jobs/process] Example generation partial errors:', exampleResult.errors);
+          }
+
+          // Save examples to lexicon master DB (best-effort, non-blocking)
+          if (exampleResult.examples.length > 0) {
+            const examplesSnapshot = [...exampleResult.examples];
+            after(async () => {
+              try {
+                const generatedWordIds = examplesSnapshot.map(ex => ex.wordId);
+                const { data: wordsWithLexicon } = await getSupabaseAdmin()
+                  .from('words')
+                  .select('id, lexicon_entry_id')
+                  .in('id', generatedWordIds)
+                  .not('lexicon_entry_id', 'is', null);
+
+                if (wordsWithLexicon && wordsWithLexicon.length > 0) {
+                  const lexiconUpdates = wordsWithLexicon
+                    .map(w => {
+                      const example = examplesSnapshot.find(ex => ex.wordId === w.id);
+                      if (!example || !w.lexicon_entry_id) return null;
+                      return {
+                        lexiconEntryId: w.lexicon_entry_id,
+                        exampleSentence: example.exampleSentence,
+                        exampleSentenceJa: example.exampleSentenceJa,
+                      };
+                    })
+                    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+                  if (lexiconUpdates.length > 0) {
+                    const lexResult = await saveExamplesToLexicon(lexiconUpdates);
+                    console.log('[scan-jobs/process] Lexicon master example update:', lexResult);
+                  }
+                }
+              } catch (lexSaveError) {
+                console.error('[scan-jobs/process] Lexicon example save failed (non-critical):', lexSaveError);
+              }
+            });
           }
 
           console.log('[scan-jobs/process] Example generation completed', {
