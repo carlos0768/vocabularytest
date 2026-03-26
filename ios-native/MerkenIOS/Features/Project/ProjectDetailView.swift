@@ -562,17 +562,6 @@ struct ProjectDetailView: View {
 
             VStack(spacing: 10) {
                 learningModeCard(
-                    icon: "rectangle.portrait.on.rectangle.portrait",
-                    iconColor: MerkenTheme.accentBlue,
-                    title: "フラッシュカード",
-                    subtitle: "カードで連続復習",
-                    count: learningModeCounts[.flashcard] ?? 0
-                ) {
-                    learningModeCounts[.flashcard] = LearningModeUsageStore.increment(.flashcard, for: learningModeScope)
-                    flashcardDestination = project
-                }
-
-                learningModeCard(
                     icon: "scope",
                     iconColor: MerkenTheme.success,
                     title: "自己評価",
@@ -594,6 +583,17 @@ struct ProjectDetailView: View {
                         learningModeCounts[.match] = LearningModeUsageStore.increment(.match, for: learningModeScope)
                         showMatchGame = true
                     }
+                }
+
+                learningModeCard(
+                    icon: "checklist",
+                    iconColor: MerkenTheme.accentBlue,
+                    title: "クイズ",
+                    subtitle: "4択で実力テスト",
+                    count: learningModeCounts[.quiz] ?? 0
+                ) {
+                    learningModeCounts[.quiz] = LearningModeUsageStore.increment(.quiz, for: learningModeScope)
+                    quizDestination = project
                 }
             }
         }

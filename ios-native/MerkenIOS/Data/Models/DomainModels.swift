@@ -413,6 +413,7 @@ enum LearningModeUsageStore {
         case selfReview = "self_review"
         case timeAttack = "time_attack"
         case match = "match"
+        case quiz = "quiz"
     }
 
     private struct StoredCounts: Codable {
