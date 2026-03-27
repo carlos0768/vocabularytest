@@ -188,8 +188,15 @@ async function generateBatch(
   const config = AI_CONFIG.defaults.openai;
   const provider = getProviderFromConfig(config, apiKeys);
 
+  // Use simple numeric indices instead of UUIDs to prevent AI from
+  // mangling complex IDs. Map back to real IDs after parsing.
+  const indexToId = new Map<string, string>();
   const wordListText = words
-    .map((w) => `- wordId: "${w.id}", english: "${w.english}", japanese: "${w.japanese}"`)
+    .map((w, i) => {
+      const idx = String(i + 1);
+      indexToId.set(idx, w.id);
+      return `- wordId: "${idx}", english: "${w.english}", japanese: "${w.japanese}"`;
+    })
     .join('\n');
 
   const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
@@ -220,15 +227,17 @@ async function generateBatch(
 
   const parsed = exampleResponseSchema.parse(JSON.parse(content));
 
-  // Validate wordIds — only return examples for words we actually requested
-  const requestedIds = new Set(words.map((w) => w.id));
-
+  // Map numeric indices back to real word IDs
   return parsed.examples
-    .filter((ex) => requestedIds.has(ex.wordId))
-    .map((ex) => ({
-      wordId: ex.wordId,
-      partOfSpeechTags: normalizePartOfSpeechTags(ex.partOfSpeechTags),
-      exampleSentence: ex.exampleSentence,
-      exampleSentenceJa: ex.exampleSentenceJa,
-    }));
+    .map((ex) => {
+      const realId = indexToId.get(ex.wordId);
+      if (!realId) return null;
+      return {
+        wordId: realId,
+        partOfSpeechTags: normalizePartOfSpeechTags(ex.partOfSpeechTags),
+        exampleSentence: ex.exampleSentence,
+        exampleSentenceJa: ex.exampleSentenceJa,
+      };
+    })
+    .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
 }
