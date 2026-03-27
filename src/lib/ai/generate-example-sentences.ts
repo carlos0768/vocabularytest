@@ -34,6 +34,7 @@ export interface GenerateExamplesResult {
 
 // ---------- Schema ----------
 
+// Legacy batch schema (kept for /api/generate-examples route compatibility)
 const exampleResponseSchema = z.object({
   examples: z.array(z.object({
     wordId: z.string(),
@@ -45,39 +46,40 @@ const exampleResponseSchema = z.object({
 
 // ---------- Prompt ----------
 
-const SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語リストに対して、それぞれの単語を使った自然な英語の例文を生成してください。
+const SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語に対して、その単語を使った自然な英語の例文を1つ生成してください。
 
 【ルール】
-1. 各単語に対して1つの例文を生成
-2. 例文は10〜20語程度の実用的で分かりやすい文
-3. 中学〜高校レベルの難易度
-4. 例文の日本語訳も生成
-5. 熟語の場合は、その熟語全体を例文に含める
-6. 各単語の主分類を partOfSpeechTags として1つだけ返す
-7. partOfSpeechTags は noun, verb, adjective, adverb, idiom, phrasal_verb, preposition, conjunction, pronoun, determiner, interjection, auxiliary, other のいずれか1つだけにする
+1. 例文は10〜20語程度の実用的で分かりやすい文
+2. 中学〜高校レベルの難易度
+3. 例文の日本語訳も生成
+4. 熟語の場合は、その熟語全体を例文に含める
+5. 単語の主分類を partOfSpeechTags として1つだけ返す
+6. partOfSpeechTags は noun, verb, adjective, adverb, idiom, phrasal_verb, preposition, conjunction, pronoun, determiner, interjection, auxiliary, other のいずれか1つだけにする
 
 【出力形式】JSON
 {
-  "examples": [
-    {
-      "wordId": "単語ID",
-      "partOfSpeechTags": ["noun"],
-      "exampleSentence": "Example sentence using the word.",
-      "exampleSentenceJa": "その単語を使った例文の日本語訳。"
-    }
-  ]
+  "partOfSpeechTags": ["noun"],
+  "exampleSentence": "Example sentence using the word.",
+  "exampleSentenceJa": "その単語を使った例文の日本語訳。"
 }`;
 
-const BATCH_SIZE = 10;
+// Schema for single-word response
+const singleExampleSchema = z.object({
+  partOfSpeechTags: z.array(z.string()).optional().default([]),
+  exampleSentence: z.string(),
+  exampleSentenceJa: z.string(),
+});
+
+const CONCURRENCY = 5;
 
 // ---------- Core ----------
 
 /**
  * 単語リストに対して例文を生成する。
  *
- * - 10語ずつバッチ処理（AIの生成漏れを防ぐ）
- * - 各バッチのAIエラーは収集するが、他バッチは続行
- * - 生成漏れの単語は自動リトライ（最大2回）
+ * - 1語ずつ個別にAI呼び出し（バッチだとGeminiが一部の単語を飛ばす問題の回避）
+ * - 5並列で実行（速度とレート制限のバランス）
+ * - 失敗した単語は1回リトライ
  * - DB保存は行わない（呼び出し側の責任）
  */
 export async function generateExampleSentences(
@@ -91,48 +93,51 @@ export async function generateExampleSentences(
   const allExamples: GeneratedExample[] = [];
   const errors: string[] = [];
 
-  const MAX_ATTEMPTS = 2;
-  let remainingWords = [...words];
-
-  for (let attempt = 0; attempt < MAX_ATTEMPTS && remainingWords.length > 0; attempt++) {
-    const generatedIds = new Set<string>();
-
-    // Run batches with concurrency limit of 3
-    const CONCURRENCY = 3;
-    const batches: ExampleSeedWord[][] = [];
-    for (let i = 0; i < remainingWords.length; i += BATCH_SIZE) {
-      batches.push(remainingWords.slice(i, i + BATCH_SIZE));
+  // Process words in chunks of CONCURRENCY
+  for (let i = 0; i < words.length; i += CONCURRENCY) {
+    const chunk = words.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map(word => generateSingle(word, apiKeys)),
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allExamples.push(result.value);
+      } else {
+        const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+        errors.push(msg);
+      }
     }
+  }
 
-    for (let i = 0; i < batches.length; i += CONCURRENCY) {
-      const chunk = batches.slice(i, i + CONCURRENCY);
+  // Retry failed words once
+  const succeededIds = new Set(allExamples.map(ex => ex.wordId));
+  const failedWords = words.filter(w => !succeededIds.has(w.id));
+
+  if (failedWords.length > 0) {
+    console.log(`[generate-example-sentences] Retrying ${failedWords.length} failed words`);
+    for (let i = 0; i < failedWords.length; i += CONCURRENCY) {
+      const chunk = failedWords.slice(i, i + CONCURRENCY);
       const results = await Promise.allSettled(
-        chunk.map(batch => generateBatch(batch, apiKeys)),
+        chunk.map(word => generateSingle(word, apiKeys)),
       );
       for (const result of results) {
         if (result.status === 'fulfilled') {
-          for (const ex of result.value) {
-            generatedIds.add(ex.wordId);
-          }
-          allExamples.push(...result.value);
+          allExamples.push(result.value);
         } else {
           const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
-          console.error(`[generate-example-sentences] Batch failed (attempt ${attempt + 1}):`, msg);
+          console.error('[generate-example-sentences] Retry failed:', msg);
           errors.push(msg);
         }
       }
     }
-
-    // Check for missing words and retry
-    remainingWords = remainingWords.filter(w => !generatedIds.has(w.id));
-    if (remainingWords.length > 0 && attempt < MAX_ATTEMPTS - 1) {
-      console.log(`[generate-example-sentences] Retrying ${remainingWords.length} missing words (attempt ${attempt + 2})`);
-    }
   }
 
-  if (remainingWords.length > 0) {
-    console.warn(`[generate-example-sentences] ${remainingWords.length} words still missing after ${MAX_ATTEMPTS} attempts:`,
-      remainingWords.map(w => w.english).join(', '));
+  const finalSucceeded = allExamples.length;
+  const finalMissing = words.length - finalSucceeded;
+  if (finalMissing > 0) {
+    console.warn(`[generate-example-sentences] ${finalMissing}/${words.length} words missing after retry`);
+  } else {
+    console.log(`[generate-example-sentences] All ${words.length} words generated successfully`);
   }
 
   return { examples: allExamples, errors };
@@ -181,36 +186,26 @@ export async function saveExamplesToLexicon(
   return { updated, errors };
 }
 
-async function generateBatch(
-  words: ExampleSeedWord[],
+async function generateSingle(
+  word: ExampleSeedWord,
   apiKeys: { gemini?: string; openai?: string },
-): Promise<GeneratedExample[]> {
+): Promise<GeneratedExample> {
   const config = AI_CONFIG.defaults.openai;
   const provider = getProviderFromConfig(config, apiKeys);
 
-  // Use simple numeric indices instead of UUIDs to prevent AI from
-  // mangling complex IDs. Map back to real IDs after parsing.
-  const indexToId = new Map<string, string>();
-  const wordListText = words
-    .map((w, i) => {
-      const idx = String(i + 1);
-      indexToId.set(idx, w.id);
-      return `- wordId: "${idx}", english: "${w.english}", japanese: "${w.japanese}"`;
-    })
-    .join('\n');
-
-  const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
+  const userPrompt = `単語: "${word.english}" (${word.japanese})\n\nこの単語を使った例文を生成してください。`;
 
   const aiResponse = await provider.generateText(
     `${SYSTEM_PROMPT}\n\n${userPrompt}`,
     {
       ...config,
+      maxOutputTokens: 512,
       responseFormat: 'json',
     },
   );
 
   if (!aiResponse.success) {
-    throw new Error(`AI generation failed: ${aiResponse.error}`);
+    throw new Error(`AI generation failed for "${word.english}": ${aiResponse.error}`);
   }
 
   // Parse response
@@ -225,19 +220,12 @@ async function generateBatch(
   }
   content = content.trim();
 
-  const parsed = exampleResponseSchema.parse(JSON.parse(content));
+  const parsed = singleExampleSchema.parse(JSON.parse(content));
 
-  // Map numeric indices back to real word IDs
-  return parsed.examples
-    .map((ex) => {
-      const realId = indexToId.get(ex.wordId);
-      if (!realId) return null;
-      return {
-        wordId: realId,
-        partOfSpeechTags: normalizePartOfSpeechTags(ex.partOfSpeechTags),
-        exampleSentence: ex.exampleSentence,
-        exampleSentenceJa: ex.exampleSentenceJa,
-      };
-    })
-    .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
+  return {
+    wordId: word.id,
+    partOfSpeechTags: normalizePartOfSpeechTags(parsed.partOfSpeechTags),
+    exampleSentence: parsed.exampleSentence,
+    exampleSentenceJa: parsed.exampleSentenceJa,
+  };
 }
