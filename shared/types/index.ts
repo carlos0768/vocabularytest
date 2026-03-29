@@ -4,6 +4,7 @@
 // ============ Core Domain Types ============
 
 export type WordStatus = 'new' | 'review' | 'mastered';
+export type ProjectShareScope = 'private' | 'public';
 
 export interface RelatedWord {
   term: string;
@@ -73,6 +74,7 @@ export interface Project {
   createdAt: string; // ISO string
   isSynced?: boolean; // Local-only flag for cloud sync status
   shareId?: string; // Unique share ID for URL sharing (null = private)
+  shareScope?: ProjectShareScope; // Whether the shared project is listed publicly
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
 }
 

@@ -398,6 +398,64 @@ private struct ShareImportCommitRequest: Encodable {
     let sourceApp: String?
 }
 
+private struct SharedProjectSummaryDTO: Decodable {
+    let project: ProjectDTO
+    let accessRole: SharedProjectAccessRole
+    let wordCount: Int
+    let collaboratorCount: Int
+}
+
+private struct SharedProjectsResponse: Decodable {
+    let success: Bool
+    let owned: [SharedProjectSummaryDTO]?
+    let joined: [SharedProjectSummaryDTO]?
+    let publicProjects: [SharedProjectSummaryDTO]?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case owned
+        case joined
+        case publicProjects = "public"
+        case error
+    }
+}
+
+private struct SharedProjectJoinRequest: Encodable {
+    let codeOrLink: String
+}
+
+private struct SharedProjectJoinResponse: Decodable {
+    let success: Bool
+    let item: SharedProjectSummaryDTO?
+    let error: String?
+}
+
+private struct SharedProjectDetailResponse: Decodable {
+    let success: Bool
+    let project: ProjectDTO?
+    let accessRole: SharedProjectAccessRole?
+    let collaboratorCount: Int?
+    let words: [WordDTO]?
+    let error: String?
+}
+
+private struct SharedProjectWordRequest: Encodable {
+    let english: String
+    let japanese: String
+}
+
+private struct SharedProjectWordResponse: Decodable {
+    let success: Bool
+    let word: WordDTO?
+    let error: String?
+}
+
+private struct SharedProjectDeleteWordResponse: Decodable {
+    let success: Bool
+    let error: String?
+}
+
 actor WebAPIClient {
     private let baseURL: URL
     private let supabaseURL: URL
@@ -414,6 +472,21 @@ actor WebAPIClient {
         config.timeoutIntervalForRequest = 60
         config.timeoutIntervalForResource = 90
         self.urlSession = URLSession(configuration: config)
+    }
+
+    private func rethrowTransportError(
+        _ error: Error,
+        messagePrefix: String = "通信エラー"
+    ) throws -> Never {
+        if error.isCancellationError {
+            throw error
+        }
+
+        if let urlError = error as? URLError, urlError.code == .timedOut {
+            throw WebAPIError.networkTimeout
+        }
+
+        throw WebAPIError.serverError("\(messagePrefix): \(error.localizedDescription)")
     }
 
     private func sendJSONRequest<Body: Encodable>(
@@ -436,10 +509,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -474,10 +545,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -547,6 +616,21 @@ actor WebAPIClient {
         return decoder
     }
 
+    private func makeSupabaseJSONDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .supabaseISO8601
+        return decoder
+    }
+
+    private func mapSharedProjectSummary(from dto: SharedProjectSummaryDTO) -> SharedProjectSummary {
+        SharedProjectSummary(
+            project: SupabaseMapper.project(from: dto.project),
+            accessRole: dto.accessRole,
+            wordCount: dto.wordCount,
+            collaboratorCount: dto.collaboratorCount
+        )
+    }
+
     func extractWords(
         imageBase64: String,
         mode: ScanMode,
@@ -576,10 +660,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -650,10 +732,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -1233,10 +1313,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -1320,6 +1398,260 @@ actor WebAPIClient {
         }
     }
 
+    func fetchSharedProjects(bearerToken: String) async throws -> SharedProjectCatalog {
+        let (data, http) = try await sendRequest(
+            method: "GET",
+            path: "api/shared-projects",
+            bearerToken: bearerToken,
+            timeout: 20
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "共有単語帳一覧の取得に失敗しました。")
+            )
+        }
+
+        do {
+            let decoded = try makeSupabaseJSONDecoder().decode(SharedProjectsResponse.self, from: data)
+            guard decoded.success else {
+                throw WebAPIError.serverError(decoded.error ?? "共有単語帳一覧の取得に失敗しました。")
+            }
+            return SharedProjectCatalog(
+                owned: (decoded.owned ?? []).map(mapSharedProjectSummary(from:)),
+                joined: (decoded.joined ?? []).map(mapSharedProjectSummary(from:)),
+                publicProjects: (decoded.publicProjects ?? []).map(mapSharedProjectSummary(from:))
+            )
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Shared projects decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func joinSharedProject(
+        codeOrLink: String,
+        bearerToken: String
+    ) async throws -> SharedProjectSummary {
+        let (data, http) = try await sendJSONRequest(
+            path: "api/shared-projects",
+            bearerToken: bearerToken,
+            timeout: 20,
+            body: SharedProjectJoinRequest(codeOrLink: codeOrLink)
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 400, 404:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "共有コードを確認してください。")
+            )
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "共有単語帳への参加に失敗しました。")
+            )
+        }
+
+        do {
+            let decoded = try makeSupabaseJSONDecoder().decode(SharedProjectJoinResponse.self, from: data)
+            guard decoded.success, let item = decoded.item else {
+                throw WebAPIError.serverError(decoded.error ?? "共有単語帳への参加に失敗しました。")
+            }
+            return mapSharedProjectSummary(from: item)
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Shared project join decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func fetchSharedProjectDetail(
+        projectId: String,
+        bearerToken: String
+    ) async throws -> SharedProjectDetail {
+        let (data, http) = try await sendRequest(
+            method: "GET",
+            path: "api/shared-projects/\(projectId)",
+            bearerToken: bearerToken,
+            timeout: 20
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 403, 404:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "共有単語帳にアクセスできません。")
+            )
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "共有単語帳の読み込みに失敗しました。")
+            )
+        }
+
+        do {
+            let decoded = try makeSupabaseJSONDecoder().decode(SharedProjectDetailResponse.self, from: data)
+            guard decoded.success,
+                  let project = decoded.project,
+                  let accessRole = decoded.accessRole,
+                  let words = decoded.words else {
+                throw WebAPIError.serverError(decoded.error ?? "共有単語帳の読み込みに失敗しました。")
+            }
+            return SharedProjectDetail(
+                project: SupabaseMapper.project(from: project),
+                words: words.map(SupabaseMapper.word(from:)),
+                accessRole: accessRole,
+                collaboratorCount: decoded.collaboratorCount ?? 1
+            )
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Shared project detail decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func createSharedProjectWord(
+        projectId: String,
+        english: String,
+        japanese: String,
+        bearerToken: String
+    ) async throws -> Word {
+        let (data, http) = try await sendJSONRequest(
+            path: "api/shared-projects/\(projectId)/words",
+            bearerToken: bearerToken,
+            timeout: 20,
+            body: SharedProjectWordRequest(english: english, japanese: japanese)
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 400, 403, 404:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "単語の追加に失敗しました。")
+            )
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "単語の追加に失敗しました。")
+            )
+        }
+
+        do {
+            let decoded = try makeSupabaseJSONDecoder().decode(SharedProjectWordResponse.self, from: data)
+            guard decoded.success, let word = decoded.word else {
+                throw WebAPIError.serverError(decoded.error ?? "単語の追加に失敗しました。")
+            }
+            return SupabaseMapper.word(from: word)
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Shared project word create decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func updateSharedProjectWord(
+        projectId: String,
+        wordId: String,
+        english: String,
+        japanese: String,
+        bearerToken: String
+    ) async throws -> Word {
+        let requestBody = try JSONEncoder().encode(
+            SharedProjectWordRequest(english: english, japanese: japanese)
+        )
+        let (data, http) = try await sendRequest(
+            method: "PATCH",
+            path: "api/shared-projects/\(projectId)/words/\(wordId)",
+            bearerToken: bearerToken,
+            timeout: 20,
+            body: requestBody
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 400, 403, 404:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "単語の更新に失敗しました。")
+            )
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "単語の更新に失敗しました。")
+            )
+        }
+
+        do {
+            let decoded = try makeSupabaseJSONDecoder().decode(SharedProjectWordResponse.self, from: data)
+            guard decoded.success, let word = decoded.word else {
+                throw WebAPIError.serverError(decoded.error ?? "単語の更新に失敗しました。")
+            }
+            return SupabaseMapper.word(from: word)
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Shared project word update decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func deleteSharedProjectWord(
+        projectId: String,
+        wordId: String,
+        bearerToken: String
+    ) async throws {
+        let (data, http) = try await sendRequest(
+            method: "DELETE",
+            path: "api/shared-projects/\(projectId)/words/\(wordId)",
+            bearerToken: bearerToken,
+            timeout: 20
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            break
+        case 400, 403, 404:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "単語の削除に失敗しました。")
+            )
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "単語の削除に失敗しました。")
+            )
+        }
+
+        do {
+            let decoded = try makeSupabaseJSONDecoder().decode(SharedProjectDeleteWordResponse.self, from: data)
+            guard decoded.success else {
+                throw WebAPIError.serverError(decoded.error ?? "単語の削除に失敗しました。")
+            }
+        } catch let error as WebAPIError {
+            throw error
+        } catch {
+            logger.error("Shared project word delete decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
     func fetchScanJobs(bearerToken: String) async throws -> [ScanJobDTO] {
         let url = try makeWebAPIURL(path: "api/scan-jobs")
         logger.info("Web API request started: method=GET url=\(url.absoluteString, privacy: .public)")
@@ -1333,10 +1665,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -1383,10 +1713,8 @@ actor WebAPIClient {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch {
-            throw WebAPIError.serverError("通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -1498,12 +1826,10 @@ actor WebAPIClient {
                 imageData: imageData,
                 request: request
             )
-        } catch let error as URLError where error.code == .timedOut {
-            throw WebAPIError.networkTimeout
         } catch let error as WebAPIError {
             throw error
         } catch {
-            throw WebAPIError.serverError("アップロード通信エラー: \(error.localizedDescription)")
+            try rethrowTransportError(error, messagePrefix: "アップロード通信エラー")
         }
     }
 }

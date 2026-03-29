@@ -33,6 +33,7 @@ export interface ProjectRow {
   icon_image?: string | null;
   created_at: string;
   share_id?: string | null;
+  share_scope?: string | null;
   is_favorite?: boolean | null;
 }
 
@@ -45,6 +46,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     iconImage: row.icon_image ?? undefined,
     createdAt: row.created_at,
     shareId: row.share_id ?? undefined,
+    shareScope: row.share_scope === 'public' ? 'public' : 'private',
     isFavorite: row.is_favorite ?? false,
   };
 }
@@ -71,6 +73,7 @@ export function mapProjectToInsertWithId(project: Project): {
   icon_image?: string;
   created_at: string;
   share_id?: string;
+  share_scope?: string;
   is_favorite?: boolean;
 } {
   return {
@@ -81,6 +84,7 @@ export function mapProjectToInsertWithId(project: Project): {
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
     created_at: project.createdAt,
     ...(project.shareId !== undefined && { share_id: project.shareId }),
+    ...(project.shareScope !== undefined && { share_scope: project.shareScope }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
   };
 }
@@ -91,6 +95,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
   if (updates.sourceLabels !== undefined) updateData.source_labels = normalizeSourceLabels(updates.sourceLabels);
   if (updates.iconImage !== undefined) updateData.icon_image = updates.iconImage;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
+  if (updates.shareScope !== undefined) updateData.share_scope = updates.shareScope;
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
   return updateData;
 }

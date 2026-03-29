@@ -249,6 +249,11 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         return shareId
     }
 
+    func updateShareScope(projectId: String, shareScope: ProjectShareScope) async throws {
+        try await cloudRepository.updateShareScope(projectId: projectId, shareScope: shareScope)
+        try? await cacheStore.updateProjectShareScope(id: projectId, shareScope: shareScope)
+    }
+
     func prefetchRecentProjects(userId: String, limit: Int = 10) async {
         guard limit > 0 else { return }
 

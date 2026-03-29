@@ -7,6 +7,7 @@ struct ProjectDTO: Codable, Sendable {
     let iconImage: String?
     let createdAt: Date
     let shareId: String?
+    let shareScope: ProjectShareScope?
     let isFavorite: Bool?
     let sourceLabels: [String]?
 }
@@ -121,6 +122,7 @@ enum SupabaseMapper {
             iconImage: dto.iconImage,
             createdAt: dto.createdAt,
             shareId: dto.shareId,
+            shareScope: dto.shareScope ?? .inviteOnly,
             isFavorite: dto.isFavorite ?? false,
             sourceLabels: dto.sourceLabels ?? []
         )

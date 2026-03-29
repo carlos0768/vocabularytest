@@ -9,6 +9,7 @@ final class LocalProjectRecord {
     var iconImage: String?
     var createdAt: Date
     var shareId: String?
+    var shareScopeRaw: String?
     var isFavorite: Bool
     var sourceLabelsBlob: Data?
 
@@ -19,6 +20,7 @@ final class LocalProjectRecord {
         iconImage: String? = nil,
         createdAt: Date,
         shareId: String? = nil,
+        shareScopeRaw: String? = nil,
         isFavorite: Bool = false,
         sourceLabelsBlob: Data? = nil
     ) {
@@ -28,6 +30,7 @@ final class LocalProjectRecord {
         self.iconImage = iconImage
         self.createdAt = createdAt
         self.shareId = shareId
+        self.shareScopeRaw = shareScopeRaw
         self.isFavorite = isFavorite
         self.sourceLabelsBlob = sourceLabelsBlob
     }

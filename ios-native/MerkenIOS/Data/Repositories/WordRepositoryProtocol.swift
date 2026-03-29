@@ -18,6 +18,7 @@ protocol WordRepositoryProtocol: Sendable {
 
 protocol ProjectShareServiceProtocol: Sendable {
     func generateShareId(projectId: String) async throws -> String
+    func updateShareScope(projectId: String, shareScope: ProjectShareScope) async throws
 }
 
 protocol OfflinePrefetchingRepository: Sendable {

@@ -1,7 +1,6 @@
 import Photos
 import SwiftUI
 import UIKit
-import UniformTypeIdentifiers
 
 private struct ShareMetric: Identifiable {
     let id: String
@@ -21,11 +20,72 @@ struct ProjectShareSheet: View {
     let projectTitle: String
     let words: [Word]
     let shareURL: URL
+    let onUpdateShareScope: (_ shareScope: ProjectShareScope) async throws -> Void
     let onDismiss: () -> Void
 
     @State private var activityPayload: ShareActivityPayload?
     @State private var feedbackMessage: String?
     @State private var isOpeningInstagram = false
+    @State private var selectedShareScope: ProjectShareScope
+    @State private var isUpdatingShareScope = false
+
+    init(
+        project: Project,
+        projectTitle: String,
+        words: [Word],
+        shareURL: URL,
+        onUpdateShareScope: @escaping (_ shareScope: ProjectShareScope) async throws -> Void,
+        onDismiss: @escaping () -> Void
+    ) {
+        self.project = project
+        self.projectTitle = projectTitle
+        self.words = words
+        self.shareURL = shareURL
+        self.onUpdateShareScope = onUpdateShareScope
+        self.onDismiss = onDismiss
+        _selectedShareScope = State(initialValue: project.shareScope)
+    }
+
+    private var shareCode: String {
+        shareURL.lastPathComponent
+    }
+
+    private var formattedShareCode: String {
+        stride(from: 0, to: shareCode.count, by: 4).map { offset in
+            let start = shareCode.index(shareCode.startIndex, offsetBy: offset)
+            let end = shareCode.index(start, offsetBy: min(4, shareCode.distance(from: start, to: shareCode.endIndex)), limitedBy: shareCode.endIndex) ?? shareCode.endIndex
+            return String(shareCode[start..<end])
+        }
+        .joined(separator: "-")
+    }
+
+    private var shareMessage: String {
+        """
+        \(selectedShareScope == .publicListed ? "Merken の「共有」タブにある公開単語帳からそのまま見られます。" : "Merken の「共有」タブで招待コードを入力して参加してください。")
+        単語帳: \(projectTitle)
+
+        招待コード: \(formattedShareCode)
+        リンク: \(shareURL.absoluteString)
+        """
+    }
+
+    private var shareScopeSummary: String {
+        switch selectedShareScope {
+        case .publicListed:
+            return "公開単語帳として共有ページに表示されます"
+        case .inviteOnly:
+            return "非公開のまま招待コードで参加できます"
+        }
+    }
+
+    private var shareScopeDescription: String {
+        switch selectedShareScope {
+        case .publicListed:
+            return "共有タブの公開単語帳一覧からそのまま見つけられます。リンク入力は不要です。"
+        case .inviteOnly:
+            return "非公開の単語帳です。フルリンクではなく招待コードだけで参加できます。"
+        }
+    }
 
     private var metrics: [ShareMetric] {
         let normalizedCounts = Dictionary(grouping: words) { word in
@@ -90,7 +150,7 @@ struct ProjectShareSheet: View {
 
                     Spacer()
 
-                    Text("Share")
+                    Text("共有")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(MerkenTheme.primaryText)
 
@@ -107,6 +167,7 @@ struct ProjectShareSheet: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         shareCard
+                        accessSettingsCard
 
                         HStack(spacing: 14) {
                             shareActionButton(title: "Instagram", action: shareToInstagram, icon: {
@@ -114,24 +175,24 @@ struct ProjectShareSheet: View {
                             })
 
                             shareActionButton(
-                                title: "Save",
+                                title: "保存",
                                 systemImage: "square.and.arrow.down"
                             ) {
                                 saveRenderedImage()
                             }
 
                             shareActionButton(
-                                title: "More",
+                                title: "共有",
                                 systemImage: "ellipsis"
                             ) {
                                 openSystemShare()
                             }
 
                             shareActionButton(
-                                title: "Copy",
-                                systemImage: "doc.on.doc"
+                                title: "リンク",
+                                systemImage: "link"
                             ) {
-                                copySharePayload()
+                                copyShareLink()
                             }
                         }
                     }
@@ -157,6 +218,11 @@ struct ProjectShareSheet: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: feedbackMessage)
+        .onChange(of: project.shareScope) { _, newValue in
+            if !isUpdatingShareScope {
+                selectedShareScope = newValue
+            }
+        }
     }
 
     private var shareCard: some View {
@@ -178,6 +244,26 @@ struct ProjectShareSheet: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .lineLimit(2)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        sharePill(
+                            text: selectedShareScope == .publicListed ? "公開" : "非公開",
+                            tint: selectedShareScope == .publicListed ? MerkenTheme.success : MerkenTheme.secondaryText,
+                            background: selectedShareScope == .publicListed ? MerkenTheme.success.opacity(0.12) : MerkenTheme.surfaceAlt
+                        )
+                        sharePill(
+                            text: formattedShareCode,
+                            tint: MerkenTheme.primaryText,
+                            background: MerkenTheme.surfaceAlt
+                        )
+                    }
+
+                    Text(shareScopeDescription)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 HStack(spacing: 10) {
                     ForEach(metrics) { metric in
@@ -234,6 +320,75 @@ struct ProjectShareSheet: View {
         )
     }
 
+    private var accessSettingsCard: some View {
+        SolidCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("公開設定")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+
+                Text("公開単語帳は共有ページの一覧からそのまま見られます。非公開の単語帳は招待コードだけで参加できます。")
+                    .font(.system(size: 14))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    shareScopeOption(
+                        scope: .publicListed,
+                        title: "公開",
+                        subtitle: "共有ページに一覧表示",
+                        accent: MerkenTheme.success
+                    )
+                    shareScopeOption(
+                        scope: .inviteOnly,
+                        title: "非公開",
+                        subtitle: "招待コードで参加",
+                        accent: MerkenTheme.accentBlue
+                    )
+                }
+
+                if isUpdatingShareScope {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                        Text("公開設定を更新中...")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("招待コード")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                        Spacer()
+                        Button("コピー") {
+                            copyInviteCode()
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    }
+
+                    Text(formattedShareCode)
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
+                        .foregroundStyle(MerkenTheme.primaryText)
+
+                    Text(shareScopeSummary)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(MerkenTheme.border, lineWidth: 1)
+                )
+            }
+        }
+    }
+
     @ViewBuilder
     private var coverView: some View {
         if let iconImage = project.iconImage,
@@ -257,6 +412,50 @@ struct ProjectShareSheet: View {
                     .padding(.top, 132)
             }
         }
+    }
+
+    private func shareScopeOption(
+        scope: ProjectShareScope,
+        title: String,
+        subtitle: String,
+        accent: Color
+    ) -> some View {
+        let isSelected = selectedShareScope == scope
+
+        return Button {
+            Task {
+                await updateShareScope(scope)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(title)
+                        .font(.system(size: 15, weight: .bold))
+                    Spacer(minLength: 0)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(isSelected ? accent : MerkenTheme.primaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(
+                (isSelected ? accent.opacity(0.12) : MerkenTheme.surface),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isSelected ? accent.opacity(0.45) : MerkenTheme.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isUpdatingShareScope)
+        .opacity(isUpdatingShareScope && !isSelected ? 0.6 : 1)
     }
 
     private func shareActionButton(
@@ -303,7 +502,13 @@ struct ProjectShareSheet: View {
 
     private func openSystemShare() {
         guard let renderedImage else { return }
-        activityPayload = ShareActivityPayload(items: [renderedImage, shareURL])
+        activityPayload = ShareActivityPayload(items: [renderedImage, shareMessage])
+    }
+
+    private func copyInviteCode() {
+        UIPasteboard.general.string = formattedShareCode
+        feedbackMessage = "招待コードをコピーしました"
+        hideFeedbackLater()
     }
 
     private func shareToInstagram() {
@@ -375,16 +580,40 @@ struct ProjectShareSheet: View {
         hideFeedbackLater()
     }
 
-    private func copySharePayload() {
-        var payload: [String: Any] = [
-            UTType.plainText.identifier: shareURL.absoluteString
-        ]
-        if let imageData = renderedImage?.pngData() {
-            payload[UTType.png.identifier] = imageData
-        }
-        UIPasteboard.general.setItems([payload])
-        feedbackMessage = renderedImage == nil ? "リンクをコピーしました" : "画像とリンクをコピーしました"
+    private func copyShareLink() {
+        UIPasteboard.general.string = shareURL.absoluteString
+        feedbackMessage = "リンクをコピーしました"
         hideFeedbackLater()
+    }
+
+    private func updateShareScope(_ shareScope: ProjectShareScope) async {
+        guard selectedShareScope != shareScope else { return }
+
+        let previousScope = selectedShareScope
+        selectedShareScope = shareScope
+        isUpdatingShareScope = true
+
+        do {
+            try await onUpdateShareScope(shareScope)
+            feedbackMessage = shareScope == .publicListed
+                ? "共有ページに公開しました"
+                : "招待コード専用に変更しました"
+        } catch {
+            selectedShareScope = previousScope
+            feedbackMessage = error.localizedDescription
+        }
+
+        isUpdatingShareScope = false
+        hideFeedbackLater()
+    }
+
+    private func sharePill(text: String, tint: Color, background: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(background, in: Capsule())
     }
 
     private func hideFeedbackLater() {

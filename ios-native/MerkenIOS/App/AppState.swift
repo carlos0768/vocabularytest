@@ -635,6 +635,11 @@ final class AppState: ObservableObject {
         try await projectShareService.generateShareId(projectId: projectId)
     }
 
+    func updateProjectShareScope(projectId: String, shareScope: ProjectShareScope) async throws {
+        try await projectShareService.updateShareScope(projectId: projectId, shareScope: shareScope)
+        bumpDataVersion()
+    }
+
     func refreshUserPreferences(showLoadingIndicator: Bool = true) async {
         guard isLoggedIn else {
             aiPreference = nil

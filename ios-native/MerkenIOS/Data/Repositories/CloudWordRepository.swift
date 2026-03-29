@@ -29,7 +29,7 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         let token = try await accessTokenProvider()
         let query = [
             URLQueryItem(name: "user_id", value: "eq.\(userId)"),
-            URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,is_favorite,source_labels"),
+            URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,share_scope,is_favorite,source_labels"),
             URLQueryItem(name: "order", value: "created_at.desc")
         ]
 
@@ -46,7 +46,7 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
             if isMissingProjectSourceLabelsColumn(error) {
                 let legacyQuery = [
                     URLQueryItem(name: "user_id", value: "eq.\(userId)"),
-                    URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,is_favorite"),
+                    URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,share_scope,is_favorite"),
                     URLQueryItem(name: "order", value: "created_at.desc")
                 ]
 
@@ -358,6 +358,33 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
                 preferReturnRepresentation: true
             )
             return shareId
+        } catch SupabaseClientError.unauthorized {
+            throw RepositoryError.unauthorized
+        } catch {
+            if error.isCancellationError { throw error }
+            throw RepositoryError.underlying(error.localizedDescription)
+        }
+    }
+
+    func updateShareScope(projectId: String, shareScope: ProjectShareScope) async throws {
+        let token = try await accessTokenProvider()
+        let query = [URLQueryItem(name: "id", value: "eq.\(projectId)")]
+
+        struct ShareScopePatch: Encodable {
+            let shareScope: String
+            enum CodingKeys: String, CodingKey {
+                case shareScope = "share_scope"
+            }
+        }
+
+        do {
+            let _: [ProjectDTO] = try await restClient.patch(
+                path: "/rest/v1/projects",
+                body: ShareScopePatch(shareScope: shareScope.rawValue),
+                query: query,
+                bearerToken: token,
+                preferReturnRepresentation: true
+            )
         } catch SupabaseClientError.unauthorized {
             throw RepositoryError.unauthorized
         } catch {

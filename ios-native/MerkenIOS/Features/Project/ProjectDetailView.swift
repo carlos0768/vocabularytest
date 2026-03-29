@@ -33,6 +33,8 @@ struct ProjectDetailView: View {
     @State private var contentPage = 0
     @State private var filteredWordListStatus: WordStatus?
     @State private var showingFilteredWordList = false
+    @State private var showingShareRestrictionAlert = false
+    @State private var shareRestrictionMessage = ""
     @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
     @State private var scrollOffset: CGFloat = 0
     @State private var chartAnimationProgress: Double = 0
@@ -155,6 +157,14 @@ struct ProjectDetailView: View {
             presented
                 .alert("この単語帳を削除しますか？", isPresented: $showingDeleteConfirm, actions: deleteAlertActions, message: deleteAlertMessage)
                 .alert("単語帳名を変更", isPresented: $showingRenameProject, actions: renameAlertActions, message: renameAlertMessage)
+                .alert("共有リンクを作成できません", isPresented: $showingShareRestrictionAlert) {
+                    Button("設定を見る") {
+                        appState.selectedTab = 4
+                    }
+                    Button("閉じる", role: .cancel) {}
+                } message: {
+                    Text(shareRestrictionMessage)
+                }
                 .photosPicker(isPresented: $showingProjectThumbnailPicker, selection: $selectedProjectThumbnailItem, matching: .images)
                 .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                     await viewModel.load(projectId: project.id, using: appState)
@@ -306,7 +316,13 @@ struct ProjectDetailView: View {
                 project: resolvedProject,
                 projectTitle: displayProjectTitle,
                 words: viewModel.words,
-                shareURL: preparedProjectShareURL
+                shareURL: preparedProjectShareURL,
+                onUpdateShareScope: { shareScope in
+                    try await appState.updateProjectShareScope(
+                        projectId: project.id,
+                        shareScope: shareScope
+                    )
+                }
             ) {
                 showingProjectShareSheet = false
             }
@@ -541,21 +557,37 @@ struct ProjectDetailView: View {
     }
 
     private func handleShare() async {
+        guard appState.isLoggedIn else {
+            shareRestrictionMessage = "共有リンクの作成にはログインが必要です。"
+            showingShareRestrictionAlert = true
+            return
+        }
+
+        guard appState.isPro else {
+            shareRestrictionMessage = "共有リンクの作成はProプラン限定です。設定からアップグレードしてください。"
+            showingShareRestrictionAlert = true
+            return
+        }
+
         do {
-            if case .proCloud = appState.repositoryMode {
-                var shareId = resolvedProject.shareId
-                if shareId == nil || shareId?.isEmpty == true {
-                    shareId = try await appState.generateProjectShareId(projectId: project.id)
-                }
-                if let shareId,
-                   let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") {
-                    preparedProjectShareURL = shareURL
-                }
-            } else {
-                preparedProjectShareURL = URL(string: "https://www.merken.jp")
+            var shareId = resolvedProject.shareId
+            if shareId == nil || shareId?.isEmpty == true {
+                shareId = try await appState.generateProjectShareId(projectId: project.id)
             }
+
+            guard let shareId,
+                  let shareURL = URL(string: "https://www.merken.jp/share/\(shareId)") else {
+                shareRestrictionMessage = "共有リンクの作成に失敗しました。時間をおいて再度お試しください。"
+                showingShareRestrictionAlert = true
+                return
+            }
+
+            preparedProjectShareURL = shareURL
         } catch {
-            preparedProjectShareURL = URL(string: "https://www.merken.jp")
+            preparedProjectShareURL = nil
+            shareRestrictionMessage = "共有リンクの作成に失敗しました。時間をおいて再度お試しください。"
+            showingShareRestrictionAlert = true
+            return
         }
 
         showingProjectShareSheet = preparedProjectShareURL != nil

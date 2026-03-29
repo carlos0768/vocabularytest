@@ -6,6 +6,11 @@ enum WordStatus: String, Codable, CaseIterable, Sendable {
     case mastered
 }
 
+enum ProjectShareScope: String, Codable, Sendable {
+    case inviteOnly = "private"
+    case publicListed = "public"
+}
+
 struct Project: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let userId: String
@@ -13,6 +18,7 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
     var iconImage: String?
     let createdAt: Date
     var shareId: String?
+    var shareScope: ProjectShareScope
     var isFavorite: Bool
     var sourceLabels: [String]
 
@@ -23,6 +29,7 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
         iconImage: String? = nil,
         createdAt: Date = .now,
         shareId: String? = nil,
+        shareScope: ProjectShareScope = .inviteOnly,
         isFavorite: Bool = false,
         sourceLabels: [String] = []
     ) {
@@ -32,6 +39,7 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
         self.iconImage = iconImage
         self.createdAt = createdAt
         self.shareId = shareId
+        self.shareScope = shareScope
         self.isFavorite = isFavorite
         self.sourceLabels = normalizeProjectSourceLabels(sourceLabels)
     }
@@ -391,6 +399,36 @@ struct CollectionProject: Identifiable, Hashable, Codable, Sendable {
         self.sortOrder = sortOrder
         self.addedAt = addedAt
     }
+}
+
+enum SharedProjectAccessRole: String, Codable, Sendable {
+    case owner
+    case editor
+    case viewer
+}
+
+struct SharedProjectSummary: Identifiable, Hashable, Codable, Sendable {
+    let project: Project
+    let accessRole: SharedProjectAccessRole
+    let wordCount: Int
+    let collaboratorCount: Int
+
+    var id: String { project.id }
+}
+
+struct SharedProjectCatalog: Hashable, Sendable {
+    let owned: [SharedProjectSummary]
+    let joined: [SharedProjectSummary]
+    let publicProjects: [SharedProjectSummary]
+}
+
+struct SharedProjectDetail: Identifiable, Hashable, Sendable {
+    var project: Project
+    var words: [Word]
+    let accessRole: SharedProjectAccessRole
+    let collaboratorCount: Int
+
+    var id: String { project.id }
 }
 
 enum LearningModeUsageStore {

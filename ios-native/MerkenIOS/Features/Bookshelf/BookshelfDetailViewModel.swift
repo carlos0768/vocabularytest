@@ -2,131 +2,160 @@ import Foundation
 import OSLog
 
 @MainActor
-final class BookshelfDetailViewModel: ObservableObject {
-    @Published private(set) var collection: Collection?
-    @Published private(set) var collectionProjects: [CollectionProject] = []
-    @Published private(set) var projects: [Project] = []
-    @Published private(set) var allWords: [Word] = []
+final class SharedProjectDetailViewModel: ObservableObject {
+    @Published private(set) var project: Project?
+    @Published private(set) var words: [Word] = []
+    @Published private(set) var accessRole: SharedProjectAccessRole = .editor
+    @Published private(set) var collaboratorCount = 1
     @Published private(set) var loading = false
+    @Published private(set) var joining = false
     @Published var errorMessage: String?
     @Published var searchText = ""
 
-    private let logger = Logger(subsystem: "MerkenIOS", category: "BookshelfDetailVM")
-
-    var masteredCount: Int { allWords.filter { $0.status == .mastered }.count }
-    var reviewCount: Int { allWords.filter { $0.status == .review }.count }
-    var newCount: Int { allWords.filter { $0.status == .new }.count }
+    private let logger = Logger(subsystem: "MerkenIOS", category: "SharedProjectDetailVM")
 
     var filteredWords: [Word] {
-        guard !searchText.isEmpty else { return allWords }
-        let query = searchText.lowercased()
-        return allWords.filter {
-            $0.english.lowercased().contains(query) ||
-            $0.japanese.contains(query)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return words }
+        return words.filter {
+            $0.english.localizedCaseInsensitiveContains(query)
+            || $0.japanese.localizedCaseInsensitiveContains(query)
         }
     }
 
-    func load(collectionId: String, using state: AppState) async {
+    func load(projectId: String, using state: AppState) async {
         loading = true
-        errorMessage = nil
+        defer { loading = false }
 
         do {
-            let collections = try await state.collectionRepository.fetchCollections(userId: state.activeUserId)
-            collection = collections.first { $0.id == collectionId }
-
-            let cps = try await state.collectionRepository.fetchCollectionProjects(collectionId: collectionId)
-            collectionProjects = cps
-
-            let projectIds = Set(cps.map(\.projectId))
-            let allProjects = try await state.activeRepository.fetchProjects(userId: state.activeUserId)
-            projects = allProjects.filter { projectIds.contains($0.id) }
-
-            var words: [Word] = []
-            await withTaskGroup(of: [Word].self) { group in
-                for project in projects {
-                    group.addTask {
-                        (try? await state.activeRepository.fetchWords(projectId: project.id)) ?? []
-                    }
-                }
-                for await projectWords in group {
-                    words.append(contentsOf: projectWords)
-                }
+            let detail = try await state.performWebAPIRequest { bearerToken in
+                try await state.webAPIClient.fetchSharedProjectDetail(
+                    projectId: projectId,
+                    bearerToken: bearerToken
+                )
             }
-            allWords = words
+            project = detail.project
+            words = detail.words.sorted { $0.createdAt < $1.createdAt }
+            accessRole = detail.accessRole
+            collaboratorCount = detail.collaboratorCount
+            errorMessage = nil
         } catch {
-            if error.isCancellationError { return }
+            if error.isCancellationError {
+                return
+            }
             errorMessage = error.localizedDescription
-            logger.error("BookshelfDetail load failed: \(error.localizedDescription)")
-        }
-
-        loading = false
-    }
-
-    func removeProject(collectionId: String, projectId: String, using state: AppState) async {
-        do {
-            try await state.collectionRepository.removeProject(collectionId: collectionId, projectId: projectId)
-            collectionProjects.removeAll { $0.projectId == projectId }
-            let removedWords = allWords.filter { $0.projectId == projectId }
-            allWords.removeAll { $0.projectId == projectId }
-            projects.removeAll { $0.id == projectId }
-            _ = removedWords // suppress unused warning
-        } catch {
-            if error.isCancellationError { return }
-            errorMessage = error.localizedDescription
-            logger.error("BookshelfDetail removeProject failed: \(error.localizedDescription)")
+            logger.error("Shared project detail load failed: \(error.localizedDescription)")
         }
     }
 
-    func toggleFavorite(word: Word, using state: AppState) async {
-        let newValue = !word.isFavorite
-
+    func addWord(
+        english: String,
+        japanese: String,
+        projectId: String,
+        using state: AppState
+    ) async {
         do {
-            try await state.activeRepository.updateWord(
-                id: word.id,
-                patch: WordPatch(isFavorite: newValue)
-            )
-            if let index = allWords.firstIndex(where: { $0.id == word.id }) {
-                allWords[index].isFavorite = newValue
+            let created = try await state.performWebAPIRequest { bearerToken in
+                try await state.webAPIClient.createSharedProjectWord(
+                    projectId: projectId,
+                    english: english,
+                    japanese: japanese,
+                    bearerToken: bearerToken
+                )
             }
+            words.append(created)
+            words.sort { $0.createdAt < $1.createdAt }
+            errorMessage = nil
             state.bumpDataVersion()
         } catch {
-            if error.isCancellationError { return }
+            if error.isCancellationError {
+                return
+            }
             errorMessage = error.localizedDescription
-            logger.error("BookshelfDetail toggleFavorite failed: \(error.localizedDescription)")
+            logger.error("Shared project add word failed: \(error.localizedDescription)")
         }
     }
 
-    func addProjects(collectionId: String, projectIds: [String], using state: AppState) async {
+    func updateWord(
+        wordId: String,
+        english: String,
+        japanese: String,
+        projectId: String,
+        using state: AppState
+    ) async {
         do {
-            try await state.collectionRepository.addProjects(collectionId: collectionId, projectIds: projectIds)
-            await load(collectionId: collectionId, using: state)
-        } catch {
-            if error.isCancellationError { return }
-            errorMessage = error.localizedDescription
-            logger.error("BookshelfDetail addProjects failed: \(error.localizedDescription)")
-        }
-    }
-
-    func updateCollection(id: String, name: String, description: String?, using state: AppState) async {
-        do {
-            try await state.collectionRepository.updateCollection(id: id, name: name, description: description)
-            collection?.name = name
-            collection?.description = description
-        } catch {
-            if error.isCancellationError { return }
-            errorMessage = error.localizedDescription
-            logger.error("BookshelfDetail updateCollection failed: \(error.localizedDescription)")
-        }
-    }
-
-    func deleteCollection(id: String, using state: AppState) async {
-        do {
-            try await state.collectionRepository.deleteCollection(id: id)
+            let updated = try await state.performWebAPIRequest { bearerToken in
+                try await state.webAPIClient.updateSharedProjectWord(
+                    projectId: projectId,
+                    wordId: wordId,
+                    english: english,
+                    japanese: japanese,
+                    bearerToken: bearerToken
+                )
+            }
+            if let index = words.firstIndex(where: { $0.id == wordId }) {
+                words[index] = updated
+            }
+            words.sort { $0.createdAt < $1.createdAt }
+            errorMessage = nil
             state.bumpDataVersion()
         } catch {
-            if error.isCancellationError { return }
+            if error.isCancellationError {
+                return
+            }
             errorMessage = error.localizedDescription
-            logger.error("BookshelfDetail deleteCollection failed: \(error.localizedDescription)")
+            logger.error("Shared project update word failed: \(error.localizedDescription)")
+        }
+    }
+
+    func deleteWord(
+        wordId: String,
+        projectId: String,
+        using state: AppState
+    ) async {
+        do {
+            try await state.performWebAPIRequest { bearerToken in
+                try await state.webAPIClient.deleteSharedProjectWord(
+                    projectId: projectId,
+                    wordId: wordId,
+                    bearerToken: bearerToken
+                )
+            }
+            words.removeAll { $0.id == wordId }
+            errorMessage = nil
+            state.bumpDataVersion()
+        } catch {
+            if error.isCancellationError {
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Shared project delete word failed: \(error.localizedDescription)")
+        }
+    }
+
+    func join(
+        shareCode: String,
+        projectId: String,
+        using state: AppState
+    ) async {
+        joining = true
+        defer { joining = false }
+
+        do {
+            _ = try await state.performWebAPIRequest { bearerToken in
+                try await state.webAPIClient.joinSharedProject(
+                    codeOrLink: shareCode,
+                    bearerToken: bearerToken
+                )
+            }
+            state.bumpDataVersion()
+            await load(projectId: projectId, using: state)
+        } catch {
+            if error.isCancellationError {
+                return
+            }
+            errorMessage = error.localizedDescription
+            logger.error("Shared project join from detail failed: \(error.localizedDescription)")
         }
     }
 }

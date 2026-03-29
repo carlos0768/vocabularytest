@@ -20,6 +20,9 @@ actor LocalWordRepository: WordRepositoryProtocol {
                 iconImage: $0.iconImage,
                 createdAt: $0.createdAt,
                 shareId: $0.shareId,
+                shareScope: ProjectShareScope(
+                    rawValue: $0.shareScopeRaw ?? ProjectShareScope.inviteOnly.rawValue
+                ) ?? .inviteOnly,
                 isFavorite: $0.isFavorite,
                 sourceLabels: decodeOptional($0.sourceLabelsBlob, as: [String].self) ?? []
             )
@@ -35,6 +38,7 @@ actor LocalWordRepository: WordRepositoryProtocol {
             iconImage: project.iconImage,
             createdAt: project.createdAt,
             shareId: project.shareId,
+            shareScopeRaw: project.shareScope.rawValue,
             isFavorite: project.isFavorite,
             sourceLabelsBlob: try encodeOptional(project.sourceLabels)
         )
