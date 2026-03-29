@@ -6,6 +6,12 @@ private enum WordListFilter: Hashable {
     case favorite
 }
 
+private enum WordSortOrder: String, CaseIterable {
+    case createdAsc = "入力順"
+    case createdDesc = "新しい順"
+    case alphabetical = "ABC順"
+}
+
 struct WordListView: View {
     let project: Project
     let contentScrollEnabled: Bool
@@ -18,19 +24,24 @@ struct WordListView: View {
     @State private var searchText = ""
 
     @State private var selectedFilter: WordListFilter = .all
+    @State private var selectedSort: WordSortOrder = .createdAsc
     private let initialStatus: WordStatus?
 
     private var headerTitle: String {
-        switch initialStatus {
-        case .mastered: return "習得済みの単語"
-        case .review: return "学習中の単語"
-        case .new: return "未学習の単語"
-        case nil: return "単語一覧"
+        if initialStatus != nil {
+            // Dynamic based on current selected filter
+            switch selectedFilter {
+            case .status(.mastered): return "習得済みの単語"
+            case .status(.review): return "学習中の単語"
+            case .status(.new): return "未学習の単語"
+            default: return "単語一覧"
+            }
         }
+        return "単語一覧"
     }
 
     private var filteredWords: [Word] {
-        viewModel.words.filter { word in
+        let filtered = viewModel.words.filter { word in
             switch selectedFilter {
             case .all:
                 break
@@ -50,6 +61,31 @@ struct WordListView: View {
             }
             return true
         }
+
+        switch selectedSort {
+        case .createdAsc:
+            return filtered.sorted { $0.createdAt < $1.createdAt }
+        case .createdDesc:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .alphabetical:
+            return filtered.sorted { $0.english.localizedCaseInsensitiveCompare($1.english) == .orderedAscending }
+        }
+    }
+
+    /// Whether to show time-based group dividers (only for createdAt sorts)
+    private var showTimeDividers: Bool {
+        selectedSort == .createdAsc || selectedSort == .createdDesc
+    }
+
+    /// Returns true if a thick divider should appear before the word at the given index.
+    /// Uses a 10-second threshold to separate different images within the same scan session.
+    private func shouldShowGroupDivider(at index: Int) -> Bool {
+        guard showTimeDividers, index > 0 else { return false }
+        let words = filteredWords
+        let threshold: TimeInterval = 10 // 10 seconds — separates individual images
+        let prev = words[index - 1]
+        let current = words[index]
+        return abs(current.createdAt.timeIntervalSince(prev.createdAt)) > threshold
     }
 
     init(project: Project, contentScrollEnabled: Bool = true, initialStatus: WordStatus? = nil) {
@@ -72,8 +108,12 @@ struct WordListView: View {
                         // Search
                         searchBar
 
-                        // Status filter chips
-                        statusChips
+                        // Show status tabs when opened from stats widget, sort picker otherwise
+                        if initialStatus != nil {
+                            statusFilterTabs
+                        } else {
+                            sortPicker
+                        }
 
                         // Words
                         if filteredWords.isEmpty {
@@ -81,10 +121,14 @@ struct WordListView: View {
                         }
 
                         if !filteredWords.isEmpty {
+                            let words = filteredWords
                             VStack(spacing: 0) {
                                 dividerLine
 
-                                ForEach(filteredWords) { word in
+                                ForEach(Array(words.enumerated()), id: \.element.id) { index, word in
+                                    if shouldShowGroupDivider(at: index) {
+                                        groupDividerLine
+                                    }
                                     wordRow(word)
                                     dividerLine
                                 }
@@ -229,6 +273,69 @@ struct WordListView: View {
         }
     }
 
+    // MARK: - Sort Picker
+
+    private var sortPicker: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(MerkenTheme.mutedText)
+
+            Picker("並び替え", selection: $selectedSort) {
+                ForEach(WordSortOrder.allCases, id: \.self) { order in
+                    Text(order.rawValue).tag(order)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(.vertical, 4) // ~1.2x taller
+    }
+
+    // MARK: - Status Filter Tabs (for filtered word list from stats widgets)
+
+    private var statusFilterTabs: some View {
+        HStack(spacing: 0) {
+            statusTab(label: "習得", status: .mastered, color: MerkenTheme.success)
+            statusTab(label: "学習中", status: .review, color: MerkenTheme.accentBlue)
+            statusTab(label: "未学習", status: .new, color: MerkenTheme.mutedText)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func statusTab(label: String, status: WordStatus, color: Color) -> some View {
+        let isActive: Bool = {
+            if case .status(let s) = selectedFilter {
+                return s == status
+            }
+            return false
+        }()
+
+        return Button {
+            selectedFilter = .status(status)
+        } label: {
+            VStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 15, weight: isActive ? .bold : .medium))
+                    .foregroundStyle(isActive ? color : MerkenTheme.secondaryText)
+
+                Rectangle()
+                    .fill(isActive ? color : Color.clear)
+                    .frame(height: 3)
+                    .clipShape(.rect(cornerRadius: 1.5))
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    // MARK: - Group Divider
+
+    private var groupDividerLine: some View {
+        Rectangle()
+            .fill(MerkenTheme.border)
+            .frame(height: 3)
+            .padding(.vertical, 8)
+    }
+
     // MARK: - Empty State
 
     private var emptyState: some View {
@@ -251,43 +358,24 @@ struct WordListView: View {
 
     private func wordRow(_ word: Word) -> some View {
         HStack(alignment: .center, spacing: 12) {
+            // English word — prominent and bold
             Text(word.english)
-                .font(.system(size: 19, weight: .medium))
+                .font(.system(size: 20, weight: .heavy))
                 .foregroundStyle(MerkenTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(2)
+                .layoutPriority(1)
 
-            VStack(alignment: .leading, spacing: 4) {
-                if let partOfSpeech = formattedPartOfSpeech(for: word) {
-                    Text(partOfSpeech)
-                        .font(.system(size: 14))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-                Text(word.japanese)
-                    .font(.system(size: 16))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
+            // (品詞) 訳 — right of English word
+            inlineDefinition(for: word)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 12) {
-                Button {
-                    Task {
-                        await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
-                    }
-                } label: {
-                    Image(systemName: word.isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 14))
-                        .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
-                }
-
+            // Action icons: ✏️ ⋯ (heart removed)
+            HStack(spacing: 16) {
                 Button {
                     editorMode = .edit(existing: word)
                 } label: {
                     Image(systemName: "pencil")
-                        .font(.system(size: 14))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
 
@@ -296,6 +384,17 @@ struct WordListView: View {
                         exportWord = word
                     } label: {
                         Label("別の単語帳にエクスポート", systemImage: "square.and.arrow.up")
+                    }
+
+                    Button {
+                        Task {
+                            await viewModel.toggleFavorite(word: word, projectId: project.id, using: appState)
+                        }
+                    } label: {
+                        Label(
+                            word.isFavorite ? "苦手を解除" : "苦手に追加",
+                            systemImage: word.isFavorite ? "heart.slash" : "heart"
+                        )
                     }
 
                     Button(role: .destructive) {
@@ -307,12 +406,78 @@ struct WordListView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
         }
         .padding(.vertical, 18)
+    }
+
+    /// Renders "(品詞) 訳" inline. Part of speech is muted, definition is secondary text.
+    /// When translation is long, only the translation part wraps.
+    private func inlineDefinition(for word: Word) -> some View {
+        let pos = formattedPartOfSpeech(for: word)
+        let japanesePos = pos.map { posTagsToJapanese($0) } ?? nil
+
+        return Group {
+            if let japanesePos {
+                (Text(japanesePos + " ")
+                    .font(.system(size: 15))
+                    .foregroundColor(MerkenTheme.mutedText)
+                 +
+                 Text(word.japanese)
+                    .font(.system(size: 15))
+                    .foregroundColor(MerkenTheme.secondaryText)
+                )
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+            } else {
+                Text(word.japanese)
+                    .font(.system(size: 15))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+    }
+
+    /// Convert English POS tags to Japanese abbreviations
+    private func posTagsToJapanese(_ posString: String) -> String {
+        // posString is like "(noun)" or "(noun・verb)" or "(adjective)"
+        let mapping: [String: String] = [
+            "noun": "名",
+            "verb": "動",
+            "adjective": "形",
+            "adverb": "副",
+            "preposition": "前",
+            "conjunction": "接",
+            "pronoun": "代",
+            "interjection": "感",
+            "determiner": "限",
+            "auxiliary": "助",
+            "名詞": "名",
+            "動詞": "動",
+            "形容詞": "形",
+            "副詞": "副",
+            "前置詞": "前",
+            "接続詞": "接",
+            "代名詞": "代",
+            "感動詞": "感",
+        ]
+
+        // Strip parentheses
+        var inner = posString
+        if inner.hasPrefix("(") && inner.hasSuffix(")") {
+            inner = String(inner.dropFirst().dropLast())
+        }
+
+        let parts = inner.split(separator: "・").map { part in
+            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return mapping[trimmed] ?? String(part)
+        }
+
+        return "(\(parts.joined(separator: ";")))"
     }
 
     private var dividerLine: some View {

@@ -52,9 +52,8 @@ final class StatsViewModel: ObservableObject {
         }.count
     }
 
-    /// Build daily newly-mastered word count for each of the last 7 days.
-    /// Shows how many words transitioned to mastered status on each day.
-    static func buildMasteryHistory(allWords: [Word], days: Int = 7) -> [MasteryDataPoint] {
+    /// Build cumulative mastered + total word count for each of the last 14 days.
+    static func buildMasteryHistory(allWords: [Word], days: Int = 14) -> [MasteryDataPoint] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
         let today = calendar.startOfDay(for: Date())
@@ -64,11 +63,16 @@ final class StatsViewModel: ObservableObject {
             let date = calendar.date(byAdding: .day, value: -offset, to: today)!
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: date)!
 
-            // Words that became mastered on this specific day (delta)
-            let newlyMastered = allWords.filter { word in
+            // Cumulative mastered count up to this day
+            let cumulativeMastered = allWords.filter { word in
                 guard word.status == .mastered else { return false }
                 let proxyDate = masteryProxyDate(for: word)
-                return proxyDate >= date && proxyDate < endOfDay
+                return proxyDate < endOfDay
+            }.count
+
+            // Total words that existed by end of this day
+            let cumulativeTotal = allWords.filter { word in
+                return word.createdAt < endOfDay
             }.count
 
             let weekdayIndex = calendar.component(.weekday, from: date) - 1
@@ -77,8 +81,8 @@ final class StatsViewModel: ObservableObject {
             return MasteryDataPoint(
                 date: date,
                 label: label,
-                mastered: newlyMastered,
-                total: 0
+                mastered: cumulativeMastered,
+                total: cumulativeTotal
             )
         }
     }

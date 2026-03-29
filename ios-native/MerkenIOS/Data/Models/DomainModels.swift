@@ -447,9 +447,11 @@ enum LearningModeUsageStore {
     }
 
     enum Mode: String, CaseIterable, Sendable {
+        case flashcard = "flashcard"
         case selfReview = "self_review"
         case timeAttack = "time_attack"
         case match = "match"
+        case quiz = "quiz"
     }
 
     private struct StoredCounts: Codable {

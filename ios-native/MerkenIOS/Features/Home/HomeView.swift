@@ -1195,17 +1195,15 @@ struct HomeView: View {
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                if viewModel.projects.count > 3 {
-                    Button { showingProjectList = true } label: {
-                        Text("すべて見る")
-                            .font(.system(size: 14))
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                    }
+                Button { showingProjectList = true } label: {
+                    Text("管理")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MerkenTheme.accentBlue)
                 }
             }
 
-            VStack(spacing: 12) {
-                ForEach(Array(viewModel.projects.prefix(3))) { project in
+            LazyVStack(spacing: 12) {
+                ForEach(viewModel.projects) { project in
                     featuredProjectCard(project)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .onTapGesture { detailProject = project }
@@ -1213,7 +1211,7 @@ struct HomeView: View {
                 }
             }
         }
-        .animation(MerkenSpring.gentle, value: Array(viewModel.projects.prefix(3).map(\.id)))
+        .animation(MerkenSpring.gentle, value: viewModel.projects.map(\.id))
     }
 
     // MARK: Featured Project Card (full-width, with circular progress)
