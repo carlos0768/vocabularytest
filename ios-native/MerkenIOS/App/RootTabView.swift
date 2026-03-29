@@ -35,7 +35,6 @@ struct RootTabView: View {
         .init(tab: 0, title: "ホーム", systemImage: "house.fill"),
         .init(tab: 1, title: "共有", systemImage: "person.2.fill"),
         .init(tab: 3, title: "進歩", systemImage: "chart.bar.fill"),
-        .init(tab: 1, title: "本棚", systemImage: "books.vertical.fill"),
         .init(tab: 4, title: "設定", systemImage: "gearshape.fill")
     ]
 
