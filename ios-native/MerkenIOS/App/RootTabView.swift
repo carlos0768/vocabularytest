@@ -68,12 +68,6 @@ struct RootTabView: View {
                     .tag(3)
 
                     NavigationStack {
-                        BookshelfListView()
-                    }
-                    .toolbar(.hidden, for: .tabBar)
-                    .tag(1)
-
-                    NavigationStack {
                         SettingsView()
                     }
                     .toolbar(.hidden, for: .tabBar)

@@ -371,7 +371,6 @@ struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = HomeViewModel()
-    @StateObject private var bookshelfVM = BookshelfListViewModel()
 
     @State private var quizDestination: QuizDestination?
     @State private var flashcardDestination: FlashcardDestination?
@@ -383,8 +382,6 @@ struct HomeView: View {
     @State private var projectToRename: Project?
     @State private var renameProjectTitle = ""
     @State private var projectForActions: Project?
-    @State private var selectedCollection: Collection?
-    @State private var showingBookshelfList = false
     @State private var selectedDayStory: DayMasteryStory?
     @State private var homeScrollOffset: CGFloat = 0
 
@@ -407,8 +404,6 @@ struct HomeView: View {
                 flashcardDestination: $flashcardDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject,
-                selectedCollection: $selectedCollection,
-                showingBookshelfList: $showingBookshelfList,
                 showingScan: $showingScan,
                 showingProjectList: $showingProjectList
             ))
@@ -423,7 +418,6 @@ struct HomeView: View {
             .modifier(HomeLifecycleModifier(
                 appState: appState,
                 viewModel: viewModel,
-                bookshelfVM: bookshelfVM,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
                 sentenceQuizDestination: $sentenceQuizDestination,
@@ -503,9 +497,6 @@ struct HomeView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
-                    if appState.isPro {
-                        bookshelfSection
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 2)
@@ -1330,211 +1321,6 @@ struct HomeView: View {
         .background(MerkenTheme.background, in: Capsule())
     }
 
-    // MARK: - Bookshelf Section
-
-    @State private var showingCreateBookshelf = false
-
-    private var bookshelfSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("本棚")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Spacer()
-                if !bookshelfVM.collections.isEmpty {
-                    Button { showingBookshelfList = true } label: {
-                        Text("すべて見る")
-                            .font(.system(size: 14))
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                    }
-                }
-            }
-
-            if bookshelfVM.collections.isEmpty {
-                // Empty state with create CTA
-                SolidCard {
-                    VStack(spacing: 12) {
-                        Image(systemName: "books.vertical.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                        Text("本棚を作ろう")
-                            .font(.headline)
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text("複数の単語帳をまとめて管理・学習できます")
-                            .font(.caption)
-                            .foregroundStyle(MerkenTheme.mutedText)
-                            .multilineTextAlignment(.center)
-                        Button {
-                            showingCreateBookshelf = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus")
-                                    .font(.subheadline.bold())
-                                Text("本棚を作成")
-                                    .font(.subheadline.bold())
-                            }
-                        }
-                        .buttonStyle(PrimaryGlassButton())
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .sheet(isPresented: $showingCreateBookshelf) {
-                    CreateBookshelfSheet {
-                        await bookshelfVM.load(using: appState)
-                    }
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-                }
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(bookshelfVM.collections.prefix(4)) { collection in
-                        homeCollectionCard(collection)
-                            .onTapGesture { selectedCollection = collection }
-                    }
-                }
-            }
-        }
-    }
-
-    private func homeCollectionCard(_ collection: Collection) -> some View {
-        let stat = bookshelfVM.stats[collection.id]
-        let projectCount = stat?.projectCount ?? 0
-        let previews = stat?.previews ?? []
-
-        return VStack(spacing: 20) {
-            homeCollectionPreviewStack(previews: previews, projectCount: projectCount)
-
-            VStack(spacing: 6) {
-                Text(collection.name)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-
-                Text(projectCount > 0 ? "\(projectCount)冊の単語帳" : "単語帳を追加して使い始める")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(MerkenTheme.mutedText)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(minHeight: 220)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 24)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(MerkenTheme.border)
-                .offset(y: 2)
-        )
-    }
-
-    private func homeCollectionPreviewStack(
-        previews: [CollectionProjectPreview],
-        projectCount: Int
-    ) -> some View {
-        let frontPreview = previews.first
-
-        return ZStack {
-            RoundedRectangle(cornerRadius: 28)
-                .fill(MerkenTheme.surface.opacity(0.82))
-                .frame(width: 250, height: 88)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(MerkenTheme.border.opacity(0.4), lineWidth: 1)
-                )
-                .offset(y: 26)
-
-            RoundedRectangle(cornerRadius: 30)
-                .fill(MerkenTheme.surface.opacity(0.92))
-                .frame(width: 272, height: 96)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 30)
-                        .stroke(MerkenTheme.border.opacity(0.65), lineWidth: 1)
-                )
-                .offset(y: 12)
-
-            HStack(spacing: 16) {
-                homeCollectionCover(preview: frontPreview)
-
-                VStack(alignment: .leading, spacing: 14) {
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(MerkenTheme.border.opacity(0.9))
-                        .frame(width: 146, height: 11)
-
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(MerkenTheme.border.opacity(0.65))
-                        .frame(width: 102, height: 11)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20)
-            .frame(width: 292, height: 104)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 32))
-            .overlay(
-                RoundedRectangle(cornerRadius: 32)
-                    .stroke(MerkenTheme.border.opacity(0.5), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(isDark ? 0.16 : 0.06), radius: 18, x: 0, y: 10)
-
-            if projectCount > 3 {
-                Text("+\(projectCount - 3)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(MerkenTheme.surfaceAlt, in: Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(MerkenTheme.border, lineWidth: 1)
-                    )
-                    .offset(x: 112, y: 44)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 126)
-    }
-
-    private func homeCollectionCover(preview: CollectionProjectPreview?) -> some View {
-        let placeholderId = preview?.id ?? "home-bookshelf-placeholder"
-        let color = MerkenTheme.placeholderColor(for: placeholderId, isDark: isDark)
-
-        return ZStack {
-            Circle()
-                .fill(Color.white)
-                .frame(width: 64, height: 64)
-                .shadow(color: .black.opacity(isDark ? 0.12 : 0.08), radius: 8, x: 0, y: 3)
-
-            if let preview,
-               let iconImage = preview.iconImage,
-               let uiImage = ImageCompressor.decodeBase64Image(iconImage, cacheKey: preview.iconImageCacheKey) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 58, height: 58)
-                    .clipShape(Circle())
-            } else {
-                LinearGradient(
-                    colors: [color, color.opacity(0.7)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.95))
-            }
-        }
-        .frame(width: 58, height: 58)
-        .clipShape(Circle())
-    }
-
     // MARK: - Focus Banner Helpers
 
     private var focusBannerIcon: String {
@@ -1572,8 +1358,6 @@ private struct HomeNavigationModifier: ViewModifier {
     @Binding var flashcardDestination: FlashcardDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
-    @Binding var selectedCollection: Collection?
-    @Binding var showingBookshelfList: Bool
     @Binding var showingScan: Bool
     @Binding var showingProjectList: Bool
 
@@ -1599,12 +1383,6 @@ private struct HomeNavigationModifier: ViewModifier {
             }
             .navigationDestination(item: $detailProject) { project in
                 ProjectDetailView(project: project)
-            }
-            .navigationDestination(item: $selectedCollection) { collection in
-                BookshelfDetailView(collection: collection)
-            }
-            .navigationDestination(isPresented: $showingBookshelfList) {
-                BookshelfListView()
             }
             .sheet(isPresented: $showingScan) {
                 ScanCoordinatorView()
@@ -1713,7 +1491,6 @@ private struct HomeAlertModifier: ViewModifier {
 private struct HomeLifecycleModifier: ViewModifier {
     let appState: AppState
     let viewModel: HomeViewModel
-    let bookshelfVM: BookshelfListViewModel
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
     @Binding var sentenceQuizDestination: SentenceQuizDestination?
@@ -1730,7 +1507,6 @@ private struct HomeLifecycleModifier: ViewModifier {
         content
             .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                 await viewModel.load(using: appState)
-                await bookshelfVM.load(using: appState)
             }
             .onAppear {
                 appState.tabBarVisible = !isShowingNestedDestination
