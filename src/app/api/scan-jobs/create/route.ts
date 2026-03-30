@@ -23,7 +23,11 @@ function getSupabaseAdmin(): SupabaseClient {
 
 function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
   const workerToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const processUrl = new URL('/api/scan-jobs/process', request.url);
+  // Use VERCEL_URL to bypass Cloudflare (which strips Authorization headers)
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : request.url;
+  const processUrl = new URL('/api/scan-jobs/process', baseUrl);
 
   after(async () => {
     if (!workerToken) {
