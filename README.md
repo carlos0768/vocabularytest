@@ -211,6 +211,7 @@ npm run lint     # ESLint実行
 **Vercel**にデプロイ。すべての環境変数を設定し、Supabaseマイグレーションを適用してください。
 
 スキャン抽出のCloud Run運用手順: [`docs/ops/scan-gemini-cloudrun-runbook.md`](docs/ops/scan-gemini-cloudrun-runbook.md)
+Nightly Master Lexicon Cron 復旧手順: [`docs/ops/nightly-lexicon-cron-runbook.md`](docs/ops/nightly-lexicon-cron-runbook.md)
 
 スキャン後の例文生成トラブルシュート: [`docs/ops/scan-example-sentences-runbook.md`](docs/ops/scan-example-sentences-runbook.md)
 

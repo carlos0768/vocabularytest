@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
@@ -686,9 +687,11 @@ async function extractFromImage(
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
-      console.warn('[scan-jobs/process] Unauthorized trigger request');
+    const authResult = authorizeInternalWorkerRequest(request);
+    if (!authResult.ok) {
+      console.warn('[scan-jobs/process] Unauthorized trigger request', {
+        reason: authResult.reason,
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

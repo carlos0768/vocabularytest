@@ -2,9 +2,11 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
+import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
   processWordLexiconResolutionWords,
+  triggerWordLexiconResolutionProcessing,
   wordLexiconResolutionPayloadSchema,
   type WordLexiconResolutionDeps,
 } from '@/lib/lexicon/word-resolution-jobs';
@@ -137,15 +139,7 @@ async function markJobFailure(
 
   if (nextStatus === 'pending') {
     after(async () => {
-      const processUrl = new URL('/api/word-lexicon-resolution/process', request.url);
-      await fetch(processUrl.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': request.headers.get('authorization') ?? '',
-        },
-        body: JSON.stringify({ jobId: job.id }),
-      }).catch((retryError) => {
+      await triggerWordLexiconResolutionProcessing(request.url, job.id).catch((retryError) => {
         console.error('[word-lexicon-resolution/process] Failed to re-trigger worker', retryError);
       });
     });
@@ -218,8 +212,11 @@ export async function handleWordLexiconResolutionProcessPost(
   request: NextRequest,
   deps?: WorkerDeps,
 ) {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (request.headers.get('authorization') !== `Bearer ${serviceRoleKey}`) {
+  const authResult = authorizeInternalWorkerRequest(request);
+  if (!authResult.ok) {
+    console.warn('[word-lexicon-resolution/process] Unauthorized trigger request', {
+      reason: authResult.reason,
+    });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -1,4 +1,5 @@
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { createInternalWorkerUrl, getInternalWorkerAuthorization } from '@/lib/api/internal-worker';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import type { LexiconEntry } from '@/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -126,10 +127,10 @@ function getDeps(deps?: WordLexiconResolutionDeps) {
     updateMasterTranslations: deps?.updateMasterTranslations ?? (async (updates: MasterTranslationUpdate[]) => {
       if (updates.length === 0) return;
       const { error } = await supabaseAdmin.rpc('batch_update_lexicon_translations', {
-        updates: JSON.stringify(updates.map((u) => ({
+        updates: updates.map((u) => ({
           id: u.id,
           translation_ja: u.translationJa,
-        }))),
+        })),
       });
 
       if (error) {
@@ -208,18 +209,18 @@ export async function triggerWordLexiconResolutionProcessing(
   requestUrl: string,
   jobId?: string,
 ): Promise<void> {
-  const workerToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!workerToken) {
-    console.error('[word-lexicon-resolution] Missing SUPABASE_SERVICE_ROLE_KEY while scheduling worker');
+  const workerAuth = getInternalWorkerAuthorization();
+  if (!workerAuth) {
+    console.error('[word-lexicon-resolution] Missing internal worker token while scheduling worker');
     return;
   }
 
-  const processUrl = new URL('/api/word-lexicon-resolution/process', requestUrl);
+  const processUrl = createInternalWorkerUrl('/api/word-lexicon-resolution/process', requestUrl);
   const response = await fetch(processUrl.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${workerToken}`,
+      'Authorization': workerAuth.header,
     },
     body: JSON.stringify(jobId ? { jobId } : {}),
     cache: 'no-store',
@@ -310,7 +311,7 @@ async function batchUpdateWordRows(
   if (updates.length === 0) return;
 
   const { error } = await supabaseAdmin.rpc('batch_update_word_lexicon_links', {
-    updates: JSON.stringify(updates),
+    updates,
   });
 
   if (error) {

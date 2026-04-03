@@ -2,6 +2,7 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
+import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
   lexiconEnrichmentPayloadSchema,
@@ -196,8 +197,11 @@ export async function handleLexiconEnrichmentProcessPost(
   request: NextRequest,
   deps?: WorkerDeps,
 ) {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (request.headers.get('authorization') !== `Bearer ${serviceRoleKey}`) {
+  const authResult = authorizeInternalWorkerRequest(request);
+  if (!authResult.ok) {
+    console.warn('[lexicon-enrichment/process] Unauthorized trigger request', {
+      reason: authResult.reason,
+    });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

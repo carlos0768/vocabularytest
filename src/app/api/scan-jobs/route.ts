@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createInternalWorkerUrl, getInternalWorkerAuthorization } from '@/lib/api/internal-worker';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
@@ -20,16 +21,12 @@ function getSupabaseAdmin(): SupabaseClient {
 }
 
 function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
-  const workerToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  // Use VERCEL_URL to bypass Cloudflare (which strips Authorization headers)
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : request.url;
-  const processUrl = new URL('/api/scan-jobs/process', baseUrl);
+  const workerAuth = getInternalWorkerAuthorization();
+  const processUrl = createInternalWorkerUrl('/api/scan-jobs/process', request.url);
 
   after(async () => {
-    if (!workerToken) {
-      console.error('[scan-jobs] Missing SUPABASE_SERVICE_ROLE_KEY while scheduling process route');
+    if (!workerAuth) {
+      console.error('[scan-jobs] Missing internal worker token while scheduling process route');
       return;
     }
 
@@ -38,7 +35,7 @@ function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${workerToken}`,
+          'Authorization': workerAuth.header,
         },
         body: JSON.stringify({ jobId }),
         cache: 'no-store',
