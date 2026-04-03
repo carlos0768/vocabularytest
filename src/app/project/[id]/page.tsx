@@ -8,6 +8,7 @@ import { DeleteConfirmModal, AppShell, Icon, type ProgressStep } from '@/compone
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { ProjectSourceLabels } from '@/components/project/ProjectSourceLabels';
+import { getProjectColor } from '@/components/project/ProjectCard';
 import { VocabularyTab } from '@/components/project/VocabularyTab';
 import { StudyModeCard, WordList } from '@/components/home';
 import { useAuth } from '@/hooks/use-auth';
@@ -664,11 +665,25 @@ export default function ProjectDetailPage() {
     return map[tags[0]] || tags[0].slice(0, 1);
   };
 
+  const HEADER_DARKEN: Record<string, string> = {
+    '#ef4444': '#b91c1c',
+    '#16a34a': '#166534',
+    '#1e3a8a': '#1e40af',
+    '#f97316': '#c2410c',
+    '#9333ea': '#7e22ce',
+    '#0d9488': '#0f766e',
+  };
+  const headerFrom = getProjectColor(project.title);
+  const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
+
   return (
     <AppShell hideBottomNav>
       <div className="pb-28 lg:pb-8">
-        {/* Red gradient header - iOS style */}
-        <div className="bg-gradient-project sticky top-0 z-40">
+        {/* Dynamic color header - matches project card icon color */}
+        <div
+          className="sticky top-0 z-40"
+          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
+        >
           <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
             <div className="flex items-center justify-between mb-3">
               <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">

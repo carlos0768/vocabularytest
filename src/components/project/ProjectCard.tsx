@@ -31,7 +31,18 @@ interface ProjectCardWithCounts extends ProjectCardBaseProps {
 
 export type ProjectCardProps = ProjectCardWithWords | ProjectCardWithCounts;
 
-const ICON_COLORS = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
+export const PROJECT_COLORS = [
+  '#ef4444', // red
+  '#16a34a', // green
+  '#1e3a8a', // blue-900
+  '#f97316', // orange
+  '#9333ea', // purple
+  '#0d9488', // teal
+];
+
+export function getProjectColor(title: string): string {
+  return PROJECT_COLORS[title.length % PROJECT_COLORS.length];
+}
 
 export function ProjectCard(props: ProjectCardProps) {
   const { project, menuItems } = props;
@@ -54,7 +65,7 @@ export function ProjectCard(props: ProjectCardProps) {
     learning = 0;
   }
 
-  const colorIndex = project.title.length % ICON_COLORS.length;
+  const iconColor = getProjectColor(project.title);
 
   return (
     <div className="relative">
@@ -63,7 +74,8 @@ export function ProjectCard(props: ProjectCardProps) {
         className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
       >
         <div
-          className={`w-14 h-14 rounded-xl ${ICON_COLORS[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}
+          className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0"
+          style={{ backgroundColor: iconColor }}
         >
           {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
         </div>
