@@ -242,8 +242,7 @@ struct ProjectShareSheet: View {
     }
 
     private var accessSettingsCard: some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14) {
                 Text("公開設定")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
@@ -306,7 +305,6 @@ struct ProjectShareSheet: View {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(MerkenTheme.border, lineWidth: 1)
                 )
-            }
         }
     }
 

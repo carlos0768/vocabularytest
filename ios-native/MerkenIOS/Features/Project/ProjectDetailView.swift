@@ -816,9 +816,10 @@ struct ProjectDetailView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(Color.black.opacity(0.35), in: .circle)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                 }
 
                 Spacer()
@@ -828,9 +829,10 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(Color.black.opacity(0.35), in: .circle)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
 
@@ -881,9 +883,10 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(Color.black.opacity(0.35), in: .circle)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                 }
                 .accessibilityIdentifier("moreMenuButton")
             }

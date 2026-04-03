@@ -7,6 +7,7 @@ struct WordDetailView: View {
 
     @ObservedObject var viewModel: ProjectDetailViewModel
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var speechPlayer = WordSpeechPlayer()
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var currentWordID: String
@@ -58,7 +59,7 @@ struct WordDetailView: View {
 
                         wordHeaderSection(for: word)
                             .padding(.horizontal, 20)
-                            .padding(.top, 20)
+                            .padding(.top, 68)
                             .padding(.bottom, 16)
 
                         rowDivider
@@ -120,18 +121,38 @@ struct WordDetailView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if let word = currentWord {
-                ToolbarItem(placement: .topBarTrailing) {
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if let word = currentWord {
                     Button {
                         editorMode = .edit(existing: word)
                     } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .frame(width: 44, height: 44)
+                            .background(MerkenTheme.surface, in: .circle)
+                            .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                     }
-                    .accessibilityLabel("単語を編集")
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
         .sheet(item: $editorMode, content: editorSheet)
     }
