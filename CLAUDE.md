@@ -152,6 +152,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
 - `src/lib/db/hybrid-repository.ts:fullSync()` -- Can delete all local data.
 - `src/hooks/use-auth.ts` -- Global singleton state. All components share one instance.
 - `src/app/api/extract/route.ts` -- Server-side scan limit enforcement.
+- `src/app/api/scan-jobs/process/route.ts:processJobById()` -- Core iOS scan processing. Called directly in-process via `after()`, **not** via HTTP self-fetch. Do not reintroduce self-fetch pattern.
 
 ## Implementation Notes
 

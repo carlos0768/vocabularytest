@@ -270,3 +270,53 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 **Cautions**:
 - The webhook handler uses `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS. Any SQL query in this handler can access all user data.
 - The `npm run qa:komoju:webhook-e2e` command hits the real KOMOJU API. Use test API keys only.
+
+---
+
+## 9. Debugging Stuck Scan Jobs (iOS)
+
+**Purpose**: Diagnose and resolve scan jobs stuck in `pending` or `processing` status.
+
+**Primary targets**:
+- `src/app/api/scan-jobs/create/route.ts` (job creation + `after()` trigger)
+- `src/app/api/scan-jobs/process/route.ts` (`processJobById()` core logic)
+- `src/app/api/scan-jobs/route.ts` (GET polling + re-trigger)
+- Supabase table: `scan_jobs`
+
+**Steps**:
+1. Query Supabase for recent stuck jobs:
+   ```sql
+   SELECT id, status, scan_mode, error_message, created_at, updated_at,
+     (EXTRACT(EPOCH FROM (NOW() - created_at::timestamptz)))::int AS elapsed_seconds
+   FROM scan_jobs
+   WHERE status IN ('pending', 'processing')
+   ORDER BY created_at DESC LIMIT 10;
+   ```
+2. Check Vercel runtime logs for `[scan-jobs/process] Processing started` entries. If absent, `after()` callbacks are not executing.
+3. Check Vercel runtime logs for `[scan-jobs/create] Direct processing started` (create route) or `[scan-jobs] Direct processing started` (GET re-trigger).
+4. If no processing logs exist, verify `maxDuration` in `vercel.json` is set to 300 for `create/route.ts` and `route.ts`.
+5. Manually fail stuck jobs if needed:
+   ```sql
+   UPDATE scan_jobs SET status = 'failed',
+     error_message = 'Manual cleanup: processing never started',
+     updated_at = NOW()
+   WHERE status IN ('pending', 'processing')
+     AND created_at < NOW() - INTERVAL '15 minutes';
+   ```
+
+**Key architecture note** (April 2026):
+- `processJobById()` is called **directly in-process** via `after()` — not via HTTP self-fetch.
+- A previous self-fetch pattern (`after()` → `fetch('/api/scan-jobs/process')`) silently failed on Vercel due to Cloudflare stripping Authorization headers and `after()` fetch hanging indefinitely.
+- Do **not** revert to the self-fetch pattern. See `docs/boundaries.md` Danger Zone #6.
+
+**Success criteria**:
+- New scan jobs transition from `pending` → `processing` → `completed` within 5 minutes
+- Vercel logs show `[scan-jobs/process] Processing started` followed by `Extraction finished`
+
+**Prohibited actions**:
+- Do not reintroduce the HTTP self-fetch pattern for triggering scan processing
+- Do not reduce `maxDuration` below 300 for `create/route.ts` or `route.ts`
+
+**Cautions**:
+- The 10-minute client-side timeout (`SCAN_JOB_TIMEOUT_MS`) in the GET handler marks stuck jobs as `failed`. This is a safety net, not the primary processing mechanism.
+- Multiple concurrent `processJobById()` calls for the same job are safe due to the claim mechanism (`WHERE status='pending'`).

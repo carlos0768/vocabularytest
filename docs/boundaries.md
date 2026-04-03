@@ -104,7 +104,16 @@ These areas require extra caution. Small changes can cause cascading failures.
 - Modes `circled`, `highlighted`, `eiken`, `idiom`, `wrong` require Pro subscription (`requiresPro` flag).
 - **Impact of breakage**: Free users bypass daily scan limits, or Pro-only modes become accessible to free users.
 
-### 6. Service Role Key Usage
+### 6. Scan Job Processing Pipeline (`src/app/api/scan-jobs/`)
+
+- `processJobById()` in `process/route.ts` is the core processing function. It is called **directly** (in-process) from `after()` callbacks in `create/route.ts` and `route.ts` — **not** via HTTP self-fetch.
+- **Do not reintroduce self-fetch**: A previous `after()` → `fetch('/api/scan-jobs/process')` pattern silently failed on Vercel (Cloudflare stripped Authorization headers, `after()` callback fetch hung indefinitely). The direct invocation pattern was adopted in April 2026 to fix this.
+- The `create` and `scan-jobs` routes must have `maxDuration: 300` in `vercel.json` because `after()` callbacks run within the caller's time budget and processing can take up to 5 minutes.
+- The claim mechanism (`UPDATE ... WHERE status='pending'`) prevents duplicate processing when multiple polling requests re-trigger `processJobById()`.
+- **Impact of breakage**: All iOS scans fail silently (jobs stuck as `pending` until 10-minute timeout marks them `failed`).
+- **Before modifying**: Verify the claim mechanism is preserved. Test with a real scan from the iOS app. Check Vercel runtime logs for `[scan-jobs/process] Processing started` entries.
+
+### 7. Service Role Key Usage
 
 `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security. It is used in these server-side locations:
 
@@ -140,18 +149,18 @@ These areas require extra caution. Small changes can cause cascading failures.
 
 **Rule**: Never use the service role key in client-side code or pass it to the browser.
 
-### 7. Billing Activation (`src/lib/subscription/billing-activation.ts`)
+### 8. Billing Activation (`src/lib/subscription/billing-activation.ts`)
 
 - Called by both the KOMOJU webhook handler and the AppStore verify route.
 - **Impact of breakage**: Both web (KOMOJU) and iOS (Apple IAP) payment activation fail simultaneously.
 - **Before modifying**: Run `npm test` which includes `src/lib/subscription/billing-activation.test.ts`.
 
-### 8. Sync Queue (`src/lib/db/sync-queue.ts`)
+### 9. Sync Queue (`src/lib/db/sync-queue.ts`)
 
 - Mediates all offline writes for Pro users (HybridWordRepository).
 - **Impact of breakage**: Offline writes are silently lost when the user comes back online.
 
-### 9. Cloud Run AI Proxy
+### 10. Cloud Run AI Proxy
 
 When `CLOUD_RUN_URL` and `CLOUD_RUN_AUTH_TOKEN` are both set, all AI extraction routes through `src/lib/ai/providers/cloud-run.ts` instead of direct API calls. There is no per-request fallback within the web app. If Cloud Run is down, extraction fails entirely.
 

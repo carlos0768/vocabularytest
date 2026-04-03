@@ -159,16 +159,32 @@ iOS app uploads image to Supabase Storage
 POST /api/scan-jobs/create -> creates job record in scan_jobs table
   |
   v
-POST /api/scan-jobs/process (service role)
-  - Same extraction logic
-  - Inserts words first, then runs best-effort example generation
-  - Updates words with generated examples and writes through to lexicon_entries when available
-  - Persists exampleGeneration summary into scan_jobs.result
+after() callback invokes processJobById() directly (in-process)
+  - Claims job (status: pending -> processing)
+  - Downloads images from Supabase Storage
+  - AI extraction (Gemini 2.5 Flash via direct API or Cloud Run proxy)
+  - Master-first resolution + missing Japanese backfill
+  - Best-effort example sentence generation per word
+  - Inserts project + words into Supabase
+  - Updates scan_jobs.result with exampleGeneration summary
   - Sends push notification (APNS or Web Push)
   |
   v
-iOS app polls / receives notification, downloads completed job
+iOS app polls GET /api/scan-jobs (every ~4s) / receives push notification
+  - If job still pending, GET handler re-triggers processJobById() via after()
+  - Claim mechanism prevents duplicate processing
+  - 10-minute timeout marks stuck jobs as failed
 ```
+
+### Scan Job Processing Architecture
+
+The processing is invoked **directly** via `processJobById()` (exported from `src/app/api/scan-jobs/process/route.ts`), not through an internal HTTP self-fetch. This design was adopted because:
+
+1. The previous self-fetch pattern (`after()` → `fetch('/api/scan-jobs/process')`) silently failed on Vercel due to Cloudflare Authorization header stripping and `after()` callback execution issues.
+2. Direct invocation eliminates network dependencies (DNS, TLS, routing, auth headers).
+3. The `create` and `scan-jobs` routes have `maxDuration: 300` to give `after()` callbacks enough time for the full processing pipeline.
+
+The claim mechanism (`UPDATE ... SET status='processing' WHERE status='pending'`) ensures idempotency even when multiple polling requests trigger concurrent `processJobById()` calls.
 
 Notes:
 - Scan extraction itself does not require examples in the extractor response.
