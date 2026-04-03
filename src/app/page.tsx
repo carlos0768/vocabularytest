@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, useTransition, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -91,7 +91,6 @@ function ensureCacheRestored(): boolean {
 
 export default function HomePage() {
   const router = useRouter();
-  const [, startTransition] = useTransition();
   const { user, subscription, isAuthenticated, isPro, wasPro, loading: authLoading, sessionExpired } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
@@ -103,47 +102,46 @@ export default function HomePage() {
   // Collections (Pro only)
   const { collections, loading: collectionsLoading } = useCollections();
 
-  // Projects & navigation — empty initial state to prevent SSR/hydration mismatch.
-  // sessionStorage cache is restored in useLayoutEffect (before first paint, not during render).
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
-  const [words, setWords] = useState<Word[]>([]);
-  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]);
-  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>({});
-  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
-  const [showWrongAnswers, setShowWrongAnswers] = useState(false);
-  const [showAllProjects, setShowAllProjects] = useState(false);
-  const [totalWords, setTotalWords] = useState(0);
+  // Projects & navigation - Initialize from cache if available
+  // ensureCacheRestored() runs synchronously so the first render uses cached data
+  const [projects, setProjects] = useState<Project[]>(() => {
+    ensureCacheRestored();
+    return getCachedProjects();
+  });
+  
+  // Initialize currentProjectIndex from sessionStorage if available
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
+      if (savedProjectId) {
+        const cachedProjects = getCachedProjects();
+        const index = cachedProjects.findIndex(p => p.id === savedProjectId);
+        if (index >= 0) return index;
+      }
+    }
+    return 0;
+  });
+  const [words, setWords] = useState<Word[]>(() => {
+    const cachedProjects = getCachedProjects();
+    const cachedWords = getCachedProjectWords();
+    return cachedProjects[0] ? cachedWords[cachedProjects[0].id] || [] : [];
+  });
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>(() => getCachedAllFavorites());
+  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>(() => getCachedFavoriteCounts());
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>(() => getWrongAnswers());
+  const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
+  const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
+  const [totalWords, setTotalWords] = useState(() => getCachedTotalWords());
 
-  // Daily learning stats — default values matching server render, updated after mount
-  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
-  const [streakDays, setStreakDays] = useState(0);
+  // Daily learning stats (localStorage sync read, no API call)
+  const dailyStats = useMemo(() => getDailyStats(), []);
+  const streakDays = useMemo(() => getStreakDays(), []);
   const accuracyPercent = dailyStats.todayCount > 0
     ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
     : 0;
 
-  // Always start loading — cache is restored in useLayoutEffect below
-  const [loading, setLoading] = useState(true);
-
-  // Restore sessionStorage cache synchronously before first paint.
-  // Running this in useLayoutEffect (not useState) ensures the server and client
-  // initial renders are identical (both empty), preventing React hydration error #418.
-  useLayoutEffect(() => {
-    ensureCacheRestored();
-    if (getHasLoaded()) {
-      const cachedProjects = getCachedProjects();
-      const cachedWords = getCachedProjectWords();
-      setProjects(cachedProjects);
-      setWords(cachedProjects[0] ? cachedWords[cachedProjects[0].id] ?? [] : []);
-      setAllFavoriteWords(getCachedAllFavorites());
-      setProjectFavoriteCounts(getCachedFavoriteCounts());
-      setTotalWords(getCachedTotalWords());
-      setWrongAnswers(getWrongAnswers());
-      setDailyStats(getDailyStats());
-      setStreakDays(getStreakDays());
-      setLoading(false);
-    }
-  }, []);
+  // Start with loading=false if cache is already populated (in-memory or sessionStorage)
+  const [loading, setLoading] = useState(() => !getHasLoaded());
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
@@ -936,7 +934,7 @@ export default function HomePage() {
     // Pro-only features: circled, highlighted, eiken filter, idiom modes
     if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
       setShowScanModeModal(false);
-      startTransition(() => { router.push('/subscription'); });
+      router.push('/subscription');
       return;
     }
 
@@ -953,7 +951,7 @@ export default function HomePage() {
         type: 'error',
         action: {
           label: 'ログイン',
-          onClick: () => startTransition(() => { router.push('/login'); }),
+          onClick: () => router.push('/login'),
         },
         duration: 4000,
       });
@@ -1056,7 +1054,7 @@ export default function HomePage() {
       sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
       // Navigate first, then close processing modal
       // (closing modal before navigation causes a flash of the home screen)
-      startTransition(() => { router.push('/scan/confirm'); });
+      router.push('/scan/confirm');
       setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
@@ -1185,7 +1183,7 @@ export default function HomePage() {
         { id: 'navigate', label: '結果を表示中...', status: 'active' },
       ]);
 
-      startTransition(() => { router.push('/scan/confirm'); });
+      router.push('/scan/confirm');
       setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
@@ -1490,27 +1488,10 @@ export default function HomePage() {
   // Main view with project
   // Compute word status counts across all projects
   const allWordsFlat = useMemo(() => Object.values(getCachedProjectWords()).flat(), [projects, words]);
-  const { masteredTotal, learningTotal, unlearnedTotal } = useMemo(() => {
-    let mastered = 0, learning = 0, unlearned = 0;
-    for (const w of allWordsFlat) {
-      if (w.status === 'mastered') mastered++;
-      else if (w.status === 'review') learning++;
-      else unlearned++;
-    }
-    return { masteredTotal: mastered, learningTotal: learning, unlearnedTotal: unlearned };
-  }, [allWordsFlat]);
+  const masteredTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'mastered').length, [allWordsFlat]);
+  const learningTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'review').length, [allWordsFlat]);
+  const unlearnedTotal = useMemo(() => allWordsFlat.filter(w => !w.status || w.status === 'new').length, [allWordsFlat]);
   const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
-
-  const sortedProjects = useMemo(() =>
-    [...projects]
-      .sort((a, b) => {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      })
-      .slice(0, 8),
-    [projects]
-  );
 
   return (
     <AppShell>
@@ -1654,12 +1635,19 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {sortedProjects.map((project) => {
-                  const projectWords = getCachedProjectWords()[project.id] || [];
-                  return (
-                    <ProjectCard key={project.id} project={project} words={projectWords} />
-                  );
-                })}
+                {[...projects]
+                  .sort((a, b) => {
+                    if (a.isFavorite && !b.isFavorite) return -1;
+                    if (!a.isFavorite && b.isFavorite) return 1;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  })
+                  .slice(0, 8)
+                  .map((project) => {
+                    const projectWords = getCachedProjectWords()[project.id] || [];
+                    return (
+                      <ProjectCard key={project.id} project={project} words={projectWords} />
+                    );
+                  })}
               </div>
             )}
           </section>
