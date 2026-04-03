@@ -412,7 +412,7 @@ struct WordListView: View {
                     } label: {
                         Label(
                             word.isFavorite ? "苦手を解除" : "苦手に追加",
-                            systemImage: word.isFavorite ? "heart.slash" : "heart"
+                            systemImage: word.isFavorite ? "bookmark.slash" : "bookmark"
                         )
                     }
 

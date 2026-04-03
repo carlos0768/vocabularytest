@@ -102,7 +102,7 @@ struct WordDetailView: View {
                 }
                 .disableTopScrollEdgeEffectIfAvailable()
 
-                prevNextOverlay
+
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle")
@@ -205,7 +205,7 @@ struct WordDetailView: View {
             Button {
                 Task { await toggleFavorite(for: word) }
             } label: {
-                Image(systemName: word.isFavorite ? "star.fill" : "star")
+                Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
                     .font(.system(size: 20))
                     .foregroundStyle(word.isFavorite ? Color.yellow : MerkenTheme.mutedText)
             }
@@ -248,7 +248,7 @@ struct WordDetailView: View {
 
             if let exampleSentence = trimmed(word.exampleSentence) {
                 HStack(alignment: .top, spacing: 14) {
-                    highlightedSentence(exampleSentence, keyword: word.english)
+                    Text(highlightedAttributedString(exampleSentence, keyword: word.english))
                         .font(.system(size: 16, weight: .medium))
                         .lineSpacing(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -280,21 +280,72 @@ struct WordDetailView: View {
         }
     }
 
-    private func highlightedSentence(_ sentence: String, keyword: String) -> Text {
-        let lower = sentence.lowercased()
+    private func highlightedAttributedString(_ sentence: String, keyword: String) -> AttributedString {
+        var attributed = AttributedString(sentence)
         let keywordLower = keyword.lowercased()
+        let sentenceLower = sentence.lowercased()
+        var searchStart = sentenceLower.startIndex
 
-        guard let range = lower.range(of: keywordLower) else {
-            return Text(sentence).foregroundColor(MerkenTheme.primaryText)
+        while searchStart < sentenceLower.endIndex,
+              let matchRange = sentenceLower.range(
+                  of: keywordLower,
+                  options: .caseInsensitive,
+                  range: searchStart..<sentenceLower.endIndex
+              ) {
+            // AttributedStringの対応rangeに変換
+            let attrStart = attributed.index(
+                attributed.startIndex,
+                offsetByCharacters: sentenceLower.distance(from: sentenceLower.startIndex, to: matchRange.lowerBound)
+            )
+            let attrEnd = attributed.index(
+                attrStart,
+                offsetByCharacters: sentenceLower.distance(from: matchRange.lowerBound, to: matchRange.upperBound)
+            )
+            attributed[attrStart..<attrEnd].foregroundColor = UIColor(MerkenTheme.accentBlue)
+            attributed[attrStart..<attrEnd].backgroundColor = UIColor(MerkenTheme.accentBlue.opacity(0.15))
+            attributed[attrStart..<attrEnd].font = UIFont.systemFont(ofSize: 16, weight: .bold)
+
+            searchStart = matchRange.upperBound
+        }
+        return attributed
+    }
+
+    private func highlightedSentence(_ sentence: String, keyword: String) -> Text {
+        // 単語のベース形（先頭大文字対応・複数形・ing形なども部分一致でヒット）
+        let keywordLower = keyword.lowercased()
+        let sentenceLower = sentence.lowercased()
+
+        var result = Text("")
+        var searchStart = sentence.startIndex
+
+        while searchStart < sentence.endIndex {
+            guard let matchRange = sentenceLower.range(
+                of: keywordLower,
+                options: [.caseInsensitive],
+                range: searchStart..<sentence.endIndex
+            ) else {
+                // 残りをそのまま追加
+                let remaining = String(sentence[searchStart...])
+                result = result + Text(remaining).foregroundColor(MerkenTheme.primaryText)
+                break
+            }
+
+            // マッチ前のテキスト
+            let before = String(sentence[searchStart..<matchRange.lowerBound])
+            if !before.isEmpty {
+                result = result + Text(before).foregroundColor(MerkenTheme.primaryText)
+            }
+
+            // ハイライト部分
+            let match = String(sentence[matchRange])
+            result = result + Text(match)
+                .bold()
+                .foregroundColor(MerkenTheme.accentBlue)
+
+            searchStart = matchRange.upperBound
         }
 
-        let before = String(sentence[sentence.startIndex..<range.lowerBound])
-        let match = String(sentence[range])
-        let after = String(sentence[range.upperBound...])
-
-        return Text(before).foregroundColor(MerkenTheme.primaryText)
-            + Text(match).bold().foregroundColor(MerkenTheme.accentBlue)
-            + Text(after).foregroundColor(MerkenTheme.primaryText)
+        return result
     }
 
     // MARK: - Related Words (grouped by relation)
@@ -389,51 +440,6 @@ struct WordDetailView: View {
         }
     }
 
-    // MARK: - Prev / Next Navigation
-
-    private var prevNextOverlay: some View {
-        HStack(spacing: 12) {
-            navArrowButton(icon: "chevron.left", enabled: canGoPrev) {
-                guard let idx = currentIndex, idx > 0 else { return }
-                currentWordID = viewModel.words[idx - 1].id
-                MerkenHaptic.selection()
-            }
-
-            navArrowButton(icon: "chevron.right", enabled: canGoNext) {
-                guard let idx = currentIndex, idx < viewModel.words.count - 1 else { return }
-                currentWordID = viewModel.words[idx + 1].id
-                MerkenHaptic.selection()
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-    }
-
-    private func navArrowButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(enabled ? .white : MerkenTheme.mutedText)
-                .frame(width: 48, height: 48)
-                .background(
-                    enabled ? MerkenTheme.accentBlue : MerkenTheme.surface,
-                    in: Circle()
-                )
-                .overlay(
-                    Circle().stroke(
-                        enabled ? Color.clear : MerkenTheme.border,
-                        lineWidth: 1.5
-                    )
-                )
-                .shadow(
-                    color: enabled ? MerkenTheme.accentBlue.opacity(0.3) : Color.clear,
-                    radius: 8, x: 0, y: 4
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-    }
 
     // MARK: - Shared UI
 

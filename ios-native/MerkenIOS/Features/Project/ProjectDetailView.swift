@@ -682,14 +682,21 @@ struct ProjectDetailView: View {
             notionColDivider
 
             // English word — fixed column width, 2-line wrap
-            Text(word.english)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(width: notionEnglishColWidth, alignment: .leading)
-                .padding(.leading, 10)
-                .padding(.vertical, 8)
+            HStack(spacing: 4) {
+                Text(word.english)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if word.isFavorite {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+            .frame(width: notionEnglishColWidth, alignment: .leading)
+            .padding(.leading, 10)
+            .padding(.vertical, 8)
 
             notionColDivider
 
