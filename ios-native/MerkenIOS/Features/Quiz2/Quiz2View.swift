@@ -237,11 +237,6 @@ struct Quiz2View: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(isSelected ? color : MerkenTheme.border, lineWidth: 2)
             )
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 3)
-            )
         }
         .disabled(viewModel.isSubmittingGrade)
     }

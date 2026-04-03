@@ -250,11 +250,6 @@ struct TinderCard: View {
             .aspectRatio(3.0 / 4.0, contentMode: .fit)
             .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
             .overlay(RoundedRectangle(cornerRadius: 24).stroke(MerkenTheme.border, lineWidth: 2))
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 3)
-            )
 
             // Swipe overlay
             if offset > 10 {

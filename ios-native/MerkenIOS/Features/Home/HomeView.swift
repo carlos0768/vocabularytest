@@ -686,11 +686,6 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(MerkenTheme.border, lineWidth: 1.5)
         )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
-        )
     }
 
     private var homeLearningStateSection: some View {
@@ -784,11 +779,6 @@ struct HomeView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
         )
     }
 
@@ -1109,11 +1099,6 @@ struct HomeView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
         )
     }
 

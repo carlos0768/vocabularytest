@@ -22,7 +22,6 @@ struct ProjectDetailView: View {
     @State private var showingProjectShareSheet = false
     @State private var showingDeleteConfirm = false
 
-    @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
     @State private var scrollOffset: CGFloat = 0
     @State private var chartAnimationProgress: Double = 0
     @State private var renameProjectTitle = ""
@@ -36,6 +35,7 @@ struct ProjectDetailView: View {
     @State private var selectedProjectThumbnailItem: PhotosPickerItem?
     @State private var filteredWordListStatus: WordStatus?
     @State private var showingFilteredWordList = false
+    @State private var selectedNotionWord: Word?
     @State private var showingShareRestrictionAlert = false
     @State private var shareRestrictionMessage = ""
 
@@ -43,10 +43,6 @@ struct ProjectDetailView: View {
         self.project = project
         _displayProjectTitle = State(initialValue: project.title)
         _displaySourceLabels = State(initialValue: project.sourceLabels)
-    }
-
-    private var learningModeScope: LearningModeUsageStore.Scope {
-        .project(project.id)
     }
 
     private var resolvedProject: Project {
@@ -110,6 +106,9 @@ struct ProjectDetailView: View {
                 .navigationDestination(isPresented: $showMatchGame) {
                     MatchGameView(project: project, words: viewModel.words)
                 }
+                .navigationDestination(item: $selectedNotionWord) { word in
+                    WordDetailView(project: project, wordID: word.id, viewModel: viewModel)
+                }
                 .sheet(isPresented: $showingProjectShareSheet, content: projectShareSheet)
         )
 
@@ -128,7 +127,6 @@ struct ProjectDetailView: View {
                 .photosPicker(isPresented: $showingProjectThumbnailPicker, selection: $selectedProjectThumbnailItem, matching: .images)
                 .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                     await viewModel.load(projectId: project.id, using: appState)
-                    learningModeCounts = LearningModeUsageStore.counts(for: learningModeScope)
                     triggerChartAnimation()
                 }
                 .onChange(of: viewModel.projectMetadata?.title) { _, newValue in
@@ -370,8 +368,8 @@ struct ProjectDetailView: View {
             // Status widgets: 習得 / 学習中 / 未学習
             projectStatsSection
 
-            // Learning modes: フラッシュカード / 自己評価 / マッチ
-            learningModesSection
+            // 単語一覧（Notion風）
+            notionWordListSection
         }
         .padding(20)
         .padding(.bottom, 100) // extra space for bottom bar
@@ -492,11 +490,6 @@ struct ProjectDetailView: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(MerkenTheme.border, lineWidth: 1.5)
         )
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(MerkenTheme.border)
-                .offset(y: 3)
-        )
     }
 
     private func animatedChartProgress(_ progress: CGFloat) -> CGFloat {
@@ -507,14 +500,30 @@ struct ProjectDetailView: View {
 
     private var bottomActionBar: some View {
         HStack(spacing: 10) {
-            // "単語一覧" pill button
+            // フラッシュカード丸アイコン
             Button {
-                showingWordList = true
+                flashcardDestination = project
+            } label: {
+                Image(systemName: "rectangle.portrait.on.rectangle.portrait")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                    .frame(width: 48, height: 48)
+                    .background(Color.clear)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(MerkenTheme.accentBlue, lineWidth: 2)
+                    )
+            }
+
+            // "クイズ" pill button
+            Button {
+                quizDestination = project
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "list.bullet")
+                    Image(systemName: "questionmark.circle")
                         .font(.system(size: 15, weight: .bold))
-                    Text("単語一覧")
+                    Text("クイズ")
                         .font(.system(size: 15, weight: .bold))
                 }
                 .foregroundStyle(MerkenTheme.primaryText)
@@ -552,51 +561,220 @@ struct ProjectDetailView: View {
         )
     }
 
-    // MARK: - Learning Modes Section
+    // MARK: - Notion-style Word List Section
 
-    private var learningModesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("学習モード")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
+    private let notionCheckColWidth: CGFloat = 34
+    private let notionEnglishColWidth: CGFloat = 220
+    private let notionPosColWidth: CGFloat = 36
+    private let notionJapaneseColWidth: CGFloat = 180
 
-            VStack(spacing: 10) {
-                learningModeCard(
-                    icon: "scope",
-                    iconColor: MerkenTheme.success,
-                    title: "自己評価",
-                    subtitle: "思い出して評価",
-                    count: learningModeCounts[.selfReview] ?? 0
-                ) {
-                    learningModeCounts[.selfReview] = LearningModeUsageStore.increment(.selfReview, for: learningModeScope)
-                    quiz2Destination = project
-                }
+    private var notionWordListSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section header
+            HStack(alignment: .center, spacing: 6) {
+                Text("単語一覧")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("\(viewModel.words.count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .monospacedDigit()
+            }
+            .padding(.bottom, 10)
 
-                if viewModel.words.count >= 4 {
-                    learningModeCard(
-                        icon: "square.grid.2x2",
-                        iconColor: .purple,
-                        title: "マッチ",
-                        subtitle: "ペアを見つけろ",
-                        count: learningModeCounts[.match] ?? 0
-                    ) {
-                        learningModeCounts[.match] = LearningModeUsageStore.increment(.match, for: learningModeScope)
-                        showMatchGame = true
+            if viewModel.words.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 6) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 22))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Text("単語がありません")
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
                     }
+                    .padding(.vertical, 24)
+                    Spacer()
                 }
+            } else {
+                // Horizontal scroll — no outer border box, Notion style
+                ScrollView(.horizontal, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        notionColumnHeader
 
-                learningModeCard(
-                    icon: "checklist",
-                    iconColor: MerkenTheme.accentBlue,
-                    title: "クイズ",
-                    subtitle: "4択で実力テスト",
-                    count: learningModeCounts[.quiz] ?? 0
-                ) {
-                    learningModeCounts[.quiz] = LearningModeUsageStore.increment(.quiz, for: learningModeScope)
-                    quizDestination = project
+                        let words = viewModel.words
+                        ForEach(Array(words.enumerated()), id: \.element.id) { index, word in
+                            notionWordRow(word, isLast: index == words.count - 1)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private var notionColumnHeader: some View {
+        HStack(spacing: 0) {
+            // Check column header — small grid icon
+            Image(systemName: "circle")
+                .font(.system(size: 10, weight: .semibold))
+                .frame(width: notionCheckColWidth, alignment: .center)
+
+            notionColDivider
+
+            Text("単語")
+                .frame(width: notionEnglishColWidth, alignment: .leading)
+                .padding(.leading, 10)
+
+            notionColDivider
+
+            Text("品詞")
+                .frame(width: notionPosColWidth, alignment: .center)
+
+            notionColDivider
+
+            Text("訳")
+                .frame(width: notionJapaneseColWidth, alignment: .leading)
+                .padding(.leading, 10)
+
+            // 右端の余白
+            Spacer().frame(width: 16)
+        }
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(MerkenTheme.mutedText)
+        .padding(.vertical, 6)
+        .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .bottom)
+        .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .top)
+    }
+
+    private var notionColDivider: some View {
+        Rectangle()
+            .fill(MerkenTheme.border)
+            .frame(width: 1)
+            .padding(.vertical, 4)
+    }
+
+    private func notionWordRow(_ word: Word, isLast: Bool) -> some View {
+        HStack(spacing: 0) {
+            // Check cell — tap to cycle status
+            Button {
+                let next: WordStatus = {
+                    switch word.status {
+                    case .new: return .review
+                    case .review: return .mastered
+                    case .mastered: return .new
+                    }
+                }()
+                Task {
+                    await viewModel.updateWord(
+                        wordId: word.id,
+                        patch: WordPatch(status: next),
+                        broadcastChanges: false,
+                        projectId: project.id,
+                        using: appState
+                    )
+                }
+            } label: {
+                notionCheckBoxes(for: word.status)
+                    .frame(width: notionCheckColWidth, alignment: .center)
+            }
+            .buttonStyle(.plain)
+
+            notionColDivider
+
+            // English word — fixed column width, 2-line wrap
+            Text(word.english)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: notionEnglishColWidth, alignment: .leading)
+                .padding(.leading, 10)
+                .padding(.vertical, 8)
+
+            notionColDivider
+
+            // 品詞バッジ
+            notionPosBadge(for: word)
+                .frame(width: notionPosColWidth, alignment: .center)
+                .padding(.vertical, 8)
+
+            notionColDivider
+
+            // Japanese translation — fixed column width, 2-line wrap
+            Text(word.japanese)
+                .font(.system(size: 13))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: notionJapaneseColWidth, alignment: .leading)
+                .padding(.leading, 10)
+                .padding(.vertical, 8)
+
+            // 右端の余白
+            Spacer().frame(width: 16)
+        }
+        .frame(minHeight: 48)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedNotionWord = word
+        }
+        .overlay(
+            Group {
+                if !isLast {
+                    Rectangle()
+                        .fill(MerkenTheme.borderLight)
+                        .frame(height: 1)
+                }
+            },
+            alignment: .bottom
+        )
+    }
+
+    /// 品詞を日本語略称バッジで表示
+    @ViewBuilder
+    private func notionPosBadge(for word: Word) -> some View {
+        let tags = word.partOfSpeechTags ?? []
+        let label = tags.compactMap { tag -> String? in
+            let t = tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            switch t {
+            case "noun", "名詞":               return "名"
+            case "verb", "動詞":               return "動"
+            case "adjective", "形容詞":        return "形"
+            case "adverb", "副詞":             return "副"
+            case "preposition", "前置詞":      return "前"
+            case "conjunction", "接続詞":      return "接"
+            case "pronoun", "代名詞":          return "代"
+            case "idiom", "熟語", "phrase",
+                 "フレーズ", "idiomatic_expression": return "熟"
+            case "phrasal_verb", "句動詞":     return "句"
+            default:                           return nil
+            }
+        }.prefix(2).joined(separator: "・")
+
+        if label.isEmpty {
+            Text("—")
+                .font(.system(size: 15))
+                .foregroundStyle(MerkenTheme.mutedText)
+        } else {
+            Text(label)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+        }
+    }
+
+    /// 3マスのチェックボックス（縦並び）。学習状態に応じて自動で塗りつぶし。
+    private func notionCheckBoxes(for status: WordStatus) -> some View {
+        let (iconName, color): (String, Color) = {
+            switch status {
+            case .new:      return ("circle",                MerkenTheme.border)
+            case .review:   return ("circle.lefthalf.filled", MerkenTheme.accentBlue)
+            case .mastered: return ("checkmark.circle.fill",  Color.green)
+            }
+        }()
+        return Image(systemName: iconName)
+            .font(.system(size: 22, weight: .regular))
+            .foregroundStyle(color)
     }
 
     // MARK: - Top Buttons Overlay
@@ -835,55 +1013,6 @@ struct ProjectDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
     }
 
-    // MARK: - Card Helpers
-
-    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, count: Int, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                IconBadge(systemName: icon, color: iconColor, size: 48)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-
-                Spacer()
-
-                HStack(spacing: 10) {
-                    Text("\(count)回")
-                        .font(.system(size: 13, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
-                        .fixedSize(horizontal: true, vertical: false)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                        .frame(width: 14)
-                }
-                .fixedSize(horizontal: true, vertical: false)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(MerkenTheme.border, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 3)
-            )
-        }
-    }
 
     // MARK: - Editor Sheet
 
