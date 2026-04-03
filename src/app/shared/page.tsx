@@ -51,7 +51,8 @@ export default function SharedPage() {
         const joined: SharedProjectSummary[] = data.joined ?? [];
         const publicList: SharedProjectSummary[] = data.public ?? [];
 
-        const allSummaries = [...owned, ...joined, ...publicList];
+        const ownedPublic = owned.filter((s) => s.project.shareScope === 'public');
+        const allSummaries = [...ownedPublic, ...joined, ...publicList];
         const seen = new Set<string>();
         const deduped = allSummaries.filter((s) => {
           if (seen.has(s.project.id)) return false;
