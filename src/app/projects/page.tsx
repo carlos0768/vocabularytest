@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
-import { ProjectBookTile } from '@/components/project/ProjectBookTile';
+import { ProjectCard } from '@/components/project/ProjectCard';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
@@ -303,16 +303,13 @@ export default function ProjectsPage() {
                   <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
                   <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                <div className="space-y-3">
                   {favorites.map((project) => (
-                    <ProjectBookTile
+                    <ProjectCard
                       key={project.id}
                       project={project}
-                      wordCount={project.totalWords}
-                      masteredCount={project.masteredWords}
-                      progress={project.progress}
-                      onDelete={(id) => handleDeleteProject(id)}
-                      onToggleFavorite={handleToggleProjectFavorite}
+                      totalWords={project.totalWords}
+                      masteredWords={project.masteredWords}
                     />
                   ))}
                 </div>
@@ -324,16 +321,13 @@ export default function ProjectsPage() {
                 <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div className="space-y-3">
                 {filtered.map((project) => (
-                  <ProjectBookTile
+                  <ProjectCard
                     key={project.id}
                     project={project}
-                    wordCount={project.totalWords}
-                    masteredCount={project.masteredWords}
-                    progress={project.progress}
-                    onDelete={(id) => handleDeleteProject(id)}
-                    onToggleFavorite={handleToggleProjectFavorite}
+                    totalWords={project.totalWords}
+                    masteredWords={project.masteredWords}
                   />
                 ))}
               </div>

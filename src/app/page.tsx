@@ -9,6 +9,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectBookTile } from '@/components/project/ProjectBookTile';
+import { ProjectCard } from '@/components/project/ProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
@@ -1644,35 +1645,8 @@ export default function HomePage() {
                   .slice(0, 8)
                   .map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
-                    const pMastered = projectWords.filter((w) => w.status === 'mastered').length;
-                    const pLearning = projectWords.filter((w) => w.status === 'review').length;
-                    const pNew = projectWords.filter((w) => !w.status || w.status === 'new').length;
-                    const iconColors = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
-                    const colorIndex = project.title.length % iconColors.length;
                     return (
-                      <Link key={project.id} href={`/project/${project.id}`} className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity">
-                        <div className={`w-14 h-14 rounded-xl ${iconColors[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}>
-                          {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-[var(--color-foreground)] truncate">{project.title}</p>
-                          <p className="text-xl font-black text-[var(--color-foreground)]">{projectWords.length} <span className="text-sm font-bold">語</span></p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
-                              <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
-                              習得 {pMastered}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                              <span className="w-2 h-2 rounded-full bg-[var(--color-muted)]" />
-                              学習 {pLearning}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                              <span className="w-2 h-2 rounded-full bg-[var(--color-border)]" />
-                              未学習 {pNew}
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
+                      <ProjectCard key={project.id} project={project} words={projectWords} />
                     );
                   })}
               </div>
