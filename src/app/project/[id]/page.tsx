@@ -699,10 +699,15 @@ export default function ProjectDetailPage() {
   return (
     <>
       <div className="pb-28 lg:pb-8">
-        {/* Dynamic color header - matches project card icon color */}
+        {/* Mobile: fixed header reaches visual top; spacer reserves flow. Desktop: sticky in document flow. */}
         <div
-          className="sticky top-0 z-40"
-          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})`, paddingTop: 'env(safe-area-inset-top)' }}
+          className="lg:hidden shrink-0 w-full"
+          style={{ height: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)' }}
+          aria-hidden
+        />
+        <div
+          className="project-detail-header-safe-top z-[50] max-lg:fixed max-lg:top-0 max-lg:left-0 max-lg:right-0 lg:sticky lg:top-0"
+          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
         >
           <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
             <div className="flex items-center justify-between mb-3">
