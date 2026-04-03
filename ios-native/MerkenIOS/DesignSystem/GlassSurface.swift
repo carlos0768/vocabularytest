@@ -62,11 +62,6 @@ struct SolidCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
             )
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 3)
-            )
     }
 }
 

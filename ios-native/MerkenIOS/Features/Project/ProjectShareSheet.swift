@@ -226,96 +226,84 @@ struct ProjectShareSheet: View {
     }
 
     private var shareCard: some View {
-        ZStack(alignment: .bottom) {
-            coverView
-                .frame(height: 500)
-                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "text.book.closed.fill")
+                    .font(.system(size: 13, weight: .bold))
+                Text("Merken")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .foregroundStyle(MerkenTheme.primaryText)
 
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 8) {
-                    Image(systemName: "text.book.closed.fill")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Merken")
-                        .font(.system(size: 14, weight: .bold))
-                }
+            Text(projectTitle)
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
 
-                Text(projectTitle)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        sharePill(
-                            text: selectedShareScope == .publicListed ? "公開" : "非公開",
-                            tint: selectedShareScope == .publicListed ? MerkenTheme.success : MerkenTheme.secondaryText,
-                            background: selectedShareScope == .publicListed ? MerkenTheme.success.opacity(0.12) : MerkenTheme.surfaceAlt
-                        )
-                        sharePill(
-                            text: formattedShareCode,
-                            tint: MerkenTheme.primaryText,
-                            background: MerkenTheme.surfaceAlt
-                        )
-                    }
-
-                    Text(shareScopeDescription)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    sharePill(
+                        text: selectedShareScope == .publicListed ? "公開" : "非公開",
+                        tint: selectedShareScope == .publicListed ? MerkenTheme.success : MerkenTheme.secondaryText,
+                        background: selectedShareScope == .publicListed ? MerkenTheme.success.opacity(0.12) : MerkenTheme.surfaceAlt
+                    )
+                    sharePill(
+                        text: formattedShareCode,
+                        tint: MerkenTheme.primaryText,
+                        background: MerkenTheme.surfaceAlt
+                    )
                 }
 
-                HStack(spacing: 10) {
-                    ForEach(metrics) { metric in
-                        VStack(spacing: 8) {
-                            ZStack {
-                                Circle()
-                                    .stroke(MerkenTheme.borderLight, lineWidth: 4)
+                Text(shareScopeDescription)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                                Circle()
-                                    .trim(from: 0, to: metricProgress(for: metric))
-                                    .stroke(metric.tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                                    .rotationEffect(.degrees(-90))
+            HStack(spacing: 10) {
+                ForEach(metrics) { metric in
+                    VStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .stroke(MerkenTheme.borderLight, lineWidth: 4)
 
-                                Image(systemName: metric.icon)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(metric.tint)
-                            }
-                            .frame(width: 48, height: 48)
+                            Circle()
+                                .trim(from: 0, to: metricProgress(for: metric))
+                                .stroke(metric.tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
 
-                            VStack(spacing: 3) {
-                                Text("\(metric.count)")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(MerkenTheme.primaryText)
-                                Text(metric.label)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(MerkenTheme.secondaryText)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.center)
-                            }
+                            Image(systemName: metric.icon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(metric.tint)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(MerkenTheme.border, lineWidth: 1)
-                        )
+                        .frame(width: 48, height: 48)
+
+                        VStack(spacing: 3) {
+                            Text("\(metric.count)")
+                                .font(.system(size: 18, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundStyle(MerkenTheme.primaryText)
+                            Text(metric.label)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(MerkenTheme.border, lineWidth: 1)
+                    )
                 }
             }
-            .padding(18)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(MerkenTheme.border, lineWidth: 1)
-            )
-            .padding(18)
         }
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+        .padding(18)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(MerkenTheme.border, lineWidth: 1)
         )
     }
@@ -385,31 +373,6 @@ struct ProjectShareSheet: View {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(MerkenTheme.border, lineWidth: 1)
                 )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var coverView: some View {
-        if let iconImage = project.iconImage,
-           let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFill()
-        } else {
-            LinearGradient(
-                colors: [
-                    MerkenTheme.placeholderColor(for: project.id, isDark: false),
-                    MerkenTheme.placeholderColor(for: project.id + "-share", isDark: false).opacity(0.65)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .overlay(alignment: .top) {
-                Text(String(projectTitle.prefix(1)))
-                    .font(.system(size: 64, weight: .black))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .padding(.top, 132)
             }
         }
     }
