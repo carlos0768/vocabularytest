@@ -1,30 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Icon } from '@/components/ui/Icon';
-import { Button } from '@/components/ui/button';
-import { remoteRepository } from '@/lib/db/remote-repository';
-import { createBrowserClient } from '@/lib/supabase';
+import { AppShell, Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/components/ui/toast';
+import { remoteRepository } from '@/lib/db/remote-repository';
+import { getRepository } from '@/lib/db';
+import { createBrowserClient } from '@/lib/supabase';
+import { getProjectColor } from '@/components/project/ProjectCard';
+import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, Word } from '@/types';
 
 export default function SharedProjectPage() {
   const router = useRouter();
   const params = useParams();
   const shareId = params.shareId as string;
-  const { user, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [ownerUsername, setOwnerUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [wordsLoaded, setWordsLoaded] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [imported, setImported] = useState(false);
+  const [importedProjectId, setImportedProjectId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load shared project and words
+  const subscriptionStatus = subscription?.status || 'free';
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -42,6 +49,7 @@ export default function SharedProjectPage() {
 
         setProject(projectData);
         setWords(wordsData);
+        setWordsLoaded(true);
 
         try {
           const supabase = createBrowserClient();
@@ -68,33 +76,66 @@ export default function SharedProjectPage() {
   }, [shareId, authLoading]);
 
   const handleImport = async () => {
-    if (!user) return;
+    if (!user || !project) return;
 
     setImporting(true);
     try {
-      const newProject = await remoteRepository.importSharedProject(shareId, user.id);
-      setImported(true);
-      // Navigate to the new project after a short delay
-      setTimeout(() => {
-        router.push(`/project/${newProject.id}`);
-      }, 1500);
+      const repo = getRepository(subscriptionStatus, wasPro);
+
+      const newProject = await repo.createProject({
+        title: project.title,
+        userId: user.id,
+      });
+
+      if (words.length > 0) {
+        await repo.createWords(
+          words.map((w) => ({
+            projectId: newProject.id,
+            english: w.english,
+            japanese: w.japanese,
+            distractors: w.distractors ?? [],
+            exampleSentence: w.exampleSentence ?? undefined,
+            exampleSentenceJa: w.exampleSentenceJa ?? undefined,
+            pronunciation: w.pronunciation ?? undefined,
+            partOfSpeechTags: w.partOfSpeechTags ?? undefined,
+          })),
+        );
+      }
+
+      setImportedProjectId(newProject.id);
+      invalidateHomeCache();
+      showToast({ message: '単語帳を追加しました！', type: 'success' });
     } catch (err) {
       console.error('Failed to import project:', err);
-      setError('インポートに失敗しました');
+      showToast({ message: 'インポートに失敗しました', type: 'error' });
     } finally {
       setImporting(false);
     }
   };
 
+  const stats = useMemo(() => {
+    const total = words.length;
+    const mastered = words.filter((w) => w.status === 'mastered').length;
+    const learning = words.filter((w) => w.status === 'review').length;
+    const unlearned = words.filter((w) => !w.status || w.status === 'new').length;
+    return { total, mastered, learning, unlearned };
+  }, [words]);
+
+  const posLabel = (tags?: string[]) => {
+    if (!tags || tags.length === 0) return null;
+    const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
+    return map[tags[0]] || tags[0].slice(0, 1);
+  };
+
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin" />
+      <div className="min-h-screen flex items-center justify-center text-[var(--color-muted)]">
+        <Icon name="progress_activity" size={20} className="animate-spin" />
+        <span className="ml-2">読み込み中...</span>
       </div>
     );
   }
 
-  // Show upgrade prompt for non-Pro users
   if (!authLoading && !isPro) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -106,120 +147,180 @@ export default function SharedProjectPage() {
           共有された単語帳を見るには<br />Proプランへのアップグレードが必要です
         </p>
         <div className="flex flex-col gap-3">
-          <Link href="/subscription">
-            <Button className="bg-primary hover:bg-primary/90">
-              <Icon name="workspace_premium" size={16} className="mr-2" />
-              Proにアップグレード
-            </Button>
+          <Link href="/subscription" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold">
+            <Icon name="workspace_premium" size={16} />
+            Proにアップグレード
           </Link>
-          <Link href="/">
-            <Button variant="secondary">
-              <Icon name="arrow_back" size={16} className="mr-2" />
-              ホームに戻る
-            </Button>
+          <Link href="/" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold">
+            <Icon name="arrow_back" size={16} />
+            ホームに戻る
           </Link>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !project) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <Icon name="menu_book" size={64} className="text-[var(--color-muted)] mb-4" />
-        <p className="text-[var(--color-muted)] text-center mb-6">{error}</p>
-        <Link href="/">
-          <Button variant="secondary">
-            <Icon name="arrow_back" size={16} className="mr-2" />
-            ホームに戻る
-          </Button>
+      <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+        <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳が見つかりません</h1>
+        <p className="text-sm text-[var(--color-muted)] mt-2">{error || '一覧から選び直してください。'}</p>
+        <Link href="/shared" className="mt-4 px-4 py-2 rounded-full bg-[var(--color-foreground)] text-white font-semibold">
+          共有一覧へ戻る
         </Link>
       </div>
     );
   }
 
-  if (!project) {
-    return null;
-  }
+  const HEADER_DARKEN: Record<string, string> = {
+    '#ef4444': '#b91c1c',
+    '#16a34a': '#166534',
+    '#1e3a8a': '#1e40af',
+    '#f97316': '#c2410c',
+    '#9333ea': '#7e22ce',
+    '#0d9488': '#0f766e',
+  };
+  const headerFrom = getProjectColor(project.title);
+  const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
 
   return (
-    <div className="min-h-screen pb-24 bg-[var(--color-background)]">
-      {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 border-b border-[var(--color-border)] z-40">
-        <div className="max-w-lg mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="p-2 -ml-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
-            >
-              <Icon name="arrow_back" size={20} />
-            </Link>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold text-[var(--color-foreground)] truncate">{project.title}</h1>
-              <p className="text-xs text-[var(--color-muted)]">
-                {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} ({words.length}語)
-              </p>
+    <AppShell hideBottomNav>
+      <div className="pb-28 lg:pb-8">
+        {/* Dynamic color header */}
+        <div
+          className="sticky top-0 z-40"
+          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
+        >
+          <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Icon name="chevron_left" size={24} className="text-white" />
+              </button>
+              <div className="flex-1 text-center mx-3">
+                <p className="text-white font-bold text-sm truncate">{project.title}</p>
+                <p className="text-white/70 text-xs">
+                  {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} · {stats.total}語
+                </p>
+              </div>
+              <div className="w-10" />
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main content */}
-      <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Import button */}
-        <div className="flex justify-center mb-6">
-          {imported ? (
-            <div className="flex items-center gap-2 text-[var(--color-success)] font-medium">
-              <Icon name="check_circle" size={20} />
-              追加しました！
-            </div>
-          ) : (
-            <Button
-              size="lg"
-              onClick={handleImport}
-              disabled={importing}
-            >
-              {importing ? (
-                <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
-              ) : (
-                <Icon name="download" size={20} className="mr-2" />
-              )}
-              自分の単語帳に追加
-            </Button>
-          )}
-        </div>
-
-        {/* Word list (read-only) */}
-        <div className="mb-4">
-          <h2 className="font-medium text-[var(--color-foreground)]">単語一覧 ({words.length}語)</h2>
-        </div>
-
-        <div className="space-y-2">
-          {words.map((word) => (
-            <div
-              key={word.id}
-              className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4"
-            >
-              <p className="font-medium text-[var(--color-foreground)]">{word.english}</p>
-              <p className="text-[var(--color-muted)] mt-0.5">{word.japanese}</p>
-              {word.exampleSentence && (
-                <div className="mt-2 pt-2 border-t border-[var(--color-border-light)]">
-                  <p className="text-sm text-[var(--color-foreground)] italic">{word.exampleSentence}</p>
-                  {word.exampleSentenceJa && (
-                    <p className="text-xs text-[var(--color-muted)] mt-0.5">{word.exampleSentenceJa}</p>
-                  )}
+        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 -mt-2 space-y-5">
+          {/* 3-column stats card */}
+          <section>
+            <div className="card p-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="text-xs text-[var(--color-muted)]">{stats.mastered}/{stats.total}語</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">習得</p>
+                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-success)] flex items-center justify-center">
+                    <Icon name="check" size={18} className="text-[var(--color-success)]" />
+                  </div>
                 </div>
+                <div className="text-center">
+                  <p className="text-xs text-[var(--color-muted)]">{stats.learning}/{stats.total}語</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">学習中</p>
+                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-muted)] flex items-center justify-center">
+                    <Icon name="autorenew" size={18} className="text-[var(--color-muted)]" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-[var(--color-foreground)]">{stats.unlearned}/{stats.total}語</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">未学習</p>
+                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-border)] flex items-center justify-center">
+                    <Icon name="auto_awesome" size={18} className="text-[var(--color-muted)]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Word list table */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
+            </div>
+
+            {!wordsLoaded ? (
+              <div className="flex items-center gap-3 text-[var(--color-muted)] py-8 justify-center">
+                <Icon name="progress_activity" size={18} className="animate-spin" />
+                <span className="text-sm">読み込み中...</span>
+              </div>
+            ) : words.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-[var(--color-muted)]">単語がありません</p>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]">
+                  <span className="flex-1">単語</span>
+                  <span className="w-10 text-center">品詞</span>
+                  <span className="w-16 text-right">訳</span>
+                </div>
+                <div className="divide-y divide-[var(--color-border-light)]">
+                  {words.map((word) => (
+                    <div
+                      key={word.id}
+                      className="flex items-center gap-3 px-3 py-3.5"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
+                        {word.status === 'mastered' && (
+                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-success)] text-white text-[9px] items-center justify-center font-bold">A</span>
+                        )}
+                        {word.status === 'review' && (
+                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-warning)] text-white text-[9px] items-center justify-center font-bold">P</span>
+                        )}
+                      </div>
+                      <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
+                        {posLabel(word.partOfSpeechTags) || '—'}
+                      </span>
+                      <span className="w-20 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        </main>
+
+        {/* Bottom action bar */}
+        {words.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+            <div className="max-w-lg mx-auto">
+              {importedProjectId ? (
+                <button
+                  onClick={() => router.push(`/project/${importedProjectId}`)}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-success)] text-white font-semibold text-sm"
+                >
+                  <Icon name="check_circle" size={18} />
+                  追加済み — 単語帳を開く
+                </button>
+              ) : (
+                <button
+                  onClick={handleImport}
+                  disabled={importing}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm disabled:opacity-50"
+                >
+                  {importing ? (
+                    <>
+                      <Icon name="progress_activity" size={18} className="animate-spin" />
+                      追加中...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="download" size={18} />
+                      単語帳として追加
+                    </>
+                  )}
+                </button>
               )}
             </div>
-          ))}
-        </div>
-
-        {words.length === 0 && (
-          <div className="text-center py-8 text-[var(--color-muted)]">
-            単語がありません
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
