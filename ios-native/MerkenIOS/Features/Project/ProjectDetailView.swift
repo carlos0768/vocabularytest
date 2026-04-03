@@ -22,7 +22,6 @@ struct ProjectDetailView: View {
     @State private var showingProjectShareSheet = false
     @State private var showingDeleteConfirm = false
 
-    @State private var learningModeCounts: [LearningModeUsageStore.Mode: Int] = [:]
     @State private var scrollOffset: CGFloat = 0
     @State private var chartAnimationProgress: Double = 0
     @State private var renameProjectTitle = ""
@@ -43,10 +42,6 @@ struct ProjectDetailView: View {
         self.project = project
         _displayProjectTitle = State(initialValue: project.title)
         _displaySourceLabels = State(initialValue: project.sourceLabels)
-    }
-
-    private var learningModeScope: LearningModeUsageStore.Scope {
-        .project(project.id)
     }
 
     private var resolvedProject: Project {
@@ -128,7 +123,6 @@ struct ProjectDetailView: View {
                 .photosPicker(isPresented: $showingProjectThumbnailPicker, selection: $selectedProjectThumbnailItem, matching: .images)
                 .task(id: "\(appState.repositoryMode)-\(appState.dataVersion)") {
                     await viewModel.load(projectId: project.id, using: appState)
-                    learningModeCounts = LearningModeUsageStore.counts(for: learningModeScope)
                     triggerChartAnimation()
                 }
                 .onChange(of: viewModel.projectMetadata?.title) { _, newValue in
@@ -370,8 +364,8 @@ struct ProjectDetailView: View {
             // Status widgets: 習得 / 学習中 / 未学習
             projectStatsSection
 
-            // Learning modes: フラッシュカード / 自己評価 / マッチ
-            learningModesSection
+            // 単語一覧（Notion風）
+            notionWordListSection
         }
         .padding(20)
         .padding(.bottom, 100) // extra space for bottom bar
@@ -568,51 +562,201 @@ struct ProjectDetailView: View {
         )
     }
 
-    // MARK: - Learning Modes Section
+    // MARK: - Notion-style Word List Section
 
-    private var learningModesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("学習モード")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
+    private let notionEnglishColWidth: CGFloat = 160
+    private let notionJapaneseColWidth: CGFloat = 160
+    private let notionStatusColWidth: CGFloat = 68
+    private let notionEditColWidth: CGFloat = 40
 
-            VStack(spacing: 10) {
-                learningModeCard(
-                    icon: "scope",
-                    iconColor: MerkenTheme.success,
-                    title: "自己評価",
-                    subtitle: "思い出して評価",
-                    count: learningModeCounts[.selfReview] ?? 0
-                ) {
-                    learningModeCounts[.selfReview] = LearningModeUsageStore.increment(.selfReview, for: learningModeScope)
-                    quiz2Destination = project
+    private var notionWordListSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section header (outside the scrollable area)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("単語一覧")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Text("\(viewModel.words.count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .monospacedDigit()
+                Spacer()
+                Button {
+                    showingWordList = true
+                } label: {
+                    Text("すべて見る")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
                 }
+            }
+            .padding(.bottom, 10)
 
-                if viewModel.words.count >= 4 {
-                    learningModeCard(
-                        icon: "square.grid.2x2",
-                        iconColor: .purple,
-                        title: "マッチ",
-                        subtitle: "ペアを見つけろ",
-                        count: learningModeCounts[.match] ?? 0
-                    ) {
-                        learningModeCounts[.match] = LearningModeUsageStore.increment(.match, for: learningModeScope)
-                        showMatchGame = true
+            if viewModel.words.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 6) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 22))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Text("単語がありません")
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    .padding(.vertical, 24)
+                    Spacer()
+                }
+            } else {
+                // Horizontal scroll — no outer border box, Notion style
+                ScrollView(.horizontal, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        notionColumnHeader
+
+                        let previewWords = Array(viewModel.words.prefix(8))
+                        ForEach(Array(previewWords.enumerated()), id: \.element.id) { index, word in
+                            notionWordRow(word, isLast: index == previewWords.count - 1)
+                        }
                     }
                 }
 
-                learningModeCard(
-                    icon: "checklist",
-                    iconColor: MerkenTheme.accentBlue,
-                    title: "クイズ",
-                    subtitle: "4択で実力テスト",
-                    count: learningModeCounts[.quiz] ?? 0
-                ) {
-                    learningModeCounts[.quiz] = LearningModeUsageStore.increment(.quiz, for: learningModeScope)
-                    quizDestination = project
+                if viewModel.words.count > 8 {
+                    Button {
+                        showingWordList = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("\(viewModel.words.count - 8)件をさらに表示")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(
+                        Rectangle().fill(MerkenTheme.borderLight).frame(height: 1),
+                        alignment: .top
+                    )
                 }
             }
         }
+    }
+
+    private var notionColumnHeader: some View {
+        HStack(spacing: 0) {
+            Text("単語")
+                .frame(width: notionEnglishColWidth, alignment: .leading)
+                .padding(.leading, 4)
+
+            notionColDivider
+
+            Text("訳")
+                .frame(width: notionJapaneseColWidth, alignment: .leading)
+                .padding(.leading, 10)
+
+            notionColDivider
+
+            Text("状態")
+                .frame(width: notionStatusColWidth, alignment: .leading)
+                .padding(.leading, 10)
+
+            Spacer().frame(width: notionEditColWidth)
+        }
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(MerkenTheme.mutedText)
+        .padding(.vertical, 7)
+        .overlay(
+            Rectangle().fill(MerkenTheme.border).frame(height: 1),
+            alignment: .bottom
+        )
+        .overlay(
+            Rectangle().fill(MerkenTheme.border).frame(height: 1),
+            alignment: .top
+        )
+    }
+
+    private var notionColDivider: some View {
+        Rectangle()
+            .fill(MerkenTheme.border)
+            .frame(width: 1)
+            .padding(.vertical, 4)
+    }
+
+    private func notionWordRow(_ word: Word, isLast: Bool) -> some View {
+        HStack(spacing: 0) {
+            // English word — no truncation, full text shown
+            Text(word.english)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: notionEnglishColWidth, alignment: .leading)
+                .padding(.leading, 4)
+
+            notionColDivider
+
+            // Japanese translation — no truncation
+            Text(word.japanese)
+                .font(.system(size: 13))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: notionJapaneseColWidth, alignment: .leading)
+                .padding(.leading, 10)
+
+            notionColDivider
+
+            // Status badge
+            notionStatusBadge(for: word.status)
+                .frame(width: notionStatusColWidth, alignment: .leading)
+                .padding(.leading, 10)
+
+            // Edit button
+            Button {
+                editorMode = .edit(existing: word)
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .frame(width: notionEditColWidth, height: 44)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(height: 44)
+        .contentShape(Rectangle())
+        .overlay(
+            Group {
+                if !isLast {
+                    Rectangle()
+                        .fill(MerkenTheme.borderLight)
+                        .frame(height: 1)
+                }
+            },
+            alignment: .bottom
+        )
+    }
+
+    @ViewBuilder
+    private func notionStatusBadge(for status: WordStatus) -> some View {
+        switch status {
+        case .mastered:
+            notionBadge(label: "習得", color: MerkenTheme.success)
+        case .review:
+            notionBadge(label: "学習中", color: MerkenTheme.accentBlue)
+        case .new:
+            notionBadge(label: "未学習", color: MerkenTheme.mutedText)
+        }
+    }
+
+    private func notionBadge(label: String, color: Color) -> some View {
+        Text(label)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.12), in: .capsule)
+            .lineLimit(1)
+            .fixedSize()
     }
 
     // MARK: - Top Buttons Overlay
@@ -851,55 +995,6 @@ struct ProjectDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
     }
 
-    // MARK: - Card Helpers
-
-    private func learningModeCard(icon: String, iconColor: Color, title: String, subtitle: String, count: Int, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                IconBadge(systemName: icon, color: iconColor, size: 48)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                }
-
-                Spacer()
-
-                HStack(spacing: 10) {
-                    Text("\(count)回")
-                        .font(.system(size: 13, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(MerkenTheme.accentBlue.opacity(0.10), in: Capsule())
-                        .fixedSize(horizontal: true, vertical: false)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.mutedText)
-                        .frame(width: 14)
-                }
-                .fixedSize(horizontal: true, vertical: false)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(MerkenTheme.border, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 3)
-            )
-        }
-    }
 
     // MARK: - Editor Sheet
 
