@@ -124,10 +124,13 @@ export default function SharedPage() {
                 <div className="space-y-3">
                   {projects.map((project) => {
                     const colorIndex = project.title.length % iconColors.length;
+                    const href = project.isOwner
+                      ? `/project/${project.id}`
+                      : `/share/${project.shareCode}`;
                     return (
                       <Link
                         key={project.id}
-                        href={`/project/${project.id}`}
+                        href={href}
                         className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
                       >
                         <div className={`w-14 h-14 rounded-xl ${iconColors[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}>
