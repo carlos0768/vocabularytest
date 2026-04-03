@@ -34,6 +34,7 @@ struct WordDTO: Codable, Sendable {
     let intervalDays: Int?
     let repetition: Int?
     let isFavorite: Bool?
+    let vocabularyType: String?
 }
 
 struct ProjectInsertDTO: Codable, Sendable {
@@ -57,6 +58,7 @@ struct WordInsertDTO: Codable, Sendable {
     let usagePatterns: [UsagePattern]?
     let insightsGeneratedAt: Date?
     let insightsVersion: Int?
+    let vocabularyType: String?
 }
 
 struct WordUpdateDTO: Codable, Sendable {
@@ -78,6 +80,7 @@ struct WordUpdateDTO: Codable, Sendable {
     var intervalDays: Int?
     var repetition: Int?
     var isFavorite: Bool?
+    var vocabularyType: String??
 }
 
 struct CollectionDTO: Codable, Sendable {
@@ -150,7 +153,8 @@ enum SupabaseMapper {
             easeFactor: dto.easeFactor ?? 2.5,
             intervalDays: dto.intervalDays ?? 0,
             repetition: dto.repetition ?? 0,
-            isFavorite: dto.isFavorite ?? false
+            isFavorite: dto.isFavorite ?? false,
+            vocabularyType: dto.vocabularyType.flatMap { VocabularyType(rawValue: $0) }
         )
     }
 
@@ -167,7 +171,8 @@ enum SupabaseMapper {
             relatedWords: input.relatedWords,
             usagePatterns: input.usagePatterns,
             insightsGeneratedAt: input.insightsGeneratedAt,
-            insightsVersion: input.insightsVersion
+            insightsVersion: input.insightsVersion,
+            vocabularyType: input.vocabularyType?.rawValue
         )
     }
 
@@ -190,7 +195,8 @@ enum SupabaseMapper {
             easeFactor: patch.easeFactor,
             intervalDays: patch.intervalDays,
             repetition: patch.repetition,
-            isFavorite: patch.isFavorite
+            isFavorite: patch.isFavorite,
+            vocabularyType: patch.vocabularyType.map { $0?.rawValue }
         )
     }
 

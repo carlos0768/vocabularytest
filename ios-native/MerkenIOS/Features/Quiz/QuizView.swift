@@ -195,17 +195,26 @@ struct QuizView: View {
 
                 ScrollView {
                     VStack(spacing: 16) {
-                        // 英→日 badge
-                        Text("英→日")
-                            .font(.caption.bold())
-                            .foregroundStyle(MerkenTheme.accentBlue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background(MerkenTheme.accentBlueLight, in: .capsule)
+                        // Mode badge
+                        if viewModel.isActiveVocab {
+                            Text("Active — タイプ入力")
+                                .font(.caption.bold())
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background(MerkenTheme.accentBlueLight, in: .capsule)
+                        } else {
+                            Text("英→日")
+                                .font(.caption.bold())
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background(MerkenTheme.accentBlueLight, in: .capsule)
+                        }
 
-                        // Word
+                        // Word (Active shows japanese, passive shows english)
                         VStack(spacing: 10) {
-                            Text(current.word.english)
+                            Text(viewModel.isActiveVocab ? current.word.japanese : current.word.english)
                                 .font(.system(size: 36, weight: .bold))
                                 .foregroundStyle(MerkenTheme.primaryText)
                                 .multilineTextAlignment(.center)
@@ -222,10 +231,14 @@ struct QuizView: View {
                         }
                         .padding(.vertical, 12)
 
-                        // Options A/B/C/D
-                        VStack(spacing: 10) {
-                            ForEach(current.options.indices, id: \.self) { index in
-                                optionButton(index: index, current: current)
+                        // Active: typing input / Passive: 4-choice options
+                        if viewModel.isActiveVocab {
+                            activeTypingSection(current: current)
+                        } else {
+                            VStack(spacing: 10) {
+                                ForEach(current.options.indices, id: \.self) { index in
+                                    optionButton(index: index, current: current)
+                                }
                             }
                         }
 
@@ -289,6 +302,92 @@ struct QuizView: View {
                     .accessibilityIdentifier("nextQuestionAction")
                 }
             }
+        }
+    }
+
+    // MARK: - Active Typing
+
+    @ViewBuilder
+    private func activeTypingSection(current: QuizQuestion) -> some View {
+        if !viewModel.isRevealed {
+            VStack(spacing: 12) {
+                TextField("英単語を入力...", text: $viewModel.typedAnswer)
+                    .font(.system(size: 18))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                    )
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        guard !viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                        viewModel.submitTypingAnswer(projectId: project.id, using: appState)
+                    }
+
+                Button {
+                    viewModel.submitTypingAnswer(projectId: project.id, using: appState)
+                } label: {
+                    Text("回答する")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? MerkenTheme.border
+                                : MerkenTheme.accentBlue,
+                            in: .rect(cornerRadius: 16)
+                        )
+                }
+                .disabled(viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        } else {
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: viewModel.typingCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(viewModel.typingCorrect == true ? MerkenTheme.success : MerkenTheme.danger)
+
+                    Text(viewModel.typingCorrect == true ? "正解" : "不正解")
+                        .font(.headline.bold())
+                        .foregroundStyle(viewModel.typingCorrect == true ? MerkenTheme.success : MerkenTheme.danger)
+                }
+
+                if viewModel.typingCorrect != true {
+                    VStack(spacing: 4) {
+                        Text("あなたの回答")
+                            .font(.caption)
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Text(viewModel.typedAnswer)
+                            .font(.body)
+                            .foregroundStyle(MerkenTheme.danger)
+                            .strikethrough()
+                    }
+                }
+
+                VStack(spacing: 4) {
+                    Text("正解")
+                        .font(.caption)
+                        .foregroundStyle(MerkenTheme.mutedText)
+                    Text(current.word.english)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(MerkenTheme.success)
+                }
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        viewModel.typingCorrect == true ? MerkenTheme.success : MerkenTheme.danger,
+                        lineWidth: 2
+                    )
+            )
         }
     }
 

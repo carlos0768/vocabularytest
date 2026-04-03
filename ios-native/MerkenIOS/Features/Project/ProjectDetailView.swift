@@ -693,6 +693,7 @@ struct ProjectDetailView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(MerkenTheme.accentBlue)
                 }
+                notionVocabBadge(for: word)
             }
             .frame(width: notionEnglishColWidth, alignment: .leading)
             .padding(.leading, 10)
@@ -735,6 +736,46 @@ struct ProjectDetailView: View {
             },
             alignment: .bottom
         )
+    }
+
+    @ViewBuilder
+    private func notionVocabBadge(for word: Word) -> some View {
+        Button {
+            let next: VocabularyType? = {
+                switch word.vocabularyType {
+                case .none: return .active
+                case .active: return .passive
+                case .passive: return nil
+                }
+            }()
+            Task {
+                await viewModel.updateWord(
+                    wordId: word.id,
+                    patch: WordPatch(vocabularyType: .some(next)),
+                    broadcastChanges: false,
+                    projectId: project.id,
+                    using: appState
+                )
+            }
+        } label: {
+            switch word.vocabularyType {
+            case .active:
+                Text("A")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+                    .background(MerkenTheme.accentBlue, in: Circle())
+            case .passive:
+                Text("P")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+                    .background(MerkenTheme.secondaryText.opacity(0.5), in: Circle())
+            case .none:
+                EmptyView()
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     /// 品詞を日本語略称バッジで表示

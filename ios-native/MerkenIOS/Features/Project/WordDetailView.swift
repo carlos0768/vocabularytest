@@ -224,6 +224,32 @@ struct WordDetailView: View {
             Spacer()
 
             Button {
+                Task { await cycleVocabularyType(for: word) }
+            } label: {
+                switch word.vocabularyType {
+                case .active:
+                    Text("A")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(MerkenTheme.accentBlue, in: Circle())
+                case .passive:
+                    Text("P")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(MerkenTheme.secondaryText.opacity(0.5), in: Circle())
+                case .none:
+                    Text("—")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .frame(width: 28, height: 28)
+                        .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1.5))
+                }
+            }
+            .buttonStyle(.plain)
+
+            Button {
                 Task { await toggleFavorite(for: word) }
             } label: {
                 Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
@@ -555,6 +581,23 @@ struct WordDetailView: View {
         await viewModel.updateWord(
             wordId: word.id,
             patch: WordPatch(isFavorite: !word.isFavorite),
+            projectId: project.id,
+            using: appState
+        )
+    }
+
+    private func cycleVocabularyType(for word: Word) async {
+        MerkenHaptic.selection()
+        let next: VocabularyType? = {
+            switch word.vocabularyType {
+            case .none: return .active
+            case .active: return .passive
+            case .passive: return nil
+            }
+        }()
+        await viewModel.updateWord(
+            wordId: word.id,
+            patch: WordPatch(vocabularyType: .some(next)),
             projectId: project.id,
             using: appState
         )

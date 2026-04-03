@@ -417,6 +417,18 @@ struct SharedProjectDetailView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(MerkenTheme.accentBlue)
                 }
+                if let vocabType = word.vocabularyType {
+                    Text(vocabType == .active ? "A" : "P")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 18, height: 18)
+                        .background(
+                            vocabType == .active
+                                ? MerkenTheme.accentBlue
+                                : MerkenTheme.secondaryText.opacity(0.5),
+                            in: Circle()
+                        )
+                }
             }
             .frame(width: notionEnglishColWidth, alignment: .leading)
             .padding(.leading, 10)
