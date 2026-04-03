@@ -187,19 +187,29 @@ async function getOwnedOrMemberSharedProject(
 
   // Step 2: Fetch counts and username in parallel using efficient COUNT queries
   const [wordCount, collaboratorCount, usernameByUserId] = await Promise.all([
-    admin
-      .from('words')
-      .select('*', { count: 'exact', head: true })
-      .eq('project_id', projectId)
-      .then(({ count }) => count ?? 0)
-      .catch(() => 0),
+    (async () => {
+      try {
+        const { count } = await admin
+          .from('words')
+          .select('*', { count: 'exact', head: true })
+          .eq('project_id', projectId);
+        return count ?? 0;
+      } catch {
+        return 0;
+      }
+    })(),
     projectMembersAvailable
-      ? admin
-        .from('project_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('project_id', projectId)
-        .then(({ count }) => 1 + (count ?? 0))
-        .catch(() => 1)
+      ? (async () => {
+        try {
+          const { count } = await admin
+            .from('project_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('project_id', projectId);
+          return 1 + (count ?? 0);
+        } catch {
+          return 1;
+        }
+      })()
       : Promise.resolve(1),
     getUsernamesByUserIds(admin, [projectRow.user_id]),
   ]);
