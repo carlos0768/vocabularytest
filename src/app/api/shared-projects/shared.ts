@@ -11,6 +11,7 @@ export type SharedProjectSummary = {
   accessRole: SharedProjectAccessRole;
   wordCount: number;
   collaboratorCount: number;
+  ownerUsername?: string | null;
 };
 
 type ProjectMembershipRow = {
@@ -128,9 +129,10 @@ export async function getPublicSharedProject(projectId: string): Promise<SharedP
   }
   if (!data) return null;
 
-  const [wordCountByProjectId, collaboratorCountByProjectId] = await Promise.all([
+  const [wordCountByProjectId, collaboratorCountByProjectId, usernameByUserId] = await Promise.all([
     getWordCountByProjectId(admin, [projectId]),
     getCollaboratorCountByProjectId(admin, [projectId], true),
+    getUsernamesByUserIds(admin, [data.user_id]),
   ]);
 
   return mapSharedProjectSummary(
@@ -138,6 +140,7 @@ export async function getPublicSharedProject(projectId: string): Promise<SharedP
     'viewer',
     wordCountByProjectId,
     collaboratorCountByProjectId,
+    usernameByUserId,
   );
 }
 
@@ -216,9 +219,11 @@ export async function listSharedProjects(
 
   const allRows = [...ownedRows, ...joinedRows];
   const projectIds = Array.from(new Set(allRows.map((row) => row.id)));
-  const [wordCountByProjectId, collaboratorCountByProjectId] = await Promise.all([
+  const allUserIds = Array.from(new Set(allRows.map((row) => row.user_id)));
+  const [wordCountByProjectId, collaboratorCountByProjectId, usernameByUserId] = await Promise.all([
     getWordCountByProjectId(admin, projectIds),
     getCollaboratorCountByProjectId(admin, projectIds, projectMembersAvailable),
+    getUsernamesByUserIds(admin, allUserIds),
   ]);
 
   const membershipRoleByProjectId = new Map<string, SharedProjectAccessRole>(
@@ -229,7 +234,7 @@ export async function listSharedProjects(
   );
 
   const owned = ownedRows.map((row) =>
-    mapSharedProjectSummary(row, 'owner', wordCountByProjectId, collaboratorCountByProjectId),
+    mapSharedProjectSummary(row, 'owner', wordCountByProjectId, collaboratorCountByProjectId, usernameByUserId),
   );
 
   const joined = projectMembersAvailable
@@ -241,6 +246,7 @@ export async function listSharedProjects(
           membershipRoleByProjectId.get(row.id) ?? 'editor',
           wordCountByProjectId,
           collaboratorCountByProjectId,
+          usernameByUserId,
         ),
       )
     : [];
@@ -254,9 +260,11 @@ export async function listSharedProjects(
     ? await fetchPublicProjects(admin, Array.from(excludedProjectIds))
     : [];
   const publicProjectIds = publicRows.map((row) => row.id);
-  const [publicWordCountByProjectId, publicCollaboratorCountByProjectId] = await Promise.all([
+  const publicUserIds = publicRows.map((row) => row.user_id);
+  const [publicWordCountByProjectId, publicCollaboratorCountByProjectId, publicUsernameByUserId] = await Promise.all([
     getWordCountByProjectId(admin, publicProjectIds),
     getCollaboratorCountByProjectId(admin, publicProjectIds, projectMembersAvailable),
+    getUsernamesByUserIds(admin, publicUserIds),
   ]);
 
   const publicProjects = publicRows.map((row) =>
@@ -265,6 +273,7 @@ export async function listSharedProjects(
       'viewer',
       publicWordCountByProjectId,
       publicCollaboratorCountByProjectId,
+      publicUsernameByUserId,
     ),
   );
 
@@ -483,13 +492,45 @@ function mapSharedProjectSummary(
   accessRole: SharedProjectAccessRole,
   wordCountByProjectId: Map<string, number>,
   collaboratorCountByProjectId: Map<string, number>,
+  usernameByUserId?: Map<string, string | null>,
 ): SharedProjectSummary {
   return {
     project: mapProjectFromRow(row),
     accessRole,
     wordCount: wordCountByProjectId.get(row.id) ?? 0,
     collaboratorCount: collaboratorCountByProjectId.get(row.id) ?? 1,
+    ownerUsername: usernameByUserId?.get(row.user_id) ?? null,
   };
+}
+
+async function getUsernamesByUserIds(
+  admin: SupabaseAdminClient,
+  userIds: string[],
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+  if (userIds.length === 0) return result;
+
+  const uniqueIds = Array.from(new Set(userIds));
+
+  try {
+    const { data, error } = await admin
+      .from('profiles')
+      .select('user_id, username')
+      .in('user_id', uniqueIds);
+
+    if (error) {
+      console.warn('Failed to fetch usernames for shared projects:', error.message);
+      return result;
+    }
+
+    for (const row of data ?? []) {
+      result.set(row.user_id as string, (row.username as string | null) ?? null);
+    }
+  } catch {
+    // profiles table may not exist yet; graceful fallback
+  }
+
+  return result;
 }
 
 function normalizeErrorText(error: unknown): string {

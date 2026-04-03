@@ -187,10 +187,18 @@ export interface Subscription {
 export interface UserState {
   id: string;
   email: string;
+  username?: string | null;
   subscriptionStatus: SubscriptionStatus;
   subscriptionPlan: SubscriptionPlan;
   dailyScanCount: number;
   lastScanDate: string;
+}
+
+// ============ Profile Types ============
+
+export interface Profile {
+  userId: string;
+  username: string | null;
 }
 
 // ============ Auth Types ============
@@ -198,6 +206,7 @@ export interface UserState {
 export interface AuthUser {
   id: string;
   email: string;
+  username?: string | null;
   subscription?: Subscription;
 }
 

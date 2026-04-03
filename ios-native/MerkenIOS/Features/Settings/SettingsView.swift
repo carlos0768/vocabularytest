@@ -15,8 +15,9 @@ struct SettingsView: View {
     @State private var isRestoring = false
     @State private var purchaseErrorMessage: String?
     @State private var purchaseSuccessMessage: String?
-    @State private var localAIEnabled = true
     @State private var scrollOffset: CGFloat = 0
+    @State private var isEditingUsername = false
+    @State private var usernameInput = ""
 
     private var isLoggedInAndActive: Bool {
         appState.isLoggedIn && !appState.isSessionExpired
@@ -25,20 +26,10 @@ struct SettingsView: View {
     var body: some View {
         ZStack {
             AppBackground()
-            LinearGradient(
-                colors: [
-                    MerkenTheme.accentBlue.opacity(0.04),
-                    Color.clear,
-                    MerkenTheme.warning.opacity(0.03)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
 
             ScrollViewReader { scrollProxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 16) {
                         Color.clear
                             .frame(height: 0)
                             .id("settingsTop")
@@ -62,12 +53,12 @@ struct SettingsView: View {
                         profileHeroCard
 
                         if isLoggedInAndActive {
-                            settingsSection(title: "アカウント") {
-                                accountRows
+                            settingsSection(title: "プロフィール") {
+                                usernameRow
                             }
 
-                            settingsSection(title: "学習設定") {
-                                aiToggleRow
+                            settingsSection(title: "アカウント") {
+                                accountRows
                             }
 
                             settingsSection(title: "サポート") {
@@ -117,14 +108,13 @@ struct SettingsView: View {
             PrivacyView()
         }
         .task(id: appState.isLoggedIn) {
-            localAIEnabled = appState.isAIEnabled
-
-            guard appState.isLoggedIn, appState.aiPreference == nil else { return }
-            await appState.refreshUserPreferences(showLoadingIndicator: false)
-            localAIEnabled = appState.isAIEnabled
-        }
-        .onChange(of: appState.isAIEnabled) { _ in
-            localAIEnabled = appState.isAIEnabled
+            guard appState.isLoggedIn else { return }
+            if appState.aiPreference == nil {
+                await appState.refreshUserPreferences(showLoadingIndicator: false)
+            }
+            if appState.username == nil {
+                await appState.refreshProfile(showLoadingIndicator: false)
+            }
         }
         .alert("ログアウトしますか？", isPresented: $showingSignOutAlert) {
             Button("ログアウト", role: .destructive) {
@@ -150,12 +140,11 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             content()
         }
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
         .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(MerkenTheme.border.opacity(0.45), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 16, x: 0, y: 6)
     }
 
     private func settingsSection<Content: View>(
@@ -175,16 +164,9 @@ struct SettingsView: View {
     }
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("設定")
-                .font(.system(size: 31.2, weight: .black))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .tracking(2)
-
-            Text("アカウント、同期、学習設定をまとめて管理")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(MerkenTheme.secondaryText)
-        }
+        Text("設定")
+            .font(.system(size: 28, weight: .bold))
+            .foregroundStyle(MerkenTheme.primaryText)
     }
 
     private var profileHeroCard: some View {
@@ -239,17 +221,19 @@ struct SettingsView: View {
                     .foregroundStyle(MerkenTheme.mutedText)
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 16)
         .padding(.vertical, 18)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 28))
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
         .overlay(
-            RoundedRectangle(cornerRadius: 28)
-                .stroke(MerkenTheme.border.opacity(0.45), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 18, x: 0, y: 8)
     }
 
     private var profilePrimaryText: String {
+        if let username = appState.username, !username.isEmpty {
+            return username
+        }
         if let email = appState.session?.email, !email.isEmpty {
             return email
         }
@@ -325,40 +309,116 @@ struct SettingsView: View {
 
     private func sectionHeader(title: String) -> some View {
         Text(title)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(MerkenTheme.mutedText)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(MerkenTheme.secondaryText)
             .padding(.horizontal, 2)
     }
 
-    // MARK: - AI Toggle Row
+    // MARK: - Username
 
-    private var aiToggleRow: some View {
-        HStack(spacing: 14) {
-            settingsIcon("sparkles", color: MerkenTheme.success)
+    private var usernameRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                settingsIcon("person.fill", color: MerkenTheme.accentBlue)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("クイズ生成")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text(localAIEnabled ? "4択クイズを自動生成" : "OFFで高速スキャン")
-                    .font(.system(size: 12))
-                    .foregroundStyle(MerkenTheme.secondaryText)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("ユーザー名")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("共有した単語帳に表示される名前です。")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+
+                Spacer(minLength: 0)
+
+                if appState.isLoadingProfile || appState.isSavingProfile {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                }
             }
 
-            Spacer(minLength: 0)
+            if isEditingUsername {
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("ユーザー名を入力", text: $usernameInput)
+                        .solidTextField()
+                        .onChange(of: usernameInput) { _, newValue in
+                            if newValue.count > 20 {
+                                usernameInput = String(newValue.prefix(20))
+                            }
+                        }
 
-            Toggle("", isOn: Binding(
-                get: { localAIEnabled },
-                set: { newValue in
-                    localAIEnabled = newValue
-                    Task {
-                        await appState.setAIPreference(newValue)
+                    HStack(spacing: 8) {
+                        Button {
+                            let trimmed = usernameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            Task {
+                                let success = await appState.setUsername(trimmed)
+                                if success {
+                                    isEditingUsername = false
+                                }
+                            }
+                        } label: {
+                            Text(appState.isSavingProfile ? "保存中..." : "保存")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(MerkenTheme.accentBlue, in: .capsule)
+                        }
+                        .disabled(appState.isSavingProfile || usernameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button {
+                            isEditingUsername = false
+                            usernameInput = appState.username ?? ""
+                        } label: {
+                            Text("キャンセル")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(MerkenTheme.surfaceAlt, in: .capsule)
+                        }
+                        .disabled(appState.isSavingProfile)
                     }
                 }
-            ))
-            .labelsHidden()
-            .tint(MerkenTheme.accentBlue)
-            .disabled(!appState.isLoggedIn)
+            } else {
+                Button {
+                    usernameInput = appState.username ?? ""
+                    isEditingUsername = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+
+                        Text(appState.username ?? "ユーザー名を設定")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(appState.username != nil ? MerkenTheme.primaryText : MerkenTheme.mutedText)
+
+                        Spacer(minLength: 0)
+
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(MerkenTheme.background, in: .rect(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(MerkenTheme.border, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(appState.isLoadingProfile)
+            }
+
+            if let errorMessage = appState.profileErrorMessage, !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(MerkenTheme.warning)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -469,7 +529,7 @@ struct SettingsView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 10))
+                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
                 }
                 .disabled(isPurchasing || isRestoring)
 
@@ -496,7 +556,7 @@ struct SettingsView: View {
                 }
             }
             .padding(12)
-            .background(MerkenTheme.background, in: .rect(cornerRadius: 16))
+            .background(MerkenTheme.background, in: .rect(cornerRadius: 14))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -637,7 +697,7 @@ struct SettingsView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+                .background(MerkenTheme.accentBlue, in: .capsule)
             }
             .disabled(appState.isSigningIn)
             .opacity(appState.isSigningIn ? 0.7 : 1)
@@ -702,10 +762,10 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(14)
-        .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 12))
+        .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(MerkenTheme.warning.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(MerkenTheme.warning.opacity(0.3), lineWidth: 1.5)
         )
     }
 
@@ -720,10 +780,10 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(14)
-        .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 12))
+        .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(MerkenTheme.warning.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(MerkenTheme.warning.opacity(0.3), lineWidth: 1.5)
         )
     }
 
@@ -731,12 +791,12 @@ struct SettingsView: View {
 
     private func settingsIcon(_ name: String, color: Color, filled: Bool = false) -> some View {
         Image(systemName: name)
-            .font(.system(size: 16, weight: .semibold))
+            .font(.system(size: 14, weight: .semibold))
             .foregroundStyle(filled ? Color.white : color)
-            .frame(width: 34, height: 34)
+            .frame(width: 32, height: 32)
             .background(
-                (filled ? color : MerkenTheme.background),
-                in: .rect(cornerRadius: 10)
+                (filled ? color : color.opacity(0.12)),
+                in: .circle
             )
     }
 

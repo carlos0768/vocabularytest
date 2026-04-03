@@ -129,7 +129,7 @@ const scanModes = [
 const studyModes = [
   { icon: 'quiz', title: '4択クイズ', desc: '意味を確認しながらテンポよく学習', image: '/lp/quiz.png' },
   { icon: 'psychology', title: '自己評価', desc: '自己想起してAgain/Hard/Good/Easyで評価', image: '/lp/word-detail.png' },
-  { icon: 'style', title: 'フラッシュカード', desc: '3Dフリップでスムーズな暗記', image: '/lp/wordlist.png' },
+  { icon: 'style', title: 'フラッシュカード', desc: 'カードをめくってスムーズな暗記', image: '/lp/wordlist.png' },
   { icon: 'chat', title: '例文クイズ', desc: '文脈から単語の使い方を定着', image: '/lp/quiz.png' },
 ];
 
@@ -292,8 +292,8 @@ export default function LandingPage() {
               {/* Hero phone */}
               <motion.div
                 className="relative w-[260px] md:w-[300px] mx-auto lg:mx-0"
-                initial={{ opacity: 0, y: 80, rotateY: -8 }}
-                animate={{ opacity: 1, y: 0, rotateY: 0 }}
+                initial={{ opacity: 0, y: 80 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6, duration: 1, ease: [0.22, 1, 0.36, 1] }}
               >
                 <Phone src="/lp/home.png" alt="MERKENホーム画面" priority className="w-full" />

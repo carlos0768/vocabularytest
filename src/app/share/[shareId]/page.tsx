@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { createBrowserClient } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import type { Project, Word } from '@/types';
 
@@ -17,6 +18,7 @@ export default function SharedProjectPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
+  const [ownerUsername, setOwnerUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(false);
@@ -40,6 +42,20 @@ export default function SharedProjectPage() {
 
         setProject(projectData);
         setWords(wordsData);
+
+        try {
+          const supabase = createBrowserClient();
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('user_id', projectData.userId)
+            .maybeSingle();
+          if (profileData?.username) {
+            setOwnerUsername(profileData.username as string);
+          }
+        } catch {
+          // Profile fetch is optional
+        }
       } catch (err) {
         console.error('Failed to load shared project:', err);
         setError('単語帳の読み込みに失敗しました');
@@ -140,7 +156,9 @@ export default function SharedProjectPage() {
             </Link>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-semibold text-[var(--color-foreground)] truncate">{project.title}</h1>
-              <p className="text-xs text-[var(--color-muted)]">共有された単語帳 ({words.length}語)</p>
+              <p className="text-xs text-[var(--color-muted)]">
+                {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} ({words.length}語)
+              </p>
             </div>
           </div>
         </div>

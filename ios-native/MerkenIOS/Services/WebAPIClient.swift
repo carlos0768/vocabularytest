@@ -317,6 +317,14 @@ private struct UserPreferencesUpdateRequest: Encodable {
     let aiEnabled: Bool
 }
 
+private struct ProfileResponse: Decodable {
+    let username: String?
+}
+
+private struct ProfileUpdateRequest: Encodable {
+    let username: String
+}
+
 private struct ScanImagesRemoveRequest: Encodable {
     let prefixes: [String]
 }
@@ -403,6 +411,7 @@ private struct SharedProjectSummaryDTO: Decodable {
     let accessRole: SharedProjectAccessRole
     let wordCount: Int
     let collaboratorCount: Int
+    let ownerUsername: String?
 }
 
 private struct SharedProjectsResponse: Decodable {
@@ -627,7 +636,8 @@ actor WebAPIClient {
             project: SupabaseMapper.project(from: dto.project),
             accessRole: dto.accessRole,
             wordCount: dto.wordCount,
-            collaboratorCount: dto.collaboratorCount
+            collaboratorCount: dto.collaboratorCount,
+            ownerUsername: dto.ownerUsername
         )
     }
 
@@ -1239,6 +1249,83 @@ actor WebAPIClient {
             return try JSONDecoder().decode(UserPreferencesResponse.self, from: data).aiEnabled
         } catch {
             logger.error("User preferences update decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    // MARK: - Profile
+
+    func fetchProfile(bearerToken: String) async throws -> UserProfile {
+        let (data, http) = try await sendRequest(
+            method: "GET",
+            path: "api/profile",
+            bearerToken: bearerToken,
+            timeout: 15
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            if isLikelyHTML(data) {
+                return UserProfile(userId: "", username: nil)
+            }
+            break
+        case 404, 405:
+            return UserProfile(userId: "", username: nil)
+        case 401:
+            throw WebAPIError.notAuthenticated
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "プロフィールの取得に失敗しました。")
+            )
+        }
+
+        do {
+            let response = try JSONDecoder().decode(ProfileResponse.self, from: data)
+            return UserProfile(userId: "", username: response.username)
+        } catch {
+            logger.error("Profile decode failed: \(error.localizedDescription)")
+            throw WebAPIError.decodeFailed
+        }
+    }
+
+    func updateProfile(
+        username: String,
+        bearerToken: String
+    ) async throws -> UserProfile {
+        let requestBody = try JSONEncoder().encode(ProfileUpdateRequest(username: username))
+        let (data, http) = try await sendRequest(
+            method: "PUT",
+            path: "api/profile",
+            bearerToken: bearerToken,
+            timeout: 15,
+            body: requestBody
+        )
+
+        switch http.statusCode {
+        case 200 ... 299:
+            if isLikelyHTML(data) {
+                return UserProfile(userId: "", username: username)
+            }
+            break
+        case 404, 405:
+            return UserProfile(userId: "", username: username)
+        case 401:
+            throw WebAPIError.notAuthenticated
+        case 400:
+            throw WebAPIError.badRequest(
+                decodeErrorMessage(from: data, fallback: "ユーザー名が不正です。")
+            )
+        default:
+            throw WebAPIError.serverError(
+                decodeErrorMessage(from: data, fallback: "プロフィールの更新に失敗しました。")
+            )
+        }
+
+        do {
+            let response = try JSONDecoder().decode(ProfileResponse.self, from: data)
+            return UserProfile(userId: "", username: response.username)
+        } catch {
+            logger.error("Profile update decode failed: \(error.localizedDescription)")
             throw WebAPIError.decodeFailed
         }
     }

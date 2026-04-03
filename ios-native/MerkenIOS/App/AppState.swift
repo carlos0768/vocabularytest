@@ -133,6 +133,10 @@ final class AppState: ObservableObject {
     @Published private(set) var isLoadingAIPreference = false
     @Published private(set) var isSavingAIPreference = false
     @Published private(set) var aiPreferenceErrorMessage: String?
+    @Published private(set) var username: String?
+    @Published private(set) var isLoadingProfile = false
+    @Published private(set) var isSavingProfile = false
+    @Published private(set) var profileErrorMessage: String?
     @Published var dataVersion = 0
     @Published var selectedTab: Int = 0
     @Published var tabBarVisible: Bool = true
@@ -414,6 +418,8 @@ final class AppState: ObservableObject {
             signUpErrorMessage = nil
             aiPreference = nil
             aiPreferenceErrorMessage = nil
+            username = nil
+            profileErrorMessage = nil
             appStoreLaunchSyncUserId = nil
             selectedTab = 0
             tabBarVisible = true
@@ -431,6 +437,7 @@ final class AppState: ObservableObject {
             authErrorMessage = nil
             await scanJobSyncService.start()
             await refreshUserPreferences(showLoadingIndicator: false)
+            await refreshProfile(showLoadingIndicator: false)
 
             if let currentSession = session,
                appStoreLaunchSyncUserId != currentSession.userId {
@@ -699,6 +706,68 @@ final class AppState: ObservableObject {
         } catch {
             aiPreferenceErrorMessage = error.localizedDescription
             logger.error("Failed to update user preferences: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Profile
+
+    func refreshProfile(showLoadingIndicator: Bool = true) async {
+        guard isLoggedIn else {
+            username = nil
+            profileErrorMessage = nil
+            isLoadingProfile = false
+            isSavingProfile = false
+            return
+        }
+
+        if showLoadingIndicator {
+            isLoadingProfile = true
+        }
+        defer {
+            if showLoadingIndicator {
+                isLoadingProfile = false
+            }
+        }
+
+        do {
+            let profile = try await performWebAPIRequest { token in
+                try await self.webAPIClient.fetchProfile(bearerToken: token)
+            }
+            username = profile.username
+            profileErrorMessage = nil
+        } catch {
+            profileErrorMessage = error.localizedDescription
+            logger.error("Failed to fetch profile: \(error.localizedDescription)")
+        }
+    }
+
+    func setUsername(_ newUsername: String) async -> Bool {
+        guard isLoggedIn else { return false }
+        guard !isSavingProfile else { return false }
+
+        let trimmed = newUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 20 else {
+            profileErrorMessage = "ユーザー名は1〜20文字で入力してください。"
+            return false
+        }
+
+        let previousValue = username
+        username = trimmed
+        isSavingProfile = true
+        defer { isSavingProfile = false }
+
+        do {
+            let updated = try await performWebAPIRequest { token in
+                try await self.webAPIClient.updateProfile(username: trimmed, bearerToken: token)
+            }
+            username = updated.username ?? trimmed
+            profileErrorMessage = nil
+            return true
+        } catch {
+            username = previousValue
+            profileErrorMessage = error.localizedDescription
+            logger.error("Failed to update profile: \(error.localizedDescription)")
+            return false
         }
     }
 

@@ -273,6 +273,11 @@ struct WordPatch: Hashable, Sendable {
     }
 }
 
+struct UserProfile: Codable, Hashable, Sendable {
+    let userId: String
+    var username: String?
+}
+
 struct AuthSession: Codable, Hashable, Sendable {
     let userId: String
     let email: String?
@@ -424,8 +429,17 @@ struct SharedProjectSummary: Identifiable, Hashable, Codable, Sendable {
     let accessRole: SharedProjectAccessRole
     let wordCount: Int
     let collaboratorCount: Int
+    let ownerUsername: String?
 
     var id: String { project.id }
+
+    init(project: Project, accessRole: SharedProjectAccessRole, wordCount: Int, collaboratorCount: Int, ownerUsername: String? = nil) {
+        self.project = project
+        self.accessRole = accessRole
+        self.wordCount = wordCount
+        self.collaboratorCount = collaboratorCount
+        self.ownerUsername = ownerUsername
+    }
 }
 
 struct SharedProjectCatalog: Hashable, Sendable {

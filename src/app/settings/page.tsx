@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon, Button, AppShell } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -20,12 +21,21 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { count: wordCount, loading: wordCountLoading } = useWordCount();
   const {
+    username,
+    loading: profileLoading,
+    saving: profileSaving,
+    error: profileError,
+    setUsername,
+  } = useProfile();
+  const {
     aiEnabled,
     loading: userPreferencesLoading,
     saving: userPreferencesSaving,
     error: userPreferencesError,
     setAiEnabled,
   } = useUserPreferences();
+  const [usernameInput, setUsernameInput] = useState('');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
   const hasCancellationScheduled = !!subscription?.cancelAtPeriodEnd;
   const isBillingPro = isPro && subscription?.proSource === 'billing';
   const isAppStorePro = isPro && subscription?.proSource === 'appstore';
@@ -84,18 +94,17 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-    <div className="min-h-screen pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6">
+    <div className="min-h-screen pb-24 lg:pb-6">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="flex-1">
+      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">設定</h1>
-            <p className="text-sm text-[var(--color-muted)]">アカウント・表示・プラン</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-lg mx-auto px-6 py-4 space-y-6">
         {/* Account - show login prompt or user info */}
         {authLoading ? (
           <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 flex items-center justify-center">
@@ -139,6 +148,83 @@ export default function SettingsPage() {
               </Link>
             </div>
           </div>
+        )}
+
+        {/* Username Settings */}
+        {isAuthenticated && (
+          <section>
+            <h2 className="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3 px-1">
+              プロフィール
+            </h2>
+            <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-[var(--color-foreground)]">ユーザー名</p>
+                  <p className="text-sm text-[var(--color-muted)] mt-1">
+                    共有した単語帳に表示される名前です。
+                  </p>
+                </div>
+                {(profileLoading || profileSaving) && (
+                  <div className="w-5 h-5 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+                )}
+              </div>
+
+              {isEditingUsername ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    maxLength={20}
+                    placeholder="ユーザー名を入力"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={profileSaving || !usernameInput.trim()}
+                      onClick={async () => {
+                        const success = await setUsername(usernameInput);
+                        if (success) setIsEditingUsername(false);
+                      }}
+                    >
+                      {profileSaving ? '保存中...' : '保存'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={profileSaving}
+                      onClick={() => {
+                        setIsEditingUsername(false);
+                        setUsernameInput(username ?? '');
+                      }}
+                    >
+                      キャンセル
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setUsernameInput(username ?? '');
+                    setIsEditingUsername(true);
+                  }}
+                  disabled={profileLoading}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-background)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/30 transition-colors w-full text-left"
+                >
+                  <Icon name="person" size={16} className="text-[var(--color-muted)]" />
+                  <span className={`text-sm flex-1 ${username ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'}`}>
+                    {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名を設定')}
+                  </span>
+                  <Icon name="edit" size={14} className="text-[var(--color-muted)]" />
+                </button>
+              )}
+
+              {profileError && (
+                <p className="text-xs text-[var(--color-error)]">{profileError}</p>
+              )}
+            </div>
+          </section>
         )}
 
         {/* Display Settings */}

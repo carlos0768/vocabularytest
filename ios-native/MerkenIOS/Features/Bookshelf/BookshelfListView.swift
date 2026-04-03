@@ -185,10 +185,15 @@ private struct SharedProjectCard: View {
                         }
                     }
 
-                    Text(summaryText)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                        .lineLimit(2)
+                    if let ownerName = item.ownerUsername, !ownerName.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(ownerName)
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                    }
 
                     HStack(spacing: 10) {
                         SharedProjectMetricLabel(
