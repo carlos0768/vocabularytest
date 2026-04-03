@@ -68,7 +68,7 @@ struct FavoritesView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "heart.slash")
+            Image(systemName: "bookmark.slash")
                 .font(.system(size: 48))
                 .foregroundStyle(MerkenTheme.mutedText)
             Text(viewModel.searchText.isEmpty
@@ -107,7 +107,7 @@ struct FavoritesView: View {
                                     await viewModel.toggleFavorite(word: word, using: appState)
                                 }
                             } label: {
-                                Image(systemName: "heart.fill")
+                                Image(systemName: "bookmark.fill")
                                     .foregroundStyle(MerkenTheme.danger)
                             }
                         }

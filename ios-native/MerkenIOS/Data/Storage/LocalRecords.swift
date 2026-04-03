@@ -59,6 +59,7 @@ final class LocalWordRecord {
     var intervalDays: Int
     var repetition: Int
     var isFavorite: Bool
+    var vocabularyTypeRaw: String?
 
     init(
         id: String,
@@ -81,7 +82,8 @@ final class LocalWordRecord {
         easeFactor: Double,
         intervalDays: Int,
         repetition: Int,
-        isFavorite: Bool
+        isFavorite: Bool,
+        vocabularyTypeRaw: String? = nil
     ) {
         self.id = id
         self.projectId = projectId
@@ -104,5 +106,6 @@ final class LocalWordRecord {
         self.intervalDays = intervalDays
         self.repetition = repetition
         self.isFavorite = isFavorite
+        self.vocabularyTypeRaw = vocabularyTypeRaw
     }
 }

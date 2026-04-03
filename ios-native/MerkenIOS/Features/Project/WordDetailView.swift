@@ -7,6 +7,7 @@ struct WordDetailView: View {
 
     @ObservedObject var viewModel: ProjectDetailViewModel
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var speechPlayer = WordSpeechPlayer()
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var currentWordID: String
@@ -58,7 +59,7 @@ struct WordDetailView: View {
 
                         wordHeaderSection(for: word)
                             .padding(.horizontal, 20)
-                            .padding(.top, 20)
+                            .padding(.top, 68)
                             .padding(.bottom, 16)
 
                         rowDivider
@@ -102,7 +103,7 @@ struct WordDetailView: View {
                 }
                 .disableTopScrollEdgeEffectIfAvailable()
 
-                prevNextOverlay
+
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle")
@@ -120,18 +121,38 @@ struct WordDetailView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if let word = currentWord {
-                ToolbarItem(placement: .topBarTrailing) {
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if let word = currentWord {
                     Button {
                         editorMode = .edit(existing: word)
                     } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                            .frame(width: 44, height: 44)
+                            .background(MerkenTheme.surface, in: .circle)
+                            .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                     }
-                    .accessibilityLabel("単語を編集")
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
         .sheet(item: $editorMode, content: editorSheet)
     }
@@ -146,28 +167,26 @@ struct WordDetailView: View {
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            VStack(alignment: .trailing, spacing: 8) {
-                statusChipButton(label: "学習中", status: .review, color: MerkenTheme.accentBlue, currentStatus: word.status)
-                statusChipButton(label: "習得済", status: .mastered, color: MerkenTheme.success, currentStatus: word.status)
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            statusSegmentedControl(currentStatus: word.status)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    private func statusChipButton(label: String, status: WordStatus, color: Color, currentStatus: WordStatus) -> some View {
-        let isSelected = currentStatus == status
-        return Button {
-            Task { await updateStatus(status, current: currentStatus) }
-        } label: {
-            Text(label)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(isSelected ? .white : color)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(isSelected ? color : Color.clear, in: Capsule())
-                .overlay(Capsule().stroke(color, lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
+    private func statusSegmentedControl(currentStatus: WordStatus) -> some View {
+        let (label, color): (String, Color) = {
+            switch currentStatus {
+            case .new:      return ("未学習", MerkenTheme.mutedText)
+            case .review:   return ("学習中", MerkenTheme.accentBlue)
+            case .mastered: return ("習得済", MerkenTheme.success)
+            }
+        }()
+        return Text(label)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(color.opacity(0.1), in: Capsule())
+            .overlay(Capsule().stroke(color, lineWidth: 1.5))
     }
 
     // MARK: - Pronunciation（データがなくても常に表示）
@@ -205,9 +224,35 @@ struct WordDetailView: View {
             Spacer()
 
             Button {
+                Task { await cycleVocabularyType(for: word) }
+            } label: {
+                switch word.vocabularyType {
+                case .active:
+                    Text("A")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(MerkenTheme.accentBlue, in: Circle())
+                case .passive:
+                    Text("P")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(MerkenTheme.secondaryText.opacity(0.5), in: Circle())
+                case .none:
+                    Text("—")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .frame(width: 28, height: 28)
+                        .overlay(Circle().stroke(MerkenTheme.borderLight, lineWidth: 1.5))
+                }
+            }
+            .buttonStyle(.plain)
+
+            Button {
                 Task { await toggleFavorite(for: word) }
             } label: {
-                Image(systemName: word.isFavorite ? "star.fill" : "star")
+                Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
                     .font(.system(size: 20))
                     .foregroundStyle(word.isFavorite ? Color.yellow : MerkenTheme.mutedText)
             }
@@ -250,7 +295,7 @@ struct WordDetailView: View {
 
             if let exampleSentence = trimmed(word.exampleSentence) {
                 HStack(alignment: .top, spacing: 14) {
-                    highlightedSentence(exampleSentence, keyword: word.english)
+                    Text(highlightedAttributedString(exampleSentence, keyword: word.english))
                         .font(.system(size: 16, weight: .medium))
                         .lineSpacing(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -282,21 +327,72 @@ struct WordDetailView: View {
         }
     }
 
-    private func highlightedSentence(_ sentence: String, keyword: String) -> Text {
-        let lower = sentence.lowercased()
+    private func highlightedAttributedString(_ sentence: String, keyword: String) -> AttributedString {
+        var attributed = AttributedString(sentence)
         let keywordLower = keyword.lowercased()
+        let sentenceLower = sentence.lowercased()
+        var searchStart = sentenceLower.startIndex
 
-        guard let range = lower.range(of: keywordLower) else {
-            return Text(sentence).foregroundColor(MerkenTheme.primaryText)
+        while searchStart < sentenceLower.endIndex,
+              let matchRange = sentenceLower.range(
+                  of: keywordLower,
+                  options: .caseInsensitive,
+                  range: searchStart..<sentenceLower.endIndex
+              ) {
+            // AttributedStringの対応rangeに変換
+            let attrStart = attributed.index(
+                attributed.startIndex,
+                offsetByCharacters: sentenceLower.distance(from: sentenceLower.startIndex, to: matchRange.lowerBound)
+            )
+            let attrEnd = attributed.index(
+                attrStart,
+                offsetByCharacters: sentenceLower.distance(from: matchRange.lowerBound, to: matchRange.upperBound)
+            )
+            attributed[attrStart..<attrEnd].foregroundColor = UIColor(MerkenTheme.accentBlue)
+            attributed[attrStart..<attrEnd].backgroundColor = UIColor(MerkenTheme.accentBlue.opacity(0.15))
+            attributed[attrStart..<attrEnd].font = UIFont.systemFont(ofSize: 16, weight: .bold)
+
+            searchStart = matchRange.upperBound
+        }
+        return attributed
+    }
+
+    private func highlightedSentence(_ sentence: String, keyword: String) -> Text {
+        // 単語のベース形（先頭大文字対応・複数形・ing形なども部分一致でヒット）
+        let keywordLower = keyword.lowercased()
+        let sentenceLower = sentence.lowercased()
+
+        var result = Text("")
+        var searchStart = sentence.startIndex
+
+        while searchStart < sentence.endIndex {
+            guard let matchRange = sentenceLower.range(
+                of: keywordLower,
+                options: [.caseInsensitive],
+                range: searchStart..<sentence.endIndex
+            ) else {
+                // 残りをそのまま追加
+                let remaining = String(sentence[searchStart...])
+                result = result + Text(remaining).foregroundColor(MerkenTheme.primaryText)
+                break
+            }
+
+            // マッチ前のテキスト
+            let before = String(sentence[searchStart..<matchRange.lowerBound])
+            if !before.isEmpty {
+                result = result + Text(before).foregroundColor(MerkenTheme.primaryText)
+            }
+
+            // ハイライト部分
+            let match = String(sentence[matchRange])
+            result = result + Text(match)
+                .bold()
+                .foregroundColor(MerkenTheme.accentBlue)
+
+            searchStart = matchRange.upperBound
         }
 
-        let before = String(sentence[sentence.startIndex..<range.lowerBound])
-        let match = String(sentence[range])
-        let after = String(sentence[range.upperBound...])
-
-        return Text(before).foregroundColor(MerkenTheme.primaryText)
-            + Text(match).bold().foregroundColor(MerkenTheme.accentBlue)
-            + Text(after).foregroundColor(MerkenTheme.primaryText)
+        return result
     }
 
     // MARK: - Related Words (grouped by relation)
@@ -391,51 +487,6 @@ struct WordDetailView: View {
         }
     }
 
-    // MARK: - Prev / Next Navigation
-
-    private var prevNextOverlay: some View {
-        HStack(spacing: 12) {
-            navArrowButton(icon: "chevron.left", enabled: canGoPrev) {
-                guard let idx = currentIndex, idx > 0 else { return }
-                currentWordID = viewModel.words[idx - 1].id
-                MerkenHaptic.selection()
-            }
-
-            navArrowButton(icon: "chevron.right", enabled: canGoNext) {
-                guard let idx = currentIndex, idx < viewModel.words.count - 1 else { return }
-                currentWordID = viewModel.words[idx + 1].id
-                MerkenHaptic.selection()
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-    }
-
-    private func navArrowButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(enabled ? .white : MerkenTheme.mutedText)
-                .frame(width: 48, height: 48)
-                .background(
-                    enabled ? MerkenTheme.accentBlue : MerkenTheme.surface,
-                    in: Circle()
-                )
-                .overlay(
-                    Circle().stroke(
-                        enabled ? Color.clear : MerkenTheme.border,
-                        lineWidth: 1.5
-                    )
-                )
-                .shadow(
-                    color: enabled ? MerkenTheme.accentBlue.opacity(0.3) : Color.clear,
-                    radius: 8, x: 0, y: 4
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-    }
 
     // MARK: - Shared UI
 
@@ -530,6 +581,23 @@ struct WordDetailView: View {
         await viewModel.updateWord(
             wordId: word.id,
             patch: WordPatch(isFavorite: !word.isFavorite),
+            projectId: project.id,
+            using: appState
+        )
+    }
+
+    private func cycleVocabularyType(for word: Word) async {
+        MerkenHaptic.selection()
+        let next: VocabularyType? = {
+            switch word.vocabularyType {
+            case .none: return .active
+            case .active: return .passive
+            case .passive: return nil
+            }
+        }()
+        await viewModel.updateWord(
+            wordId: word.id,
+            patch: WordPatch(vocabularyType: .some(next)),
             projectId: project.id,
             using: appState
         )

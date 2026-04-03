@@ -286,7 +286,7 @@ struct FlashcardView: View {
                                 }
                             }
                         } label: {
-                            Image(systemName: word.isFavorite ? "heart.fill" : "heart")
+                            Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
                                 .font(.system(size: 18))
                                 .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
                                 .frame(width: 36, height: 36)

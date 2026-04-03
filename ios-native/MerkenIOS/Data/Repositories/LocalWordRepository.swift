@@ -159,7 +159,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
                 easeFactor: word.easeFactor,
                 intervalDays: word.intervalDays,
                 repetition: word.repetition,
-                isFavorite: word.isFavorite
+                isFavorite: word.isFavorite,
+                vocabularyTypeRaw: word.vocabularyType?.rawValue
             )
 
             modelContext.insert(record)
@@ -241,6 +242,10 @@ actor LocalWordRepository: WordRepositoryProtocol {
             record.isFavorite = isFavorite
         }
 
+        if let vocabularyType = patch.vocabularyType {
+            record.vocabularyTypeRaw = vocabularyType?.rawValue
+        }
+
         try modelContext.save()
     }
 
@@ -285,7 +290,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
             easeFactor: record.easeFactor,
             intervalDays: record.intervalDays,
             repetition: record.repetition,
-            isFavorite: record.isFavorite
+            isFavorite: record.isFavorite,
+            vocabularyType: record.vocabularyTypeRaw.flatMap { VocabularyType(rawValue: $0) }
         )
     }
 

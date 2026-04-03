@@ -6,6 +6,11 @@ enum WordStatus: String, Codable, CaseIterable, Sendable {
     case mastered
 }
 
+enum VocabularyType: String, Codable, Sendable {
+    case active
+    case passive
+}
+
 enum ProjectShareScope: String, Codable, Sendable {
     case inviteOnly = "private"
     case publicListed = "public"
@@ -135,6 +140,7 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
     var intervalDays: Int
     var repetition: Int
     var isFavorite: Bool
+    var vocabularyType: VocabularyType?
 
     init(
         id: String = UUID().uuidString,
@@ -157,7 +163,8 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
         easeFactor: Double = 2.5,
         intervalDays: Int = 0,
         repetition: Int = 0,
-        isFavorite: Bool = false
+        isFavorite: Bool = false,
+        vocabularyType: VocabularyType? = nil
     ) {
         self.id = id
         self.projectId = projectId
@@ -180,6 +187,7 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
         self.intervalDays = intervalDays
         self.repetition = repetition
         self.isFavorite = isFavorite
+        self.vocabularyType = vocabularyType
     }
 }
 
@@ -196,6 +204,7 @@ struct WordInput: Hashable, Sendable {
     var usagePatterns: [UsagePattern]? = nil
     var insightsGeneratedAt: Date? = nil
     var insightsVersion: Int? = nil
+    var vocabularyType: VocabularyType? = nil
 }
 
 struct WordPatch: Hashable, Sendable {
@@ -217,6 +226,7 @@ struct WordPatch: Hashable, Sendable {
     var intervalDays: Int?
     var repetition: Int?
     var isFavorite: Bool?
+    var vocabularyType: VocabularyType??
 
     static let empty = WordPatch()
 
@@ -238,7 +248,8 @@ struct WordPatch: Hashable, Sendable {
         easeFactor: Double? = nil,
         intervalDays: Int? = nil,
         repetition: Int? = nil,
-        isFavorite: Bool? = nil
+        isFavorite: Bool? = nil,
+        vocabularyType: VocabularyType?? = nil
     ) {
         self.english = english
         self.japanese = japanese
@@ -258,6 +269,7 @@ struct WordPatch: Hashable, Sendable {
         self.intervalDays = intervalDays
         self.repetition = repetition
         self.isFavorite = isFavorite
+        self.vocabularyType = vocabularyType
     }
 }
 

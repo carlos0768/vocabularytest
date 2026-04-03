@@ -352,6 +352,9 @@ actor CloudOfflineCacheStore {
         if let isFavorite = patch.isFavorite {
             record.isFavorite = isFavorite
         }
+        if let vocabularyType = patch.vocabularyType {
+            record.vocabularyTypeRaw = vocabularyType?.rawValue
+        }
 
         record.lastSyncedAt = syncedAt
         record.lastAccessedAt = syncedAt
@@ -486,6 +489,7 @@ actor CloudOfflineCacheStore {
             intervalDays: word.intervalDays,
             repetition: word.repetition,
             isFavorite: word.isFavorite,
+            vocabularyTypeRaw: word.vocabularyType?.rawValue,
             lastSyncedAt: syncedAt,
             lastAccessedAt: markAsAccessed ? syncedAt : word.createdAt,
             sourceVersion: currentSourceVersion
@@ -520,6 +524,7 @@ actor CloudOfflineCacheStore {
         record.intervalDays = word.intervalDays
         record.repetition = word.repetition
         record.isFavorite = word.isFavorite
+        record.vocabularyTypeRaw = word.vocabularyType?.rawValue
         record.lastSyncedAt = syncedAt
         if markAsAccessed {
             record.lastAccessedAt = syncedAt
@@ -565,7 +570,8 @@ actor CloudOfflineCacheStore {
             easeFactor: record.easeFactor,
             intervalDays: record.intervalDays,
             repetition: record.repetition,
-            isFavorite: record.isFavorite
+            isFavorite: record.isFavorite,
+            vocabularyType: record.vocabularyTypeRaw.flatMap { VocabularyType(rawValue: $0) }
         )
     }
 

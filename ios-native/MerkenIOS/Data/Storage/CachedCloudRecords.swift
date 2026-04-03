@@ -69,6 +69,7 @@ final class CachedCloudWordRecord {
     var intervalDays: Int
     var repetition: Int
     var isFavorite: Bool
+    var vocabularyTypeRaw: String?
     var lastSyncedAt: Date
     var lastAccessedAt: Date
     var sourceVersion: Int
@@ -96,6 +97,7 @@ final class CachedCloudWordRecord {
         intervalDays: Int,
         repetition: Int,
         isFavorite: Bool,
+        vocabularyTypeRaw: String? = nil,
         lastSyncedAt: Date,
         lastAccessedAt: Date,
         sourceVersion: Int = 1
@@ -122,6 +124,7 @@ final class CachedCloudWordRecord {
         self.intervalDays = intervalDays
         self.repetition = repetition
         self.isFavorite = isFavorite
+        self.vocabularyTypeRaw = vocabularyTypeRaw
         self.lastSyncedAt = lastSyncedAt
         self.lastAccessedAt = lastAccessedAt
         self.sourceVersion = sourceVersion

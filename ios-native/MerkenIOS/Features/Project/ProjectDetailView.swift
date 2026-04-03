@@ -615,7 +615,7 @@ struct ProjectDetailView: View {
     private var notionColumnHeader: some View {
         HStack(spacing: 0) {
             // Check column header — small grid icon
-            Image(systemName: "circle")
+            Image(systemName: "square.grid.3x1.below.line.grid.1x2")
                 .font(.system(size: 10, weight: .semibold))
                 .frame(width: notionCheckColWidth, alignment: .center)
 
@@ -682,14 +682,22 @@ struct ProjectDetailView: View {
             notionColDivider
 
             // English word — fixed column width, 2-line wrap
-            Text(word.english)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(width: notionEnglishColWidth, alignment: .leading)
-                .padding(.leading, 10)
-                .padding(.vertical, 8)
+            HStack(spacing: 4) {
+                Text(word.english)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if word.isFavorite {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+                notionVocabBadge(for: word)
+            }
+            .frame(width: notionEnglishColWidth, alignment: .leading)
+            .padding(.leading, 10)
+            .padding(.vertical, 8)
 
             notionColDivider
 
@@ -730,6 +738,46 @@ struct ProjectDetailView: View {
         )
     }
 
+    @ViewBuilder
+    private func notionVocabBadge(for word: Word) -> some View {
+        Button {
+            let next: VocabularyType? = {
+                switch word.vocabularyType {
+                case .none: return .active
+                case .active: return .passive
+                case .passive: return nil
+                }
+            }()
+            Task {
+                await viewModel.updateWord(
+                    wordId: word.id,
+                    patch: WordPatch(vocabularyType: .some(next)),
+                    broadcastChanges: false,
+                    projectId: project.id,
+                    using: appState
+                )
+            }
+        } label: {
+            switch word.vocabularyType {
+            case .active:
+                Text("A")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+                    .background(MerkenTheme.accentBlue, in: Circle())
+            case .passive:
+                Text("P")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+                    .background(MerkenTheme.secondaryText.opacity(0.5), in: Circle())
+            case .none:
+                EmptyView()
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     /// 品詞を日本語略称バッジで表示
     @ViewBuilder
     private func notionPosBadge(for word: Word) -> some View {
@@ -765,16 +813,37 @@ struct ProjectDetailView: View {
 
     /// 3マスのチェックボックス（縦並び）。学習状態に応じて自動で塗りつぶし。
     private func notionCheckBoxes(for status: WordStatus) -> some View {
-        let (iconName, color): (String, Color) = {
+        let filledCount: Int = {
             switch status {
-            case .new:      return ("circle",                MerkenTheme.border)
-            case .review:   return ("circle.lefthalf.filled", MerkenTheme.accentBlue)
-            case .mastered: return ("checkmark.circle.fill",  Color.green)
+            case .new:      return 0
+            case .review:   return 1
+            case .mastered: return 3
             }
         }()
-        return Image(systemName: iconName)
-            .font(.system(size: 22, weight: .regular))
-            .foregroundStyle(color)
+        let boxSize: CGFloat = 13
+
+        return VStack(spacing: 0) {
+            ForEach(0..<3, id: \.self) { i in
+                Rectangle()
+                    .fill(i < filledCount ? Color.primary : Color.clear)
+                    .frame(width: boxSize, height: boxSize)
+                    .overlay(
+                        Group {
+                            if i < 2 {
+                                Rectangle()
+                                    .fill(MerkenTheme.border)
+                                    .frame(height: 1)
+                            }
+                        },
+                        alignment: .bottom
+                    )
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(MerkenTheme.border, lineWidth: 1)
+        )
+        .clipShape(.rect(cornerRadius: 3))
     }
 
     // MARK: - Top Buttons Overlay
@@ -788,9 +857,10 @@ struct ProjectDetailView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(Color.black.opacity(0.35), in: .circle)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                 }
 
                 Spacer()
@@ -800,9 +870,10 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(Color.black.opacity(0.35), in: .circle)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
 
@@ -853,9 +924,10 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MerkenTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(Color.black.opacity(0.35), in: .circle)
+                        .background(MerkenTheme.surface, in: .circle)
+                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
                 }
                 .accessibilityIdentifier("moreMenuButton")
             }

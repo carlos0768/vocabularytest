@@ -469,7 +469,7 @@ struct StatsView: View {
                         label: "単語帳"
                     )
                     statsMetricTile(
-                        icon: "heart.fill",
+                        icon: "bookmark.fill",
                         tint: MerkenTheme.danger,
                         value: "\(viewModel.favoriteWords)",
                         label: "苦手単語"

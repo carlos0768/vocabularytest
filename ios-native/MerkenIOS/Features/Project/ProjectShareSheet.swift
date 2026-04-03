@@ -166,35 +166,7 @@ struct ProjectShareSheet: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        shareCard
                         accessSettingsCard
-
-                        HStack(spacing: 14) {
-                            shareActionButton(title: "Instagram", action: shareToInstagram, icon: {
-                                InstagramBrandIcon()
-                            })
-
-                            shareActionButton(
-                                title: "保存",
-                                systemImage: "square.and.arrow.down"
-                            ) {
-                                saveRenderedImage()
-                            }
-
-                            shareActionButton(
-                                title: "共有",
-                                systemImage: "ellipsis"
-                            ) {
-                                openSystemShare()
-                            }
-
-                            shareActionButton(
-                                title: "リンク",
-                                systemImage: "link"
-                            ) {
-                                copyShareLink()
-                            }
-                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 20)
@@ -260,45 +232,6 @@ struct ProjectShareSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 10) {
-                ForEach(metrics) { metric in
-                    VStack(spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .stroke(MerkenTheme.borderLight, lineWidth: 4)
-
-                            Circle()
-                                .trim(from: 0, to: metricProgress(for: metric))
-                                .stroke(metric.tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-
-                            Image(systemName: metric.icon)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(metric.tint)
-                        }
-                        .frame(width: 48, height: 48)
-
-                        VStack(spacing: 3) {
-                            Text("\(metric.count)")
-                                .font(.system(size: 18, weight: .bold))
-                                .monospacedDigit()
-                                .foregroundStyle(MerkenTheme.primaryText)
-                            Text(metric.label)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(MerkenTheme.border, lineWidth: 1)
-                    )
-                }
-            }
         }
         .padding(18)
         .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
@@ -309,8 +242,7 @@ struct ProjectShareSheet: View {
     }
 
     private var accessSettingsCard: some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14) {
                 Text("公開設定")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
@@ -373,7 +305,6 @@ struct ProjectShareSheet: View {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(MerkenTheme.border, lineWidth: 1)
                 )
-            }
         }
     }
 

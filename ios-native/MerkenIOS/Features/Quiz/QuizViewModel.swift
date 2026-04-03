@@ -122,6 +122,13 @@ final class QuizViewModel: ObservableObject {
         }
     }
 
+    @Published var typedAnswer = ""
+    @Published private(set) var typingCorrect: Bool?
+
+    var isActiveVocab: Bool {
+        currentQuestion?.word.vocabularyType == .active
+    }
+
     func answer(index: Int, projectId: String, using state: AppState) {
         guard stage == .playing,
               !isRevealed,
@@ -133,7 +140,6 @@ final class QuizViewModel: ObservableObject {
 
         let isCorrect = index == question.correctIndex
 
-        // Haptic feedback: light for correct, heavy for wrong
         let generator = UIImpactFeedbackGenerator(style: isCorrect ? .light : .heavy)
         generator.impactOccurred()
 
@@ -143,8 +149,29 @@ final class QuizViewModel: ObservableObject {
 
         let patch = QuizEngine.statusPatch(for: question.word, isCorrect: isCorrect)
         pendingWordPatches[question.word.id] = patch
+    }
 
-        // Don't auto-advance — always wait for user to tap "次へ"
+    func submitTypingAnswer(projectId: String, using state: AppState) {
+        guard stage == .playing,
+              !isRevealed,
+              let question = currentQuestion
+        else { return }
+
+        let trimmed = typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isCorrect = trimmed.lowercased() == question.word.english.lowercased()
+
+        typingCorrect = isCorrect
+        isRevealed = true
+
+        let generator = UIImpactFeedbackGenerator(style: isCorrect ? .light : .heavy)
+        generator.impactOccurred()
+
+        if isCorrect {
+            correctCount += 1
+        }
+
+        let patch = QuizEngine.statusPatch(for: question.word, isCorrect: isCorrect)
+        pendingWordPatches[question.word.id] = patch
     }
 
     func moveNext(projectId: String, using state: AppState) {
@@ -175,6 +202,8 @@ final class QuizViewModel: ObservableObject {
         currentIndex += 1
         selectedIndex = nil
         isRevealed = false
+        typedAnswer = ""
+        typingCorrect = nil
     }
 
     func restart(projectId: String, using state: AppState) async {
@@ -190,6 +219,8 @@ final class QuizViewModel: ObservableObject {
         correctCount = 0
         pendingWordPatches = [:]
         preparingQuiz = false
+        typedAnswer = ""
+        typingCorrect = nil
     }
 
     func flushPendingUpdatesIfNeeded(using state: AppState) async {
@@ -253,7 +284,8 @@ final class QuizViewModel: ObservableObject {
                 easeFactor: current.word.easeFactor,
                 intervalDays: current.word.intervalDays,
                 repetition: current.word.repetition,
-                isFavorite: updatedFavorite
+                isFavorite: updatedFavorite,
+                vocabularyType: current.word.vocabularyType
             )
 
             questions[currentIndex] = QuizQuestion(
