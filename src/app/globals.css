@@ -98,6 +98,13 @@
 
 /* ===== Base Styles ===== */
 
+*,
+*::before,
+*::after {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
@@ -215,7 +222,8 @@ body {
   font-weight: 600;
   border-radius: var(--radius-lg);
   padding: 1rem 1.5rem;
-  transition: all 0.15s ease;
+  transition: opacity 0.1s ease, transform 0.1s ease;
+  will-change: transform;
 }
 
 .btn-primary:hover {
@@ -224,6 +232,7 @@ body {
 
 .btn-primary:active {
   opacity: 0.8;
+  transform: scale(0.97);
 }
 
 .btn-secondary {
@@ -232,7 +241,8 @@ body {
   font-weight: 500;
   border-radius: var(--radius-lg);
   padding: 1rem 1.5rem;
-  transition: all 0.15s ease;
+  transition: opacity 0.1s ease, transform 0.1s ease, background 0.1s ease;
+  will-change: transform;
 }
 
 .btn-secondary:hover {
@@ -241,6 +251,7 @@ body {
 
 .btn-secondary:active {
   opacity: 0.8;
+  transform: scale(0.97);
 }
 
 /* ===== Card Styles ===== */
@@ -249,15 +260,25 @@ body {
   background: var(--color-surface);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
+  transition: transform 0.1s ease;
+}
+
+.card:has(> a):active {
+  transform: scale(0.98);
 }
 
 .card-interactive {
-  transition: all 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  will-change: transform;
 }
 
 .card-interactive:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.1);
+}
+
+.card-interactive:active {
+  transform: scale(0.98);
 }
 
 /* ===== Header Film ===== */
@@ -291,7 +312,8 @@ body {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  transition: all 0.15s ease;
+  transition: transform 0.1s ease, opacity 0.1s ease, background 0.1s ease;
+  will-change: transform;
 }
 
 .quiz-option:hover:not(:disabled) {
@@ -299,7 +321,8 @@ body {
 }
 
 .quiz-option:active:not(:disabled) {
-  opacity: 0.8;
+  transform: scale(0.98);
+  opacity: 0.85;
 }
 
 .quiz-option-label {
@@ -492,7 +515,7 @@ body {
 
 .bottom-nav-inner {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
   max-width: 520px;
   margin: 0 auto;
@@ -505,7 +528,7 @@ body {
   justify-content: center;
   gap: 0.25rem;
   color: var(--color-muted);
-  transition: color 0.2s ease;
+  transition: color 0.15s ease, transform 0.1s ease;
   font-size: 0.7rem;
   font-weight: 600;
 }
@@ -516,6 +539,10 @@ body {
 
 .bottom-nav-item:hover {
   color: var(--color-foreground);
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.9);
 }
 
 
