@@ -5,6 +5,20 @@ import Link from 'next/link';
 import { AppShell, Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 
+interface SharedProjectSummary {
+  project: {
+    id: string;
+    title: string;
+    shareId?: string | null;
+    shareScope?: string | null;
+    createdAt: string;
+  };
+  accessRole: 'owner' | 'editor' | 'viewer';
+  wordCount: number;
+  collaboratorCount: number;
+  ownerUsername?: string | null;
+}
+
 interface SharedProject {
   id: string;
   title: string;
@@ -12,6 +26,7 @@ interface SharedProject {
   memberCount: number;
   shareCode: string;
   isOwner: boolean;
+  ownerUsername?: string | null;
   createdAt: string;
 }
 
@@ -30,9 +45,32 @@ export default function SharedPage() {
     fetch('/api/shared-projects')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.projects)) {
-          setProjects(data.projects);
-        }
+        if (!data.success) return;
+
+        const owned: SharedProjectSummary[] = data.owned ?? [];
+        const joined: SharedProjectSummary[] = data.joined ?? [];
+        const publicList: SharedProjectSummary[] = data.public ?? [];
+
+        const allSummaries = [...owned, ...joined, ...publicList];
+        const seen = new Set<string>();
+        const deduped = allSummaries.filter((s) => {
+          if (seen.has(s.project.id)) return false;
+          seen.add(s.project.id);
+          return true;
+        });
+
+        setProjects(
+          deduped.map((s) => ({
+            id: s.project.id,
+            title: s.project.title,
+            wordCount: s.wordCount,
+            memberCount: s.collaboratorCount,
+            shareCode: s.project.shareId ?? '',
+            isOwner: s.accessRole === 'owner',
+            ownerUsername: s.ownerUsername,
+            createdAt: s.project.createdAt,
+          })),
+        );
       })
       .catch((err) => {
         console.error('Failed to load shared projects:', err);
@@ -108,7 +146,7 @@ export default function SharedPage() {
                           </div>
                         </div>
                         <span className="shrink-0 px-3 py-1 rounded-full bg-green-50 text-green-600 text-xs font-semibold border border-green-200">
-                          公開中
+                          {project.isOwner ? '自分の' : '公開中'}
                         </span>
                         <Icon name="chevron_right" size={20} className="text-[var(--color-muted)] shrink-0" />
                       </Link>
