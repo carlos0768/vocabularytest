@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -26,10 +26,10 @@ const navItems: NavItem[] = [
     matchPaths: ['/projects', '/project'],
   },
   {
-    href: '/collections',
-    icon: 'shelves',
-    label: '本棚',
-    matchPaths: ['/collections'],
+    href: '/shared',
+    icon: 'group',
+    label: '共有',
+    matchPaths: ['/shared'],
   },
   {
     href: '/search',
@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
   {
     href: '/stats',
     icon: 'bar_chart',
-    label: '統計',
+    label: '進歩',
     matchPaths: ['/stats'],
   },
   {
@@ -65,15 +65,10 @@ export function Sidebar() {
 
   return (
     <aside className="hidden lg:flex flex-col w-[280px] h-screen fixed left-0 top-0 bg-[var(--color-surface)] border-r border-[var(--color-border)] z-40">
-      {/* Logo */}
       <div className="px-6 py-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-          <Icon name="school" size={22} className="text-white" />
-        </div>
-        <span className="text-xl font-bold text-[var(--color-foreground)] font-display">MERKEN</span>
+        <span className="text-2xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</span>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-4 py-2 space-y-1">
         {navItems.map((item) => {
           const active = isActive(item);
@@ -84,7 +79,7 @@ export function Sidebar() {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 active
-                  ? 'bg-primary/10 text-primary'
+                  ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
                   : 'text-[var(--color-muted)] hover:bg-[var(--color-border-light)] hover:text-[var(--color-foreground)]'
               )}
             >
@@ -92,7 +87,7 @@ export function Sidebar() {
                 name={item.icon}
                 filled={active}
                 size={22}
-                className={active ? 'text-primary' : ''}
+                className={active ? 'text-[var(--color-foreground)]' : ''}
               />
               <span>{item.label}</span>
             </Link>
@@ -100,9 +95,14 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom section */}
       <div className="px-4 py-4 border-t border-[var(--color-border)]">
-        <p className="text-xs text-[var(--color-muted)] px-3">手入力ゼロで単語帳を作成</p>
+        <Link
+          href="/scan"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm transition-opacity hover:opacity-90"
+        >
+          <Icon name="add" size={18} />
+          新規スキャン
+        </Link>
       </div>
     </aside>
   );

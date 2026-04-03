@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
-/* ===== MERKEN Design System (Stitch Blue) ===== */
+/* ===== MERKEN Design System (iOS-aligned) ===== */
 
 :root {
-  /* Primary Colors */
-  --color-primary: #137fec;
-  --color-primary-dark: #0d6ecc;
-  --color-primary-light: #e8f2fd;
+  /* Primary Colors — neutral/black based (matching iOS) */
+  --color-primary: #111418;
+  --color-primary-dark: #000000;
+  --color-primary-light: #f3f4f6;
+
+  /* Accent — green for success states */
+  --color-accent: #22c55e;
 
   /* Semantic Colors */
   --color-success: #22c55e;
@@ -17,42 +20,44 @@
   --color-warning-light: #fef3c7;
 
   /* Neutral Colors */
-  --color-background: #f6f7f8;
+  --color-background: #FFFFFF;
   --color-surface: #FFFFFF;
+  --color-surface-secondary: #f5f5f5;
   --color-foreground: #111418;
-  --color-muted: #6b7280;
+  --color-muted: #9ca3af;
 
   /* Border & Shadow */
   --color-border: #e5e7eb;
   --color-border-light: #f3f4f6;
 
-  /* Dot grid */
-  --color-dot: #6b7280;
+  /* Project detail header gradient */
+  --color-project-header-from: #dc2626;
+  --color-project-header-to: #b91c1c;
 
   /* Hero (dashboard) */
-  --color-hero: #137fec;
-  --color-hero-btn: #ffffff;
-  --color-hero-btn-text: #137fec;
-  --color-hero-btn-border: #d1d5db;
+  --color-hero: #111418;
+  --color-hero-btn: #111418;
+  --color-hero-btn-text: #ffffff;
+  --color-hero-btn-border: #111418;
 }
 
 .dark {
   --color-background: #111418;
   --color-surface: #1e242b;
+  --color-surface-secondary: #161a1f;
   --color-foreground: #f1f3f5;
   --color-muted: #9dabb9;
   --color-border: #283039;
   --color-border-light: #1e242b;
-  --color-primary-light: #1a2e45;
+  --color-primary: #f1f3f5;
+  --color-primary-light: #1e242b;
   --color-success-light: #14291e;
   --color-error-light: #2e1a1a;
   --color-warning-light: #2e2a1a;
-  --color-dot: #1a1e23;
 
-  /* Hero (dashboard) — dark blue gradient base */
-  --color-hero: #142947;
+  --color-hero: #1e242b;
   --color-hero-btn: #ffffff;
-  --color-hero-btn-text: #142947;
+  --color-hero-btn-text: #1e242b;
   --color-hero-btn-border: rgba(255, 255, 255, 0.3);
 }
 
@@ -61,6 +66,7 @@
   --color-primary: var(--color-primary);
   --color-primary-dark: var(--color-primary-dark);
   --color-primary-light: var(--color-primary-light);
+  --color-accent: var(--color-accent);
   --color-success: var(--color-success);
   --color-success-light: var(--color-success-light);
   --color-error: var(--color-error);
@@ -69,13 +75,14 @@
   --color-warning-light: var(--color-warning-light);
   --color-background: var(--color-background);
   --color-surface: var(--color-surface);
+  --color-surface-secondary: var(--color-surface-secondary);
   --color-foreground: var(--color-foreground);
   --color-muted: var(--color-muted);
   --color-border: var(--color-border);
   --color-border-light: var(--color-border-light);
 
   /* Fonts */
-  --font-display: 'Lexend', var(--font-zen-maru), 'Noto Sans JP', sans-serif;
+  --font-display: 'Lexend', 'Noto Sans JP', sans-serif;
   --font-body: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
   --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
@@ -179,63 +186,61 @@ body {
 }
 
 .shadow-glow {
-  box-shadow: 0 10px 22px rgba(19, 127, 236, 0.25);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
 }
 
 .shadow-glow-lg {
-  box-shadow: 0 16px 30px rgba(19, 127, 236, 0.3);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.15);
 }
 
 /* ===== Gradient Utilities ===== */
 
 .bg-gradient-primary {
-  background: #137fec;
+  background: var(--color-primary);
 }
 
 .bg-gradient-primary-horizontal {
-  background: #137fec;
+  background: var(--color-primary);
+}
+
+.bg-gradient-project {
+  background: linear-gradient(135deg, var(--color-project-header-from), var(--color-project-header-to));
 }
 
 /* ===== Button Styles ===== */
 
 .btn-primary {
-  background: #137fec;
+  background: var(--color-foreground);
   color: white;
   font-weight: 600;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   padding: 1rem 1.5rem;
-  border-bottom: 3px solid #0a5bbd;
   transition: all 0.15s ease;
 }
 
 .btn-primary:hover {
-  background: #0d6ecc;
+  opacity: 0.9;
 }
 
 .btn-primary:active {
-  border-bottom-width: 1px;
-  margin-top: 2px;
+  opacity: 0.8;
 }
 
 .btn-secondary {
-  background: var(--color-surface);
+  background: var(--color-surface-secondary);
   color: var(--color-foreground);
   font-weight: 500;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   padding: 1rem 1.5rem;
-  border: 2px solid var(--color-border);
-  border-bottom-width: 4px;
   transition: all 0.15s ease;
 }
 
 .btn-secondary:hover {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
+  background: var(--color-border-light);
 }
 
 .btn-secondary:active {
-  border-bottom-width: 2px;
-  margin-top: 2px;
+  opacity: 0.8;
 }
 
 /* ===== Card Styles ===== */
@@ -244,7 +249,6 @@ body {
   background: var(--color-surface);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
 .card-interactive {
@@ -284,20 +288,18 @@ body {
   width: 100%;
   padding: 0.25rem;
   padding-right: 1.25rem;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-bottom-width: 4px;
+  border: 1px solid var(--color-border);
   transition: all 0.15s ease;
 }
 
 .quiz-option:hover:not(:disabled) {
-  border-color: var(--color-border);
+  background: var(--color-surface-secondary);
 }
 
 .quiz-option:active:not(:disabled) {
-  border-bottom-width: 2px;
-  margin-top: 2px;
+  opacity: 0.8;
 }
 
 .quiz-option-label {
@@ -318,8 +320,6 @@ body {
 .quiz-option-correct {
   background: var(--color-success);
   border-color: #16a34a;
-  border-bottom-width: 4px;
-  margin-top: 0;
 }
 
 .quiz-option-correct .quiz-option-label {
@@ -330,8 +330,6 @@ body {
 .quiz-option-wrong {
   background: var(--color-error);
   border-color: #b91c1c;
-  border-bottom-width: 4px;
-  margin-top: 0;
 }
 
 .quiz-option-wrong .quiz-option-label {
@@ -350,7 +348,7 @@ body {
 
 .progress-bar-fill {
   height: 100%;
-  background: #137fec;
+  background: var(--color-foreground);
   border-radius: var(--radius-full);
   transition: width 0.5s ease-out;
 }
@@ -374,7 +372,7 @@ body {
 }
 
 .chip-pro {
-  background: #137fec;
+  background: var(--color-foreground);
   color: white;
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
@@ -494,7 +492,7 @@ body {
 
 .bottom-nav-inner {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   max-width: 520px;
   margin: 0 auto;
@@ -513,11 +511,11 @@ body {
 }
 
 .bottom-nav-item.active {
-  color: var(--color-primary);
+  color: var(--color-foreground);
 }
 
 .bottom-nav-item:hover {
-  color: var(--color-primary);
+  color: var(--color-foreground);
 }
 
 
@@ -686,4 +684,50 @@ body {
 
 .dark .notebook-section-divider {
   border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== FAB (Floating Action Button) ===== */
+
+.fab {
+  position: fixed;
+  bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  right: 1rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--color-foreground);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 51;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+/* ===== Circular Progress ===== */
+
+.circular-progress {
+  transform: rotate(-90deg);
+}
+
+.circular-progress-bg {
+  fill: none;
+  stroke: var(--color-border);
+}
+
+.circular-progress-fill {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
 }

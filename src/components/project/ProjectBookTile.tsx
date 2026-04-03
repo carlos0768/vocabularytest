@@ -120,7 +120,7 @@ export function ProjectBookTile({
       <Link
         href={`/project/${project.id}`}
         prefetch={false}
-        className={`block rounded-xl border-2 border-b-4 bg-[var(--color-surface)] p-3 pb-2.5 active:border-b-2 active:mt-[2px] transition-all ${
+        className={`block rounded-xl border bg-[var(--color-surface)] p-3 pb-2.5 active:opacity-80 transition-all ${
           hasProgress
             ? 'border-[var(--color-success)]'
             : 'border-[var(--color-border)]'

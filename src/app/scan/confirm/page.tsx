@@ -520,119 +520,84 @@ export default function ConfirmPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pb-32">
-      {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40">
-        <div className="max-w-lg mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 hover:bg-[var(--color-primary-light)] rounded-md transition-colors"
-            >
-              <Icon name="arrow_back" size={20} className="text-[var(--color-muted)]" />
-            </button>
-            <h1 className="text-lg font-semibold text-[var(--color-foreground)]">
-              {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
-            </h1>
-          </div>
+      {/* iOS-style header */}
+      <header className="sticky top-0 bg-[var(--color-background)] z-40 border-b border-[var(--color-border-light)]">
+        <div className="max-w-lg mx-auto px-5 py-4 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+          >
+            <Icon name="chevron_left" size={24} className="text-[var(--color-foreground)]" />
+          </button>
+          <h1 className="text-lg font-bold text-[var(--color-foreground)] flex-1">
+            {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
+          </h1>
+          <button
+            onClick={handleAddManualWord}
+            className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+          >
+            <Icon name="add" size={20} className="text-[var(--color-foreground)]" />
+          </button>
         </div>
       </header>
 
-      {/* Limit warning banner */}
+      {/* Limit warning */}
       {showLimitWarning && (
         <div className="bg-[var(--color-warning-light)] border-b border-[var(--color-border)]">
-          <div className="max-w-lg mx-auto px-4 py-3">
+          <div className="max-w-lg mx-auto px-5 py-3">
             <div className="flex items-start gap-3">
               <Icon name="warning" size={20} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-[var(--color-foreground)]">
-                  単語数が上限に近づいています
-                </p>
+                <p className="text-sm font-medium text-[var(--color-foreground)]">単語数が上限に近づいています</p>
                 <p className="text-xs text-[var(--color-muted)] mt-1">
-                  現在: {currentWordCount}語 / 上限: {FREE_WORD_LIMIT}語
-                  <br />
+                  現在: {currentWordCount}語 / 上限: {FREE_WORD_LIMIT}語　
                   今回: +{selectedCount}語 → 合計{currentWordCount + selectedCount}語
-                  {excessCount > 0 && (
-                    <span className="text-[var(--color-error)] font-medium">
-                      （{excessCount}語超過）
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-[var(--color-muted)] mt-2">
-                  保存できる単語を<span className="font-medium">{availableSlots}語</span>まで選んでください。
+                  {excessCount > 0 && <span className="text-[var(--color-error)] font-medium"> （{excessCount}語超過）</span>}
                 </p>
               </div>
-            </div>
-
-            {/* Pro upgrade mini card */}
-            <div className="mt-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] p-3 flex items-center justify-between border border-[var(--color-border)]">
-              <div className="flex items-center gap-2">
-                <Icon name="auto_awesome" size={16} className="text-[var(--color-primary)]" />
-                <span className="text-sm text-[var(--color-foreground)]">Proなら単語数無制限</span>
-              </div>
-              <Link href="/subscription">
-                <Button size="sm" variant="secondary">
-                  詳しく見る
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main content */}
-      <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Project title input - only for new projects */}
+      <main className="max-w-lg mx-auto px-5 pt-5">
+        {/* Project title input */}
         {!isAddingToExisting && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">
-              単語帳名
-            </label>
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">単語帳名</label>
             <input
               type="text"
               value={projectTitle}
               onChange={(e) => setProjectTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-background)] focus:bg-[var(--color-surface)]"
+              className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] focus:ring-2 focus:ring-[var(--color-foreground)]/20 outline-none bg-[var(--color-surface-secondary)]"
               placeholder="例: ノート P21-23"
             />
           </div>
         )}
 
-        {/* Word count and add button */}
+        {/* Stats bar */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-medium text-[var(--color-muted)]">
-            抽出された単語
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${showLimitWarning && excessCount > 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-primary)]'}`}>
-              {selectedCount}語選択中
-              {!isPro && ` / 残り${availableSlots}語`}
-            </span>
-            <button
-              onClick={handleAddManualWord}
-              className="p-1.5 hover:bg-[var(--color-primary-light)] rounded-full transition-colors text-[var(--color-primary)]"
-              title="手で入力"
-            >
-              <Icon name="add" size={20} />
-            </button>
-          </div>
+          <p className="text-sm text-[var(--color-muted)]">
+            {selectedCount}語選択中{!isPro && ` / 残り${availableSlots}語`}
+          </p>
         </div>
 
-        {/* Word list */}
-        <div className="space-y-3">
-          {words.map((word) => (
-            <WordCard
-              key={`${word.tempId}:${word.english}:${word.japanese}`}
-              word={word}
-              showCheckbox={!isPro && showLimitWarning}
-              onToggle={() => handleToggleWord(word.tempId)}
-              onDelete={() => handleDeleteWord(word.tempId)}
-              onEdit={() => handleEditWord(word.tempId)}
-              onSave={(english, japanese) =>
-                handleSaveWord(word.tempId, english, japanese)
-              }
-              onCancel={() => handleCancelEdit(word.tempId)}
-            />
-          ))}
+        {/* Word list - iOS table style with checkboxes */}
+        <div className="card overflow-hidden">
+          <div className="divide-y divide-[var(--color-border-light)]">
+            {words.map((word) => (
+              <WordCard
+                key={`${word.tempId}:${word.english}:${word.japanese}`}
+                word={word}
+                showCheckbox={!isPro && showLimitWarning}
+                onToggle={() => handleToggleWord(word.tempId)}
+                onDelete={() => handleDeleteWord(word.tempId)}
+                onEdit={() => handleEditWord(word.tempId)}
+                onSave={(english, japanese) => handleSaveWord(word.tempId, english, japanese)}
+                onCancel={() => handleCancelEdit(word.tempId)}
+              />
+            ))}
+          </div>
         </div>
 
         {words.length === 0 && (
@@ -642,33 +607,18 @@ export default function ConfirmPage() {
         )}
       </main>
 
-      {/* Bottom action bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-background)]/95 p-4 safe-area-bottom border-t border-[var(--color-border-light)]">
+      {/* Bottom action bar - iOS style */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-4 safe-area-bottom z-40">
         <div className="max-w-lg mx-auto">
-          <Button
+          <button
             onClick={handleSaveProject}
             disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
-            className="w-full"
-            size="lg"
+            className="w-full py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50 transition-opacity"
           >
-            {saving ? (
-              '保存中...'
-            ) : isAddingToExisting ? (
-              <>
-                <Icon name="add" size={20} className="mr-2" />
-                {selectedCount}語を追加
-              </>
-            ) : (
-              <>
-                <Icon name="check" size={20} className="mr-2" />
-                {selectedCount}語を保存して学習を始める
-              </>
-            )}
-          </Button>
+            {saving ? '保存中...' : isAddingToExisting ? `${selectedCount}語を追加` : `単語帳として追加 (${selectedCount}語)`}
+          </button>
           {!isPro && excessCount > 0 && (
-            <p className="text-xs text-[var(--color-error)] text-center mt-2">
-              {excessCount}語減らしてください
-            </p>
+            <p className="text-xs text-[var(--color-error)] text-center mt-2">{excessCount}語減らしてください</p>
           )}
         </div>
       </div>
@@ -699,49 +649,30 @@ function WordCard({
 
   if (word.isEditing) {
     return (
-      <div className="bg-[var(--color-primary-light)] rounded-[var(--radius-lg)] p-4">
+      <div className="bg-[var(--color-surface-secondary)] p-4">
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
-              英単語
-            </label>
-            <input
-              type="text"
-              value={english}
-              onChange={(e) => setEnglish(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none text-base bg-[var(--color-surface)]"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
-              日本語訳
-            </label>
-            <input
-              type="text"
-              value={japanese}
-              onChange={(e) => setJapanese(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none text-sm bg-[var(--color-surface)]"
-            />
-          </div>
+          <input
+            type="text"
+            value={english}
+            onChange={(e) => setEnglish(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--color-foreground)]/20"
+            autoFocus
+            placeholder="英単語"
+          />
+          <input
+            type="text"
+            value={japanese}
+            onChange={(e) => setJapanese(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-foreground)]/20"
+            placeholder="日本語訳"
+          />
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onCancel}
-              className="flex-1"
-            >
-              <Icon name="close" size={16} className="mr-1" />
+            <button onClick={onCancel} className="flex-1 py-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-muted)]">
               キャンセル
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => onSave(english, japanese)}
-              className="flex-1"
-            >
-              <Icon name="save" size={16} className="mr-1" />
+            </button>
+            <button onClick={() => onSave(english, japanese)} className="flex-1 py-2 rounded-xl bg-[var(--color-foreground)] text-white text-sm font-semibold">
               保存
-            </Button>
+            </button>
           </div>
         </div>
       </div>
@@ -749,51 +680,30 @@ function WordCard({
   }
 
   return (
-    <div
-      className={`rounded-[var(--radius-lg)] p-4 group transition-colors ${
-        word.isSelected
-          ? 'bg-[var(--color-surface)] hover:bg-[var(--color-primary-light)]'
-          : 'bg-[var(--color-border-light)] opacity-50'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {/* Checkbox */}
-        {showCheckbox && (
-          <button
-            onClick={onToggle}
-            className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-              word.isSelected
-                ? 'bg-[var(--color-primary)] border-[var(--color-primary)]'
-                : 'border-[var(--color-border)] hover:border-[var(--color-border)]'
-            }`}
-          >
-            {word.isSelected && <Icon name="check" size={12} className="text-white" />}
-          </button>
-        )}
-
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-[var(--color-foreground)]">
-            {word.english}
-          </p>
-          <p className="text-sm text-[var(--color-muted)] mt-0.5">{word.japanese}</p>
-        </div>
-
-        <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={onEdit}
-            className="p-1.5 hover:bg-[var(--color-primary-light)] rounded-md transition-colors"
-            title="編集"
-          >
-            <Icon name="edit" size={16} className="text-[var(--color-muted)]" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1.5 hover:bg-[var(--color-error-light)] rounded-md transition-colors"
-            title="削除"
-          >
-            <Icon name="delete" size={16} className="text-[var(--color-error)]" />
-          </button>
-        </div>
+    <div className={`px-4 py-3.5 flex items-center gap-3 group ${!word.isSelected ? 'opacity-50' : ''}`}>
+      {showCheckbox && (
+        <button
+          onClick={onToggle}
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+            word.isSelected
+              ? 'bg-[var(--color-foreground)] border-[var(--color-foreground)]'
+              : 'border-[var(--color-border)]'
+          }`}
+        >
+          {word.isSelected && <Icon name="check" size={12} className="text-white" />}
+        </button>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-[var(--color-foreground)]">{word.english}</p>
+        <p className="text-sm text-[var(--color-muted)]">{word.japanese}</p>
+      </div>
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={onEdit} className="p-1.5 rounded-md active:bg-[var(--color-surface-secondary)]">
+          <Icon name="edit" size={16} className="text-[var(--color-muted)]" />
+        </button>
+        <button onClick={onDelete} className="p-1.5 rounded-md active:bg-[var(--color-error-light)]">
+          <Icon name="delete" size={16} className="text-[var(--color-error)]" />
+        </button>
       </div>
     </div>
   );

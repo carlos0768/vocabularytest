@@ -1,10 +1,10 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
-import { ProjectBookTile } from '@/components/project/ProjectBookTile';
+import { ProjectCard } from '@/components/project/ProjectCard';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
@@ -234,7 +234,7 @@ export default function ProjectsPage() {
           </div>
           <Link
             href="/scan"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-sm font-semibold border-2 border-[var(--color-primary)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-foreground)] text-white text-sm font-semibold active:opacity-80 transition-all"
           >
             <Icon name="add" size={16} />
             新規スキャン
@@ -265,8 +265,8 @@ export default function ProjectsPage() {
                 onClick={() => setSortBy(key)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   sortBy === key
-                    ? 'bg-[var(--color-primary)] text-white border-b-[3px] border-[#0a5bbd] active:border-b-[1px] active:mt-[2px]'
-                    : 'bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-[3px] text-[var(--color-muted)] hover:border-[var(--color-primary)]/30 active:border-b-[1px] active:mt-[2px]'
+                    ? 'bg-[var(--color-foreground)] text-white'
+                    : 'bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
                 }`}
               >
                 <Icon name={icon} size={14} />
@@ -303,16 +303,13 @@ export default function ProjectsPage() {
                   <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
                   <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                <div className="space-y-3">
                   {favorites.map((project) => (
-                    <ProjectBookTile
+                    <ProjectCard
                       key={project.id}
                       project={project}
-                      wordCount={project.totalWords}
-                      masteredCount={project.masteredWords}
-                      progress={project.progress}
-                      onDelete={(id) => handleDeleteProject(id)}
-                      onToggleFavorite={handleToggleProjectFavorite}
+                      totalWords={project.totalWords}
+                      masteredWords={project.masteredWords}
                     />
                   ))}
                 </div>
@@ -324,16 +321,13 @@ export default function ProjectsPage() {
                 <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div className="space-y-3">
                 {filtered.map((project) => (
-                  <ProjectBookTile
+                  <ProjectCard
                     key={project.id}
                     project={project}
-                    wordCount={project.totalWords}
-                    masteredCount={project.masteredWords}
-                    progress={project.progress}
-                    onDelete={(id) => handleDeleteProject(id)}
-                    onToggleFavorite={handleToggleProjectFavorite}
+                    totalWords={project.totalWords}
+                    masteredWords={project.masteredWords}
                   />
                 ))}
               </div>
