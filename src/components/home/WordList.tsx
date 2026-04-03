@@ -3,7 +3,62 @@
 import { useState, useMemo } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui';
-import type { Word } from '@/types';
+import type { Word, WordStatus } from '@/types';
+
+function nextStatus(current: WordStatus): WordStatus {
+  if (current === 'new') return 'review';
+  if (current === 'review') return 'mastered';
+  return 'new';
+}
+
+const STATUS_COLORS: Record<WordStatus, string> = {
+  new: 'var(--color-muted)',
+  review: 'var(--color-primary)',
+  mastered: 'var(--color-success, #22c55e)',
+};
+
+function NotionCheckbox({ status, onClick }: { status: WordStatus; onClick: () => void }) {
+  const filledCount = status === 'new' ? 0 : status === 'review' ? 1 : 3;
+  const color = STATUS_COLORS[status];
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済'}`}
+      title={status === 'new' ? '未学習 → 学習中' : status === 'review' ? '学習中 → 習得済' : '習得済 → 未学習'}
+      className="flex-shrink-0 p-1 rounded hover:bg-[var(--color-surface)] transition-colors"
+      style={{ lineHeight: 0 }}
+    >
+      <div
+        className="relative rounded-sm overflow-hidden"
+        style={{
+          width: 14,
+          height: 42,
+          border: `1.5px solid var(--color-border)`,
+          borderRadius: 3,
+        }}
+      >
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              top: i * 14,
+              left: 0,
+              width: '100%',
+              height: 14,
+              background: i < filledCount ? color : 'transparent',
+              transition: 'background 0.15s ease',
+            }}
+          />
+        ))}
+      </div>
+    </button>
+  );
+}
 
 interface WordItemProps {
   word: Word & { projectTitle?: string };
@@ -13,6 +68,7 @@ interface WordItemProps {
   onSave: (english: string, japanese: string) => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
+  onStatusChange?: () => void;
   showProjectName?: boolean;
 }
 
@@ -24,6 +80,7 @@ function WordItem({
   onSave,
   onDelete,
   onToggleFavorite,
+  onStatusChange,
   showProjectName = false,
 }: WordItemProps) {
   const [editEnglish, setEditEnglish] = useState(word.english);
@@ -69,7 +126,10 @@ function WordItem({
   }
 
   return (
-    <div className="card p-4 flex items-center justify-between">
+    <div className="card px-3 py-3 flex items-center gap-2">
+      {onStatusChange && (
+        <NotionCheckbox status={word.status} onClick={onStatusChange} />
+      )}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-[var(--color-foreground)] truncate">{word.english}</p>
         <p className="text-sm text-[var(--color-muted)] truncate">{word.japanese}</p>
@@ -77,7 +137,7 @@ function WordItem({
           <p className="text-xs text-[var(--color-primary)] mt-1 truncate">{word.projectTitle}</p>
         )}
       </div>
-      <div className="flex items-center gap-1 ml-2">
+      <div className="flex items-center gap-1">
         <button
           onClick={onToggleFavorite}
           className="p-2 hover:bg-[var(--color-primary-light)] rounded-xl transition-colors"
@@ -117,6 +177,7 @@ interface WordListProps {
   onSave: (wordId: string, english: string, japanese: string) => void;
   onDelete: (wordId: string) => void;
   onToggleFavorite: (wordId: string) => void;
+  onStatusChange?: (wordId: string, newStatus: WordStatus) => void;
   onAddClick?: () => void;
   onScanClick?: () => void;
   showProjectName?: boolean;
@@ -131,6 +192,7 @@ export function WordList({
   onSave,
   onDelete,
   onToggleFavorite,
+  onStatusChange,
   onAddClick,
   onScanClick,
   showProjectName = false,
@@ -255,6 +317,7 @@ export function WordList({
               onSave={(english, japanese) => onSave(word.id, english, japanese)}
               onDelete={() => onDelete(word.id)}
               onToggleFavorite={() => onToggleFavorite(word.id)}
+              onStatusChange={onStatusChange ? () => onStatusChange(word.id, nextStatus(word.status)) : undefined}
               showProjectName={showProjectName}
             />
           ))

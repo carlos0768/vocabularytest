@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AppShell, DeleteConfirmModal, Icon } from '@/components/ui';
+import { DeleteConfirmModal, Icon } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { WordList } from '@/components/home';
@@ -129,6 +129,20 @@ export default function WordListPage() {
     }
   };
 
+  const handleStatusChange = async (wordId: string, newStatus: import('@/types').WordStatus) => {
+    setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: newStatus } : w));
+    try {
+      await repository.updateWord(wordId, { status: newStatus });
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      setWords(prev => prev.map(w => {
+        if (w.id !== wordId) return w;
+        const prev2: import('@/types').WordStatus = newStatus === 'new' ? 'mastered' : newStatus === 'review' ? 'new' : 'review';
+        return { ...w, status: prev2 };
+      }));
+    }
+  };
+
   const handleSaveManualWord = async () => {
     if (!manualWordEnglish.trim() || !manualWordJapanese.trim() || !project) return;
 
@@ -165,16 +179,16 @@ export default function WordListPage() {
 
   if (loading || authLoading) {
     return (
-      <AppShell>
+      <>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -211,6 +225,7 @@ export default function WordListPage() {
           }}
           onDelete={(wordId) => handleDeleteWord(wordId)}
           onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
+          onStatusChange={handleStatusChange}
           onAddClick={() => setShowManualWordModal(true)}
           onScanClick={() => router.push(`/project/${projectId}`)}
         />
@@ -248,6 +263,6 @@ export default function WordListPage() {
         onClose={() => setShowWordLimitModal(false)}
         currentCount={totalWordCount}
       />
-    </AppShell>
+    </>
   );
 }
