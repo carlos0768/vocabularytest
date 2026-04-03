@@ -136,10 +136,10 @@ export function StudyModeCard({
     <div
       className={`relative ${isMobileSquareLayout ? 'aspect-[5/4] sm:aspect-auto p-3 sm:p-4' : isHorizontal ? 'p-4' : 'p-5'} rounded-[var(--radius-xl)] overflow-hidden group ${
         isHomeStyle
-          ? `bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 ${
+          ? `bg-[var(--color-surface)] border border-[var(--color-border)] ${
               disabled
                 ? 'opacity-50 cursor-not-allowed'
-                : `${accent.hoverBg} active:border-b-2 active:mt-[2px] transition-all cursor-pointer`
+                : `${accent.hoverBg} active:opacity-80 transition-all cursor-pointer`
             }`
           : `${styles.bg} ${styles.glow} border border-[var(--color-border)] ${
               disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'

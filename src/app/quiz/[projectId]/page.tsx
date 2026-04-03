@@ -79,8 +79,11 @@ export default function QuizPage() {
   const [generatingDistractors, setGeneratingDistractors] = useState(false);
   const [distractorError, setDistractorError] = useState<string | null>(null);
   const [inputCount, setInputCount] = useState('');
-  const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
+  const [quizMode, setQuizMode] = useState<'multiple-choice' | 'type-in'>('multiple-choice');
+  const [typeInAnswer, setTypeInAnswer] = useState('');
+  const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const isPro = subscriptionStatus === 'active';
@@ -622,8 +625,50 @@ export default function QuizPage() {
     }
   };
 
+  const handleTypeInSubmit = async () => {
+    if (isRevealed || !currentQuestion) return;
+    
+    const correctAnswer = quizDirection === 'en-to-ja'
+      ? currentQuestion.word.japanese
+      : currentQuestion.word.english;
+    
+    const normalizedInput = typeInAnswer.trim().toLowerCase();
+    const normalizedCorrect = correctAnswer.trim().toLowerCase();
+    const isCorrect = normalizedInput === normalizedCorrect;
+    
+    setTypeInResult(isCorrect ? 'correct' : 'wrong');
+    setIsRevealed(true);
+    
+    const word = currentQuestion.word;
+    setResults((prev) => ({
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      total: prev.total + 1,
+    }));
+    
+    if (isCorrect) {
+      recordCorrectAnswer(false);
+    } else {
+      const recordProjectId = reviewMode ? word.projectId : projectId;
+      recordWrongAnswer(word.id, word.english, word.japanese, recordProjectId, word.distractors);
+    }
+    
+    recordActivity();
+    
+    try {
+      const newStatus = getStatusAfterAnswer(word.status, isCorrect);
+      const srUpdate = calculateNextReview(isCorrect, word);
+      const updates = { status: newStatus, ...srUpdate };
+      await repository.updateWord(word.id, updates);
+      
+      setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
+      setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, ...updates } : w));
+    } catch (error) {
+      console.error('Failed to update spaced repetition:', error);
+    }
+  };
+
   const moveToNext = () => {
-    if (isTransitioning) return; // 連打防止
+    if (isTransitioning) return;
     setIsTransitioning(true);
     
     if (currentIndex + 1 >= questions.length) {
@@ -632,7 +677,9 @@ export default function QuizPage() {
       setCurrentIndex((prev) => prev + 1);
       setSelectedIndex(null);
       setIsRevealed(false);
-      setIsTransitioning(false); // 次の問題に移ったらリセット
+      setTypeInAnswer('');
+      setTypeInResult(null);
+      setIsTransitioning(false);
     }
   };
 
@@ -969,98 +1016,117 @@ export default function QuizPage() {
   // Main quiz screen
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      {/* Header */}
+      {/* Header - iOS style */}
       <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
         <button
           onClick={backToProject}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+          className="w-10 h-10 flex items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-foreground)]"
         >
           <Icon name="close" size={24} />
         </button>
 
-        {/* Progress bar */}
         <div className="flex-1 progress-bar">
           <div
             className="progress-bar-fill"
-            style={{
-              width: `${((currentIndex + 1) / questions.length) * 100}%`,
-            }}
+            style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
           />
         </div>
       </header>
 
-      {/* Question area - scrollable only when content overflows */}
       <main className="flex-1 flex flex-col min-h-0 px-6 overflow-y-auto">
-        {/* Mode badge */}
-        <div className="flex justify-center mb-1 flex-shrink-0">
-          <span className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)]">
-            {quizDirection === 'en-to-ja' ? '英→日' : '日→英'}
-          </span>
+        {/* Mode badges - iOS style */}
+        <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
+          <button
+            onClick={() => setQuizMode(quizMode === 'multiple-choice' ? 'type-in' : 'multiple-choice')}
+            className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]"
+          >
+            Active — {quizMode === 'multiple-choice' ? '4択' : 'タイプ入力'}
+          </button>
         </div>
 
-        {/* Question word */}
-        <div className="flex flex-col items-center justify-center py-4 flex-shrink-0 animate-fade-in-up">
-          <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center mb-2 tracking-tight">
+        {/* Question word - iOS style */}
+        <div className="flex flex-col items-center justify-center py-6 flex-shrink-0 animate-fade-in-up">
+          <h1 className="text-4xl font-black text-[var(--color-foreground)] text-center mb-3 tracking-tight">
             {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
           </h1>
 
-          {/* Favorite toggle button - always visible */}
           <button
             onClick={async () => {
               if (!currentQuestion) return;
               const word = currentQuestion.word;
               const newFavorite = !word.isFavorite;
               await repository.updateWord(word.id, { isFavorite: newFavorite });
-              setQuestions((prev) =>
-                prev.map((q, i) =>
-                  i === currentIndex
-                    ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
-                    : q
-                )
-              );
-              // Also update allWords state
-              setAllWords((prev) =>
-                prev.map((w) =>
-                  w.id === word.id ? { ...w, isFavorite: newFavorite } : w
-                )
-              );
+              setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q));
+              setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, isFavorite: newFavorite } : w));
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors ${
-              currentQuestion?.word.isFavorite
-                ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                : 'hover:bg-black/5 dark:hover:bg-white/10 text-[var(--color-muted)]'
-            }`}
-            aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
+            className="p-2"
+            aria-label={currentQuestion?.word.isFavorite ? 'お気に入り解除' : 'お気に入り'}
           >
-            <Icon name="flag" size={20} filled={currentQuestion?.word.isFavorite ?? false} />
-            {currentQuestion?.word.isFavorite && (
-              <span className="text-sm font-medium">苦手</span>
-            )}
+            <Icon name="bookmark" size={24} filled={currentQuestion?.word.isFavorite ?? false} className={currentQuestion?.word.isFavorite ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'} />
           </button>
         </div>
 
-        {/* Options */}
-        <div className="space-y-2.5 max-w-lg mx-auto w-full flex-shrink-0">
-          {currentQuestion?.options.map((option, index) => (
-            <QuizOption
-              key={index}
-              label={option}
-              index={index}
-              isSelected={selectedIndex === index}
-              isCorrect={index === currentQuestion.correctIndex}
-              isRevealed={isRevealed}
-              onSelect={() => handleSelect(index)}
+        {/* Quiz content - conditional on mode */}
+        {quizMode === 'multiple-choice' ? (
+          <div className="space-y-2.5 max-w-lg mx-auto w-full flex-shrink-0">
+            {currentQuestion?.options.map((option, index) => (
+              <QuizOption
+                key={index}
+                label={option}
+                index={index}
+                isSelected={selectedIndex === index}
+                isCorrect={index === currentQuestion.correctIndex}
+                isRevealed={isRevealed}
+                onSelect={() => handleSelect(index)}
+                disabled={isRevealed}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Type-in mode - iOS style */
+          <div className="max-w-lg mx-auto w-full flex-shrink-0 space-y-4">
+            <input
+              type="text"
+              value={typeInAnswer}
+              onChange={(e) => setTypeInAnswer(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
+              placeholder={quizDirection === 'en-to-ja' ? '日本語を入力...' : '英語を入力...'}
+              autoFocus
+              className={`w-full px-5 py-4 rounded-xl border-2 text-lg font-medium text-center outline-none transition-colors ${
+                typeInResult === 'correct'
+                  ? 'border-[var(--color-success)] bg-[var(--color-success-light)] text-[var(--color-success)]'
+                  : typeInResult === 'wrong'
+                  ? 'border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-foreground)]'
+              }`}
             />
-          ))}
-        </div>
+            {!isRevealed && (
+              <button
+                onClick={handleTypeInSubmit}
+                disabled={!typeInAnswer.trim()}
+                className="w-full py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-40 transition-opacity"
+              >
+                回答する
+              </button>
+            )}
+            {isRevealed && typeInResult === 'wrong' && currentQuestion && (
+              <div className="text-center">
+                <p className="text-sm text-[var(--color-muted)]">正解:</p>
+                <p className="text-lg font-bold text-[var(--color-foreground)]">
+                  {quizDirection === 'en-to-ja' ? currentQuestion.word.japanese : currentQuestion.word.english}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Example sentence shown after answering */}
+        {/* Example sentence after answering */}
         {isRevealed && currentQuestion && (
-          <div className="max-w-lg mx-auto w-full mt-3 flex-shrink-0">
-            {currentQuestion.word.exampleSentence ? (
-              <div className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold mb-1">
+          <div className="max-w-lg mx-auto w-full mt-4 flex-shrink-0">
+            {currentQuestion.word.exampleSentence && (
+              <div className="card p-4 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold">
                   <Icon name="format_quote" size={14} />
                   例文
                 </div>
@@ -1069,23 +1135,22 @@ export default function QuizPage() {
                   <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
                 )}
               </div>
-            ) : null}
+            )}
           </div>
         )}
       </main>
 
-      {/* Bottom next button (shown after answering) */}
+      {/* Bottom next button */}
       {isRevealed && (
         <div className="flex-shrink-0 bg-[var(--color-background)] px-6 pt-3 pb-6 safe-area-bottom">
-          <Button
+          <button
             onClick={moveToNext}
             disabled={isTransitioning}
-            className="w-full max-w-lg mx-auto flex"
-            size="lg"
+            className="w-full max-w-lg mx-auto flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
           >
             次へ
-            <Icon name="chevron_right" size={20} className="ml-1" />
-          </Button>
+            <Icon name="chevron_right" size={20} />
+          </button>
         </div>
       )}
     </div>

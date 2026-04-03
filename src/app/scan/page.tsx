@@ -601,7 +601,7 @@ function ScanPageContent() {
                   e.stopPropagation();
                   cameraInputRef.current?.click();
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold border-b-[3px] border-[#0a5bbd] active:border-b-[1px] active:mt-[2px] transition-all"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-foreground)] text-white rounded-xl text-sm font-semibold active:opacity-80 transition-all"
               >
                 <Icon name="photo_camera" size={18} />
                 撮影する

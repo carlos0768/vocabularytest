@@ -624,7 +624,9 @@ export default function ProjectDetailPage() {
   const stats = useMemo(() => {
     const total = words.length;
     const mastered = words.filter((w) => w.status === 'mastered').length;
-    return { total, mastered };
+    const learning = words.filter((w) => w.status === 'review').length;
+    const unlearned = words.filter((w) => !w.status || w.status === 'new').length;
+    return { total, mastered, learning, unlearned };
   }, [words]);
 
   const returnPath = project ? encodeURIComponent(`/project/${project.id}`) : '';
@@ -656,211 +658,152 @@ export default function ProjectDetailPage() {
       ? project.iconImage
       : null;
 
+  const posLabel = (tags?: string[]) => {
+    if (!tags || tags.length === 0) return null;
+    const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
+    return map[tags[0]] || tags[0].slice(0, 1);
+  };
+
   return (
-    <AppShell>
+    <AppShell hideBottomNav>
       <div className="pb-28 lg:pb-8">
-        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95">
-          <div className="max-w-lg lg:max-w-xl mx-auto px-6 py-4 flex items-center justify-between gap-3 border-b border-[var(--color-border-light)]">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
-                  {safeProjectIcon ? (
-                    <span
-                      className="w-full h-full bg-center bg-cover"
-                      style={{ backgroundImage: `url(${safeProjectIcon})` }}
-                    />
-                  ) : (
-                    <Icon name="menu_book" size={18} className="text-[var(--color-muted)]" />
-                  )}
-                </div>
-                <div className="min-w-0 flex flex-1 items-center gap-2">
-                  <h1 className="min-w-0 shrink text-lg font-bold text-[var(--color-foreground)] truncate">
-                    {project.title}
-                  </h1>
-                  <ProjectSourceLabels
-                    labels={project.sourceLabels}
-                    maxRows={1}
-                    className="min-w-0 flex-1"
-                  />
-                </div>
-                <button
-                  onClick={handleOpenEditNameModal}
-                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-[var(--color-surface)] transition-colors text-[var(--color-muted)]"
-                  aria-label="単語帳名を編集"
-                >
-                  <Icon name="edit" size={16} />
-                </button>
-                {isPro && (
-                  <span className="chip chip-pro px-2 py-1 text-xs">
-                    <Icon name="auto_awesome" size={12} />
-                    Pro
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {isPro && (
-                <button
-                  onClick={handleShare}
-                  className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)]"
-                >
-                  {sharing ? (
-                    <Icon name="progress_activity" size={16} className="animate-spin text-[var(--color-muted)]" />
-                  ) : shareCopied ? (
-                    <Icon name="check" size={18} className="text-[var(--color-success)]" />
-                  ) : (
-                    <Icon name="share" size={18} />
-                  )}
-                </button>
-              )}
-              <button
-                onClick={() => setDeleteProjectModalOpen(true)}
-                className="w-9 h-9 rounded-full border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-error)] hover:border-[var(--color-error)] transition-colors"
-                aria-label="単語帳を削除"
-              >
-                <Icon name="delete" size={18} />
+        {/* Red gradient header - iOS style */}
+        <div className="bg-gradient-project sticky top-0 z-40">
+          <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Icon name="chevron_left" size={24} className="text-white" />
               </button>
+              <div className="flex-1 text-center mx-3">
+                <p className="text-white font-bold text-sm truncate">{project.title}</p>
+                <p className="text-white/70 text-xs">{stats.total}語</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isPro && (
+                  <button onClick={handleShare} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    {sharing ? (
+                      <Icon name="progress_activity" size={18} className="animate-spin text-white" />
+                    ) : shareCopied ? (
+                      <Icon name="check" size={18} className="text-white" />
+                    ) : (
+                      <Icon name="ios_share" size={18} className="text-white" />
+                    )}
+                  </button>
+                )}
+                <button onClick={() => setDeleteProjectModalOpen(true)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <Icon name="more_horiz" size={18} className="text-white" />
+                </button>
+              </div>
             </div>
           </div>
+        </div>
 
-        </header>
-
-        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 py-5 lg:py-6 space-y-5 lg:space-y-6">
-          {/* Vocabulary card view (replaces the blue recommended mode widget) */}
+        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 -mt-2 space-y-5">
+          {/* 3-column stats card - iOS style */}
           <section>
-            {!wordsLoaded ? (
-              <div className="card p-6 border-2 border-[var(--color-border)] border-b-4">
-                <div className="flex items-center gap-3 text-[var(--color-muted)]">
-                  <Icon name="progress_activity" size={18} className="animate-spin" />
-                  <span className="text-sm font-medium">単語データを読み込み中...</span>
+            <div className="card p-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="text-xs text-[var(--color-muted)]">{stats.mastered}/{stats.total}語</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">習得</p>
+                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-success)] flex items-center justify-center">
+                    <Icon name="check" size={18} className="text-[var(--color-success)]" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-[var(--color-muted)]">{stats.learning}/{stats.total}語</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">学習中</p>
+                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-muted)] flex items-center justify-center">
+                    <Icon name="autorenew" size={18} className="text-[var(--color-muted)]" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-[var(--color-foreground)]">{stats.unlearned}/{stats.total}語</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">未学習</p>
+                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-border)] flex items-center justify-center">
+                    <Icon name="auto_awesome" size={18} className="text-[var(--color-muted)]" />
+                  </div>
                 </div>
               </div>
-            ) : words.length > 0 ? (
-              <VocabularyTab
-                words={words}
-                repository={activeRepository}
-                onWordsUpdate={setWords}
-              />
-            ) : (
-              <div className="text-center py-12 card border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-alt,var(--color-surface))]">
-                <div className="w-16 h-16 mx-auto bg-[var(--color-surface)] rounded-full flex items-center justify-center border-2 border-[var(--color-border)] mb-4">
-                  <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />
-                </div>
-                <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-2">単語を追加して始めましょう</h3>
-                <p className="text-sm text-[var(--color-muted)] mb-8 max-w-[240px] mx-auto">
-                  カメラでノートをスキャンするか、手動で単語を追加できます
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center px-6">
-                  <button onClick={() => setShowScanModeModal(true)} className="flex-1 px-5 py-3.5 rounded-xl bg-[var(--color-primary)] text-white font-bold shadow-glow hover:opacity-90 flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <Icon name="document_scanner" size={20} /> カメラでスキャン
-                  </button>
-                  <button onClick={() => setShowManualWordModal(true)} className="flex-1 px-5 py-3.5 rounded-xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-foreground)] font-bold hover:bg-[var(--color-surface-hover)] flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <Icon name="edit" size={20} /> 手動で追加
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
           </section>
 
-          {/* 学習モード */}
-          {words.length > 0 && (
-            <section className="space-y-3">
-              <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">学習モード</h3>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {canUseAiFeatures && (
-                  <StudyModeCard
-                    title="クイズ"
-                    description="4択で確認"
-                    icon="quiz"
-                    href={`/quiz/${project.id}?from=${returnPath}`}
-                    variant="primary"
-                    disabled={words.length === 0}
-                    layout="vertical"
-                    styleMode="home"
-                  />
-                )}
-                <StudyModeCard
-                  title="即答"
-                  description="音声で即答"
-                  icon="mic"
-                  href={`/quick-response/${project.id}?from=${returnPath}`}
-                  variant="red"
-                  disabled={words.length === 0}
-                  layout="vertical"
-                  styleMode="home"
-                />
-                <StudyModeCard
-                  title="クイズ２"
-                  description="思い出して評価"
-                  icon="psychology"
-                  href={isPro ? `/quiz2/${project.id}?from=${returnPath}` : '/subscription'}
-                  variant="green"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
-                <StudyModeCard
-                  title="カード"
-                  description="スワイプ復習"
-                  icon="style"
-                  href={isPro ? `/flashcard/${project.id}?from=${returnPath}` : '/subscription'}
-                  variant="blue"
-                  disabled={words.length === 0}
-                  badge={!isPro ? 'Pro' : undefined}
-                  layout="vertical"
-                  styleMode="home"
-                />
-              </div>
-            </section>
-          )}
-
-          {/* 単語一覧: モバイルはリンク、PC/iPadはインライン表示 */}
-          {/* Mobile: link to separate page */}
-          <section className="lg:hidden pt-2.5 border-t border-[var(--color-border-light)]">
-            <Link
-              href={`/project/${projectId}/words`}
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:border-[var(--color-border)] transition-colors"
-            >
-              <Icon name="list" size={20} className="text-[var(--color-primary)]" />
-              <span className="text-sm font-semibold text-[var(--color-foreground)]">単語一覧</span>
-              <span className="text-sm text-[var(--color-muted)]">{words.length}語</span>
-            </Link>
-          </section>
-
-          {/* Desktop/iPad: inline word list */}
-          <section className="hidden lg:block space-y-2.5 lg:space-y-3 pt-2.5 lg:pt-3 border-t border-[var(--color-border-light)]">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-base font-bold text-[var(--color-foreground)]">
-                単語一覧 <span className="text-sm font-medium text-[var(--color-muted)] ml-2">{words.length}語</span>
-              </h2>
+          {/* Word list table - iOS style */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
             </div>
 
-            {wordsLoaded ? (
-              <WordList
-                words={words}
-                editingWordId={editingWordId}
-                onEditStart={(wordId) => setEditingWordId(wordId)}
-                onEditCancel={() => setEditingWordId(null)}
-                onSave={(wordId, english, japanese) => {
-                  handleUpdateWord(wordId, english, japanese);
-                  setEditingWordId(null);
-                }}
-                onDelete={(wordId) => handleDeleteWord(wordId)}
-                onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-                onAddClick={() => setShowManualWordModal(true)}
-                onScanClick={() => setShowScanModeModal(true)}
-                listMaxHeightClassName="max-h-[48vh] lg:max-h-[56vh]"
-              />
+            {!wordsLoaded ? (
+              <div className="flex items-center gap-3 text-[var(--color-muted)] py-8 justify-center">
+                <Icon name="progress_activity" size={18} className="animate-spin" />
+                <span className="text-sm">読み込み中...</span>
+              </div>
+            ) : words.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-[var(--color-muted)]">単語がありません</p>
+              </div>
             ) : (
-              <div className="card p-4 text-sm text-[var(--color-muted)] flex items-center gap-2">
-                <Icon name="progress_activity" size={16} className="animate-spin" />
-                単語一覧を読み込み中...
+              <div>
+                {/* Table header */}
+                <div className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]">
+                  <span className="flex-1">単語</span>
+                  <span className="w-10 text-center">品詞</span>
+                  <span className="w-16 text-right">訳</span>
+                </div>
+                {/* Table rows */}
+                <div className="divide-y divide-[var(--color-border-light)]">
+                  {words.map((word) => (
+                    <Link
+                      key={word.id}
+                      href={`/word/${word.id}?from=${returnPath}`}
+                      className="flex items-center gap-3 px-3 py-3.5 active:bg-[var(--color-surface-secondary)] transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
+                        {word.status === 'mastered' && (
+                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-success)] text-white text-[9px] items-center justify-center font-bold">A</span>
+                        )}
+                        {word.status === 'review' && (
+                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-warning)] text-white text-[9px] items-center justify-center font-bold">P</span>
+                        )}
+                      </div>
+                      <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
+                        {posLabel(word.partOfSpeechTags) || '—'}
+                      </span>
+                      <span className="w-20 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
           </section>
         </main>
+
+        {/* Bottom action bar - iOS style */}
+        {words.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+            <div className="max-w-lg mx-auto flex items-center gap-3">
+              <button className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)]">
+                <Icon name="content_copy" size={20} />
+              </button>
+              <Link
+                href={canUseAiFeatures ? `/quiz/${project.id}?from=${returnPath}` : `/quiz2/${project.id}?from=${returnPath}`}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm"
+              >
+                <Icon name="help" size={18} />
+                クイズ
+              </Link>
+              <button
+                onClick={() => setShowManualWordModal(true)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
+              >
+                <Icon name="add" size={18} />
+                単語追加
+              </button>
+            </div>
+          </div>
+        )}
 
       <ManualWordInputModal
         isOpen={showManualWordModal}

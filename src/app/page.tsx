@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -1486,13 +1486,18 @@ export default function HomePage() {
   }
 
   // Main view with project
+  // Compute word status counts across all projects
+  const allWordsFlat = useMemo(() => Object.values(getCachedProjectWords()).flat(), [projects, words]);
+  const masteredTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'mastered').length, [allWordsFlat]);
+  const learningTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'review').length, [allWordsFlat]);
+  const unlearnedTotal = useMemo(() => allWordsFlat.filter(w => !w.status || w.status === 'new').length, [allWordsFlat]);
+  const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
+
   return (
     <AppShell>
       <div className="flex flex-col pb-28 lg:pb-8">
-        {/* Word limit banner - only show after auth resolves to avoid flash for Pro users */}
         {!authLoading && !isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
-        {/* Hidden file input for new project (legacy scan flow) */}
         <input
           ref={fileInputRef}
           type="file"
@@ -1509,20 +1514,13 @@ export default function HomePage() {
           className="hidden"
         />
 
-        {/* Header - mobile only */}
-        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)] lg:hidden">
-          <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
-              <p className="text-xs text-[var(--color-muted)]">手入力ゼロで単語帳を作成</p>
-            </div>
+        {/* Header - iOS style: just MERKEN title */}
+        <header className="px-5 pt-6 pb-2 lg:hidden">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
             {isPro && (
               <div className="flex items-center gap-2">
                 <SyncStatusIndicator />
-                <span className="chip chip-pro">
-                  <Icon name="auto_awesome" size={14} />
-                  Pro
-                </span>
               </div>
             )}
           </div>
@@ -1531,158 +1529,112 @@ export default function HomePage() {
         {/* Desktop header */}
         <header className="sticky top-0 hidden lg:block z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--color-foreground)] font-display">ダッシュボード</h1>
-              <p className="text-sm text-[var(--color-muted)] mt-1">手入力ゼロで単語帳を作成</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {isPro && (
-                <>
-                  <SyncStatusIndicator />
-                  <span className="chip chip-pro">
-                    <Icon name="auto_awesome" size={14} />
-                    Pro
-                  </span>
-                </>
-              )}
-            </div>
+            <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
+            {isPro && (
+              <div className="flex items-center gap-2">
+                <SyncStatusIndicator />
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-6 pb-8 w-full space-y-5">
-          {/* === Hero Section === */}
+        {/* Main content - iOS style */}
+        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
+
+          {/* Today's goal + Mastery donut — 2-column layout */}
           <section>
-            <div className="rounded-2xl bg-[var(--color-hero)] p-5 lg:p-6 text-white dark:border dark:border-[var(--color-border)]">
-              {/* Tier A: ストリーク + 動機付け */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center shrink-0">
-                  <Icon name="local_fire_department" size={24} filled className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-lg font-bold font-display">
-                    {streakDays > 0
-                      ? `${streakDays}日連続学習中`
-                      : dailyStats.todayCount > 0
-                      ? '今日も頑張っています'
-                      : '今日の学習を始めよう'}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Left: Today's goal (compact) */}
+              <Link
+                href={reviewDueCount > 0 ? reviewQuizHref : (projects.length > 0 && totalWords > 0 ? `/quiz/${projects[0].id}?from=${encodeURIComponent('/')}` : '/projects')}
+                className="card p-4 flex flex-col justify-between active:opacity-80 transition-opacity"
+              >
+                <div>
+                  <p className="text-xs text-[var(--color-muted)] font-medium">今日の目標</p>
+                  <p className="text-3xl font-black text-[var(--color-foreground)] mt-1">
+                    {reviewDueCount.toLocaleString()}<span className="text-sm font-bold ml-0.5">語</span>
                   </p>
-                  <p className="text-sm text-white/70 dark:text-white/55">
-                    {dailyStats.todayCount > 0
-                      ? `今日 ${dailyStats.todayCount}問回答`
-                      : 'クイズに挑戦して単語を覚えよう'}
-                  </p>
+                  <p className="text-xs text-[var(--color-muted)] mt-0.5">{dailyStats.todayCount} / {reviewDueCount} 完了</p>
                 </div>
-              </div>
-
-              {/* Tier B: コンパクトスタット（活動ある時のみ） */}
-              {dailyStats.todayCount > 0 && (
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
-                    <Icon name="check_circle" size={16} />
-                    {accuracyPercent}% 正答率
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
-                    <Icon name="school" size={16} />
-                    {dailyStats.masteredCount} 習得
-                  </span>
-                  {reviewDueCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-white/10 text-sm font-medium text-white dark:text-white/75">
-                      <Icon name="schedule" size={16} />
-                      {reviewDueCount} 復習待ち
-                    </span>
-                  )}
+                <div className="flex items-center gap-1.5 mt-3">
+                  <span className="text-xs font-semibold text-[var(--color-primary)]">復習を始める</span>
+                  <Icon name="arrow_forward" size={14} className="text-[var(--color-primary)]" />
                 </div>
-              )}
+              </Link>
 
-              {/* Tier C: プライマリCTA */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                {reviewDueCount > 0 ? (
-                  <Link
-                    href={reviewQuizHref}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--color-hero-btn)] text-[var(--color-hero-btn-text)] font-bold text-sm border-b-[3px] border-[var(--color-hero-btn-border)] active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
-                  >
-                    <Icon name="replay" size={20} />
-                    復習を始める ({reviewDueCount}問)
-                  </Link>
-                ) : (
-                  projects.length > 0 && totalWords > 0 && (
-                    <Link
-                      href={`/quiz/${projects[0].id}?from=${encodeURIComponent('/')}`}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--color-hero-btn)] text-[var(--color-hero-btn-text)] font-bold text-sm border-b-[3px] border-[var(--color-hero-btn-border)] active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
-                    >
-                      <Icon name="quiz" size={20} />
-                      クイズに挑戦
-                    </Link>
-                  )
-                )}
-                {wrongAnswers.length > 0 && (
-                  <button
-                    onClick={() => setShowWrongAnswers(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/15 dark:bg-white/10 text-white font-bold text-sm border-b-[3px] border-white/10 dark:border-white/5 active:border-b-0 active:mt-[3px] active:mb-0 transition-all"
-                  >
-                    <Icon name="error" size={20} />
-                    間違え一覧 ({wrongAnswers.length})
-                  </button>
-                )}
+              {/* Right: Mastery donut chart */}
+              <div className="card p-4 flex flex-col items-center justify-center">
+                <div className="relative">
+                  <svg width="96" height="96" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-border)" strokeWidth="10" />
+                    {(() => {
+                      const r = 40;
+                      const c = 2 * Math.PI * r;
+                      const mFrac = totalWords > 0 ? masteredTotal / totalWords : 0;
+                      const lFrac = totalWords > 0 ? learningTotal / totalWords : 0;
+                      const mLen = c * mFrac;
+                      const lLen = c * lFrac;
+                      return (
+                        <>
+                          {mFrac > 0 && (
+                            <circle
+                              cx="50" cy="50" r={r} fill="none"
+                              stroke="var(--color-success)" strokeWidth="10"
+                              strokeDasharray={`${mLen} ${c - mLen}`}
+                              strokeDashoffset={0}
+                              strokeLinecap="butt"
+                              style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
+                            />
+                          )}
+                          {lFrac > 0 && (
+                            <circle
+                              cx="50" cy="50" r={r} fill="none"
+                              stroke="var(--color-warning, #f59e0b)" strokeWidth="10"
+                              strokeDasharray={`${lLen} ${c - lLen}`}
+                              strokeDashoffset={-mLen}
+                              strokeLinecap="butt"
+                              style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                  <span className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-black text-[var(--color-foreground)]">{completionPercent}%</span>
+                    <span className="text-[10px] font-medium text-[var(--color-muted)]">習得</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 mt-2 flex-wrap justify-center">
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
+                    {masteredTotal}
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning,#f59e0b)]" />
+                    {learningTotal}
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-border)]" />
+                    {unlearnedTotal}
+                  </span>
+                </div>
               </div>
             </div>
           </section>
 
-          {/* Quick links */}
-          <section>
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                onClick={() => handleScanButtonClick(false)}
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-                  <Icon name="photo_camera" size={22} className="text-sky-600 dark:text-sky-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">スキャン</span>
-              </button>
-              <Link
-                href="/search"
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-500/15 flex items-center justify-center">
-                  <Icon name="search" size={22} className="text-slate-600 dark:text-slate-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">検索</span>
-              </Link>
-              <Link
-                href="/favorites"
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
-                  <Icon name="flag" size={22} className="text-amber-600 dark:text-amber-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">苦手単語</span>
-              </Link>
-              <Link
-                href="/projects"
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] border-b-4 active:border-b-2 active:mt-[2px] transition-all group"
-              >
-                <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-500/15 flex items-center justify-center">
-                  <Icon name="folder" size={22} className="text-teal-600 dark:text-teal-400" />
-                </div>
-                <span className="text-xs font-bold text-[var(--color-foreground)] truncate max-w-full px-1">単語帳</span>
-              </Link>
-            </div>
-          </section>
-
-          {/* Recent projects */}
+          {/* Word books section - iOS style */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[var(--color-muted)] font-display">最近の単語帳</h2>
-              <Link href="/projects" className="text-xs text-[var(--color-primary)] font-semibold">すべて見る</Link>
+              <h2 className="text-lg font-bold text-[var(--color-foreground)]">単語帳</h2>
+              <Link href="/projects" className="text-sm text-[var(--color-muted)] font-medium">管理</Link>
             </div>
             {projects.length === 0 ? (
-              <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                まだ単語帳がありません。スキャンから始めましょう。
+              <div className="card p-6 text-center">
+                <p className="text-sm text-[var(--color-muted)]">まだ単語帳がありません。スキャンから始めましょう。</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div className="space-y-3">
                 {[...projects]
                   .sort((a, b) => {
                     if (a.isFavorite && !b.isFavorite) return -1;
@@ -1690,21 +1642,37 @@ export default function HomePage() {
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                   })
                   .slice(0, 8)
-                  .map((project, index) => {
+                  .map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
-                    const mastered = projectWords.filter((w) => w.status === 'mastered').length;
-                    const progress = projectWords.length > 0 ? Math.round((mastered / projectWords.length) * 100) : 0;
+                    const pMastered = projectWords.filter((w) => w.status === 'mastered').length;
+                    const pLearning = projectWords.filter((w) => w.status === 'review').length;
+                    const pNew = projectWords.filter((w) => !w.status || w.status === 'new').length;
+                    const iconColors = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
+                    const colorIndex = project.title.length % iconColors.length;
                     return (
-                      <div key={project.id} className={index >= 6 ? 'hidden lg:block' : ''}>
-                        <ProjectBookTile
-                          project={project}
-                          wordCount={projectWords.length}
-                          masteredCount={mastered}
-                          progress={progress}
-                          onDelete={(id) => handleDeleteProject(id)}
-                          onToggleFavorite={handleToggleProjectFavorite}
-                        />
-                      </div>
+                      <Link key={project.id} href={`/project/${project.id}`} className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity">
+                        <div className={`w-14 h-14 rounded-xl ${iconColors[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}>
+                          {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[var(--color-foreground)] truncate">{project.title}</p>
+                          <p className="text-xl font-black text-[var(--color-foreground)]">{projectWords.length} <span className="text-sm font-bold">語</span></p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
+                              <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
+                              習得 {pMastered}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+                              <span className="w-2 h-2 rounded-full bg-[var(--color-muted)]" />
+                              学習 {pLearning}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+                              <span className="w-2 h-2 rounded-full bg-[var(--color-border)]" />
+                              未学習 {pNew}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
                     );
                   })}
               </div>

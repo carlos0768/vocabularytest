@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Icon } from './Icon';
 import { cn } from '@/lib/utils';
 
@@ -20,21 +20,15 @@ const navItems: NavItem[] = [
     matchPaths: ['/'],
   },
   {
-    href: '/collections',
-    icon: 'shelves',
-    label: '本棚',
-    matchPaths: ['/collections'],
-  },
-  {
-    href: '/search',
-    icon: 'search',
-    label: '検索',
-    matchPaths: ['/search'],
+    href: '/shared',
+    icon: 'group',
+    label: '共有',
+    matchPaths: ['/shared'],
   },
   {
     href: '/stats',
     icon: 'bar_chart',
-    label: '統計',
+    label: '進歩',
     matchPaths: ['/stats'],
   },
   {
@@ -47,6 +41,7 @@ const navItems: NavItem[] = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -58,31 +53,41 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="bottom-nav lg:hidden">
-      <div className="bottom-nav-inner">
-        {navItems.map((item) => {
-          const active = isActive(item);
+    <>
+      <nav className="bottom-nav lg:hidden">
+        <div className="bottom-nav-inner">
+          {navItems.map((item) => {
+            const active = isActive(item);
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn('bottom-nav-item', active && 'active')}
-            >
-              <Icon
-                name={item.icon}
-                filled={active}
-                size={20}
-                className={cn(
-                  'transition-colors',
-                  active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'
-                )}
-              />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn('bottom-nav-item', active && 'active')}
+              >
+                <Icon
+                  name={item.icon}
+                  filled={active}
+                  size={20}
+                  className={cn(
+                    'transition-colors',
+                    active ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'
+                  )}
+                />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+      {/* FAB - Floating Action Button */}
+      <button
+        onClick={() => router.push('/scan')}
+        className="fab lg:hidden"
+        aria-label="スキャン"
+      >
+        <Icon name="add" size={28} />
+      </button>
+    </>
   );
 }
