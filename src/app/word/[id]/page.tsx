@@ -118,7 +118,7 @@ export default function WordDetailPage() {
         {/* Header - iOS style */}
         <header className="px-5 pt-4 pb-2 flex items-center justify-between">
           <button
-            onClick={() => from ? router.push(decodeURIComponent(from)) : router.back()}
+            onClick={() => from ? router.replace(decodeURIComponent(from)) : router.back()}
             className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
           >
             <Icon name="chevron_left" size={24} className="text-[var(--color-foreground)]" />
