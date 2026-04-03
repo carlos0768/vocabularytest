@@ -135,7 +135,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
                 relatedWords: input.relatedWords,
                 usagePatterns: input.usagePatterns,
                 insightsGeneratedAt: input.insightsGeneratedAt,
-                insightsVersion: input.insightsVersion
+                insightsVersion: input.insightsVersion,
+                vocabularyType: input.vocabularyType
             )
 
             let record = LocalWordRecord(

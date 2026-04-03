@@ -19,7 +19,7 @@ struct SharedProjectDetailView: View {
         viewModel.project == nil ? summary.accessRole : viewModel.accessRole
     }
 
-    private var canEdit: Bool { accessRole != .viewer }
+    private var canEdit: Bool { false }
 
     // MARK: - Body
 
@@ -272,14 +272,37 @@ struct SharedProjectDetailView: View {
 
     private var bottomActionBar: some View {
         HStack(spacing: 10) {
-            if canEdit {
+            if viewModel.importedProjectId != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                    Text("追加済み")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(MerkenTheme.success)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.success.opacity(0.12), in: .capsule)
+            } else {
                 Button {
-                    editorMode = .create
+                    Task {
+                        await viewModel.importToLocal(
+                            title: project.title,
+                            words: viewModel.words,
+                            using: appState
+                        )
+                    }
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .bold))
-                        Text("単語追加")
+                        if viewModel.importing {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        Text(viewModel.importing ? "追加中..." : "単語帳として追加")
                             .font(.system(size: 15, weight: .bold))
                     }
                     .foregroundStyle(.white)
@@ -287,6 +310,7 @@ struct SharedProjectDetailView: View {
                     .padding(.vertical, 14)
                     .background(MerkenTheme.accentBlue, in: .capsule)
                 }
+                .disabled(viewModel.importing || viewModel.words.isEmpty)
             }
         }
         .padding(.horizontal, 20)

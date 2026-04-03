@@ -9,6 +9,8 @@ final class SharedProjectDetailViewModel: ObservableObject {
     @Published private(set) var collaboratorCount = 1
     @Published private(set) var loading = false
     @Published private(set) var joining = false
+    @Published private(set) var importing = false
+    @Published private(set) var importedProjectId: String?
     @Published var errorMessage: String?
     @Published var searchText = ""
 
@@ -130,6 +132,44 @@ final class SharedProjectDetailViewModel: ObservableObject {
             }
             errorMessage = error.localizedDescription
             logger.error("Shared project delete word failed: \(error.localizedDescription)")
+        }
+    }
+
+    func importToLocal(title: String, words: [Word], using state: AppState) async {
+        importing = true
+        defer { importing = false }
+
+        do {
+            let newProject = try await state.activeRepository.createProject(
+                title: title,
+                userId: state.activeUserId,
+                iconImage: nil
+            )
+
+            if !words.isEmpty {
+                let inputs = words.map { word in
+                    WordInput(
+                        projectId: newProject.id,
+                        english: word.english,
+                        japanese: word.japanese,
+                        distractors: word.distractors ?? [],
+                        exampleSentence: word.exampleSentence,
+                        exampleSentenceJa: word.exampleSentenceJa,
+                        pronunciation: word.pronunciation,
+                        partOfSpeechTags: word.partOfSpeechTags,
+                        vocabularyType: word.vocabularyType
+                    )
+                }
+                _ = try await state.activeRepository.createWords(inputs)
+            }
+
+            importedProjectId = newProject.id
+            state.bumpDataVersion()
+            errorMessage = nil
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("Import shared project to local failed: \(error.localizedDescription)")
         }
     }
 

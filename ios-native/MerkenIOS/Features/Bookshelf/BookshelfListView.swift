@@ -1,79 +1,13 @@
 import SwiftUI
 import UIKit
 
-private enum SharedProjectListSection: String, CaseIterable, Identifiable {
-    case publicCatalog
-    case ownedProjects
-    case joinedProjects
-
-    var id: Self { self }
-
-    var pickerLabel: String {
-        switch self {
-        case .publicCatalog:
-            return "公開"
-        case .ownedProjects:
-            return "共有中"
-        case .joinedProjects:
-            return "参加中"
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .publicCatalog:
-            return "公開単語帳"
-        case .ownedProjects:
-            return "自分が共有中"
-        case .joinedProjects:
-            return "参加中"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .publicCatalog:
-            return "公開設定された単語帳をこのページからそのまま開けます。"
-        case .ownedProjects:
-            return "自分が公開した単語帳や、招待コードで共有している単語帳です。"
-        case .joinedProjects:
-            return "招待コードや共有リンクから参加した単語帳です。"
-        }
-    }
-
-    var emptyMessage: String {
-        switch self {
-        case .publicCatalog:
-            return "まだ公開中の単語帳はありません。"
-        case .ownedProjects:
-            return "まだ共有中の単語帳はありません。"
-        case .joinedProjects:
-            return "招待コードやリンクで参加するとここに表示されます。"
-        }
-    }
-}
-
 struct SharedProjectListView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = SharedProjectsViewModel()
 
-    @State private var inviteText = ""
     @State private var selectedProject: SharedProjectSummary?
     @State private var scrollOffset: CGFloat = 0
-    @State private var selectedSection: SharedProjectListSection = .publicCatalog
-    @State private var showingInviteComposer = false
-
-    private var currentItems: [SharedProjectSummary] {
-        switch selectedSection {
-        case .publicCatalog:
-            return viewModel.publicProjects
-        case .ownedProjects:
-            return viewModel.ownedProjects
-        case .joinedProjects:
-            return viewModel.joinedProjects
-        }
-    }
 
     var body: some View {
         ZStack {
@@ -92,23 +26,17 @@ struct SharedProjectListView: View {
                             }
                         )
 
-                    sectionTabs
-
                     if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
-                        SolidCard {
+                        SolidCard(bordered: false) {
                             Text(errorMessage)
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(MerkenTheme.warning)
                         }
                     }
 
-                    sectionContext
+                    listContext
 
-                    if selectedSection == .joinedProjects {
-                        inviteSection
-                    }
-
-                    projectContent
+                    publicProjectContent
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 120)
@@ -134,69 +62,19 @@ struct SharedProjectListView: View {
         }
     }
 
-    private var inviteSection: some View {
-        SharedInviteComposerCard(
-            inviteText: $inviteText,
-            joining: viewModel.joining,
-            isExpanded: showingInviteComposer,
-            onToggle: toggleInviteComposer,
-            onPaste: pasteInviteCode,
-            onJoin: joinSharedProject
-        )
-    }
-
-    private var sectionTabs: some View {
-        HStack(spacing: 0) {
-            ForEach(SharedProjectListSection.allCases) { section in
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) {
-                        selectedSection = section
-                    }
-                } label: {
-                    VStack(spacing: 10) {
-                        Text(section.pickerLabel)
-                            .font(.system(size: 19, weight: selectedSection == section ? .black : .bold))
-                            .foregroundStyle(
-                                selectedSection == section
-                                    ? MerkenTheme.primaryText
-                                    : MerkenTheme.mutedText
-                            )
-                            .frame(maxWidth: .infinity)
-
-                        Capsule()
-                            .fill(
-                                selectedSection == section
-                                    ? MerkenTheme.accentBlue
-                                    : Color.clear
-                            )
-                            .frame(height: 4)
-                            .padding(.horizontal, 18)
-                    }
-                    .padding(.top, 6)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(MerkenTheme.borderLight)
-                .frame(height: 1)
-        }
-    }
-
-    private var sectionContext: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(selectedSection.subtitle)
-                .font(.system(size: 13))
+    private var listContext: some View {
+        HStack(spacing: 8) {
+            Text("公開単語帳")
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(MerkenTheme.secondaryText)
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 0)
 
-            if viewModel.loading && currentItems.isEmpty {
+            if viewModel.loading && viewModel.allPublicProjects.isEmpty {
                 ProgressView()
                     .controlSize(.small)
             } else {
-                Text("\(currentItems.count)件")
+                Text("\(viewModel.allPublicProjects.count)件")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
@@ -204,9 +82,9 @@ struct SharedProjectListView: View {
     }
 
     @ViewBuilder
-    private var projectContent: some View {
-        if viewModel.loading && currentItems.isEmpty {
-            SolidCard {
+    private var publicProjectContent: some View {
+        if viewModel.loading && viewModel.allPublicProjects.isEmpty {
+            SolidCard(bordered: false) {
                 HStack(spacing: 10) {
                     ProgressView()
                         .progressViewStyle(.circular)
@@ -215,15 +93,15 @@ struct SharedProjectListView: View {
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
-        } else if currentItems.isEmpty {
-            SolidCard {
-                Text(selectedSection.emptyMessage)
+        } else if viewModel.allPublicProjects.isEmpty {
+            SolidCard(bordered: false) {
+                Text("まだ公開中の単語帳はありません。")
                     .font(.system(size: 14))
                     .foregroundStyle(MerkenTheme.secondaryText)
             }
         } else {
             LazyVStack(spacing: 12) {
-                ForEach(currentItems) { item in
+                ForEach(viewModel.allPublicProjects) { item in
                     Button {
                         selectedProject = item
                     } label: {
@@ -235,135 +113,6 @@ struct SharedProjectListView: View {
         }
     }
 
-    private func toggleInviteComposer() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-            showingInviteComposer.toggle()
-        }
-    }
-
-    private func pasteInviteCode() {
-        inviteText = UIPasteboard.general.string ?? inviteText
-
-        if !inviteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                showingInviteComposer = true
-            }
-        }
-    }
-
-    private func joinSharedProject() {
-        Task {
-            if let summary = await viewModel.join(codeOrLink: inviteText, using: appState) {
-                inviteText = ""
-                switch summary.accessRole {
-                case .owner:
-                    selectedSection = .ownedProjects
-                case .editor:
-                    selectedSection = .joinedProjects
-                case .viewer:
-                    selectedSection = .publicCatalog
-                }
-
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                    showingInviteComposer = false
-                }
-
-                selectedProject = summary
-            }
-        }
-    }
-}
-
-private struct SharedInviteComposerCard: View {
-    @Binding var inviteText: String
-    let joining: Bool
-    let isExpanded: Bool
-    let onToggle: () -> Void
-    let onPaste: () -> Void
-    let onJoin: () -> Void
-
-    var body: some View {
-        SolidCard {
-            VStack(alignment: .leading, spacing: isExpanded ? 14 : 0) {
-                Button(action: onToggle) {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(MerkenTheme.surfaceAlt)
-                                .frame(width: 48, height: 48)
-
-                            Image(systemName: "person.crop.circle.badge.plus")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("非公開の単語帳に参加")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-
-                            Text("必要なときだけ開いて、招待コードだけで参加できます。")
-                                .font(.system(size: 13))
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-
-                        Spacer(minLength: 12)
-
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                    }
-                }
-                .buttonStyle(.plain)
-
-                if isExpanded {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            TextField("例: abcd-1234-ef56", text: $inviteText)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .textFieldStyle(.plain)
-                                .solidTextField()
-
-                            Button("貼り付け", action: onPaste)
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(MerkenTheme.primaryText)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(
-                                    MerkenTheme.surfaceAlt,
-                                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                )
-                                .buttonStyle(.plain)
-                        }
-
-                        Text("リンク末尾のコードだけでも参加できます。")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(MerkenTheme.mutedText)
-
-                        Button(action: onJoin) {
-                            HStack(spacing: 8) {
-                                if joining {
-                                    ProgressView()
-                                        .progressViewStyle(.circular)
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "arrow.right.circle.fill")
-                                        .font(.system(size: 15, weight: .semibold))
-                                }
-
-                                Text(joining ? "参加中..." : "コードで参加")
-                            }
-                        }
-                        .buttonStyle(PrimaryGlassButton())
-                        .disabled(joining)
-                    }
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-        }
-    }
 }
 
 private struct SharedProjectCard: View {
@@ -411,7 +160,7 @@ private struct SharedProjectCard: View {
     }
 
     var body: some View {
-        SolidCard(padding: 0) {
+        SolidCard(padding: 0, bordered: false) {
             HStack(spacing: 12) {
                 thumbnail
                     .frame(width: 64, height: 64)

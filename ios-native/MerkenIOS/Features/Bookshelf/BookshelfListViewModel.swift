@@ -7,6 +7,11 @@ final class SharedProjectsViewModel: ObservableObject {
     @Published private(set) var joinedProjects: [SharedProjectSummary] = []
     @Published private(set) var publicProjects: [SharedProjectSummary] = []
     @Published private(set) var loading = false
+
+    var allPublicProjects: [SharedProjectSummary] {
+        let ownedPublic = ownedProjects.filter { $0.project.shareScope == .publicListed }
+        return ownedPublic + publicProjects
+    }
     @Published private(set) var joining = false
     @Published var errorMessage: String?
 

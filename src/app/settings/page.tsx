@@ -84,17 +84,18 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-    <div className="min-h-screen pb-24 lg:pb-6">
+    <div className="min-h-screen pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6">
       {/* Header */}
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
-        <div className="max-w-lg mx-auto">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">設定</h1>
+            <p className="text-sm text-[var(--color-muted)]">アカウント・表示・プラン</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-6 py-4 space-y-6">
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* Account - show login prompt or user info */}
         {authLoading ? (
           <div className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 flex items-center justify-center">

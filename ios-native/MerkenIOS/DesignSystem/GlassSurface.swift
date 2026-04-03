@@ -47,9 +47,11 @@ struct CameraAreaGlassOverlay: View {
 struct SolidCard<Content: View>: View {
     let content: Content
     let cardPadding: CGFloat
+    let bordered: Bool
 
-    init(padding: CGFloat = 16, @ViewBuilder content: () -> Content) {
+    init(padding: CGFloat = 16, bordered: Bool = true, @ViewBuilder content: () -> Content) {
         self.cardPadding = padding
+        self.bordered = bordered
         self.content = content()
     }
 
@@ -61,6 +63,7 @@ struct SolidCard<Content: View>: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(MerkenTheme.border, lineWidth: 1.5)
+                    .opacity(bordered ? 1 : 0)
             )
     }
 }

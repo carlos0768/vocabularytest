@@ -394,47 +394,29 @@ struct ProjectDetailView: View {
         let total = words.count
 
         return HStack(alignment: .top, spacing: 10) {
-            Button {
-                filteredWordListStatus = .mastered
-                showingFilteredWordList = true
-            } label: {
-                masteryCard(
-                    label: "習得",
-                    count: masteredCount,
-                    total: total,
-                    color: MerkenTheme.success,
-                    icon: "checkmark.seal.fill"
-                )
-            }
-            .buttonStyle(.plain)
+            masteryCard(
+                label: "習得",
+                count: masteredCount,
+                total: total,
+                color: MerkenTheme.success,
+                icon: "checkmark.seal.fill"
+            )
 
-            Button {
-                filteredWordListStatus = .review
-                showingFilteredWordList = true
-            } label: {
-                masteryCard(
-                    label: "学習中",
-                    count: reviewCount,
-                    total: total,
-                    color: MerkenTheme.accentBlue,
-                    icon: "arrow.trianglehead.2.clockwise"
-                )
-            }
-            .buttonStyle(.plain)
+            masteryCard(
+                label: "学習中",
+                count: reviewCount,
+                total: total,
+                color: MerkenTheme.accentBlue,
+                icon: "arrow.trianglehead.2.clockwise"
+            )
 
-            Button {
-                filteredWordListStatus = .new
-                showingFilteredWordList = true
-            } label: {
-                masteryCard(
-                    label: "未学習",
-                    count: newCount,
-                    total: total,
-                    color: MerkenTheme.mutedText,
-                    icon: "sparkle"
-                )
-            }
-            .buttonStyle(.plain)
+            masteryCard(
+                label: "未学習",
+                count: newCount,
+                total: total,
+                color: MerkenTheme.mutedText,
+                icon: "sparkle"
+            )
         }
     }
 
@@ -857,10 +839,9 @@ struct ProjectDetailView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                        .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
-                        .background(MerkenTheme.surface, in: .circle)
-                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                        .background(.black.opacity(0.35), in: .circle)
                 }
 
                 Spacer()
@@ -870,10 +851,9 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                        .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
-                        .background(MerkenTheme.surface, in: .circle)
-                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                        .background(.black.opacity(0.35), in: .circle)
                 }
                 .buttonStyle(.plain)
 
@@ -924,10 +904,9 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                        .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
-                        .background(MerkenTheme.surface, in: .circle)
-                        .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                        .background(.black.opacity(0.35), in: .circle)
                 }
                 .accessibilityIdentifier("moreMenuButton")
             }

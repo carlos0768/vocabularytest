@@ -59,6 +59,23 @@ struct WordInsertDTO: Codable, Sendable {
     let insightsGeneratedAt: Date?
     let insightsVersion: Int?
     let vocabularyType: String?
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(projectId, forKey: .projectId)
+        try container.encode(english, forKey: .english)
+        try container.encode(japanese, forKey: .japanese)
+        try container.encode(distractors, forKey: .distractors)
+        try container.encode(exampleSentence, forKey: .exampleSentence)
+        try container.encode(exampleSentenceJa, forKey: .exampleSentenceJa)
+        try container.encode(pronunciation, forKey: .pronunciation)
+        try container.encode(partOfSpeechTags, forKey: .partOfSpeechTags)
+        try container.encode(relatedWords, forKey: .relatedWords)
+        try container.encode(usagePatterns, forKey: .usagePatterns)
+        try container.encode(insightsGeneratedAt, forKey: .insightsGeneratedAt)
+        try container.encode(insightsVersion, forKey: .insightsVersion)
+        try container.encode(vocabularyType, forKey: .vocabularyType)
+    }
 }
 
 struct WordUpdateDTO: Codable, Sendable {
