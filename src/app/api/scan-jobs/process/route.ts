@@ -15,7 +15,12 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
+import {
+  generateExampleSentences,
+  saveExamplesToLexicon,
+  type ExampleGenerationFailureKind,
+  type ExampleGenerationSummary,
+} from '@/lib/ai/generate-example-sentences';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
@@ -58,7 +63,10 @@ const processSchema = z.object({
   jobId: z.string().uuid(),
 }).strict();
 
-type ExtractionWarningCode = 'grammar_not_found';
+type ExtractionWarningCode =
+  | 'grammar_not_found'
+  | 'example_generation_partial_failure'
+  | 'example_generation_failed';
 type ScanJobSaveMode = 'server_cloud' | 'client_local';
 
 type ExtractionLikeResult =
@@ -125,7 +133,66 @@ export const __internal = {
   extractFromImage,
   parseExtractedWords,
   dedupeExtractedWords,
+  getExampleGenerationWarning,
+  buildFailedExampleGenerationSummary,
+  applyExampleGenerationSummary,
 };
+
+function createExampleGenerationFailureKinds(): Record<ExampleGenerationFailureKind, number> {
+  return {
+    provider: 0,
+    parse: 0,
+    validation: 0,
+    empty: 0,
+  };
+}
+
+function buildFailedExampleGenerationSummary(
+  requested: number,
+  kind: ExampleGenerationFailureKind = 'provider',
+): ExampleGenerationSummary {
+  const failureKinds = createExampleGenerationFailureKinds();
+  failureKinds[kind] = requested;
+
+  return {
+    requested,
+    generated: 0,
+    failed: requested,
+    retried: 0,
+    retryRecovered: 0,
+    failureKinds,
+  };
+}
+
+function getExampleGenerationWarning(
+  summary?: ExampleGenerationSummary,
+): ExtractionWarningCode | null {
+  if (!summary || summary.failed === 0) {
+    return null;
+  }
+
+  return summary.generated === 0
+    ? 'example_generation_failed'
+    : 'example_generation_partial_failure';
+}
+
+function applyExampleGenerationSummary<T extends { exampleGeneration?: ExampleGenerationSummary }>(
+  payload: T,
+  warningSet: Set<string>,
+  summary?: ExampleGenerationSummary,
+): T {
+  if (!summary) {
+    return payload;
+  }
+
+  payload.exampleGeneration = summary;
+  const warning = getExampleGenerationWarning(summary);
+  if (warning) {
+    warningSet.add(warning);
+  }
+
+  return payload;
+}
 
 function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
   const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
@@ -134,6 +201,46 @@ function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
     .filter(Boolean);
 
   return !disabledModes.includes(mode);
+}
+
+function classifyUnexpectedExampleGenerationFailure(
+  error: unknown,
+): ExampleGenerationFailureKind {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+
+  if (message.includes('AI generation failed')) return 'provider';
+  if (message.includes('Empty example sentence')) return 'empty';
+  if (message.includes('parse') || message.includes('JSON')) return 'parse';
+  return 'validation';
+}
+
+function logExampleGenerationOutcome(params: {
+  jobId: string;
+  saveMode: ScanJobSaveMode;
+  summary: ExampleGenerationSummary;
+  errors: string[];
+  elapsedMs: number;
+}) {
+  const { jobId, saveMode, summary, errors, elapsedMs } = params;
+  console.log('[scan-jobs/process] Example generation completed', {
+    jobId,
+    saveMode,
+    requested: summary.requested,
+    generated: summary.generated,
+    failed: summary.failed,
+    retried: summary.retried,
+    retryRecovered: summary.retryRecovered,
+    failureKinds: summary.failureKinds,
+    elapsedMs,
+  });
+
+  if (errors.length > 0) {
+    console.warn('[scan-jobs/process] Example generation terminal errors', {
+      jobId,
+      saveMode,
+      errors,
+    });
+  }
 }
 
 interface ExtractionHandlers {
@@ -835,7 +942,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
 
-      const warnings = Array.from(new Set<string>([...Array.from(warningCodes), ...pageWarnings]));
+      const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
       const lexiconResolutionStart = Date.now();
       const resolvedResult = masterFirstEnabled
@@ -867,6 +974,8 @@ export async function POST(request: NextRequest) {
 
       if (saveMode === 'client_local') {
         // --- Synchronous example sentence generation (client_local) ---
+        let exampleGenerationSummary: ExampleGenerationSummary | undefined;
+        let exampleGenerationErrors: string[] = [];
         const wordsNeedingExamples = resolvedWords
           .filter((w) => !w.exampleSentence)
           .map((w, i) => ({
@@ -877,10 +986,13 @@ export async function POST(request: NextRequest) {
 
         if (wordsNeedingExamples.length > 0) {
           const exampleGenerationStart = Date.now();
+          let exampleGenerationElapsedMs = 0;
           try {
             const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
               generateExampleSentences(wordsNeedingExamples, apiKeys)
             );
+            exampleGenerationSummary = exampleResult.summary;
+            exampleGenerationErrors = exampleResult.errors;
             const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
 
             let exIdx = 0;
@@ -897,15 +1009,26 @@ export async function POST(request: NextRequest) {
                 exIdx++;
               }
             }
-
-            if (exampleResult.errors.length > 0) {
-              console.warn('[scan-jobs/process] Example generation partial errors (client_local):', exampleResult.errors);
-            }
           } catch (exampleError) {
             // Example generation failure should NOT fail the scan
             console.error('[scan-jobs/process] Example generation failed (client_local), continuing without:', exampleError);
+            exampleGenerationErrors = [exampleError instanceof Error ? exampleError.message : 'Unknown error'];
+            exampleGenerationSummary = buildFailedExampleGenerationSummary(
+              wordsNeedingExamples.length,
+              classifyUnexpectedExampleGenerationFailure(exampleError),
+            );
           } finally {
-            timing.exampleGenerationMs += Date.now() - exampleGenerationStart;
+            exampleGenerationElapsedMs = Date.now() - exampleGenerationStart;
+            timing.exampleGenerationMs += exampleGenerationElapsedMs;
+            if (exampleGenerationSummary) {
+              logExampleGenerationOutcome({
+                jobId,
+                saveMode,
+                summary: exampleGenerationSummary,
+                errors: exampleGenerationErrors,
+                elapsedMs: exampleGenerationElapsedMs,
+              });
+            }
           }
         }
 
@@ -916,6 +1039,7 @@ export async function POST(request: NextRequest) {
           extractedWords: ProcessedExtractedWord[];
           sourceLabels: string[];
           lexiconEntries: unknown[];
+          exampleGeneration?: ExampleGenerationSummary;
         } = {
           wordCount: resolvedWords.length,
           saveMode,
@@ -923,8 +1047,9 @@ export async function POST(request: NextRequest) {
           sourceLabels: dedupedSourceLabels,
           lexiconEntries: resolvedResult?.lexiconEntries ?? [],
         };
-        if (warnings.length > 0) {
-          resultPayload.warnings = warnings;
+        applyExampleGenerationSummary(resultPayload, warningSet, exampleGenerationSummary);
+        if (warningSet.size > 0) {
+          resultPayload.warnings = Array.from(warningSet);
         }
 
         timing.totalMs = Date.now() - processingStartedAt;
@@ -1084,13 +1209,17 @@ export async function POST(request: NextRequest) {
           japanese: w.japanese,
         }));
 
-      let exampleGenCount = 0;
+      let exampleGenerationSummary: ExampleGenerationSummary | undefined;
+      let exampleGenerationErrors: string[] = [];
       if (wordsForExampleGen.length > 0) {
         const exampleGenerationStart = Date.now();
+        let exampleGenerationElapsedMs = 0;
         try {
           const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
             generateExampleSentences(wordsForExampleGen, apiKeys)
           );
+          exampleGenerationSummary = exampleResult.summary;
+          exampleGenerationErrors = exampleResult.errors;
 
           if (exampleResult.examples.length > 0) {
             // Batch update DB with generated examples
@@ -1106,11 +1235,6 @@ export async function POST(request: NextRequest) {
                   .eq('id', ex.wordId)
               )
             );
-            exampleGenCount = exampleResult.examples.length;
-          }
-
-          if (exampleResult.errors.length > 0) {
-            console.warn('[scan-jobs/process] Example generation partial errors:', exampleResult.errors);
           }
 
           // Save examples to lexicon master DB (best-effort, non-blocking)
@@ -1148,18 +1272,26 @@ export async function POST(request: NextRequest) {
               }
             });
           }
-
-          console.log('[scan-jobs/process] Example generation completed', {
-            jobId,
-            requested: wordsForExampleGen.length,
-            generated: exampleGenCount,
-            elapsedMs: Date.now() - processingStartedAt,
-          });
         } catch (exampleError) {
           // Example generation failure should NOT fail the scan
           console.error('[scan-jobs/process] Example generation failed, continuing without:', exampleError);
+          exampleGenerationErrors = [exampleError instanceof Error ? exampleError.message : 'Unknown error'];
+          exampleGenerationSummary = buildFailedExampleGenerationSummary(
+            wordsForExampleGen.length,
+            classifyUnexpectedExampleGenerationFailure(exampleError),
+          );
         } finally {
-          timing.exampleGenerationMs += Date.now() - exampleGenerationStart;
+          exampleGenerationElapsedMs = Date.now() - exampleGenerationStart;
+          timing.exampleGenerationMs += exampleGenerationElapsedMs;
+          if (exampleGenerationSummary) {
+            logExampleGenerationOutcome({
+              jobId,
+              saveMode,
+              summary: exampleGenerationSummary,
+              errors: exampleGenerationErrors,
+              elapsedMs: exampleGenerationElapsedMs,
+            });
+          }
         }
       }
 
@@ -1172,14 +1304,16 @@ export async function POST(request: NextRequest) {
         quizPrefillRequested?: number;
         quizPrefillSucceeded?: number;
         quizPrefillFailed?: number;
+        exampleGeneration?: ExampleGenerationSummary;
       } = {
         wordCount: resolvedWords.length,
         saveMode,
         targetProjectId: projectId,
         sourceLabels: dedupedSourceLabels,
       };
-      if (warnings.length > 0) {
-        resultPayload.warnings = warnings;
+      applyExampleGenerationSummary(resultPayload, warningSet, exampleGenerationSummary);
+      if (warningSet.size > 0) {
+        resultPayload.warnings = Array.from(warningSet);
       }
 
       if (aiEnabled) {

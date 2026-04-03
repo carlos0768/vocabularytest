@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 // ---------- Types ----------
@@ -27,9 +28,21 @@ export interface GeneratedExample {
   exampleSentenceJa: string;
 }
 
+export type ExampleGenerationFailureKind = 'provider' | 'parse' | 'validation' | 'empty';
+
+export interface ExampleGenerationSummary {
+  requested: number;
+  generated: number;
+  failed: number;
+  retried: number;
+  retryRecovered: number;
+  failureKinds: Record<ExampleGenerationFailureKind, number>;
+}
+
 export interface GenerateExamplesResult {
   examples: GeneratedExample[];
   errors: string[];
+  summary: ExampleGenerationSummary;
 }
 
 // ---------- Schema ----------
@@ -64,13 +77,158 @@ const SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語
 }`;
 
 // Schema for single-word response
+const partOfSpeechTagsSchema = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return [];
+}, z.array(z.string()).default([]));
+
 const singleExampleSchema = z.object({
-  partOfSpeechTags: z.array(z.string()).optional().default([]),
+  partOfSpeechTags: partOfSpeechTagsSchema,
   exampleSentence: z.string(),
   exampleSentenceJa: z.string(),
 });
 
 const CONCURRENCY = 5;
+
+class ExampleGenerationError extends Error {
+  constructor(
+    readonly kind: ExampleGenerationFailureKind,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ExampleGenerationError';
+  }
+}
+
+type GenerateSingleDependency = (
+  word: ExampleSeedWord,
+  apiKeys: { gemini?: string; openai?: string },
+) => Promise<GeneratedExample>;
+
+function createFailureKindCounts(): Record<ExampleGenerationFailureKind, number> {
+  return {
+    provider: 0,
+    parse: 0,
+    validation: 0,
+    empty: 0,
+  };
+}
+
+function createSummary(requested: number): ExampleGenerationSummary {
+  return {
+    requested,
+    generated: 0,
+    failed: 0,
+    retried: 0,
+    retryRecovered: 0,
+    failureKinds: createFailureKindCounts(),
+  };
+}
+
+function extractJsonStringField(text: string, fieldName: string): string | null {
+  const pattern = new RegExp(`"${fieldName}"\\s*:\\s*("(?:\\\\.|[^"\\\\])*")`);
+  const match = text.match(pattern);
+  if (!match?.[1]) return null;
+
+  try {
+    return JSON.parse(match[1]) as string;
+  } catch {
+    return null;
+  }
+}
+
+function extractPartOfSpeechTags(text: string): string[] | null {
+  const arrayMatch = text.match(/"partOfSpeechTags"\s*:\s*(\[[\s\S]*?\])/);
+  if (arrayMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(arrayMatch[1]);
+      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : null;
+    } catch {
+      // Fall through to string parsing.
+    }
+  }
+
+  const stringMatch = text.match(/"partOfSpeechTags"\s*:\s*("(?:\\.|[^"\\])*")/);
+  if (stringMatch?.[1]) {
+    try {
+      return [JSON.parse(stringMatch[1]) as string];
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+function salvageSingleExampleResponse(text: string): z.input<typeof singleExampleSchema> | null {
+  const exampleSentence = extractJsonStringField(text, 'exampleSentence');
+  const exampleSentenceJa = extractJsonStringField(text, 'exampleSentenceJa');
+
+  if (!exampleSentence || !exampleSentenceJa) {
+    return null;
+  }
+
+  return {
+    partOfSpeechTags: extractPartOfSpeechTags(text) ?? [],
+    exampleSentence,
+    exampleSentenceJa,
+  };
+}
+
+function parseSingleExampleResponse(content: string): z.output<typeof singleExampleSchema> {
+  try {
+    return singleExampleSchema.parse(parseJsonResponse(content));
+  } catch (error) {
+    const salvaged = salvageSingleExampleResponse(content);
+    if (salvaged) {
+      try {
+        return singleExampleSchema.parse(salvaged);
+      } catch (salvageError) {
+        if (salvageError instanceof z.ZodError) {
+          throw new ExampleGenerationError('validation', `Invalid example response: ${salvageError.message}`);
+        }
+      }
+    }
+
+    if (error instanceof z.ZodError) {
+      throw new ExampleGenerationError('validation', `Invalid example response: ${error.message}`);
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown parse error';
+    throw new ExampleGenerationError('parse', `Failed to parse example response: ${message}`);
+  }
+}
+
+function classifyExampleGenerationError(error: unknown): ExampleGenerationFailureKind {
+  if (error instanceof ExampleGenerationError) {
+    return error.kind;
+  }
+  if (error instanceof z.ZodError) {
+    return 'validation';
+  }
+
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  if (message.includes('AI generation failed')) return 'provider';
+  if (message.includes('Empty example sentence')) return 'empty';
+  if (message.includes('parse') || message.includes('JSON')) return 'parse';
+  return 'validation';
+}
+
+function formatTerminalError(word: ExampleSeedWord, error: unknown): string {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  return `${word.english}: ${message}`;
+}
+
+export const __internal = {
+  parseSingleExampleResponse,
+  classifyExampleGenerationError,
+  createSummary,
+};
 
 // ---------- Core ----------
 
@@ -85,62 +243,75 @@ const CONCURRENCY = 5;
 export async function generateExampleSentences(
   words: ExampleSeedWord[],
   apiKeys: { gemini?: string; openai?: string },
+  deps: { generateSingle?: GenerateSingleDependency } = {},
 ): Promise<GenerateExamplesResult> {
+  const summary = createSummary(words.length);
   if (words.length === 0) {
-    return { examples: [], errors: [] };
+    return { examples: [], errors: [], summary };
   }
 
+  const generateSingleWord = deps.generateSingle ?? generateSingle;
   const allExamples: GeneratedExample[] = [];
   const errors: string[] = [];
+  const firstPassFailures: Array<{ word: ExampleSeedWord; reason: unknown }> = [];
 
   // Process words in chunks of CONCURRENCY
   for (let i = 0; i < words.length; i += CONCURRENCY) {
     const chunk = words.slice(i, i + CONCURRENCY);
     const results = await Promise.allSettled(
-      chunk.map(word => generateSingle(word, apiKeys)),
+      chunk.map(word => generateSingleWord(word, apiKeys)),
     );
-    for (const result of results) {
+    for (const [index, result] of results.entries()) {
       if (result.status === 'fulfilled') {
         allExamples.push(result.value);
       } else {
-        const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
-        errors.push(msg);
+        firstPassFailures.push({ word: chunk[index]!, reason: result.reason });
       }
     }
   }
 
   // Retry failed words once
-  const succeededIds = new Set(allExamples.map(ex => ex.wordId));
-  const failedWords = words.filter(w => !succeededIds.has(w.id));
+  const failedWords = firstPassFailures.map((entry) => entry.word);
+  summary.retried = failedWords.length;
 
   if (failedWords.length > 0) {
     console.log(`[generate-example-sentences] Retrying ${failedWords.length} failed words`);
+    const terminalFailures: Array<{ word: ExampleSeedWord; reason: unknown }> = [];
+
     for (let i = 0; i < failedWords.length; i += CONCURRENCY) {
       const chunk = failedWords.slice(i, i + CONCURRENCY);
       const results = await Promise.allSettled(
-        chunk.map(word => generateSingle(word, apiKeys)),
+        chunk.map(word => generateSingleWord(word, apiKeys)),
       );
-      for (const result of results) {
+      for (const [index, result] of results.entries()) {
         if (result.status === 'fulfilled') {
           allExamples.push(result.value);
+          summary.retryRecovered++;
         } else {
-          const msg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
-          console.error('[generate-example-sentences] Retry failed:', msg);
-          errors.push(msg);
+          terminalFailures.push({ word: chunk[index]!, reason: result.reason });
         }
       }
     }
+
+    for (const failure of terminalFailures) {
+      const kind = classifyExampleGenerationError(failure.reason);
+      summary.failureKinds[kind]++;
+      const msg = formatTerminalError(failure.word, failure.reason);
+      console.error('[generate-example-sentences] Retry failed:', msg);
+      errors.push(msg);
+    }
   }
 
-  const finalSucceeded = allExamples.length;
-  const finalMissing = words.length - finalSucceeded;
-  if (finalMissing > 0) {
-    console.warn(`[generate-example-sentences] ${finalMissing}/${words.length} words missing after retry`);
+  summary.generated = allExamples.length;
+  summary.failed = words.length - allExamples.length;
+
+  if (summary.failed > 0) {
+    console.warn(`[generate-example-sentences] ${summary.failed}/${words.length} words missing after retry`);
   } else {
     console.log(`[generate-example-sentences] All ${words.length} words generated successfully`);
   }
 
-  return { examples: allExamples, errors };
+  return { examples: allExamples, errors, summary };
 }
 
 /**
@@ -205,27 +376,21 @@ async function generateSingle(
   );
 
   if (!aiResponse.success) {
-    throw new Error(`AI generation failed for "${word.english}": ${aiResponse.error}`);
+    throw new ExampleGenerationError('provider', `AI generation failed for "${word.english}": ${aiResponse.error}`);
   }
 
-  // Parse response
-  let content = aiResponse.content;
-  if (content.startsWith('```json')) {
-    content = content.slice(7);
-  } else if (content.startsWith('```')) {
-    content = content.slice(3);
-  }
-  if (content.endsWith('```')) {
-    content = content.slice(0, -3);
-  }
-  content = content.trim();
+  const parsed = parseSingleExampleResponse(aiResponse.content);
+  const exampleSentence = parsed.exampleSentence.trim();
+  const exampleSentenceJa = parsed.exampleSentenceJa.trim();
 
-  const parsed = singleExampleSchema.parse(JSON.parse(content));
+  if (!exampleSentence || !exampleSentenceJa) {
+    throw new ExampleGenerationError('empty', `Empty example sentence returned for "${word.english}"`);
+  }
 
   return {
     wordId: word.id,
     partOfSpeechTags: normalizePartOfSpeechTags(parsed.partOfSpeechTags),
-    exampleSentence: parsed.exampleSentence,
-    exampleSentenceJa: parsed.exampleSentenceJa,
+    exampleSentence,
+    exampleSentenceJa,
   };
 }

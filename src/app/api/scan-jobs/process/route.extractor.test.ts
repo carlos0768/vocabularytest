@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { __internal } from '@/app/api/scan-jobs/process/route';
 import type { ExtractMode } from '@/app/api/extract/route';
 import { AI_CONFIG } from '@/lib/ai/config';
+import type { ExampleGenerationSummary } from '@/lib/ai/generate-example-sentences';
 
 const successWords = {
   success: true as const,
@@ -101,4 +102,39 @@ test('scan-jobs parser preserves japaneseSource and prefers scan during dedupe',
 
   assert.equal(deduped.length, 1);
   assert.equal(deduped[0]?.japaneseSource, 'scan');
+});
+
+test('scan-jobs marks partial example generation with warning and payload summary', () => {
+  const summary: ExampleGenerationSummary = {
+    requested: 5,
+    generated: 3,
+    failed: 2,
+    retried: 2,
+    retryRecovered: 0,
+    failureKinds: {
+      provider: 0,
+      parse: 1,
+      validation: 1,
+      empty: 0,
+    },
+  };
+
+  const warningSet = new Set<string>();
+  const payload = __internal.applyExampleGenerationSummary(
+    { saveMode: 'server_cloud' as const, wordCount: 5 },
+    warningSet,
+    summary,
+  );
+
+  assert.equal(__internal.getExampleGenerationWarning(summary), 'example_generation_partial_failure');
+  assert.deepEqual(payload.exampleGeneration, summary);
+  assert.deepEqual(Array.from(warningSet), ['example_generation_partial_failure']);
+});
+
+test('scan-jobs marks total example generation failure with failed warning', () => {
+  const summary = __internal.buildFailedExampleGenerationSummary(4, 'parse');
+
+  assert.equal(summary.failed, 4);
+  assert.equal(summary.failureKinds.parse, 4);
+  assert.equal(__internal.getExampleGenerationWarning(summary), 'example_generation_failed');
 });

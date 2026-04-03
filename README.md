@@ -212,6 +212,8 @@ npm run lint     # ESLint実行
 
 スキャン抽出のCloud Run運用手順: [`docs/ops/scan-gemini-cloudrun-runbook.md`](docs/ops/scan-gemini-cloudrun-runbook.md)
 
+スキャン後の例文生成トラブルシュート: [`docs/ops/scan-example-sentences-runbook.md`](docs/ops/scan-example-sentences-runbook.md)
+
 ```bash
 npm run build   # まずローカルでビルド成功を確認
 ```
@@ -253,4 +255,3 @@ where id like 'appstore:%'
 ## ライセンス
 
 プライベートリポジトリ。All rights reserved.
-

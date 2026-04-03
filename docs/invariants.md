@@ -99,6 +99,12 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 **Consequence of violation**: Complete database access for any attacker who obtains the key.
 
+### INV-13: Scan example generation never blocks completion, but leaves diagnostics
+
+`/api/extract` and `/api/scan-jobs/process` treat example sentence generation as best-effort work. A partial or total example-generation failure must not flip an otherwise successful scan to failed. When `scan-jobs/process` attempts example generation, it must persist an `exampleGeneration` summary in `scan_jobs.result`, and partial/total failure must add a warning code.
+
+**Consequence of violation**: Scans become brittle during transient AI failures, or example-generation regressions become invisible in production.
+
 ---
 
 ## Candidate Invariants
