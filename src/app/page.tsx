@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -102,46 +102,55 @@ export default function HomePage() {
   // Collections (Pro only)
   const { collections, loading: collectionsLoading } = useCollections();
 
-  // Projects & navigation - Initialize from cache if available
-  // ensureCacheRestored() runs synchronously so the first render uses cached data
-  const [projects, setProjects] = useState<Project[]>(() => {
-    ensureCacheRestored();
-    return getCachedProjects();
-  });
-  
-  // Initialize currentProjectIndex from sessionStorage if available
-  const [currentProjectIndex, setCurrentProjectIndex] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
-      if (savedProjectId) {
-        const cachedProjects = getCachedProjects();
-        const index = cachedProjects.findIndex(p => p.id === savedProjectId);
-        if (index >= 0) return index;
-      }
-    }
-    return 0;
-  });
-  const [words, setWords] = useState<Word[]>(() => {
-    const cachedProjects = getCachedProjects();
-    const cachedWords = getCachedProjectWords();
-    return cachedProjects[0] ? cachedWords[cachedProjects[0].id] || [] : [];
-  });
-  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>(() => getCachedAllFavorites());
-  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>(() => getCachedFavoriteCounts());
-  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>(() => getWrongAnswers());
-  const [showWrongAnswers, setShowWrongAnswers] = useState(false); // Show wrong answers mode
-  const [showAllProjects, setShowAllProjects] = useState(false); // Show all projects combined mode
-  const [totalWords, setTotalWords] = useState(() => getCachedTotalWords());
+  // Projects & navigation — empty initial state for SSR/hydration safety.
+  // Cache is restored in useLayoutEffect below (client-only, before first paint).
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+  const [words, setWords] = useState<Word[]>([]);
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]);
+  const [projectFavoriteCounts, setProjectFavoriteCounts] = useState<Record<string, number>>({});
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
+  const [showWrongAnswers, setShowWrongAnswers] = useState(false);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [totalWords, setTotalWords] = useState(0);
 
-  // Daily learning stats (localStorage sync read, no API call)
-  const dailyStats = useMemo(() => getDailyStats(), []);
-  const streakDays = useMemo(() => getStreakDays(), []);
+  // Daily learning stats — default values matching server render, updated after mount
+  const [dailyStats, setDailyStats] = useState({ todayCount: 0, correctCount: 0, masteredCount: 0 });
+  const [streakDays, setStreakDays] = useState(0);
   const accuracyPercent = dailyStats.todayCount > 0
     ? Math.round((dailyStats.correctCount / dailyStats.todayCount) * 100)
     : 0;
 
-  // Start with loading=false if cache is already populated (in-memory or sessionStorage)
-  const [loading, setLoading] = useState(() => !getHasLoaded());
+  // Always start as loading; cache restore below may clear it immediately
+  const [loading, setLoading] = useState(true);
+
+  // Restore sessionStorage/in-memory cache before first paint (client-only).
+  // Server and client both start with identical empty state, preventing hydration #418.
+  const cacheRestoredRef = useRef(false);
+  useLayoutEffect(() => {
+    if (cacheRestoredRef.current) return;
+    cacheRestoredRef.current = true;
+    ensureCacheRestored();
+    if (getHasLoaded()) {
+      const cachedProjects = getCachedProjects();
+      const cachedWords = getCachedProjectWords();
+      setProjects(cachedProjects);
+      setWords(cachedProjects[0] ? cachedWords[cachedProjects[0].id] ?? [] : []);
+      setAllFavoriteWords(getCachedAllFavorites());
+      setProjectFavoriteCounts(getCachedFavoriteCounts());
+      setTotalWords(getCachedTotalWords());
+      setWrongAnswers(getWrongAnswers());
+      setDailyStats(getDailyStats());
+      setStreakDays(getStreakDays());
+      // Restore selected project index
+      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
+      if (savedProjectId) {
+        const idx = cachedProjects.findIndex(p => p.id === savedProjectId);
+        if (idx >= 0) setCurrentProjectIndex(idx);
+      }
+      setLoading(false);
+    }
+  }, []);
   const [wordsLoading, setWordsLoading] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
@@ -1354,6 +1363,13 @@ export default function HomePage() {
     setProcessingSteps([]);
   };
 
+  // Word status counts — must be before early returns to satisfy hooks rules
+  const allWordsFlat = useMemo(() => Object.values(getCachedProjectWords()).flat(), [projects, words]);
+  const masteredTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'mastered').length, [allWordsFlat]);
+  const learningTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'review').length, [allWordsFlat]);
+  const unlearnedTotal = useMemo(() => allWordsFlat.filter(w => !w.status || w.status === 'new').length, [allWordsFlat]);
+  const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
+
   // Session expired: was logged in before but session is now invalid
   // Show re-login prompt instead of local data with free plan restrictions
   if (sessionExpired && !authLoading && !user) {
@@ -1484,14 +1500,6 @@ export default function HomePage() {
       </AppShell>
     );
   }
-
-  // Main view with project
-  // Compute word status counts across all projects
-  const allWordsFlat = useMemo(() => Object.values(getCachedProjectWords()).flat(), [projects, words]);
-  const masteredTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'mastered').length, [allWordsFlat]);
-  const learningTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'review').length, [allWordsFlat]);
-  const unlearnedTotal = useMemo(() => allWordsFlat.filter(w => !w.status || w.status === 'new').length, [allWordsFlat]);
-  const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
 
   return (
     <AppShell>
