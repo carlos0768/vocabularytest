@@ -80,7 +80,7 @@ export default function FlashcardPage() {
     if (words.length > 0) {
       saveProgress(words, currentIndex);
     }
-    router.push(returnPath || `/project/${projectId}`);
+    router.replace(returnPath || `/project/${projectId}`);
   }, [words, currentIndex, saveProgress, router, returnPath, projectId]);
 
   // Load words
