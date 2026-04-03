@@ -62,9 +62,10 @@ export async function resolveAuthenticatedUser(request: NextRequest): Promise<Au
   const authHeader = request.headers.get('authorization');
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-  if (!bearerToken) return null;
+  const { data: { user }, error } = bearerToken
+    ? await supabase.auth.getUser(bearerToken)
+    : await supabase.auth.getUser();
 
-  const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
   if (error || !user) return null;
 
   return { id: user.id };
