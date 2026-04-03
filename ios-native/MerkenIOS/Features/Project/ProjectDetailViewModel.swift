@@ -80,25 +80,29 @@ final class ProjectDetailViewModel: ObservableObject {
         projectId _: String,
         using state: AppState
     ) async {
+        let previousEnglish = words.first(where: { $0.id == wordId })?.english
+        let englishChanged = patch.english != nil && patch.english != previousEnglish
+
+        var effectivePatch = patch
+        if englishChanged {
+            effectivePatch.partOfSpeechTags = .some([])
+            effectivePatch.relatedWords = .some([])
+            effectivePatch.usagePatterns = .some([])
+            effectivePatch.insightsGeneratedAt = .some(nil)
+            effectivePatch.insightsVersion = 0
+        }
+
+        // Optimistic update: apply to UI immediately
+        var snapshot: Word?
+        if let index = words.firstIndex(where: { $0.id == wordId }) {
+            snapshot = words[index]
+            var updated = words[index]
+            apply(effectivePatch, to: &updated)
+            words[index] = updated
+        }
+
         do {
-            let previousEnglish = words.first(where: { $0.id == wordId })?.english
-            let englishChanged = patch.english != nil && patch.english != previousEnglish
-
-            var effectivePatch = patch
-            if englishChanged {
-                effectivePatch.partOfSpeechTags = .some([])
-                effectivePatch.relatedWords = .some([])
-                effectivePatch.usagePatterns = .some([])
-                effectivePatch.insightsGeneratedAt = .some(nil)
-                effectivePatch.insightsVersion = 0
-            }
-
             try await state.activeRepository.updateWord(id: wordId, patch: effectivePatch)
-            if let index = words.firstIndex(where: { $0.id == wordId }) {
-                var updated = words[index]
-                apply(effectivePatch, to: &updated)
-                words[index] = updated
-            }
             if broadcastChanges {
                 state.bumpDataVersion()
             }
@@ -107,6 +111,10 @@ final class ProjectDetailViewModel: ObservableObject {
             if error.isCancellationError {
                 errorMessage = nil
                 return
+            }
+            // Rollback on failure
+            if let snapshot, let index = words.firstIndex(where: { $0.id == wordId }) {
+                words[index] = snapshot
             }
             errorMessage = error.localizedDescription
             logger.error("Update word failed: \(error.localizedDescription)")
@@ -249,6 +257,9 @@ final class ProjectDetailViewModel: ObservableObject {
         }
         if let isFavorite = patch.isFavorite {
             word.isFavorite = isFavorite
+        }
+        if let vocabularyType = patch.vocabularyType {
+            word.vocabularyType = vocabularyType
         }
     }
 }
