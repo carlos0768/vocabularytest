@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
-import { ProjectBookTile } from '@/components/project/ProjectBookTile';
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';

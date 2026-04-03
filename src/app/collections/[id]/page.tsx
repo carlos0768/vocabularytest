@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { StudyModeCard, WordList } from '@/components/home';
-import { ProjectBookTile } from '@/components/project';
+import { ProjectCard } from '@/components/project/ProjectCard';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useCollections } from '@/hooks/use-collections';
@@ -493,15 +493,14 @@ export default function CollectionDetailPage() {
                 まだ単語帳が追加されていません
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div className="space-y-3">
                 {memberProjects.map((project) => (
-                  <ProjectBookTile
+                  <ProjectCard
                     key={project.id}
                     project={project}
-                    wordCount={project.totalWords}
-                    masteredCount={project.masteredWords}
-                    progress={project.progress}
-                    extraMenuItems={[
+                    totalWords={project.totalWords}
+                    masteredWords={project.masteredWords}
+                    menuItems={[
                       {
                         label: '本棚から除外',
                         icon: 'link_off',

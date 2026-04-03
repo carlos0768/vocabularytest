@@ -1,10 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { Icon } from '@/components/ui/Icon';
 import type { Project, Word } from '@/types';
+
+interface MenuItem {
+  label: string;
+  icon: string;
+  onClick: (id: string) => void;
+  danger?: boolean;
+}
 
 interface ProjectCardBaseProps {
   project: Project;
+  menuItems?: MenuItem[];
 }
 
 interface ProjectCardWithWords extends ProjectCardBaseProps {
@@ -24,7 +34,8 @@ export type ProjectCardProps = ProjectCardWithWords | ProjectCardWithCounts;
 const ICON_COLORS = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
 
 export function ProjectCard(props: ProjectCardProps) {
-  const { project } = props;
+  const { project, menuItems } = props;
+  const [showMenu, setShowMenu] = useState(false);
 
   let total: number;
   let mastered: number;
@@ -46,35 +57,76 @@ export function ProjectCard(props: ProjectCardProps) {
   const colorIndex = project.title.length % ICON_COLORS.length;
 
   return (
-    <Link
-      href={`/project/${project.id}`}
-      className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
-    >
-      <div
-        className={`w-14 h-14 rounded-xl ${ICON_COLORS[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}
+    <div className="relative">
+      <Link
+        href={`/project/${project.id}`}
+        className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
       >
-        {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-bold text-[var(--color-foreground)] truncate">{project.title}</p>
-        <p className="text-xl font-black text-[var(--color-foreground)]">
-          {total} <span className="text-sm font-bold">語</span>
-        </p>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
-            習得 {mastered}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-muted)]" />
-            学習 {learning}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-border)]" />
-            未学習 {unlearned}
-          </span>
+        <div
+          className={`w-14 h-14 rounded-xl ${ICON_COLORS[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}
+        >
+          {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
         </div>
-      </div>
-    </Link>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-[var(--color-foreground)] truncate">{project.title}</p>
+          <p className="text-xl font-black text-[var(--color-foreground)]">
+            {total} <span className="text-sm font-bold">語</span>
+          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
+              習得 {mastered}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--color-muted)]" />
+              学習 {learning}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--color-border)]" />
+              未学習 {unlearned}
+            </span>
+          </div>
+        </div>
+        {menuItems && menuItems.length > 0 && (
+          <button
+            className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] transition-colors shrink-0"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowMenu((v) => !v);
+            }}
+          >
+            <Icon name="more_vert" size={18} />
+          </button>
+        )}
+      </Link>
+
+      {showMenu && menuItems && menuItems.length > 0 && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+          <div className="absolute right-2 top-12 z-20 bg-[var(--color-surface)] rounded-xl shadow-card border border-[var(--color-border)] py-1 min-w-[160px]">
+            {menuItems.map((item) => (
+              <button
+                key={item.label}
+                className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${
+                  item.danger
+                    ? 'text-[var(--color-error)] hover:bg-[var(--color-error-light)]'
+                    : 'text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)]'
+                }`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowMenu(false);
+                  item.onClick(project.id);
+                }}
+              >
+                <Icon name={item.icon} size={16} />
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

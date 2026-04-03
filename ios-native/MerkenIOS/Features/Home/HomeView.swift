@@ -486,9 +486,11 @@ struct HomeView: View {
 
                     homeLogoTitle
 
-                    heroBlock
-
-                    homeLearningStateSection
+                    // 2-column: compact today's goal (left) + mastery donut (right)
+                    HStack(alignment: .top, spacing: 10) {
+                        compactTodayGoalCard
+                        masteryDonutCard
+                    }
 
                     errorSection
 
@@ -564,6 +566,155 @@ struct HomeView: View {
         } else {
             glassLayer
                 .background(.ultraThinMaterial)
+        }
+    }
+
+    // MARK: - Compact Today Goal Card (left column)
+
+    private var compactTodayGoalCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("今日の目標")
+                .font(.system(size: 12))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .padding(.bottom, 6)
+
+            if viewModel.dueWordCount > 0 {
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(viewModel.dueWordCount)")
+                        .font(.system(size: 32, weight: .bold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                    Text("語")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                }
+                Text("\(reviewCompletedCount) / \(reviewTargetCount) 完了")
+                    .font(.system(size: 12, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .padding(.top, 2)
+            } else if reviewTargetCount > 0 {
+                Text("完了！")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(MerkenTheme.success)
+                Text("\(reviewCompletedCount) / \(reviewTargetCount)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .padding(.top, 2)
+            } else {
+                Text("復習待ちなし")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.primaryText)
+            }
+
+            Spacer()
+
+            if let firstProject = viewModel.projects.first, viewModel.dueWordCount > 0 {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    if appState.isAIEnabled {
+                        quizDestination = QuizDestination(
+                            project: firstProject,
+                            preloadedWords: viewModel.dueWords,
+                            skipSetup: true
+                        )
+                    } else {
+                        flashcardDestination = FlashcardDestination(
+                            project: firstProject,
+                            preloadedWords: viewModel.preloadedWords(for: firstProject.id)
+                        )
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("復習を始める")
+                            .font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+    }
+
+    // MARK: - Mastery Donut Card (right column)
+
+    private var masteryDonutCard: some View {
+        let total = viewModel.allWordsFlat.count
+        let masteredCount = viewModel.allWordsFlat.filter { $0.status == .mastered }.count
+        let reviewCount = viewModel.allWordsFlat.filter { $0.status == .review }.count
+        let newCount = viewModel.allWordsFlat.filter { $0.status == .new }.count
+        let masteredFrac = total > 0 ? Double(masteredCount) / Double(total) : 0
+        let reviewFrac = total > 0 ? Double(reviewCount) / Double(total) : 0
+        let masteryPercent = total > 0 ? Int(masteredFrac * 100) : 0
+
+        return VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .stroke(MerkenTheme.borderLight, lineWidth: 14)
+                if masteredFrac > 0 {
+                    Circle()
+                        .trim(from: 0, to: masteredFrac)
+                        .stroke(MerkenTheme.success, style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+                        .rotationEffect(.degrees(-90))
+                }
+                if reviewFrac > 0 {
+                    Circle()
+                        .trim(from: masteredFrac, to: masteredFrac + reviewFrac)
+                        .stroke(MerkenTheme.accentBlue, style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+                        .rotationEffect(.degrees(-90))
+                }
+                VStack(spacing: 1) {
+                    Text("\(masteryPercent)%")
+                        .font(.system(size: 18, weight: .black))
+                        .monospacedDigit()
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text("習得")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                }
+            }
+            .frame(width: 96, height: 96)
+
+            VStack(alignment: .leading, spacing: 5) {
+                donutLegendItem(color: MerkenTheme.success, label: "習得", count: masteredCount)
+                donutLegendItem(color: MerkenTheme.accentBlue, label: "学習中", count: reviewCount)
+                donutLegendItem(color: MerkenTheme.borderLight, label: "未学習", count: newCount)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 150)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        )
+    }
+
+    private func donutLegendItem(color: Color, label: String, count: Int) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(MerkenTheme.secondaryText)
+            Spacer()
+            Text("\(count)")
+                .font(.system(size: 10, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(MerkenTheme.primaryText)
         }
     }
 
