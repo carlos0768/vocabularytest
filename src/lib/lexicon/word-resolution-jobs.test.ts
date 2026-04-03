@@ -101,8 +101,9 @@ class FakeResolutionSupabase {
     throw new Error(`Unexpected table: ${table}`);
   }
 
-  async rpc(fnName: string, params: { updates: string }) {
-    const updates = JSON.parse(params.updates) as Array<Record<string, unknown>>;
+  async rpc(fnName: string, params: { updates: unknown }) {
+    assert.ok(Array.isArray(params.updates));
+    const updates = params.updates as Array<Record<string, unknown>>;
 
     if (fnName === 'batch_update_word_lexicon_links') {
       for (const update of updates) {

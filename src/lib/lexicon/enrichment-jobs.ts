@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { createInternalWorkerUrl, getInternalWorkerAuthorization } from '@/lib/api/internal-worker';
 import {
   LEXICON_POS_VALUES,
   normalizeLexiconTranslation,
@@ -157,18 +158,18 @@ export async function triggerLexiconEnrichmentProcessing(
   requestUrl: string,
   jobId?: string,
 ): Promise<void> {
-  const workerToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!workerToken) {
-    console.error('[lexicon-enrichment] Missing SUPABASE_SERVICE_ROLE_KEY while scheduling worker');
+  const workerAuth = getInternalWorkerAuthorization();
+  if (!workerAuth) {
+    console.error('[lexicon-enrichment] Missing internal worker token while scheduling worker');
     return;
   }
 
-  const processUrl = new URL('/api/lexicon-enrichment/process', requestUrl);
+  const processUrl = createInternalWorkerUrl('/api/lexicon-enrichment/process', requestUrl);
   const response = await fetch(processUrl.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${workerToken}`,
+      'Authorization': workerAuth.header,
     },
     body: JSON.stringify(jobId ? { jobId } : {}),
     cache: 'no-store',

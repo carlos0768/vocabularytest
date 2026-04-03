@@ -7,7 +7,10 @@ import { handleQuiz2SimilarPost } from '@/app/api/quiz2/similar/route';
 import { handleQuiz2SimilarBatchPost } from '@/app/api/quiz2/similar/batch/route';
 import { handleSimilarCacheRebuildPost } from '@/app/api/similar-cache/rebuild/route';
 import { POST as processLexiconEnrichmentPost } from '@/app/api/lexicon-enrichment/process/route';
-import { POST as processWordLexiconResolutionPost } from '@/app/api/word-lexicon-resolution/process/route';
+import {
+  POST as processWordLexiconResolutionPost,
+  handleWordLexiconResolutionProcessPost,
+} from '@/app/api/word-lexicon-resolution/process/route';
 import { POST as processScanJobPost } from '@/app/api/scan-jobs/process/route';
 import { POST as rebuildEmbeddingsPost } from '@/app/api/embeddings/rebuild/route';
 
@@ -20,6 +23,45 @@ function jsonRequest(url: string, body: unknown, headers?: Record<string, string
     },
     body: JSON.stringify(body),
   });
+}
+
+async function withWorkerEnv<T>(
+  values: {
+    SUPABASE_SERVICE_ROLE_KEY?: string | undefined;
+    INTERNAL_WORKER_TOKEN?: string | undefined;
+  },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const originalServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalInternalWorkerToken = process.env.INTERNAL_WORKER_TOKEN;
+
+  if (typeof values.SUPABASE_SERVICE_ROLE_KEY === 'string') {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = values.SUPABASE_SERVICE_ROLE_KEY;
+  } else {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+
+  if (typeof values.INTERNAL_WORKER_TOKEN === 'string') {
+    process.env.INTERNAL_WORKER_TOKEN = values.INTERNAL_WORKER_TOKEN;
+  } else {
+    delete process.env.INTERNAL_WORKER_TOKEN;
+  }
+
+  try {
+    return await fn();
+  } finally {
+    if (typeof originalServiceRoleKey === 'string') {
+      process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRoleKey;
+    } else {
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+
+    if (typeof originalInternalWorkerToken === 'string') {
+      process.env.INTERNAL_WORKER_TOKEN = originalInternalWorkerToken;
+    } else {
+      delete process.env.INTERNAL_WORKER_TOKEN;
+    }
+  }
 }
 
 test('search semantic rejects unexpected userId field (strict schema)', async () => {
@@ -399,6 +441,23 @@ test('scan-jobs/process returns 400 for non-uuid jobId', async () => {
   }
 });
 
+test('scan-jobs/process accepts INTERNAL_WORKER_TOKEN with normalized env value', async () => {
+  await withWorkerEnv(
+    {
+      INTERNAL_WORKER_TOKEN: 'worker-test\n',
+    },
+    async () => {
+      const req = jsonRequest(
+        'http://localhost/api/scan-jobs/process',
+        { jobId: 'not-a-uuid' },
+        { authorization: 'Bearer worker-test' },
+      );
+      const res = await processScanJobPost(req);
+      assert.equal(res.status, 400);
+    },
+  );
+});
+
 test('lexicon-enrichment/process returns 401 when worker auth header is invalid', async () => {
   const original = process.env.SUPABASE_SERVICE_ROLE_KEY;
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'svc-test-key';
@@ -427,6 +486,23 @@ test('lexicon-enrichment/process returns 400 for non-uuid jobId', async () => {
   }
 });
 
+test('lexicon-enrichment/process accepts INTERNAL_WORKER_TOKEN with normalized env value', async () => {
+  await withWorkerEnv(
+    {
+      INTERNAL_WORKER_TOKEN: 'worker-test\n',
+    },
+    async () => {
+      const req = jsonRequest(
+        'http://localhost/api/lexicon-enrichment/process',
+        { jobId: 'not-a-uuid' },
+        { authorization: 'Bearer worker-test' },
+      );
+      const res = await processLexiconEnrichmentPost(req);
+      assert.equal(res.status, 400);
+    },
+  );
+});
+
 test('word-lexicon-resolution/process returns 401 when worker auth header is invalid', async () => {
   const original = process.env.SUPABASE_SERVICE_ROLE_KEY;
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'svc-test-key';
@@ -453,6 +529,42 @@ test('word-lexicon-resolution/process returns 400 for non-uuid jobId', async () 
   } finally {
     process.env.SUPABASE_SERVICE_ROLE_KEY = original;
   }
+});
+
+test('word-lexicon-resolution/process accepts INTERNAL_WORKER_TOKEN and returns processed=0 when no jobs are claimed', async () => {
+  await withWorkerEnv(
+    {
+      INTERNAL_WORKER_TOKEN: 'worker-test\n',
+    },
+    async () => {
+      const req = jsonRequest(
+        'http://localhost/api/word-lexicon-resolution/process',
+        { jobId: '0dd8f4d8-22cf-4010-b6e7-99485683023c' },
+        { authorization: 'Bearer worker-test' },
+      );
+      const res = await handleWordLexiconResolutionProcessPost(req, {
+        supabaseAdmin: {
+          from: () => ({
+            update: () => ({
+              eq: () => ({
+                eq: () => ({
+                  select: () => ({
+                    maybeSingle: async () => ({ data: null, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        } as never,
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), {
+        success: true,
+        processed: 0,
+      });
+    },
+  );
 });
 
 test('embeddings/rebuild returns 401 without admin header', async () => {

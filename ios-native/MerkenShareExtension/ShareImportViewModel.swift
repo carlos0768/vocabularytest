@@ -21,6 +21,8 @@ final class ShareImportViewModel: ObservableObject {
     @Published var selectedProjectId: String?
     @Published var useNewProject: Bool = false
     @Published var newProjectTitle: String = ""
+    @Published var isPreviewLoading: Bool = false
+    @Published var isProjectsLoading: Bool = false
 
     private let logger = Logger(subsystem: "MerkenShareExtension", category: "ShareImport")
     private let service: ShareImportService
@@ -60,7 +62,6 @@ final class ShareImportViewModel: ObservableObject {
         }
 
         self.authSnapshot = snapshot
-        phase = .loading
 
         let localEnglishRaw = input.detectedEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let localJapanese = input.detectedJapanese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -73,6 +74,7 @@ final class ShareImportViewModel: ObservableObject {
             projectOptions = []
             selectedProjectId = nil
             useNewProject = true
+            isProjectsLoading = true
             phase = .editing
 
             Task {
@@ -80,6 +82,11 @@ final class ShareImportViewModel: ObservableObject {
             }
             return
         }
+
+        // Show editing UI immediately with skeleton placeholders for fields still loading
+        isPreviewLoading = true
+        isProjectsLoading = true
+        phase = .editing
 
         Task {
             await loadInitialData(input: input)
@@ -110,7 +117,9 @@ final class ShareImportViewModel: ObservableObject {
         }
 
         if case .failure = phase, let input {
-            phase = .loading
+            isPreviewLoading = true
+            isProjectsLoading = true
+            phase = .editing
             Task {
                 await loadInitialData(input: input)
             }
@@ -132,6 +141,7 @@ final class ShareImportViewModel: ObservableObject {
                 try await service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
             }
         } catch ShareImportServiceError.unauthorized {
+            isProjectsLoading = false
             phase = .loginRequired
             return
         } catch {
@@ -140,10 +150,13 @@ final class ShareImportViewModel: ObservableObject {
             if !prefilledFromShare {
                 warnings = dedupeWarnings(warnings + ["単語帳一覧の取得に失敗しました。新規作成で続行できます。"])
             }
+            isProjectsLoading = false
             return
         }
 
         projectOptions = fetchedProjects
+        isProjectsLoading = false
+
         if fetchedProjects.isEmpty {
             useNewProject = true
             selectedProjectId = nil
@@ -160,49 +173,77 @@ final class ShareImportViewModel: ObservableObject {
     }
 
     private func loadInitialData(input: ShareImportInput) async {
-        var fetchedProjects: [ShareImportProjectOptionDTO] = []
-        var previewCandidate: ShareImportPreviewCandidateDTO?
-        var nextWarnings: [String] = []
         let localEnglishRaw = input.detectedEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let localJapanese = input.detectedJapanese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let localEnglish = isTrustedLocalEnglish(localEnglishRaw) ? localEnglishRaw : ""
 
-        do {
-            fetchedProjects = try await withAuthorizedSnapshot { snapshot in
-                try await service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
-            }
-        } catch ShareImportServiceError.unauthorized {
-            phase = .loginRequired
-            return
-        } catch {
-            let message = error.localizedDescription
-            logger.error("Failed to fetch project list in share import: \(message, privacy: .public)")
-            nextWarnings.append("単語帳一覧の取得に失敗しました。新規作成で続行できます。")
-        }
-
-        if !localEnglish.isEmpty {
-            english = localEnglish
-        }
-        if !localJapanese.isEmpty {
-            japanese = localJapanese
-        }
-
-        // Avoid consuming preview API when both languages were already extracted from the share payload.
-        if !localEnglish.isEmpty, !localJapanese.isEmpty {
-            projectOptions = fetchedProjects
-            selectedProjectId = fetchedProjects.first?.id
-            useNewProject = fetchedProjects.isEmpty
-            warnings = dedupeWarnings(nextWarnings)
-            phase = .editing
-            return
-        }
-
+        var nextWarnings: [String] = []
         if !localEnglishRaw.isEmpty, localEnglish.isEmpty {
             nextWarnings.append("共有内容の英語候補を判定できなかったため、再取得します。")
         }
 
+        // fetchProjects と preview を並列実行して合計待ち時間を短縮
+        async let projectsTask = fetchProjectsResult()
+        async let previewTask = fetchPreviewResult(input: input)
+
+        let (projectsResult, previewResult) = await (projectsTask, previewTask)
+
+        // プロジェクト一覧の結果を処理
+        switch projectsResult {
+        case .success(let projects):
+            projectOptions = projects
+            selectedProjectId = projects.first?.id
+            useNewProject = projects.isEmpty
+        case .failure(ShareImportServiceError.unauthorized):
+            isPreviewLoading = false
+            isProjectsLoading = false
+            phase = .loginRequired
+            return
+        case .failure(let error):
+            logger.error("Failed to fetch project list in share import: \(error.localizedDescription, privacy: .public)")
+            nextWarnings.append("単語帳一覧の取得に失敗しました。新規作成で続行できます。")
+            useNewProject = true
+        }
+        isProjectsLoading = false
+
+        // プレビュー（翻訳）の結果を処理
+        switch previewResult {
+        case .success(let candidate):
+            english = candidate.english
+            japanese = candidate.japanese
+            nextWarnings.append(contentsOf: candidate.warnings)
+        case .failure(ShareImportServiceError.unauthorized):
+            isPreviewLoading = false
+            phase = .loginRequired
+            return
+        case .failure(let error):
+            logger.error("Failed to preview share import text: \(error.localizedDescription, privacy: .public)")
+            if let fallback = localFallbackCandidate(from: input.text) {
+                english = fallback.english
+            } else {
+                nextWarnings.append(error.localizedDescription)
+                nextWarnings.append("自動抽出に失敗したため、手動入力で続行してください。")
+            }
+        }
+        isPreviewLoading = false
+
+        warnings = dedupeWarnings(nextWarnings)
+    }
+
+    private func fetchProjectsResult() async -> Result<[ShareImportProjectOptionDTO], Error> {
         do {
-            previewCandidate = try await withAuthorizedSnapshot { snapshot in
+            let projects = try await withAuthorizedSnapshot { snapshot in
+                try await service.fetchProjects(limit: 20, bearerToken: snapshot.accessToken)
+            }
+            return .success(projects)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func fetchPreviewResult(input: ShareImportInput) async -> Result<ShareImportPreviewCandidateDTO, Error> {
+        do {
+            let candidate = try await withAuthorizedSnapshot { snapshot in
                 try await service.preview(
                     text: input.text,
                     sourceApp: input.sourceApp,
@@ -210,40 +251,10 @@ final class ShareImportViewModel: ObservableObject {
                     bearerToken: snapshot.accessToken
                 )
             }
-        } catch ShareImportServiceError.unauthorized {
-            phase = .loginRequired
-            return
+            return .success(candidate)
         } catch {
-            let message = error.localizedDescription
-            logger.error("Failed to preview share import text: \(message, privacy: .public)")
-            nextWarnings.append(message)
-            nextWarnings.append("自動抽出に失敗したため、手動入力で続行してください。")
+            return .failure(error)
         }
-
-        if let candidate = previewCandidate {
-            english = candidate.english
-            japanese = candidate.japanese
-            nextWarnings.append(contentsOf: candidate.warnings)
-        } else if let fallback = localFallbackCandidate(from: input.text) {
-            english = fallback.english
-            if japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                japanese = ""
-            }
-        } else {
-            if english.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                english = ""
-            }
-            if japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                japanese = ""
-            }
-            nextWarnings.append("英語と日本語を入力して追加してください。")
-        }
-
-        warnings = dedupeWarnings(nextWarnings)
-        projectOptions = fetchedProjects
-        selectedProjectId = fetchedProjects.first?.id
-        useNewProject = fetchedProjects.isEmpty
-        phase = .editing
     }
 
     private func dedupeWarnings(_ values: [String]) -> [String] {

@@ -1,5 +1,41 @@
 import SwiftUI
 
+// MARK: - Shimmer Skeleton
+
+private struct SkeletonRow: View {
+    var height: CGFloat = 44
+    @State private var sweeping = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(red: 0.90, green: 0.90, blue: 0.92))
+
+                LinearGradient(
+                    colors: [.clear, Color.white.opacity(0.75), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: geo.size.width * 0.45)
+                .offset(x: sweeping
+                    ? geo.size.width + geo.size.width * 0.45
+                    : -geo.size.width * 0.45
+                )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .frame(height: height)
+        .onAppear {
+            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                sweeping = true
+            }
+        }
+    }
+}
+
+// MARK: - Root View
+
 struct ShareImportRootView: View {
     @StateObject private var viewModel: ShareImportViewModel
 
@@ -193,16 +229,38 @@ struct ShareImportRootView: View {
 
                 sectionCard {
                     VStack(alignment: .leading, spacing: 12) {
-                        sectionLabel("英語")
-                        textField(
-                            "english",
-                            text: $viewModel.english,
-                            autocapitalization: .never,
-                            disableAutocorrection: true
-                        )
+                        HStack(spacing: 6) {
+                            sectionLabel("英語")
+                            if viewModel.isPreviewLoading {
+                                loadingBadge("翻訳中")
+                            }
+                        }
+                        if viewModel.isPreviewLoading {
+                            SkeletonRow()
+                                .transition(.opacity)
+                        } else {
+                            textField(
+                                "english",
+                                text: $viewModel.english,
+                                autocapitalization: .never,
+                                disableAutocorrection: true
+                            )
+                            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        }
 
-                        sectionLabel("日本語")
-                        textField("japanese", text: $viewModel.japanese)
+                        HStack(spacing: 6) {
+                            sectionLabel("日本語")
+                            if viewModel.isPreviewLoading {
+                                loadingBadge("翻訳中")
+                            }
+                        }
+                        if viewModel.isPreviewLoading {
+                            SkeletonRow()
+                                .transition(.opacity)
+                        } else {
+                            textField("japanese", text: $viewModel.japanese)
+                                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        }
 
                         Toggle(isOn: $viewModel.useNewProject) {
                             Text("新しい単語帳を作成")
@@ -210,20 +268,30 @@ struct ShareImportRootView: View {
                                 .foregroundStyle(.black)
                         }
                         .toggleStyle(.switch)
+                        .disabled(viewModel.isProjectsLoading)
+                        .opacity(viewModel.isProjectsLoading ? 0.45 : 1)
 
                         if viewModel.useNewProject {
                             textField("単語帳名（任意）", text: $viewModel.newProjectTitle)
+                        } else if viewModel.isProjectsLoading {
+                            SkeletonRow(height: 50)
+                                .transition(.opacity)
                         } else {
                             pickerField
+                                .transition(.opacity)
                         }
                     }
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.isPreviewLoading)
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.isProjectsLoading)
                 }
 
                 primaryButton(title: "この内容で追加", color: accentColor) {
                     viewModel.save()
                 }
-                .disabled(!viewModel.canSave)
-                .opacity(viewModel.canSave ? 1 : 0.58)
+                .disabled(!viewModel.canSave || viewModel.isPreviewLoading)
+                .opacity((viewModel.canSave && !viewModel.isPreviewLoading) ? 1 : 0.45)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.canSave)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.isPreviewLoading)
             }
             .padding(.vertical, 6)
         }
@@ -311,6 +379,21 @@ struct ShareImportRootView: View {
         Text(title)
             .font(.system(size: 12, weight: .bold))
             .foregroundStyle(secondaryTextColor)
+    }
+
+    private func loadingBadge(_ label: String) -> some View {
+        HStack(spacing: 4) {
+            ProgressView()
+                .scaleEffect(0.55)
+                .tint(secondaryTextColor)
+                .frame(width: 10, height: 10)
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(secondaryTextColor)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(secondaryTextColor.opacity(0.08), in: Capsule())
     }
 
     private func sectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {

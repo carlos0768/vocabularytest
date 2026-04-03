@@ -129,7 +129,9 @@ POST /api/extract (src/app/api/extract/route.ts)
   2. Zod schema validation of request body
   3. check_and_increment_scan RPC (server-side limit enforcement)
   4. AI extraction (Gemini 2.5 Flash via direct API or Cloud Run proxy)
-  5. Return JSON word list
+  5. Master-first resolution + missing Japanese backfill
+  6. Best-effort example sentence generation per word
+  7. Return JSON word list + example generation diagnostics
   |
   v
 sessionStorage (keys: scanvocab_extracted_words, scanvocab_project_name, etc.)
@@ -141,7 +143,7 @@ sessionStorage (keys: scanvocab_extracted_words, scanvocab_project_name, etc.)
   |
   v
 Background prefill (async, non-blocking):
-  - POST /api/generate-quiz-distractors (GPT-4o-mini: 3 distractors + example sentence)
+  - POST /api/generate-quiz-distractors (GPT-4o-mini: 3 distractors, optional example sentence fill)
   - Pro only: POST /api/embeddings/sync + POST /api/quiz2/similar/batch
   - Pro only: POST /api/generate-word-insights (POS tags, related words)
 ```
@@ -158,12 +160,20 @@ POST /api/scan-jobs/create -> creates job record in scan_jobs table
   |
   v
 POST /api/scan-jobs/process (service role)
-  - Same extraction logic, saves directly to Supabase
+  - Same extraction logic
+  - Inserts words first, then runs best-effort example generation
+  - Updates words with generated examples and writes through to lexicon_entries when available
+  - Persists exampleGeneration summary into scan_jobs.result
   - Sends push notification (APNS or Web Push)
   |
   v
 iOS app polls / receives notification, downloads completed job
 ```
+
+Notes:
+- Scan extraction itself does not require examples in the extractor response.
+- Example generation is intentionally best-effort. A scan can complete even when some words still have no example sentence.
+- Operational diagnostics for this path live in `scan_jobs.result.exampleGeneration` and the runbook at `docs/ops/scan-example-sentences-runbook.md`.
 
 ---
 

@@ -4,6 +4,13 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 ---
 
+## Operations Runbooks
+
+- Nightly Master Lexicon Cron: [`docs/ops/nightly-lexicon-cron-runbook.md`](docs/ops/nightly-lexicon-cron-runbook.md)
+- Scan Extraction Gemini 2.5 Flash (Cloud Run): [`docs/ops/scan-gemini-cloudrun-runbook.md`](docs/ops/scan-gemini-cloudrun-runbook.md)
+
+---
+
 ## 1. Adding a New Feature (Page + Component)
 
 **Purpose**: Add a new user-facing page and associated components.

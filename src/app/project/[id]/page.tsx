@@ -821,14 +821,11 @@ export default function ProjectDetailPage() {
           <section className="lg:hidden pt-2.5 border-t border-[var(--color-border-light)]">
             <Link
               href={`/project/${projectId}/words`}
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:border-[var(--color-border)] transition-colors"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] hover:border-[var(--color-border)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Icon name="list" size={20} className="text-[var(--color-primary)]" />
-                <span className="text-sm font-semibold text-[var(--color-foreground)]">単語一覧</span>
-                <span className="text-sm text-[var(--color-muted)]">{words.length}語</span>
-              </div>
-              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
+              <Icon name="list" size={20} className="text-[var(--color-primary)]" />
+              <span className="text-sm font-semibold text-[var(--color-foreground)]">単語一覧</span>
+              <span className="text-sm text-[var(--color-muted)]">{words.length}語</span>
             </Link>
           </section>
 

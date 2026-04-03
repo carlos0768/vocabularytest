@@ -18,17 +18,19 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>IOS_SCAN_JOBS_ALWAYS_ON</key>
-	<true/>
+	<key>IAP_PRO_PRODUCT_IDS</key>
+	<string>com.example.merken.pro.monthly</string>
 	<key>IOS_OFFLINE_CACHE_ENABLED</key>
 	<true/>
-	<key>LSRequiresIPhoneOS</key>
+	<key>IOS_SCAN_JOBS_ALWAYS_ON</key>
 	<true/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>instagram</string>
 		<string>instagram-stories</string>
 	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>英単語を抽出するためにノートや教材を撮影します。</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -39,17 +41,13 @@
 	<string>sb_publishable_6bCANBatXqcB5OgACP0R2g_TSQ8NBak</string>
 	<key>SUPABASE_URL</key>
 	<string>https://ryoyvpayoacgeqgoehgk.supabase.co</string>
-	<key>IAP_PRO_PRODUCT_IDS</key>
-	<string>com.example.merken.pro.monthly</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
 	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
+	<array/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
