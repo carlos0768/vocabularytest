@@ -87,11 +87,6 @@ export default function FlashcardPage() {
   useEffect(() => {
     if (authLoading) return;
 
-    if (!isPro && !favoritesOnly) {
-      router.push('/subscription');
-      return;
-    }
-
     const loadWords = async () => {
       // Prevent re-fetching if already loaded (handles repository changes)
       if (hasLoadedRef.current && words.length > 0) {
@@ -592,7 +587,7 @@ export default function FlashcardPage() {
   return (
     <div className="h-[100dvh] grid grid-rows-[auto_1fr_auto] bg-[var(--color-background)] fixed inset-0">
       {/* Header */}
-      <header className="sticky top-0 p-4 flex items-center justify-between max-w-lg mx-auto w-full">
+      <header className="sticky top-0 p-4 flex items-center justify-between max-w-lg mx-auto w-full" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <button
           onClick={backToProject}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"

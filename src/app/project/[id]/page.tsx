@@ -800,9 +800,13 @@ export default function ProjectDetailPage() {
         {words.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             <div className="max-w-lg mx-auto flex items-center gap-3">
-              <button className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)]">
-                <Icon name="content_copy" size={20} />
-              </button>
+              <Link
+                href={`/flashcard/${project.id}?from=${returnPath}`}
+                className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] transition-colors"
+                title="フラッシュカード"
+              >
+                <Icon name="style" size={20} />
+              </Link>
               <Link
                 href={canUseAiFeatures ? `/quiz/${project.id}?from=${returnPath}` : `/quiz2/${project.id}?from=${returnPath}`}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm"
