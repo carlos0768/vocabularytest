@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
-import { DeleteConfirmModal, AppShell, Icon, type ProgressStep } from '@/components/ui';
+import { DeleteConfirmModal, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { ProjectSourceLabels } from '@/components/project/ProjectSourceLabels';
@@ -678,12 +678,12 @@ export default function ProjectDetailPage() {
   const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
 
   return (
-    <AppShell hideBottomNav>
+    <>
       <div className="pb-28 lg:pb-8">
         {/* Dynamic color header - matches project card icon color */}
         <div
           className="sticky top-0 z-40"
-          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
+          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})`, paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
             <div className="flex items-center justify-between mb-3">
@@ -967,6 +967,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
       </div>
-    </AppShell>
+    </>
   );
 }
