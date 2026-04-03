@@ -86,20 +86,20 @@ export default function Quiz2Page() {
 
   const backToOrigin = useCallback(() => {
     if (returnPath) {
-      router.push(returnPath);
+      router.replace(returnPath);
       return;
     }
 
     if (isCollectionMode) {
       if (collectionId) {
-        router.push(`/collections/${collectionId}`);
+        router.replace(`/collections/${collectionId}`);
       } else {
-        router.push('/collections');
+        router.replace('/collections');
       }
       return;
     }
 
-    router.push(`/project/${projectId}`);
+    router.replace(`/project/${projectId}`);
   }, [returnPath, isCollectionMode, collectionId, router, projectId]);
 
   useEffect(() => {

@@ -110,7 +110,7 @@ export default function QuickResponsePage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const backToProject = useCallback(() => {
-    router.push(returnPath || `/project/${projectId}`);
+    router.replace(returnPath || `/project/${projectId}`);
   }, [router, returnPath, projectId]);
 
   // Core state

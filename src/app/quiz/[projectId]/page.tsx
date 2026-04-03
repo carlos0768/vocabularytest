@@ -62,7 +62,7 @@ export default function QuizPage() {
   });
 
   const backToProject = useCallback(() => {
-    router.push(returnPath || `/project/${projectId}`);
+    router.replace(returnPath || `/project/${projectId}`);
   }, [router, returnPath, projectId]);
 
   const [allWords, setAllWords] = useState<Word[]>([]);
