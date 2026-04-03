@@ -378,8 +378,9 @@ struct QuizView: View {
                         .foregroundStyle(MerkenTheme.success)
                 }
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
             .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
