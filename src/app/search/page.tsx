@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Icon, AppShell } from '@/components/ui';
+import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { EMBEDDINGS_ENABLED } from '@/lib/embeddings/feature';
@@ -131,7 +131,7 @@ export default function SearchPage() {
   }, [searchQuery, performSearch]);
 
   return (
-    <AppShell>
+    <>
     <div className="min-h-screen pb-24 lg:pb-6">
       {/* Header */}
       <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
@@ -225,6 +225,6 @@ export default function SearchPage() {
         )}
       </main>
     </div>
-    </AppShell>
+    </>
   );
 }

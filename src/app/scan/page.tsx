@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useWordCount } from '@/hooks/use-word-count';
-import { ProgressSteps, type ProgressStep, useToast, Icon, AppShell } from '@/components/ui';
+import { ProgressSteps, type ProgressStep, useToast, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -560,7 +560,7 @@ function ScanPageContent() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="pb-28 lg:pb-8">
         <input
           ref={cameraInputRef}
@@ -896,7 +896,7 @@ function ScanPageContent() {
           </div>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }
 

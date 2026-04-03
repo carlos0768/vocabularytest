@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { AppShell, Icon } from '@/components/ui';
+import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 
 interface SharedProjectSummary {
@@ -82,7 +82,7 @@ export default function SharedPage() {
   const iconColors = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
 
   return (
-    <AppShell>
+    <>
       <div className="min-h-screen pb-24 lg:pb-6">
         <header className="px-5 pt-6 pb-4">
           <div className="max-w-lg mx-auto">
@@ -160,6 +160,6 @@ export default function SharedPage() {
           )}
         </main>
       </div>
-    </AppShell>
+    </>
   );
 }

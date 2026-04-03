@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Icon, Button, AppShell } from '@/components/ui';
+import { Icon, Button } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/components/theme-provider';
@@ -93,7 +93,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <AppShell>
+    <>
     <div className="min-h-screen pb-24 lg:pb-6">
       {/* iOS-style header */}
       <header className="px-5 pt-6 pb-4">
@@ -300,6 +300,6 @@ export default function SettingsPage() {
         <p className="text-center text-xs text-[var(--color-muted)] pb-4">v1.0.0</p>
       </main>
     </div>
-    </AppShell>
+    </>
   );
 }

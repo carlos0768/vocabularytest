@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
@@ -22,7 +22,7 @@ import { getGuestUserId } from '@/lib/utils';
 import { markProjectVisited } from '@/lib/project-visit';
 import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
-import { invalidateHomeCache } from '@/lib/home-cache';
+import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import type { LexiconEntry, Project, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
@@ -88,6 +88,25 @@ export default function ProjectDetailPage() {
   const scanFileInputRef = useRef<HTMLInputElement>(null);
 
   const hasLocalLoadedRef = useRef(false);
+  const cacheRestoredRef = useRef(false);
+
+  // Phase 0: Instant restore from home-cache (no async, no auth wait)
+  useLayoutEffect(() => {
+    if (cacheRestoredRef.current) return;
+    cacheRestoredRef.current = true;
+    if (!getHasLoaded()) return;
+    const cached = getCachedProjects().find(p => p.id === projectId);
+    if (cached) {
+      setProject(cached);
+      setLoading(false);
+      const cachedWords = getCachedProjectWords()[projectId];
+      if (cachedWords) {
+        setWords(cachedWords);
+        setWordsLoaded(true);
+        hasLocalLoadedRef.current = true;
+      }
+    }
+  }, [projectId]);
 
   useEffect(() => {
     setWordsLoaded(false);

@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { StatsSync } from '@/components/StatsSync';
+import { PersistentAppShell } from '@/components/ui/PersistentAppShell';
 import './globals.css';
 
 const lexend = Lexend({
@@ -121,7 +122,9 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <ToastProvider>
-            <OfflineSyncProvider>{children}</OfflineSyncProvider>
+            <OfflineSyncProvider>
+              <PersistentAppShell>{children}</PersistentAppShell>
+            </OfflineSyncProvider>
           </ToastProvider>
           <StatsSync />
           <ServiceWorkerRegistration />

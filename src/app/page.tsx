@@ -6,7 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { type ProgressStep, useToast, DeleteConfirmModal, AppShell, Icon } from '@/components/ui';
+import { type ProgressStep, useToast, DeleteConfirmModal, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
@@ -1392,7 +1392,7 @@ export default function HomePage() {
   // Show re-login prompt instead of local data with free plan restrictions
   if (sessionExpired && !authLoading && !user) {
     return (
-      <AppShell>
+      <>
         <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
           <div className="w-16 h-16 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center mb-4">
             <Icon name="lock" size={32} className="text-[var(--color-primary)]" />
@@ -1406,7 +1406,7 @@ export default function HomePage() {
             ログイン
           </Link>
         </div>
-      </AppShell>
+      </>
     );
   }
 
@@ -1414,18 +1414,18 @@ export default function HomePage() {
   // Auth resolves in background; cached data displays instantly
   if (loading && projects.length === 0 && words.length === 0 && totalWords === 0) {
     return (
-      <AppShell>
+      <>
         <div className="min-h-screen flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   // Empty state - no projects (only show after auth is resolved)
   if (projects.length === 0) {
     return (
-      <AppShell>
+      <>
         <div className="pb-48">
           {/* Hidden file input for empty state */}
           <input
@@ -1515,12 +1515,12 @@ export default function HomePage() {
             scanStatus={scanUploadStatus}
           />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <div className="flex flex-col pb-28 lg:pb-8">
         {!authLoading && !isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
 
@@ -1783,6 +1783,6 @@ export default function HomePage() {
         />
       )}
       </div>
-    </AppShell>
+    </>
   );
 }

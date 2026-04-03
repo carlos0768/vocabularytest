@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { Icon, AppShell } from '@/components/ui';
+import { Icon } from '@/components/ui';
 import { StudyModeCard, WordList } from '@/components/home';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
@@ -132,7 +132,7 @@ export default function FavoritesPage() {
   const firstProjectId = favoriteProjectIds.length > 0 ? favoriteProjectIds[0] : null;
 
   return (
-    <AppShell>
+    <>
     <div className="min-h-screen pb-28 lg:pb-6">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
@@ -282,6 +282,6 @@ export default function FavoritesPage() {
         )}
       </main>
     </div>
-    </AppShell>
+    </>
   );
 }

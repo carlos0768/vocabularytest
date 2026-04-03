@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AppShell, Button, Icon } from '@/components/ui';
+import { Button, Icon } from '@/components/ui';
 
 type DashboardSummary = {
   days: number;
@@ -110,7 +110,7 @@ export default function ApiCostDashboardPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="min-h-screen pb-24 lg:pb-8">
         <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4 border-b border-[var(--color-border)]">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
@@ -285,6 +285,6 @@ export default function ApiCostDashboardPage() {
           )}
         </main>
       </div>
-    </AppShell>
+    </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { AppShell, Icon } from '@/components/ui';
+import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import type { Word, SubscriptionStatus } from '@/types';
@@ -91,29 +91,29 @@ export default function WordDetailPage() {
 
   if (loading) {
     return (
-      <AppShell>
+      <>
         <div className="min-h-screen flex items-center justify-center">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   if (!word) {
     return (
-      <AppShell>
+      <>
         <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
           <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語が見つかりません</h1>
           <button onClick={() => router.back()} className="mt-4 px-6 py-2.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold">
             戻る
           </button>
         </div>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <div className="min-h-screen pb-24">
         {/* Header - iOS style */}
         <header className="px-5 pt-4 pb-2 flex items-center justify-between">
@@ -194,6 +194,6 @@ export default function WordDetailPage() {
           )}
         </main>
       </div>
-    </AppShell>
+    </>
   );
 }

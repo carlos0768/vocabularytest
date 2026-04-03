@@ -175,17 +175,30 @@ function tryOptimisticLoad(): boolean {
     const cachedUser = snapshot?.user ?? null;
     const cachedSub = cachedUser ? getCachedSubscription(cachedUser.id) : null;
     
-    // If we have cached user data, instantly update state
     if (cachedUser) {
       globalAuthState = {
         user: cachedUser,
         subscription: cachedSub,
-        loading: false, // Instant UI!
+        loading: false,
         error: null,
         sessionExpired: false,
       };
       return true;
     }
+  }
+  
+  // No valid session snapshot → treat as guest immediately so pages
+  // that gate on authLoading can render without waiting for the
+  // async getSession() round-trip.
+  if (!snapshot) {
+    globalAuthState = {
+      user: null,
+      subscription: null,
+      loading: false,
+      error: null,
+      sessionExpired: false,
+    };
+    return true;
   }
   
   return false;

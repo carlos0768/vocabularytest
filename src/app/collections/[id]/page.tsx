@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
+import { Icon, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { StudyModeCard, WordList } from '@/components/home';
 import { ProjectCard } from '@/components/project/ProjectCard';
@@ -297,11 +297,11 @@ export default function CollectionDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <AppShell>
+      <>
         <div className="flex items-center justify-center min-h-screen">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
@@ -312,7 +312,7 @@ export default function CollectionDetailPage() {
   const addableProjects = allUserProjects.filter((p) => !existingProjectIds.has(p.id));
 
   return (
-    <AppShell>
+    <>
       <div className="pb-28 lg:pb-8">
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-lg lg:max-w-xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
@@ -739,6 +739,6 @@ export default function CollectionDetailPage() {
           </div>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }

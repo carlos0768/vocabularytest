@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { shuffleArray, getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
+import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import type { Word, SubscriptionStatus } from '@/types';
 
 // Progress storage key generator (localStorage for long-term, sessionStorage for immediate restore)
@@ -62,6 +63,21 @@ export default function FlashcardPage() {
 
   // Track if words have been loaded to prevent re-fetching
   const hasLoadedRef = useRef(false);
+
+  // Phase 0: Instant restore from home-cache (synchronous, no auth wait)
+  const cacheRestoredRef = useRef(false);
+  useLayoutEffect(() => {
+    if (cacheRestoredRef.current || hasLoadedRef.current) return;
+    if (!getHasLoaded()) return;
+    cacheRestoredRef.current = true;
+    const cachedWords = getCachedProjectWords()[projectId];
+    if (cachedWords && cachedWords.length > 0 && !favoritesOnly && !collectionId) {
+      const sorted = sortWordsByPriority(cachedWords);
+      setWords(sorted);
+      hasLoadedRef.current = true;
+      setLoading(false);
+    }
+  }, [projectId, favoritesOnly, collectionId]);
 
   // Save progress to both localStorage (long-term) and sessionStorage (immediate)
   const saveProgress = useCallback((wordList: Word[], index: number) => {

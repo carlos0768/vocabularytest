@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
+import { Icon, DeleteConfirmModal } from '@/components/ui';
 import { CollectionBookshelfCard } from '@/components/collection/CollectionBookshelfCard';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -36,16 +36,16 @@ export default function CollectionsPage() {
 
   if (authLoading) {
     return (
-      <AppShell>
+      <>
         <div className="flex items-center justify-center min-h-screen">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <div className="min-h-screen pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6">
         <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
@@ -114,6 +114,6 @@ export default function CollectionsPage() {
           isLoading={deleteLoading}
         />
       </div>
-    </AppShell>
+    </>
   );
 }

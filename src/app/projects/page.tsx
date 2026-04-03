@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Icon, AppShell, DeleteConfirmModal } from '@/components/ui';
+import { Icon, DeleteConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { useAuth } from '@/hooks/use-auth';
@@ -224,7 +224,7 @@ export default function ProjectsPage() {
   }, [projects, query, sortBy]);
 
   return (
-    <AppShell>
+    <>
     <div className="min-h-screen pb-28 lg:pb-6">
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
@@ -344,6 +344,6 @@ export default function ProjectsPage() {
         isLoading={deleteProjectLoading}
       />
     </div>
-    </AppShell>
+    </>
   );
 }

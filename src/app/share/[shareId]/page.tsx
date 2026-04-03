@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { AppShell, Icon } from '@/components/ui';
+import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -184,7 +184,7 @@ export default function SharedProjectPage() {
   const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
 
   return (
-    <AppShell hideBottomNav>
+    <>
       <div className="pb-28 lg:pb-8">
         {/* Dynamic color header */}
         <div
@@ -321,6 +321,6 @@ export default function SharedProjectPage() {
           </div>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }

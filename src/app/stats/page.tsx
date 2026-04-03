@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { AppShell, Icon } from '@/components/ui';
+import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
 
@@ -48,7 +48,7 @@ export default function StatsPage() {
   }, [stats]);
 
   return (
-    <AppShell>
+    <>
       <div className="min-h-screen pb-24 lg:pb-6">
         {/* iOS-style header */}
         <header className="px-5 pt-6 pb-4">
@@ -211,6 +211,6 @@ export default function StatsPage() {
           )}
         </main>
       </div>
-    </AppShell>
+    </>
   );
 }
