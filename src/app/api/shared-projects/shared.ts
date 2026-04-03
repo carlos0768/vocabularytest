@@ -106,8 +106,114 @@ export async function getProjectByShareCode(shareCode: string): Promise<ProjectR
 }
 
 export async function getAccessibleSharedProject(projectId: string, userId: string): Promise<SharedProjectSummary | null> {
-  const summaries = await listSharedProjects(userId);
-  return [...summaries.owned, ...summaries.joined].find((item) => item.project.id === projectId) ?? null;
+  return getOwnedOrMemberSharedProject(projectId, userId);
+}
+
+/**
+ * Lightweight single-project access check.
+ * Replaces the previous approach of running listSharedProjects (which fetches ALL user projects)
+ * with targeted queries for the specific projectId only.
+ *
+ * Old approach: listSharedProjects fetches ALL shared projects + word counts + member counts for the user.
+ * New approach: 2 parallel queries (project + membership), then 3 parallel count/username queries.
+ */
+async function getOwnedOrMemberSharedProject(
+  projectId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<SharedProjectSummary | null> {
+  // Step 1: Fetch project details and membership status in parallel
+  const [projectResult, memberResult] = await Promise.all([
+    admin
+      .from('projects')
+      .select(PROJECT_SHARED_SELECT_COLUMNS)
+      .eq('id', projectId)
+      .not('share_id', 'is', null)
+      .maybeSingle<ProjectRow>(),
+    admin
+      .from('project_members')
+      .select('role')
+      .eq('project_id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle<{ role: string | null }>(),
+  ]);
+
+  let shareScopeAvailable = true;
+  let projectMembersAvailable = true;
+  let projectRow: ProjectRow | null = null;
+
+  // Handle project result
+  if (projectResult.error) {
+    if (getSharedProjectsSchemaIssue(projectResult.error) === 'share_scope') {
+      shareScopeAvailable = false;
+      logSharedProjectsFallback('share_scope', projectResult.error);
+      // Retry without the share_scope column
+      const { data, error } = await admin
+        .from('projects')
+        .select(PROJECT_BASE_SELECT_COLUMNS)
+        .eq('id', projectId)
+        .not('share_id', 'is', null)
+        .maybeSingle<ProjectRow>();
+      if (error || !data) return null;
+      projectRow = data;
+    } else {
+      throw new Error((projectResult.error as { message?: string }).message || 'shared_project_lookup_failed');
+    }
+  } else {
+    projectRow = projectResult.data;
+  }
+
+  if (!projectRow) return null;
+
+  // Handle member result errors (project_members table may not exist)
+  if (memberResult.error) {
+    if (getSharedProjectsSchemaIssue(memberResult.error) === 'project_members') {
+      projectMembersAvailable = false;
+      logSharedProjectsFallback('project_members', memberResult.error);
+    } else {
+      throw new Error((memberResult.error as { message?: string }).message || 'shared_member_check_failed');
+    }
+  }
+
+  // Determine access role: owner or member
+  let accessRole: SharedProjectAccessRole | null = null;
+  if (projectRow.user_id === userId) {
+    accessRole = 'owner';
+  } else if (projectMembersAvailable && memberResult.data) {
+    accessRole = 'editor';
+  }
+
+  if (!accessRole) return null;
+
+  // Step 2: Fetch counts and username in parallel using efficient COUNT queries
+  const [wordCount, collaboratorCount, usernameByUserId] = await Promise.all([
+    admin
+      .from('words')
+      .select('*', { count: 'exact', head: true })
+      .eq('project_id', projectId)
+      .then(({ count }) => count ?? 0)
+      .catch(() => 0),
+    projectMembersAvailable
+      ? admin
+        .from('project_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+        .then(({ count }) => 1 + (count ?? 0))
+        .catch(() => 1)
+      : Promise.resolve(1),
+    getUsernamesByUserIds(admin, [projectRow.user_id]),
+  ]);
+
+  const wordCountByProjectId = new Map([[projectId, wordCount]]);
+  const collaboratorCountByProjectId = new Map([[projectId, collaboratorCount]]);
+
+  return mapSharedProjectSummary(
+    projectRow,
+    accessRole,
+    wordCountByProjectId,
+    collaboratorCountByProjectId,
+    usernameByUserId,
+  );
 }
 
 export async function getPublicSharedProject(projectId: string): Promise<SharedProjectSummary | null> {
@@ -438,6 +544,7 @@ async function getWordCountByProjectId(
   }
   if (projectIds.length === 0) return result;
 
+  // Use a single-column select to minimize data transfer (only project_id, no full row)
   const { data, error } = await admin
     .from('words')
     .select('project_id')

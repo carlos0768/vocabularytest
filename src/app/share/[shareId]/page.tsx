@@ -33,36 +33,35 @@ export default function SharedProjectPage() {
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
 
   useEffect(() => {
-    if (authLoading) return;
-
+    // Start fetching immediately without waiting for auth.
+    // Data and auth resolution happen in parallel.
+    // The Pro gate check in render handles non-Pro users.
     const loadData = async () => {
       try {
-        const [projectData, wordsData] = await Promise.all([
-          remoteRepository.getProjectByShareId(shareId),
-          remoteRepository.getWordsByShareId(shareId),
-        ]);
+        const projectData = await remoteRepository.getProjectByShareId(shareId);
 
         if (!projectData) {
           setError('この単語帳は存在しないか、共有が解除されています');
           return;
         }
 
-        setProject(projectData);
-        setWords(wordsData);
-        setWordsLoaded(true);
-
-        try {
-          const supabase = createBrowserClient();
-          const { data: profileData } = await supabase
+        // Fetch words and owner profile in parallel (was sequential before)
+        const supabase = createBrowserClient();
+        const [wordsData, profileResult] = await Promise.all([
+          remoteRepository.getWordsForShareView(projectData.id),
+          supabase
             .from('profiles')
             .select('username')
             .eq('user_id', projectData.userId)
-            .maybeSingle();
-          if (profileData?.username) {
-            setOwnerUsername(profileData.username as string);
-          }
-        } catch {
-          // Profile fetch is optional
+            .maybeSingle()
+            .catch(() => ({ data: null })),
+        ]);
+
+        setProject(projectData);
+        setWords(wordsData);
+        setWordsLoaded(true);
+        if (profileResult.data?.username) {
+          setOwnerUsername(profileResult.data.username as string);
         }
       } catch (err) {
         console.error('Failed to load shared project:', err);
@@ -73,7 +72,7 @@ export default function SharedProjectPage() {
     };
 
     loadData();
-  }, [shareId, authLoading]);
+  }, [shareId]);
 
   const handleImport = async () => {
     if (!user || !project) return;

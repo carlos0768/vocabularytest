@@ -25,7 +25,7 @@ import {
   type CollectionRow,
   type CollectionProjectRow,
 } from '../../../shared/db';
-import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { RESOLVED_WORD_SELECT_COLUMNS, SHARE_VIEW_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
 
 // Remote implementation of WordRepository using Supabase
 // Used for Pro tier users - data synced across devices
@@ -276,6 +276,22 @@ export class RemoteWordRepository implements WordRepository {
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(`Failed to get words: ${error.message}`);
+
+    return (data as WordRow[]).map(mapWordFromRow);
+  }
+
+  /**
+   * Lightweight word fetch for shared project viewing and import.
+   * Omits heavy fields (related_words, usage_patterns, SM-2 fields) not needed for share display.
+   */
+  async getWordsForShareView(projectId: string): Promise<Word[]> {
+    const { data, error } = await this.supabase
+      .from('words')
+      .select(SHARE_VIEW_WORD_SELECT_COLUMNS)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to get shared words: ${error.message}`);
 
     return (data as WordRow[]).map(mapWordFromRow);
   }
