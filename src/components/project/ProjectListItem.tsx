@@ -39,7 +39,7 @@ export function ProjectListItem({
       )}
 
       {/* Link covers the row except the menu button */}
-      <Link href={`/project/${project.id}`} prefetch={false} className="flex items-center gap-3 flex-1 min-w-0">
+      <Link href={`/project/${project.id}`} className="flex items-center gap-3 flex-1 min-w-0">
         {/* Icon */}
         <div className="w-10 h-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden flex items-center justify-center shrink-0">
           {safeIconImage ? (

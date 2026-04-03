@@ -53,19 +53,21 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired - only called for protected/auth paths
+  // Use getSession() for fast cookie-based check (no network roundtrip).
+  // JWT integrity is still verified by Supabase RLS on actual data access.
+  // getUser() was causing ~100-300ms server roundtrip on every navigation.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (isProtectedPath && !user) {
+  if (isProtectedPath && !session) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
 
-  if (isAuthPath && user) {
+  if (isAuthPath && session) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

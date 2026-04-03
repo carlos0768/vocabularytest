@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Icon } from './Icon';
 import { cn } from '@/lib/utils';
 
@@ -41,7 +41,6 @@ const navItems: NavItem[] = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
 
   const isActive = (item: NavItem) => {
     if (item.matchPaths) {
@@ -81,13 +80,13 @@ export function BottomNav() {
         </div>
       </nav>
       {/* FAB - Floating Action Button */}
-      <button
-        onClick={() => router.push('/scan')}
-        className="fab lg:hidden"
+      <Link
+        href="/scan"
+        className="fab lg:hidden active:scale-95 transition-transform"
         aria-label="スキャン"
       >
         <Icon name="add" size={28} />
-      </button>
+      </Link>
     </>
   );
 }

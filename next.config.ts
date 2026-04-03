@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizeCss: true,
+    viewTransition: true,
   },
 };
 

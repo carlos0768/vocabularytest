@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
@@ -39,6 +39,7 @@ function isOwnedBy(project: Project | undefined | null, expectedUserId: string):
 
 export default function ProjectDetailPage() {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const params = useParams();
   const projectId = params.id as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
@@ -234,7 +235,7 @@ export default function ProjectDetailPage() {
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
     if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
       setShowScanModeModal(false);
-      router.push('/subscription');
+      startTransition(() => { router.push('/subscription'); });
       return;
     }
     setSelectedScanMode(mode);
@@ -312,7 +313,7 @@ export default function ProjectDetailPage() {
         sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
         sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(mergeSourceLabels(result.sourceLabels)));
         sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
-        router.push('/scan/confirm');
+        startTransition(() => { router.push('/scan/confirm'); });
         setProcessing(false);
       } catch (error) {
         console.error('Scan error:', error);
@@ -402,7 +403,7 @@ export default function ProjectDetailPage() {
         sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
         sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
         sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
-        router.push('/scan/confirm');
+        startTransition(() => { router.push('/scan/confirm'); });
         setProcessing(false);
       } catch (error) {
         console.error('Scan error:', error);
@@ -612,7 +613,7 @@ export default function ProjectDetailPage() {
       invalidateHomeCache();
       refreshWordCount();
       showToast({ message: '単語帳を削除しました', type: 'success' });
-      router.push('/');
+      startTransition(() => { router.push('/'); });
     } catch (error) {
       console.error('Failed to delete project:', error);
       showToast({ message: '削除に失敗しました', type: 'error' });

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -27,6 +27,7 @@ import type { LexiconEntry } from '@/types';
 
 function ScanPageContent() {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
   const { isPro, isAuthenticated } = useAuth();
@@ -114,7 +115,7 @@ function ScanPageContent() {
       showToast({
         message: 'このスキャンモードはProプラン限定です',
         type: 'warning',
-        action: { label: 'アップグレード', onClick: () => router.push('/subscription') },
+        action: { label: 'アップグレード', onClick: () => startTransition(() => { router.push('/subscription'); }) },
         duration: 4000,
       });
       return;
@@ -228,7 +229,7 @@ function ScanPageContent() {
       });
 
       // Go back to home
-      router.push('/');
+      startTransition(() => { router.push('/'); });
     } catch (error) {
       console.error('Background upload error:', error);
       showToast({
@@ -273,7 +274,7 @@ function ScanPageContent() {
       showToast({
         message: 'このスキャンモードはProプラン限定です',
         type: 'warning',
-        action: { label: 'アップグレード', onClick: () => router.push('/subscription') },
+        action: { label: 'アップグレード', onClick: () => startTransition(() => { router.push('/subscription'); }) },
         duration: 4000,
       });
       return;
@@ -290,7 +291,7 @@ function ScanPageContent() {
         type: 'error',
         action: {
           label: 'ログイン',
-          onClick: () => router.push('/login'),
+          onClick: () => startTransition(() => { router.push('/login'); }),
         },
         duration: 4000,
       });
@@ -445,7 +446,7 @@ function ScanPageContent() {
       ]);
 
       await new Promise(resolve => setTimeout(resolve, 100));
-      router.replace('/scan/confirm');
+      startTransition(() => { router.replace('/scan/confirm'); });
     } catch (error) {
       console.error('Scan error:', error);
       setProcessing(false);

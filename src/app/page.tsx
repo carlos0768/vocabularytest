@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -91,6 +91,7 @@ function ensureCacheRestored(): boolean {
 
 export default function HomePage() {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const { user, subscription, isAuthenticated, isPro, wasPro, loading: authLoading, sessionExpired } = useAuth();
   const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
@@ -943,7 +944,7 @@ export default function HomePage() {
     // Pro-only features: circled, highlighted, eiken filter, idiom modes
     if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
       setShowScanModeModal(false);
-      router.push('/subscription');
+      startTransition(() => { router.push('/subscription'); });
       return;
     }
 
@@ -960,7 +961,7 @@ export default function HomePage() {
         type: 'error',
         action: {
           label: 'ログイン',
-          onClick: () => router.push('/login'),
+          onClick: () => startTransition(() => { router.push('/login'); }),
         },
         duration: 4000,
       });
@@ -1063,7 +1064,7 @@ export default function HomePage() {
       sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
       // Navigate first, then close processing modal
       // (closing modal before navigation causes a flash of the home screen)
-      router.push('/scan/confirm');
+      startTransition(() => { router.push('/scan/confirm'); });
       setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
@@ -1192,7 +1193,7 @@ export default function HomePage() {
         { id: 'navigate', label: '結果を表示中...', status: 'active' },
       ]);
 
-      router.push('/scan/confirm');
+      startTransition(() => { router.push('/scan/confirm'); });
       setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
@@ -1365,10 +1366,27 @@ export default function HomePage() {
 
   // Word status counts — must be before early returns to satisfy hooks rules
   const allWordsFlat = useMemo(() => Object.values(getCachedProjectWords()).flat(), [projects, words]);
-  const masteredTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'mastered').length, [allWordsFlat]);
-  const learningTotal = useMemo(() => allWordsFlat.filter(w => w.status === 'review').length, [allWordsFlat]);
-  const unlearnedTotal = useMemo(() => allWordsFlat.filter(w => !w.status || w.status === 'new').length, [allWordsFlat]);
+  const { masteredTotal, learningTotal, unlearnedTotal } = useMemo(() => {
+    let mastered = 0, learning = 0, unlearned = 0;
+    for (const w of allWordsFlat) {
+      if (w.status === 'mastered') mastered++;
+      else if (w.status === 'review') learning++;
+      else unlearned++;
+    }
+    return { masteredTotal: mastered, learningTotal: learning, unlearnedTotal: unlearned };
+  }, [allWordsFlat]);
   const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
+
+  const sortedProjects = useMemo(() =>
+    [...projects]
+      .sort((a, b) => {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, 8),
+    [projects]
+  );
 
   // Session expired: was logged in before but session is now invalid
   // Show re-login prompt instead of local data with free plan restrictions
@@ -1643,14 +1661,7 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {[...projects]
-                  .sort((a, b) => {
-                    if (a.isFavorite && !b.isFavorite) return -1;
-                    if (!a.isFavorite && b.isFavorite) return 1;
-                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                  })
-                  .slice(0, 8)
-                  .map((project) => {
+                {sortedProjects.map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
                     return (
                       <ProjectCard key={project.id} project={project} words={projectWords} />

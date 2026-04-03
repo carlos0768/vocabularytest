@@ -212,12 +212,24 @@ export function useAuth() {
   // Subscribe to global state changes
   useEffect(() => {
     const listener = (newState: AuthState) => {
-      if (isMountedRef.current) {
-        setState(newState);
-      }
+      if (!isMountedRef.current) return;
+      setState(prev => {
+        if (
+          prev.user?.id === newState.user?.id &&
+          prev.loading === newState.loading &&
+          prev.sessionExpired === newState.sessionExpired &&
+          prev.error === newState.error &&
+          prev.subscription?.status === newState.subscription?.status &&
+          prev.subscription?.plan === newState.subscription?.plan &&
+          prev.subscription?.cancelAtPeriodEnd === newState.subscription?.cancelAtPeriodEnd &&
+          prev.subscription?.proSource === newState.subscription?.proSource
+        ) {
+          return prev;
+        }
+        return newState;
+      });
     };
     globalListeners.add(listener);
-    // Sync with current global state (handles optimistic load updates)
     if (state !== globalAuthState) {
       setState(globalAuthState);
     }
