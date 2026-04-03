@@ -21,6 +21,7 @@ struct WordListView: View {
 
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var exportWord: Word?
+    @State private var selectedWord: Word?
     @State private var searchText = ""
 
     @State private var selectedFilter: WordListFilter = .all
@@ -149,6 +150,13 @@ struct WordListView: View {
         .sheet(item: $editorMode, content: editorSheet)
         .sheet(item: $exportWord) { word in
             WordExportSheet(sourceWord: word, currentProject: project)
+        }
+        .navigationDestination(item: $selectedWord) { word in
+            WordDetailView(
+                project: project,
+                wordID: word.id,
+                viewModel: viewModel
+            )
         }
         .onAppear {
             if case .all = selectedFilter, let initialStatus {
@@ -358,16 +366,27 @@ struct WordListView: View {
 
     private func wordRow(_ word: Word) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            // English word — prominent and bold
-            Text(word.english)
-                .font(.system(size: 20, weight: .heavy))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(2)
-                .layoutPriority(1)
+            Button {
+                selectedWord = word
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    Text(word.english)
+                        .font(.system(size: 20, weight: .heavy))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .lineLimit(2)
+                        .layoutPriority(1)
 
-            // (品詞) 訳 — right of English word
-            inlineDefinition(for: word)
+                    inlineDefinition(for: word)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
             // Action icons: ✏️ ⋯ (heart removed)
             HStack(spacing: 16) {

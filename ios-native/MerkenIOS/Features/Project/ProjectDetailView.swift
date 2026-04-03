@@ -507,30 +507,14 @@ struct ProjectDetailView: View {
 
     private var bottomActionBar: some View {
         HStack(spacing: 10) {
-            // Circular flashcard icon button
+            // "単語一覧" pill button
             Button {
-                flashcardDestination = project
-            } label: {
-                Image(systemName: "rectangle.portrait.on.rectangle.portrait")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                    .frame(width: 48, height: 48)
-                    .background(Color.clear)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(MerkenTheme.accentBlue, lineWidth: 2)
-                    )
-            }
-
-            // "＋ 問題追加" pill button
-            Button {
-                showingScanModeSheet = true
+                showingWordList = true
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "plus")
+                    Image(systemName: "list.bullet")
                         .font(.system(size: 15, weight: .bold))
-                    Text("問題追加")
+                    Text("単語一覧")
                         .font(.system(size: 15, weight: .bold))
                 }
                 .foregroundStyle(MerkenTheme.primaryText)
@@ -543,14 +527,14 @@ struct ProjectDetailView: View {
                 )
             }
 
-            // "▶ テスト" pill button
+            // "＋ 単語追加" pill button
             Button {
-                quizDestination = project
+                showingScanModeSheet = true
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("テスト")
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .bold))
+                    Text("単語追加")
                         .font(.system(size: 15, weight: .bold))
                 }
                 .foregroundStyle(.white)

@@ -103,6 +103,7 @@
 		C0AD97163A32A356886C0F98 /* CloudOfflineCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD40EE690454C7D5568060C /* CloudOfflineCacheStore.swift */; };
 		C0D1BFD2525AC06C12E00B9B /* BookshelfDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A3D8C1167D9934DAE1F9D8 /* BookshelfDetailView.swift */; };
 		C2CC9E2D77F1F0DE9240BC85 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02599D8FDB49435A2D3070BE /* ProjectDetailView.swift */; };
+		C2CC9E2D77F1F0DE9240BC86 /* WordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02599D8FDB49435A2D3070BF /* WordDetailView.swift */; };
 		C43D4C56E52E03822790EEC1 /* ScanProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7ED26D3452459533CE74952 /* ScanProcessingView.swift */; };
 		C7492B8FCE18E49256133BED /* BookshelfDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A612CAF5636804AF2A4BBD7 /* BookshelfDetailViewModel.swift */; };
 		C7CA85C04850AAE4235D41D8 /* FavoritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7856180ECB9636E96DD8EF82 /* FavoritesViewModel.swift */; };
@@ -189,6 +190,7 @@
 		01625E057EA3FDA1F4B71A30 /* RepositoryRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryRouter.swift; sourceTree = "<group>"; };
 		02365F3E7227E8E11F1404DF /* FlashcardCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlashcardCardView.swift; sourceTree = "<group>"; };
 		02599D8FDB49435A2D3070BE /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
+		02599D8FDB49435A2D3070BF /* WordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDetailView.swift; sourceTree = "<group>"; };
 		027A78EC4CA2414E8C82E485 /* MerkenIOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MerkenIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		02C83CC93420B69AA48F302C /* ExtractDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractDTO.swift; sourceTree = "<group>"; };
 		033789F2BE0415694FD6FDD7 /* Quiz2View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2View.swift; sourceTree = "<group>"; };
@@ -430,6 +432,7 @@
 			children = (
 				414D40FE25A20B7FFEE459B4 /* AddToBookshelfSheet.swift */,
 				02599D8FDB49435A2D3070BE /* ProjectDetailView.swift */,
+				02599D8FDB49435A2D3070BF /* WordDetailView.swift */,
 				33F439DA7C119036CF02695B /* ProjectDetailViewModel.swift */,
 				2345581B29EC062ACC99457B /* ProjectListView.swift */,
 				7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */,
@@ -1032,6 +1035,7 @@
 				3AEE7297E786FDF8D1C697D7 /* TransparentNavBar.swift in Sources */,
 				63EA34C1ED8EDDF9B40AF01A /* WebAPIClient.swift in Sources */,
 				1B05C8B3314E080C773BE2A9 /* WordEditorSheet.swift in Sources */,
+				C2CC9E2D77F1F0DE9240BC86 /* WordDetailView.swift in Sources */,
 				38E4C70E759B6CF75E34E402 /* WordListView.swift in Sources */,
 				2E43FB64DB0C1E38FE9E55FA /* WordListViewModel.swift in Sources */,
 				968E57F7E9F2E41C175296C7 /* WordRepositoryProtocol.swift in Sources */,

@@ -22,6 +22,7 @@ import {
   type ExampleGenerationFailureKind,
   type ExampleGenerationSummary,
 } from '@/lib/ai/generate-example-sentences';
+import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import {
   enqueueWordLexiconResolutionJobs,
   needsWordLexiconResolution,
@@ -1296,6 +1297,21 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+      }
+
+      // --- Pronunciation backfill (best-effort, non-blocking) ---
+      if (insertedWordsArray.length > 0) {
+        const pronunciationWordIds = insertedWordsArray.map((w: { id: string }) => w.id);
+        after(async () => {
+          try {
+            const result = await backfillPronunciations(pronunciationWordIds);
+            if (result.updated > 0) {
+              console.log('[scan-jobs/process] Pronunciation backfill:', result);
+            }
+          } catch (e) {
+            console.error('[scan-jobs/process] Pronunciation backfill failed (non-critical):', e);
+          }
+        });
       }
 
       const resultPayload: {
