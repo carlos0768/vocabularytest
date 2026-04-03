@@ -2,10 +2,12 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { createInternalWorkerUrl, getInternalWorkerAuthorization } from '@/lib/api/internal-worker';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
+import { processJobById } from '../process/route';
+
+export const maxDuration = 300;
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -22,40 +24,14 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
-function scheduleScanJobProcessing(request: NextRequest, jobId: string) {
-  const workerAuth = getInternalWorkerAuthorization();
-  const processUrl = createInternalWorkerUrl('/api/scan-jobs/process', request.url);
-
+function scheduleScanJobProcessing(jobId: string) {
   after(async () => {
-    if (!workerAuth) {
-      console.error('[scan-jobs/create] Missing internal worker token while scheduling process route');
-      return;
-    }
-
     try {
-      const response = await fetch(processUrl.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': workerAuth.header,
-        },
-        body: JSON.stringify({ jobId }),
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        const body = await response.text();
-        console.error('[scan-jobs/create] Failed to trigger processing', {
-          jobId,
-          status: response.status,
-          body,
-        });
-        return;
-      }
-
-      console.log('[scan-jobs/create] Processing triggered', { jobId });
+      console.log('[scan-jobs/create] Direct processing started', { jobId });
+      await processJobById(jobId);
+      console.log('[scan-jobs/create] Direct processing completed', { jobId });
     } catch (error) {
-      console.error('[scan-jobs/create] Failed to trigger processing', { jobId, error });
+      console.error('[scan-jobs/create] Direct processing failed', { jobId, error });
     }
   });
 }
@@ -234,7 +210,7 @@ export async function POST(request: NextRequest) {
       console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
 
-    scheduleScanJobProcessing(request, String(job.id));
+    scheduleScanJobProcessing(String(job.id));
     console.log('[scan-jobs/create] Job created', {
       jobId: String(job.id),
       userId: user.id,

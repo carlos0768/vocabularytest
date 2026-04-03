@@ -686,24 +686,9 @@ async function extractFromImage(
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function processJobById(jobId: string): Promise<NextResponse> {
   try {
-    const authResult = authorizeInternalWorkerRequest(request);
-    if (!authResult.ok) {
-      console.warn('[scan-jobs/process] Unauthorized trigger request', {
-        reason: authResult.reason,
-      });
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const parsed = await parseJsonWithSchema(request, processSchema, {
-      invalidMessage: 'Missing jobId',
-    });
-    if (!parsed.ok) {
-      return parsed.response;
-    }
-    const { jobId } = parsed.data;
-    console.log('[scan-jobs/process] Request received', { jobId });
+    console.log('[scan-jobs/process] Processing started', { jobId });
 
     const processingTimestamp = new Date().toISOString();
     const { data: claimedJob, error: claimError } = await getSupabaseAdmin()
@@ -1463,9 +1448,11 @@ export async function POST(request: NextRequest) {
               },
             );
             if (ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING && wordResolutionJobIds.length > 0) {
+              const vercelUrl = process.env.VERCEL_URL;
+              const baseUrl = vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000';
               await Promise.all(
                 wordResolutionJobIds.map((resolutionJobId) =>
-                  triggerWordLexiconResolutionProcessing(request.url, resolutionJobId),
+                  triggerWordLexiconResolutionProcessing(baseUrl, resolutionJobId),
                 ),
               );
             }
@@ -1589,6 +1576,30 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Process route error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const authResult = authorizeInternalWorkerRequest(request);
+    if (!authResult.ok) {
+      console.warn('[scan-jobs/process] Unauthorized trigger request', {
+        reason: authResult.reason,
+      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const parsed = await parseJsonWithSchema(request, processSchema, {
+      invalidMessage: 'Missing jobId',
+    });
+    if (!parsed.ok) {
+      return parsed.response;
+    }
+
+    return await processJobById(parsed.data.jobId);
+  } catch (error) {
+    console.error('Process route POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
