@@ -162,7 +162,7 @@ struct WordDetailView: View {
     private func wordHeaderSection(for word: Word) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(word.english)
-                .font(.system(size: 32, weight: .black, design: .rounded))
+                .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
