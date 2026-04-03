@@ -146,28 +146,26 @@ struct WordDetailView: View {
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            VStack(alignment: .trailing, spacing: 8) {
-                statusChipButton(label: "学習中", status: .review, color: MerkenTheme.accentBlue, currentStatus: word.status)
-                statusChipButton(label: "習得済", status: .mastered, color: MerkenTheme.success, currentStatus: word.status)
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            statusSegmentedControl(currentStatus: word.status)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    private func statusChipButton(label: String, status: WordStatus, color: Color, currentStatus: WordStatus) -> some View {
-        let isSelected = currentStatus == status
-        return Button {
-            Task { await updateStatus(status, current: currentStatus) }
-        } label: {
-            Text(label)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(isSelected ? .white : color)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(isSelected ? color : Color.clear, in: Capsule())
-                .overlay(Capsule().stroke(color, lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
+    private func statusSegmentedControl(currentStatus: WordStatus) -> some View {
+        let (label, color): (String, Color) = {
+            switch currentStatus {
+            case .new:      return ("未学習", MerkenTheme.mutedText)
+            case .review:   return ("学習中", MerkenTheme.accentBlue)
+            case .mastered: return ("習得済", MerkenTheme.success)
+            }
+        }()
+        return Text(label)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(color.opacity(0.1), in: Capsule())
+            .overlay(Capsule().stroke(color, lineWidth: 1.5))
     }
 
     // MARK: - Pronunciation（データがなくても常に表示）

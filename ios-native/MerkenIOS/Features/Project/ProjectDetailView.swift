@@ -615,7 +615,7 @@ struct ProjectDetailView: View {
     private var notionColumnHeader: some View {
         HStack(spacing: 0) {
             // Check column header — small grid icon
-            Image(systemName: "circle")
+            Image(systemName: "square.grid.3x1.below.line.grid.1x2")
                 .font(.system(size: 10, weight: .semibold))
                 .frame(width: notionCheckColWidth, alignment: .center)
 
@@ -765,16 +765,37 @@ struct ProjectDetailView: View {
 
     /// 3マスのチェックボックス（縦並び）。学習状態に応じて自動で塗りつぶし。
     private func notionCheckBoxes(for status: WordStatus) -> some View {
-        let (iconName, color): (String, Color) = {
+        let filledCount: Int = {
             switch status {
-            case .new:      return ("circle",                MerkenTheme.border)
-            case .review:   return ("circle.lefthalf.filled", MerkenTheme.accentBlue)
-            case .mastered: return ("checkmark.circle.fill",  Color.green)
+            case .new:      return 0
+            case .review:   return 1
+            case .mastered: return 3
             }
         }()
-        return Image(systemName: iconName)
-            .font(.system(size: 22, weight: .regular))
-            .foregroundStyle(color)
+        let boxSize: CGFloat = 13
+
+        return VStack(spacing: 0) {
+            ForEach(0..<3, id: \.self) { i in
+                Rectangle()
+                    .fill(i < filledCount ? Color.primary : Color.clear)
+                    .frame(width: boxSize, height: boxSize)
+                    .overlay(
+                        Group {
+                            if i < 2 {
+                                Rectangle()
+                                    .fill(MerkenTheme.border)
+                                    .frame(height: 1)
+                            }
+                        },
+                        alignment: .bottom
+                    )
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(MerkenTheme.border, lineWidth: 1)
+        )
+        .clipShape(.rect(cornerRadius: 3))
     }
 
     // MARK: - Top Buttons Overlay
