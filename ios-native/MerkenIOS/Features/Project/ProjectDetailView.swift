@@ -540,6 +540,7 @@ struct ProjectDetailView: View {
         .background(
             MerkenTheme.background
                 .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: -4)
+                .ignoresSafeArea(.container, edges: .bottom)
         )
     }
 
@@ -596,36 +597,25 @@ struct ProjectDetailView: View {
 
     private var notionColumnHeader: some View {
         HStack(spacing: 0) {
-            // Check column header — small grid icon
-            Image(systemName: "square.grid.3x1.below.line.grid.1x2")
-                .font(.system(size: 10, weight: .semibold))
-                .frame(width: notionCheckColWidth, alignment: .center)
-
-            notionColDivider
+            Spacer().frame(width: notionCheckColWidth)
 
             Text("単語")
                 .frame(width: notionEnglishColWidth, alignment: .leading)
                 .padding(.leading, 10)
 
-            notionColDivider
-
             Text("品詞")
                 .frame(width: notionPosColWidth, alignment: .center)
-
-            notionColDivider
 
             Text("訳")
                 .frame(width: notionJapaneseColWidth, alignment: .leading)
                 .padding(.leading, 10)
 
-            // 右端の余白
             Spacer().frame(width: 16)
         }
-        .font(.system(size: 11, weight: .semibold))
+        .font(.system(size: 12, weight: .bold))
         .foregroundStyle(MerkenTheme.mutedText)
         .padding(.vertical, 6)
         .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .bottom)
-        .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .top)
     }
 
     private var notionColDivider: some View {
@@ -803,24 +793,27 @@ struct ProjectDetailView: View {
             }
         }()
         let boxSize: CGFloat = 13
+        let totalHeight: CGFloat = boxSize * 3
 
-        return VStack(spacing: 0) {
-            ForEach(0..<3, id: \.self) { i in
-                Rectangle()
-                    .fill(i < filledCount ? Color.primary : Color.clear)
-                    .frame(width: boxSize, height: boxSize)
-                    .overlay(
-                        Group {
-                            if i < 2 {
-                                Rectangle()
-                                    .fill(MerkenTheme.border)
-                                    .frame(height: 1)
-                            }
-                        },
-                        alignment: .bottom
-                    )
+        return ZStack {
+            VStack(spacing: 0) {
+                ForEach(0..<3, id: \.self) { i in
+                    Rectangle()
+                        .fill(i < filledCount ? Color.primary : Color.clear)
+                        .frame(width: boxSize, height: boxSize)
+                }
             }
+
+            VStack(spacing: 0) {
+                Spacer().frame(height: boxSize)
+                Rectangle().fill(MerkenTheme.border).frame(width: boxSize, height: 1)
+                Spacer().frame(height: boxSize - 1)
+                Rectangle().fill(MerkenTheme.border).frame(width: boxSize, height: 1)
+                Spacer().frame(height: boxSize - 1)
+            }
+            .frame(height: totalHeight)
         }
+        .frame(width: boxSize, height: totalHeight)
         .overlay(
             RoundedRectangle(cornerRadius: 3)
                 .stroke(MerkenTheme.border, lineWidth: 1)
