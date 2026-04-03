@@ -49,12 +49,17 @@ export default function SharedProjectPage() {
         const supabase = createBrowserClient();
         const [wordsData, profileResult] = await Promise.all([
           remoteRepository.getWordsForShareView(projectData.id),
-          supabase
-            .from('profiles')
-            .select('username')
-            .eq('user_id', projectData.userId)
-            .maybeSingle()
-            .catch(() => ({ data: null })),
+          (async () => {
+            try {
+              return await supabase
+                .from('profiles')
+                .select('username')
+                .eq('user_id', projectData.userId)
+                .maybeSingle();
+            } catch {
+              return { data: null };
+            }
+          })(),
         ]);
 
         setProject(projectData);
