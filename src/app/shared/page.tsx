@@ -124,9 +124,7 @@ export default function SharedPage() {
                 <div className="space-y-3">
                   {projects.map((project) => {
                     const colorIndex = project.title.length % iconColors.length;
-                    const href = project.isOwner
-                      ? `/project/${project.id}`
-                      : `/share/${project.shareCode}`;
+                    const href = `/share/${project.shareCode}`;
                     return (
                       <Link
                         key={project.id}
