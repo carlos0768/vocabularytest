@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
 import { QuizOption } from '@/components/quiz';
@@ -54,6 +54,7 @@ export default function QuizPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
@@ -136,6 +137,19 @@ export default function QuizPage() {
       console.error('Failed to clear quiz state:', e);
     }
   }, [storageKey]);
+
+  /** 復習クイズ完了後: ホームではなく次の復習セッション（単語を再取得して新規クイズ）へ */
+  const goToNextReviewQuiz = useCallback(() => {
+    clearQuizState();
+    restoredFromStorage.current = false;
+    const fromQ = returnPath ? `&from=${encodeURIComponent(returnPath)}` : '';
+    const cnt = Math.max(
+      1,
+      Math.min(questionCount ?? DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT),
+    );
+    const url = `${pathname}?review=1&count=${cnt}${fromQ}&_rs=${Date.now()}`;
+    window.location.assign(url);
+  }, [clearQuizState, returnPath, questionCount, pathname]);
 
   // Save state when it changes (debounced via effect)
   useEffect(() => {
@@ -972,7 +986,7 @@ export default function QuizPage() {
             <div className="space-y-3">
               {reviewMode ? (
                 <>
-                  <Button onClick={backToProject} className="w-full" size="lg">
+                  <Button onClick={goToNextReviewQuiz} className="w-full" size="lg">
                     <Icon name="arrow_forward" size={20} className="mr-2" />
                     次へ進む
                   </Button>
