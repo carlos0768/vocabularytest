@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { extractWordsFromImage, extractCircledWordsFromImage, extractHighlightedWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage, extractWrongAnswersFromImage } from '@/lib/ai';
+import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
 import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
 import { isCloudRunConfigured } from '@/lib/ai/providers';
 import { z } from 'zod';
@@ -10,21 +10,19 @@ import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 
-// Extraction modes
+// Extraction modes (aligned with iOS: no highlighted / wrong-answer scan)
 // - 'all': Extract all words
 // - 'circled': Extract hand-circled words only
-// - 'highlighted': Extract highlighted/marker words only
 // - 'eiken': Extract words filtered by EIKEN level
 // - 'idiom': Extract idioms and phrases only
-// - 'wrong': Extract only incorrectly answered words from vocabulary tests
-export type ExtractMode = 'all' | 'circled' | 'highlighted' | 'eiken' | 'idiom' | 'wrong';
+export type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
 
 const requestSchema = z.object({
   image: z.string().min(1).max(15_000_000),
-  mode: z.enum(['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong']).optional().default('all'),
+  mode: z.enum(['all', 'circled', 'eiken', 'idiom']).optional().default('all'),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
 }).strict();
 
@@ -36,10 +34,6 @@ function getProvidersForMode(mode: ExtractMode): AIProvider[] {
       return [AI_CONFIG.extraction.eiken.provider];
     case 'circled':
       return [AI_CONFIG.extraction.circled.provider];
-    case 'highlighted':
-      return [AI_CONFIG.extraction.highlighted.provider];
-    case 'wrong':
-      return [AI_CONFIG.extraction.grammar.ocr.provider, AI_CONFIG.extraction.grammar.analysis.provider];
     case 'all':
     default:
       return [AI_CONFIG.extraction.words.provider];
@@ -165,8 +159,8 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
-    // 'circled', 'highlighted', 'eiken', 'idiom', and 'wrong' modes require Pro subscription
-    const requiresPro = mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom' || mode === 'wrong';
+    // Pro-only: circled, eiken, idiom
+    const requiresPro = mode === 'circled' || mode === 'eiken' || mode === 'idiom';
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
 
@@ -219,10 +213,7 @@ export async function POST(request: NextRequest) {
 
     let result;
     const aiStart = Date.now();
-    if (mode === 'wrong') {
-      // Wrong answer mode: OCR + analysis for vocabulary test mistakes
-      result = await extractWrongAnswersFromImage(image, apiKeys);
-    } else if (mode === 'idiom') {
+    if (mode === 'idiom') {
       result = await extractIdiomsFromImage(image, apiKeys);
     } else if (mode === 'eiken') {
       // EIKEN filter mode
@@ -237,8 +228,6 @@ export async function POST(request: NextRequest) {
     } else if (mode === 'circled') {
       // Note: eikenLevel is NOT used for circled mode anymore
       result = await extractCircledWordsFromImage(image, apiKeys, {});
-    } else if (mode === 'highlighted') {
-      result = await extractHighlightedWordsFromImage(image, apiKeys);
     } else {
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
       // Examples are generated in prefill flow to avoid duplicate AI generation costs.

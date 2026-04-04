@@ -5,7 +5,7 @@ import {
   extractShareCode,
   getSharedProjectsSchemaIssue,
   getProjectByShareCode,
-  listSharedProjects,
+  listAccessibleSharedProjects,
   requireAuthenticatedUser,
   SharedProjectsSchemaUnavailableError,
   upsertProjectMember,
@@ -19,14 +19,14 @@ const SHARED_PROJECTS_PENDING_MIGRATION_MESSAGE = '共有機能の更新が未�
 
 type SharedProjectsGetDeps = {
   requireAuthenticatedUser?: typeof requireAuthenticatedUser;
-  listSharedProjects?: typeof listSharedProjects;
+  listAccessibleSharedProjects?: typeof listAccessibleSharedProjects;
 };
 
 type SharedProjectsPostDeps = {
   requireAuthenticatedUser?: typeof requireAuthenticatedUser;
   extractShareCode?: typeof extractShareCode;
   getProjectByShareCode?: typeof getProjectByShareCode;
-  listSharedProjects?: typeof listSharedProjects;
+  listAccessibleSharedProjects?: typeof listAccessibleSharedProjects;
   upsertProjectMember?: typeof upsertProjectMember;
 };
 
@@ -35,7 +35,7 @@ export async function handleSharedProjectsGet(
   deps: SharedProjectsGetDeps = {},
 ) {
   const requireAuthenticated = deps.requireAuthenticatedUser ?? requireAuthenticatedUser;
-  const fetchSharedProjects = deps.listSharedProjects ?? listSharedProjects;
+  const fetchSharedProjects = deps.listAccessibleSharedProjects ?? listAccessibleSharedProjects;
 
   try {
     const auth = await requireAuthenticated(request);
@@ -44,7 +44,7 @@ export async function handleSharedProjectsGet(
     }
 
     const payload = await fetchSharedProjects(auth.user.id);
-    return NextResponse.json({ success: true, ...payload });
+    return NextResponse.json({ success: true, ...payload, public: [] });
   } catch (error) {
     logSharedProjectsRouteError('shared-projects list error:', error);
     return NextResponse.json({ success: false, error: '共有単語帳一覧の取得に失敗しました。' }, { status: 500 });
@@ -62,7 +62,7 @@ export async function handleSharedProjectsPost(
   const requireAuthenticated = deps.requireAuthenticatedUser ?? requireAuthenticatedUser;
   const parseShareCode = deps.extractShareCode ?? extractShareCode;
   const lookupProjectByShareCode = deps.getProjectByShareCode ?? getProjectByShareCode;
-  const fetchSharedProjects = deps.listSharedProjects ?? listSharedProjects;
+  const fetchSharedProjects = deps.listAccessibleSharedProjects ?? listAccessibleSharedProjects;
   const addProjectMember = deps.upsertProjectMember ?? upsertProjectMember;
 
   try {

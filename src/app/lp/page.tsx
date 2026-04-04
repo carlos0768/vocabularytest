@@ -119,10 +119,8 @@ function Counter({ value, suffix = '' }: { value: string; suffix?: string }) {
 const scanModes = [
   { icon: 'center_focus_weak', title: 'すべての単語を抽出', color: '#137fec' },
   { icon: 'radio_button_checked', title: '丸で囲んだ単語', color: '#8b5cf6' },
-  { icon: 'highlight', title: 'ハイライト単語', color: '#f59e0b' },
   { icon: 'menu_book', title: '英検レベルでフィルター', color: '#22c55e' },
   { icon: 'translate', title: '熟語・イディオム', color: '#ec4899' },
-  { icon: 'warning', title: '間違えた単語', color: '#ef4444' },
 ];
 
 /* ──── Study mode data ──── */
@@ -135,7 +133,7 @@ const studyModes = [
 
 /* ──── Stats data ──── */
 const stats = [
-  { value: '6', label: 'スキャンモード', icon: 'document_scanner' },
+  { value: '4', label: 'スキャンモード', icon: 'document_scanner' },
   { value: '4', label: '学習モード', icon: 'school' },
   { value: '¥500', label: 'Pro月額', icon: 'payments' },
   { value: '¥0', label: 'で始められる', icon: 'rocket_launch' },

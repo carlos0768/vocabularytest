@@ -307,26 +307,43 @@ struct QuizView: View {
 
     // MARK: - Active Typing
 
+    private func hintText(for answer: String) -> String {
+        guard !answer.isEmpty else { return "" }
+        let first = String(answer.prefix(1))
+        let remaining = String(repeating: " _", count: max(answer.count - 1, 0))
+        return first + remaining
+    }
+
     @ViewBuilder
     private func activeTypingSection(current: QuizQuestion) -> some View {
         if !viewModel.isRevealed {
             VStack(spacing: 12) {
-                TextField("英単語を入力...", text: $viewModel.typedAnswer)
-                    .font(.system(size: 18))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
-                    )
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.done)
-                    .onSubmit {
-                        guard !viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                        viewModel.submitTypingAnswer(projectId: project.id, using: appState)
-                    }
+                ZStack(alignment: .leading) {
+                    Text(hintText(for: current.word.english))
+                        .font(.system(size: 18, weight: .regular, design: .monospaced))
+                        .foregroundStyle(MerkenTheme.mutedText.opacity(0.35))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .allowsHitTesting(false)
+
+                    TextField("", text: $viewModel.typedAnswer)
+                        .font(.system(size: 18))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            guard !viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                            viewModel.submitTypingAnswer(projectId: project.id, using: appState)
+                        }
+                }
+                .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                )
 
                 Button {
                     viewModel.submitTypingAnswer(projectId: project.id, using: appState)

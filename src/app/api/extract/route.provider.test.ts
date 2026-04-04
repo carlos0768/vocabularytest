@@ -39,9 +39,9 @@ test('Without Cloud Run, missing gemini key is reported for all mode', () => {
   });
 });
 
-test('highlighted mode resolves provider from highlighted config', () => {
+test('idiom mode resolves provider from idioms config', () => {
   withCloudRunEnv(undefined, undefined, () => {
-    const providers = __internal.getProvidersForMode('highlighted');
-    assert.deepEqual(providers, [AI_CONFIG.extraction.highlighted.provider]);
+    const providers = __internal.getProvidersForMode('idiom');
+    assert.deepEqual(providers, [AI_CONFIG.extraction.idioms.provider]);
   });
 });

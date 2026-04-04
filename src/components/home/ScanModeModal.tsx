@@ -142,27 +142,6 @@ export function ScanModeModal({
           </button>
 
           <button
-            onClick={() => onSelectMode('highlighted', null)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left relative group"
-          >
-            <div className="w-12 h-12 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/25 transition-colors">
-              <Icon name="highlight" size={24} className="text-[var(--color-primary)]" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-[var(--color-foreground)]">マーカーを引いた単語だけ</p>
-                {!isPro && (
-                  <span className="chip chip-pro">
-                    <Icon name="auto_awesome" size={12} />
-                    Pro
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-[var(--color-muted)]">蛍光ペンでハイライトした単語を抽出します</p>
-            </div>
-          </button>
-
-          <button
             onClick={() => setShowEikenPicker(true)}
             className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group"
           >

@@ -3,10 +3,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
-import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
-import { extractWrongAnswersFromImage } from '@/lib/ai/extract-wrong-answers';
 import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
@@ -102,14 +100,10 @@ function getProvidersForMode(mode: ExtractMode): AIProvider[] {
   switch (mode) {
     case 'circled':
       return [AI_CONFIG.extraction.circled.provider];
-    case 'highlighted':
-      return [AI_CONFIG.extraction.highlighted.provider];
     case 'eiken':
       return [AI_CONFIG.extraction.eiken.provider];
     case 'idiom':
       return [AI_CONFIG.extraction.idioms.provider];
-    case 'wrong':
-      return [AI_CONFIG.extraction.grammar.ocr.provider, AI_CONFIG.extraction.grammar.analysis.provider];
     case 'all':
     default:
       return [AI_CONFIG.extraction.words.provider];
@@ -248,19 +242,15 @@ function logExampleGenerationOutcome(params: {
 interface ExtractionHandlers {
   extractWordsFromImage: typeof extractWordsFromImage;
   extractCircledWordsFromImage: typeof extractCircledWordsFromImage;
-  extractHighlightedWordsFromImage: typeof extractHighlightedWordsFromImage;
   extractEikenWordsFromImage: typeof extractEikenWordsFromImage;
   extractIdiomsFromImage: typeof extractIdiomsFromImage;
-  extractWrongAnswersFromImage: typeof extractWrongAnswersFromImage;
 }
 
 const defaultExtractionHandlers: ExtractionHandlers = {
   extractWordsFromImage,
   extractCircledWordsFromImage,
-  extractHighlightedWordsFromImage,
   extractEikenWordsFromImage,
   extractIdiomsFromImage,
-  extractWrongAnswersFromImage,
 };
 
 function normalizeEikenLevel(rawLevel: string | null): EikenLevel {
@@ -650,9 +640,6 @@ async function extractFromImage(
     case 'circled': {
       return { result: await handlers.extractCircledWordsFromImage(base64Image, apiKeys, {}) as ExtractionLikeResult };
     }
-    case 'highlighted': {
-      return { result: await handlers.extractHighlightedWordsFromImage(base64Image, apiKeys) as ExtractionLikeResult };
-    }
     case 'eiken': {
       const normalizedLevel = normalizeEikenLevel(eikenLevel);
       if (eikenLevel && normalizedLevel !== eikenLevel.trim()) {
@@ -676,9 +663,6 @@ async function extractFromImage(
         };
       }
       return { result: idiomResult as ExtractionLikeResult };
-    }
-    case 'wrong': {
-      return { result: await handlers.extractWrongAnswersFromImage(base64Image, apiKeys) as ExtractionLikeResult };
     }
     default: {
       return { result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult };

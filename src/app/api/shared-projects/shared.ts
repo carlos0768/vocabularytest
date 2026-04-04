@@ -1,31 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import type { Project } from '@/types';
+import type {
+  AccessibleSharedProjectListPayload,
+  PublicSharedProjectListPayload,
+  SharedProjectAccessRole,
+  SharedProjectCard,
+  SharedProjectMetrics,
+  SharedProjectSummary,
+} from '@/lib/shared-projects/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
-
-export type SharedProjectAccessRole = 'owner' | 'editor' | 'viewer';
-
-export type SharedProjectSummary = {
-  project: Project;
-  accessRole: SharedProjectAccessRole;
-  wordCount: number;
-  collaboratorCount: number;
-  ownerUsername?: string | null;
-};
 
 type ProjectMembershipRow = {
   project_id: string;
   role: string | null;
 };
 
-type SharedProjectListPayload = {
-  owned: SharedProjectSummary[];
-  joined: SharedProjectSummary[];
-  public: SharedProjectSummary[];
-};
-
-type SharedSchemaDependency = 'project_members' | 'share_scope';
+type SharedSchemaDependency = 'project_members' | 'share_scope' | 'shared_metrics_rpc';
 
 type SupabaseLikeError = {
   code?: string | null;
@@ -34,11 +25,30 @@ type SupabaseLikeError = {
   hint?: string | null;
 };
 
+type SharedProjectMetricsRow = {
+  project_id: string;
+  word_count: number | string | null;
+  collaborator_count: number | string | null;
+};
+
+type SharedProjectCursor = {
+  createdAt: string;
+  id: string;
+};
+
+type PublicSharedProjectListOptions = {
+  limit?: number;
+  cursor?: string | null;
+};
+
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
 const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,64}$/;
 const PROJECT_BASE_SELECT_COLUMNS = 'id,user_id,title,source_labels,icon_image,created_at,share_id,is_favorite';
 const PROJECT_SHARED_SELECT_COLUMNS = `${PROJECT_BASE_SELECT_COLUMNS},share_scope`;
+const DEFAULT_PUBLIC_PAGE_SIZE = 8;
+const MAX_PUBLIC_PAGE_SIZE = 24;
+const PUBLIC_CURSOR_FETCH_PADDING = 24;
 
 export class SharedProjectsSchemaUnavailableError extends Error {
   constructor(
@@ -109,20 +119,11 @@ export async function getAccessibleSharedProject(projectId: string, userId: stri
   return getOwnedOrMemberSharedProject(projectId, userId);
 }
 
-/**
- * Lightweight single-project access check.
- * Replaces the previous approach of running listSharedProjects (which fetches ALL user projects)
- * with targeted queries for the specific projectId only.
- *
- * Old approach: listSharedProjects fetches ALL shared projects + word counts + member counts for the user.
- * New approach: 2 parallel queries (project + membership), then 3 parallel count/username queries.
- */
 async function getOwnedOrMemberSharedProject(
   projectId: string,
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<SharedProjectSummary | null> {
-  // Step 1: Fetch project details and membership status in parallel
   const [projectResult, memberResult] = await Promise.all([
     admin
       .from('projects')
@@ -138,16 +139,12 @@ async function getOwnedOrMemberSharedProject(
       .maybeSingle<{ role: string | null }>(),
   ]);
 
-  let shareScopeAvailable = true;
   let projectMembersAvailable = true;
   let projectRow: ProjectRow | null = null;
 
-  // Handle project result
   if (projectResult.error) {
     if (getSharedProjectsSchemaIssue(projectResult.error) === 'share_scope') {
-      shareScopeAvailable = false;
       logSharedProjectsFallback('share_scope', projectResult.error);
-      // Retry without the share_scope column
       const { data, error } = await admin
         .from('projects')
         .select(PROJECT_BASE_SELECT_COLUMNS)
@@ -165,7 +162,6 @@ async function getOwnedOrMemberSharedProject(
 
   if (!projectRow) return null;
 
-  // Handle member result errors (project_members table may not exist)
   if (memberResult.error) {
     if (getSharedProjectsSchemaIssue(memberResult.error) === 'project_members') {
       projectMembersAvailable = false;
@@ -175,7 +171,6 @@ async function getOwnedOrMemberSharedProject(
     }
   }
 
-  // Determine access role: owner or member
   let accessRole: SharedProjectAccessRole | null = null;
   if (projectRow.user_id === userId) {
     accessRole = 'owner';
@@ -185,43 +180,15 @@ async function getOwnedOrMemberSharedProject(
 
   if (!accessRole) return null;
 
-  // Step 2: Fetch counts and username in parallel using efficient COUNT queries
-  const [wordCount, collaboratorCount, usernameByUserId] = await Promise.all([
-    (async () => {
-      try {
-        const { count } = await admin
-          .from('words')
-          .select('*', { count: 'exact', head: true })
-          .eq('project_id', projectId);
-        return count ?? 0;
-      } catch {
-        return 0;
-      }
-    })(),
-    projectMembersAvailable
-      ? (async () => {
-        try {
-          const { count } = await admin
-            .from('project_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', projectId);
-          return 1 + (count ?? 0);
-        } catch {
-          return 1;
-        }
-      })()
-      : Promise.resolve(1),
+  const [metricsByProjectId, usernameByUserId] = await Promise.all([
+    getSharedProjectMetrics([projectId], admin),
     getUsernamesByUserIds(admin, [projectRow.user_id]),
   ]);
-
-  const wordCountByProjectId = new Map([[projectId, wordCount]]);
-  const collaboratorCountByProjectId = new Map([[projectId, collaboratorCount]]);
 
   return mapSharedProjectSummary(
     projectRow,
     accessRole,
-    wordCountByProjectId,
-    collaboratorCountByProjectId,
+    metricsByProjectId,
     usernameByUserId,
   );
 }
@@ -245,17 +212,15 @@ export async function getPublicSharedProject(projectId: string): Promise<SharedP
   }
   if (!data) return null;
 
-  const [wordCountByProjectId, collaboratorCountByProjectId, usernameByUserId] = await Promise.all([
-    getWordCountByProjectId(admin, [projectId]),
-    getCollaboratorCountByProjectId(admin, [projectId], true),
+  const [metricsByProjectId, usernameByUserId] = await Promise.all([
+    getSharedProjectMetrics([projectId], admin),
     getUsernamesByUserIds(admin, [data.user_id]),
   ]);
 
   return mapSharedProjectSummary(
     data,
     'viewer',
-    wordCountByProjectId,
-    collaboratorCountByProjectId,
+    metricsByProjectId,
     usernameByUserId,
   );
 }
@@ -293,10 +258,10 @@ export async function requireSharedProjectAccess(
   };
 }
 
-export async function listSharedProjects(
+export async function listAccessibleSharedProjects(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
-): Promise<SharedProjectListPayload> {
+): Promise<AccessibleSharedProjectListPayload> {
   let shareScopeAvailable = true;
   let projectMembersAvailable = true;
 
@@ -326,74 +291,121 @@ export async function listSharedProjects(
   }
 
   const joinedProjectIds = Array.from(
-    new Set(membershipRows.map((row) => row.project_id as string).filter(Boolean)),
+    new Set(membershipRows.map((row) => row.project_id).filter(Boolean)),
   );
 
   const joinedRows = joinedProjectIds.length > 0
     ? await fetchProjectsByIds(admin, joinedProjectIds, shareScopeAvailable)
     : [];
 
-  const allRows = [...ownedRows, ...joinedRows];
-  const projectIds = Array.from(new Set(allRows.map((row) => row.id)));
-  const allUserIds = Array.from(new Set(allRows.map((row) => row.user_id)));
-  const [wordCountByProjectId, collaboratorCountByProjectId, usernameByUserId] = await Promise.all([
-    getWordCountByProjectId(admin, projectIds),
-    getCollaboratorCountByProjectId(admin, projectIds, projectMembersAvailable),
-    getUsernamesByUserIds(admin, allUserIds),
-  ]);
+  const allUserIds = Array.from(new Set([...ownedRows, ...joinedRows].map((row) => row.user_id)));
+  const usernameByUserId = await getUsernamesByUserIds(admin, allUserIds);
 
   const membershipRoleByProjectId = new Map<string, SharedProjectAccessRole>(
-    membershipRows.map((row) => [
-      row.project_id,
-      row.role === 'editor' ? 'editor' : 'editor',
-    ]),
+    membershipRows.map((row) => [row.project_id, row.role === 'editor' ? 'editor' : 'editor']),
   );
 
   const owned = ownedRows.map((row) =>
-    mapSharedProjectSummary(row, 'owner', wordCountByProjectId, collaboratorCountByProjectId, usernameByUserId),
+    mapSharedProjectCard(row, 'owner', usernameByUserId),
   );
 
   const joined = projectMembersAvailable
     ? joinedRows
       .filter((row) => row.user_id !== userId)
       .map((row) =>
-        mapSharedProjectSummary(
+        mapSharedProjectCard(
           row,
           membershipRoleByProjectId.get(row.id) ?? 'editor',
-          wordCountByProjectId,
-          collaboratorCountByProjectId,
           usernameByUserId,
         ),
       )
     : [];
 
-  const excludedProjectIds = new Set<string>([
-    ...owned.map((item) => item.project.id),
-    ...joined.map((item) => item.project.id),
-  ]);
+  return { owned, joined };
+}
 
-  const publicRows = shareScopeAvailable
-    ? await fetchPublicProjects(admin, Array.from(excludedProjectIds))
-    : [];
-  const publicProjectIds = publicRows.map((row) => row.id);
-  const publicUserIds = publicRows.map((row) => row.user_id);
-  const [publicWordCountByProjectId, publicCollaboratorCountByProjectId, publicUsernameByUserId] = await Promise.all([
-    getWordCountByProjectId(admin, publicProjectIds),
-    getCollaboratorCountByProjectId(admin, publicProjectIds, projectMembersAvailable),
-    getUsernamesByUserIds(admin, publicUserIds),
-  ]);
+export async function listPublicSharedProjects(
+  options: PublicSharedProjectListOptions = {},
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<PublicSharedProjectListPayload> {
+  const limit = clampPublicPageSize(options.limit);
+  const cursor = decodePublicCursor(options.cursor ?? null);
 
-  const publicProjects = publicRows.map((row) =>
-    mapSharedProjectSummary(
-      row,
-      'viewer',
-      publicWordCountByProjectId,
-      publicCollaboratorCountByProjectId,
-      publicUsernameByUserId,
-    ),
+  let rows: ProjectRow[];
+  try {
+    rows = await fetchPublicProjectsPage(admin, limit, cursor);
+  } catch (error) {
+    if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
+      logSharedProjectsFallback('share_scope', error);
+      return { items: [], nextCursor: null };
+    }
+    throw error;
+  }
+
+  const filteredRows = cursor
+    ? rows.filter((row) => compareRowAgainstCursor(row, cursor) > 0)
+    : rows;
+  const pageRows = filteredRows.slice(0, limit);
+  const usernameByUserId = await getUsernamesByUserIds(
+    admin,
+    pageRows.map((row) => row.user_id),
   );
 
-  return { owned, joined, public: publicProjects };
+  return {
+    items: pageRows.map((row) => mapSharedProjectCard(row, 'viewer', usernameByUserId)),
+    nextCursor: pageRows.length === limit
+      ? encodePublicCursor(pageRows[pageRows.length - 1]!)
+      : null,
+  };
+}
+
+export async function getSharedProjectMetrics(
+  projectIds: string[],
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<Map<string, SharedProjectMetrics>> {
+  const uniqueProjectIds = Array.from(new Set(projectIds.filter(Boolean)));
+  const result = new Map<string, SharedProjectMetrics>();
+
+  for (const projectId of uniqueProjectIds) {
+    result.set(projectId, { wordCount: 0, collaboratorCount: 1 });
+  }
+
+  if (uniqueProjectIds.length === 0) {
+    return result;
+  }
+
+  try {
+    const { data, error } = await admin.rpc('get_shared_project_metrics', {
+      project_ids: uniqueProjectIds,
+    });
+
+    if (error) {
+      throw new SharedProjectsSchemaUnavailableError(
+        'shared_metrics_rpc',
+        error.message || 'shared_metrics_rpc_failed',
+      );
+    }
+
+    for (const row of (data ?? []) as SharedProjectMetricsRow[]) {
+      result.set(row.project_id, {
+        wordCount: Number(row.word_count ?? 0),
+        collaboratorCount: Number(row.collaborator_count ?? 1),
+      });
+    }
+
+    return result;
+  } catch (error) {
+    const schemaIssue = getSharedProjectsSchemaIssue(error);
+    if (schemaIssue && schemaIssue !== 'shared_metrics_rpc' && schemaIssue !== 'project_members') {
+      throw error;
+    }
+
+    if (schemaIssue) {
+      logSharedProjectsFallback(schemaIssue, error);
+    }
+
+    return getSharedProjectMetricsFallback(uniqueProjectIds, admin, result);
+  }
 }
 
 export async function upsertProjectMember(
@@ -460,6 +472,18 @@ export function getSharedProjectsSchemaIssue(error: unknown): SharedSchemaDepend
     return 'share_scope';
   }
 
+  if (
+    normalized.includes('get_shared_project_metrics')
+    && (
+      normalized.includes('does not exist')
+      || normalized.includes('function')
+      || normalized.includes('schema cache')
+      || normalized.includes('could not find')
+    )
+  ) {
+    return 'shared_metrics_rpc';
+  }
+
   return null;
 }
 
@@ -509,7 +533,8 @@ async function fetchProjectsByIds(
   const { data, error } = await admin
     .from('projects')
     .select(includeShareScope ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS)
-    .in('id', projectIds);
+    .in('id', projectIds)
+    .order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message || 'shared_joined_projects_lookup_failed');
@@ -518,105 +543,99 @@ async function fetchProjectsByIds(
   return (data ?? []) as unknown as ProjectRow[];
 }
 
-async function fetchPublicProjects(
+async function fetchPublicProjectsPage(
   admin: SupabaseAdminClient,
-  excludedProjectIds: string[],
+  limit: number,
+  cursor: SharedProjectCursor | null,
 ): Promise<ProjectRow[]> {
-  const { data, error } = await admin
+  const fetchSize = cursor ? limit + PUBLIC_CURSOR_FETCH_PADDING : limit + 1;
+  let query = admin
     .from('projects')
     .select(PROJECT_SHARED_SELECT_COLUMNS)
     .eq('share_scope', 'public')
     .not('share_id', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(60);
+    .order('id', { ascending: false });
+
+  if (cursor) {
+    query = query.lte('created_at', cursor.createdAt);
+  }
+
+  const { data, error } = await query.limit(fetchSize);
   if (error) {
-    if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
-      logSharedProjectsFallback('share_scope', error);
-      return [];
-    }
     throw new Error(error.message || 'public_shared_projects_lookup_failed');
   }
 
-  const excluded = new Set(excludedProjectIds);
-
-  return ((data ?? []) as unknown as ProjectRow[])
-    .filter((row) => !excluded.has(row.id))
-    .slice(0, 30);
+  return (data ?? []) as unknown as ProjectRow[];
 }
 
-async function getWordCountByProjectId(
-  admin: SupabaseAdminClient,
+async function getSharedProjectMetricsFallback(
   projectIds: string[],
-): Promise<Map<string, number>> {
-  const result = new Map<string, number>();
-  for (const projectId of projectIds) {
-    result.set(projectId, 0);
-  }
-  if (projectIds.length === 0) return result;
-
-  // Use a single-column select to minimize data transfer (only project_id, no full row)
-  const { data, error } = await admin
-    .from('words')
-    .select('project_id')
-    .in('project_id', projectIds);
-
-  if (error) {
-    throw new Error(error.message || 'shared_word_counts_failed');
-  }
-
-  for (const row of data ?? []) {
-    const projectId = row.project_id as string;
-    result.set(projectId, (result.get(projectId) ?? 0) + 1);
-  }
-
-  return result;
-}
-
-async function getCollaboratorCountByProjectId(
   admin: SupabaseAdminClient,
-  projectIds: string[],
-  projectMembersAvailable: boolean,
-): Promise<Map<string, number>> {
-  const result = new Map<string, number>();
-  for (const projectId of projectIds) {
-    result.set(projectId, 1);
-  }
-  if (projectIds.length === 0 || !projectMembersAvailable) return result;
+  seed: Map<string, SharedProjectMetrics>,
+): Promise<Map<string, SharedProjectMetrics>> {
+  await Promise.all(projectIds.map(async (projectId) => {
+    const [wordResult, collaboratorResult] = await Promise.all([
+      admin
+        .from('words')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId),
+      admin
+        .from('project_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId),
+    ]);
 
-  const { data, error } = await admin
-    .from('project_members')
-    .select('project_id')
-    .in('project_id', projectIds);
+    const wordCount = wordResult.count ?? 0;
+    let collaboratorCount = 1;
 
-  if (error) {
-    if (getSharedProjectsSchemaIssue(error) === 'project_members') {
-      logSharedProjectsFallback('project_members', error);
-      return result;
+    if (collaboratorResult.error) {
+      if (getSharedProjectsSchemaIssue(collaboratorResult.error) === 'project_members') {
+        logSharedProjectsFallback('project_members', collaboratorResult.error);
+      } else {
+        throw new Error(collaboratorResult.error.message || 'shared_collaborator_counts_failed');
+      }
+    } else {
+      collaboratorCount = 1 + (collaboratorResult.count ?? 0);
     }
-    throw new Error(error.message || 'shared_collaborator_counts_failed');
-  }
 
-  for (const row of data ?? []) {
-    const projectId = row.project_id as string;
-    result.set(projectId, (result.get(projectId) ?? 1) + 1);
-  }
+    if (wordResult.error) {
+      throw new Error(wordResult.error.message || 'shared_word_counts_failed');
+    }
 
-  return result;
+    seed.set(projectId, {
+      wordCount,
+      collaboratorCount,
+    });
+  }));
+
+  return seed;
+}
+
+function mapSharedProjectCard(
+  row: ProjectRow,
+  accessRole: SharedProjectAccessRole,
+  usernameByUserId?: Map<string, string | null>,
+): SharedProjectCard {
+  return {
+    project: mapProjectFromRow(row),
+    accessRole,
+    ownerUsername: usernameByUserId?.get(row.user_id) ?? null,
+  };
 }
 
 function mapSharedProjectSummary(
   row: ProjectRow,
   accessRole: SharedProjectAccessRole,
-  wordCountByProjectId: Map<string, number>,
-  collaboratorCountByProjectId: Map<string, number>,
+  metricsByProjectId: Map<string, SharedProjectMetrics>,
   usernameByUserId?: Map<string, string | null>,
 ): SharedProjectSummary {
+  const metrics = metricsByProjectId.get(row.id) ?? { wordCount: 0, collaboratorCount: 1 };
+
   return {
-    project: mapProjectFromRow(row),
-    accessRole,
-    wordCount: wordCountByProjectId.get(row.id) ?? 0,
-    collaboratorCount: collaboratorCountByProjectId.get(row.id) ?? 1,
-    ownerUsername: usernameByUserId?.get(row.user_id) ?? null,
+    ...mapSharedProjectCard(row, accessRole, usernameByUserId),
+    wordCount: metrics.wordCount,
+    collaboratorCount: metrics.collaboratorCount,
   };
 }
 
@@ -648,6 +667,52 @@ async function getUsernamesByUserIds(
   }
 
   return result;
+}
+
+function clampPublicPageSize(limit?: number): number {
+  if (!Number.isFinite(limit)) return DEFAULT_PUBLIC_PAGE_SIZE;
+  return Math.max(1, Math.min(MAX_PUBLIC_PAGE_SIZE, Number(limit)));
+}
+
+function encodePublicCursor(row: Pick<ProjectRow, 'created_at' | 'id'>): string {
+  return Buffer.from(
+    JSON.stringify({
+      createdAt: row.created_at,
+      id: row.id,
+    }),
+    'utf8',
+  ).toString('base64url');
+}
+
+function decodePublicCursor(cursor: string | null): SharedProjectCursor | null {
+  if (!cursor) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as Partial<SharedProjectCursor>;
+    if (
+      typeof parsed.createdAt === 'string'
+      && parsed.createdAt
+      && typeof parsed.id === 'string'
+      && parsed.id
+    ) {
+      return {
+        createdAt: parsed.createdAt,
+        id: parsed.id,
+      };
+    }
+  } catch {
+    // Ignore invalid cursors and restart from the first page.
+  }
+
+  return null;
+}
+
+function compareRowAgainstCursor(row: Pick<ProjectRow, 'created_at' | 'id'>, cursor: SharedProjectCursor): number {
+  if (row.created_at < cursor.createdAt) return 1;
+  if (row.created_at > cursor.createdAt) return -1;
+  if (row.id < cursor.id) return 1;
+  if (row.id > cursor.id) return -1;
+  return 0;
 }
 
 function normalizeErrorText(error: unknown): string {

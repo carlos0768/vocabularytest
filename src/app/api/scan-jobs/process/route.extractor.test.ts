@@ -30,32 +30,15 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
   const handlers: Handlers = {
     extractWordsFromImage: async () => successWords,
     extractCircledWordsFromImage: async () => successWords,
-    extractHighlightedWordsFromImage: async () => successWords,
     extractEikenWordsFromImage: async () => ({
       success: true,
       extractedText: 'mock ocr',
       data: successWords.data,
     }),
     extractIdiomsFromImage: async () => successWords,
-    extractWrongAnswersFromImage: async () => ({
-      success: true,
-      ocrData: {
-        testType: 'mixed',
-        questions: [],
-        totalQuestions: 0,
-        detectedCorrectCount: 0,
-        detectedWrongCount: 1,
-        notes: 'mock',
-      },
-      data: successWords.data,
-      summary: {
-        totalWrong: 1,
-        testType: 'mixed',
-      },
-    }),
   };
 
-  const modes: ExtractMode[] = ['all', 'circled', 'highlighted', 'eiken', 'idiom', 'wrong'];
+  const modes: ExtractMode[] = ['all', 'circled', 'eiken', 'idiom'];
 
   for (const mode of modes) {
     const eikenLevel = mode === 'eiken' ? '3' : null;
@@ -75,9 +58,9 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
   }
 });
 
-test('scan-jobs highlighted mode resolves provider from highlighted config', () => {
-  const providers = __internal.getProvidersForMode('highlighted');
-  assert.deepEqual(providers, [AI_CONFIG.extraction.highlighted.provider]);
+test('scan-jobs idiom mode resolves provider from idioms config', () => {
+  const providers = __internal.getProvidersForMode('idiom');
+  assert.deepEqual(providers, [AI_CONFIG.extraction.idioms.provider]);
 });
 
 test('scan-jobs parser preserves japaneseSource and prefers scan during dedupe', () => {

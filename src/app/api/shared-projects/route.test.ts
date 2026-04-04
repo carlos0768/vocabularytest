@@ -23,7 +23,7 @@ test('shared-projects GET returns 200 with degraded payload', async () => {
       ok: true as const,
       user: { id: 'user-1' } as never,
     }),
-    listSharedProjects: async () => ({
+    listAccessibleSharedProjects: async () => ({
       owned: [
         {
           project: {
@@ -36,12 +36,9 @@ test('shared-projects GET returns 200 with degraded payload', async () => {
             isFavorite: false,
           },
           accessRole: 'owner',
-          wordCount: 3,
-          collaboratorCount: 1,
         },
       ],
       joined: [],
-      public: [],
     }),
   });
 
@@ -73,10 +70,9 @@ test('shared-projects POST returns 503 when project_members schema is unavailabl
     upsertProjectMember: async () => {
       throw new SharedProjectsSchemaUnavailableError('project_members');
     },
-    listSharedProjects: async () => ({
+    listAccessibleSharedProjects: async () => ({
       owned: [],
       joined: [],
-      public: [],
     }),
   });
 

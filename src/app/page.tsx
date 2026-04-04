@@ -941,8 +941,8 @@ export default function HomePage() {
   };
 
   const handleScanModeSelect = (mode: ScanMode, eikenLevel: EikenLevel) => {
-    // Pro-only features: circled, highlighted, eiken filter, idiom modes
-    if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
+    // Pro-only: circled, eiken, idiom
+    if ((mode === 'circled' || mode === 'eiken' || mode === 'idiom') && !isPro) {
       setShowScanModeModal(false);
       startTransition(() => { router.push('/subscription'); });
       return;

@@ -81,13 +81,6 @@ function ScanPageContent() {
       pro: true,
     },
     {
-      id: 'highlighted' as ExtractMode,
-      title: 'ハイライト単語',
-      description: '蛍光ペンで塗った単語を抽出',
-      icon: 'highlight',
-      pro: true,
-    },
-    {
       id: 'eiken' as ExtractMode,
       title: '英検レベル',
       description: '指定した級の単語だけを抽出',
@@ -99,13 +92,6 @@ function ScanPageContent() {
       title: '熟語・イディオム',
       description: '句動詞や熟語だけを抽出',
       icon: 'translate',
-      pro: true,
-    },
-    {
-      id: 'wrong' as ExtractMode,
-      title: '間違えた単語',
-      description: 'テストの間違いを抽出',
-      icon: 'warning',
       pro: true,
     },
   ];
@@ -129,9 +115,7 @@ function ScanPageContent() {
     }
   }, [selectedMode]);
 
-  const getImageProfile = useCallback((): ImageProcessingProfile => (
-    selectedMode === 'highlighted' ? 'highlighted' : 'default'
-  ), [selectedMode]);
+  const getImageProfile = useCallback((): ImageProcessingProfile => 'default', []);
 
   // Compress image for fast upload (profile-driven)
   const compressForUpload = useCallback(async (file: File): Promise<{ blob: Blob; contentType: string; ext: string }> => {
@@ -269,7 +253,7 @@ function ScanPageContent() {
 
     sessionStorage.setItem('scanvocab_ai_enabled', effectiveAiPreference ? '1' : '0');
 
-    const requiresPro = ['circled', 'highlighted', 'eiken', 'idiom', 'wrong'].includes(selectedMode);
+    const requiresPro = ['circled', 'eiken', 'idiom'].includes(selectedMode);
     if (requiresPro && !isPro) {
       showToast({
         message: 'このスキャンモードはProプラン限定です',
@@ -553,10 +537,8 @@ function ScanPageContent() {
   const modeColors: Record<string, { bg: string; icon: string; border: string }> = {
     all: { bg: 'bg-[var(--color-primary)]/10', icon: 'text-[var(--color-primary)]', border: 'border-[var(--color-primary)]' },
     circled: { bg: 'bg-[var(--color-warning)]/10', icon: 'text-[var(--color-warning)]', border: 'border-[var(--color-warning)]' },
-    highlighted: { bg: 'bg-purple-500/10', icon: 'text-purple-500', border: 'border-purple-500' },
     eiken: { bg: 'bg-[var(--color-success)]/10', icon: 'text-[var(--color-success)]', border: 'border-[var(--color-success)]' },
     idiom: { bg: 'bg-cyan-500/10', icon: 'text-cyan-500', border: 'border-cyan-500' },
-    wrong: { bg: 'bg-[var(--color-error)]/10', icon: 'text-[var(--color-error)]', border: 'border-[var(--color-error)]' },
   };
 
   return (

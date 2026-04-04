@@ -36,6 +36,10 @@ function isOwnedBy(project: Project | undefined | null, expectedUserId: string):
   return Boolean(project && project.userId === expectedUserId);
 }
 
+/** Header と各行で同一の列定義（単語 | A/P | 品詞 | 訳） */
+const WORD_TABLE_GRID =
+  'grid grid-cols-[minmax(0,1fr)_2.5rem_2.5rem_5rem] gap-3 items-center px-3';
+
 export default function ProjectDetailPage() {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -251,7 +255,7 @@ export default function ProjectDetailPage() {
 
   // Scan-to-add handlers
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
-    if ((mode === 'circled' || mode === 'highlighted' || mode === 'eiken' || mode === 'idiom') && !isPro) {
+    if ((mode === 'circled' || mode === 'eiken' || mode === 'idiom') && !isPro) {
       setShowScanModeModal(false);
       startTransition(() => { router.push('/subscription'); });
       return;
@@ -286,9 +290,7 @@ export default function ProjectDetailPage() {
     const totalFiles = scanFiles.length;
     setProcessing(true);
 
-    const extractionProfile: ImageProcessingProfile = selectedScanMode === 'highlighted'
-      ? 'highlighted'
-      : 'default';
+    const extractionProfile: ImageProcessingProfile = 'default';
 
     if (totalFiles === 1) {
       setProcessingSteps([
@@ -817,12 +819,14 @@ export default function ProjectDetailPage() {
               </div>
             ) : (
               <div>
-                {/* Table header */}
-                <div className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]">
-                  <span className="flex-1">単語</span>
-                  <span className="w-10 text-center">A/P</span>
-                  <span className="w-10 text-center">品詞</span>
-                  <span className="w-16 text-right">訳</span>
+                {/* Table header — WORD_TABLE_GRID と行を一致させる */}
+                <div
+                  className={`${WORD_TABLE_GRID} py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]`}
+                >
+                  <span className="min-w-0">単語</span>
+                  <span className="text-center">A/P</span>
+                  <span className="text-center">品詞</span>
+                  <span className="text-right">訳</span>
                 </div>
                 {/* Table rows */}
                 <div className="divide-y divide-[var(--color-border-light)]">
@@ -840,40 +844,36 @@ export default function ProjectDetailPage() {
                           router.push(`/word/${word.id}?from=${returnPath}`);
                         }
                       }}
-                      className="flex items-center gap-3 px-3 py-3.5 rounded-xl cursor-pointer active:bg-[var(--color-surface-secondary)] transition-colors"
+                      className={`${WORD_TABLE_GRID} py-3.5 rounded-xl cursor-pointer active:bg-[var(--color-surface-secondary)] transition-colors`}
                     >
-                      <div
-                        className="flex flex-1 items-center gap-3 min-w-0"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <span className="inline-flex items-center gap-1 flex-wrap">
-                            <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
-                            {word.isFavorite && (
-                              <Icon
-                                name="flag"
-                                size={14}
-                                filled
-                                className="text-[var(--color-warning)] shrink-0"
-                                aria-label="苦手マーク"
-                              />
-                            )}
-                          </span>
-                        </div>
-                        <span className="w-10 flex justify-center">
-                          <span onClick={(event) => event.preventDefault()}>
-                            <VocabularyTypeButton
-                              vocabularyType={word.vocabularyType}
-                              onClick={() => {
-                                void handleCycleVocabularyType(word.id);
-                              }}
+                      <div className="min-w-0">
+                        <span className="inline-flex items-center gap-1 flex-wrap">
+                          <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
+                          {word.isFavorite && (
+                            <Icon
+                              name="flag"
+                              size={14}
+                              filled
+                              className="text-[var(--color-warning)] shrink-0"
+                              aria-label="苦手マーク"
                             />
-                          </span>
+                          )}
                         </span>
-                        <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
-                          {posLabel(word.partOfSpeechTags) || '—'}
-                        </span>
-                        <span className="w-20 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
                       </div>
+                      <span className="flex justify-center">
+                        <VocabularyTypeButton
+                          vocabularyType={word.vocabularyType}
+                          onClick={() => {
+                            void handleCycleVocabularyType(word.id);
+                          }}
+                        />
+                      </span>
+                      <span className="text-center text-xs font-bold text-[var(--color-muted)]">
+                        {posLabel(word.partOfSpeechTags) || '—'}
+                      </span>
+                      <span className="min-w-0 text-right text-xs text-[var(--color-muted)] truncate">
+                        {word.japanese}
+                      </span>
                     </div>
                   ))}
                 </div>
