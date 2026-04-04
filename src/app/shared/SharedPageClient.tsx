@@ -258,10 +258,7 @@ export default function SharedPageClient({
           ownedProjects.length > 0 ||
           joinedProjects.length > 0) && (
           <section className="space-y-4">
-            <SectionHeader
-              title="自分の共有 / 参加中"
-              description="自分が公開した単語帳と、参加している共有単語帳。"
-            />
+            <SectionHeader title="自分の共有 / 参加中" />
 
             {userSectionLoading ? (
               <ProjectSkeletonList count={3} />
