@@ -800,17 +800,17 @@ private struct TypeInField: View {
                 }
 
                 if t < n {
+                    if isFocused {
+                        Rectangle()
+                            .fill(Color.blue)
+                            .frame(width: 2, height: 24)
+                    }
+
                     if t == 0, let first = target.first {
                         Text(String(first).lowercased())
                             .font(.system(size: 20, weight: .medium))
                             .foregroundStyle(MerkenTheme.mutedText.opacity(0.5))
                             .frame(minWidth: slotWidth)
-                    }
-
-                    if isFocused {
-                        Rectangle()
-                            .fill(Color.blue)
-                            .frame(width: 2, height: 24)
                     }
 
                     let remaining = t == 0 ? max(n - 1, 0) : max(n - t - 1, 0)
