@@ -531,19 +531,19 @@ struct SharedProjectDetailView: View {
             switch status {
             case .new:      return 0
             case .review:   return 1
-            case .mastered: return 3
+            case .mastered: return 2
             }
         }()
         let boxSize: CGFloat = 13
 
         return VStack(spacing: 0) {
-            ForEach(0..<3, id: \.self) { i in
+            ForEach(0..<2, id: \.self) { i in
                 Rectangle()
                     .fill(i < filledCount ? Color.primary : Color.clear)
                     .frame(width: boxSize, height: boxSize)
                     .overlay(
                         Group {
-                            if i < 2 {
+                            if i == 0 {
                                 Rectangle()
                                     .fill(MerkenTheme.border)
                                     .frame(height: 1)

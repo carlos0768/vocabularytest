@@ -783,21 +783,22 @@ struct ProjectDetailView: View {
         }
     }
 
-    /// 3マスのチェックボックス（縦並び）。学習状態に応じて自動で塗りつぶし。
+    /// 2マスのチェックボックス（縦並び）。未学習→学習中→習得で1マスずつ塗りつぶし。
     private func notionCheckBoxes(for status: WordStatus) -> some View {
         let filledCount: Int = {
             switch status {
             case .new:      return 0
             case .review:   return 1
-            case .mastered: return 3
+            case .mastered: return 2
             }
         }()
         let boxSize: CGFloat = 13
-        let totalHeight: CGFloat = boxSize * 3
+        let rowCount = 2
+        let totalHeight: CGFloat = boxSize * CGFloat(rowCount)
 
         return ZStack {
             VStack(spacing: 0) {
-                ForEach(0..<3, id: \.self) { i in
+                ForEach(0..<rowCount, id: \.self) { i in
                     Rectangle()
                         .fill(i < filledCount ? Color.primary : Color.clear)
                         .frame(width: boxSize, height: boxSize)
@@ -806,8 +807,6 @@ struct ProjectDetailView: View {
 
             VStack(spacing: 0) {
                 Spacer().frame(height: boxSize)
-                Rectangle().fill(MerkenTheme.border).frame(width: boxSize, height: 1)
-                Spacer().frame(height: boxSize - 1)
                 Rectangle().fill(MerkenTheme.border).frame(width: boxSize, height: 1)
                 Spacer().frame(height: boxSize - 1)
             }
