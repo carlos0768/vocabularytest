@@ -8,9 +8,11 @@ Rules that must hold at all times. Violating any **Confirmed** invariant will ca
 
 These have been verified against the source code.
 
-### INV-01: Free subscription on signup
+### INV-01: Subscription row on signup
 
-Every Supabase user gets a `subscriptions` row with `status='free'`, `plan='free'` on signup via the database trigger `on_auth_user_created` (defined in `supabase/migrations/001_initial_schema.sql`).
+Every Supabase user gets a `subscriptions` row on signup via the database trigger `on_auth_user_created`, which runs `handle_new_user()` (initial definition in `supabase/migrations/001_initial_schema.sql`; later migrations replace the function body, including `supabase/migrations/20260403180000_create_profiles.sql` and `supabase/migrations/20260404150000_auto_pro_first_66_users.sql`).
+
+The trigger always **inserts** `status='free'`, `plan='free'`. For a limited launch campaign, the same function may **immediately update** that row to permanent test Pro for eligible new users (see `docs/ops-auto-pro-first-66-2026-04-04.md`).
 
 **Consequence of violation**: New users cannot use the app. Hooks assume a subscription row always exists.
 

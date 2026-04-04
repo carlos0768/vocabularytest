@@ -8,6 +8,7 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 - Nightly Master Lexicon Cron: [`docs/ops/nightly-lexicon-cron-runbook.md`](docs/ops/nightly-lexicon-cron-runbook.md)
 - Scan Extraction Gemini 2.5 Flash (Cloud Run): [`docs/ops/scan-gemini-cloudrun-runbook.md`](docs/ops/scan-gemini-cloudrun-runbook.md)
+- Auto Pro for first 66 signups (2026-04-04 campaign): [`docs/ops-auto-pro-first-66-2026-04-04.md`](ops-auto-pro-first-66-2026-04-04.md)
 
 ---
 

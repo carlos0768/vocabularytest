@@ -214,6 +214,7 @@ Selection logic in `getRepository(subscriptionStatus, wasPro)`:
 ## Authentication
 
 - **Signup**: Custom OTP flow via Resend email (`/api/auth/send-otp`, `/api/auth/verify-otp`), not Supabase magic links.
+- **DB hook**: After `auth.users` insert, trigger `on_auth_user_created` runs `handle_new_user()`, which creates `subscriptions` and `profiles` rows. As of migration `20260404150000_auto_pro_first_66_users.sql`, the first 66 users with `created_at` on or after 2026-04-04 receive permanent test Pro in the same transaction (see `docs/ops-auto-pro-first-66-2026-04-04.md`).
 - **Session**: Supabase Auth manages sessions. Browser client stores session in localStorage (`sb-{projectRef}-auth-token`).
 - **Middleware**: `src/lib/supabase/middleware.ts` protects routes listed in `protectedPaths` array. Redirects to `/login` if unauthenticated.
 - **API auth**: Routes use `createRouteHandlerClient(request)` and check both cookie auth (web) and `Authorization: Bearer` header (iOS).

@@ -120,7 +120,7 @@ getRepository(subscriptionStatus, wasPro)
 ### Authentication Flow
 1. User signs up -> OTP email sent via Resend (`/api/auth/send-otp`)
 2. User verifies OTP -> Account created, session set
-3. Free subscription record auto-created via database trigger (`on_auth_user_created`)
+3. Subscription + profile rows auto-created via database trigger (`on_auth_user_created` -> `handle_new_user()`). Launch campaign (2026-04-04+): first 66 eligible signups get permanent test Pro in-DB; see `docs/ops-auto-pro-first-66-2026-04-04.md`.
 4. User upgrades -> KOMOJU payment page -> Webhook activates Pro
 
 ### Payment Flow (KOMOJU)
