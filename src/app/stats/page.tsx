@@ -43,8 +43,9 @@ export default function StatsPage() {
   }, [stats]);
 
   const chartMaxMastered = useMemo(() => {
-    if (!stats) return 100;
-    return Math.max(stats.masteredWords, stats.totalWords, 100);
+    if (!stats?.weeklyStats) return 10;
+    const maxMastered = Math.max(...stats.weeklyStats.map(d => d.masteredCount ?? 0));
+    return Math.max(maxMastered, stats.totalWords, 10);
   }, [stats]);
 
   return (
@@ -112,18 +113,18 @@ export default function StatsPage() {
                     {/* Bars */}
                     <div className="absolute left-0 right-0 bottom-6 flex items-end justify-between gap-1" style={{ top: 0 }}>
                       {stats.weeklyStats.map((day, i) => {
-                        const maxCount = Math.max(...stats.weeklyStats.map(d => d.totalCount), 1);
-                        const heightPct = day.totalCount > 0 ? Math.max((day.totalCount / maxCount) * 100, 5) : 0;
+                        const mastered = day.masteredCount ?? 0;
+                        const heightPct = mastered > 0 ? Math.max((mastered / chartMaxMastered) * 100, 5) : 0;
                         return (
                           <div key={day.date} className="flex-1 flex items-end h-full">
                             <div
                               className={`w-full rounded-t-sm transition-all duration-500 ${
-                                day.totalCount > 0
+                                mastered > 0
                                   ? 'bg-[var(--color-success)]'
                                   : 'bg-[var(--color-border-light)]'
                               }`}
                               style={{
-                                height: day.totalCount > 0 ? `${heightPct}%` : '2px',
+                                height: mastered > 0 ? `${heightPct}%` : '2px',
                               }}
                             />
                           </div>
@@ -143,10 +144,6 @@ export default function StatsPage() {
                   <span className="flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
                     <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
                     習得済み
-                  </span>
-                  <span className="flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
-                    <span className="w-2 h-2 rounded-full bg-[var(--color-border)]" />
-                    総単語数
                   </span>
                 </div>
               </div>
