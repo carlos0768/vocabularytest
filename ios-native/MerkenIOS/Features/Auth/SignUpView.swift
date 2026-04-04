@@ -32,18 +32,21 @@ struct SignUpView: View {
 
                     VStack(alignment: .leading, spacing: 18) {
                         authField(label: "メールアドレス", systemImage: "envelope") {
-                            TextField("name@example.com", text: $email)
-                                .keyboardType(.emailAddress)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
+                            MerkenPlaceholderTextField(
+                                placeholder: "name@example.com",
+                                text: $email,
+                                keyboardType: .emailAddress,
+                                textInputAutocapitalization: .never,
+                                disableAutocorrection: true
+                            )
                         }
 
                         authField(label: "パスワード", systemImage: "lock") {
-                            SecureField("8文字以上で入力", text: $password)
+                            MerkenPlaceholderSecureField(placeholder: "8文字以上で入力", text: $password)
                         }
 
                         authField(label: "パスワード確認", systemImage: "checkmark.shield") {
-                            SecureField("もう一度入力", text: $confirmPassword)
+                            MerkenPlaceholderSecureField(placeholder: "もう一度入力", text: $confirmPassword)
                         }
 
                         Text("登録後に認証コードをメールで送信します。")

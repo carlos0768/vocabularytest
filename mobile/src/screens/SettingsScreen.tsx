@@ -1,17 +1,19 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, ExternalLink, LogOut, Mail, Shield, User } from 'lucide-react-native';
+import { ArrowLeft, Check, ExternalLink, LogOut, Mail, Pencil, Shield, User, X } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import colors from '../constants/colors';
 import { useAuth } from '../hooks/use-auth';
@@ -20,10 +22,31 @@ import type { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+async function fetchProfile(token: string): Promise<{ username: string | null }> {
+  const url = withWebAppBase('/api/profile');
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error('プロフィールの取得に失敗しました。');
+  return res.json();
+}
+
+async function updateProfile(token: string, username: string): Promise<void> {
+  const url = withWebAppBase('/api/profile');
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) throw new Error('ユーザー名の更新に失敗しました。');
+}
+
 export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const {
     user,
+    session,
     subscription,
     isAuthenticated,
     isPro,
@@ -31,6 +54,53 @@ export function SettingsScreen() {
     loading,
     configError,
   } = useAuth();
+
+  const [username, setUsername] = useState<string | null>(null);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || !session?.access_token) return;
+    let active = true;
+    setLoadingProfile(true);
+    fetchProfile(session.access_token)
+      .then((p) => {
+        if (active) setUsername(p.username);
+      })
+      .catch((e) => {
+        console.warn('Failed to load profile:', e);
+      })
+      .finally(() => {
+        if (active) setLoadingProfile(false);
+      });
+    return () => { active = false; };
+  }, [isAuthenticated, session?.access_token]);
+
+  const handleSaveUsername = useCallback(async () => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      Alert.alert('ユーザー名を入力してください。');
+      return;
+    }
+    if (trimmed.length > 20) {
+      Alert.alert('ユーザー名は20文字以内で入力してください。');
+      return;
+    }
+    if (!session?.access_token) return;
+
+    setSavingUsername(true);
+    try {
+      await updateProfile(session.access_token, trimmed);
+      setUsername(trimmed);
+      setEditingUsername(false);
+    } catch (e) {
+      Alert.alert('エラー', e instanceof Error ? e.message : 'ユーザー名の更新に失敗しました。');
+    } finally {
+      setSavingUsername(false);
+    }
+  }, [editValue, session?.access_token]);
 
   const storageLabel = useMemo(() => {
     if (isPro) {
@@ -90,9 +160,9 @@ export function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>MERKEN Android Test Build</Text>
+          <Text style={styles.sectionTitle}>MERKEN</Text>
           <Text style={styles.sectionBody}>
-            認証、スキャン、フラッシュカード、苦手単語、例文クイズ、共有まで含めた Android 内部テスト版です。
+            AI を使って写真から英単語を抽出し、クイズやフラッシュカードで効率的に学習できるアプリです。
           </Text>
         </View>
 
@@ -104,9 +174,63 @@ export function SettingsScreen() {
         ) : null}
 
         <View style={styles.sectionCard}>
+          {isAuthenticated ? (
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <User size={18} color={colors.gray[700]} />
+              </View>
+              <View style={styles.infoCopy}>
+                <Text style={styles.infoLabel}>ユーザー名</Text>
+                {editingUsername ? (
+                  <View style={styles.usernameEditRow}>
+                    <TextInput
+                      style={styles.usernameInput}
+                      value={editValue}
+                      onChangeText={setEditValue}
+                      maxLength={20}
+                      autoFocus
+                      placeholder="ユーザー名"
+                      placeholderTextColor={colors.gray[400]}
+                    />
+                    <TouchableOpacity
+                      style={styles.usernameActionBtn}
+                      onPress={handleSaveUsername}
+                      disabled={savingUsername}
+                    >
+                      {savingUsername ? (
+                        <ActivityIndicator size="small" color={colors.primary[600]} />
+                      ) : (
+                        <Check size={16} color={colors.emerald[600]} />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.usernameActionBtn}
+                      onPress={() => setEditingUsername(false)}
+                    >
+                      <X size={16} color={colors.gray[500]} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.usernameDisplayRow}
+                    onPress={() => {
+                      setEditValue(username ?? '');
+                      setEditingUsername(true);
+                    }}
+                  >
+                    <Text style={styles.infoValue}>
+                      {loadingProfile ? '...' : username || '未設定'}
+                    </Text>
+                    <Pencil size={14} color={colors.gray[400]} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <User size={18} color={colors.gray[700]} />
+              <Mail size={18} color={colors.gray[700]} />
             </View>
             <View style={styles.infoCopy}>
               <Text style={styles.infoLabel}>アカウント</Text>
@@ -145,7 +269,7 @@ export function SettingsScreen() {
             onPress={() => navigation.navigate('Subscription')}
             icon={<Shield size={16} color={isPro ? colors.gray[800] : colors.white} />}
           >
-            {isPro ? 'Test Pro / Pro 状態を見る' : 'Test Pro を有効化'}
+            {isPro ? 'Pro プランの状態を確認' : 'Pro プランにアップグレード'}
           </Button>
         ) : null}
 
@@ -307,5 +431,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.gray[800],
+  },
+  usernameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  usernameInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.gray[800],
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.white,
+  },
+  usernameActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray[100],
+  },
+  usernameDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

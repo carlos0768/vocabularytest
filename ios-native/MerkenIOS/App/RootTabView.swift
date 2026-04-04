@@ -30,6 +30,7 @@ struct RootTabView: View {
     @State private var showingScanFlow = false
     @State private var showingSignInFlow = false
     @State private var showingSignUpFlow = false
+    @State private var keyboardVisible = false
 
     private let tabItems: [RootTabItem] = [
         .init(tab: 0, title: "ホーム", systemImage: "house.fill"),
@@ -98,6 +99,7 @@ struct RootTabView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .animation(MerkenSpring.snappy, value: appState.tabBarVisible)
+        .animation(MerkenSpring.snappy, value: keyboardVisible)
         .overlay(alignment: .top) {
             if let banner = appState.scanBanner {
                 ScanBannerView(state: banner)
@@ -117,13 +119,19 @@ struct RootTabView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if appState.isLoggedIn && appState.tabBarVisible {
+            if appState.isLoggedIn && appState.tabBarVisible && !keyboardVisible {
                 bottomNavigationBar
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.container, edges: .bottom)
                     .ignoresSafeArea(.keyboard)
                     .zIndex(3)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardVisible = false
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: appState.scanBanner?.id)
         .animation(MerkenSpring.snappy, value: showingScanFlow)
@@ -345,57 +353,119 @@ private struct RootSignInView: View {
         ZStack {
             AppBackground()
 
-            VStack(alignment: .leading, spacing: 18) {
-                Text("サインイン")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
+            LinearGradient(
+                colors: [
+                    MerkenTheme.accentBlue.opacity(0.06),
+                    Color.clear,
+                    MerkenTheme.accentBlue.opacity(0.03)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                TextField("メールアドレス", text: $email)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .solidTextField(cornerRadius: 16)
+            VStack {
+                Spacer()
 
-                SecureField("パスワード", text: $password)
-                    .solidTextField(cornerRadius: 16)
+                VStack(spacing: 24) {
+                    Text("MERKEN")
+                        .font(.system(size: 14, weight: .black))
+                        .tracking(3)
+                        .foregroundStyle(MerkenTheme.accentBlue)
 
-                if let message = appState.authErrorMessage, !message.isEmpty {
-                    Text(message)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(MerkenTheme.danger)
-                }
+                    Text("おかえりなさい")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundStyle(MerkenTheme.primaryText)
 
-                Button {
-                    Task {
-                        await appState.signIn(email: email, password: password)
-                        if appState.isLoggedIn {
+                    VStack(spacing: 18) {
+                        signInField(label: "メールアドレス", systemImage: "envelope") {
+                            MerkenPlaceholderTextField(
+                                placeholder: "name@example.com",
+                                text: $email,
+                                keyboardType: .emailAddress,
+                                textInputAutocapitalization: .never,
+                                disableAutocorrection: true
+                            )
+                        }
+
+                        signInField(label: "パスワード", systemImage: "lock") {
+                            MerkenPlaceholderSecureField(placeholder: "パスワードを入力", text: $password)
+                        }
+                    }
+
+                    if let message = appState.authErrorMessage, !message.isEmpty {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(MerkenTheme.warning)
+                            Text(message)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(MerkenTheme.secondaryText)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(12)
+                        .background(MerkenTheme.warning.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(MerkenTheme.warning.opacity(0.24), lineWidth: 1)
+                        )
+                    }
+
+                    Button {
+                        Task {
+                            await appState.signIn(email: email, password: password)
+                            if appState.isLoggedIn {
+                                dismiss()
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            if appState.isSigningIn {
+                                ProgressView()
+                                    .tint(.white)
+                            }
+                            Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                    }
+                    .disabled(appState.isSigningIn)
+                    .opacity(appState.isSigningIn ? 0.7 : 1)
+                    .buttonStyle(PrimaryGlassButton())
+
+                    HStack(spacing: 6) {
+                        Text("アカウントをお持ちでない方は")
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                        Button("新規登録") {
                             dismiss()
                         }
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
                     }
-                } label: {
-                    HStack {
-                        if appState.isSigningIn {
-                            ProgressView()
-                                .tint(.white)
-                        }
-                        Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
-                            .font(.system(size: 16, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.black, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .font(.system(size: 15, weight: .medium))
                 }
-                .disabled(appState.isSigningIn)
-                .opacity(appState.isSigningIn ? 0.7 : 1)
+                .padding(.horizontal, 24)
 
                 Spacer()
             }
-            .padding(24)
         }
-        .navigationTitle("サインイン")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+    }
+
+    private func signInField<Content: View>(label: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(MerkenTheme.accentBlue)
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+
+            content()
+                .solidTextField()
+        }
     }
 }
 

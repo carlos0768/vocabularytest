@@ -10,7 +10,7 @@ struct GeneratingProjectCard: View {
     let context: PendingScanImportContext
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 16) {
             thumbnail
 
             VStack(alignment: .leading, spacing: 8) {
@@ -30,14 +30,12 @@ struct GeneratingProjectCard: View {
                     placeholderChip(width: 56)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(10)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(MerkenTheme.accentBlue.opacity(0.3), lineWidth: 1)
         )
     }
@@ -64,8 +62,8 @@ struct GeneratingProjectCard: View {
             Color.black.opacity(0.35)
             GeneratingProgressRing()
         }
-        .frame(width: 86, height: 86)
-        .clipShape(.rect(cornerRadius: 18))
+        .frame(width: 56, height: 56)
+        .clipShape(.rect(cornerRadius: 12))
     }
 
     private func placeholderChip(width: CGFloat) -> some View {
@@ -86,13 +84,13 @@ struct GeneratingProgressRing: View {
 
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 4)
-                    .frame(width: 44, height: 44)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 3)
+                    .frame(width: 32, height: 32)
 
                 Circle()
                     .trim(from: 0, to: 0.3)
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: 44, height: 44)
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 32, height: 32)
                     .rotationEffect(.degrees(rotation))
             }
         }
@@ -468,9 +466,9 @@ struct ProjectListView: View {
 
     private func projectCard(_ project: Project) -> some View {
         let wordCount = viewModel.wordCounts[project.id] ?? 0
-        let thumbSize: CGFloat = 68
+        let thumbSize: CGFloat = 56
 
-        return HStack(spacing: 0) {
+        return HStack(spacing: 16) {
             ZStack {
                 if let iconImage = project.iconImage,
                    let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
@@ -481,38 +479,36 @@ struct ProjectListView: View {
                     let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                     bgColor
                     Text(String(project.title.prefix(1)))
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(.white)
                 }
             }
             .frame(width: thumbSize, height: thumbSize)
-            .clipShape(.rect(cornerRadius: 14))
+            .clipShape(.rect(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(project.title)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(wordCount)")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 22, weight: .black))
                         .monospacedDigit()
                         .foregroundStyle(MerkenTheme.primaryText)
                     Text("語")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(8)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     project.isFavorite ? MerkenTheme.accentBlue.opacity(0.55) : MerkenTheme.border,
                     lineWidth: project.isFavorite ? 1.5 : 1

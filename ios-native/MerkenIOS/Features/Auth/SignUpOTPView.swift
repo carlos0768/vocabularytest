@@ -35,19 +35,22 @@ struct SignUpOTPView: View {
                     authCard(title: "コードを確認", subtitle: "届いた6桁の数字を入力してください。") {
                         VStack(alignment: .leading, spacing: 14) {
                             authField(label: "認証コード", systemImage: "number") {
-                                TextField("6桁の認証コード", text: $otpCode)
-                                    .keyboardType(.numberPad)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .onChange(of: otpCode) { _, newValue in
-                                        let filtered = newValue.filter(\.isNumber)
-                                        if filtered.count > 6 {
-                                            otpCode = String(filtered.prefix(6))
-                                        } else if filtered != newValue {
-                                            otpCode = filtered
-                                        }
+                                MerkenPlaceholderTextField(
+                                    placeholder: "6桁の認証コード",
+                                    text: $otpCode,
+                                    keyboardType: .numberPad,
+                                    textInputAutocapitalization: .never,
+                                    disableAutocorrection: true
+                                )
+                                .onChange(of: otpCode) { _, newValue in
+                                    let filtered = newValue.filter(\.isNumber)
+                                    if filtered.count > 6 {
+                                        otpCode = String(filtered.prefix(6))
+                                    } else if filtered != newValue {
+                                        otpCode = filtered
                                     }
-                                    .solidTextField()
+                                }
+                                .solidTextField()
                             }
 
                             if let error = appState.signUpErrorMessage {

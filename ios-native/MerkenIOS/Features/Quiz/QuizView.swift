@@ -35,7 +35,11 @@ struct QuizView: View {
             } else {
                 switch viewModel.stage {
                 case .setup:
-                    setupView
+                    if viewModel.loading || viewModel.preparingQuiz {
+                        ProgressView()
+                    } else {
+                        playView
+                    }
                 case .playing:
                     playView
                 case .completed:
@@ -542,9 +546,10 @@ struct QuizView: View {
     }
 
     private var resultView: some View {
-        ScrollView {
+        VStack {
+            Spacer()
+
             VStack(spacing: 16) {
-                resultHeroCard
                 resultBreakdownCard
 
                 if let errorMessage = viewModel.errorMessage {
@@ -555,30 +560,31 @@ struct QuizView: View {
                     }
                 }
 
-                VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("終了する")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(GhostGlassButton())
+
                     Button {
                         Task {
                             await viewModel.restart(projectId: project.id, using: appState)
                         }
                     } label: {
-                        Text(resultPrimaryActionLabel)
+                        Text("次へ行く")
                     }
                     .buttonStyle(PrimaryGlassButton())
                     .accessibilityIdentifier("restartQuizAction")
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("終了する")
-                    }
-                    .buttonStyle(GhostGlassButton())
                 }
             }
             .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer()
         }
-        .scrollIndicators(.hidden)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if viewModel.correctCount == viewModel.questions.count && !viewModel.questions.isEmpty {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)

@@ -157,6 +157,52 @@ struct SolidTextField: ViewModifier {
     }
 }
 
+// MARK: - Placeholder fields (SwiftUI `prompt` / placeholder follows accent tint; overlay avoids blue)
+
+struct MerkenPlaceholderTextField: View {
+    let placeholder: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+    var textInputAutocapitalization: TextInputAutocapitalization = .sentences
+    var disableAutocorrection: Bool = false
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.body)
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .allowsHitTesting(false)
+            }
+            TextField("", text: $text)
+                .font(.body)
+                .foregroundStyle(MerkenTheme.primaryText)
+                .keyboardType(keyboardType)
+                .textInputAutocapitalization(textInputAutocapitalization)
+                .autocorrectionDisabled(disableAutocorrection)
+        }
+    }
+}
+
+struct MerkenPlaceholderSecureField: View {
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.body)
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .allowsHitTesting(false)
+            }
+            SecureField("", text: $text)
+                .font(.body)
+                .foregroundStyle(MerkenTheme.primaryText)
+        }
+    }
+}
+
 extension View {
     func solidTextField(cornerRadius: CGFloat = 16) -> some View {
         modifier(SolidTextField(cornerRadius: cornerRadius))

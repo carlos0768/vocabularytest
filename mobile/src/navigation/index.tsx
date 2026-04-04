@@ -18,6 +18,9 @@ import { ScanConfirmScreen } from '../screens/ScanConfirmScreen';
 import { SentenceQuizScreen } from '../screens/SentenceQuizScreen';
 import { WrongAnswersScreen } from '../screens/WrongAnswersScreen';
 import { WrongAnswersQuizScreen } from '../screens/WrongAnswersQuizScreen';
+import { StatsScreen } from '../screens/StatsScreen';
+import { SharedProjectsScreen } from '../screens/SharedProjectsScreen';
+import { SharedProjectDetailScreen } from '../screens/SharedProjectDetailScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -79,6 +82,9 @@ export function Navigation() {
           component={WrongAnswersQuizScreen}
           options={{ animation: 'fade', gestureEnabled: false }}
         />
+        <Stack.Screen name="Stats" component={StatsScreen} />
+        <Stack.Screen name="SharedProjects" component={SharedProjectsScreen} />
+        <Stack.Screen name="SharedProjectDetail" component={SharedProjectDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

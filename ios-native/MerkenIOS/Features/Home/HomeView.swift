@@ -642,12 +642,16 @@ struct HomeView: View {
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .foregroundStyle(MerkenTheme.accentBlue)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+        .contentShape(Rectangle())
         .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
         .overlay(
             RoundedRectangle(cornerRadius: 20)
@@ -1095,7 +1099,7 @@ struct HomeView: View {
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             if !viewModel.sharedProjects.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("共有単語帳")
                             .font(.system(size: 22, weight: .bold))
@@ -1108,7 +1112,7 @@ struct HomeView: View {
                         }
                     }
 
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: 10) {
                         ForEach(viewModel.sharedProjects) { project in
                             featuredProjectCard(project)
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1120,7 +1124,7 @@ struct HomeView: View {
                 .animation(MerkenSpring.gentle, value: viewModel.sharedProjects.map(\.id))
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("マイ単語帳")
                         .font(.system(size: 22, weight: .bold))
@@ -1133,7 +1137,7 @@ struct HomeView: View {
                     }
                 }
 
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: 10) {
                     ForEach(viewModel.myProjects) { project in
                         featuredProjectCard(project)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1154,9 +1158,9 @@ struct HomeView: View {
         let masteredCount = words.filter { $0.status == .mastered }.count
         let reviewCount = words.filter { $0.status == .review }.count
         let newCount = max(wordCount - masteredCount - reviewCount, 0)
-        let thumbSize: CGFloat = 86
+        let thumbSize: CGFloat = 56
 
-        return HStack(spacing: 0) {
+        return HStack(spacing: 16) {
             featuredProjectThumbnail(project, thumbSize: thumbSize)
             featuredProjectInfoBlock(
                 title: project.title,
@@ -1166,10 +1170,10 @@ struct HomeView: View {
                 newCount: newCount
             )
         }
-        .padding(10)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .padding(16)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     project.isFavorite ? MerkenTheme.accentBlue.opacity(0.55) : MerkenTheme.border,
                     lineWidth: project.isFavorite ? 1.5 : 1
@@ -1189,12 +1193,12 @@ struct HomeView: View {
                 let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: isDark)
                 bgColor
                 Text(String(project.title.prefix(1)))
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.white)
             }
         }
         .frame(width: thumbSize, height: thumbSize)
-        .clipShape(.rect(cornerRadius: 18))
+        .clipShape(.rect(cornerRadius: 12))
     }
 
     private func featuredProjectInfoBlock(
@@ -1204,51 +1208,47 @@ struct HomeView: View {
         reviewCount: Int,
         newCount: Int
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
-                .lineLimit(2)
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             featuredProjectWordCount(wordCount)
 
-            HStack(spacing: 8) {
-                compactProjectMetric(icon: "checkmark.circle.fill", text: "習得 \(masteredCount)", tint: MerkenTheme.success)
-                compactProjectMetric(icon: "bolt.circle.fill", text: "学習 \(reviewCount)", tint: MerkenTheme.accentBlue)
-                compactProjectMetric(icon: "sparkles", text: "未学習 \(newCount)", tint: MerkenTheme.mutedText)
+            HStack(spacing: 12) {
+                compactProjectMetric(color: MerkenTheme.success, text: "習得 \(masteredCount)")
+                compactProjectMetric(color: MerkenTheme.accentBlue, text: "学習 \(reviewCount)")
+                compactProjectMetric(color: MerkenTheme.borderLight, text: "未学習 \(newCount)")
             }
+            .padding(.top, 2)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func featuredProjectWordCount(_ wordCount: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text("\(wordCount)")
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 22, weight: .black))
                 .monospacedDigit()
                 .foregroundStyle(MerkenTheme.primaryText)
             Text("語")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(MerkenTheme.secondaryText)
         }
     }
 
-    private func compactProjectMetric(icon: String, text: String, tint: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tint)
+    private func compactProjectMetric(color: Color, text: String) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
             Text(text)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 12))
                 .foregroundStyle(MerkenTheme.secondaryText)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(MerkenTheme.background, in: Capsule())
     }
 
     // MARK: - Focus Banner Helpers

@@ -321,14 +321,9 @@ struct SettingsView: View {
             HStack(spacing: 14) {
                 settingsIcon("person.fill", color: MerkenTheme.accentBlue)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("ユーザー名")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Text("共有した単語帳に表示される名前です。")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
+                Text("ユーザー名")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.primaryText)
 
                 Spacer(minLength: 0)
 
@@ -340,7 +335,7 @@ struct SettingsView: View {
 
             if isEditingUsername {
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("ユーザー名を入力", text: $usernameInput)
+                    MerkenPlaceholderTextField(placeholder: "ユーザー名を入力", text: $usernameInput)
                         .solidTextField()
                         .onChange(of: usernameInput) { _, newValue in
                             if newValue.count > 20 {
@@ -454,12 +449,6 @@ struct SettingsView: View {
                 }
 
                 Spacer(minLength: 0)
-            }
-
-            HStack(spacing: 6) {
-                featureChip("スキャン無制限")
-                featureChip("単語数無制限")
-                featureChip("クラウド同期")
             }
 
             if let subscription = appState.subscription,
@@ -662,12 +651,15 @@ struct SettingsView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(MerkenTheme.secondaryText)
 
-                TextField("name@example.com", text: $email)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .solidTextField()
-                    .accessibilityIdentifier("emailField")
+                MerkenPlaceholderTextField(
+                    placeholder: "name@example.com",
+                    text: $email,
+                    keyboardType: .emailAddress,
+                    textInputAutocapitalization: .never,
+                    disableAutocorrection: true
+                )
+                .solidTextField()
+                .accessibilityIdentifier("emailField")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -675,9 +667,9 @@ struct SettingsView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(MerkenTheme.secondaryText)
 
-                SecureField("パスワード", text: $password)
-                    .solidTextField()
-                    .accessibilityIdentifier("passwordField")
+                MerkenPlaceholderSecureField(placeholder: "パスワード", text: $password)
+                .solidTextField()
+                .accessibilityIdentifier("passwordField")
             }
 
             Button {

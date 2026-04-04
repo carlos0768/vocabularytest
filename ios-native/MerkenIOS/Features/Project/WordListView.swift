@@ -559,13 +559,13 @@ struct WordListView: View {
     // MARK: - Word Row
 
     private func wordRow(_ word: Word) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 8) {
             Button {
                 selectedWord = word
             } label: {
-                HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .center, spacing: 8) {
                     Text(word.english)
-                        .font(.system(size: 20, weight: .heavy))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(MerkenTheme.primaryText)
                         .lineLimit(2)
                         .layoutPriority(1)
@@ -574,7 +574,7 @@ struct WordListView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(MerkenTheme.mutedText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -582,12 +582,12 @@ struct WordListView: View {
             }
             .buttonStyle(.plain)
 
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 Button {
                     editorMode = .edit(existing: word)
                 } label: {
                     Image(systemName: "pencil")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
 
@@ -618,12 +618,12 @@ struct WordListView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
         }
-        .padding(.vertical, 18)
+        .padding(.vertical, 12)
     }
 
     private func inlineDefinition(for word: Word) -> some View {
@@ -633,18 +633,18 @@ struct WordListView: View {
         return Group {
             if let japanesePos {
                 (Text(japanesePos + " ")
-                    .font(.system(size: 15))
+                    .font(.system(size: 12))
                     .foregroundColor(MerkenTheme.mutedText)
                  +
                  Text(word.japanese)
-                    .font(.system(size: 15))
+                    .font(.system(size: 14))
                     .foregroundColor(MerkenTheme.secondaryText)
                 )
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
             } else {
                 Text(word.japanese)
-                    .font(.system(size: 15))
+                    .font(.system(size: 14))
                     .foregroundStyle(MerkenTheme.secondaryText)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)

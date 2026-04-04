@@ -211,7 +211,6 @@ final class QuizViewModel: ObservableObject {
             await self?.flushPendingUpdatesIfNeeded(using: state)
         }
         await load(projectId: projectId, using: state)
-        stage = .setup
         questions = []
         currentIndex = 0
         selectedIndex = nil
@@ -221,6 +220,7 @@ final class QuizViewModel: ObservableObject {
         preparingQuiz = false
         typedAnswer = ""
         typingCorrect = nil
+        startQuiz()
     }
 
     func flushPendingUpdatesIfNeeded(using state: AppState) async {

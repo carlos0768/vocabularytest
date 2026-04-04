@@ -16,6 +16,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   AlertCircle,
+  BarChart3,
   BookOpen,
   Camera,
   Cloud,
@@ -24,6 +25,7 @@ import {
   Lock,
   Plus,
   Settings,
+  Share2,
   Sparkles,
 } from 'lucide-react-native';
 import { ScanModeModal } from '../components/scan/ScanModeModal';
@@ -34,8 +36,9 @@ import { useAuth } from '../hooks/use-auth';
 import { getRepository } from '../lib/db';
 import { migrateLocalDataToCloudIfNeeded } from '../lib/db/migration';
 import { createScanJob, waitForScanJobCompletion, type ScanMode } from '../lib/scan-jobs';
+import { fetchAllWordsForUser } from '../lib/db/fetch-all-words';
 import { getGuestUserId, getWrongAnswers } from '../lib/utils';
-import type { ProgressStep, Project, RootStackParamList } from '../types';
+import type { ProgressStep, Project, RootStackParamList, Word } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type SupportedScanMode = Extract<ScanMode, 'all' | 'circled' | 'eiken'>;
@@ -116,23 +119,31 @@ export function HomeScreen() {
       setCurrentUserId(activeUserId);
 
       const projects = await repository.getProjects(activeUserId);
+
+      let allWords: Word[] = [];
+      if (isPro) {
+        allWords = await fetchAllWordsForUser(activeUserId);
+      } else {
+        for (const p of projects) {
+          allWords.push(...(await repository.getWords(p.id)));
+        }
+      }
+
+      const wordsByProject = new Map<string, Word[]>();
+      for (const w of allWords) {
+        const list = wordsByProject.get(w.projectId) ?? [];
+        list.push(w);
+        wordsByProject.set(w.projectId, list);
+      }
+
       let nextFavoriteCount = 0;
-
-      const summaries = await Promise.all(
-        projects.map(async (project) => {
-          const words = await repository.getWords(project.id);
-          const masteredWords = words.filter((word) => word.status === 'mastered').length;
-          const favoriteWords = words.filter((word) => word.isFavorite).length;
-          nextFavoriteCount += favoriteWords;
-
-          return {
-            project,
-            totalWords: words.length,
-            masteredWords,
-            favoriteWords,
-          };
-        })
-      );
+      const summaries: ProjectSummary[] = projects.map((project) => {
+        const words = wordsByProject.get(project.id) ?? [];
+        const masteredWords = words.filter((w) => w.status === 'mastered').length;
+        const favoriteWords = words.filter((w) => w.isFavorite).length;
+        nextFavoriteCount += favoriteWords;
+        return { project, totalWords: words.length, masteredWords, favoriteWords };
+      });
 
       const wrongAnswers = await getWrongAnswers();
 
@@ -388,7 +399,7 @@ export function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>MERKEN</Text>
-            <Text style={styles.tagline}>Android Test Build</Text>
+            <Text style={styles.tagline}>写真で学ぶ単語帳</Text>
           </View>
           <TouchableOpacity
             style={styles.iconButton}
@@ -401,11 +412,11 @@ export function HomeScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
             <Sparkles size={14} color={colors.primary[700]} />
-            <Text style={styles.heroBadgeText}>Internal Test</Text>
+            <Text style={styles.heroBadgeText}>AI 単語抽出</Text>
           </View>
-          <Text style={styles.heroTitle}>単語帳、スキャン、復習機能を Android で確認する</Text>
+          <Text style={styles.heroTitle}>写真を撮って、英単語を学ぼう</Text>
           <Text style={styles.heroText}>
-            手動 CRUD に加えて、ログイン後のスキャン、苦手単語、間違えた単語、Test Pro 導線まで確認できるテスト build です。
+            手書きノートや教材をスキャンして、AI が英単語と日本語訳を抽出。クイズやフラッシュカードですぐに復習できます。
           </Text>
           <View style={styles.statusRow}>
             <View style={styles.statusPill}>
@@ -430,7 +441,7 @@ export function HomeScreen() {
           <View style={styles.authCard}>
             <Text style={styles.sectionTitle}>ログインするとスキャンと同期が使えます</Text>
             <Text style={styles.authText}>
-              `all` スキャンはログイン済み Free でも確認できます。Pro 系の機能は Test Pro 付与後に開きます。
+              アカウントを作成すると、写真スキャンやクラウド同期など全ての機能を利用できます。
             </Text>
             <View style={styles.authButtons}>
               <Button size="sm" variant="secondary" onPress={() => navigation.navigate('Signup')}>
@@ -445,13 +456,13 @@ export function HomeScreen() {
           <View style={styles.upgradeCard}>
             <View style={styles.upgradeHeader}>
               <Crown size={18} color={colors.amber[700]} />
-              <Text style={styles.upgradeTitle}>Test Pro で残り機能を確認する</Text>
+              <Text style={styles.upgradeTitle}>Pro で全機能を使おう</Text>
             </View>
             <Text style={styles.upgradeText}>
-              circled/eiken スキャン、フラッシュカード、例文クイズ、共有は Test Pro を有効化すると使えます。
+              丸囲み/英検スキャン、クラウド同期、共有単語帳などの Pro 限定機能が使えるようになります。
             </Text>
             <Button size="sm" onPress={() => navigation.navigate('Subscription')}>
-              Test Pro を開く
+              Pro プランを見る
             </Button>
           </View>
         ) : null}
@@ -479,8 +490,22 @@ export function HomeScreen() {
             onPress={() => navigation.navigate('WrongAnswers')}
           />
           <ActionCard
-            title={isPro ? 'Test Pro 有効' : 'Test Pro'}
-            subtitle={isPro ? 'Pro 機能を確認中' : '残り機能を開く'}
+            title="進歩"
+            subtitle="学習の統計を見る"
+            icon={<BarChart3 size={18} color={colors.emerald[700]} />}
+            accentColor={colors.emerald[50]}
+            onPress={() => navigation.navigate('Stats')}
+          />
+          <ActionCard
+            title="共有単語帳"
+            subtitle="みんなの単語帳"
+            icon={<Share2 size={18} color={colors.purple[700]} />}
+            accentColor={colors.purple[50]}
+            onPress={() => navigation.navigate('SharedProjects')}
+          />
+          <ActionCard
+            title={isPro ? 'Pro 有効' : 'サブスクリプション'}
+            subtitle={isPro ? 'Pro プラン利用中' : 'Pro で全機能を開放'}
             icon={<Crown size={18} color={colors.amber[700]} />}
             accentColor={colors.amber[50]}
             onPress={() => navigation.navigate('Subscription')}

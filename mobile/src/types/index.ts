@@ -51,4 +51,7 @@ export type RootStackParamList = {
   FavoritesQuiz: undefined;
   WrongAnswers: undefined;
   WrongAnswersQuiz: undefined;
+  Stats: undefined;
+  SharedProjects: undefined;
+  SharedProjectDetail: { projectId: string };
 };
