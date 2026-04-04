@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { startTransition, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -35,11 +35,41 @@ type MetricsResponse = {
 
 const iconColors = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
 
+const SHARED_ME_STORAGE_PREFIX = 'merken_shared_me:v1:';
+
+function readSharedMeCache(userId: string): { owned: SharedProjectCard[]; joined: SharedProjectCard[] } | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SHARED_ME_STORAGE_PREFIX + userId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { owned?: unknown; joined?: unknown };
+    return {
+      owned: Array.isArray(parsed.owned) ? (parsed.owned as SharedProjectCard[]) : [],
+      joined: Array.isArray(parsed.joined) ? (parsed.joined as SharedProjectCard[]) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSharedMeCache(
+  userId: string,
+  owned: SharedProjectCard[],
+  joined: SharedProjectCard[],
+) {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(SHARED_ME_STORAGE_PREFIX + userId, JSON.stringify({ owned, joined }));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export default function SharedPageClient({
   initialPublicItems,
   initialPublicNextCursor,
 }: SharedPageClientProps) {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [ownedProjects, setOwnedProjects] = useState<SharedProjectCard[]>([]);
   const [joinedProjects, setJoinedProjects] = useState<SharedProjectCard[]>([]);
   const [publicProjects, setPublicProjects] = useState<SharedProjectCard[]>(initialPublicItems);
@@ -91,13 +121,34 @@ export default function SharedPageClient({
     }
   });
 
+  // Hydrate from session cache before paint so revisiting /shared avoids skeleton flash (public list already SSR’d).
+  useLayoutEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!isAuthenticated || !user?.id) {
+      setOwnedProjects([]);
+      setJoinedProjects([]);
+      setUserSectionLoading(false);
+      return;
+    }
+
+    const cached = readSharedMeCache(user.id);
+    if (cached) {
+      setOwnedProjects(cached.owned);
+      setJoinedProjects(cached.joined);
+      setUserSectionLoading(false);
+    }
+  }, [authLoading, isAuthenticated, user?.id]);
+
   useEffect(() => {
     if (authLoading) {
       setUserSectionLoading(true);
       return;
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user?.id) {
       setUserSectionLoading(false);
       setUserSectionError(null);
       setOwnedProjects([]);
@@ -106,8 +157,11 @@ export default function SharedPageClient({
     }
 
     const controller = new AbortController();
+    const hadCache = readSharedMeCache(user.id) != null;
 
-    setUserSectionLoading(true);
+    if (!hadCache) {
+      setUserSectionLoading(true);
+    }
     setUserSectionError(null);
 
     fetch('/api/shared-projects/me', {
@@ -122,9 +176,12 @@ export default function SharedPageClient({
         return response.json() as Promise<AccessibleProjectsResponse>;
       })
       .then((payload) => {
+        const owned = payload.owned ?? [];
+        const joined = payload.joined ?? [];
+        writeSharedMeCache(user.id, owned, joined);
         startTransition(() => {
-          setOwnedProjects(payload.owned ?? []);
-          setJoinedProjects(payload.joined ?? []);
+          setOwnedProjects(owned);
+          setJoinedProjects(joined);
         });
       })
       .catch((error: unknown) => {
@@ -133,7 +190,9 @@ export default function SharedPageClient({
         }
 
         console.error('Failed to load personal shared projects:', error);
-        setUserSectionError('自分の共有単語帳を読み込めませんでした。');
+        if (!hadCache) {
+          setUserSectionError('自分の共有単語帳を読み込めませんでした。');
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -142,7 +201,7 @@ export default function SharedPageClient({
       });
 
     return () => controller.abort();
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, user?.id]);
 
   useEffect(() => {
     const projectIds = collectMetricProjectIds(ownedProjects, joinedProjects, publicProjects);
