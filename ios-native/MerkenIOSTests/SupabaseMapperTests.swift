@@ -88,6 +88,59 @@ final class SupabaseMapperTests: XCTestCase {
         XCTAssertEqual(word.status, .new)
     }
 
+    func testWordDTODecodeWhenRelatedWordsMalformedSkipsInsightsPayload() throws {
+        let json = """
+        {
+          "id": "w1",
+          "project_id": "p1",
+          "english": "run",
+          "japanese": "走る",
+          "related_words": {},
+          "usage_patterns": "not-an-array",
+          "part_of_speech_tags": { "bad": true },
+          "status": "new",
+          "created_at": "2026-02-21T10:00:00.000Z"
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .supabaseISO8601
+
+        let dto = try decoder.decode(WordDTO.self, from: json)
+        XCTAssertNil(dto.relatedWords)
+        XCTAssertNil(dto.usagePatterns)
+        XCTAssertNil(dto.partOfSpeechTags)
+        XCTAssertEqual(dto.english, "run")
+    }
+
+    func testWordDTODecodeCreatedAtFromPostgresSpaceSeparatedTimestamp() throws {
+        let json = """
+        {
+          "id": "w1",
+          "project_id": "p1",
+          "english": "run",
+          "japanese": "走る",
+          "status": "new",
+          "created_at": "2026-02-21 10:00:00+00:00"
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .supabaseISO8601
+
+        let dto = try decoder.decode(WordDTO.self, from: json)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: dto.createdAt)
+        XCTAssertEqual(parts.year, 2026)
+        XCTAssertEqual(parts.month, 2)
+        XCTAssertEqual(parts.day, 21)
+        XCTAssertEqual(parts.hour, 10)
+        XCTAssertEqual(parts.minute, 0)
+    }
+
     func testWordDTODecodeFromCamelCaseJSONWithoutDistractors() throws {
         let json = """
         {

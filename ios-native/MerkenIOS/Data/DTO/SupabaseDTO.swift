@@ -43,28 +43,37 @@ struct WordDTO: Codable, Sendable {
         case easeFactor, intervalDays, repetition, isFavorite, vocabularyType
     }
 
+    /// Tolerates Int, Double, or numeric String from PostgREST / legacy JSON (matches web row normalization).
+    private static func decodeLossyInt(from c: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) -> Int? {
+        if let v = try? c.decodeIfPresent(Int.self, forKey: key) { return v }
+        if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return Int(d) }
+        if let s = try? c.decodeIfPresent(String.self, forKey: key) { return Int(s) }
+        return nil
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         projectId = try c.decode(String.self, forKey: .projectId)
         english = try c.decode(String.self, forKey: .english)
         japanese = try c.decode(String.self, forKey: .japanese)
-        distractors = try c.decodeIfPresent([String].self, forKey: .distractors) ?? []
+        distractors = (try? c.decodeIfPresent([String].self, forKey: .distractors)) ?? []
         exampleSentence = try c.decodeIfPresent(String.self, forKey: .exampleSentence)
         exampleSentenceJa = try c.decodeIfPresent(String.self, forKey: .exampleSentenceJa)
         pronunciation = try c.decodeIfPresent(String.self, forKey: .pronunciation)
-        partOfSpeechTags = try c.decodeIfPresent([String].self, forKey: .partOfSpeechTags)
-        relatedWords = try c.decodeIfPresent([RelatedWord].self, forKey: .relatedWords)
-        usagePatterns = try c.decodeIfPresent([UsagePattern].self, forKey: .usagePatterns)
-        insightsGeneratedAt = try c.decodeIfPresent(Date.self, forKey: .insightsGeneratedAt)
-        insightsVersion = try c.decodeIfPresent(Int.self, forKey: .insightsVersion)
+        // JSONB / legacy shapes: skip bad payloads instead of failing the whole row (align with shared/db/mappers.ts)
+        partOfSpeechTags = try? c.decodeIfPresent([String].self, forKey: .partOfSpeechTags)
+        relatedWords = try? c.decodeIfPresent([RelatedWord].self, forKey: .relatedWords)
+        usagePatterns = try? c.decodeIfPresent([UsagePattern].self, forKey: .usagePatterns)
+        insightsGeneratedAt = try? c.decodeIfPresent(Date.self, forKey: .insightsGeneratedAt)
+        insightsVersion = Self.decodeLossyInt(from: c, forKey: .insightsVersion)
         status = try c.decodeIfPresent(String.self, forKey: .status) ?? "new"
         createdAt = try c.decode(Date.self, forKey: .createdAt)
-        lastReviewedAt = try c.decodeIfPresent(Date.self, forKey: .lastReviewedAt)
-        nextReviewAt = try c.decodeIfPresent(Date.self, forKey: .nextReviewAt)
-        easeFactor = try c.decodeIfPresent(Double.self, forKey: .easeFactor)
-        intervalDays = try c.decodeIfPresent(Int.self, forKey: .intervalDays)
-        repetition = try c.decodeIfPresent(Int.self, forKey: .repetition)
+        lastReviewedAt = try? c.decodeIfPresent(Date.self, forKey: .lastReviewedAt)
+        nextReviewAt = try? c.decodeIfPresent(Date.self, forKey: .nextReviewAt)
+        easeFactor = try? c.decodeIfPresent(Double.self, forKey: .easeFactor)
+        intervalDays = Self.decodeLossyInt(from: c, forKey: .intervalDays)
+        repetition = Self.decodeLossyInt(from: c, forKey: .repetition)
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite)
         vocabularyType = try c.decodeIfPresent(String.self, forKey: .vocabularyType)
     }

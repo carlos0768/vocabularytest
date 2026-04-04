@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -194,7 +194,7 @@
 		027A78EC4CA2414E8C82E485 /* MerkenIOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MerkenIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		02C83CC93420B69AA48F302C /* ExtractDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractDTO.swift; sourceTree = "<group>"; };
 		033789F2BE0415694FD6FDD7 /* Quiz2View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quiz2View.swift; sourceTree = "<group>"; };
-		07C64E186F3ECA04DFF2430A /* MerkenIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MerkenIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		07C64E186F3ECA04DFF2430A /* MerkenIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MerkenIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		099A240702660CEA14504514 /* ScanCoordinatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCoordinatorViewModel.swift; sourceTree = "<group>"; };
 		0BEF9420BED0725D89485E72 /* RepositoryRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryRouterTests.swift; sourceTree = "<group>"; };
 		0DDDA02EEF08933E0DE34910 /* LoginGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginGateView.swift; sourceTree = "<group>"; };
@@ -230,7 +230,7 @@
 		42B964C51CAEF1A9D4EDD742 /* SafariView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariView.swift; sourceTree = "<group>"; };
 		440AC8F91EC5AD1F2EB83289 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		4638E459922FDA9ACBD2AACF /* MerkenSpring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerkenSpring.swift; sourceTree = "<group>"; };
-		4C3E0EA0C2395823DEBECE4B /* MerkenShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MerkenShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C3E0EA0C2395823DEBECE4B /* MerkenShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MerkenShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		528A9430116E2D659E74D431 /* QuizViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizViewModel.swift; sourceTree = "<group>"; };
 		53062913A0AF81DD487C373B /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		5C2F9AC06DD904DFA1E928C7 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
@@ -248,7 +248,7 @@
 		73D1B91F4FA0D910AD463493 /* ProjectSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSetupView.swift; sourceTree = "<group>"; };
 		7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectListViewModel.swift; sourceTree = "<group>"; };
 		7856180ECB9636E96DD8EF82 /* FavoritesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViewModel.swift; sourceTree = "<group>"; };
-		79A16D6FAF8B57FA71EDC20D /* MerkenActionExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MerkenActionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		79A16D6FAF8B57FA71EDC20D /* MerkenActionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MerkenActionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D1535FD33287E38DC613A8B /* CreateBookshelfSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBookshelfSheet.swift; sourceTree = "<group>"; };
 		7D4BA80D45694303CC33CB7A /* TransparentNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransparentNavBar.swift; sourceTree = "<group>"; };
 		7D5B5CDD6320AE25693335B1 /* LocalWordRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWordRepository.swift; sourceTree = "<group>"; };
@@ -658,7 +658,6 @@
 				87DC63C51B789BDB89B9DDA2 /* Features */,
 				23B01F40948AD16D1754ECC8 /* Resources */,
 				82AEF37365D4BDAB8470A535 /* Services */,
-				6B77C8AC03A8C11DB8880CFB /* Utilities */,
 			);
 			path = MerkenIOS;
 			sourceTree = "<group>";
@@ -838,15 +837,9 @@
 						TestTargetID = 9166A7FCDA9AB29A4ED13263;
 					};
 					8E708409D75766582FD15D6D = {
-						DevelopmentTeam = Q3CJ7ARDWL;
-						ProvisioningStyle = Automatic;
-					};
-					9166A7FCDA9AB29A4ED13263 = {
-						DevelopmentTeam = Q3CJ7ARDWL;
 						ProvisioningStyle = Automatic;
 					};
 					DECF2E004A01913E12D34386 = {
-						DevelopmentTeam = Q3CJ7ARDWL;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -864,7 +857,6 @@
 			packageReferences = (
 				4275C6624906DE9B3447FAC9 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -1098,6 +1090,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MerkenShareExtension/MerkenShareExtension.entitlements;
+				DEVELOPMENT_TEAM = 6T7DM566WA;
 				INFOPLIST_FILE = MerkenShareExtension/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1117,6 +1110,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MerkenActionExtension/MerkenActionExtension.entitlements;
+				DEVELOPMENT_TEAM = 6T7DM566WA;
 				INFOPLIST_FILE = MerkenActionExtension/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1171,7 +1165,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = MerkenIOS/MerkenIOS.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6T7DM566WA;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = MerkenIOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -1180,6 +1176,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_NAME = MerkenIOS;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -1260,6 +1257,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MerkenActionExtension/MerkenActionExtension.entitlements;
+				DEVELOPMENT_TEAM = 6T7DM566WA;
 				INFOPLIST_FILE = MerkenActionExtension/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1297,7 +1295,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = MerkenIOS/MerkenIOS.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6T7DM566WA;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = MerkenIOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -1306,6 +1306,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_NAME = MerkenIOS;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -1316,6 +1317,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MerkenShareExtension/MerkenShareExtension.entitlements;
+				DEVELOPMENT_TEAM = 6T7DM566WA;
 				INFOPLIST_FILE = MerkenShareExtension/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
