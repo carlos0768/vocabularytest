@@ -652,6 +652,39 @@ export default function ProjectDetailPage() {
 
   const returnPath = project ? encodeURIComponent(`/project/${project.id}`) : '';
   const canUseAiFeatures = aiEnabled !== false;
+  const HEADER_DARKEN: Record<string, string> = {
+    '#ef4444': '#b91c1c',
+    '#16a34a': '#166534',
+    '#1e3a8a': '#1e40af',
+    '#f97316': '#c2410c',
+    '#9333ea': '#7e22ce',
+    '#0d9488': '#0f766e',
+  };
+  const headerFrom = getProjectColor(project?.title ?? 'MERKEN');
+  const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
+
+  useEffect(() => {
+    if (loading || !project) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlBackground = html.style.background;
+    const previousBodyBackground = body.style.background;
+    const previousBodyBackgroundColor = body.style.backgroundColor;
+
+    // iOS standalone can reveal the document background above the first fixed header.
+    // Match that region to the project header so no white strip shows before the page UI.
+    const headerBackground = `linear-gradient(135deg, ${headerFrom}, ${headerTo})`;
+    html.style.background = headerBackground;
+    body.style.background = headerBackground;
+    body.style.backgroundColor = headerFrom;
+
+    return () => {
+      html.style.background = previousHtmlBackground;
+      body.style.background = previousBodyBackground;
+      body.style.backgroundColor = previousBodyBackgroundColor;
+    };
+  }, [headerFrom, headerTo, loading, project]);
 
   if (loading) {
     return (
@@ -685,20 +718,9 @@ export default function ProjectDetailPage() {
     return map[tags[0]] || tags[0].slice(0, 1);
   };
 
-  const HEADER_DARKEN: Record<string, string> = {
-    '#ef4444': '#b91c1c',
-    '#16a34a': '#166534',
-    '#1e3a8a': '#1e40af',
-    '#f97316': '#c2410c',
-    '#9333ea': '#7e22ce',
-    '#0d9488': '#0f766e',
-  };
-  const headerFrom = getProjectColor(project.title);
-  const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
-
   return (
     <>
-      <div className="pb-28 lg:pb-8">
+      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8">
         {/* Mobile: fixed header reaches visual top; spacer reserves flow. Desktop: sticky in document flow. */}
         <div
           className="lg:hidden shrink-0 w-full"
