@@ -820,7 +820,7 @@ export default function QuizPage() {
 
   if (aiEnabled === false) {
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
         <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={backToProject}
@@ -847,7 +847,7 @@ export default function QuizPage() {
   // Distractor generation error screen
   if (distractorError) {
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
         <header className="sticky top-0 flex-shrink-0 p-4">
           <button
             onClick={backToProject}
@@ -901,7 +901,7 @@ export default function QuizPage() {
     };
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
         {/* Header */}
         <header className="sticky top-0 flex-shrink-0 p-4">
           <button
@@ -1073,7 +1073,7 @@ export default function QuizPage() {
 
   // Main quiz screen
   return (
-    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
       {/* Header - iOS style */}
       <header className="sticky top-0 flex-shrink-0 py-4 px-6 w-full">
         <div className="mx-auto w-full max-w-lg flex items-center gap-4">

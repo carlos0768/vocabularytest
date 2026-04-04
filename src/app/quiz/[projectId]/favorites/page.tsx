@@ -260,7 +260,7 @@ export default function FavoritesQuizPage() {
     };
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
         {/* Header */}
         <header className="sticky top-0 flex-shrink-0 p-4 flex items-center justify-between">
           <button
