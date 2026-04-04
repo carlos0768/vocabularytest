@@ -11,7 +11,7 @@ enum SupabaseClientError: LocalizedError {
     case invalidURL
     case unauthorized
     case requestFailed(Int, String)
-    case decodeFailed
+    case decodeFailed(String?)
 
     var errorDescription: String? {
         switch self {
@@ -21,8 +21,11 @@ enum SupabaseClientError: LocalizedError {
             return "認証エラーです。再ログインしてください。"
         case .requestFailed(let code, let message):
             return "API エラー (\(code)): \(message)"
-        case .decodeFailed:
-            return "レスポンスの解析に失敗しました。"
+        case .decodeFailed(let reason):
+            let base = "レスポンスの解析に失敗しました。"
+            guard let reason, !reason.isEmpty else { return base }
+            let clipped = reason.count > 200 ? String(reason.prefix(200)) + "…" : reason
+            return "\(base)（\(clipped)）"
         }
     }
 }
@@ -70,7 +73,7 @@ actor SupabaseRESTClient {
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
-            throw SupabaseClientError.decodeFailed
+            throw SupabaseClientError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -94,7 +97,7 @@ actor SupabaseRESTClient {
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
-            throw SupabaseClientError.decodeFailed
+            throw SupabaseClientError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -118,7 +121,7 @@ actor SupabaseRESTClient {
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
-            throw SupabaseClientError.decodeFailed
+            throw SupabaseClientError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -140,7 +143,7 @@ actor SupabaseRESTClient {
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
-            throw SupabaseClientError.decodeFailed
+            throw SupabaseClientError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -164,7 +167,7 @@ actor SupabaseRESTClient {
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
-            throw SupabaseClientError.decodeFailed
+            throw SupabaseClientError.decodeFailed(error.localizedDescription)
         }
     }
 

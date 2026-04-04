@@ -627,26 +627,17 @@ struct ProjectDetailView: View {
 
     private func notionWordRow(_ word: Word, isLast: Bool) -> some View {
         HStack(spacing: 0) {
-            // Check cell — tap to cycle status
+            // Check cell — tapで1マスずつ進む（学習中の2マス目はローカル保持）
             Button {
-                let next: WordStatus = {
-                    switch word.status {
-                    case .new: return .review
-                    case .review: return .mastered
-                    case .mastered: return .new
-                    }
-                }()
                 Task {
-                    await viewModel.updateWord(
-                        wordId: word.id,
-                        patch: WordPatch(status: next),
-                        broadcastChanges: false,
+                    await viewModel.advanceNotionCheckbox(
+                        word: word,
                         projectId: project.id,
                         using: appState
                     )
                 }
             } label: {
-                notionCheckBoxes(for: word.status)
+                notionCheckBoxes(filledCount: viewModel.filledNotionCount(for: word))
                     .frame(width: notionCheckColWidth, alignment: .center)
             }
             .buttonStyle(.plain)
@@ -783,22 +774,14 @@ struct ProjectDetailView: View {
         }
     }
 
-    /// 2マスのチェックボックス（縦並び）。未学習→学習中→習得で1マスずつ塗りつぶし。
-    private func notionCheckBoxes(for status: WordStatus) -> some View {
-        let filledCount: Int = {
-            switch status {
-            case .new:      return 0
-            case .review:   return 1
-            case .mastered: return 2
-            }
-        }()
+    /// 3マスのチェックボックス（縦並び）。`filledCount` は ViewModel / NotionCheckboxProgress が算出。
+    private func notionCheckBoxes(filledCount: Int) -> some View {
         let boxSize: CGFloat = 13
-        let rowCount = 2
-        let totalHeight: CGFloat = boxSize * CGFloat(rowCount)
+        let totalHeight: CGFloat = boxSize * 3
 
         return ZStack {
             VStack(spacing: 0) {
-                ForEach(0..<rowCount, id: \.self) { i in
+                ForEach(0..<3, id: \.self) { i in
                     Rectangle()
                         .fill(i < filledCount ? Color.primary : Color.clear)
                         .frame(width: boxSize, height: boxSize)
@@ -807,6 +790,8 @@ struct ProjectDetailView: View {
 
             VStack(spacing: 0) {
                 Spacer().frame(height: boxSize)
+                Rectangle().fill(MerkenTheme.border).frame(width: boxSize, height: 1)
+                Spacer().frame(height: boxSize - 1)
                 Rectangle().fill(MerkenTheme.border).frame(width: boxSize, height: 1)
                 Spacer().frame(height: boxSize - 1)
             }

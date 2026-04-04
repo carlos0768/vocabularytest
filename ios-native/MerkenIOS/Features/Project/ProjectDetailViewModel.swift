@@ -4,6 +4,8 @@ import OSLog
 @MainActor
 final class ProjectDetailViewModel: ObservableObject {
     @Published private(set) var words: [Word] = []
+    /// Notionチェックの「学習中2マス目」だけは UserDefaults 依存のため、ここを進めて行を再描画する
+    @Published private(set) var notionUIRevision: Int = 0
     @Published private(set) var projectMetadata: Project?
     @Published var searchText = ""
     @Published var favoritesOnly = false
@@ -35,6 +37,7 @@ final class ProjectDetailViewModel: ObservableObject {
 
             let (projects, loadedWords) = try await (projectsTask, wordsTask)
             projectMetadata = projects.first(where: { $0.id == projectId })
+            NotionCheckboxProgress.reconcileAfterLoad(words: loadedWords)
             words = loadedWords
             errorMessage = nil
         } catch {
@@ -201,6 +204,50 @@ final class ProjectDetailViewModel: ObservableObject {
             projectId: projectId,
             using: state
         )
+    }
+
+    func filledNotionCount(for word: Word) -> Int {
+        _ = notionUIRevision
+        return NotionCheckboxProgress.filledCount(for: word)
+    }
+
+    /// Notionチェック列: 0→1→2→3マス→未学習へ（1タップで1マス）
+    func advanceNotionCheckbox(word: Word, projectId: String, using state: AppState) async {
+        let tier2 = NotionCheckboxProgress.hasReviewSecondFill(word.id)
+        switch (word.status, tier2) {
+        case (.new, _):
+            NotionCheckboxProgress.setReviewSecondFill(word.id, false)
+            await updateWord(
+                wordId: word.id,
+                patch: WordPatch(status: .review),
+                broadcastChanges: false,
+                projectId: projectId,
+                using: state
+            )
+        case (.review, false):
+            NotionCheckboxProgress.setReviewSecondFill(word.id, true)
+            notionUIRevision += 1
+        case (.review, true):
+            await updateWord(
+                wordId: word.id,
+                patch: WordPatch(status: .mastered),
+                broadcastChanges: false,
+                projectId: projectId,
+                using: state
+            )
+            if words.first(where: { $0.id == word.id })?.status == .mastered {
+                NotionCheckboxProgress.setReviewSecondFill(word.id, false)
+            }
+        case (.mastered, _):
+            NotionCheckboxProgress.setReviewSecondFill(word.id, false)
+            await updateWord(
+                wordId: word.id,
+                patch: WordPatch(status: .new),
+                broadcastChanges: false,
+                projectId: projectId,
+                using: state
+            )
+        }
     }
 
     private func apply(_ patch: WordPatch, to word: inout Word) {

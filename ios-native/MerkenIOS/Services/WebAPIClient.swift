@@ -12,7 +12,7 @@ enum WebAPIError: LocalizedError {
     case serverError(String)
     case networkTimeout
     case noWordsExtracted
-    case decodeFailed
+    case decodeFailed(String?)
 
     var errorDescription: String? {
         switch self {
@@ -34,8 +34,11 @@ enum WebAPIError: LocalizedError {
             return "通信がタイムアウトしました。もう一度お試しください。"
         case .noWordsExtracted:
             return "単語を抽出できませんでした。別の画像をお試しください。"
-        case .decodeFailed:
-            return "レスポンスの解析に失敗しました。"
+        case .decodeFailed(let reason):
+            let base = "レスポンスの解析に失敗しました。"
+            guard let reason, !reason.isEmpty else { return base }
+            let clipped = reason.count > 200 ? String(reason.prefix(200)) + "…" : reason
+            return "\(base)（\(clipped)）"
         }
     }
 }
@@ -706,7 +709,7 @@ actor WebAPIClient {
             decoded = try JSONDecoder().decode(ExtractResponse.self, from: data)
         } catch {
             logger.error("Decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
 
         guard decoded.success else {
@@ -768,7 +771,7 @@ actor WebAPIClient {
             decoded = try JSONDecoder().decode(SemanticSearchResponse.self, from: data)
         } catch {
             logger.error("Semantic search decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
 
         logger.info("Semantic search returned \(decoded.results.count) results")
@@ -809,7 +812,7 @@ actor WebAPIClient {
             decoded = try JSONDecoder().decode(QuizPrefillResponse.self, from: data)
         } catch {
             logger.error("Quiz prefill decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
 
         guard decoded.success else {
@@ -854,7 +857,7 @@ actor WebAPIClient {
             decoded = try JSONDecoder().decode(SentenceQuizResponse.self, from: data)
         } catch {
             logger.error("Sentence-quiz decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
 
         guard decoded.success else {
@@ -995,7 +998,7 @@ actor WebAPIClient {
             decoded = try JSONDecoder().decode(AppStoreVerifyResponse.self, from: data)
         } catch {
             logger.error("App Store verify decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
 
         guard decoded.success else {
@@ -1172,7 +1175,7 @@ actor WebAPIClient {
             return try JSONDecoder().decode(ScanJobCreateResponse.self, from: data)
         } catch {
             logger.error("Scan job create decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1206,7 +1209,7 @@ actor WebAPIClient {
             return try JSONDecoder().decode(UserPreferencesResponse.self, from: data).aiEnabled
         } catch {
             logger.error("User preferences decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1249,7 +1252,7 @@ actor WebAPIClient {
             return try JSONDecoder().decode(UserPreferencesResponse.self, from: data).aiEnabled
         } catch {
             logger.error("User preferences update decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1284,7 +1287,7 @@ actor WebAPIClient {
             return UserProfile(userId: "", username: response.username)
         } catch {
             logger.error("Profile decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1326,7 +1329,7 @@ actor WebAPIClient {
             return UserProfile(userId: "", username: response.username)
         } catch {
             logger.error("Profile update decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1371,7 +1374,7 @@ actor WebAPIClient {
             decoded = try JSONDecoder().decode(ShareImportPreviewResponse.self, from: data)
         } catch {
             logger.error("Share import preview decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
 
         guard decoded.success, let candidate = decoded.candidate else {
@@ -1431,7 +1434,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Share import projects decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1481,7 +1484,7 @@ actor WebAPIClient {
             return try JSONDecoder().decode(ShareImportCommitResponse.self, from: data)
         } catch {
             logger.error("Share import commit decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1518,7 +1521,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Shared projects decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1558,7 +1561,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Shared project join decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1606,7 +1609,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Shared project detail decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1648,7 +1651,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Shared project word create decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1695,7 +1698,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Shared project word update decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1735,7 +1738,7 @@ actor WebAPIClient {
             throw error
         } catch {
             logger.error("Shared project word delete decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 
@@ -1780,7 +1783,7 @@ actor WebAPIClient {
             return decoded.jobs
         } catch {
             logger.error("Scan jobs decode failed: \(error.localizedDescription)")
-            throw WebAPIError.decodeFailed
+            throw WebAPIError.decodeFailed(error.localizedDescription)
         }
     }
 

@@ -424,8 +424,8 @@ struct SharedProjectDetailView: View {
 
     private func notionWordRow(_ word: Word, isLast: Bool) -> some View {
         HStack(spacing: 0) {
-            // チェックボックス（表示のみ）
-            notionCheckBoxes(for: word.status)
+            // チェックボックス（表示のみ・単語帳詳細と同じ段階表示）
+            notionCheckBoxes(filledCount: NotionCheckboxProgress.filledCount(for: word))
                 .frame(width: notionCheckColWidth, alignment: .center)
 
             notionColDivider
@@ -526,24 +526,17 @@ struct SharedProjectDetailView: View {
         }
     }
 
-    private func notionCheckBoxes(for status: WordStatus) -> some View {
-        let filledCount: Int = {
-            switch status {
-            case .new:      return 0
-            case .review:   return 1
-            case .mastered: return 2
-            }
-        }()
+    private func notionCheckBoxes(filledCount: Int) -> some View {
         let boxSize: CGFloat = 13
 
         return VStack(spacing: 0) {
-            ForEach(0..<2, id: \.self) { i in
+            ForEach(0..<3, id: \.self) { i in
                 Rectangle()
                     .fill(i < filledCount ? Color.primary : Color.clear)
                     .frame(width: boxSize, height: boxSize)
                     .overlay(
                         Group {
-                            if i == 0 {
+                            if i < 2 {
                                 Rectangle()
                                     .fill(MerkenTheme.border)
                                     .frame(height: 1)

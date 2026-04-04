@@ -166,6 +166,11 @@ function toNonEmptyString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeDistractors(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
 function resolveLexiconRow(
   value: WordRow['lexicon_entries'],
 ): LexiconEntryRow | null {
@@ -283,7 +288,7 @@ export function mapWordFromRow(row: WordRow): Word {
     vocabularyType: normalizeVocabularyType(row.vocabulary_type),
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
     cefrLevel: resolveWordCefrLevel(row),
-    distractors: row.distractors,
+    distractors: normalizeDistractors(row.distractors),
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
     pronunciation: row.pronunciation ?? undefined,

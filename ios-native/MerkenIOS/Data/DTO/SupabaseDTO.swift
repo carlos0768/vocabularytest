@@ -35,6 +35,39 @@ struct WordDTO: Codable, Sendable {
     let repetition: Int?
     let isFavorite: Bool?
     let vocabularyType: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, projectId, english, japanese, distractors, exampleSentence, exampleSentenceJa
+        case pronunciation, partOfSpeechTags, relatedWords, usagePatterns
+        case insightsGeneratedAt, insightsVersion, status, createdAt, lastReviewedAt, nextReviewAt
+        case easeFactor, intervalDays, repetition, isFavorite, vocabularyType
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        projectId = try c.decode(String.self, forKey: .projectId)
+        english = try c.decode(String.self, forKey: .english)
+        japanese = try c.decode(String.self, forKey: .japanese)
+        distractors = try c.decodeIfPresent([String].self, forKey: .distractors) ?? []
+        exampleSentence = try c.decodeIfPresent(String.self, forKey: .exampleSentence)
+        exampleSentenceJa = try c.decodeIfPresent(String.self, forKey: .exampleSentenceJa)
+        pronunciation = try c.decodeIfPresent(String.self, forKey: .pronunciation)
+        partOfSpeechTags = try c.decodeIfPresent([String].self, forKey: .partOfSpeechTags)
+        relatedWords = try c.decodeIfPresent([RelatedWord].self, forKey: .relatedWords)
+        usagePatterns = try c.decodeIfPresent([UsagePattern].self, forKey: .usagePatterns)
+        insightsGeneratedAt = try c.decodeIfPresent(Date.self, forKey: .insightsGeneratedAt)
+        insightsVersion = try c.decodeIfPresent(Int.self, forKey: .insightsVersion)
+        status = try c.decodeIfPresent(String.self, forKey: .status) ?? "new"
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        lastReviewedAt = try c.decodeIfPresent(Date.self, forKey: .lastReviewedAt)
+        nextReviewAt = try c.decodeIfPresent(Date.self, forKey: .nextReviewAt)
+        easeFactor = try c.decodeIfPresent(Double.self, forKey: .easeFactor)
+        intervalDays = try c.decodeIfPresent(Int.self, forKey: .intervalDays)
+        repetition = try c.decodeIfPresent(Int.self, forKey: .repetition)
+        isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite)
+        vocabularyType = try c.decodeIfPresent(String.self, forKey: .vocabularyType)
+    }
 }
 
 struct ProjectInsertDTO: Codable, Sendable {

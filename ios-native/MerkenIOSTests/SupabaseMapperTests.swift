@@ -65,6 +65,52 @@ final class SupabaseMapperTests: XCTestCase {
         XCTAssertEqual(word.distractors.count, 3)
     }
 
+    func testWordDTODecodeWhenDistractorsKeyMissingUsesEmptyArray() throws {
+        let json = """
+        {
+          "id": "w1",
+          "project_id": "p1",
+          "english": "run",
+          "japanese": "走る",
+          "status": "new",
+          "created_at": "2026-02-21T10:00:00.000Z"
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .supabaseISO8601
+
+        let dto = try decoder.decode(WordDTO.self, from: json)
+        let word = SupabaseMapper.word(from: dto)
+
+        XCTAssertEqual(word.distractors, [])
+        XCTAssertEqual(word.status, .new)
+    }
+
+    func testWordDTODecodeFromCamelCaseJSONWithoutDistractors() throws {
+        let json = """
+        {
+          "id": "w1",
+          "projectId": "p1",
+          "english": "run",
+          "japanese": "走る",
+          "status": "new",
+          "createdAt": "2026-02-21T10:00:00.000Z",
+          "easeFactor": 2.5,
+          "intervalDays": 0,
+          "repetition": 0,
+          "isFavorite": false
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .supabaseISO8601
+
+        let dto = try decoder.decode(WordDTO.self, from: json)
+        XCTAssertTrue(dto.distractors.isEmpty)
+    }
+
     func testExtractedWordDecodesExamplesWhenPresent() throws {
         let json = """
         {
