@@ -446,7 +446,7 @@ struct ProjectListView: View {
     // MARK: - Project List (horizontal card style)
 
     private func projectGrid(_ projects: [Project]) -> some View {
-        LazyVStack(spacing: 12) {
+        LazyVStack(spacing: 10) {
             // Show generating cards for pending scans
             ForEach(pendingScans, id: \.jobId) { context in
                 generatingCard(context)
@@ -466,6 +466,9 @@ struct ProjectListView: View {
 
     private func projectCard(_ project: Project) -> some View {
         let wordCount = viewModel.wordCounts[project.id] ?? 0
+        let masteredCount = viewModel.masteredCounts[project.id] ?? 0
+        let reviewCount = viewModel.reviewCounts[project.id] ?? 0
+        let newCount = viewModel.newCounts[project.id] ?? 0
         let thumbSize: CGFloat = 56
 
         return HStack(spacing: 16) {
@@ -486,11 +489,11 @@ struct ProjectListView: View {
             .frame(width: thumbSize, height: thumbSize)
             .clipShape(.rect(cornerRadius: 12))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(project.title)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -502,6 +505,13 @@ struct ProjectListView: View {
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
+
+                HStack(spacing: 12) {
+                    projectListMetric(color: MerkenTheme.success, text: "習得 \(masteredCount)")
+                    projectListMetric(color: MerkenTheme.accentBlue, text: "学習 \(reviewCount)")
+                    projectListMetric(color: MerkenTheme.borderLight, text: "未学習 \(newCount)")
+                }
+                .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
@@ -514,6 +524,18 @@ struct ProjectListView: View {
                     lineWidth: project.isFavorite ? 1.5 : 1
                 )
         )
+    }
+
+    private func projectListMetric(color: Color, text: String) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+        }
     }
 
     // MARK: - Generating Card (horizontal)

@@ -85,17 +85,17 @@ export function TypeInQuizField({
 
         {n > 0 && t < n && (
           <>
-            {!disabled && t === 0 && target[0] != null && target[0] !== '' && (
-              <span className={hintClass} aria-hidden>
-                {target[0].toLowerCase()}
-              </span>
-            )}
-
             {!disabled && (
               <span
                 className="inline-block w-[2px] h-[1.2em] shrink-0 self-center rounded-sm bg-blue-600"
                 aria-hidden
               />
+            )}
+
+            {!disabled && t === 0 && target[0] != null && target[0] !== '' && (
+              <span className={hintClass} aria-hidden>
+                {target[0].toLowerCase()}
+              </span>
             )}
 
             {disabled
