@@ -38,6 +38,19 @@ function getSupabaseAdmin(): SupabaseClient {
   return createClient(url, key);
 }
 
+/** Stripe SDK v22: subscription id lives under parent.subscription_details, not invoice.subscription */
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const ref = invoice.parent?.subscription_details?.subscription;
+  if (!ref) return null;
+  return typeof ref === 'string' ? ref : ref.id;
+}
+
+function getInvoiceSubscriptionMetadata(invoice: Stripe.Invoice): Stripe.Metadata {
+  const nested = invoice.parent?.subscription_details?.metadata;
+  if (nested && Object.keys(nested).length > 0) return nested;
+  return invoice.metadata ?? {};
+}
+
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.text();
@@ -226,10 +239,7 @@ async function handleInvoicePaid(
     return;
   }
 
-  const stripeSubscriptionId =
-    typeof invoice.subscription === 'string'
-      ? invoice.subscription
-      : invoice.subscription?.id ?? null;
+  const stripeSubscriptionId = getInvoiceSubscriptionId(invoice);
 
   if (!stripeSubscriptionId) {
     throw new WebhookError('Missing subscription id in invoice', 400);
@@ -286,10 +296,7 @@ async function handleInvoicePaymentFailed(
   supabaseAdmin: SupabaseClient,
   invoice: Stripe.Invoice
 ) {
-  const stripeSubscriptionId =
-    typeof invoice.subscription === 'string'
-      ? invoice.subscription
-      : invoice.subscription?.id ?? null;
+  const stripeSubscriptionId = getInvoiceSubscriptionId(invoice);
 
   if (!stripeSubscriptionId) {
     console.warn('[Stripe webhook] invoice.payment_failed without subscription id');
@@ -298,7 +305,7 @@ async function handleInvoicePaymentFailed(
 
   // For first-time payments, try to mark the session as failed
   if (invoice.billing_reason === 'subscription_create') {
-    const metadata = invoice.subscription_details?.metadata ?? invoice.metadata ?? {};
+    const metadata = getInvoiceSubscriptionMetadata(invoice);
     const idempotencyKey = metadata.idempotency_key ?? null;
 
     let session: SessionLookupRow | null = null;
