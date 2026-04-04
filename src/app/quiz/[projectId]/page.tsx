@@ -222,17 +222,25 @@ export default function QuizPage() {
       try {
         for (let attempt = 1; attempt <= DISTRACTOR_MAX_ATTEMPTS && pendingWords.length > 0; attempt += 1) {
           try {
-            const response = await fetch('/api/generate-quiz-distractors', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                words: pendingWords.map((w) => ({
-                  id: w.id,
-                  english: w.english,
-                  japanese: w.japanese,
-                })),
-              }),
-            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 25000);
+            let response: Response;
+            try {
+              response = await fetch('/api/generate-quiz-distractors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  words: pendingWords.map((w) => ({
+                    id: w.id,
+                    english: w.english,
+                    japanese: w.japanese,
+                  })),
+                }),
+                signal: controller.signal,
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
 
             const data = await response.json();
             if (!response.ok || !data.success || !Array.isArray(data.results)) {
@@ -537,6 +545,11 @@ export default function QuizPage() {
           const needsGeneration = prioritizedSourceWords.some((w) => needsDistractors(w));
 
           if (needsGeneration) {
+            // Exit loading state before distractor generation so the
+            // generatingDistractors screen (flashcard) shows instead of the
+            // indefinite loading spinner.  This is critical for review mode
+            // which can involve many words and a slow API call.
+            setLoading(false);
             await startQuizWithDistractors(prioritizedSourceWords, resolvedCount);
           } else {
             const generated = generateQuestions(prioritizedSourceWords, resolvedCount, quizDirection);
