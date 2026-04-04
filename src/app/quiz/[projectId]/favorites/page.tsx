@@ -419,38 +419,41 @@ export default function FavoritesQuizPage() {
   return (
     <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 flex-shrink-0 p-4 flex items-center justify-between">
-        <button
-          onClick={backToProject}
-          className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
-        >
-          <Icon name="close" size={24} />
-        </button>
+      <header className="sticky top-0 flex-shrink-0 py-4 px-6 w-full">
+        <div className="mx-auto w-full max-w-lg flex items-center justify-between gap-3">
+          <button
+            onClick={backToProject}
+            className="p-2 shrink-0 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
+          >
+            <Icon name="close" size={24} />
+          </button>
 
-        {/* Title badge */}
-        <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full">
-          <Icon name="flag" size={16} filled className="text-[var(--color-warning)]" />
-          <span className="text-sm font-medium text-[var(--color-warning)]">苦手クイズ</span>
-        </div>
+          {/* Title badge */}
+          <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full min-w-0">
+            <Icon name="flag" size={16} filled className="text-[var(--color-warning)] shrink-0" />
+            <span className="text-sm font-medium text-[var(--color-warning)] truncate">苦手クイズ</span>
+          </div>
 
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-[var(--color-muted)]">
-            {currentIndex + 1} / {questions.length}
-          </span>
-          <div className="w-24 h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[var(--color-warning)] transition-all duration-300"
-              style={{
-                width: `${((currentIndex + 1) / questions.length) * 100}%`,
-              }}
-            />
+          {/* Progress indicator */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm text-[var(--color-muted)] tabular-nums">
+              {currentIndex + 1} / {questions.length}
+            </span>
+            <div className="w-24 h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[var(--color-warning)] transition-all duration-300"
+                style={{
+                  width: `${((currentIndex + 1) / questions.length) * 100}%`,
+                }}
+              />
+            </div>
           </div>
         </div>
       </header>
 
       {/* Question */}
-      <main className="flex-1 flex flex-col p-6 min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
+        <div className="mx-auto w-full max-w-lg px-6 py-6 flex flex-col flex-1 min-h-0 overflow-y-auto">
         {/* Mode badge */}
         <div className="flex justify-center mb-2">
           <span className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)]">
@@ -521,6 +524,7 @@ export default function FavoritesQuizPage() {
             <Icon name="chevron_right" size={20} className="ml-1" />
           </Button>
         )}
+        </div>
       </main>
     </div>
   );

@@ -1075,23 +1075,26 @@ export default function QuizPage() {
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       {/* Header - iOS style */}
-      <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
-        <button
-          onClick={backToProject}
-          className="w-10 h-10 flex items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-foreground)]"
-        >
-          <Icon name="close" size={24} />
-        </button>
+      <header className="sticky top-0 flex-shrink-0 py-4 px-6 w-full">
+        <div className="mx-auto w-full max-w-lg flex items-center gap-4">
+          <button
+            onClick={backToProject}
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-foreground)]"
+          >
+            <Icon name="close" size={24} />
+          </button>
 
-        <div className="flex-1 progress-bar">
-          <div
-            className="progress-bar-fill"
-            style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-          />
+          <div className="flex-1 progress-bar min-w-0">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+            />
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 px-6 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto">
+        <div className="mx-auto w-full max-w-lg px-6 flex flex-col flex-1 min-h-0">
         {/* Mode badges - iOS style */}
         <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
           <span
@@ -1133,7 +1136,7 @@ export default function QuizPage() {
 
         {/* Quiz content - conditional on active/passive vocabularyType */}
         {!isActiveVocab ? (
-          <div className="space-y-2.5 max-w-lg mx-auto w-full flex-shrink-0">
+          <div className="space-y-2.5 w-full flex-shrink-0">
             {currentQuestion?.options.map((option, index) => (
               <QuizOption
                 key={index}
@@ -1149,7 +1152,7 @@ export default function QuizPage() {
           </div>
         ) : (
           /* Type-in mode - iOS style */
-          <div className="max-w-lg mx-auto w-full flex-shrink-0 space-y-4">
+          <div className="w-full flex-shrink-0 space-y-4">
             <TypeInQuizField
               answer={currentQuestion?.word.english ?? ''}
               value={typeInAnswer}
@@ -1186,7 +1189,7 @@ export default function QuizPage() {
 
         {/* Example sentence after answering */}
         {isRevealed && currentQuestion && (
-          <div className="max-w-lg mx-auto w-full mt-4 flex-shrink-0">
+          <div className="w-full mt-4 flex-shrink-0">
             {currentQuestion.word.exampleSentence && (
               <div className="card p-4 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold">
@@ -1201,19 +1204,22 @@ export default function QuizPage() {
             )}
           </div>
         )}
+        </div>
       </main>
 
       {/* Bottom next button */}
       {isRevealed && (
-        <div className="flex-shrink-0 bg-[var(--color-background)] px-6 pt-3 pb-6 safe-area-bottom">
-          <button
-            onClick={moveToNext}
-            disabled={isTransitioning}
-            className="w-full max-w-lg mx-auto flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
-          >
-            次へ
-            <Icon name="chevron_right" size={20} />
-          </button>
+        <div className="flex-shrink-0 bg-[var(--color-background)] pt-3 pb-6 safe-area-bottom w-full">
+          <div className="mx-auto w-full max-w-lg px-6">
+            <button
+              onClick={moveToNext}
+              disabled={isTransitioning}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
+            >
+              次へ
+              <Icon name="chevron_right" size={20} />
+            </button>
+          </div>
         </div>
       )}
     </div>
