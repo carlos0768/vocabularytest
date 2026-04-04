@@ -250,6 +250,13 @@ export async function GET(request: NextRequest) {
     let stripeSubscription: Stripe.Subscription | null = null;
     if (typeof checkoutSession.subscription === 'object' && checkoutSession.subscription) {
       stripeSubscription = checkoutSession.subscription as Stripe.Subscription;
+    } else if (typeof checkoutSession.subscription === 'string' && checkoutSession.subscription) {
+      try {
+        const { getSubscription } = await import('@/lib/stripe/client');
+        stripeSubscription = await getSubscription(checkoutSession.subscription);
+      } catch {
+        console.warn('[SubscriptionReconcile] Could not fetch subscription for period dates');
+      }
     }
 
     try {

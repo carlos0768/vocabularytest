@@ -234,10 +234,14 @@ function computePeriodDates(stripeSubscription: Stripe.Subscription | null): {
   periodEndIso: string;
 } {
   if (stripeSubscription) {
-    return {
-      periodStartIso: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-      periodEndIso: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
-    };
+    const startTs = stripeSubscription.current_period_start;
+    const endTs = stripeSubscription.current_period_end;
+    if (typeof startTs === 'number' && startTs > 0 && typeof endTs === 'number' && endTs > 0) {
+      return {
+        periodStartIso: new Date(startTs * 1000).toISOString(),
+        periodEndIso: new Date(endTs * 1000).toISOString(),
+      };
+    }
   }
   const now = new Date();
   const periodEnd = new Date(now);
