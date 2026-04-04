@@ -152,16 +152,17 @@ export function recordActivity(): void {
   statsSyncCallback?.('streak', { streakCount: updatedStreak, lastActivityDate: today });
 }
 
-// Weekly stats tracking (past 7 days)
+// Weekly stats tracking (past 14 days)
 const WEEKLY_STATS_KEY = 'scanvocab_weekly_stats';
 
 export interface WeeklyStatsEntry {
   date: string; // YYYY-MM-DD
   totalCount: number;
   correctCount: number;
+  masteredCount: number;
 }
 
-function updateWeeklyStats(isCorrect: boolean): void {
+function updateWeeklyStats(isCorrect: boolean, currentMasteredTotal?: number): void {
   if (typeof window === 'undefined') return;
 
   const today = new Date().toISOString().split('T')[0];
@@ -172,12 +173,25 @@ function updateWeeklyStats(isCorrect: boolean): void {
     if (stored) entries = JSON.parse(stored);
   } catch { /* ignore */ }
 
+  entries = entries.map((entry) => ({
+    ...entry,
+    masteredCount: typeof entry.masteredCount === 'number' ? entry.masteredCount : 0,
+  }));
+
   const todayEntry = entries.find(e => e.date === today);
   if (todayEntry) {
     todayEntry.totalCount += 1;
     if (isCorrect) todayEntry.correctCount += 1;
+    if (typeof currentMasteredTotal === 'number') {
+      todayEntry.masteredCount = currentMasteredTotal;
+    }
   } else {
-    entries.push({ date: today, totalCount: 1, correctCount: isCorrect ? 1 : 0 });
+    entries.push({
+      date: today,
+      totalCount: 1,
+      correctCount: isCorrect ? 1 : 0,
+      masteredCount: typeof currentMasteredTotal === 'number' ? currentMasteredTotal : 0,
+    });
   }
 
   // Keep only last 14 days
@@ -198,16 +212,53 @@ export function getWeeklyStats(): WeeklyStatsEntry[] {
     if (stored) entries = JSON.parse(stored);
   } catch { /* ignore */ }
 
-  // Build array for past 7 days (today included), fill gaps with zeros
+  entries = entries.map((entry) => ({
+    ...entry,
+    masteredCount: typeof entry.masteredCount === 'number' ? entry.masteredCount : 0,
+  }));
+
+  // Build array for past 14 days (today included), fill gaps with zeros
   const result: WeeklyStatsEntry[] = [];
-  for (let i = 6; i >= 0; i--) {
+  for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
     const found = entries.find(e => e.date === dateStr);
-    result.push(found ?? { date: dateStr, totalCount: 0, correctCount: 0 });
+    result.push(found ?? { date: dateStr, totalCount: 0, correctCount: 0, masteredCount: 0 });
   }
   return result;
+}
+
+export function updateTodayMasteredCount(masteredTotal: number): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date().toISOString().split('T')[0];
+  let entries: WeeklyStatsEntry[] = [];
+
+  try {
+    const stored = localStorage.getItem(WEEKLY_STATS_KEY);
+    if (stored) entries = JSON.parse(stored);
+  } catch { /* ignore */ }
+
+  entries = entries.map((entry) => ({
+    ...entry,
+    masteredCount: typeof entry.masteredCount === 'number' ? entry.masteredCount : 0,
+  }));
+
+  const todayEntry = entries.find(e => e.date === today);
+  if (todayEntry) {
+    todayEntry.masteredCount = masteredTotal;
+  } else {
+    entries.push({ date: today, totalCount: 0, correctCount: 0, masteredCount: masteredTotal });
+  }
+
+  // Keep only last 14 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  entries = entries.filter(e => e.date >= cutoffStr);
+
+  localStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(entries));
 }
 
 // Daily stats tracking
