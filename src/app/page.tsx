@@ -13,7 +13,6 @@ import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCar
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
-import { ScanJobNotifications } from '@/components/scan/ScanJobNotification';
 import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -1893,17 +1892,6 @@ export default function HomePage() {
         totalWords={totalWords}
       />
 
-      {/* Background scan job completion notifications */}
-      {isPro && (
-        <ScanJobNotifications
-          jobs={notifiableJobs}
-          onDismiss={(jobId) => {
-            acknowledgeJob(jobId);
-            // Refresh projects to show the new one
-            loadProjects();
-          }}
-        />
-      )}
       </div>
     </>
   );
