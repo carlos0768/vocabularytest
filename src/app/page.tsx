@@ -9,6 +9,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project/ProjectCard';
+import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
@@ -168,6 +169,14 @@ export default function HomePage() {
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
+  /** Placeholder card for a new wordbook while extract/upload is running (iOS GeneratingProjectCard parity). */
+  const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<{
+    id: string;
+    title: string;
+    iconDataUrl?: string;
+    /** Pro background scan: clear this card when this job finishes (completed or failed). */
+    linkedJobId?: string;
+  } | null>(null);
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
@@ -453,6 +462,18 @@ export default function HomePage() {
   useEffect(() => {
     loadWords();
   }, [loadWords]);
+
+  // Remove home placeholder when the linked background scan job finishes.
+  useEffect(() => {
+    const jobId = pendingGeneratingWordbook?.linkedJobId;
+    if (!jobId) return;
+    const finished = completedJobs.some(
+      (j) => j.id === jobId && (j.status === 'completed' || j.status === 'failed'),
+    );
+    if (finished) {
+      setPendingGeneratingWordbook(null);
+    }
+  }, [completedJobs, pendingGeneratingWordbook?.linkedJobId]);
 
   // Reload projects immediately when a new background scan completes.
   const prevCompletedJobIdsRef = useRef<string[]>([]);
@@ -1009,6 +1030,17 @@ export default function HomePage() {
       { id: 'analyze', label: '文字を解析中...', status: 'pending' },
     ]);
 
+    if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('scanvocab_existing_project_id')) {
+      const title = sessionStorage.getItem('scanvocab_project_name');
+      if (title?.trim()) {
+        setPendingGeneratingWordbook({
+          id: `generating-${Date.now()}`,
+          title: title.trim(),
+          iconDataUrl: sessionStorage.getItem('scanvocab_project_icon') || undefined,
+        });
+      }
+    }
+
     try {
       // Process image/PDF and convert to base64
       let base64: string;
@@ -1039,6 +1071,7 @@ export default function HomePage() {
 
       if (!response.ok || !result.success) {
         if (result.limitReached) {
+          setPendingGeneratingWordbook(null);
           setProcessing(false);
           setProcessingSteps([]);
           setScanInfo(result.scanInfo);
@@ -1064,10 +1097,12 @@ export default function HomePage() {
       sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
       // Navigate first, then close processing modal
       // (closing modal before navigation causes a flash of the home screen)
+      setPendingGeneratingWordbook(null);
       startTransition(() => { router.push('/scan/confirm'); });
       setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
+      setPendingGeneratingWordbook(null);
 
       let errorMessage = '予期しないエラー';
       if (error instanceof Error) {
@@ -1102,6 +1137,17 @@ export default function HomePage() {
       status: index === 0 ? 'active' : 'pending',
     }));
     setProcessingSteps(initialSteps);
+
+    if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('scanvocab_existing_project_id')) {
+      const title = sessionStorage.getItem('scanvocab_project_name');
+      if (title?.trim()) {
+        setPendingGeneratingWordbook({
+          id: `generating-${Date.now()}`,
+          title: title.trim(),
+          iconDataUrl: sessionStorage.getItem('scanvocab_project_icon') || undefined,
+        });
+      }
+    }
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1147,6 +1193,7 @@ export default function HomePage() {
 
         if (!response.ok || !result.success) {
           if (result.limitReached) {
+            setPendingGeneratingWordbook(null);
             setProcessing(false);
             setProcessingSteps([]);
             setScanInfo(result.scanInfo);
@@ -1193,10 +1240,12 @@ export default function HomePage() {
         { id: 'navigate', label: '結果を表示中...', status: 'active' },
       ]);
 
+      setPendingGeneratingWordbook(null);
       startTransition(() => { router.push('/scan/confirm'); });
       setProcessing(false);
     } catch (error) {
       console.error('Scan error:', error);
+      setPendingGeneratingWordbook(null);
       setProcessingSteps((prev) =>
         prev.map((s) =>
           s.status === 'active' || s.status === 'pending'
@@ -1223,6 +1272,13 @@ export default function HomePage() {
     // Pro users: use background upload (same as /scan page)
     if (isPro && user && !hasPdf && canUseBackground) {
       setScanUploadStatus('uploading');
+      if (!isAddingToExisting) {
+        setPendingGeneratingWordbook({
+          id: `generating-${Date.now()}`,
+          title: projectName.trim() || '新しい単語帳',
+          iconDataUrl: projectIcon,
+        });
+      }
       try {
         const supabase = createBrowserClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -1309,11 +1365,20 @@ export default function HomePage() {
           throw new Error(error.error || 'ジョブの作成に失敗しました');
         }
 
+        const createResult: { jobId?: string } = await response.json();
+        if (typeof createResult.jobId === 'string') {
+          setPendingGeneratingWordbook((prev) =>
+            prev ? { ...prev, linkedJobId: createResult.jobId } : null,
+          );
+        } else {
+          setPendingGeneratingWordbook(null);
+        }
         setScanUploadStatus('done');
         refreshJobs();
         return;
       } catch (error) {
         console.error('Background upload error:', error);
+        setPendingGeneratingWordbook(null);
         setScanUploadStatus(undefined);
         setShowProjectNameModal(false);
         showToast({
@@ -1360,6 +1425,7 @@ export default function HomePage() {
   };
 
   const handleCloseModal = () => {
+    setPendingGeneratingWordbook(null);
     setProcessing(false);
     setProcessingSteps([]);
   };
@@ -1475,6 +1541,16 @@ export default function HomePage() {
             </div>
           </header>
 
+          {pendingGeneratingWordbook && (
+            <div className="max-w-lg mx-auto w-full px-4 pt-4">
+              <p className="text-xs font-semibold text-[var(--color-muted)] mb-2">マイ単語帳</p>
+              <GeneratingProjectCard
+                title={pendingGeneratingWordbook.title}
+                iconDataUrl={pendingGeneratingWordbook.iconDataUrl}
+              />
+            </div>
+          )}
+
           <main className="min-h-[calc(100vh-14rem)] flex flex-col items-center justify-center px-6 py-10">
             <div className="w-20 h-20 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mb-6">
               <Icon name="menu_book" size={40} className="text-[var(--color-primary)]" />
@@ -1525,6 +1601,7 @@ export default function HomePage() {
               setPendingFile(null);
               setPendingFiles([]);
               sessionStorage.removeItem('scanvocab_project_icon');
+              setPendingGeneratingWordbook((prev) => (prev?.linkedJobId ? prev : null));
             }}
             onConfirm={handleProjectNameConfirm}
             scanStatus={scanUploadStatus}
@@ -1692,12 +1769,18 @@ export default function HomePage() {
                 <div className="card p-6 text-center">
                   <p className="text-sm text-[var(--color-muted)]">まだ単語帳がありません。スキャンから始めましょう。</p>
                 </div>
-              ) : homeMyProjects.length === 0 ? (
+              ) : homeMyProjects.length === 0 && !pendingGeneratingWordbook ? (
                 <div className="card p-6 text-center">
                   <p className="text-sm text-[var(--color-muted)]">まだマイ単語帳がありません。スキャンや手入力で追加できます。</p>
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {pendingGeneratingWordbook && (
+                    <GeneratingProjectCard
+                      title={pendingGeneratingWordbook.title}
+                      iconDataUrl={pendingGeneratingWordbook.iconDataUrl}
+                    />
+                  )}
                   {homeMyProjects.map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
                     return (
@@ -1734,6 +1817,7 @@ export default function HomePage() {
           setPendingFile(null);
           setPendingFiles([]);
           sessionStorage.removeItem('scanvocab_project_icon');
+          setPendingGeneratingWordbook((prev) => (prev?.linkedJobId ? prev : null));
         }}
         onConfirm={handleProjectNameConfirm}
         scanStatus={scanUploadStatus}
