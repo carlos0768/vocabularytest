@@ -118,6 +118,7 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
         project_id: projectId,
         english: 'book',
         japanese: '本',
+        vocabulary_type: 'active',
         lexicon_entry_id: preservedLexiconEntryId,
         distractors: [],
         part_of_speech_tags: ['noun'],
@@ -134,6 +135,7 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
         project_id: projectId,
         english: 'compose',
         japanese: '作曲する',
+        vocabulary_type: null,
         lexicon_entry_id: null,
         distractors: [],
         part_of_speech_tags: null,
@@ -159,6 +161,7 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
           projectId,
           english: 'book',
           japanese: '本',
+          vocabularyType: 'active',
           lexiconEntryId: preservedLexiconEntryId,
           partOfSpeechTags: ['noun'],
         },
@@ -201,9 +204,12 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
   const payload = await response.json();
   assert.deepEqual(payload.lexiconEntries, expectedLexiconEntries);
   assert.equal(payload.words.length, 2);
+  assert.equal(payload.words[0].vocabularyType, 'active');
   assert.equal(payload.words[0].lexiconEntryId, preservedLexiconEntryId);
+  assert.equal(fakeClient.insertedRows[0]?.['vocabulary_type'], 'active');
   assert.equal(fakeClient.insertedRows[0]?.['lexicon_entry_id'], preservedLexiconEntryId);
   assert.equal(fakeClient.insertedRows[0]?.['english'], 'book');
+  assert.equal(fakeClient.insertedRows[1]?.['vocabulary_type'], null);
   assert.equal(fakeClient.insertedRows[1]?.['english'], 'compose');
   assert.deepEqual(enqueued, [
     {

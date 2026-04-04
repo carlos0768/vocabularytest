@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { Button } from '@/components/ui';
 import type { Word, WordStatus } from '@/types';
 
@@ -68,6 +69,7 @@ interface WordItemProps {
   onSave: (english: string, japanese: string) => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
+  onCycleVocabularyType?: () => void;
   onStatusChange?: () => void;
   showProjectName?: boolean;
 }
@@ -80,6 +82,7 @@ function WordItem({
   onSave,
   onDelete,
   onToggleFavorite,
+  onCycleVocabularyType,
   onStatusChange,
   showProjectName = false,
 }: WordItemProps) {
@@ -131,13 +134,30 @@ function WordItem({
         <NotionCheckbox status={word.status} onClick={onStatusChange} />
       )}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-[var(--color-foreground)] truncate">{word.english}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-semibold text-[var(--color-foreground)] truncate min-w-0">{word.english}</span>
+          {word.isFavorite && (
+            <Icon
+              name="flag"
+              size={14}
+              filled
+              className="text-[var(--color-warning)] shrink-0"
+              aria-label="苦手マーク"
+            />
+          )}
+        </div>
         <p className="text-sm text-[var(--color-muted)] truncate">{word.japanese}</p>
         {showProjectName && word.projectTitle && (
           <p className="text-xs text-[var(--color-primary)] mt-1 truncate">{word.projectTitle}</p>
         )}
       </div>
       <div className="flex items-center gap-1">
+        {onCycleVocabularyType && (
+          <VocabularyTypeButton
+            vocabularyType={word.vocabularyType}
+            onClick={onCycleVocabularyType}
+          />
+        )}
         <button
           onClick={onToggleFavorite}
           className="p-2 hover:bg-[var(--color-primary-light)] rounded-xl transition-colors"
@@ -177,6 +197,7 @@ interface WordListProps {
   onSave: (wordId: string, english: string, japanese: string) => void;
   onDelete: (wordId: string) => void;
   onToggleFavorite: (wordId: string) => void;
+  onCycleVocabularyType?: (wordId: string) => void;
   onStatusChange?: (wordId: string, newStatus: WordStatus) => void;
   onAddClick?: () => void;
   onScanClick?: () => void;
@@ -192,6 +213,7 @@ export function WordList({
   onSave,
   onDelete,
   onToggleFavorite,
+  onCycleVocabularyType,
   onStatusChange,
   onAddClick,
   onScanClick,
@@ -317,6 +339,7 @@ export function WordList({
               onSave={(english, japanese) => onSave(word.id, english, japanese)}
               onDelete={() => onDelete(word.id)}
               onToggleFavorite={() => onToggleFavorite(word.id)}
+              onCycleVocabularyType={onCycleVocabularyType ? () => onCycleVocabularyType(word.id) : undefined}
               onStatusChange={onStatusChange ? () => onStatusChange(word.id, nextStatus(word.status)) : undefined}
               showProjectName={showProjectName}
             />

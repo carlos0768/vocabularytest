@@ -11,6 +11,7 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'project_id',
     'english',
     'japanese',
+    'vocabulary_type',
     'lexicon_entry_id',
     'english_override',
     'japanese_override',

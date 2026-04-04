@@ -198,6 +198,7 @@ export class RemoteWordRepository implements WordRepository {
           projectId: word.projectId,
           english: word.english,
           japanese: word.japanese,
+          vocabularyType: word.vocabularyType ?? null,
           japaneseSource: word.japaneseSource,
           lexiconEntryId: word.lexiconEntryId,
           distractors: word.distractors,

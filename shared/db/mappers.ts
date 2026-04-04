@@ -4,6 +4,7 @@
 import type {
   Project,
   Word,
+  VocabularyType,
   LexiconEntry,
   Collection,
   CollectionProject,
@@ -107,6 +108,7 @@ export interface WordRow {
   project_id: string;
   english: string;
   japanese: string;
+  vocabulary_type?: string | null;
   lexicon_entry_id?: string | null;
   english_override?: string | null;
   japanese_override?: string | null;
@@ -177,6 +179,10 @@ function resolveWordJapanese(row: WordRow): string {
 
 function resolveWordCefrLevel(row: WordRow): string | undefined {
   return toNonEmptyString(resolveLexiconRow(row.lexicon_entries)?.cefr_level) ?? undefined;
+}
+
+function normalizeVocabularyType(value: unknown): VocabularyType | null {
+  return value === 'active' || value === 'passive' ? value : null;
 }
 
 export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
@@ -259,6 +265,7 @@ export function mapWordFromRow(row: WordRow): Word {
     projectId: row.project_id,
     english: resolveWordEnglish(row),
     japanese: resolveWordJapanese(row),
+    vocabularyType: normalizeVocabularyType(row.vocabulary_type),
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
     cefrLevel: resolveWordCefrLevel(row),
     distractors: row.distractors,
@@ -287,6 +294,7 @@ export function mapWordToInsert(word: WordInput): {
   project_id: string;
   english: string;
   japanese: string;
+  vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
   distractors: string[];
   example_sentence?: string;
@@ -308,6 +316,7 @@ export function mapWordToInsert(word: WordInput): {
     project_id: word.projectId,
     english: word.english,
     japanese: word.japanese,
+    vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
@@ -331,6 +340,7 @@ export function mapWordToInsertWithId(word: Word): {
   project_id: string;
   english: string;
   japanese: string;
+  vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
   distractors: string[];
   example_sentence?: string;
@@ -355,6 +365,7 @@ export function mapWordToInsertWithId(word: Word): {
     project_id: word.projectId,
     english: word.english,
     japanese: word.japanese,
+    vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
@@ -387,6 +398,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
     updateData.japanese = updates.japanese;
     updateData.japanese_override = updates.japanese;
   }
+  if (updates.vocabularyType !== undefined) updateData.vocabulary_type = updates.vocabularyType;
   if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.status !== undefined) updateData.status = updates.status;

@@ -7,10 +7,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
-import { ProjectSourceLabels } from '@/components/project/ProjectSourceLabels';
+import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { getProjectColor } from '@/components/project/ProjectCard';
-import { VocabularyTab } from '@/components/project/VocabularyTab';
-import { StudyModeCard, WordList } from '@/components/home';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
@@ -23,6 +21,7 @@ import { markProjectVisited } from '@/lib/project-visit';
 import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
+import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import type { LexiconEntry, Project, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
@@ -506,6 +505,25 @@ export default function ProjectDetailPage() {
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w)));
   };
 
+  const handleCycleVocabularyType = async (wordId: string) => {
+    const word = words.find((item) => item.id === wordId);
+    if (!word) return;
+
+    const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
+
+    try {
+      await activeRepository.updateWord(wordId, { vocabularyType: nextVocabularyType });
+      setWords((prev) => prev.map((item) => (
+        item.id === wordId
+          ? { ...item, vocabularyType: nextVocabularyType }
+          : item
+      )));
+    } catch (error) {
+      console.error('Failed to update vocabulary type:', error);
+      showToast({ message: '語彙モードの更新に失敗しました', type: 'error' });
+    }
+  };
+
   const handleSaveManualWord = async () => {
     if (!project) return;
 
@@ -810,31 +828,61 @@ export default function ProjectDetailPage() {
                 {/* Table header */}
                 <div className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]">
                   <span className="flex-1">単語</span>
+                  <span className="w-10 text-center">A/P</span>
                   <span className="w-10 text-center">品詞</span>
                   <span className="w-16 text-right">訳</span>
                 </div>
                 {/* Table rows */}
                 <div className="divide-y divide-[var(--color-border-light)]">
                   {words.map((word) => (
-                    <Link
+                    <div
                       key={word.id}
-                      href={`/word/${word.id}?from=${returnPath}`}
-                      className="flex items-center gap-3 px-3 py-3.5 active:bg-[var(--color-surface-secondary)] transition-colors"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => {
+                        router.push(`/word/${word.id}?from=${returnPath}`);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          router.push(`/word/${word.id}?from=${returnPath}`);
+                        }
+                      }}
+                      className="flex items-center gap-3 px-3 py-3.5 rounded-xl cursor-pointer active:bg-[var(--color-surface-secondary)] transition-colors"
                     >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
-                        {word.status === 'mastered' && (
-                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-success)] text-white text-[9px] items-center justify-center font-bold">A</span>
-                        )}
-                        {word.status === 'review' && (
-                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-warning)] text-white text-[9px] items-center justify-center font-bold">P</span>
-                        )}
+                      <div
+                        className="flex flex-1 items-center gap-3 min-w-0"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <span className="inline-flex items-center gap-1 flex-wrap">
+                            <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
+                            {word.isFavorite && (
+                              <Icon
+                                name="flag"
+                                size={14}
+                                filled
+                                className="text-[var(--color-warning)] shrink-0"
+                                aria-label="苦手マーク"
+                              />
+                            )}
+                          </span>
+                        </div>
+                        <span className="w-10 flex justify-center">
+                          <span onClick={(event) => event.preventDefault()}>
+                            <VocabularyTypeButton
+                              vocabularyType={word.vocabularyType}
+                              onClick={() => {
+                                void handleCycleVocabularyType(word.id);
+                              }}
+                            />
+                          </span>
+                        </span>
+                        <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
+                          {posLabel(word.partOfSpeechTags) || '—'}
+                        </span>
+                        <span className="w-20 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
                       </div>
-                      <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
-                        {posLabel(word.partOfSpeechTags) || '—'}
-                      </span>
-                      <span className="w-20 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </div>

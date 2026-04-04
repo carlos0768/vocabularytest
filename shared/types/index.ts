@@ -4,6 +4,7 @@
 // ============ Core Domain Types ============
 
 export type WordStatus = 'new' | 'review' | 'mastered';
+export type VocabularyType = 'active' | 'passive';
 export type ProjectShareScope = 'private' | 'public';
 
 export interface RelatedWord {
@@ -40,6 +41,7 @@ export interface Word {
   projectId: string;
   english: string;
   japanese: string;
+  vocabularyType?: VocabularyType | null;
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
   cefrLevel?: string;

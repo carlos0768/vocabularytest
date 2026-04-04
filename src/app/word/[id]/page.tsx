@@ -3,8 +3,10 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui';
+import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import type { Word, SubscriptionStatus } from '@/types';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -67,6 +69,18 @@ export default function WordDetailPage() {
     }
   }, [word, repository]);
 
+  const handleCycleVocabularyType = useCallback(async () => {
+    if (!word) return;
+    const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
+
+    try {
+      await repository.updateWord(word.id, { vocabularyType: nextVocabularyType });
+      setWord((prev) => prev ? { ...prev, vocabularyType: nextVocabularyType } : prev);
+    } catch (err) {
+      console.error('Failed to update vocabulary type:', err);
+    }
+  }, [word, repository]);
+
   const handleSpeak = useCallback(() => {
     if (!word) return;
     const utterance = new SpeechSynthesisUtterance(word.english);
@@ -76,6 +90,7 @@ export default function WordDetailPage() {
   }, [word]);
 
   const statusLabel = word?.status ? (STATUS_LABELS[word.status] ?? '未学習') : '未学習';
+  const vocabularyTypeLabel = getVocabularyTypeLabel(word?.vocabularyType);
   const posDisplay = word?.partOfSpeechTags?.length
     ? word.partOfSpeechTags.map(p => POS_LABELS[p] ?? p).join('・')
     : null;
@@ -147,6 +162,14 @@ export default function WordDetailPage() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <VocabularyTypeButton
+                    vocabularyType={word.vocabularyType}
+                    onClick={handleCycleVocabularyType}
+                    size="md"
+                  />
+                  <span className="text-sm text-[var(--color-muted)]">{vocabularyTypeLabel}</span>
+                </div>
                 <button onClick={handleToggleFavorite}>
                   <Icon
                     name="bookmark"

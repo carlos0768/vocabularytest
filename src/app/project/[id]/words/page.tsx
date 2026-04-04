@@ -12,6 +12,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function WordListPage() {
@@ -129,6 +130,27 @@ export default function WordListPage() {
     }
   };
 
+  const handleCycleVocabularyType = async (wordId: string) => {
+    const word = words.find((item) => item.id === wordId);
+    if (!word) return;
+
+    const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
+
+    try {
+      await repository.updateWord(wordId, { vocabularyType: nextVocabularyType });
+      setWords((prev) =>
+        prev.map((item) => (
+          item.id === wordId
+            ? { ...item, vocabularyType: nextVocabularyType }
+            : item
+        ))
+      );
+    } catch (error) {
+      console.error('Failed to update vocabulary type:', error);
+      showToast({ message: '語彙モードの更新に失敗しました', type: 'error' });
+    }
+  };
+
   const handleStatusChange = async (wordId: string, newStatus: import('@/types').WordStatus) => {
     setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: newStatus } : w));
     try {
@@ -225,6 +247,7 @@ export default function WordListPage() {
           }}
           onDelete={(wordId) => handleDeleteWord(wordId)}
           onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
+          onCycleVocabularyType={handleCycleVocabularyType}
           onStatusChange={handleStatusChange}
           onAddClick={() => setShowManualWordModal(true)}
           onScanClick={() => router.push(`/project/${projectId}`)}

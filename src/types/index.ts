@@ -4,6 +4,7 @@
 // ============ Shared Types (from /shared/types) ============
 
 export type {
+  VocabularyType,
   WordStatus,
   RelatedWord,
   UsagePattern,
