@@ -81,7 +81,6 @@ export default function QuizPage() {
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
-  const [quizMode, setQuizMode] = useState<'multiple-choice' | 'type-in'>('multiple-choice');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
 
@@ -625,12 +624,18 @@ export default function QuizPage() {
     }
   };
 
+  // Derived from the word's vocabularyType — mirrors iOS isActiveVocab
+  const isActiveVocab = currentQuestion?.word.vocabularyType === 'active';
+
   const handleTypeInSubmit = async () => {
     if (isRevealed || !currentQuestion) return;
     
-    const correctAnswer = quizDirection === 'en-to-ja'
-      ? currentQuestion.word.japanese
-      : currentQuestion.word.english;
+    // Active vocab: show Japanese → type English; Passive: follow quizDirection
+    const correctAnswer = isActiveVocab
+      ? currentQuestion.word.english
+      : quizDirection === 'en-to-ja'
+        ? currentQuestion.word.japanese
+        : currentQuestion.word.english;
     
     const normalizedInput = typeInAnswer.trim().toLowerCase();
     const normalizedCorrect = correctAnswer.trim().toLowerCase();
@@ -1036,18 +1041,25 @@ export default function QuizPage() {
       <main className="flex-1 flex flex-col min-h-0 px-6 overflow-y-auto">
         {/* Mode badges - iOS style */}
         <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
-          <button
-            onClick={() => setQuizMode(quizMode === 'multiple-choice' ? 'type-in' : 'multiple-choice')}
-            className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]"
+          <span
+            className={`px-3 py-1 text-xs font-medium rounded-full ${
+              isActiveVocab
+                ? 'bg-[var(--color-accent-blue-light)] text-[var(--color-accent-blue)]'
+                : 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
+            }`}
           >
-            Active — {quizMode === 'multiple-choice' ? '4択' : 'タイプ入力'}
-          </button>
+            {isActiveVocab ? 'Active — タイプ入力' : 'Passive — 4択'}
+          </span>
         </div>
 
         {/* Question word - iOS style */}
         <div className="flex flex-col items-center justify-center py-6 flex-shrink-0 animate-fade-in-up">
           <h1 className="text-4xl font-black text-[var(--color-foreground)] text-center mb-3 tracking-tight">
-            {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
+            {isActiveVocab
+              ? currentQuestion?.word.japanese
+              : quizDirection === 'en-to-ja'
+                ? currentQuestion?.word.english
+                : currentQuestion?.word.japanese}
           </h1>
 
           <button
@@ -1066,8 +1078,8 @@ export default function QuizPage() {
           </button>
         </div>
 
-        {/* Quiz content - conditional on mode */}
-        {quizMode === 'multiple-choice' ? (
+        {/* Quiz content - conditional on active/passive vocabularyType */}
+        {!isActiveVocab ? (
           <div className="space-y-2.5 max-w-lg mx-auto w-full flex-shrink-0">
             {currentQuestion?.options.map((option, index) => (
               <QuizOption
@@ -1086,9 +1098,12 @@ export default function QuizPage() {
           /* Type-in mode - iOS style */
           <div className="max-w-lg mx-auto w-full flex-shrink-0 space-y-4">
             {(() => {
-              const answer = quizDirection === 'en-to-ja'
-                ? currentQuestion?.word.japanese ?? ''
-                : currentQuestion?.word.english ?? '';
+              // Active vocab: always type English answer; Passive: follow quizDirection
+              const answer = isActiveVocab
+                ? currentQuestion?.word.english ?? ''
+                : quizDirection === 'en-to-ja'
+                  ? currentQuestion?.word.japanese ?? ''
+                  : currentQuestion?.word.english ?? '';
               const firstChar = answer.charAt(0);
               const hintUnderscores = firstChar + '\u2009' + Array.from({ length: answer.length - 1 }, () => '_').join('\u2009');
               return (
@@ -1131,7 +1146,11 @@ export default function QuizPage() {
               <div className="text-center">
                 <p className="text-sm text-[var(--color-muted)]">正解:</p>
                 <p className="text-lg font-bold text-[var(--color-foreground)]">
-                  {quizDirection === 'en-to-ja' ? currentQuestion.word.japanese : currentQuestion.word.english}
+                  {isActiveVocab
+                    ? currentQuestion.word.english
+                    : quizDirection === 'en-to-ja'
+                      ? currentQuestion.word.japanese
+                      : currentQuestion.word.english}
                 </p>
               </div>
             )}
