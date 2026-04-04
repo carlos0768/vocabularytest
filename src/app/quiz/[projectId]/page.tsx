@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
-import { QuizOption } from '@/components/quiz';
+import { QuizOption, TypeInQuizField } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
@@ -1150,42 +1150,16 @@ export default function QuizPage() {
         ) : (
           /* Type-in mode - iOS style */
           <div className="max-w-lg mx-auto w-full flex-shrink-0 space-y-4">
-            {(() => {
-              // Active vocab: always type English answer; Passive: follow quizDirection
-              const answer = isActiveVocab
-                ? currentQuestion?.word.english ?? ''
-                : quizDirection === 'en-to-ja'
-                  ? currentQuestion?.word.japanese ?? ''
-                  : currentQuestion?.word.english ?? '';
-              const firstChar = answer.charAt(0);
-              const hintUnderscores = firstChar + '\u2009' + Array.from({ length: answer.length - 1 }, () => '_').join('\u2009');
-              return (
-                <div className="relative">
-                  {/* Hint layer — first letter + underscores for remaining chars */}
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-5 py-4 text-lg font-medium tracking-[0.15em] text-[var(--color-muted)]/40"
-                  >
-                    {hintUnderscores}
-                  </div>
-                  <input
-                    type="text"
-                    value={typeInAnswer}
-                    onChange={(e) => setTypeInAnswer(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !isRevealed) handleTypeInSubmit(); }}
-                    disabled={isRevealed}
-                    autoFocus
-                    className={`w-full px-5 py-4 rounded-xl border-2 text-lg font-medium text-center outline-none transition-colors bg-transparent relative z-10 ${
-                      typeInResult === 'correct'
-                        ? 'border-[var(--color-success)] bg-[var(--color-success-light)] text-[var(--color-success)]'
-                        : typeInResult === 'wrong'
-                        ? 'border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)]'
-                        : 'border-[var(--color-border)] text-[var(--color-foreground)] focus:border-[var(--color-foreground)]'
-                    }`}
-                  />
-                </div>
-              );
-            })()}
+            <TypeInQuizField
+              answer={currentQuestion?.word.english ?? ''}
+              value={typeInAnswer}
+              onChange={setTypeInAnswer}
+              onSubmit={() => {
+                if (!isRevealed) handleTypeInSubmit();
+              }}
+              disabled={isRevealed}
+              result={typeInResult}
+            />
             {!isRevealed && (
               <button
                 onClick={handleTypeInSubmit}
