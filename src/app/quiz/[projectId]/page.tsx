@@ -1016,18 +1016,38 @@ export default function QuizPage() {
             </p>
 
             <div className="space-y-3">
-              <Button onClick={handleRestart} className="w-full" size="lg">
-                <Icon name="refresh" size={20} className="mr-2" />
-                もう一度
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={backToProject}
-                className="w-full"
-                size="lg"
-              >
-                単語一覧に戻る
-              </Button>
+              {reviewMode ? (
+                <>
+                  <Button onClick={backToProject} className="w-full" size="lg">
+                    <Icon name="arrow_forward" size={20} className="mr-2" />
+                    次へ進む
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleRestart}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Icon name="refresh" size={20} className="mr-2" />
+                    もう一度
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button onClick={handleRestart} className="w-full" size="lg">
+                    <Icon name="refresh" size={20} className="mr-2" />
+                    もう一度
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={backToProject}
+                    className="w-full"
+                    size="lg"
+                  >
+                    単語一覧に戻る
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </main>
