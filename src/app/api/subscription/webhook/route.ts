@@ -369,7 +369,11 @@ async function handleSubscriptionUpdated(
   if (!subscriptionRow) return;
 
   const nowIso = new Date().toISOString();
-  const periodEndIso = new Date(subscription.current_period_end * 1000).toISOString();
+  const firstItem = subscription.items?.data?.[0];
+  const periodEndTs = firstItem?.current_period_end;
+  const periodEndIso = typeof periodEndTs === 'number' && periodEndTs > 0
+    ? new Date(periodEndTs * 1000).toISOString()
+    : null;
 
   if (subscription.cancel_at_period_end) {
     const { error } = await supabaseAdmin
@@ -377,13 +381,16 @@ async function handleSubscriptionUpdated(
       .update({
         cancel_at_period_end: true,
         cancel_requested_at: nowIso,
-        current_period_end: periodEndIso,
+        ...(periodEndIso && { current_period_end: periodEndIso }),
         updated_at: nowIso,
       })
       .eq('stripe_subscription_id', stripeSubscriptionId);
     if (error) throw error;
   } else if (subscription.status === 'active') {
-    const periodStartIso = new Date(subscription.current_period_start * 1000).toISOString();
+    const periodStartTs = firstItem?.current_period_start;
+    const periodStartIso = typeof periodStartTs === 'number' && periodStartTs > 0
+      ? new Date(periodStartTs * 1000).toISOString()
+      : nowIso;
     const { error } = await supabaseAdmin
       .from('subscriptions')
       .update({

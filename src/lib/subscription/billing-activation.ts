@@ -234,8 +234,9 @@ function computePeriodDates(stripeSubscription: Stripe.Subscription | null): {
   periodEndIso: string;
 } {
   if (stripeSubscription) {
-    const startTs = stripeSubscription.current_period_start;
-    const endTs = stripeSubscription.current_period_end;
+    const firstItem = stripeSubscription.items?.data?.[0];
+    const startTs = firstItem?.current_period_start;
+    const endTs = firstItem?.current_period_end;
     if (typeof startTs === 'number' && startTs > 0 && typeof endTs === 'number' && endTs > 0) {
       return {
         periodStartIso: new Date(startTs * 1000).toISOString(),

@@ -85,8 +85,9 @@ export async function POST() {
     const now = new Date();
     const nowIso = now.toISOString();
 
-    const stripePeriodEnd = stripeResult.current_period_end
-      ? new Date(stripeResult.current_period_end * 1000).toISOString()
+    const itemPeriodEnd = stripeResult.items?.data?.[0]?.current_period_end;
+    const stripePeriodEnd = typeof itemPeriodEnd === 'number' && itemPeriodEnd > 0
+      ? new Date(itemPeriodEnd * 1000).toISOString()
       : null;
     const effectivePeriodEnd = stripePeriodEnd ?? subscription.current_period_end ?? null;
 
