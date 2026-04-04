@@ -274,33 +274,33 @@ struct QuizView: View {
                     .padding(.vertical, 16)
                 }
 
-                // Next button (fixed at bottom)
                 if viewModel.isRevealed {
                     Button {
                         viewModel.moveNext(projectId: project.id, using: appState)
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
                             Text("次へ")
                                 .font(.system(size: 19, weight: .semibold, design: .serif))
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 19, weight: .semibold, design: .serif))
                         }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 19)
+                        .padding(.vertical, 14)
+                        .background(
+                            MerkenTheme.accentBlue,
+                            in: .rect(cornerRadius: 20)
+                        )
+                        .overlay(alignment: .bottom) {
+                            UnevenRoundedRectangle(bottomLeadingRadius: 20, bottomTrailingRadius: 20)
+                                .fill(MerkenTheme.accentBlueStrong)
+                                .frame(height: 3)
+                        }
+                        .clipShape(.rect(cornerRadius: 20))
+                        .contentShape(.rect(cornerRadius: 20))
                     }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 19)
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        MerkenTheme.accentBlue,
-                        in: .rect(cornerRadius: 20)
-                    )
-                    .overlay(alignment: .bottom) {
-                        UnevenRoundedRectangle(bottomLeadingRadius: 20, bottomTrailingRadius: 20)
-                            .fill(MerkenTheme.accentBlueStrong)
-                            .frame(height: 3)
-                    }
-                    .clipShape(.rect(cornerRadius: 20))
-                    .contentShape(.rect(cornerRadius: 20))
+                    .buttonStyle(.plain)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                     .accessibilityIdentifier("nextQuestionAction")
