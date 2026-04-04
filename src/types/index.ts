@@ -49,8 +49,8 @@ export type {
 
 // ============ Web-Specific Types ============
 
-// KOMOJU Payment types (Web only - payment handled on web)
-export interface KomojuSubscriptionPlan {
+// Stripe Payment types (Web only - payment handled on web)
+export interface StripeSubscriptionPlan {
   id: string;
   name: string;
   price: number;
@@ -58,7 +58,7 @@ export interface KomojuSubscriptionPlan {
   interval: 'month' | 'year';
 }
 
-export interface KomojuPaymentSession {
+export interface StripeCheckoutSession {
   sessionId: string;
-  paymentUrl: string;
+  checkoutUrl: string;
 }

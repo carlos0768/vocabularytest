@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { KOMOJU_CONFIG } from '@/lib/komoju/config';
+import { STRIPE_CONFIG } from '@/lib/stripe/config';
 
 export default function SubscriptionPage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function SubscriptionPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const plan = KOMOJU_CONFIG.plans.pro;
+  const plan = STRIPE_CONFIG.plans.pro;
 
   const handleSubscribe = async () => {
     // Redirect to login if not authenticated
@@ -37,8 +37,7 @@ export default function SubscriptionPage() {
         throw new Error(data.error);
       }
 
-      // Redirect to KOMOJU payment page
-      window.location.href = data.paymentUrl;
+      window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : '決済の開始に失敗しました');
       setProcessing(false);
@@ -91,7 +90,7 @@ export default function SubscriptionPage() {
           <ul className="space-y-2 text-sm text-[var(--color-muted)] mb-3">
             <li className="flex items-center gap-2">
               <Icon name="check" size={16} className="text-[var(--color-muted)]" />
-              1日{KOMOJU_CONFIG.freePlan.dailyScanLimit}回までスキャン
+              1日{STRIPE_CONFIG.freePlan.dailyScanLimit}回までスキャン
             </li>
             <li className="flex items-center gap-2">
               <Icon name="check" size={16} className="text-[var(--color-muted)]" />

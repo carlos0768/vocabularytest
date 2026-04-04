@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { cancelSubscription } from '@/lib/komoju';
+import { cancelSubscriptionAtPeriodEnd } from '@/lib/stripe';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 
 function getSupabaseAdmin() {
@@ -15,20 +15,10 @@ function getSupabaseAdmin() {
   return createSupabaseClient(url, key);
 }
 
-function toIsoOrNull(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-}
-
-// POST /api/subscription/cancel
-// Schedules cancellation (period-end default) for the user's active subscription
 export async function POST() {
   try {
     const supabase = await createClient();
 
-    // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
@@ -38,10 +28,9 @@ export async function POST() {
       );
     }
 
-    // Get user's subscription
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
-      .select('status, plan, pro_source, test_pro_expires_at, current_period_end, komoju_subscription_id, cancel_at_period_end')
+      .select('status, plan, pro_source, test_pro_expires_at, current_period_end, stripe_subscription_id, cancel_at_period_end')
       .eq('user_id', user.id)
       .single();
 
@@ -74,10 +63,10 @@ export async function POST() {
       );
     }
 
-    const komojuSubscriptionId = subscription.komoju_subscription_id;
-    if (!komojuSubscriptionId) {
+    const stripeSubscriptionId = subscription.stripe_subscription_id;
+    if (!stripeSubscriptionId) {
       return NextResponse.json(
-        { success: false, error: 'KOMOJUサブスクリプションIDが見つかりません' },
+        { success: false, error: 'StripeサブスクリプションIDが見つかりません' },
         { status: 409 }
       );
     }
@@ -91,37 +80,26 @@ export async function POST() {
       });
     }
 
-    const komojuResult = await cancelSubscription(komojuSubscriptionId);
+    // Stripe cancel_at_period_end keeps the subscription active until period end
+    const stripeResult = await cancelSubscriptionAtPeriodEnd(stripeSubscriptionId);
     const now = new Date();
     const nowIso = now.toISOString();
 
-    const komojuPeriodEnd = toIsoOrNull(komojuResult.current_period_end);
-    const existingPeriodEnd = toIsoOrNull(subscription.current_period_end);
-    const effectivePeriodEnd = komojuPeriodEnd ?? existingPeriodEnd;
-    const keepUntilPeriodEnd = Boolean(
-      effectivePeriodEnd && new Date(effectivePeriodEnd).getTime() > now.getTime()
-    );
-
-    const updatePayload = keepUntilPeriodEnd
-      ? {
-          status: 'active',
-          cancel_at_period_end: true,
-          cancel_requested_at: nowIso,
-          current_period_end: effectivePeriodEnd,
-          updated_at: nowIso,
-        }
-      : {
-          status: 'cancelled',
-          cancel_at_period_end: false,
-          cancel_requested_at: null,
-          current_period_end: effectivePeriodEnd ?? nowIso,
-          updated_at: nowIso,
-        };
+    const stripePeriodEnd = stripeResult.current_period_end
+      ? new Date(stripeResult.current_period_end * 1000).toISOString()
+      : null;
+    const effectivePeriodEnd = stripePeriodEnd ?? subscription.current_period_end ?? null;
 
     const supabaseAdmin = getSupabaseAdmin();
     const { error: updateError } = await supabaseAdmin
       .from('subscriptions')
-      .update(updatePayload)
+      .update({
+        status: 'active',
+        cancel_at_period_end: true,
+        cancel_requested_at: nowIso,
+        current_period_end: effectivePeriodEnd,
+        updated_at: nowIso,
+      })
       .eq('user_id', user.id);
 
     if (updateError) {
@@ -131,11 +109,9 @@ export async function POST() {
     return NextResponse.json(
       {
         success: true,
-        cancellationType: keepUntilPeriodEnd ? 'period_end' : 'immediate',
-        currentPeriodEnd: effectivePeriodEnd ?? null,
-        message: keepUntilPeriodEnd
-          ? '期間末解約を受け付けました。期間終了日までPro機能を利用できます。'
-          : '解約を受け付けました。',
+        cancellationType: 'period_end',
+        currentPeriodEnd: effectivePeriodEnd,
+        message: '期間末解約を受け付けました。期間終了日までPro機能を利用できます。',
       },
       { status: 200 }
     );

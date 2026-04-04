@@ -45,7 +45,7 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 - **Prerequisites**: None (tests mock external dependencies)
 - **Danger level**: Safe -- no external API calls, no database writes
 - **Test files** (fixed list in `package.json`):
-  - `src/lib/komoju/client.test.ts`
+  - `src/lib/stripe/client.test.ts`
   - `src/lib/appstore/config.test.ts`
   - `src/lib/appstore/verify.test.ts`
   - `src/lib/subscription/status.test.ts`
@@ -138,13 +138,13 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 
 ## QA / E2E
 
-### `npm run qa:komoju:webhook-e2e`
+### `npm run qa:stripe:webhook-e2e`
 
-- **What it does**: Runs end-to-end test for the KOMOJU webhook flow
-- **Command**: `tsx scripts/qa-komoju-webhook-e2e.ts`
-- **Prerequisites**: Valid `KOMOJU_SECRET_KEY` and `KOMOJU_WEBHOOK_SECRET` environment variables
-- **Danger level**: **Use with caution** -- this hits the real KOMOJU API. Use test/sandbox API keys only. Never run with production keys unless intentionally testing production.
-- **Notes**: This creates real KOMOJU sessions and triggers webhook events.
+- **What it does**: Runs end-to-end test for the Stripe webhook flow
+- **Command**: `tsx scripts/qa-stripe-webhook-e2e.ts`
+- **Prerequisites**: Valid `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` environment variables
+- **Danger level**: **Use with caution** -- this hits the real Stripe API. Use test/sandbox API keys only. Never run with production keys unless intentionally testing production.
+- **Notes**: This creates real Stripe Checkout sessions and triggers webhook events.
 
 ---
 

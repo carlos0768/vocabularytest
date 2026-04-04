@@ -24,7 +24,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | AI - Image OCR | Google Gemini 2.5 Flash | `@google/genai` ^1.38.0 | `src/lib/ai/config.ts:L17` |
 | AI - Quiz Gen | OpenAI GPT-4o-mini | `openai` ^6.16.0 | `src/lib/ai/config.ts:L18` |
 | AI - Embeddings | OpenAI text-embedding-3-small | `openai` ^6.16.0 | `src/lib/embeddings/` |
-| Payment (Web) | KOMOJU | Custom REST client | `src/lib/komoju/` |
+| Payment (Web) | Stripe | `stripe` ^17 | `src/lib/stripe/` |
 | Payment (iOS) | Apple IAP | `@apple/app-store-server-library` ^2.0.0 | `src/app/api/subscription/appstore/` |
 | Animations | Framer Motion | ^12.29.0 | — |
 | Validation | Zod | ^4.3.6 | `src/lib/schemas/` |
@@ -43,7 +43,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/app/` | Next.js App Router pages and API routes |
 | `src/app/api/extract/` | Image OCR and word extraction (core scan flow) |
 | `src/app/api/scan-jobs/` | Async scan pipeline for iOS (create, process, list) |
-| `src/app/api/subscription/` | KOMOJU + AppStore subscription management + webhooks |
+| `src/app/api/subscription/` | Stripe + AppStore subscription management + webhooks |
 | `src/app/api/auth/` | OTP-based auth flow (send-otp, verify-otp, signup-verify, reset-password) |
 | `src/app/api/generate-quiz-distractors/` | GPT-4o-mini distractor + example sentence generation |
 | `src/app/api/sentence-quiz/` | Sentence fill-in-blank and word-order quiz generation |
@@ -66,7 +66,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/lib/ai/` | AI integration: prompts, config, provider abstraction |
 | `src/lib/ai/providers/` | Provider implementations (Gemini, OpenAI, CloudRun) |
 | `src/lib/db/` | Repository layer: local, remote, hybrid, readonly |
-| `src/lib/komoju/` | KOMOJU payment client and config (server-side only) |
+| `src/lib/stripe/` | Stripe payment client and config (server-side only) |
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, route handler, middleware |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |
 | `src/lib/subscription/` | Subscription business logic: status computation, billing activation, reconciliation |
@@ -223,13 +223,13 @@ Selection logic in `getRepository(subscriptionStatus, wasPro)`:
 
 ## Payment Architecture
 
-### KOMOJU (Web)
+### Stripe (Web)
 
 ```
 User -> /subscription -> POST /api/subscription/create
-  -> KOMOJU hosted payment page (PayPay, credit card)
-  -> KOMOJU webhook -> POST /api/subscription/webhook
-  -> HMAC verification -> claim_webhook_event RPC (idempotency)
+  -> Stripe Checkout (credit card)
+  -> Stripe webhook -> POST /api/subscription/webhook
+  -> Stripe signature verification -> claim_webhook_event RPC (idempotency)
   -> activateBillingFromSession() -> update subscriptions table
 ```
 
@@ -247,7 +247,7 @@ iOS purchase -> app sends transactionId
 
 ## Subscription Tiers
 
-| Feature | Free | Pro (500 JPY/month) |
+| Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
 | Scans per day | 3 (server-enforced) | Unlimited |
 | Words total | 100 (client-enforced only) | Unlimited |
@@ -267,7 +267,7 @@ iOS purchase -> app sends transactionId
 | Supabase (admin) | `SUPABASE_SERVICE_ROLE_KEY` | Webhooks and admin routes fail |
 | Google Gemini | `GOOGLE_AI_API_KEY` | Extraction fails (unless Cloud Run configured) |
 | OpenAI | `OPENAI_API_KEY` | Quiz generation, embeddings, sentence quiz fail |
-| KOMOJU | `KOMOJU_SECRET_KEY`, `KOMOJU_WEBHOOK_SECRET` | Payment flow fails |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Payment flow fails |
 | Apple IAP | 7 env vars (see `docs/_discovery_notes.md` section 11) | iOS IAP verification fails |
 | Resend | `RESEND_API_KEY` | OTP email signup fails |
 | Web Push | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications fail |

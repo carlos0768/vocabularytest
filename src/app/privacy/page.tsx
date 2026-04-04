@@ -33,7 +33,7 @@ export default function PrivacyPage() {
               <li><span className="font-medium">アカウント情報</span>: メールアドレス、パスワード（暗号化済み）</li>
               <li><span className="font-medium">学習データ</span>: 作成した単語帳、クイズの回答履歴、学習進捗</li>
               <li><span className="font-medium">アップロード画像</span>: 単語抽出のために送信された画像（処理後、サーバーには保存しません）</li>
-              <li><span className="font-medium">決済情報</span>: 有料プラン利用時の決済情報（KOMOJUが処理し、本サービスではカード情報等を保持しません）</li>
+              <li><span className="font-medium">決済情報</span>: 有料プラン利用時の決済情報（Stripeが処理し、本サービスではカード情報等を保持しません）</li>
             </ul>
           </section>
 
@@ -55,7 +55,7 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-2">
               <li><span className="font-medium">Supabase</span>: 認証・データベース</li>
               <li><span className="font-medium">OpenAI</span>: 画像解析・単語抽出</li>
-              <li><span className="font-medium">KOMOJU</span>: 決済処理</li>
+              <li><span className="font-medium">Stripe</span>: 決済処理</li>
               <li><span className="font-medium">Vercel</span>: ホスティング</li>
             </ul>
             <p>各サービスのプライバシーポリシーについては、各社のサイトをご確認ください。</p>

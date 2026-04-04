@@ -43,13 +43,13 @@ Source: `src/lib/db/index.ts` lines 25-38.
 
 Source: `src/lib/db/dexie.ts` lines 69-72.
 
-### INV-05: KOMOJU webhook signature verification
+### INV-05: Stripe webhook signature verification
 
-The webhook handler at `src/app/api/subscription/webhook/route.ts` verifies the HMAC-SHA256 signature using `verifyWebhookSignature()` from `src/lib/komoju/client.ts` (timing-safe comparison via `crypto.timingSafeEqual`) **before** any processing occurs.
+The webhook handler at `src/app/api/subscription/webhook/route.ts` verifies the Stripe webhook signature using `stripe.webhooks.constructEvent()` **before** any processing occurs.
 
 **Consequence of violation**: Attackers could forge webhook events to activate Pro subscriptions without payment.
 
-Source: `src/app/api/subscription/webhook/route.ts` lines 56-78, `src/lib/komoju/client.ts` line 4.
+Source: `src/app/api/subscription/webhook/route.ts`, `src/lib/stripe/client.ts`.
 
 ### INV-06: RLS on core tables
 
@@ -123,7 +123,7 @@ User-facing error messages are in Japanese. Developer/log messages are in Englis
 
 ### CAND-03: Webhook idempotency via `claim_webhook_event`
 
-The KOMOJU webhook uses `claim_webhook_event` Supabase RPC to prevent double-processing. The `webhook_events` table stores processed event hashes.
+The Stripe webhook uses `claim_webhook_event` Supabase RPC to prevent double-processing. The `webhook_events` table stores processed event hashes.
 
 ### CAND-04: `@/` path alias resolves to `src/`
 

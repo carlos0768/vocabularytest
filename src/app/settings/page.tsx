@@ -9,7 +9,7 @@ import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/components/theme-provider';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { KOMOJU_CONFIG } from '@/lib/komoju/config';
+import { STRIPE_CONFIG } from '@/lib/stripe/config';
 import { getSubscriptionDisplayDate } from '@/lib/subscription/display';
 import { FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium text-[var(--color-foreground)]">Merken Pro</p>
                     {isPro && <span className="chip chip-pro text-[10px] py-0.5 px-2"><Icon name="add" size={10} /> Pro</span>}
                   </div>
-                  <p className="text-xs text-[var(--color-muted)]">¥{KOMOJU_CONFIG.plans.pro.price.toLocaleString()}/月</p>
+                  <p className="text-xs text-[var(--color-muted)]">¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}/月</p>
                 </div>
               </div>
               {isPro && (
@@ -260,7 +260,7 @@ export default function SettingsPage() {
               )}
               {!isPro && (
                 <Link href="/subscription" className="mt-3 block w-full text-center py-2.5 rounded-xl bg-[var(--color-foreground)] text-white text-sm font-semibold">
-                  ¥{KOMOJU_CONFIG.plans.pro.price.toLocaleString()}/月で始める
+                  ¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}/月で始める
                 </Link>
               )}
             </div>

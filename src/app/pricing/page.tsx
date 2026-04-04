@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { MarketingShell, StatusAwareCta } from '@/components/marketing';
 import { Icon } from '@/components/ui/Icon';
-import { KOMOJU_CONFIG } from '@/lib/komoju/config';
+import { STRIPE_CONFIG } from '@/lib/stripe/config';
 import { pricingComparisonRows, pricingFaqs } from '@/lib/marketing/content';
 
 export const metadata: Metadata = {
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export default function PricingPage() {
-  const proPlan = KOMOJU_CONFIG.plans.pro;
+  const proPlan = STRIPE_CONFIG.plans.pro;
 
   return (
     <MarketingShell active="pricing">
@@ -63,7 +63,7 @@ export default function PricingPage() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                1日{KOMOJU_CONFIG.freePlan.dailyScanLimit}回までスキャン
+                1日{STRIPE_CONFIG.freePlan.dailyScanLimit}回までスキャン
               </li>
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />
@@ -71,7 +71,7 @@ export default function PricingPage() {
               </li>
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                単語数上限 {KOMOJU_CONFIG.freePlan.wordLimit}語
+                単語数上限 {STRIPE_CONFIG.freePlan.wordLimit}語
               </li>
             </ul>
             <div className="mt-6">

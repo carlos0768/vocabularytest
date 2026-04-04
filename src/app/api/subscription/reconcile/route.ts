@@ -4,12 +4,11 @@ import { createClient } from '@/lib/supabase/server';
 import {
   activateBillingFromSession,
   BILLING_ACTIVATION_ERRORS,
+  extractIdsFromCheckoutSession,
 } from '@/lib/subscription/billing-activation';
-import { getSession, KOMOJU_CONFIG } from '@/lib/komoju';
+import { getCheckoutSession, STRIPE_CONFIG } from '@/lib/stripe';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription } from '@/lib/subscription/status';
-import { classifyPaymentStatus } from '@/lib/subscription/reconcile-status';
-
-type JsonRecord = Record<string, unknown>;
+import type Stripe from 'stripe';
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,75 +21,9 @@ function getSupabaseAdmin() {
   return createSupabaseClient(url, key);
 }
 
-function asRecord(value: unknown): JsonRecord | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as JsonRecord;
-}
-
-function getString(record: JsonRecord | null, key: string): string | null {
-  if (!record) return null;
-  const value = record[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function extractCustomerIdFromSession(session: Awaited<ReturnType<typeof getSession>>): string | null {
-  if (typeof session.customer_id === 'string' && session.customer_id) {
-    return session.customer_id;
-  }
-
-  if (typeof session.customer === 'string' && session.customer) {
-    return session.customer;
-  }
-
-  if (session.customer && typeof session.customer === 'object') {
-    const id = typeof session.customer.id === 'string' ? session.customer.id : null;
-    if (id) {
-      return id;
-    }
-  }
-
-  if (session.payment?.customer && typeof session.payment.customer === 'string') {
-    return session.payment.customer;
-  }
-
-  if (session.payment?.customer_id && typeof session.payment.customer_id === 'string') {
-    return session.payment.customer_id;
-  }
-
-  return null;
-}
-
-function extractFailureCodeFromSession(session: Awaited<ReturnType<typeof getSession>>): string | null {
-  const payment = asRecord(session.payment ?? null);
-  const sessionRecord = asRecord(session);
-  return (
-    getString(payment, 'failure_code') ??
-    getString(payment, 'error_code') ??
-    getString(sessionRecord, 'failure_code') ??
-    getString(sessionRecord, 'error_code')
-  );
-}
-
-function extractFailureMessageFromSession(
-  session: Awaited<ReturnType<typeof getSession>>
-): string | null {
-  const payment = asRecord(session.payment ?? null);
-  const sessionRecord = asRecord(session);
-  return (
-    getString(payment, 'failure_message') ??
-    getString(payment, 'error_message') ??
-    getString(sessionRecord, 'failure_message') ??
-    getString(sessionRecord, 'error_message') ??
-    getString(sessionRecord, 'message')
-  );
-}
-
 async function markSessionFailed(
   supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
   sessionId: string,
-  paymentStatus: string | null,
   failureCode: string | null,
   failureMessage: string | null
 ): Promise<void> {
@@ -100,7 +33,7 @@ async function markSessionFailed(
       status: 'failed',
       failure_code: failureCode,
       failure_message: failureMessage,
-      last_event_type: paymentStatus ? `reconcile:${paymentStatus}` : 'reconcile:failed',
+      last_event_type: 'reconcile:failed',
       processing_started_at: null,
       updated_at: new Date().toISOString(),
     })
@@ -186,7 +119,7 @@ export async function GET(request: NextRequest) {
     const { data: sessionRow, error: sessionRowError } = await supabaseAdmin
       .from('subscription_sessions')
       .select(
-        'id, user_id, used_at, komoju_customer_id, komoju_subscription_id, plan_id, status, failure_code, failure_message, last_event_type'
+        'id, user_id, used_at, stripe_customer_id, stripe_subscription_id, plan_id, status, failure_code, failure_message, last_event_type'
       )
       .eq('id', sessionId)
       .maybeSingle();
@@ -239,11 +172,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let komojuSession: Awaited<ReturnType<typeof getSession>>;
+    // Retrieve the Stripe Checkout Session to verify payment status
+    let checkoutSession: Stripe.Checkout.Session;
     try {
-      komojuSession = await getSession(sessionId);
+      checkoutSession = await getCheckoutSession(sessionId);
     } catch (error) {
-      console.error('[SubscriptionReconcile] KOMOJU session fetch failed:', {
+      console.error('[SubscriptionReconcile] Stripe session fetch failed:', {
         sessionId,
         userId: user.id,
         error: error instanceof Error ? error.message : String(error),
@@ -251,42 +185,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         state: 'pending',
-        reason: 'komoju_session_fetch_failed',
+        reason: 'stripe_session_fetch_failed',
         paymentStatus: null,
       });
     }
 
-    if (komojuSession.amount !== KOMOJU_CONFIG.plans.pro.price) {
-      return NextResponse.json(
-        {
-          success: false,
-          state: 'failed',
-          reason: 'amount_mismatch',
-          error: 'amount mismatch',
-        },
-        { status: 409 }
-      );
-    }
-
-    if ((komojuSession.currency || '').toUpperCase() !== KOMOJU_CONFIG.plans.pro.currency.toUpperCase()) {
-      return NextResponse.json(
-        {
-          success: false,
-          state: 'failed',
-          reason: 'currency_mismatch',
-          error: 'currency mismatch',
-        },
-        { status: 409 }
-      );
-    }
-
-    const metadata = asRecord(komojuSession.metadata ?? komojuSession.payment?.metadata ?? null);
-    const metadataUserId = getString(metadata, 'user_id');
-    const metadataPlan = getString(metadata, 'plan');
-    const metadataPlanId = getString(metadata, 'plan_id');
-    const metadataCustomerId = getString(metadata, 'customer_id');
-
-    if (metadataUserId && metadataUserId !== user.id) {
+    // Verify metadata
+    const metadata = checkoutSession.metadata ?? {};
+    if (metadata.user_id && metadata.user_id !== user.id) {
       return NextResponse.json(
         {
           success: false,
@@ -298,19 +204,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (metadataPlan && metadataPlan !== 'pro') {
-      return NextResponse.json(
-        {
-          success: false,
-          state: 'failed',
-          reason: 'metadata_plan_mismatch',
-          error: 'metadata plan mismatch',
-        },
-        { status: 409 }
-      );
-    }
-
-    if (metadataPlanId && metadataPlanId !== KOMOJU_CONFIG.plans.pro.id) {
+    if (metadata.plan_id && metadata.plan_id !== STRIPE_CONFIG.plans.pro.id) {
       return NextResponse.json(
         {
           success: false,
@@ -322,44 +216,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const paymentStatus = komojuSession.payment?.status ?? komojuSession.status ?? null;
-    const classifiedPaymentState = classifyPaymentStatus(paymentStatus);
-    if (classifiedPaymentState !== 'confirmed') {
-      const failureCode = extractFailureCodeFromSession(komojuSession);
-      const failureMessage = extractFailureMessageFromSession(komojuSession);
-      if (classifiedPaymentState === 'failed') {
+    const paymentStatus = checkoutSession.payment_status;
+
+    if (paymentStatus !== 'paid') {
+      if (paymentStatus === 'unpaid' || checkoutSession.status === 'expired') {
         await markSessionFailed(
           supabaseAdmin,
           sessionId,
-          paymentStatus,
-          failureCode,
-          failureMessage
+          'payment_not_completed',
+          `Checkout status: ${checkoutSession.status}, payment: ${paymentStatus}`
         );
+
+        return NextResponse.json({
+          success: true,
+          state: 'failed',
+          reason: 'payment_failed',
+          paymentStatus,
+        });
       }
 
       return NextResponse.json({
         success: true,
-        state: classifiedPaymentState,
-        reason:
-          classifiedPaymentState === 'failed'
-            ? 'payment_failed'
-            : 'payment_not_captured',
+        state: 'pending',
+        reason: 'payment_not_captured',
         paymentStatus,
-        failureCode: classifiedPaymentState === 'failed' ? failureCode : null,
-        failureMessage: classifiedPaymentState === 'failed' ? failureMessage : null,
       });
+    }
+
+    // Payment is confirmed — activate billing
+    const { customerId, subscriptionId } = extractIdsFromCheckoutSession(checkoutSession);
+
+    // Try to get the Stripe Subscription object for period dates
+    let stripeSubscription: Stripe.Subscription | null = null;
+    if (typeof checkoutSession.subscription === 'object' && checkoutSession.subscription) {
+      stripeSubscription = checkoutSession.subscription as Stripe.Subscription;
     }
 
     try {
       await activateBillingFromSession(supabaseAdmin, {
         sessionId,
         userId: user.id,
-        customerIdFromEvent: extractCustomerIdFromSession(komojuSession),
-        customerIdFromMetadata: metadataCustomerId,
-        subscriptionIdFromEvent: sessionRow.komoju_subscription_id ?? null,
+        customerIdFromEvent: customerId,
+        subscriptionIdFromEvent: subscriptionId,
         eventType: 'reconcile.confirmed',
         context: 'reconcile',
-      });
+      }, stripeSubscription);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message === BILLING_ACTIVATION_ERRORS.MISSING_CUSTOMER_ID) {

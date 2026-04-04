@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { KOMOJU_CONFIG, verifyWebhookSignature } from '@/lib/komoju';
-import {
-  activateBillingFromSession,
-} from '@/lib/subscription/billing-activation';
+import type Stripe from 'stripe';
+import { constructWebhookEvent, STRIPE_CONFIG } from '@/lib/stripe';
+import { activateBillingFromSession } from '@/lib/subscription/billing-activation';
 import {
   claimWebhookEvent,
   hashPayload,
@@ -11,24 +10,12 @@ import {
   markWebhookEventProcessed,
 } from '@/lib/webhooks/event-log';
 
-type JsonRecord = Record<string, unknown>;
-type WebhookEvent = {
-  id?: unknown;
-  type?: unknown;
-  data?: unknown;
-};
-
 type SessionLookupRow = {
   id: string;
   user_id: string;
   plan_id: string;
   created_at: string;
   used_at: string | null;
-};
-
-type SubscriptionLookupRow = {
-  user_id: string;
-  current_period_end: string | null;
 };
 
 class WebhookError extends Error {
@@ -54,43 +41,31 @@ function getSupabaseAdmin(): SupabaseClient {
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.text();
-    const signature = request.headers.get('x-komoju-signature');
-    const webhookSecret = process.env.KOMOJU_WEBHOOK_SECRET;
+    const signature = request.headers.get('stripe-signature');
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!webhookSecret) {
       throw new WebhookError('Webhook secret not configured', 500);
     }
 
     if (!signature) {
-      console.error('[KOMOJU webhook] signature missing', {
-        path: request.nextUrl.pathname,
-        requestId: request.headers.get('x-vercel-id'),
-      });
+      console.error('[Stripe webhook] signature missing');
       throw new WebhookError('Signature missing', 401);
     }
 
-    if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
-      console.error('[KOMOJU webhook] invalid signature', {
-        path: request.nextUrl.pathname,
-        requestId: request.headers.get('x-vercel-id'),
-        signatureLength: signature.length,
+    let event: Stripe.Event;
+    try {
+      event = constructWebhookEvent(payload, signature, webhookSecret);
+    } catch (err) {
+      console.error('[Stripe webhook] signature verification failed', {
+        error: err instanceof Error ? err.message : String(err),
       });
       throw new WebhookError('Invalid signature', 401);
     }
 
-    let event: WebhookEvent;
-    try {
-      event = JSON.parse(payload) as WebhookEvent;
-    } catch {
-      throw new WebhookError('Invalid JSON payload', 400);
-    }
-
     const supabaseAdmin = getSupabaseAdmin();
-    const eventType = getStringValue(event.type) ?? 'unknown';
-    const eventId = deriveEventId(event, eventType);
-    if (!eventId) {
-      throw new WebhookError('Missing event id', 400);
-    }
+    const eventId = event.id;
+    const eventType = event.type;
 
     const payloadHash = hashPayload(payload);
     const claim = await claimWebhookEvent(supabaseAdmin, {
@@ -102,41 +77,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    console.log('KOMOJU webhook event:', eventType, eventId);
+    console.log('Stripe webhook event:', eventType, eventId);
 
     try {
-      const eventData = asRecord(event.data);
-      if (!eventData) {
-        throw new WebhookError('Invalid event data', 400);
-      }
-
       switch (eventType) {
-        case 'payment.captured':
-          await handlePaymentCaptured(supabaseAdmin, eventData);
+        case 'checkout.session.completed':
+          await handleCheckoutSessionCompleted(
+            supabaseAdmin,
+            event.data.object as Stripe.Checkout.Session
+          );
           break;
 
-        case 'payment.failed':
-        case 'payment.cancelled':
-        case 'payment.canceled':
-        case 'payment.expired':
-          await handlePaymentFailed(supabaseAdmin, eventData, eventType);
+        case 'invoice.paid':
+          await handleInvoicePaid(
+            supabaseAdmin,
+            event.data.object as Stripe.Invoice
+          );
           break;
 
-        case 'payment.refunded':
-          await handlePaymentRefunded(supabaseAdmin, eventData);
+        case 'invoice.payment_failed':
+          await handleInvoicePaymentFailed(
+            supabaseAdmin,
+            event.data.object as Stripe.Invoice
+          );
           break;
 
-        case 'subscription.captured':
-          await handleSubscriptionCaptured(supabaseAdmin, eventData);
+        case 'customer.subscription.updated':
+          await handleSubscriptionUpdated(
+            supabaseAdmin,
+            event.data.object as Stripe.Subscription
+          );
           break;
 
-        case 'subscription.canceled':
-        case 'subscription.cancelled':
-          await handleSubscriptionCanceled(supabaseAdmin, eventData);
+        case 'customer.subscription.deleted':
+          await handleSubscriptionDeleted(
+            supabaseAdmin,
+            event.data.object as Stripe.Subscription
+          );
+          break;
+
+        case 'charge.refunded':
+          await handleChargeRefunded(
+            supabaseAdmin,
+            event.data.object as Stripe.Charge
+          );
           break;
 
         default:
-          console.log('Unhandled event type:', event.type);
+          console.log('Unhandled event type:', eventType);
       }
 
       await markWebhookEventProcessed(supabaseAdmin, {
@@ -146,7 +134,10 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json({ received: true });
     } catch (processingError) {
-      const normalizedError = normalizeErrorMessage(processingError);
+      const normalizedError =
+        processingError instanceof Error
+          ? processingError.message.slice(0, 2000)
+          : String(processingError).slice(0, 2000);
       await markWebhookEventFailed(supabaseAdmin, {
         eventId,
         eventType,
@@ -171,167 +162,264 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handlePaymentCaptured(
+// ============================================
+// checkout.session.completed
+// Initial subscription activation from Checkout
+// ============================================
+async function handleCheckoutSessionCompleted(
   supabaseAdmin: SupabaseClient,
-  data: JsonRecord
+  session: Stripe.Checkout.Session
 ) {
-  const metadata = asRecord(data.metadata);
-  const userId = metadata ? getStringField(metadata, 'user_id') : null;
-  if (!userId) {
-    throw new WebhookError('No user_id in payment metadata', 400);
-  }
-
-  const planConfig = KOMOJU_CONFIG.plans.pro;
-  const planId = metadata ? getStringField(metadata, 'plan_id') : null;
-  if (metadata && getStringField(metadata, 'plan') !== 'pro') {
-    throw new WebhookError('Payment is not for Pro plan', 400);
-  }
-  if (planId !== planConfig.id) {
-    throw new WebhookError('Plan id mismatch', 400);
-  }
-
-  const amount = extractAmount(data);
-  const currency = extractCurrency(data);
-  if (amount === null || amount !== planConfig.price) {
-    throw new WebhookError('Amount mismatch', 400);
-  }
-  if (!currency || currency !== planConfig.currency.toUpperCase()) {
-    throw new WebhookError('Currency mismatch', 400);
-  }
-
-  const sessionId = extractSessionId(data);
-  if (!sessionId) {
-    throw new WebhookError('Missing session id', 400);
-  }
-
-  const metadataCustomerId = metadata ? getStringField(metadata, 'customer_id') : null;
-  const customerIdFromEvent = extractCustomerId(data);
-  const subscriptionIdFromEvent = extractSubscriptionId(data);
-
-  await activateBillingFromSession(supabaseAdmin, {
-    sessionId,
-    userId,
-    customerIdFromEvent,
-    customerIdFromMetadata: metadataCustomerId,
-    subscriptionIdFromEvent,
-    eventType: 'payment.captured',
-    context: 'webhook',
-  });
-
-  console.log('[KOMOJU webhook] billing activated', {
-    userId,
-    sessionId,
-    eventType: 'payment.captured',
-  });
-}
-
-async function handlePaymentFailed(
-  supabaseAdmin: SupabaseClient,
-  data: JsonRecord,
-  eventType: string
-) {
-  const metadata = asRecord(data.metadata);
-  const metadataUserId = metadata ? getStringField(metadata, 'user_id') : null;
-  const metadataPlanId = metadata ? getStringField(metadata, 'plan_id') : null;
-  const idempotencyKey = metadata ? getStringField(metadata, 'idempotency_key') : null;
-
-  let session = await resolveSessionById(supabaseAdmin, extractSessionId(data));
-  if (!session && idempotencyKey) {
-    session = await resolveSessionByIdempotencyKey(supabaseAdmin, idempotencyKey);
-  }
-  if (!session && metadata) {
-    const fallbackPlanId = metadataPlanId ?? KOMOJU_CONFIG.plans.pro.id;
-    session = await resolveLatestPendingSessionForUser(
-      supabaseAdmin,
-      metadataUserId,
-      fallbackPlanId,
-      120
-    );
-  }
-
-  if (!session) {
-    console.warn('[KOMOJU webhook] payment failure without resolvable session', {
-      eventType,
-      idempotencyKey,
-    });
+  if (session.mode !== 'subscription') {
     return;
   }
 
-  validateSessionWithMetadata(session, metadataUserId, metadataPlanId);
-
-  const payment = asRecord(data.payment);
-  const failureCode =
-    getStringField(data, 'failure_code') ??
-    getStringField(data, 'error_code') ??
-    (payment ? getStringField(payment, 'failure_code') : null) ??
-    (payment ? getStringField(payment, 'error_code') : null);
-  const failureMessage =
-    getStringField(data, 'failure_message') ??
-    getStringField(data, 'error_message') ??
-    getStringField(data, 'message') ??
-    (payment ? getStringField(payment, 'failure_message') : null) ??
-    (payment ? getStringField(payment, 'error_message') : null);
-
-  const nowIso = new Date().toISOString();
-  const { error } = await supabaseAdmin
-    .from('subscription_sessions')
-    .update({
-      status: 'failed',
-      failure_code: failureCode,
-      failure_message: failureMessage,
-      last_event_type: eventType,
-      processing_started_at: null,
-      updated_at: nowIso,
-    })
-    .eq('id', session.id)
-    .is('used_at', null)
-    .neq('status', 'succeeded')
-    .neq('status', 'cancelled');
-
-  if (error) {
-    throw error;
+  const userId = session.metadata?.user_id;
+  if (!userId) {
+    throw new WebhookError('No user_id in session metadata', 400);
   }
 
-  console.log('[KOMOJU webhook] payment marked failed', {
-    sessionId: session.id,
-    userId: session.user_id,
-    eventType,
-    failureCode,
-  });
-}
-
-async function handlePaymentRefunded(
-  supabaseAdmin: SupabaseClient,
-  data: JsonRecord
-) {
-  const metadata = asRecord(data.metadata);
-  const planConfig = KOMOJU_CONFIG.plans.pro;
-  const plan = metadata ? getStringField(metadata, 'plan') : null;
-  const planId = metadata ? getStringField(metadata, 'plan_id') : null;
-
-  if (plan && plan !== 'pro') {
-    throw new WebhookError('Refund is not for Pro plan', 400);
-  }
-
-  if (planId && planId !== planConfig.id) {
+  const planId = session.metadata?.plan_id;
+  if (planId !== STRIPE_CONFIG.plans.pro.id) {
     throw new WebhookError('Plan id mismatch', 400);
   }
 
-  let userId = metadata ? getStringField(metadata, 'user_id') : null;
-  if (!userId) {
-    const komojuSubscriptionId = extractSubscriptionId(data);
-    if (komojuSubscriptionId) {
-      const { data: subscriptionRow } = await supabaseAdmin
-        .from('subscriptions')
-        .select('user_id')
-        .eq('komoju_subscription_id', komojuSubscriptionId)
-        .maybeSingle();
-      userId = subscriptionRow?.user_id ?? null;
-    }
+  const customerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id ?? null;
+
+  const subscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id ?? null;
+
+  // The session.id here is the Stripe Checkout Session ID, which was stored as
+  // the subscription_sessions.id when creating the checkout session.
+  const dbSessionId = session.id;
+
+  await activateBillingFromSession(supabaseAdmin, {
+    sessionId: dbSessionId,
+    userId,
+    customerIdFromEvent: customerId,
+    subscriptionIdFromEvent: subscriptionId,
+    eventType: 'checkout.session.completed',
+    context: 'webhook',
+  });
+
+  console.log('[Stripe webhook] billing activated via checkout.session.completed', {
+    userId,
+    sessionId: dbSessionId,
+  });
+}
+
+// ============================================
+// invoice.paid
+// Handles recurring subscription renewals
+// ============================================
+async function handleInvoicePaid(
+  supabaseAdmin: SupabaseClient,
+  invoice: Stripe.Invoice
+) {
+  // Skip the first invoice — handled by checkout.session.completed
+  if (invoice.billing_reason === 'subscription_create') {
+    return;
   }
 
-  if (!userId) {
-    throw new WebhookError('No user_id in payment metadata', 400);
+  const stripeSubscriptionId =
+    typeof invoice.subscription === 'string'
+      ? invoice.subscription
+      : invoice.subscription?.id ?? null;
+
+  if (!stripeSubscriptionId) {
+    throw new WebhookError('Missing subscription id in invoice', 400);
+  }
+
+  const { data: subscriptionRow, error: fetchError } = await supabaseAdmin
+    .from('subscriptions')
+    .select('user_id')
+    .eq('stripe_subscription_id', stripeSubscriptionId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  if (!subscriptionRow) {
+    console.warn('[Stripe webhook] invoice.paid for unknown subscription', stripeSubscriptionId);
+    return;
+  }
+
+  const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+  const periodStart = invoice.lines?.data?.[0]?.period?.start;
+  const nowIso = new Date().toISOString();
+
+  const { error } = await supabaseAdmin
+    .from('subscriptions')
+    .update({
+      status: 'active',
+      pro_source: 'billing',
+      test_pro_expires_at: null,
+      current_period_start: periodStart
+        ? new Date(periodStart * 1000).toISOString()
+        : nowIso,
+      current_period_end: periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
+        : nowIso,
+      cancel_at_period_end: false,
+      cancel_requested_at: null,
+      updated_at: nowIso,
+    })
+    .eq('stripe_subscription_id', stripeSubscriptionId);
+
+  if (error) throw error;
+
+  console.log('[Stripe webhook] subscription period renewed', {
+    stripeSubscriptionId,
+    userId: subscriptionRow.user_id,
+  });
+}
+
+// ============================================
+// invoice.payment_failed
+// Handles failed subscription renewal payments
+// ============================================
+async function handleInvoicePaymentFailed(
+  supabaseAdmin: SupabaseClient,
+  invoice: Stripe.Invoice
+) {
+  const stripeSubscriptionId =
+    typeof invoice.subscription === 'string'
+      ? invoice.subscription
+      : invoice.subscription?.id ?? null;
+
+  if (!stripeSubscriptionId) {
+    console.warn('[Stripe webhook] invoice.payment_failed without subscription id');
+    return;
+  }
+
+  // For first-time payments, try to mark the session as failed
+  if (invoice.billing_reason === 'subscription_create') {
+    const metadata = invoice.subscription_details?.metadata ?? invoice.metadata ?? {};
+    const idempotencyKey = metadata.idempotency_key ?? null;
+
+    let session: SessionLookupRow | null = null;
+    if (idempotencyKey) {
+      session = await resolveSessionByIdempotencyKey(supabaseAdmin, idempotencyKey);
+    }
+    if (!session && metadata.user_id) {
+      session = await resolveLatestPendingSessionForUser(
+        supabaseAdmin,
+        metadata.user_id,
+        STRIPE_CONFIG.plans.pro.id,
+        120
+      );
+    }
+
+    if (session) {
+      const nowIso = new Date().toISOString();
+      await supabaseAdmin
+        .from('subscription_sessions')
+        .update({
+          status: 'failed',
+          failure_code: 'payment_failed',
+          failure_message: 'Invoice payment failed',
+          last_event_type: 'invoice.payment_failed',
+          processing_started_at: null,
+          updated_at: nowIso,
+        })
+        .eq('id', session.id)
+        .is('used_at', null)
+        .neq('status', 'succeeded')
+        .neq('status', 'cancelled');
+    }
+    return;
+  }
+
+  // For renewal failures, mark subscription as past_due
+  const nowIso = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from('subscriptions')
+    .update({
+      status: 'past_due',
+      updated_at: nowIso,
+    })
+    .eq('stripe_subscription_id', stripeSubscriptionId);
+
+  if (error) throw error;
+
+  console.log('[Stripe webhook] subscription marked past_due', { stripeSubscriptionId });
+}
+
+// ============================================
+// customer.subscription.updated
+// Handles changes like cancel_at_period_end
+// ============================================
+async function handleSubscriptionUpdated(
+  supabaseAdmin: SupabaseClient,
+  subscription: Stripe.Subscription
+) {
+  const stripeSubscriptionId = subscription.id;
+
+  const { data: subscriptionRow, error: fetchError } = await supabaseAdmin
+    .from('subscriptions')
+    .select('user_id')
+    .eq('stripe_subscription_id', stripeSubscriptionId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!subscriptionRow) return;
+
+  const nowIso = new Date().toISOString();
+  const periodEndIso = new Date(subscription.current_period_end * 1000).toISOString();
+
+  if (subscription.cancel_at_period_end) {
+    const { error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        cancel_at_period_end: true,
+        cancel_requested_at: nowIso,
+        current_period_end: periodEndIso,
+        updated_at: nowIso,
+      })
+      .eq('stripe_subscription_id', stripeSubscriptionId);
+    if (error) throw error;
+  } else if (subscription.status === 'active') {
+    const periodStartIso = new Date(subscription.current_period_start * 1000).toISOString();
+    const { error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        status: 'active',
+        cancel_at_period_end: false,
+        cancel_requested_at: null,
+        current_period_start: periodStartIso,
+        current_period_end: periodEndIso,
+        updated_at: nowIso,
+      })
+      .eq('stripe_subscription_id', stripeSubscriptionId);
+    if (error) throw error;
+  }
+}
+
+// ============================================
+// customer.subscription.deleted
+// Final subscription cancellation
+// ============================================
+async function handleSubscriptionDeleted(
+  supabaseAdmin: SupabaseClient,
+  subscription: Stripe.Subscription
+) {
+  const stripeSubscriptionId = subscription.id;
+
+  const { data: subscriptionRow, error: fetchError } = await supabaseAdmin
+    .from('subscriptions')
+    .select('user_id')
+    .eq('stripe_subscription_id', stripeSubscriptionId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  if (!subscriptionRow) {
+    console.log('[Stripe webhook] subscription.deleted ignored: unknown subscription', stripeSubscriptionId);
+    return;
   }
 
   const nowIso = new Date().toISOString();
@@ -345,248 +433,70 @@ async function handlePaymentRefunded(
       current_period_end: nowIso,
       updated_at: nowIso,
     })
-    .eq('user_id', userId);
+    .eq('stripe_subscription_id', stripeSubscriptionId);
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
-  console.log(`Subscription cancelled due to refund for user: ${userId}`);
+  console.log('[Stripe webhook] subscription cancelled', {
+    stripeSubscriptionId,
+    userId: subscriptionRow.user_id,
+  });
 }
 
-async function handleSubscriptionCaptured(
+// ============================================
+// charge.refunded
+// Handles refund → cancellation
+// ============================================
+async function handleChargeRefunded(
   supabaseAdmin: SupabaseClient,
-  data: JsonRecord
+  charge: Stripe.Charge
 ) {
-  const komojuSubscriptionId = extractSubscriptionId(data, {
-    allowDataIdFallback: true,
-  });
-  if (!komojuSubscriptionId) {
-    throw new WebhookError('Missing subscription id', 400);
+  const customerId =
+    typeof charge.customer === 'string'
+      ? charge.customer
+      : charge.customer?.id ?? null;
+
+  if (!customerId) {
+    console.warn('[Stripe webhook] charge.refunded without customer id');
+    return;
   }
 
   const { data: subscriptionRow, error: fetchError } = await supabaseAdmin
     .from('subscriptions')
-    .select('user_id, status, plan, pro_source, current_period_end')
-    .eq('komoju_subscription_id', komojuSubscriptionId)
+    .select('user_id')
+    .eq('stripe_customer_id', customerId)
     .maybeSingle();
 
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const periodStartIso = extractPeriodStartIso(data) ?? nowIso;
-  const periodEndIso = extractPeriodEndIso(data) ?? addOneMonth(now).toISOString();
-
-  if (subscriptionRow) {
-    const { error } = await supabaseAdmin
-      .from('subscriptions')
-      .update({
-        status: 'active',
-        pro_source: 'billing',
-        test_pro_expires_at: null,
-        current_period_start: periodStartIso,
-        current_period_end: periodEndIso,
-        cancel_at_period_end: false,
-        cancel_requested_at: null,
-        updated_at: nowIso,
-      })
-      .eq('komoju_subscription_id', komojuSubscriptionId);
-
-    if (error) {
-      throw error;
-    }
-
-    console.log(`Subscription period updated: ${komojuSubscriptionId}`);
+  if (fetchError) throw fetchError;
+  if (!subscriptionRow) {
+    console.warn('[Stripe webhook] charge.refunded for unknown customer', customerId);
     return;
   }
 
-  const metadata = asRecord(data.metadata);
-  const resolvedSession = await resolveSessionForSubscriptionCaptured(supabaseAdmin, data, metadata);
-  if (!resolvedSession) {
-    throw new WebhookError('Unable to resolve session for subscription.captured bootstrap', 400);
-  }
-
-  const metadataCustomerId = metadata ? getStringField(metadata, 'customer_id') : null;
-  const customerIdFromEvent = extractCustomerId(data);
-
-  await activateBillingFromSession(supabaseAdmin, {
-    sessionId: resolvedSession.id,
-    userId: resolvedSession.user_id,
-    customerIdFromEvent,
-    customerIdFromMetadata: metadataCustomerId,
-    subscriptionIdFromEvent: komojuSubscriptionId,
-    eventType: 'subscription.captured',
-    context: 'webhook',
-  });
-
-  const { error: periodError } = await supabaseAdmin
-    .from('subscriptions')
-    .update({
-      status: 'active',
-      pro_source: 'billing',
-      test_pro_expires_at: null,
-      current_period_start: periodStartIso,
-      current_period_end: periodEndIso,
-      cancel_at_period_end: false,
-      cancel_requested_at: null,
-      updated_at: nowIso,
-    })
-    .eq('komoju_subscription_id', komojuSubscriptionId);
-
-  if (periodError) {
-    throw periodError;
-  }
-
-  console.log('[KOMOJU webhook] subscription.captured bootstrap activated', {
-    sessionId: resolvedSession.id,
-    userId: resolvedSession.user_id,
-    komojuSubscriptionId,
-  });
-}
-
-async function handleSubscriptionCanceled(
-  supabaseAdmin: SupabaseClient,
-  data: JsonRecord
-) {
-  const komojuSubscriptionId = extractSubscriptionId(data, {
-    allowDataIdFallback: true,
-  });
-  if (!komojuSubscriptionId) {
-    throw new WebhookError('Missing subscription id', 400);
-  }
-
-  const { data: subscriptionRowRaw, error: fetchError } = await supabaseAdmin
-    .from('subscriptions')
-    .select('user_id, current_period_end')
-    .eq('komoju_subscription_id', komojuSubscriptionId)
-    .maybeSingle();
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  if (!subscriptionRowRaw) {
-    console.log('subscription.canceled ignored: unknown subscription id', komojuSubscriptionId);
-    return;
-  }
-  const subscriptionRow = subscriptionRowRaw as SubscriptionLookupRow;
-
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const periodEndFromEvent = extractPeriodEndIso(data);
-  const existingPeriodEnd = toIsoTimestamp(subscriptionRow.current_period_end);
-  const effectivePeriodEndIso = periodEndFromEvent ?? existingPeriodEnd;
-  const isFutureEnd = effectivePeriodEndIso
-    ? new Date(effectivePeriodEndIso).getTime() > now.getTime()
-    : false;
-
+  const nowIso = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from('subscriptions')
-    .update(
-      isFutureEnd
-        ? {
-            status: 'active',
-            plan: 'pro',
-            pro_source: 'billing',
-            test_pro_expires_at: null,
-            cancel_at_period_end: true,
-            cancel_requested_at: nowIso,
-            current_period_end: effectivePeriodEndIso,
-            updated_at: nowIso,
-          }
-        : {
-            status: 'cancelled',
-            pro_source: 'billing',
-            cancel_at_period_end: false,
-            cancel_requested_at: null,
-            current_period_end: effectivePeriodEndIso ?? nowIso,
-            updated_at: nowIso,
-          }
-    )
-    .eq('komoju_subscription_id', komojuSubscriptionId);
+    .update({
+      status: 'cancelled',
+      pro_source: 'billing',
+      cancel_at_period_end: false,
+      cancel_requested_at: null,
+      current_period_end: nowIso,
+      updated_at: nowIso,
+    })
+    .eq('user_id', subscriptionRow.user_id);
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
-  console.log(`Subscription cancellation updated: ${komojuSubscriptionId}`);
+  console.log('[Stripe webhook] subscription cancelled due to refund', {
+    userId: subscriptionRow.user_id,
+    customerId,
+  });
 }
 
-async function resolveSessionForSubscriptionCaptured(
-  supabaseAdmin: SupabaseClient,
-  data: JsonRecord,
-  metadata: JsonRecord | null
-): Promise<SessionLookupRow | null> {
-  const metadataUserId = metadata ? getStringField(metadata, 'user_id') : null;
-  const metadataPlanId = metadata ? getStringField(metadata, 'plan_id') : null;
-  const metadataIdempotencyKey = metadata ? getStringField(metadata, 'idempotency_key') : null;
-  const sessionId = extractSessionId(data);
-
-  const bySessionId = await resolveSessionById(supabaseAdmin, sessionId);
-  if (bySessionId) {
-    validateSessionWithMetadata(bySessionId, metadataUserId, metadataPlanId);
-    return bySessionId;
-  }
-
-  if (metadataIdempotencyKey) {
-    const byIdempotencyKey = await resolveSessionByIdempotencyKey(
-      supabaseAdmin,
-      metadataIdempotencyKey
-    );
-    if (byIdempotencyKey) {
-      validateSessionWithMetadata(byIdempotencyKey, metadataUserId, metadataPlanId);
-      return byIdempotencyKey;
-    }
-  }
-
-  const fallbackPlanId = metadataPlanId ?? KOMOJU_CONFIG.plans.pro.id;
-  const byUserPendingSession = await resolveLatestPendingSessionForUser(
-    supabaseAdmin,
-    metadataUserId,
-    fallbackPlanId,
-    120
-  );
-  if (byUserPendingSession) {
-    validateSessionWithMetadata(byUserPendingSession, metadataUserId, metadataPlanId);
-    return byUserPendingSession;
-  }
-
-  return null;
-}
-
-function validateSessionWithMetadata(
-  session: SessionLookupRow,
-  metadataUserId: string | null,
-  metadataPlanId: string | null
-) {
-  if (metadataUserId && session.user_id !== metadataUserId) {
-    throw new WebhookError('Session metadata user mismatch', 400);
-  }
-  if (metadataPlanId && session.plan_id !== metadataPlanId) {
-    throw new WebhookError('Session metadata plan mismatch', 400);
-  }
-}
-
-async function resolveSessionById(
-  supabaseAdmin: SupabaseClient,
-  sessionId: string | null
-): Promise<SessionLookupRow | null> {
-  if (!sessionId) return null;
-  const { data, error } = await supabaseAdmin
-    .from('subscription_sessions')
-    .select('id, user_id, plan_id, created_at, used_at')
-    .eq('id', sessionId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-  return (data as SessionLookupRow | null) ?? null;
-}
-
+// ============================================
+// Session resolution helpers
+// ============================================
 async function resolveSessionByIdempotencyKey(
   supabaseAdmin: SupabaseClient,
   idempotencyKey: string
@@ -597,9 +507,7 @@ async function resolveSessionByIdempotencyKey(
     .eq('idempotency_key', idempotencyKey)
     .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
   return (data as SessionLookupRow | null) ?? null;
 }
 
@@ -623,205 +531,6 @@ async function resolveLatestPendingSessionForUser(
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
   return (data as SessionLookupRow | null) ?? null;
-}
-
-function deriveEventId(event: WebhookEvent, eventType: string): string | null {
-  const eventId = getStringValue(event.id);
-  if (eventId) {
-    return `event:${eventId}`;
-  }
-
-  const data = asRecord(event.data);
-  const payment = data ? asRecord(data.payment) : null;
-  const paymentId =
-    (payment ? getStringField(payment, 'id') : null) ||
-    (data ? getStringField(data, 'payment_id') : null) ||
-    (data ? getStringField(data, 'id') : null) ||
-    (payment ? getStringField(payment, 'payment_id') : null);
-  if (paymentId) {
-    return `payment:${eventType || 'unknown'}:${paymentId}`;
-  }
-
-  const allowDataIdFallback = eventType.startsWith('subscription.');
-  const subscriptionId = data
-    ? extractSubscriptionId(data, { allowDataIdFallback })
-    : null;
-  if (subscriptionId) {
-    return `subscription:${eventType || 'unknown'}:${subscriptionId}`;
-  }
-
-  return null;
-}
-
-function extractAmount(data: JsonRecord): number | null {
-  const payment = asRecord(data.payment);
-  return (
-    getNumberField(data, 'amount') ??
-    (payment ? getNumberField(payment, 'amount') : null) ??
-    (payment ? getNumberField(payment, 'total_amount') : null)
-  );
-}
-
-function extractCurrency(data: JsonRecord): string | null {
-  const payment = asRecord(data.payment);
-  const currency =
-    getStringField(data, 'currency') ??
-    (payment ? getStringField(payment, 'currency') : null);
-  return currency ? currency.toUpperCase() : null;
-}
-
-function extractSessionId(data: JsonRecord): string | null {
-  const session = data.session;
-  const metadata = asRecord(data.metadata);
-  const payment = asRecord(data.payment);
-
-  if (typeof session === 'string') {
-    return session;
-  }
-
-  if (session && typeof session === 'object') {
-    const sessionRecord = asRecord(session);
-    const sessionId = sessionRecord ? getStringField(sessionRecord, 'id') : null;
-    if (sessionId) {
-      return sessionId;
-    }
-  }
-
-  return (
-    getStringField(data, 'session_id') ??
-    (metadata ? getStringField(metadata, 'session_id') : null) ??
-    (payment ? getStringField(payment, 'session_id') : null)
-  );
-}
-
-function extractCustomerId(data: JsonRecord): string | null {
-  const customer = data.customer;
-  if (typeof customer === 'string') {
-    return customer;
-  }
-
-  if (customer && typeof customer === 'object') {
-    const customerRecord = asRecord(customer);
-    return customerRecord ? getStringField(customerRecord, 'id') : null;
-  }
-
-  return getStringField(data, 'customer_id');
-}
-
-export function extractSubscriptionId(
-  data: JsonRecord,
-  options?: { allowDataIdFallback?: boolean }
-): string | null {
-  const subscription = asRecord(data.subscription);
-  if (subscription) {
-    const subscriptionId =
-      getStringField(subscription, 'id') ??
-      getStringField(subscription, 'subscription_id');
-    if (subscriptionId) {
-      return subscriptionId;
-    }
-  }
-
-  const topLevelSubscriptionId = getStringField(data, 'subscription_id');
-  if (topLevelSubscriptionId) {
-    return topLevelSubscriptionId;
-  }
-
-  if (options?.allowDataIdFallback) {
-    return getStringField(data, 'id');
-  }
-
-  return null;
-}
-
-function extractPeriodStartIso(data: JsonRecord): string | null {
-  const subscription = asRecord(data.subscription);
-  return (
-    toIsoTimestamp(getStringField(data, 'current_period_start')) ??
-    toIsoTimestamp(subscription ? getStringField(subscription, 'current_period_start') : null) ??
-    toIsoTimestamp(getNumberField(data, 'current_period_start')) ??
-    toIsoTimestamp(subscription ? getNumberField(subscription, 'current_period_start') : null)
-  );
-}
-
-function extractPeriodEndIso(data: JsonRecord): string | null {
-  const subscription = asRecord(data.subscription);
-  return (
-    toIsoTimestamp(getStringField(data, 'current_period_end')) ??
-    toIsoTimestamp(subscription ? getStringField(subscription, 'current_period_end') : null) ??
-    toIsoTimestamp(getStringField(data, 'next_capture_at')) ??
-    toIsoTimestamp(subscription ? getStringField(subscription, 'next_capture_at') : null) ??
-    toIsoTimestamp(getNumberField(data, 'current_period_end')) ??
-    toIsoTimestamp(subscription ? getNumberField(subscription, 'current_period_end') : null)
-  );
-}
-
-function addOneMonth(base: Date): Date {
-  const periodEnd = new Date(base);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-  return periodEnd;
-}
-
-function toIsoTimestamp(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const millis = value > 1_000_000_000_000 ? value : value * 1000;
-    const date = new Date(millis);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
-      const millis = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
-      const date = new Date(millis);
-      return Number.isNaN(date.getTime()) ? null : date.toISOString();
-    }
-
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
-  }
-
-  return null;
-}
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message.slice(0, 2000);
-  }
-  return String(error).slice(0, 2000);
-}
-
-function asRecord(value: unknown): JsonRecord | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as JsonRecord;
-}
-
-function getStringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function getStringField(record: JsonRecord, key: string): string | null {
-  return getStringValue(record[key]);
-}
-
-function getNumberField(record: JsonRecord, key: string): number | null {
-  const value = record[key];
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
 }

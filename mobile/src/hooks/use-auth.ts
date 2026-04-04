@@ -40,8 +40,8 @@ function mapSubscriptionRow(row: SubscriptionRow | null): Subscription | null {
     plan: rawPlan,
     proSource,
     testProExpiresAt,
-    komojuSubscriptionId: row.komoju_subscription_id as string | undefined,
-    komojuCustomerId: row.komoju_customer_id as string | undefined,
+    stripeSubscriptionId: row.stripe_subscription_id as string | undefined,
+    stripeCustomerId: row.stripe_customer_id as string | undefined,
     currentPeriodStart: row.current_period_start as string | undefined,
     currentPeriodEnd,
     cancelAtPeriodEnd: (row.cancel_at_period_end as boolean | null) ?? false,
@@ -66,7 +66,7 @@ export function useAuth() {
     const { data, error } = await supabase
       .from('subscriptions')
       .select(
-        'id,user_id,status,plan,pro_source,test_pro_expires_at,komoju_subscription_id,komoju_customer_id,current_period_start,current_period_end,cancel_at_period_end,cancel_requested_at,created_at,updated_at'
+        'id,user_id,status,plan,pro_source,test_pro_expires_at,stripe_subscription_id,stripe_customer_id,current_period_start,current_period_end,cancel_at_period_end,cancel_requested_at,created_at,updated_at'
       )
       .eq('user_id', userId)
       .maybeSingle();

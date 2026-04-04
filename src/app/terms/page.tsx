@@ -46,7 +46,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-bold">第4条（有料プラン）</h2>
             <ol className="list-decimal list-inside space-y-2">
               <li>有料プラン（Proプラン）は月額課金制です。</li>
-              <li>支払いはKOMOJUを通じて処理されます。</li>
+              <li>支払いはStripeを通じて処理されます。</li>
               <li>解約はいつでも可能です。解約後も当月末まで利用できます。</li>
               <li>返金は原則として行いません。</li>
             </ol>
