@@ -680,29 +680,8 @@ export default function ProjectDetailPage() {
   };
   const headerFrom = getProjectColor(project?.title ?? 'MERKEN');
   const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
-
-  useEffect(() => {
-    if (loading || !project) return;
-
-    const html = document.documentElement;
-    const body = document.body;
-    const previousHtmlBackground = html.style.background;
-    const previousBodyBackground = body.style.background;
-    const previousBodyBackgroundColor = body.style.backgroundColor;
-
-    // iOS standalone can reveal the document background above the first fixed header.
-    // Match that region to the project header so no white strip shows before the page UI.
-    const headerBackground = `linear-gradient(135deg, ${headerFrom}, ${headerTo})`;
-    html.style.background = headerBackground;
-    body.style.background = headerBackground;
-    body.style.backgroundColor = headerFrom;
-
-    return () => {
-      html.style.background = previousHtmlBackground;
-      body.style.background = previousBodyBackground;
-      body.style.backgroundColor = previousBodyBackgroundColor;
-    };
-  }, [headerFrom, headerTo, loading, project]);
+  const headerBackground = `linear-gradient(135deg, ${headerFrom}, ${headerTo})`;
+  const mobileHeaderHeight = 'calc(env(safe-area-inset-top, 0px) + 4.75rem)';
 
   if (loading) {
     return (
@@ -739,17 +718,26 @@ export default function ProjectDetailPage() {
   return (
     <>
       <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8">
-        {/* Mobile: fixed header reaches visual top; spacer reserves flow. Desktop: sticky in document flow. */}
+        {/* Mobile: one shared backdrop avoids any safe-area color seam above the header. */}
+        <div
+          className="lg:hidden fixed top-0 left-0 right-0 z-[45] pointer-events-none"
+          style={{ height: mobileHeaderHeight, background: headerBackground }}
+          aria-hidden
+        />
+        {/* Mobile: spacer reserves the exact header height in flow. */}
         <div
           className="lg:hidden shrink-0 w-full"
-          style={{ height: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)' }}
+          style={{ height: mobileHeaderHeight }}
           aria-hidden
         />
         <div
-          className="project-detail-header-safe-top z-[50] max-lg:fixed max-lg:top-0 max-lg:left-0 max-lg:right-0 lg:sticky lg:top-0"
-          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
+          className="z-[50] max-lg:fixed max-lg:top-0 max-lg:left-0 max-lg:right-0 lg:sticky lg:top-0"
+          style={{ background: headerBackground }}
         >
-          <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
+          <div
+            className="max-w-lg lg:max-w-xl mx-auto px-5 pb-5"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+          >
             <div className="flex items-center justify-between mb-3">
               <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
                 <Icon name="chevron_left" size={24} className="text-white" />
@@ -778,7 +766,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 -mt-2 space-y-5">
+        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-3 lg:px-6 lg:-mt-2 space-y-5">
           {/* 3-column stats card - iOS style */}
           <section>
             <div className="card p-4">
