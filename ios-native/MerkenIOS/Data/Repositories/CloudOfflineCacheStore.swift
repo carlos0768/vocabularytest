@@ -57,6 +57,7 @@ actor CloudOfflineCacheStore {
                 record.shareScopeRaw = project.shareScope.rawValue
                 record.isFavorite = project.isFavorite
                 record.sourceLabelsBlob = try encodeOptional(project.sourceLabels)
+                record.importedFromShareId = project.importedFromShareId
                 record.lastSyncedAt = syncedAt
                 record.sourceVersion = currentSourceVersion
             } else {
@@ -70,6 +71,7 @@ actor CloudOfflineCacheStore {
                     shareScopeRaw: project.shareScope.rawValue,
                     isFavorite: project.isFavorite,
                     sourceLabelsBlob: try encodeOptional(project.sourceLabels),
+                    importedFromShareId: project.importedFromShareId,
                     lastSyncedAt: syncedAt,
                     lastAccessedAt: syncedAt,
                     sourceVersion: currentSourceVersion
@@ -190,6 +192,7 @@ actor CloudOfflineCacheStore {
             record.shareScopeRaw = project.shareScope.rawValue
             record.isFavorite = project.isFavorite
             record.sourceLabelsBlob = try encodeOptional(project.sourceLabels)
+            record.importedFromShareId = project.importedFromShareId
             record.lastSyncedAt = syncedAt
             if markAsAccessed {
                 record.lastAccessedAt = syncedAt
@@ -206,6 +209,7 @@ actor CloudOfflineCacheStore {
                 shareScopeRaw: project.shareScope.rawValue,
                 isFavorite: project.isFavorite,
                 sourceLabelsBlob: try encodeOptional(project.sourceLabels),
+                importedFromShareId: project.importedFromShareId,
                 lastSyncedAt: syncedAt,
                 lastAccessedAt: syncedAt,
                 sourceVersion: currentSourceVersion
@@ -544,7 +548,8 @@ actor CloudOfflineCacheStore {
                 rawValue: record.shareScopeRaw ?? ProjectShareScope.inviteOnly.rawValue
             ) ?? .inviteOnly,
             isFavorite: record.isFavorite,
-            sourceLabels: decodeOptional(record.sourceLabelsBlob, as: [String].self) ?? []
+            sourceLabels: decodeOptional(record.sourceLabelsBlob, as: [String].self) ?? [],
+            importedFromShareId: record.importedFromShareId
         )
     }
 

@@ -10,6 +10,7 @@ struct ProjectDTO: Codable, Sendable {
     let shareScope: ProjectShareScope?
     let isFavorite: Bool?
     let sourceLabels: [String]?
+    let importedFromShareId: String?
 }
 
 struct WordDTO: Codable, Sendable {
@@ -85,6 +86,7 @@ struct ProjectInsertDTO: Codable, Sendable {
     let iconImage: String?
     let isFavorite: Bool
     let sourceLabels: [String]?
+    let importedFromShareId: String?
 }
 
 struct WordInsertDTO: Codable, Sendable {
@@ -186,7 +188,8 @@ enum SupabaseMapper {
             shareId: dto.shareId,
             shareScope: dto.shareScope ?? .inviteOnly,
             isFavorite: dto.isFavorite ?? false,
-            sourceLabels: dto.sourceLabels ?? []
+            sourceLabels: dto.sourceLabels ?? [],
+            importedFromShareId: dto.importedFromShareId
         )
     }
 

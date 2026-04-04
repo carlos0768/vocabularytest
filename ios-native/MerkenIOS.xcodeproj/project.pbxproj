@@ -100,6 +100,7 @@
 		BAE610992EF94B082753128F /* FlashcardCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02365F3E7227E8E11F1404DF /* FlashcardCardView.swift */; };
 		BC48D87E377015022E8017C1 /* ExtractDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C83CC93420B69AA48F302C /* ExtractDTO.swift */; };
 		BF6F3118F98C4640F4890713 /* NotionCheckboxProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91B211F2413380DEE2D8E6D /* NotionCheckboxProgress.swift */; };
+		A3F8E9D22B4C5601E7D1A0F02 /* VocabularyTypeCycleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F8E9D22B4C5601E7D1A0F01 /* VocabularyTypeCycleButton.swift */; };
 		BFCB641E138706AB84EA25A4 /* ShareImportBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1DB811009B96029891DEF0 /* ShareImportBridge.swift */; };
 		C0AD97163A32A356886C0F98 /* CloudOfflineCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD40EE690454C7D5568060C /* CloudOfflineCacheStore.swift */; };
 		C0D1BFD2525AC06C12E00B9B /* BookshelfDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A3D8C1167D9934DAE1F9D8 /* BookshelfDetailView.swift */; };
@@ -312,6 +313,7 @@
 		F45FCBAC3F7F257F801FF843 /* ProjectShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectShareSheet.swift; sourceTree = "<group>"; };
 		F8D492636999D00FF08665C5 /* LocalRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRecords.swift; sourceTree = "<group>"; };
 		F91B211F2413380DEE2D8E6D /* NotionCheckboxProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionCheckboxProgress.swift; sourceTree = "<group>"; };
+		A3F8E9D22B4C5601E7D1A0F01 /* VocabularyTypeCycleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyTypeCycleButton.swift; sourceTree = "<group>"; };
 		F9615BEF3A9E8F028664EC53 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		F9A3D8C1167D9934DAE1F9D8 /* BookshelfDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelfDetailView.swift; sourceTree = "<group>"; };
 		FDD4382AD7F9408A63AF30B7 /* ThemeCubeSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCubeSelector.swift; sourceTree = "<group>"; };
@@ -435,6 +437,7 @@
 				414D40FE25A20B7FFEE459B4 /* AddToBookshelfSheet.swift */,
 				F91B211F2413380DEE2D8E6D /* NotionCheckboxProgress.swift */,
 				02599D8FDB49435A2D3070BE /* ProjectDetailView.swift */,
+				A3F8E9D22B4C5601E7D1A0F01 /* VocabularyTypeCycleButton.swift */,
 				33F439DA7C119036CF02695B /* ProjectDetailViewModel.swift */,
 				2345581B29EC062ACC99457B /* ProjectListView.swift */,
 				7487B0340A020CEE4833B4EA /* ProjectListViewModel.swift */,
@@ -982,6 +985,7 @@
 				EAF60A35EAA71B9346277668 /* MerkenIOSApp.swift in Sources */,
 				FB15597E795E4FA273F4E323 /* MerkenSpring.swift in Sources */,
 				BF6F3118F98C4640F4890713 /* NotionCheckboxProgress.swift in Sources */,
+				A3F8E9D22B4C5601E7D1A0F02 /* VocabularyTypeCycleButton.swift in Sources */,
 				FADAC4BA4D90C32BB9A15626 /* OfflineFirstCloudRepository.swift in Sources */,
 				34E78FB657D1F4BDA3030A59 /* OnboardingView.swift in Sources */,
 				F2A1C211837FAF67455C621B /* PrivacyView.swift in Sources */,

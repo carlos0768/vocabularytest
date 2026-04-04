@@ -29,7 +29,7 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         let token = try await accessTokenProvider()
         let query = [
             URLQueryItem(name: "user_id", value: "eq.\(userId)"),
-            URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,share_scope,is_favorite,source_labels"),
+            URLQueryItem(name: "select", value: "id,user_id,title,icon_image,created_at,share_id,share_scope,is_favorite,source_labels,imported_from_share_id"),
             URLQueryItem(name: "order", value: "created_at.desc")
         ]
 
@@ -69,9 +69,9 @@ final class CloudWordRepository: WordRepositoryProtocol, ProjectShareServiceProt
         }
     }
 
-    func createProject(title: String, userId: String, iconImage: String? = nil) async throws -> Project {
+    func createProject(title: String, userId: String, iconImage: String? = nil, importedFromShareId: String? = nil) async throws -> Project {
         let token = try await accessTokenProvider()
-        let payload = [ProjectInsertDTO(userId: userId, title: title, iconImage: iconImage, isFavorite: false, sourceLabels: nil)]
+        let payload = [ProjectInsertDTO(userId: userId, title: title, iconImage: iconImage, isFavorite: false, sourceLabels: nil, importedFromShareId: importedFromShareId)]
 
         do {
             let rows: [ProjectDTO] = try await restClient.post(

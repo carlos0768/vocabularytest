@@ -9,6 +9,15 @@ enum WordStatus: String, Codable, CaseIterable, Sendable {
 enum VocabularyType: String, Codable, Sendable {
     case active
     case passive
+
+    /// Web `getNextVocabularyType`: `nil` → active → passive → `nil`
+    static func cyclingNext(after current: VocabularyType?) -> VocabularyType? {
+        switch current {
+        case .none: return .active
+        case .active: return .passive
+        case .passive: return nil
+        }
+    }
 }
 
 enum ProjectShareScope: String, Codable, Sendable {
@@ -26,6 +35,8 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
     var shareScope: ProjectShareScope
     var isFavorite: Bool
     var sourceLabels: [String]
+    /// Set when this project was created by importing a copy from a shared project
+    var importedFromShareId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -36,7 +47,8 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
         shareId: String? = nil,
         shareScope: ProjectShareScope = .inviteOnly,
         isFavorite: Bool = false,
-        sourceLabels: [String] = []
+        sourceLabels: [String] = [],
+        importedFromShareId: String? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -47,6 +59,7 @@ struct Project: Identifiable, Hashable, Codable, Sendable {
         self.shareScope = shareScope
         self.isFavorite = isFavorite
         self.sourceLabels = normalizeProjectSourceLabels(sourceLabels)
+        self.importedFromShareId = importedFromShareId
     }
 }
 

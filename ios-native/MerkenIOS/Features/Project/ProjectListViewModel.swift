@@ -85,7 +85,8 @@ final class ProjectListViewModel: ObservableObject {
                 iconImage: projects[index].iconImage,
                 createdAt: projects[index].createdAt,
                 shareId: projects[index].shareId,
-                isFavorite: newValue
+                isFavorite: newValue,
+                importedFromShareId: projects[index].importedFromShareId
             )
             state.bumpDataVersion()
             errorMessage = nil

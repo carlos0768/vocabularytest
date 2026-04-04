@@ -24,13 +24,14 @@ actor LocalWordRepository: WordRepositoryProtocol {
                     rawValue: $0.shareScopeRaw ?? ProjectShareScope.inviteOnly.rawValue
                 ) ?? .inviteOnly,
                 isFavorite: $0.isFavorite,
-                sourceLabels: decodeOptional($0.sourceLabelsBlob, as: [String].self) ?? []
+                sourceLabels: decodeOptional($0.sourceLabelsBlob, as: [String].self) ?? [],
+                importedFromShareId: $0.importedFromShareId
             )
         }
     }
 
-    func createProject(title: String, userId: String, iconImage: String? = nil) async throws -> Project {
-        let project = Project(userId: userId, title: title, iconImage: iconImage)
+    func createProject(title: String, userId: String, iconImage: String? = nil, importedFromShareId: String? = nil) async throws -> Project {
+        let project = Project(userId: userId, title: title, iconImage: iconImage, importedFromShareId: importedFromShareId)
         let record = LocalProjectRecord(
             id: project.id,
             userId: project.userId,
@@ -40,7 +41,8 @@ actor LocalWordRepository: WordRepositoryProtocol {
             shareId: project.shareId,
             shareScopeRaw: project.shareScope.rawValue,
             isFavorite: project.isFavorite,
-            sourceLabelsBlob: try encodeOptional(project.sourceLabels)
+            sourceLabelsBlob: try encodeOptional(project.sourceLabels),
+            importedFromShareId: project.importedFromShareId
         )
         modelContext.insert(record)
         try modelContext.save()

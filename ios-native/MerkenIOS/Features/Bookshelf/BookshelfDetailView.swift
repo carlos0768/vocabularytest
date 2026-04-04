@@ -187,22 +187,11 @@ struct SharedProjectDetailView: View {
 
             notionWordListSection
         }
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
         .padding(.bottom, 100)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: 24, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: 24
-            ).fill(MerkenTheme.background)
-        )
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: 24, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: 24
-            )
-        )
-        .padding(.top, -100)
+        .background(MerkenTheme.background)
     }
 
     // MARK: - Stats Section
@@ -289,6 +278,7 @@ struct SharedProjectDetailView: View {
                         await viewModel.importToLocal(
                             title: project.title,
                             words: viewModel.words,
+                            sourceShareId: project.shareId ?? project.id,
                             using: appState
                         )
                     }
@@ -325,8 +315,8 @@ struct SharedProjectDetailView: View {
     // MARK: - Notion Word List
 
     private let notionCheckColWidth: CGFloat = 34
-    private let notionEnglishColWidth: CGFloat = 220
-    private let notionPosColWidth: CGFloat = 36
+    private let notionEnglishColWidth: CGFloat = 158
+    private let notionApPosClusterWidth: CGFloat = 88
     private let notionJapaneseColWidth: CGFloat = 180
 
     private var notionWordListSection: some View {
@@ -389,18 +379,17 @@ struct SharedProjectDetailView: View {
                 .font(.system(size: 10, weight: .semibold))
                 .frame(width: notionCheckColWidth, alignment: .center)
 
-            notionColDivider
-
             Text("単語")
                 .frame(width: notionEnglishColWidth, alignment: .leading)
-                .padding(.leading, 10)
+                .padding(.leading, 8)
 
-            notionColDivider
-
-            Text("品詞")
-                .frame(width: notionPosColWidth, alignment: .center)
-
-            notionColDivider
+            HStack(spacing: 4) {
+                Text("A/P")
+                    .frame(width: 42, alignment: .center)
+                Text("品詞")
+                    .frame(width: 42, alignment: .center)
+            }
+            .frame(width: notionApPosClusterWidth)
 
             Text("訳")
                 .frame(width: notionJapaneseColWidth, alignment: .leading)
@@ -412,23 +401,12 @@ struct SharedProjectDetailView: View {
         .foregroundStyle(MerkenTheme.mutedText)
         .padding(.vertical, 6)
         .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .bottom)
-        .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .top)
-    }
-
-    private var notionColDivider: some View {
-        Rectangle()
-            .fill(MerkenTheme.border)
-            .frame(width: 1)
-            .padding(.vertical, 4)
     }
 
     private func notionWordRow(_ word: Word, isLast: Bool) -> some View {
         HStack(spacing: 0) {
-            // チェックボックス（表示のみ・単語帳詳細と同じ段階表示）
             notionCheckBoxes(filledCount: NotionCheckboxProgress.filledCount(for: word))
                 .frame(width: notionCheckColWidth, alignment: .center)
-
-            notionColDivider
 
             HStack(spacing: 4) {
                 Text(word.english)
@@ -439,32 +417,21 @@ struct SharedProjectDetailView: View {
                 if word.isFavorite {
                     Image(systemName: "bookmark.fill")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                }
-                if let vocabType = word.vocabularyType {
-                    Text(vocabType == .active ? "A" : "P")
-                        .font(.system(size: 10, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .frame(width: 18, height: 18)
-                        .background(
-                            vocabType == .active
-                                ? MerkenTheme.accentBlue
-                                : MerkenTheme.secondaryText.opacity(0.5),
-                            in: Circle()
-                        )
+                        .foregroundStyle(MerkenTheme.warning)
                 }
             }
             .frame(width: notionEnglishColWidth, alignment: .leading)
-            .padding(.leading, 10)
+            .padding(.leading, 8)
             .padding(.vertical, 8)
 
-            notionColDivider
-
-            notionPosBadge(for: word)
-                .frame(width: notionPosColWidth, alignment: .center)
-                .padding(.vertical, 8)
-
-            notionColDivider
+            HStack(spacing: 4) {
+                VocabularyTypeCycleButton(vocabularyType: word.vocabularyType, isEnabled: false) {}
+                    .frame(width: 42, alignment: .center)
+                notionPosBadge(for: word)
+                    .frame(width: 42, alignment: .center)
+            }
+            .frame(width: notionApPosClusterWidth)
+            .padding(.vertical, 8)
 
             Text(word.japanese)
                 .font(.system(size: 13))

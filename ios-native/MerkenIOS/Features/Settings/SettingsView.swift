@@ -243,7 +243,7 @@ struct SettingsView: View {
     private var profileSecondaryText: String {
         if appState.isLoggedIn {
             return appState.isPro
-                ? "Merken Pro で複数端末の同期が有効です"
+                ? "クラウドに学習データを保存しています"
                 : "この端末で学習データを管理しています"
         }
         return "アカウントを作成するとクラウド同期を使えます"
@@ -275,7 +275,7 @@ struct SettingsView: View {
             settingsInfoRow(
                 icon: appState.isPro ? "icloud" : "iphone",
                 title: "保存先",
-                subtitle: appState.isPro ? "複数端末で同期" : "この端末に保存",
+                subtitle: appState.isPro ? "クラウド保存" : "この端末に保存",
                 trailingText: appState.isPro ? "Cloud" : "Local"
             )
 

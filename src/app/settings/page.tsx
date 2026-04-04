@@ -125,9 +125,7 @@ export default function SettingsPage() {
                     <span className="text-sm font-medium text-[var(--color-muted)]">{isPro ? 'Pro' : 'Free'}</span>
                   </div>
                   <p className="font-bold text-[var(--color-foreground)] truncate">{user?.email}</p>
-                  {isPro && (
-                    <p className="text-xs text-[var(--color-muted)] mt-0.5">Merken Pro で複数端末の同期が有効です</p>
-                  )}
+                  
                 </div>
                 {isPro && (
                   <div className="shrink-0 flex flex-col items-end gap-1">
@@ -230,7 +228,7 @@ export default function SettingsPage() {
                 <Icon name="cloud" size={20} className="text-[var(--color-muted)]" />
                 <div>
                   <p className="text-sm font-medium text-[var(--color-foreground)]">保存先</p>
-                  <p className="text-xs text-[var(--color-muted)]">{isPro ? '複数端末で同期' : 'このデバイスのみ'}</p>
+                  <p className="text-xs text-[var(--color-muted)]">{isPro ? 'クラウド保存' : 'このデバイスのみ'}</p>
                 </div>
               </div>
               <span className="text-sm text-[var(--color-foreground)]">{isPro ? 'Cloud' : 'Local'}</span>

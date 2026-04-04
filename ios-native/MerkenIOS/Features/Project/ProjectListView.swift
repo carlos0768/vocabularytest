@@ -158,6 +158,7 @@ struct ProjectListView: View {
                 projectListContent
             }
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
     }
@@ -323,7 +324,7 @@ struct ProjectListView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("単語帳")
+            Text("マイ単語帳")
                 .font(.system(size: 31.2, weight: .black))
                 .foregroundStyle(MerkenTheme.primaryText)
                 .tracking(2)
@@ -338,7 +339,7 @@ struct ProjectListView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14))
                 .foregroundStyle(MerkenTheme.mutedText)
-            TextField("単語帳を検索", text: $searchText)
+            TextField("マイ単語帳を検索", text: $searchText)
                 .font(.system(size: 15))
                 .textFieldStyle(.plain)
         }
@@ -422,7 +423,7 @@ struct ProjectListView: View {
                 }
             } else {
                 HStack {
-                    Text("すべての単語帳")
+                    Text("すべてのマイ単語帳")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(MerkenTheme.primaryText)
                     Spacer()
@@ -467,10 +468,7 @@ struct ProjectListView: View {
 
     private func projectCard(_ project: Project) -> some View {
         let wordCount = viewModel.wordCounts[project.id] ?? 0
-        let mastered = viewModel.masteredCounts[project.id] ?? 0
-        let reviewing = viewModel.reviewCounts[project.id] ?? 0
-        let newWords = viewModel.newCounts[project.id] ?? 0
-        let thumbSize: CGFloat = 86
+        let thumbSize: CGFloat = 68
 
         return HStack(spacing: 0) {
             ZStack {
@@ -483,64 +481,43 @@ struct ProjectListView: View {
                     let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
                     bgColor
                     Text(String(project.title.prefix(1)))
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.white)
                 }
             }
             .frame(width: thumbSize, height: thumbSize)
-            .clipShape(.rect(cornerRadius: 18))
+            .clipShape(.rect(cornerRadius: 14))
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(project.title)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text("\(wordCount)")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 20, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(MerkenTheme.primaryText)
                     Text("語")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
-
-                HStack(spacing: 8) {
-                    compactMetric(icon: "checkmark.circle.fill", text: "習得 \(mastered)", tint: MerkenTheme.success)
-                    compactMetric(icon: "bolt.circle.fill", text: "学習 \(reviewing)", tint: MerkenTheme.accentBlue)
-                    compactMetric(icon: "sparkles", text: "未学習 \(newWords)", tint: MerkenTheme.mutedText)
-                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(10)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 22))
+        .padding(8)
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 18))
         .overlay(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 18)
                 .stroke(
                     project.isFavorite ? MerkenTheme.accentBlue.opacity(0.55) : MerkenTheme.border,
                     lineWidth: project.isFavorite ? 1.5 : 1
                 )
         )
-    }
-
-    private func compactMetric(icon: String, text: String, tint: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tint)
-            Text(text)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(MerkenTheme.background, in: Capsule())
     }
 
     // MARK: - Generating Card (horizontal)

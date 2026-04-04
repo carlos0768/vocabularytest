@@ -74,7 +74,7 @@ struct RootTabView: View {
                 }
                 .tint(MerkenTheme.accentBlue)
                 .toolbar(.hidden, for: .tabBar)
-                .safeAreaPadding(.bottom, appState.tabBarVisible ? 92 : 0)
+                .safeAreaPadding(.bottom, appState.tabBarVisible ? 106 : 0)
             } else {
                 NavigationStack {
                     RootAuthLandingView(
@@ -154,9 +154,9 @@ struct RootTabView: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity)
-        .frame(height: 56)
+        .frame(height: 70)
 
         return baseBar
             .background(.ultraThinMaterial, in: shape)
@@ -179,9 +179,9 @@ struct RootTabView: View {
                 appState.selectedTab = item.tab
             }
         } label: {
-            VStack(spacing: 1) {
+            VStack(spacing: 2) {
                 Image(systemName: item.systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                 Text(item.title)
                     .font(.system(size: 11, weight: .semibold))
                     .lineLimit(1)
@@ -226,9 +226,9 @@ struct RootTabView: View {
                     .scaleEffect(showingScanFlow ? 1 : 0.55)
                     .rotationEffect(.degrees(showingScanFlow ? 0 : -90))
             }
-            .font(.system(size: 24, weight: .semibold))
+            .font(.system(size: 26, weight: .semibold))
             .foregroundStyle(.white)
-            .frame(width: 56, height: 56)
+            .frame(width: 70, height: 70)
             .background(
                 Circle()
                     .fill(

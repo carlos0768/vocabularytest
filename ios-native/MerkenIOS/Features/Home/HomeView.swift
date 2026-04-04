@@ -571,6 +571,14 @@ struct HomeView: View {
 
     // MARK: - Compact Today Goal Card (left column)
 
+    private var reviewTargetCount: Int {
+        max(viewModel.todayAnswered + viewModel.dueWordCount, 0)
+    }
+
+    private var reviewCompletedCount: Int {
+        min(viewModel.todayAnswered, reviewTargetCount)
+    }
+
     private var compactTodayGoalCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("今日の目標")
@@ -716,245 +724,6 @@ struct HomeView: View {
                 .monospacedDigit()
                 .foregroundStyle(MerkenTheme.primaryText)
         }
-    }
-
-    // MARK: - Hero Block (Review CTA)
-
-    private var reviewTargetCount: Int {
-        max(viewModel.todayAnswered + viewModel.dueWordCount, 0)
-    }
-
-    private var reviewCompletedCount: Int {
-        min(viewModel.todayAnswered, reviewTargetCount)
-    }
-
-    private var reviewCompletionProgress: Double {
-        guard reviewTargetCount > 0 else { return 0 }
-        return Double(reviewCompletedCount) / Double(reviewTargetCount)
-    }
-
-    private var heroBlock: some View {
-        VStack(spacing: 10) {
-            if viewModel.dueWordCount > 0 {
-                HStack(spacing: 14) {
-                    reviewProgressRing
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の目標")
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("\(viewModel.dueWordCount)")
-                                .font(.system(size: 32, weight: .bold))
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-                                .allowsTightening(true)
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                            Text("語を復習")
-                                .font(.system(size: 16, weight: .medium))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                                .foregroundStyle(MerkenTheme.primaryText)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完了")
-                            .font(.system(size: 13, weight: .medium))
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    Spacer()
-                    if let firstProject = viewModel.projects.first {
-                        Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            if appState.isAIEnabled, viewModel.dueWordCount > 0 {
-                                quizDestination = QuizDestination(
-                                    project: firstProject,
-                                    preloadedWords: viewModel.dueWords,
-                                    skipSetup: true
-                                )
-                            } else if appState.isAIEnabled {
-                                quizDestination = QuizDestination(project: firstProject)
-                            } else {
-                                flashcardDestination = FlashcardDestination(
-                                    project: firstProject,
-                                    preloadedWords: viewModel.preloadedWords(for: firstProject.id)
-                                )
-                            }
-                        } label: {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 56, height: 56)
-                                .background(MerkenTheme.accentBlue, in: .circle)
-                        }
-                        .accessibilityLabel("復習")
-                    }
-                }
-            } else if reviewTargetCount > 0 {
-                HStack(spacing: 14) {
-                    reviewProgressRing
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の復習")
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        Text("完了しました")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text("\(reviewCompletedCount)/\(reviewTargetCount) 完了")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-
-                    Spacer()
-                }
-            } else {
-                // No due words — show encouragement
-                HStack(spacing: 12) {
-                    Image(systemName: focusBannerIcon)
-                        .font(.title3)
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(focusBannerHeading)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        Text(focusBannerSubheading)
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    Spacer()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 22)
-        .frame(minHeight: 140)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-    }
-
-    private var homeLearningStateSection: some View {
-        let total = viewModel.allWordsFlat.count
-        let masteredCount = viewModel.allWordsFlat.filter { $0.status == .mastered }.count
-        let reviewCount = viewModel.allWordsFlat.filter { $0.status == .review }.count
-        let newCount = viewModel.allWordsFlat.filter { $0.status == .new }.count
-
-        return HStack(alignment: .top, spacing: 10) {
-            homeLearningStateCard(
-                label: "習得",
-                count: masteredCount,
-                total: total,
-                color: MerkenTheme.success,
-                icon: "checkmark.seal.fill"
-            )
-
-            homeLearningStateCard(
-                label: "学習中",
-                count: reviewCount,
-                total: total,
-                color: MerkenTheme.accentBlue,
-                icon: "arrow.trianglehead.2.clockwise"
-            )
-
-            homeLearningStateCard(
-                label: "未学習",
-                count: newCount,
-                total: total,
-                color: MerkenTheme.mutedText,
-                icon: "sparkle"
-            )
-        }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
-
-    private func homeLearningStateCard(
-        label: String,
-        count: Int,
-        total: Int,
-        color: Color,
-        icon: String
-    ) -> some View {
-        let progress: CGFloat = total > 0 ? CGFloat(count) / CGFloat(total) : 0
-
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("\(count)")
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text("/\(total)語")
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
-            .font(.system(size: 21, weight: .bold))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .allowsTightening(true)
-
-            Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-
-            Spacer(minLength: 2)
-
-            ZStack {
-                Circle()
-                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
-
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(
-                        color,
-                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(color)
-            }
-            .frame(width: 54, height: 54)
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 11)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 120)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
-    }
-
-    private var reviewProgressRing: some View {
-        ZStack {
-            Circle()
-                .stroke(MerkenTheme.borderLight, lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: reviewCompletionProgress)
-                .stroke(
-                    MerkenTheme.accentBlue,
-                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-
-            VStack(spacing: 1) {
-                Text("\(Int(reviewCompletionProgress * 100))%")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text("完了")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
-        }
-        .frame(width: 68, height: 68)
     }
 
     private var storylineBlock: some View {
@@ -1321,33 +1090,60 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Projects Section (単語帳)
+    // MARK: - Projects Section (マイ単語帳 / 共有単語帳)
 
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Section header
-            HStack {
-                Text("単語帳")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Spacer()
-                Button { showingProjectList = true } label: {
-                    Text("管理")
-                        .font(.system(size: 14))
-                        .foregroundStyle(MerkenTheme.accentBlue)
+            if !viewModel.sharedProjects.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("共有単語帳")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(MerkenTheme.primaryText)
+                        Spacer()
+                        Button { showingProjectList = true } label: {
+                            Text("管理")
+                                .font(.system(size: 14))
+                                .foregroundStyle(MerkenTheme.accentBlue)
+                        }
+                    }
+
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.sharedProjects) { project in
+                            featuredProjectCard(project)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                                .onTapGesture { detailProject = project }
+                                .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
+                        }
+                    }
                 }
+                .animation(MerkenSpring.gentle, value: viewModel.sharedProjects.map(\.id))
             }
 
-            LazyVStack(spacing: 12) {
-                ForEach(viewModel.projects) { project in
-                    featuredProjectCard(project)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .onTapGesture { detailProject = project }
-                        .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("マイ単語帳")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Spacer()
+                    Button { showingProjectList = true } label: {
+                        Text("管理")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MerkenTheme.accentBlue)
+                    }
+                }
+
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.myProjects) { project in
+                        featuredProjectCard(project)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .onTapGesture { detailProject = project }
+                            .onLongPressGesture(minimumDuration: 0.35) { projectForActions = project }
+                    }
                 }
             }
+            .animation(MerkenSpring.gentle, value: viewModel.myProjects.map(\.id))
         }
-        .animation(MerkenSpring.gentle, value: viewModel.projects.map(\.id))
     }
 
     // MARK: Featured Project Card (full-width, with circular progress)

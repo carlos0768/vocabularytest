@@ -56,8 +56,8 @@ final class OfflineFirstCloudRepository: WordRepositoryProtocol, ProjectShareSer
         }
     }
 
-    func createProject(title: String, userId: String, iconImage: String?) async throws -> Project {
-        let created = try await cloudRepository.createProject(title: title, userId: userId, iconImage: iconImage)
+    func createProject(title: String, userId: String, iconImage: String?, importedFromShareId: String? = nil) async throws -> Project {
+        let created = try await cloudRepository.createProject(title: title, userId: userId, iconImage: iconImage, importedFromShareId: importedFromShareId)
         try? await cacheStore.upsertProject(created)
         return created
     }

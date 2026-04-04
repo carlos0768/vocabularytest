@@ -307,42 +307,17 @@ struct QuizView: View {
 
     // MARK: - Active Typing
 
-    private func hintText(for answer: String) -> String {
-        guard !answer.isEmpty else { return "" }
-        let first = String(answer.prefix(1))
-        let remaining = String(repeating: " _", count: max(answer.count - 1, 0))
-        return first + remaining
-    }
-
     @ViewBuilder
     private func activeTypingSection(current: QuizQuestion) -> some View {
         if !viewModel.isRevealed {
             VStack(spacing: 12) {
-                ZStack(alignment: .leading) {
-                    Text(hintText(for: current.word.english))
-                        .font(.system(size: 18, weight: .regular, design: .monospaced))
-                        .foregroundStyle(MerkenTheme.mutedText.opacity(0.35))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .allowsHitTesting(false)
-
-                    TextField("", text: $viewModel.typedAnswer)
-                        .font(.system(size: 18))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .submitLabel(.done)
-                        .onSubmit {
-                            guard !viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                            viewModel.submitTypingAnswer(projectId: project.id, using: appState)
-                        }
-                }
-                .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+                TypeInField(
+                    answer: current.word.english,
+                    value: $viewModel.typedAnswer,
+                    onSubmit: {
+                        guard !viewModel.typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                        viewModel.submitTypingAnswer(projectId: project.id, using: appState)
+                    }
                 )
 
                 Button {
@@ -782,6 +757,91 @@ struct QuizView: View {
         .overlay(
             Capsule()
                 .stroke(MerkenTheme.border.opacity(0.7), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - TypeInField (Web TypeInQuizField parity)
+
+private struct TypeInField: View {
+    let answer: String
+    @Binding var value: String
+    let onSubmit: () -> Void
+
+    @FocusState private var isFocused: Bool
+
+    private let slotFont = Font.system(size: 20, weight: .black)
+    private let slotWidth: CGFloat = 14
+
+    var body: some View {
+        let target = Array(answer)
+        let n = target.count
+        let typed = Array(value.prefix(n))
+        let t = typed.count
+
+        ZStack {
+            TextField("", text: limitedBinding(max: n))
+                .focused($isFocused)
+                .font(slotFont)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .submitLabel(.done)
+                .onSubmit(onSubmit)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+
+            HStack(spacing: 4) {
+                ForEach(0..<t, id: \.self) { i in
+                    Text(String(typed[i]))
+                        .font(slotFont)
+                        .foregroundStyle(MerkenTheme.primaryText)
+                        .frame(minWidth: slotWidth)
+                }
+
+                if t < n {
+                    if t == 0, let first = target.first {
+                        Text(String(first).lowercased())
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText.opacity(0.5))
+                            .frame(minWidth: slotWidth)
+                    }
+
+                    if isFocused {
+                        Rectangle()
+                            .fill(Color.blue)
+                            .frame(width: 2, height: 24)
+                    }
+
+                    let remaining = t == 0 ? max(n - 1, 0) : max(n - t - 1, 0)
+                    ForEach(0..<remaining, id: \.self) { _ in
+                        Text("_")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText.opacity(0.35))
+                            .frame(minWidth: slotWidth)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, minHeight: 56)
+        }
+        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(isFocused ? MerkenTheme.primaryText : MerkenTheme.borderLight, lineWidth: 2)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { isFocused = true }
+        .onAppear { isFocused = true }
+    }
+
+    private func limitedBinding(max n: Int) -> Binding<String> {
+        Binding(
+            get: { value },
+            set: { newValue in
+                value = n > 0 ? String(newValue.prefix(n)) : newValue
+            }
         )
     }
 }

@@ -61,8 +61,9 @@ enum MerkenTheme {
     // Status
     static let success = Color(red: 0.13, green: 0.77, blue: 0.37)
     static let successLight = Color(red: 0.13, green: 0.77, blue: 0.37).opacity(0.1)
-    static let warning = Color(red: 0.96, green: 0.67, blue: 0.15)
-    static let warningLight = Color(red: 0.96, green: 0.67, blue: 0.15).opacity(0.1)
+    /// Aligns with web `--color-warning` fallback `#f59e0b` (Tailwind amber-500)
+    static let warning = Color(red: 245 / 255, green: 158 / 255, blue: 11 / 255)
+    static let warningLight = Color(red: 245 / 255, green: 158 / 255, blue: 11 / 255).opacity(0.1)
     static let danger = Color(red: 0.94, green: 0.35, blue: 0.35)
     static let dangerLight = Color(red: 0.94, green: 0.35, blue: 0.35).opacity(0.1)
 

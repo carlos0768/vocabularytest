@@ -211,12 +211,16 @@ final class ProjectDetailViewModel: ObservableObject {
         return NotionCheckboxProgress.filledCount(for: word)
     }
 
-    /// Notionチェック列: 0→1→2→3マス→未学習へ（1タップで1マス）
+    /// Notionチェック列: 0→1→2→3→2→1→0…（1タップで1マス。3マス目は習得＝`mastered`）
     func advanceNotionCheckbox(word: Word, projectId: String, using state: AppState) async {
         let tier2 = NotionCheckboxProgress.hasReviewSecondFill(word.id)
-        switch (word.status, tier2) {
-        case (.new, _):
+        let steppedDownFromMastered = NotionCheckboxProgress.hasReviewSecondFromMastered(word.id)
+        let firstTierFromWalkback = NotionCheckboxProgress.hasReviewFirstFromWalkback(word.id)
+        switch (word.status, tier2, steppedDownFromMastered, firstTierFromWalkback) {
+        case (.new, _, _, _):
             NotionCheckboxProgress.setReviewSecondFill(word.id, false)
+            NotionCheckboxProgress.setReviewSecondFromMastered(word.id, false)
+            NotionCheckboxProgress.setReviewFirstFromWalkback(word.id, false)
             await updateWord(
                 wordId: word.id,
                 patch: WordPatch(status: .review),
@@ -224,10 +228,26 @@ final class ProjectDetailViewModel: ObservableObject {
                 projectId: projectId,
                 using: state
             )
-        case (.review, false):
+        case (.review, false, _, true):
+            NotionCheckboxProgress.setReviewFirstFromWalkback(word.id, false)
+            await updateWord(
+                wordId: word.id,
+                patch: WordPatch(status: .new),
+                broadcastChanges: false,
+                projectId: projectId,
+                using: state
+            )
+        case (.review, false, _, false):
             NotionCheckboxProgress.setReviewSecondFill(word.id, true)
+            NotionCheckboxProgress.setReviewSecondFromMastered(word.id, false)
             notionUIRevision += 1
-        case (.review, true):
+        case (.review, true, true, _):
+            // 習得から戻したあとの2マス目 → 次は1マス目へ（2↔3の往復を防ぐ）
+            NotionCheckboxProgress.setReviewSecondFill(word.id, false)
+            NotionCheckboxProgress.setReviewSecondFromMastered(word.id, false)
+            NotionCheckboxProgress.setReviewFirstFromWalkback(word.id, true)
+            notionUIRevision += 1
+        case (.review, true, false, _):
             await updateWord(
                 wordId: word.id,
                 patch: WordPatch(status: .mastered),
@@ -235,14 +255,16 @@ final class ProjectDetailViewModel: ObservableObject {
                 projectId: projectId,
                 using: state
             )
-            if words.first(where: { $0.id == word.id })?.status == .mastered {
-                NotionCheckboxProgress.setReviewSecondFill(word.id, false)
-            }
-        case (.mastered, _):
             NotionCheckboxProgress.setReviewSecondFill(word.id, false)
+            NotionCheckboxProgress.setReviewSecondFromMastered(word.id, false)
+            NotionCheckboxProgress.setReviewFirstFromWalkback(word.id, false)
+        case (.mastered, _, _, _):
+            NotionCheckboxProgress.setReviewSecondFill(word.id, true)
+            NotionCheckboxProgress.setReviewSecondFromMastered(word.id, true)
+            NotionCheckboxProgress.setReviewFirstFromWalkback(word.id, false)
             await updateWord(
                 wordId: word.id,
-                patch: WordPatch(status: .new),
+                patch: WordPatch(status: .review),
                 broadcastChanges: false,
                 projectId: projectId,
                 using: state

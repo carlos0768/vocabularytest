@@ -12,6 +12,7 @@ final class LocalProjectRecord {
     var shareScopeRaw: String?
     var isFavorite: Bool
     var sourceLabelsBlob: Data?
+    var importedFromShareId: String?
 
     init(
         id: String,
@@ -22,7 +23,8 @@ final class LocalProjectRecord {
         shareId: String? = nil,
         shareScopeRaw: String? = nil,
         isFavorite: Bool = false,
-        sourceLabelsBlob: Data? = nil
+        sourceLabelsBlob: Data? = nil,
+        importedFromShareId: String? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -33,6 +35,7 @@ final class LocalProjectRecord {
         self.shareScopeRaw = shareScopeRaw
         self.isFavorite = isFavorite
         self.sourceLabelsBlob = sourceLabelsBlob
+        self.importedFromShareId = importedFromShareId
     }
 }
 

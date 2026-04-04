@@ -601,7 +601,7 @@ export default function FlashcardPage() {
   }
 
   return (
-    <div className="h-[100dvh] grid grid-rows-[auto_1fr_auto] bg-[var(--color-background)] fixed inset-0">
+    <div className="h-[100dvh] grid grid-rows-[auto_1fr_auto] bg-[var(--color-background)] fixed inset-0 lg:left-[280px]">
       {/* Header */}
       <header className="sticky top-0 p-4 flex items-center justify-between max-w-lg mx-auto w-full" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <button

@@ -26,6 +26,8 @@ struct HomePartOfSpeechWidget: Identifiable, Equatable {
 @MainActor
 final class HomeViewModel: ObservableObject {
     @Published private(set) var projects: [Project] = []
+    @Published private(set) var sharedProjects: [Project] = []
+    @Published private(set) var myProjects: [Project] = []
     @Published private(set) var totalWordCount: Int = 0
     @Published private(set) var dueWordCount: Int = 0
     @Published private(set) var dueWords: [Word] = []
@@ -93,8 +95,10 @@ final class HomeViewModel: ObservableObject {
         do {
             let repository = state.activeRepository
             let userId = state.activeUserId
-            let projects = try await repository.fetchProjects(userId: userId)
-            self.projects = projects
+            let allProjects = try await repository.fetchProjects(userId: userId)
+            self.projects = allProjects
+            recomputeHomeProjectSections()
+
             errorMessage = nil
             loading = false
 
@@ -144,8 +148,26 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
+    private func recomputeHomeProjectSections() {
+        let homeOrder: (Project, Project) -> Bool = { a, b in
+            if a.isFavorite && !b.isFavorite { return true }
+            if !a.isFavorite && b.isFavorite { return false }
+            return a.createdAt > b.createdAt
+        }
+        self.sharedProjects = projects
+            .filter { $0.importedFromShareId != nil }
+            .sorted(by: homeOrder)
+            .prefix(8).map { $0 }
+        self.myProjects = projects
+            .filter { $0.importedFromShareId == nil }
+            .sorted(by: homeOrder)
+            .prefix(8).map { $0 }
+    }
+
     private func clearLoadedContent() {
         projects = []
+        sharedProjects = []
+        myProjects = []
         totalWordCount = 0
         dueWordCount = 0
         dueWords = []
@@ -189,8 +211,10 @@ final class HomeViewModel: ObservableObject {
                 iconImage: projects[index].iconImage,
                 createdAt: projects[index].createdAt,
                 shareId: projects[index].shareId,
-                isFavorite: newValue
+                isFavorite: newValue,
+                importedFromShareId: projects[index].importedFromShareId
             )
+            recomputeHomeProjectSections()
             state.bumpDataVersion()
             errorMessage = nil
         } catch {
@@ -204,6 +228,7 @@ final class HomeViewModel: ObservableObject {
         do {
             try await state.activeRepository.deleteProject(id: id)
             projects.removeAll { $0.id == id }
+            recomputeHomeProjectSections()
             state.bumpDataVersion()
             errorMessage = nil
         } catch {
@@ -222,6 +247,7 @@ final class HomeViewModel: ObservableObject {
             if let index = projects.firstIndex(where: { $0.id == id }) {
                 projects[index].title = trimmedTitle
             }
+            recomputeHomeProjectSections()
             state.bumpDataVersion()
             errorMessage = nil
         } catch {

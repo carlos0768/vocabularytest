@@ -135,7 +135,7 @@ final class SharedProjectDetailViewModel: ObservableObject {
         }
     }
 
-    func importToLocal(title: String, words: [Word], using state: AppState) async {
+    func importToLocal(title: String, words: [Word], sourceShareId: String? = nil, using state: AppState) async {
         importing = true
         defer { importing = false }
 
@@ -143,7 +143,8 @@ final class SharedProjectDetailViewModel: ObservableObject {
             let newProject = try await state.activeRepository.createProject(
                 title: title,
                 userId: state.activeUserId,
-                iconImage: nil
+                iconImage: nil,
+                importedFromShareId: sourceShareId
             )
 
             if !words.isEmpty {
