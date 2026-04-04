@@ -103,56 +103,65 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-5 space-y-5">
-        {/* Profile card - iOS style */}
+        {/* ログイン中のメール・プラン（「プロフィール」とは別枠） */}
         {authLoading ? (
-          <div className="card p-5 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-[var(--color-foreground)] border-t-transparent rounded-full animate-spin" />
-          </div>
+          <section>
+            <h2 className="text-sm font-medium text-[var(--color-muted)] mb-3 px-1">ログイン情報</h2>
+            <div className="card p-5 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-[var(--color-foreground)] border-t-transparent rounded-full animate-spin" />
+            </div>
+          </section>
         ) : isAuthenticated ? (
-          <div className="card p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-[var(--color-border-light)] rounded-full flex items-center justify-center shrink-0">
-                <Icon name="person" size={28} className="text-[var(--color-muted)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  {isPro && <span className="text-sm">👑</span>}
-                  <span className="text-sm font-medium text-[var(--color-muted)]">{isPro ? 'Pro' : 'Free'}</span>
+          <section>
+            <h2 className="text-sm font-medium text-[var(--color-muted)] mb-3 px-1">ログイン情報</h2>
+            <div className="card p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-[var(--color-border-light)] rounded-full flex items-center justify-center shrink-0">
+                  <Icon name="mail" size={28} className="text-[var(--color-muted)]" />
                 </div>
-                <p className="font-bold text-[var(--color-foreground)] truncate">{user?.email}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {isPro && <span className="text-sm">👑</span>}
+                    <span className="text-sm font-medium text-[var(--color-muted)]">{isPro ? 'Pro' : 'Free'}</span>
+                  </div>
+                  <p className="font-bold text-[var(--color-foreground)] truncate">{user?.email}</p>
+                  {isPro && (
+                    <p className="text-xs text-[var(--color-muted)] mt-0.5">Merken Pro で複数端末の同期が有効です</p>
+                  )}
+                </div>
                 {isPro && (
-                  <p className="text-xs text-[var(--color-muted)] mt-0.5">Merken Pro で複数端末の同期が有効です</p>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="chip chip-pro text-xs">
+                      <Icon name="add" size={12} />
+                      Pro
+                    </span>
+                    <span className="text-xs text-[var(--color-muted)]">クラウド同期</span>
+                  </div>
                 )}
               </div>
-              {isPro && (
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="chip chip-pro text-xs">
-                    <Icon name="add" size={12} />
-                    Pro
-                  </span>
-                  <span className="text-xs text-[var(--color-muted)]">クラウド同期</span>
-                </div>
-              )}
             </div>
-          </div>
+          </section>
         ) : (
-          <div className="card p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-[var(--color-border-light)] rounded-full flex items-center justify-center">
-                <Icon name="person" size={28} className="text-[var(--color-muted)]" />
+          <section>
+            <h2 className="text-sm font-medium text-[var(--color-muted)] mb-3 px-1">サインイン</h2>
+            <div className="card p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-[var(--color-border-light)] rounded-full flex items-center justify-center">
+                  <Icon name="login" size={28} className="text-[var(--color-muted)]" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-[var(--color-foreground)]">ゲスト</p>
+                  <p className="text-sm text-[var(--color-muted)]">ログインでクラウド同期</p>
+                </div>
+                <Link href="/login" className="px-5 py-2.5 rounded-xl bg-[var(--color-foreground)] text-white text-sm font-semibold">
+                  ログイン
+                </Link>
               </div>
-              <div className="flex-1">
-                <p className="font-bold text-[var(--color-foreground)]">ゲスト</p>
-                <p className="text-sm text-[var(--color-muted)]">ログインでクラウド同期</p>
-              </div>
-              <Link href="/login" className="px-5 py-2.5 rounded-xl bg-[var(--color-foreground)] text-white text-sm font-semibold">
-                ログイン
-              </Link>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Profile section - iOS style */}
+        {/* 共有などで表示されるユーザー名 */}
         {isAuthenticated && (
           <section>
             <h2 className="text-sm font-medium text-[var(--color-muted)] mb-3 px-1">プロフィール</h2>

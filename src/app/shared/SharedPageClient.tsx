@@ -236,11 +236,13 @@ export default function SharedPageClient({
                 emptyMessage="まだ公開している単語帳はありません。"
                 items={ownedProjects}
               />
-              <ProjectGroup
-                title="参加中の共有単語帳"
-                emptyMessage="参加中の共有単語帳はありません。"
-                items={joinedProjects}
-              />
+              {joinedProjects.length > 0 ? (
+                <ProjectGroup
+                  title="参加中の共有単語帳"
+                  emptyMessage="参加中の共有単語帳はありません。"
+                  items={joinedProjects}
+                />
+              ) : null}
             </div>
           )}
         </section>
