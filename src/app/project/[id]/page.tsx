@@ -36,10 +36,6 @@ function isOwnedBy(project: Project | undefined | null, expectedUserId: string):
   return Boolean(project && project.userId === expectedUserId);
 }
 
-/** Header と各行で同一の列定義（単語 | A/P | 品詞 | 訳） */
-const WORD_TABLE_GRID =
-  'grid grid-cols-[minmax(0,1fr)_2.5rem_2.5rem_5rem] gap-3 items-center px-3';
-
 export default function ProjectDetailPage() {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -818,65 +814,67 @@ export default function ProjectDetailPage() {
                 <p className="text-sm text-[var(--color-muted)]">単語がありません</p>
               </div>
             ) : (
-              <div>
-                {/* Table header — WORD_TABLE_GRID と行を一致させる */}
-                <div
-                  className={`${WORD_TABLE_GRID} py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]`}
-                >
-                  <span className="min-w-0">単語</span>
-                  <span className="text-center">A/P</span>
-                  <span className="text-center">品詞</span>
-                  <span className="text-right">訳</span>
-                </div>
-                {/* Table rows */}
-                <div className="divide-y divide-[var(--color-border-light)]">
-                  {words.map((word) => (
-                    <div
-                      key={word.id}
-                      role="link"
-                      tabIndex={0}
-                      onClick={() => {
-                        router.push(`/word/${word.id}?from=${returnPath}`);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
+              <div className="overflow-x-auto">
+                <table className="min-w-full w-max border-collapse">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
+                      <th className="px-3 py-2 text-left font-medium min-w-[10rem]">単語</th>
+                      <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
+                      <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
+                      <th className="px-3 py-2 text-left font-medium whitespace-nowrap">訳</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border-light)]">
+                    {words.map((word) => (
+                      <tr
+                        key={word.id}
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => {
                           router.push(`/word/${word.id}?from=${returnPath}`);
-                        }
-                      }}
-                      className={`${WORD_TABLE_GRID} py-3.5 rounded-xl cursor-pointer active:bg-[var(--color-surface-secondary)] transition-colors`}
-                    >
-                      <div className="min-w-0">
-                        <span className="inline-flex items-center gap-1 flex-wrap">
-                          <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
-                          {word.isFavorite && (
-                            <Icon
-                              name="flag"
-                              size={14}
-                              filled
-                              className="text-[var(--color-warning)] shrink-0"
-                              aria-label="苦手マーク"
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            router.push(`/word/${word.id}?from=${returnPath}`);
+                          }
+                        }}
+                        className="cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)]"
+                      >
+                        <td className="px-3 py-3.5">
+                          <span className="inline-flex items-center gap-1 flex-wrap">
+                            <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
+                            {word.isFavorite && (
+                              <Icon
+                                name="flag"
+                                size={14}
+                                filled
+                                className="text-[var(--color-warning)] shrink-0"
+                                aria-label="苦手マーク"
+                              />
+                            )}
+                          </span>
+                        </td>
+                        <td className="w-10 px-1 py-3.5 text-center">
+                          <span className="flex justify-center">
+                            <VocabularyTypeButton
+                              vocabularyType={word.vocabularyType}
+                              onClick={() => {
+                                void handleCycleVocabularyType(word.id);
+                              }}
                             />
-                          )}
-                        </span>
-                      </div>
-                      <span className="flex justify-center">
-                        <VocabularyTypeButton
-                          vocabularyType={word.vocabularyType}
-                          onClick={() => {
-                            void handleCycleVocabularyType(word.id);
-                          }}
-                        />
-                      </span>
-                      <span className="text-center text-xs font-bold text-[var(--color-muted)]">
-                        {posLabel(word.partOfSpeechTags) || '—'}
-                      </span>
-                      <span className="min-w-0 text-right text-xs text-[var(--color-muted)] truncate">
-                        {word.japanese}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                          </span>
+                        </td>
+                        <td className="w-10 px-1 py-3.5 text-center text-xs font-bold text-[var(--color-muted)]">
+                          {posLabel(word.partOfSpeechTags) || '—'}
+                        </td>
+                        <td className="px-3 py-3.5 text-xs text-[var(--color-muted)] whitespace-nowrap">
+                          {word.japanese}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
