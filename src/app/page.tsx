@@ -1581,6 +1581,11 @@ export default function HomePage() {
             <ProcessingModal
               steps={processingSteps}
               onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
+              generatingBook={
+                pendingGeneratingWordbook
+                  ? { title: pendingGeneratingWordbook.title, iconDataUrl: pendingGeneratingWordbook.iconDataUrl }
+                  : undefined
+              }
             />
           )}
 
@@ -1797,6 +1802,11 @@ export default function HomePage() {
         <ProcessingModal
           steps={processingSteps}
           onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
+          generatingBook={
+            pendingGeneratingWordbook
+              ? { title: pendingGeneratingWordbook.title, iconDataUrl: pendingGeneratingWordbook.iconDataUrl }
+              : undefined
+          }
         />
       )}
 

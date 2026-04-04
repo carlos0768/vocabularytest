@@ -33,10 +33,14 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/30 to-[var(--color-primary)]/5" />
         )}
         <div className="absolute inset-0 flex items-center justify-center">
+          {/* Theme-colored ring so spin is visible on any thumbnail (white-on-white was invisible in light UI). */}
           <span
-            className="pointer-events-none w-9 h-9 rounded-full border-[3px] border-white/25 border-t-white animate-spin"
+            className="pointer-events-none relative flex h-9 w-9 items-center justify-center"
             aria-hidden
-          />
+          >
+            <span className="absolute inset-0 rounded-full border-[3px] border-[var(--color-primary)]/25" />
+            <span className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[var(--color-primary)] animate-spin" />
+          </span>
         </div>
       </div>
 

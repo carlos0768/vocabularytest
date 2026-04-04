@@ -1,12 +1,13 @@
 'use client';
 
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useWordCount } from '@/hooks/use-word-count';
-import { ProgressSteps, type ProgressStep, useToast, Icon } from '@/components/ui';
+import { type ProgressStep, useToast, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -24,6 +25,9 @@ import { mergeSourceLabels } from '../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../shared/lexicon';
 import type { LexiconEntry } from '@/types';
 
+const ProcessingModal = dynamic(
+  () => import('@/components/home/ProcessingModal').then((mod) => ({ default: mod.ProcessingModal })),
+);
 
 function ScanPageContent() {
   const router = useRouter();
@@ -685,29 +689,25 @@ function ScanPageContent() {
           )}
         </main>
 
-        {/* Processing modal */}
         {processing && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="card p-6 w-full max-w-sm">
-              <h2 className="text-base font-medium mb-4 text-center text-[var(--color-foreground)]">
-                {processingSteps.some((s) => s.status === 'error') ? 'エラーが発生しました' : '解析中'}
-              </h2>
-              <ProgressSteps steps={processingSteps} />
-              {processingSteps.some((s) => s.status === 'error') && (
-                <button
-                  onClick={handleCloseModal}
-                  className="mt-4 w-full py-2 bg-[var(--color-border-light)] rounded-[var(--radius-md)] text-[var(--color-foreground)] text-sm hover:bg-[var(--color-primary-light)] transition-colors"
-                >
-                  閉じる
-                </button>
-              )}
-              {!processingSteps.some((s) => s.status === 'error') && (
-                <p className="mt-4 text-xs text-[var(--color-muted)] text-center">
-                  しばらくお待ちください...
-                </p>
-              )}
-            </div>
-          </div>
+          <ProcessingModal
+            steps={processingSteps}
+            onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
+            generatingBook={
+              projectId
+                ? undefined
+                : {
+                    title:
+                      (typeof sessionStorage !== 'undefined' &&
+                        sessionStorage.getItem('scanvocab_project_name')?.trim()) ||
+                      '新しい単語帳',
+                    iconDataUrl:
+                      typeof sessionStorage !== 'undefined'
+                        ? sessionStorage.getItem('scanvocab_project_icon') || undefined
+                        : undefined,
+                  }
+            }
+          />
         )}
 
         {/* Scan limit modal */}
