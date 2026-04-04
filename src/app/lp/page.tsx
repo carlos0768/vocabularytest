@@ -135,7 +135,7 @@ const studyModes = [
 const stats = [
   { value: '4', label: 'スキャンモード', icon: 'document_scanner' },
   { value: '4', label: '学習モード', icon: 'school' },
-  { value: '¥500', label: 'Pro月額', icon: 'payments' },
+  { value: '¥300', label: 'Pro月額', icon: 'payments' },
   { value: '¥0', label: 'で始められる', icon: 'rocket_launch' },
 ];
 
@@ -651,7 +651,7 @@ export default function LandingPage() {
 
                 <p className="text-sm font-semibold text-[#137fec] uppercase tracking-wide">Pro</p>
                 <p className="mt-4 text-5xl font-display font-extrabold text-[var(--color-foreground)]">
-                  ¥500
+                  ¥300
                   <span className="text-lg font-normal text-[var(--color-muted)]">/月</span>
                 </p>
                 <p className="text-sm text-[var(--color-muted)] mt-1">いつでも解約OK</p>

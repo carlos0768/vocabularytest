@@ -1,11 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createSubscription, getSession, KOMOJU_CONFIG, type KomojuSession } from '@/lib/komoju';
+import { getCheckoutSession, STRIPE_CONFIG } from '@/lib/stripe';
+import type Stripe from 'stripe';
 
 type ActivationContext = 'webhook' | 'reconcile';
 
 export const BILLING_ACTIVATION_ERRORS = {
   ACTIVATION_IN_PROGRESS: 'Activation in progress',
-  MISSING_CUSTOMER_ID: 'Missing customer id from KOMOJU session',
+  MISSING_CUSTOMER_ID: 'Missing customer id from Stripe session',
   SESSION_CANCELLED: 'Session cancelled',
 } as const;
 
@@ -13,7 +14,6 @@ export type ActivateBillingParams = {
   sessionId: string;
   userId: string;
   customerIdFromEvent?: string | null;
-  customerIdFromMetadata?: string | null;
   subscriptionIdFromEvent?: string | null;
   eventType?: string | null;
   context: ActivationContext;
@@ -24,8 +24,8 @@ export type ActivateBillingResult = {
   alreadyProcessed: boolean;
   userId: string;
   sessionId: string;
-  komojuCustomerId: string;
-  komojuSubscriptionId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
   skippedReason?: 'already_succeeded' | 'in_progress';
 };
 
@@ -34,8 +34,8 @@ type SessionRow = {
   user_id: string;
   plan_id: string;
   used_at: string | null;
-  komoju_customer_id: string | null;
-  komoju_subscription_id: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
   status: string;
 };
 
@@ -43,25 +43,19 @@ type SessionClaimRow = {
   id: string;
   status: string;
   used_at: string | null;
-  komoju_customer_id: string | null;
-  komoju_subscription_id: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
   should_process: boolean;
   claim_reason: string;
 };
 
 type SubscriptionRow = {
-  komoju_subscription_id: string | null;
-  komoju_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
 };
 
-function addOneMonth(base: Date): Date {
-  const periodEnd = new Date(base);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-  return periodEnd;
-}
-
 function ensurePlanId(planId: string) {
-  if (planId !== KOMOJU_CONFIG.plans.pro.id) {
+  if (planId !== STRIPE_CONFIG.plans.pro.id) {
     throw new Error('Session plan mismatch');
   }
 }
@@ -95,7 +89,7 @@ async function getSessionRow(
 ): Promise<SessionRow> {
   const { data, error } = await supabaseAdmin
     .from('subscription_sessions')
-    .select('id, user_id, plan_id, used_at, komoju_customer_id, komoju_subscription_id, status')
+    .select('id, user_id, plan_id, used_at, stripe_customer_id, stripe_subscription_id, status')
     .eq('id', sessionId)
     .single();
 
@@ -135,7 +129,7 @@ async function getExistingSubscriptionRow(
 ): Promise<SubscriptionRow | null> {
   const { data, error } = await supabaseAdmin
     .from('subscriptions')
-    .select('komoju_subscription_id, komoju_customer_id')
+    .select('stripe_subscription_id, stripe_customer_id')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -158,41 +152,20 @@ export function resolveSubscriptionIdCandidate(
   );
 }
 
-export function extractCustomerIdFromSessionPayload(session: KomojuSession): string | null {
-  if (typeof session.customer_id === 'string' && session.customer_id) {
-    return session.customer_id;
-  }
+export function extractIdsFromCheckoutSession(
+  session: Stripe.Checkout.Session
+): { customerId: string | null; subscriptionId: string | null } {
+  const customerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id ?? null;
 
-  if (typeof session.customer === 'string' && session.customer) {
-    return session.customer;
-  }
+  const subscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id ?? null;
 
-  if (session.customer && typeof session.customer === 'object') {
-    const customerObjectId = typeof session.customer.id === 'string' ? session.customer.id : null;
-    if (customerObjectId) {
-      return customerObjectId;
-    }
-  }
-
-  if (typeof session.payment?.customer === 'string' && session.payment.customer) {
-    return session.payment.customer;
-  }
-
-  if (typeof session.payment?.customer_id === 'string' && session.payment.customer_id) {
-    return session.payment.customer_id;
-  }
-
-  const metadataCustomerId = session.metadata?.customer_id;
-  if (typeof metadataCustomerId === 'string' && metadataCustomerId) {
-    return metadataCustomerId;
-  }
-
-  const paymentMetadataCustomerId = session.payment?.metadata?.customer_id;
-  if (typeof paymentMetadataCustomerId === 'string' && paymentMetadataCustomerId) {
-    return paymentMetadataCustomerId;
-  }
-
-  return null;
+  return { customerId, subscriptionId };
 }
 
 async function ensureCustomerId(
@@ -204,8 +177,8 @@ async function ensureCustomerId(
   }
 
   try {
-    const session = await getSession(sessionId);
-    const customerId = extractCustomerIdFromSessionPayload(session);
+    const checkoutSession = await getCheckoutSession(sessionId);
+    const { customerId } = extractIdsFromCheckoutSession(checkoutSession);
     if (customerId) {
       return customerId;
     }
@@ -223,12 +196,11 @@ async function ensureBillingSubscriptionId(
   supabaseAdmin: SupabaseClient,
   userId: string,
   sessionId: string,
-  customerId: string,
   subscriptionIdFromEvent: string | null,
   sessionSubscriptionId: string | null
 ): Promise<string> {
   const existingSubscription = await getExistingSubscriptionRow(supabaseAdmin, userId);
-  const existingSubscriptionId = existingSubscription?.komoju_subscription_id ?? null;
+  const existingSubscriptionId = existingSubscription?.stripe_subscription_id ?? null;
 
   const resolvedSubscriptionId = resolveSubscriptionIdCandidate(
     subscriptionIdFromEvent,
@@ -239,27 +211,52 @@ async function ensureBillingSubscriptionId(
     return resolvedSubscriptionId;
   }
 
+  // Stripe Checkout in subscription mode auto-creates the subscription,
+  // so we should always have an ID by now. Fetch from Stripe as fallback.
   try {
-    const createdSubscription = await createSubscription(customerId, {
-      user_id: userId,
-      plan: 'pro',
-      plan_id: KOMOJU_CONFIG.plans.pro.id,
-      session_id: sessionId,
-    });
-    return createdSubscription.id;
-  } catch (error) {
-    // If another processor created it concurrently, read back once before failing.
-    const postCreateRow = await getExistingSubscriptionRow(supabaseAdmin, userId);
-    if (postCreateRow?.komoju_subscription_id) {
-      return postCreateRow.komoju_subscription_id;
+    const checkoutSession = await getCheckoutSession(sessionId);
+    const { subscriptionId } = extractIdsFromCheckoutSession(checkoutSession);
+    if (subscriptionId) {
+      return subscriptionId;
     }
-    throw error;
+  } catch (error) {
+    console.error('[BillingActivation] failed to fetch session for subscription recovery', {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
+
+  throw new Error('Cannot resolve Stripe subscription ID');
+}
+
+function computePeriodDates(stripeSubscription: Stripe.Subscription | null): {
+  periodStartIso: string;
+  periodEndIso: string;
+} {
+  if (stripeSubscription) {
+    const firstItem = stripeSubscription.items?.data?.[0];
+    const startTs = firstItem?.current_period_start;
+    const endTs = firstItem?.current_period_end;
+    if (typeof startTs === 'number' && startTs > 0 && typeof endTs === 'number' && endTs > 0) {
+      return {
+        periodStartIso: new Date(startTs * 1000).toISOString(),
+        periodEndIso: new Date(endTs * 1000).toISOString(),
+      };
+    }
+  }
+  const now = new Date();
+  const periodEnd = new Date(now);
+  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  return {
+    periodStartIso: now.toISOString(),
+    periodEndIso: periodEnd.toISOString(),
+  };
 }
 
 export async function activateBillingFromSession(
   supabaseAdmin: SupabaseClient,
-  params: ActivateBillingParams
+  params: ActivateBillingParams,
+  stripeSubscription?: Stripe.Subscription | null
 ): Promise<ActivateBillingResult> {
   const session = await getSessionRow(supabaseAdmin, params.sessionId);
   if (session.user_id !== params.userId) {
@@ -276,14 +273,13 @@ export async function activateBillingFromSession(
 
     const existingSubscription = await getExistingSubscriptionRow(supabaseAdmin, params.userId);
     const existingCustomerId = pickFirstString(
-      claim.komoju_customer_id,
-      existingSubscription?.komoju_customer_id,
-      params.customerIdFromEvent,
-      params.customerIdFromMetadata
+      claim.stripe_customer_id,
+      existingSubscription?.stripe_customer_id,
+      params.customerIdFromEvent
     );
     const existingSubscriptionId = pickFirstString(
-      claim.komoju_subscription_id,
-      existingSubscription?.komoju_subscription_id,
+      claim.stripe_subscription_id,
+      existingSubscription?.stripe_subscription_id,
       params.subscriptionIdFromEvent
     );
 
@@ -297,8 +293,8 @@ export async function activateBillingFromSession(
       skippedReason: claimReason === 'in_progress' ? 'in_progress' : 'already_succeeded',
       userId: params.userId,
       sessionId: params.sessionId,
-      komojuCustomerId: existingCustomerId,
-      komojuSubscriptionId: existingSubscriptionId,
+      stripeCustomerId: existingCustomerId,
+      stripeSubscriptionId: existingSubscriptionId,
     };
   }
 
@@ -306,24 +302,20 @@ export async function activateBillingFromSession(
     params.sessionId,
     pickFirstString(
       params.customerIdFromEvent,
-      session.komoju_customer_id,
-      params.customerIdFromMetadata
+      session.stripe_customer_id
     )
   );
 
-  const komojuSubscriptionId = await ensureBillingSubscriptionId(
+  const stripeSubscriptionId = await ensureBillingSubscriptionId(
     supabaseAdmin,
     params.userId,
     params.sessionId,
-    customerId,
     params.subscriptionIdFromEvent ?? null,
-    session.komoju_subscription_id
+    session.stripe_subscription_id
   );
 
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const periodStartIso = nowIso;
-  const periodEndIso = addOneMonth(now).toISOString();
+  const { periodStartIso, periodEndIso } = computePeriodDates(stripeSubscription ?? null);
+  const nowIso = new Date().toISOString();
 
   const { error: updateError } = await supabaseAdmin
     .from('subscriptions')
@@ -332,8 +324,8 @@ export async function activateBillingFromSession(
       plan: 'pro',
       pro_source: 'billing',
       test_pro_expires_at: null,
-      komoju_customer_id: customerId,
-      komoju_subscription_id: komojuSubscriptionId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: stripeSubscriptionId,
       current_period_start: periodStartIso,
       current_period_end: periodEndIso,
       cancel_at_period_end: false,
@@ -349,8 +341,8 @@ export async function activateBillingFromSession(
   const { error: sessionUpdateError } = await supabaseAdmin
     .from('subscription_sessions')
     .update({
-      komoju_customer_id: customerId,
-      komoju_subscription_id: komojuSubscriptionId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: stripeSubscriptionId,
       used_at: session.used_at ?? nowIso,
       status: 'succeeded',
       failure_code: null,
@@ -377,7 +369,7 @@ export async function activateBillingFromSession(
     alreadyProcessed: Boolean(session.used_at),
     userId: params.userId,
     sessionId: params.sessionId,
-    komojuCustomerId: customerId,
-    komojuSubscriptionId,
+    stripeCustomerId: customerId,
+    stripeSubscriptionId,
   };
 }

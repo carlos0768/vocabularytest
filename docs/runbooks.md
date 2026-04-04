@@ -242,9 +242,9 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 ---
 
-## 8. Handling a KOMOJU Webhook Incident
+## 8. Handling a Stripe Webhook Incident
 
-**Purpose**: Diagnose and resolve issues with KOMOJU payment webhooks.
+**Purpose**: Diagnose and resolve issues with Stripe payment webhooks.
 
 **Primary targets**:
 - `src/app/api/subscription/webhook/route.ts`
@@ -253,12 +253,12 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 **Steps**:
 1. Check Vercel function logs for the webhook route
-2. Verify the webhook secret is correctly set (`KOMOJU_WEBHOOK_SECRET`)
+2. Verify the webhook secret is correctly set (`STRIPE_WEBHOOK_SECRET`)
 3. Check `webhook_events` table for the event hash to see if it was claimed
 4. If double-processing occurred, check the `claim_webhook_event` RPC behavior
 5. If activation failed, check the `subscription_sessions` table for the user's session record
 6. Verify the `subscriptions` table state for the affected user
-7. Reference `docs/ops-komoju-incident-2026-02-09.md` for prior incident patterns
+7. Reference `docs/ops-komoju-incident-2026-02-09.md` for prior incident patterns (historical KOMOJU reference)
 
 **Success criteria**:
 - User's subscription status is correct in the `subscriptions` table
@@ -270,7 +270,7 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 **Cautions**:
 - The webhook handler uses `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS. Any SQL query in this handler can access all user data.
-- The `npm run qa:komoju:webhook-e2e` command hits the real KOMOJU API. Use test API keys only.
+- The `npm run qa:stripe:webhook-e2e` command hits the real Stripe API. Use test API keys only.
 
 ---
 

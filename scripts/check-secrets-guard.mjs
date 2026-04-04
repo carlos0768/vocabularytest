@@ -35,7 +35,7 @@ const SECRET_PATTERNS = [
       /\bsk-[A-Za-z0-9]{20,}\b/g,
       /\bre_[A-Za-z0-9_-]{20,}\b/g,
       /\bAIza[0-9A-Za-z\-_]{20,}\b/g,
-      /\b(?:OPENAI_API_KEY|RESEND_API_KEY|KOMOJU_SECRET_KEY|KOMOJU_WEBHOOK_SECRET|SUPABASE_SERVICE_ROLE_KEY|ADMIN_SECRET)\b\s*[:=]\s*["'`]?[A-Za-z0-9._-]{12,}["'`]?/gi,
+      /\b(?:OPENAI_API_KEY|RESEND_API_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|SUPABASE_SERVICE_ROLE_KEY|ADMIN_SECRET)\b\s*[:=]\s*["'`]?[A-Za-z0-9._-]{12,}["'`]?/gi,
     ],
   },
   {

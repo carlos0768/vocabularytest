@@ -1,13 +1,15 @@
 export type ReconcilePaymentState = 'confirmed' | 'failed' | 'pending';
 
-const CAPTURED_STATUSES = new Set(['captured', 'completed', 'complete', 'paid']);
+const CAPTURED_STATUSES = new Set([
+  'complete', 'paid', 'succeeded',
+  // Legacy KOMOJU statuses kept for backward-compatible reconciliation
+  'captured', 'completed',
+]);
+
 const FAILED_STATUSES = new Set([
-  'failed',
-  'declined',
-  'expired',
-  'cancelled',
-  'canceled',
-  'rejected',
+  'failed', 'expired', 'cancelled', 'canceled',
+  // Legacy KOMOJU statuses
+  'declined', 'rejected',
 ]);
 
 function normalizeStatus(status: string | null | undefined): string | null {

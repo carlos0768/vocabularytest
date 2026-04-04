@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
+import { STRIPE_CONFIG } from '@/lib/stripe/config';
 
 interface ScanLimitModalProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ export function ScanLimitModal({
             <Icon name="auto_awesome" size={16} className="text-[var(--color-primary)]" />
             <span className="text-sm font-medium text-[var(--color-foreground)]">Proなら無制限でスキャン</span>
           </div>
-          <p className="text-xs text-[var(--color-muted)] mb-3">月額 ¥500</p>
+          <p className="text-xs text-[var(--color-muted)] mb-3">月額 ¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}</p>
           <Link href="/subscription" onClick={onClose}>
             <Button className="w-full">
               Proにアップグレード

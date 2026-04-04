@@ -7,17 +7,17 @@ import {
 } from './reconcile-status';
 
 test('captured statuses are classified as confirmed', () => {
-  const captured = ['captured', 'completed', 'complete', 'paid'];
+  const captured = ['complete', 'paid', 'succeeded', 'captured', 'completed'];
   for (const status of captured) {
-    assert.equal(isCapturedStatus(status), true);
+    assert.equal(isCapturedStatus(status), true, `expected ${status} to be captured`);
     assert.equal(classifyPaymentStatus(status), 'confirmed');
   }
 });
 
 test('failed statuses are classified as failed', () => {
-  const failed = ['failed', 'declined', 'expired', 'cancelled', 'canceled', 'rejected'];
+  const failed = ['failed', 'expired', 'cancelled', 'canceled', 'declined', 'rejected'];
   for (const status of failed) {
-    assert.equal(isFailedStatus(status), true);
+    assert.equal(isFailedStatus(status), true, `expected ${status} to be failed`);
     assert.equal(classifyPaymentStatus(status), 'failed');
   }
 });

@@ -36,9 +36,10 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # Server-side only, bypasses RLS
 
-# KOMOJU Payment (for subscription)
-KOMOJU_SECRET_KEY=your-komoju-secret-key
-KOMOJU_WEBHOOK_SECRET=your-webhook-secret
+# Stripe Payment (for subscription)
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+STRIPE_PRICE_ID=price_your-price-id
 
 # Email OTP
 RESEND_API_KEY=your-resend-api-key
@@ -55,7 +56,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 - **Local Database**: Dexie.js (IndexedDB wrapper) - Free tier
 - **Cloud Database**: Supabase (PostgreSQL + Auth + Storage) - Pro tier
 - **Authentication**: Supabase Auth with custom OTP flow via Resend
-- **Payment (Web)**: KOMOJU (PayPay + credit card, 500 JPY/month)
+- **Payment (Web)**: Stripe (credit card, 300 JPY/month)
 - **Payment (iOS)**: Apple IAP via `@apple/app-store-server-library`
 - **AI - OCR**: Google Gemini 2.5 Flash (`src/lib/ai/config.ts`)
 - **AI - Quiz/Sentences**: OpenAI GPT-4o-mini (`src/lib/ai/config.ts`)
@@ -76,7 +77,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 | `src/hooks/` | Custom React hooks (state management layer) |
 | `src/lib/ai/` | AI integrations: config, prompts, provider abstraction |
 | `src/lib/db/` | Repository layer: local, remote, hybrid, readonly, sync queue |
-| `src/lib/komoju/` | KOMOJU payment client (server-side only) |
+| `src/lib/stripe/` | Stripe payment client (server-side only) |
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, middleware |
 | `src/lib/subscription/` | Subscription status computation, billing activation |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |
@@ -101,7 +102,7 @@ getRepository(subscriptionStatus, wasPro)
 
 ### Subscription Tiers
 
-| Feature | Free | Pro (500 JPY/month) |
+| Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
 | Scans per day | 3 (server-enforced) | Unlimited |
 | Words total | 100 (client-enforced) | Unlimited |
@@ -123,11 +124,11 @@ getRepository(subscriptionStatus, wasPro)
 3. Subscription + profile rows auto-created via database trigger (`on_auth_user_created` -> `handle_new_user()`). Launch campaign (2026-04-04+): first 66 eligible signups get permanent test Pro in-DB; see `docs/ops-auto-pro-first-66-2026-04-04.md`.
 4. User upgrades -> KOMOJU payment page -> Webhook activates Pro
 
-### Payment Flow (KOMOJU)
-1. User clicks upgrade -> `/api/subscription/create` -> Creates KOMOJU session
-2. User redirected to KOMOJU hosted page (PayPay, credit card)
-3. Payment complete -> KOMOJU webhook -> `/api/subscription/webhook`
-4. HMAC signature verified -> Idempotency check via `claim_webhook_event` RPC
+### Payment Flow (Stripe)
+1. User clicks upgrade -> `/api/subscription/create` -> Creates Stripe Checkout Session
+2. User redirected to Stripe hosted Checkout page
+3. Payment complete -> Stripe webhook -> `/api/subscription/webhook`
+4. Stripe signature verified via `constructEvent()` -> Idempotency check via `claim_webhook_event` RPC
 5. `activateBillingFromSession()` updates `subscriptions` table
 
 ## Critical Safety Rules
@@ -140,7 +141,7 @@ These rules must never be violated. See `docs/invariants.md` for full list.
 4. **Always enable RLS on new tables** with user-scoped policies
 5. **Never break the `fullSync()` safety guard** in `src/lib/db/hybrid-repository.ts` (skip sync when remote is empty but local has data)
 6. **`pro_source='none'` must resolve to `'cancelled'`** in subscription status logic
-7. **KOMOJU webhook signature must be verified before any processing**
+7. **Stripe webhook signature must be verified before any processing**
 8. **Pro-only modes must be gated by `requiresPro` flag** in `/api/extract`
 
 ## Danger Zones
@@ -181,19 +182,19 @@ npm run security:all        # Full security suite
 
 New test files must be manually added to the `test` script in `package.json` -- they are not auto-discovered.
 
-## Testing KOMOJU Webhooks Locally
+## Testing Stripe Webhooks Locally
 
-Use ngrok to expose local server:
+Use Stripe CLI to forward webhooks:
 ```bash
-ngrok http 3000
-# Configure webhook URL in KOMOJU dashboard: https://xxx.ngrok.io/api/subscription/webhook
+stripe listen --forward-to localhost:3000/api/subscription/webhook
+# Use the webhook signing secret printed by the CLI as STRIPE_WEBHOOK_SECRET
 ```
 
 ## Deployment Checklist
 
 1. Set all required environment variables in hosting platform
 2. Run Supabase migrations
-3. Configure KOMOJU webhook URL to production domain
+3. Configure Stripe webhook URL to production domain
 4. Verify `npm run lint && npm test && npm run build` passes
 
 ## Future Features (TODO)

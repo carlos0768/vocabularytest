@@ -448,7 +448,7 @@ struct SettingsView: View {
                             .foregroundStyle(MerkenTheme.primaryText)
                         proChip
                     }
-                    Text("¥500/月")
+                    Text("¥300/月")
                         .font(.system(size: 12))
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
@@ -524,7 +524,7 @@ struct SettingsView: View {
                 Button {
                     purchaseProSubscription()
                 } label: {
-                    Text(isPurchasing ? "購入処理中..." : "¥500/月で始める")
+                    Text(isPurchasing ? "購入処理中..." : "¥300/月で始める")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)

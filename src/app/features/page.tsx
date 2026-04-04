@@ -371,7 +371,7 @@ export default function FeaturesPage() {
                   </h3>
                 </div>
                 <p className="text-3xl font-extrabold text-[var(--color-foreground)]">
-                  ¥500
+                  ¥300
                   <span className="text-sm font-normal text-[var(--color-muted)]">/月</span>
                 </p>
                 <ul className="mt-4 space-y-2 text-sm text-[var(--color-muted)]">

@@ -178,8 +178,8 @@ export interface Subscription {
   plan: SubscriptionPlan;
   proSource: 'none' | 'billing' | 'test' | 'appstore';
   testProExpiresAt: string | null;
-  komojuSubscriptionId?: string;
-  komojuCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripeCustomerId?: string;
   currentPeriodStart?: string;
   currentPeriodEnd?: string;
   cancelAtPeriodEnd?: boolean;

@@ -74,7 +74,7 @@ These areas require extra caution. Small changes can cause cascading failures.
 - Uses `claim_webhook_event` Supabase RPC for idempotency.
 - **Impact of breakage**: Double-charging users, or silently failing to activate Pro subscriptions.
 - **Before modifying**: Read the full webhook handler. Understand the HMAC verification flow and `activateBillingFromSession()`.
-- **Testing**: Use `npm run qa:komoju:webhook-e2e` (hits real KOMOJU API -- use test keys only).
+- **Testing**: Use `npm run qa:stripe:webhook-e2e` (hits real Stripe API -- use test keys only).
 
 ### 2. Subscription Status Computation (`src/lib/subscription/status.ts`)
 
@@ -151,8 +151,8 @@ These areas require extra caution. Small changes can cause cascading failures.
 
 ### 8. Billing Activation (`src/lib/subscription/billing-activation.ts`)
 
-- Called by both the KOMOJU webhook handler and the AppStore verify route.
-- **Impact of breakage**: Both web (KOMOJU) and iOS (Apple IAP) payment activation fail simultaneously.
+- Called by both the Stripe webhook handler and the AppStore verify route.
+- **Impact of breakage**: Both web (Stripe) and iOS (Apple IAP) payment activation fail simultaneously.
 - **Before modifying**: Run `npm test` which includes `src/lib/subscription/billing-activation.test.ts`.
 
 ### 9. Sync Queue (`src/lib/db/sync-queue.ts`)
@@ -176,7 +176,7 @@ When you change X, you must also check Y.
 | `src/lib/subscription/status.ts` | `src/hooks/use-auth.ts`, `src/app/api/subscription/appstore/verify/route.ts`, `src/app/api/subscription/me/route.ts`, `src/app/api/subscription/reconcile/route.ts` |
 | `src/lib/db/index.ts` (getRepository) | All callers: `use-projects.ts`, `use-words.ts`, `src/app/scan/confirm/page.tsx` |
 | `src/lib/ai/config.ts` | All extraction modes in `/api/extract`, `/api/scan-jobs/process`, `/api/grammar` (if restored) |
-| `src/lib/komoju/config.ts` | Subscription create, webhook, free plan limit display |
+| `src/lib/stripe/config.ts` | Subscription create, webhook, free plan limit display |
 | `src/lib/supabase/middleware.ts` | All protected routes (verify `protectedPaths` array matches actual routes) |
 | `src/lib/supabase/client.ts` | All client-side Supabase usage (singleton pattern -- do not create multiple instances) |
 | Dexie schema (`src/lib/db/dexie.ts`) | Must increment version number. Existing users' IndexedDB will auto-migrate. Test with existing local data. |
