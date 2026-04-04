@@ -189,70 +189,61 @@ export default function SharedPageClient({
       <header className="px-5 pt-6 pb-4">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-black text-[var(--color-foreground)] text-center">共有</h1>
-          <p className="text-sm text-[var(--color-muted)] text-center mt-2">
-            公開中の単語帳をすぐ開きつつ、自分の共有はあとから読み込みます。
-          </p>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-5 pb-8 space-y-8">
-        <section className="space-y-4">
-          <SectionHeader
-            title="自分の共有 / 参加中"
-            description="自分が公開した単語帳と、参加している共有単語帳。"
-          />
+        {(!isAuthenticated ||
+          userSectionLoading ||
+          userSectionError != null ||
+          ownedProjects.length > 0 ||
+          joinedProjects.length > 0) && (
+          <section className="space-y-4">
+            <SectionHeader
+              title="自分の共有 / 参加中"
+              description="自分が公開した単語帳と、参加している共有単語帳。"
+            />
 
-          {userSectionLoading ? (
-            <ProjectSkeletonList count={3} />
-          ) : !isAuthenticated ? (
-            <div className="card p-5 text-center">
-              <Icon name="lock" size={36} className="text-[var(--color-muted)] mx-auto mb-3" />
-              <p className="font-bold text-[var(--color-foreground)]">ログインすると自分の共有が表示されます</p>
-              <p className="text-sm text-[var(--color-muted)] mt-2 mb-4">
-                公開単語帳のプレビューはこのまま閲覧できます。
-              </p>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold"
-              >
-                <Icon name="login" size={18} />
-                ログイン
-              </Link>
-            </div>
-          ) : userSectionError ? (
-            <InlineMessage icon="error" tone="error" message={userSectionError} />
-          ) : ownedProjects.length === 0 && joinedProjects.length === 0 ? (
-            <div className="card p-5 text-center">
-              <Icon name="share" size={36} className="text-[var(--color-muted)] mx-auto mb-3" />
-              <p className="font-bold text-[var(--color-foreground)]">共有中の単語帳はまだありません</p>
-              <p className="text-sm text-[var(--color-muted)] mt-2">
-                単語帳を共有するとここにまとまって表示されます。
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <ProjectGroup
-                title="自分が公開した単語帳"
-                emptyMessage="まだ公開している単語帳はありません。"
-                items={ownedProjects}
-              />
-              {joinedProjects.length > 0 ? (
+            {userSectionLoading ? (
+              <ProjectSkeletonList count={3} />
+            ) : !isAuthenticated ? (
+              <div className="card p-5 text-center">
+                <Icon name="lock" size={36} className="text-[var(--color-muted)] mx-auto mb-3" />
+                <p className="font-bold text-[var(--color-foreground)]">ログインすると自分の共有が表示されます</p>
+                <p className="text-sm text-[var(--color-muted)] mt-2 mb-4">
+                  公開単語帳のプレビューはこのまま閲覧できます。
+                </p>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold"
+                >
+                  <Icon name="login" size={18} />
+                  ログイン
+                </Link>
+              </div>
+            ) : userSectionError ? (
+              <InlineMessage icon="error" tone="error" message={userSectionError} />
+            ) : (
+              <div className="space-y-6">
                 <ProjectGroup
-                  title="参加中の共有単語帳"
-                  emptyMessage="参加中の共有単語帳はありません。"
-                  items={joinedProjects}
+                  title="自分が公開した単語帳"
+                  emptyMessage="まだ公開している単語帳はありません。"
+                  items={ownedProjects}
                 />
-              ) : null}
-            </div>
-          )}
-        </section>
+                {joinedProjects.length > 0 ? (
+                  <ProjectGroup
+                    title="参加中の共有単語帳"
+                    emptyMessage="参加中の共有単語帳はありません。"
+                    items={joinedProjects}
+                  />
+                ) : null}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="space-y-4">
-          <SectionHeader
-            title="みんなの公開単語帳"
-            description="まずは軽いプレビューだけ表示し、続きを必要なぶんだけ読み込みます。"
-            trailing={`${publicProjects.length}件表示`}
-          />
+          <SectionHeader title="共有単語帳" trailing={`${publicProjects.length}件表示`} />
 
           {publicProjects.length === 0 ? (
             <div className="card p-5 text-center">
@@ -308,14 +299,16 @@ function SectionHeader({
   trailing,
 }: {
   title: string;
-  description: string;
+  description?: string;
   trailing?: string;
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
         <h2 className="text-lg font-black text-[var(--color-foreground)]">{title}</h2>
-        <p className="text-sm text-[var(--color-muted)] mt-1">{description}</p>
+        {description ? (
+          <p className="text-sm text-[var(--color-muted)] mt-1">{description}</p>
+        ) : null}
       </div>
       {trailing ? (
         <span className="text-xs font-medium text-[var(--color-muted)] shrink-0 pt-1">{trailing}</span>
