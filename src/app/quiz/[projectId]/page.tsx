@@ -504,8 +504,12 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
+        // Prefer words that still need practice; if all are mastered, keep full list so quiz stays available.
         if (!reviewMode) {
-          sourceWords = sourceWords.filter((word) => word.status !== 'mastered');
+          const nonMastered = sourceWords.filter((word) => word.status !== 'mastered');
+          if (nonMastered.length > 0) {
+            sourceWords = nonMastered;
+          }
         }
 
         if (sourceWords.length === 0) {
