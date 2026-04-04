@@ -683,6 +683,25 @@ export default function ProjectDetailPage() {
   const headerBackground = `linear-gradient(135deg, ${headerFrom}, ${headerTo})`;
   const mobileHeaderHeight = 'calc(env(safe-area-inset-top, 0px) + 4.75rem)';
 
+  useEffect(() => {
+    if (loading || !project) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlBackgroundColor = html.style.backgroundColor;
+    const previousBodyBackgroundColor = body.style.backgroundColor;
+
+    // iOS standalone can expose the document background above fixed content.
+    // Use the header's leading color here so that exposed area matches the header.
+    html.style.backgroundColor = headerFrom;
+    body.style.backgroundColor = headerFrom;
+
+    return () => {
+      html.style.backgroundColor = previousHtmlBackgroundColor;
+      body.style.backgroundColor = previousBodyBackgroundColor;
+    };
+  }, [headerFrom, loading, project]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-[var(--color-muted)]">
