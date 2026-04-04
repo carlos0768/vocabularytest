@@ -288,7 +288,7 @@ export function SentenceQuizScreen() {
           <View style={styles.errorActions}>
             {canRetry && (
               <Button
-                onPress={() => generateQuestions(allWords)}
+                onPress={() => generateQuestions(allWords, session)}
                 size="lg"
                 style={styles.retryButton}
               >

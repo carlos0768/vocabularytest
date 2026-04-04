@@ -1,530 +1,311 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Linking,
   Alert,
-  ActivityIndicator,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  ArrowLeft,
-  Mail,
-  User,
-  Sparkles,
-  Check,
-  Cloud,
-  Smartphone,
-  ExternalLink,
-  ChevronRight,
-  LogOut,
-} from 'lucide-react-native';
+import { ArrowLeft, ExternalLink, LogOut, Mail, Shield, User } from 'lucide-react-native';
 import { Button } from '../components/ui';
-import { useAuth } from '../hooks/use-auth';
-import { getRepository } from '../lib/db';
-import { getGuestUserId, getDailyScanInfo } from '../lib/utils';
-import { withWebAppBase } from '../lib/web-base-url';
 import colors from '../constants/colors';
+import { useAuth } from '../hooks/use-auth';
+import { WEB_APP_BASE_URL, withWebAppBase } from '../lib/web-base-url';
 import type { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const FREE_DAILY_SCAN_LIMIT = 3;
-const FREE_WORD_LIMIT = 100;
-const PRO_PRICE = 500;
-
 export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user, subscription, isPro, isAuthenticated, loading: authLoading, signOut } = useAuth();
+  const {
+    user,
+    subscription,
+    isAuthenticated,
+    isPro,
+    signOut,
+    loading,
+    configError,
+  } = useAuth();
 
-  const [wordCount, setWordCount] = useState(0);
-  const [wordCountLoading, setWordCountLoading] = useState(true);
+  const storageLabel = useMemo(() => {
+    if (isPro) {
+      const source = subscription?.proSource === 'test' ? 'Test Pro' : 'Pro';
+      return `クラウド同期 (${source})`;
+    }
+    return 'ローカル保存';
+  }, [isPro, subscription?.proSource]);
 
-  // Load word count
-  useEffect(() => {
-    const loadWordCount = async () => {
-      try {
-        // Authenticated users use remote repository (Supabase), guests use local SQLite
-        const repository = getRepository(subscription?.status || 'free');
-        // Use authenticated user ID if logged in, otherwise use guest ID
-        const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
-        const projects = await repository.getProjects(userId);
+  const planLabel = useMemo(() => {
+    if (!subscription) return 'free';
+    if (subscription.proSource === 'test') {
+      return `${subscription.plan} / ${subscription.status} / test`;
+    }
+    return `${subscription.plan} / ${subscription.status}`;
+  }, [subscription]);
 
-        let count = 0;
-        for (const project of projects) {
-          const words = await repository.getWords(project.id);
-          count += words.length;
-        }
-        setWordCount(count);
-      } catch (error) {
-        console.error('Failed to load word count:', error);
-      } finally {
-        setWordCountLoading(false);
-      }
-    };
+  const openExternal = async (path: string) => {
+    if (!WEB_APP_BASE_URL) {
+      Alert.alert('リンク設定が不足しています', 'EXPO_PUBLIC_APP_URL を設定してください。');
+      return;
+    }
 
-    loadWordCount();
-  }, [isAuthenticated, user, subscription?.status]);
+    await Linking.openURL(withWebAppBase(path));
+  };
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウト',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            });
-          },
+  const handleSignOut = () => {
+    Alert.alert('ログアウトしますか？', '現在のセッションを終了します。', [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: 'ログアウト',
+        style: 'destructive',
+        onPress: async () => {
+          const result = await signOut();
+          if (!result.success) {
+            Alert.alert('エラー', result.error || 'ログアウトに失敗しました。');
+            return;
+          }
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
         },
-      ]
-    );
-  };
-
-  const handleContact = () => {
-    Linking.openURL('mailto:support@scanvocab.app');
-  };
-
-  const handleTerms = () => {
-    Linking.openURL(withWebAppBase('/terms'));
-  };
-
-  const handlePrivacy = () => {
-    Linking.openURL(withWebAppBase('/privacy'));
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={20} color={colors.gray[600]} />
+        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+          <ArrowLeft size={20} color={colors.gray[700]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>設定</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {/* Account Section */}
-        {authLoading ? (
-          <View style={styles.accountCard}>
-            <ActivityIndicator size="small" color={colors.gray[400]} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>MERKEN Android Test Build</Text>
+          <Text style={styles.sectionBody}>
+            認証、スキャン、フラッシュカード、苦手単語、例文クイズ、共有まで含めた Android 内部テスト版です。
+          </Text>
+        </View>
+
+        {configError ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningTitle}>Supabase 設定が不足しています</Text>
+            <Text style={styles.warningText}>{configError}</Text>
           </View>
-        ) : isAuthenticated ? (
-          <View style={styles.accountCard}>
-            <View style={styles.accountIcon}>
-              <Mail size={20} color={colors.gray[500]} />
+        ) : null}
+
+        <View style={styles.sectionCard}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <User size={18} color={colors.gray[700]} />
             </View>
-            <View style={styles.accountInfo}>
-              <Text style={styles.accountEmail} numberOfLines={1}>{user?.email}</Text>
-              <Text style={styles.accountPlan}>{isPro ? 'Pro' : 'Free'}</Text>
+            <View style={styles.infoCopy}>
+              <Text style={styles.infoLabel}>アカウント</Text>
+              <Text style={styles.infoValue}>
+                {isAuthenticated ? user?.email ?? 'ログイン中' : 'ゲスト'}
+              </Text>
             </View>
           </View>
-        ) : (
-          <View style={styles.accountCard}>
-            <View style={styles.accountIcon}>
-              <User size={20} color={colors.gray[500]} />
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Shield size={18} color={colors.gray[700]} />
             </View>
-            <View style={styles.accountInfo}>
-              <Text style={styles.accountEmail}>ゲスト</Text>
-              <Text style={styles.accountPlan}>ログインでクラウド同期</Text>
+            <View style={styles.infoCopy}>
+              <Text style={styles.infoLabel}>保存方式</Text>
+              <Text style={styles.infoValue}>{storageLabel}</Text>
             </View>
-            <Button
-              size="sm"
-              variant="secondary"
-              onPress={() => navigation.navigate('Login')}
-            >
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Mail size={18} color={colors.gray[700]} />
+            </View>
+            <View style={styles.infoCopy}>
+              <Text style={styles.infoLabel}>プラン</Text>
+              <Text style={styles.infoValue}>
+                {planLabel}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {isAuthenticated ? (
+          <Button
+            variant={isPro ? 'secondary' : 'primary'}
+            onPress={() => navigation.navigate('Subscription')}
+            icon={<Shield size={16} color={isPro ? colors.gray[800] : colors.white} />}
+          >
+            {isPro ? 'Test Pro / Pro 状態を見る' : 'Test Pro を有効化'}
+          </Button>
+        ) : null}
+
+        {!isAuthenticated ? (
+          <View style={styles.authActions}>
+            <Button variant="secondary" onPress={() => navigation.navigate('Signup')}>
+              新規登録
+            </Button>
+            <Button onPress={() => navigation.navigate('Login')}>
               ログイン
             </Button>
           </View>
+        ) : (
+          <Button
+            variant="danger"
+            onPress={handleSignOut}
+            loading={loading}
+            icon={<LogOut size={16} color={colors.white} />}
+          >
+            ログアウト
+          </Button>
         )}
 
-        {/* Plan Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>プラン</Text>
-          <View style={styles.card}>
-            {isPro ? (
-              // Pro User View
-              <View style={styles.planContent}>
-                <View style={styles.planHeader}>
-                  <View style={styles.planNameRow}>
-                    <Sparkles size={16} color={colors.amber[500]} />
-                    <Text style={styles.planName}>Pro</Text>
-                  </View>
-                  <Text style={styles.planPrice}>¥{PRO_PRICE.toLocaleString()}/月</Text>
-                </View>
-
-                <View style={styles.usageStats}>
-                  <View style={styles.usageRow}>
-                    <Text style={styles.usageLabel}>スキャン</Text>
-                    <View style={styles.usageValueRow}>
-                      <Text style={styles.usageValueGreen}>無制限</Text>
-                      <Check size={14} color={colors.emerald[600]} />
-                    </View>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.usageRow}>
-                    <Text style={styles.usageLabel}>単語数</Text>
-                    <Text style={styles.usageValue}>
-                      {wordCountLoading ? '...' : `${wordCount}語`}
-                      <Text style={styles.usageValueMuted}>（無制限）</Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.usageRow}>
-                    <Text style={styles.usageLabel}>保存</Text>
-                    <View style={styles.usageValueRow}>
-                      <Cloud size={14} color={colors.primary[500]} />
-                      <Text style={styles.usageValueBlue}>クラウド同期中</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {subscription?.currentPeriodEnd && (
-                  <Text style={styles.nextBilling}>
-                    次回更新: {new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}
-                  </Text>
-                )}
-              </View>
-            ) : (
-              // Free User View
-              <View style={styles.planContent}>
-                <View style={styles.planHeader}>
-                  <Text style={styles.planName}>Free</Text>
-                </View>
-
-                <View style={styles.usageStats}>
-                  <View style={styles.usageRow}>
-                    <Text style={styles.usageLabel}>スキャン</Text>
-                    <Text style={styles.usageValue}>{FREE_DAILY_SCAN_LIMIT}回/日</Text>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.usageRow}>
-                    <Text style={styles.usageLabel}>単語数</Text>
-                    <Text style={styles.usageValue}>
-                      {wordCountLoading ? '...' : wordCount}/{FREE_WORD_LIMIT}
-                    </Text>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.usageRow}>
-                    <Text style={styles.usageLabel}>保存</Text>
-                    <View style={styles.usageValueRow}>
-                      <Smartphone size={14} color={colors.gray[500]} />
-                      <Text style={styles.usageValueMuted}>このデバイスのみ</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Pro Upgrade Card */}
-                <View style={styles.upgradeCard}>
-                  <View style={styles.upgradeHeader}>
-                    <Sparkles size={16} color={colors.amber[500]} />
-                    <Text style={styles.upgradeTitle}>Proにアップグレード</Text>
-                  </View>
-                  <View style={styles.upgradeFeatures}>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Check size={12} color={colors.emerald[500]} />
-                      <Text style={styles.upgradeFeatureText}>スキャン無制限</Text>
-                    </View>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Check size={12} color={colors.emerald[500]} />
-                      <Text style={styles.upgradeFeatureText}>単語数無制限</Text>
-                    </View>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Check size={12} color={colors.emerald[500]} />
-                      <Text style={styles.upgradeFeatureText}>クラウド同期</Text>
-                    </View>
-                  </View>
-                  <Button
-                    size="sm"
-                    onPress={() => navigation.navigate('Subscription')}
-                    style={styles.upgradeButton}
-                  >
-                    ¥{PRO_PRICE.toLocaleString()}/月で始める
-                  </Button>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Support Section */}
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>サポート</Text>
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.linkItem} onPress={handleContact}>
-              <Text style={styles.linkLabel}>お問い合わせ</Text>
-              <ExternalLink size={16} color={colors.gray[400]} />
-            </TouchableOpacity>
-
-            <View style={styles.dividerFull} />
-
-            <TouchableOpacity style={styles.linkItem} onPress={handleTerms}>
-              <Text style={styles.linkLabel}>利用規約</Text>
-              <ChevronRight size={16} color={colors.gray[400]} />
-            </TouchableOpacity>
-
-            <View style={styles.dividerFull} />
-
-            <TouchableOpacity style={styles.linkItem} onPress={handlePrivacy}>
-              <Text style={styles.linkLabel}>プライバシーポリシー</Text>
-              <ChevronRight size={16} color={colors.gray[400]} />
-            </TouchableOpacity>
-          </View>
+          <SettingsLinkItem label="お問い合わせ" onPress={() => Linking.openURL('mailto:support@merken.jp')} />
+          <SettingsLinkItem label="利用規約" onPress={() => void openExternal('/terms')} />
+          <SettingsLinkItem label="プライバシーポリシー" onPress={() => void openExternal('/privacy')} />
+          <SettingsLinkItem label="Web サイト" onPress={() => WEB_APP_BASE_URL ? Linking.openURL(WEB_APP_BASE_URL) : Alert.alert('EXPO_PUBLIC_APP_URL を設定してください。')} />
         </View>
-
-        {/* Sign Out Button */}
-        {isAuthenticated && (
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <LogOut size={16} color={colors.gray[500]} />
-            <Text style={styles.signOutText}>ログアウト</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Version */}
-        <Text style={styles.version}>v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function SettingsLinkItem({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.linkRow} onPress={onPress}>
+      <Text style={styles.linkLabel}>{label}</Text>
+      <ExternalLink size={16} color={colors.gray[500]} />
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
-  backButton: {
-    padding: 6,
-    marginLeft: -6,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.gray[900],
-    marginLeft: 12,
-  },
-  headerSpacer: {
-    width: 32,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  accountCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.gray[50],
-    borderRadius: 12,
-    padding: 16,
-    minHeight: 72,
-  },
-  accountIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.gray[200],
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
-  accountInfo: {
-    flex: 1,
-  },
-  accountEmail: {
-    fontSize: 14,
-    fontWeight: '500',
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
     color: colors.gray[900],
   },
-  accountPlan: {
-    fontSize: 12,
-    color: colors.gray[500],
-    marginTop: 2,
+  headerSpacer: {
+    width: 42,
   },
-  section: {
-    marginTop: 24,
+  content: {
+    padding: 20,
+    gap: 16,
+  },
+  sectionCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 14,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.gray[400],
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  card: {
-    backgroundColor: colors.gray[50],
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  planContent: {
-    padding: 16,
-  },
-  planHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  planNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  planName: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.gray[900],
   },
-  planPrice: {
+  sectionBody: {
     fontSize: 14,
-    color: colors.gray[500],
+    lineHeight: 21,
+    color: colors.gray[600],
   },
-  usageStats: {
+  warningCard: {
+    backgroundColor: colors.red[50],
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.red[200],
     gap: 8,
   },
-  usageRow: {
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.red[700],
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.red[700],
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray[100],
+  },
+  infoCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.gray[500],
+  },
+  infoValue: {
+    fontSize: 15,
+    color: colors.gray[800],
+    fontWeight: '600',
+  },
+  authActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  usageLabel: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  usageValue: {
-    fontSize: 14,
-    color: colors.gray[900],
-  },
-  usageValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  usageValueGreen: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.emerald[600],
-  },
-  usageValueBlue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.primary[600],
-  },
-  usageValueMuted: {
-    fontSize: 14,
-    color: colors.gray[400],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.gray[200],
-  },
-  dividerFull: {
-    height: 1,
-    backgroundColor: colors.gray[200],
-    marginHorizontal: 16,
-  },
-  nextBilling: {
-    fontSize: 12,
-    color: colors.gray[400],
-    marginTop: 16,
-  },
-  upgradeCard: {
-    backgroundColor: colors.amber[50],
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-  },
-  upgradeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  upgradeTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray[900],
-  },
-  upgradeFeatures: {
-    marginLeft: 24,
-    gap: 4,
-  },
-  upgradeFeatureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  upgradeFeatureText: {
-    fontSize: 12,
-    color: colors.gray[600],
-  },
-  upgradeButton: {
-    marginTop: 12,
-  },
-  linkItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
   linkLabel: {
-    fontSize: 14,
-    color: colors.gray[900],
-  },
-  signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    marginTop: 24,
-  },
-  signOutText: {
-    fontSize: 14,
-    color: colors.gray[500],
-  },
-  version: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: colors.gray[300],
-    marginTop: 16,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.gray[800],
   },
 });

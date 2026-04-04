@@ -1,14 +1,54 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import type { SubscriptionStatus, SubscriptionPlan, Subscription } from '../types';
+import { useCallback, useEffect, useState } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+import { hasSupabaseConfig, SUPABASE_CONFIG_ERROR, supabase } from '../lib/supabase';
+import type { Subscription } from '../types';
+import {
+  getEffectiveSubscriptionStatus,
+  isActiveProSubscription,
+  wasProUser,
+} from '../lib/subscription';
 
-export interface AuthState {
+interface AuthState {
   user: User | null;
   session: Session | null;
   subscription: Subscription | null;
   loading: boolean;
   error: string | null;
+}
+
+type SubscriptionRow = Record<string, unknown>;
+
+function mapSubscriptionRow(row: SubscriptionRow | null): Subscription | null {
+  if (!row) return null;
+
+  const rawStatus = (row.status as Subscription['status'] | null) ?? 'free';
+  const rawPlan = (row.plan as Subscription['plan'] | null) ?? 'free';
+  const proSource = (row.pro_source as Subscription['proSource'] | null) ?? 'none';
+  const testProExpiresAt = (row.test_pro_expires_at as string | null | undefined) ?? null;
+  const currentPeriodEnd = row.current_period_end as string | undefined;
+
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    status: getEffectiveSubscriptionStatus(
+      rawStatus,
+      rawPlan,
+      proSource,
+      testProExpiresAt,
+      currentPeriodEnd
+    ),
+    plan: rawPlan,
+    proSource,
+    testProExpiresAt,
+    komojuSubscriptionId: row.komoju_subscription_id as string | undefined,
+    komojuCustomerId: row.komoju_customer_id as string | undefined,
+    currentPeriodStart: row.current_period_start as string | undefined,
+    currentPeriodEnd,
+    cancelAtPeriodEnd: (row.cancel_at_period_end as boolean | null) ?? false,
+    cancelRequestedAt: row.cancel_requested_at as string | undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
 }
 
 export function useAuth() {
@@ -20,184 +60,196 @@ export function useAuth() {
     error: null,
   });
 
-  // Load subscription data
   const loadSubscription = useCallback(async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+    if (!hasSupabaseConfig) return null;
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading subscription:', error);
-        return null;
-      }
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select(
+        'id,user_id,status,plan,pro_source,test_pro_expires_at,komoju_subscription_id,komoju_customer_id,current_period_start,current_period_end,cancel_at_period_end,cancel_requested_at,created_at,updated_at'
+      )
+      .eq('user_id', userId)
+      .maybeSingle();
 
-      return data as Subscription | null;
-    } catch (error) {
+    if (error) {
       console.error('Failed to load subscription:', error);
       return null;
     }
+
+    return mapSubscriptionRow((data as SubscriptionRow | null) ?? null);
   }, []);
 
-  // Initialize auth state
-  useEffect(() => {
-    let mounted = true;
+  const hydrateState = useCallback(async (session: Session | null) => {
+    if (!hasSupabaseConfig) {
+      setState({
+        user: null,
+        session: null,
+        subscription: null,
+        loading: false,
+        error: SUPABASE_CONFIG_ERROR,
+      });
+      return;
+    }
 
-    const initAuth = async () => {
+    if (!session?.user) {
+      setState({
+        user: null,
+        session: null,
+        subscription: null,
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+
+    const subscription = await loadSubscription(session.user.id);
+
+    setState({
+      user: session.user,
+      session,
+      subscription,
+      loading: false,
+      error: null,
+    });
+  }, [loadSubscription]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function initialize() {
+      if (!hasSupabaseConfig) {
+        setState({
+          user: null,
+          session: null,
+          subscription: null,
+          loading: false,
+          error: SUPABASE_CONFIG_ERROR,
+        });
+        return;
+      }
+
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (!active) return;
 
         if (error) {
-          console.error('Error getting session:', error);
-          if (mounted) {
-            setState((prev) => ({ ...prev, loading: false, error: error.message }));
-          }
+          setState({
+            user: null,
+            session: null,
+            subscription: null,
+            loading: false,
+            error: error.message,
+          });
           return;
         }
 
-        if (session?.user && mounted) {
-          const subscription = await loadSubscription(session.user.id);
-          setState({
-            user: session.user,
-            session,
-            subscription,
-            loading: false,
-            error: null,
-          });
-        } else if (mounted) {
-          setState({
-            user: null,
-            session: null,
-            subscription: null,
-            loading: false,
-            error: null,
-          });
-        }
+        await hydrateState(session);
       } catch (error) {
-        console.error('Auth init error:', error);
-        if (mounted) {
-          setState((prev) => ({
-            ...prev,
-            loading: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          }));
-        }
+        if (!active) return;
+
+        setState({
+          user: null,
+          session: null,
+          subscription: null,
+          loading: false,
+          error: error instanceof Error ? error.message : '認証状態の取得に失敗しました。',
+        });
       }
-    };
+    }
 
-    initAuth();
+    initialize();
 
-    // Listen for auth changes
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event);
-
-        if (session?.user && mounted) {
-          const subscription = await loadSubscription(session.user.id);
-          setState({
-            user: session.user,
-            session,
-            subscription,
-            loading: false,
-            error: null,
-          });
-        } else if (mounted) {
-          setState({
-            user: null,
-            session: null,
-            subscription: null,
-            loading: false,
-            error: null,
-          });
-        }
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      void hydrateState(session);
+    });
 
     return () => {
-      mounted = false;
-      authSubscription.unsubscribe();
+      active = false;
+      subscription.unsubscribe();
     };
-  }, [loadSubscription]);
+  }, [hydrateState]);
 
-  // Sign up with email and password
-  const signUp = async (email: string, password: string) => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+  const signUp = useCallback(async (email: string, password: string) => {
+    if (!hasSupabaseConfig) {
+      return { success: false, error: SUPABASE_CONFIG_ERROR, needsConfirmation: false };
+    }
+
+    setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
-        setState((prev) => ({ ...prev, loading: false, error: error.message }));
+        setState((current) => ({ ...current, loading: false, error: error.message }));
         return { success: false, error: error.message, needsConfirmation: false };
       }
 
-      // Check if email confirmation is required
-      if (data.user && !data.session) {
-        setState((prev) => ({ ...prev, loading: false }));
-        return {
-          success: true,
-          error: null,
-          needsConfirmation: true,
-        };
+      const needsConfirmation = Boolean(data.user && !data.session);
+
+      if (!needsConfirmation) {
+        await hydrateState(data.session);
+      } else {
+        setState((current) => ({ ...current, loading: false, error: null }));
       }
 
-      setState((prev) => ({ ...prev, loading: false }));
-      return { success: true, error: null, needsConfirmation: false };
+      return { success: true, error: null, needsConfirmation };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
-      setState((prev) => ({ ...prev, loading: false, error: errorMessage }));
-      return { success: false, error: errorMessage, needsConfirmation: false };
+      const message = error instanceof Error ? error.message : '登録に失敗しました。';
+      setState((current) => ({ ...current, loading: false, error: message }));
+      return { success: false, error: message, needsConfirmation: false };
     }
-  };
+  }, [hydrateState]);
 
-  // Sign in with email and password
-  const signIn = async (email: string, password: string) => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+  const signIn = useCallback(async (email: string, password: string) => {
+    if (!hasSupabaseConfig) {
+      return { success: false, error: SUPABASE_CONFIG_ERROR };
+    }
+
+    setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        setState((prev) => ({ ...prev, loading: false, error: error.message }));
+        setState((current) => ({ ...current, loading: false, error: error.message }));
         return { success: false, error: error.message };
       }
 
-      if (data.user) {
-        const subscription = await loadSubscription(data.user.id);
-        setState({
-          user: data.user,
-          session: data.session,
-          subscription,
-          loading: false,
-          error: null,
-        });
-      }
-
+      await hydrateState(data.session);
       return { success: true, error: null };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
-      setState((prev) => ({ ...prev, loading: false, error: errorMessage }));
-      return { success: false, error: errorMessage };
+      const message = error instanceof Error ? error.message : 'ログインに失敗しました。';
+      setState((current) => ({ ...current, loading: false, error: message }));
+      return { success: false, error: message };
     }
-  };
+  }, [hydrateState]);
 
-  // Sign out
-  const signOut = async () => {
-    setState((prev) => ({ ...prev, loading: true }));
+  const signOut = useCallback(async () => {
+    if (!hasSupabaseConfig) {
+      setState({
+        user: null,
+        session: null,
+        subscription: null,
+        loading: false,
+        error: SUPABASE_CONFIG_ERROR,
+      });
+      return { success: false, error: SUPABASE_CONFIG_ERROR };
+    }
+
+    setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        setState((prev) => ({ ...prev, loading: false, error: error.message }));
+        setState((current) => ({ ...current, loading: false, error: error.message }));
         return { success: false, error: error.message };
       }
 
@@ -211,40 +263,40 @@ export function useAuth() {
 
       return { success: true, error: null };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign out failed';
-      setState((prev) => ({ ...prev, loading: false, error: errorMessage }));
-      return { success: false, error: errorMessage };
+      const message = error instanceof Error ? error.message : 'ログアウトに失敗しました。';
+      setState((current) => ({ ...current, loading: false, error: message }));
+      return { success: false, error: message };
     }
-  };
+  }, []);
 
-  // Reset password
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
+    if (!hasSupabaseConfig) {
+      return { success: false, error: SUPABASE_CONFIG_ERROR };
+    }
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, error: null };
+      return { success: !error, error: error?.message ?? null };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Reset password failed';
-      return { success: false, error: errorMessage };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'パスワードリセットに失敗しました。',
+      };
     }
-  };
+  }, []);
 
-  // Refresh subscription
-  const refreshSubscription = async () => {
+  const refreshSubscription = useCallback(async () => {
     if (!state.user) return;
-
     const subscription = await loadSubscription(state.user.id);
-    setState((prev) => ({ ...prev, subscription }));
-  };
+    setState((current) => ({ ...current, subscription }));
+  }, [loadSubscription, state.user]);
 
   return {
     ...state,
-    isAuthenticated: !!state.user,
-    isPro: state.subscription?.status === 'active' && state.subscription?.plan === 'pro',
+    configError: SUPABASE_CONFIG_ERROR,
+    isAuthenticated: Boolean(state.user),
+    isPro: isActiveProSubscription(state.subscription),
+    wasPro: wasProUser(state.subscription),
     signUp,
     signIn,
     signOut,

@@ -1,2020 +1,965 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
-  RefreshControl,
   Modal,
-  TextInput,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  Share,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  BookOpen,
-  X,
-  Settings,
-  Flag,
-  Crown,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  Play,
-  Layers,
-  Edit2,
-  Trash2,
-  Save,
-  Share2,
-  Link2,
-  Camera,
-  CircleDot,
-  BookText,
   AlertCircle,
+  BookOpen,
+  Camera,
+  Cloud,
+  Crown,
+  Flag,
+  Lock,
+  Plus,
+  Settings,
+  Sparkles,
 } from 'lucide-react-native';
-import { Button } from '../components/ui';
-import { ScanButton } from '../components/project';
+import { ScanModeModal } from '../components/scan/ScanModeModal';
+import { Button, Input } from '../components/ui';
 import { ProcessingModal } from '../components/ProcessingModal';
-import { InlineFlashcard, StudyModeCard } from '../components/home';
-import { getRepository } from '../lib/db';
-import { extractWordsFromImage } from '../lib/ai';
-import { useAuth } from '../hooks/use-auth';
-import { supabase } from '../lib/supabase';
-import { withWebAppBase } from '../lib/web-base-url';
-import {
-  getGuestUserId,
-  getDailyScanInfo,
-  incrementScanCount,
-  getWrongAnswers,
-} from '../lib/utils';
 import colors from '../constants/colors';
-import type { RootStackParamList, Project, Word, ProgressStep } from '../types';
+import { useAuth } from '../hooks/use-auth';
+import { getRepository } from '../lib/db';
+import { migrateLocalDataToCloudIfNeeded } from '../lib/db/migration';
+import { createScanJob, waitForScanJobCompletion, type ScanMode } from '../lib/scan-jobs';
+import { getGuestUserId, getWrongAnswers } from '../lib/utils';
+import type { ProgressStep, Project, RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type SupportedScanMode = Extract<ScanMode, 'all' | 'circled' | 'eiken'>;
 
-const SHARE_BASE_URL = withWebAppBase('/share');
-
-// Extraction modes (including grammar and eiken filter)
-type ScanMode = 'all' | 'circled' | 'eiken' | 'grammar';
-
-// EIKEN levels
-type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
-
-const EIKEN_LEVELS: { value: EikenLevel; label: string }[] = [
-  { value: '5', label: '5級' },
-  { value: '4', label: '4級' },
-  { value: '3', label: '3級' },
-  { value: 'pre2', label: '準2級' },
-  { value: '2', label: '2級' },
-  { value: 'pre1', label: '準1級' },
-  { value: '1', label: '1級' },
-];
-
-// Scan Mode Modal Component - EIKEN filter is now a separate mode
-function ScanModeModal({
-  visible,
-  onClose,
-  onSelectMode,
-  isPro,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
-  isPro: boolean;
-}) {
-  const [showEikenPicker, setShowEikenPicker] = useState(false);
-  const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
-
-  useEffect(() => {
-    if (visible) {
-      setShowEikenPicker(false);
-      setSelectedEiken(null);
-    }
-  }, [visible]);
-
-  // EIKEN level picker sub-view
-  if (showEikenPicker) {
-    return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.scanModeContent}>
-            <Text style={styles.scanModeTitle}>英検レベルを選択</Text>
-            <Text style={styles.scanModeSubtitle}>抽出する単語のレベルを選んでください</Text>
-
-            <ScrollView style={styles.eikenPickerScroll}>
-              {EIKEN_LEVELS.map((level) => (
-                <TouchableOpacity
-                  key={level.value}
-                  style={[
-                    styles.eikenPickerOption,
-                    selectedEiken === level.value && styles.eikenPickerOptionSelected,
-                  ]}
-                  onPress={() => setSelectedEiken(level.value)}
-                >
-                  <Text
-                    style={[
-                      styles.eikenPickerOptionText,
-                      selectedEiken === level.value && styles.eikenPickerOptionTextSelected,
-                    ]}
-                  >
-                    {level.label}
-                  </Text>
-                  {selectedEiken === level.value && (
-                    <Check size={20} color={colors.orange[600]} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.eikenPickerButtons}>
-              <TouchableOpacity
-                style={styles.eikenPickerBackButton}
-                onPress={() => setShowEikenPicker(false)}
-              >
-                <Text style={styles.eikenPickerBackButtonText}>戻る</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.eikenPickerConfirmButton,
-                  !selectedEiken && styles.eikenPickerConfirmButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (selectedEiken) {
-                    onSelectMode('eiken', selectedEiken);
-                  }
-                }}
-                disabled={!selectedEiken}
-              >
-                <Text
-                  style={[
-                    styles.eikenPickerConfirmButtonText,
-                    !selectedEiken && styles.eikenPickerConfirmButtonTextDisabled,
-                  ]}
-                >
-                  スキャン開始
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
-  // Main mode selection view
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.scanModeContent}>
-          <Text style={styles.scanModeTitle}>抽出モードを選択</Text>
-          <Text style={styles.scanModeSubtitle}>どのように単語を抽出しますか？</Text>
-
-          {/* Mode buttons */}
-          <View style={styles.modeButtons}>
-            {/* All words mode */}
-            <TouchableOpacity
-              style={styles.modeButton}
-              onPress={() => onSelectMode('all', null)}
-            >
-              <View style={[styles.modeIcon, { backgroundColor: colors.primary[100] }]}>
-                <Camera size={24} color={colors.primary[600]} />
-              </View>
-              <View style={styles.modeTextContainer}>
-                <Text style={styles.modeButtonTitle}>すべての単語を抽出</Text>
-                <Text style={styles.modeButtonDesc}>写真内のすべての英単語を抽出します</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Circled words mode (Pro) */}
-            <TouchableOpacity
-              style={styles.modeButton}
-              onPress={() => onSelectMode('circled', null)}
-            >
-              <View style={[styles.modeIcon, { backgroundColor: colors.purple[100] }]}>
-                <CircleDot size={24} color={colors.purple[600]} />
-              </View>
-              <View style={styles.modeTextContainer}>
-                <View style={styles.modeButtonTitleRow}>
-                  <Text style={styles.modeButtonTitle}>丸をつけた単語だけ</Text>
-                  {!isPro && (
-                    <View style={styles.proBadgeSmall}>
-                      <Crown size={10} color={colors.white} />
-                      <Text style={styles.proBadgeSmallText}>Pro</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.modeButtonDesc}>マークした単語だけを抽出します</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* EIKEN filter mode (Pro) - NEW */}
-            <TouchableOpacity
-              style={styles.modeButton}
-              onPress={() => setShowEikenPicker(true)}
-            >
-              <View style={[styles.modeIcon, { backgroundColor: colors.orange[100] }]}>
-                <BookOpen size={24} color={colors.orange[600]} />
-              </View>
-              <View style={styles.modeTextContainer}>
-                <View style={styles.modeButtonTitleRow}>
-                  <Text style={styles.modeButtonTitle}>英検レベルでフィルター</Text>
-                  {!isPro && (
-                    <View style={styles.proBadgeSmall}>
-                      <Crown size={10} color={colors.white} />
-                      <Text style={styles.proBadgeSmallText}>Pro</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.modeButtonDesc}>指定した級の単語だけを抽出します</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Grammar mode (Pro) */}
-            <TouchableOpacity
-              style={styles.modeButton}
-              onPress={() => onSelectMode('grammar', null)}
-            >
-              <View style={[styles.modeIcon, { backgroundColor: colors.emerald[100] }]}>
-                <BookText size={24} color={colors.emerald[600]} />
-              </View>
-              <View style={styles.modeTextContainer}>
-                <View style={styles.modeButtonTitleRow}>
-                  <Text style={styles.modeButtonTitle}>文法をスキャン</Text>
-                  {!isPro && (
-                    <View style={styles.proBadgeSmall}>
-                      <Crown size={10} color={colors.white} />
-                      <Text style={styles.proBadgeSmallText}>Pro</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.modeButtonDesc}>文法問題を抽出して学習します</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-            <Text style={styles.cancelButtonText}>キャンセル</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
+interface ProjectSummary {
+  project: Project;
+  totalWords: number;
+  masteredWords: number;
+  favoriteWords: number;
 }
 
-// Project Selection Sheet Component
-function ProjectSelectionSheet({
-  visible,
-  onClose,
-  projects,
-  currentProjectIndex,
-  onSelectProject,
-  onSelectFavorites,
-  showFavoritesOnly,
-  favoriteCount,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  projects: Project[];
-  currentProjectIndex: number;
-  onSelectProject: (index: number) => void;
-  onSelectFavorites: () => void;
-  showFavoritesOnly: boolean;
-  favoriteCount: number;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.sheetOverlay}>
-        <TouchableOpacity style={styles.sheetBackdrop} onPress={onClose} activeOpacity={1} />
-        <View style={styles.sheetContent}>
-          <View style={styles.sheetHeader}>
-            <TouchableOpacity onPress={onClose} style={styles.sheetCloseButton}>
-              <X size={24} color={colors.emerald[600]} />
-            </TouchableOpacity>
-            <Text style={styles.sheetTitle}>学習コース選択</Text>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent}>
-            {/* Favorites Section */}
-            {favoriteCount > 0 && (
-              <View style={styles.sheetSection}>
-                <View style={styles.sheetSectionHeader}>
-                  <Flag size={20} color={colors.orange[500]} />
-                  <Text style={styles.sheetSectionTitle}>苦手な単語</Text>
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.sheetItem,
-                    showFavoritesOnly && styles.sheetItemSelected,
-                  ]}
-                  onPress={() => {
-                    onSelectFavorites();
-                    onClose();
-                  }}
-                >
-                  <View style={styles.sheetItemContent}>
-                    <Text style={styles.sheetItemTitle}>苦手な単語を復習</Text>
-                    <Text style={styles.sheetItemSubtitle}>{favoriteCount}語の苦手な単語</Text>
-                  </View>
-                  {showFavoritesOnly && (
-                    <View style={styles.sheetItemCheck}>
-                      <Check size={16} color={colors.white} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Projects Section */}
-            <View style={styles.sheetSection}>
-              <View style={styles.sheetSectionHeader}>
-                <BookOpen size={20} color={colors.primary[500]} />
-                <Text style={styles.sheetSectionTitle}>単語帳一覧</Text>
-              </View>
-              {projects.map((project, index) => {
-                const isSelected = index === currentProjectIndex && !showFavoritesOnly;
-                return (
-                  <TouchableOpacity
-                    key={project.id}
-                    style={[
-                      styles.sheetItem,
-                      isSelected && styles.sheetItemSelected,
-                    ]}
-                    onPress={() => {
-                      onSelectProject(index);
-                      onClose();
-                    }}
-                  >
-                    <View style={styles.sheetItemContent}>
-                      <Text style={styles.sheetItemTitle}>{project.title}</Text>
-                      <Text style={styles.sheetItemSubtitle}>
-                        {new Date(project.createdAt).toLocaleDateString('ja-JP')}に作成
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <View style={styles.sheetItemCheck}>
-                        <Check size={16} color={colors.white} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// Word Item Component
-function WordItem({
-  word,
-  isEditing,
-  onEdit,
-  onCancel,
-  onSave,
-  onDelete,
-  onToggleFavorite,
-}: {
-  word: Word;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancel: () => void;
-  onSave: (english: string, japanese: string) => void;
-  onDelete: () => void;
-  onToggleFavorite: () => void;
-}) {
-  const [english, setEnglish] = useState(word.english);
-  const [japanese, setJapanese] = useState(word.japanese);
-
-  if (isEditing) {
-    return (
-      <View style={styles.wordItemEditing}>
-        <TextInput
-          style={styles.editInputLarge}
-          value={english}
-          onChangeText={setEnglish}
-          autoFocus
-        />
-        <TextInput
-          style={styles.editInputSmall}
-          value={japanese}
-          onChangeText={setJapanese}
-        />
-        <View style={styles.editActions}>
-          <Button
-            variant="secondary"
-            size="sm"
-            onPress={onCancel}
-            style={styles.editButton}
-            icon={<X size={16} color={colors.gray[600]} />}
-          >
-            キャンセル
-          </Button>
-          <Button
-            size="sm"
-            onPress={() => onSave(english, japanese)}
-            style={styles.editButton}
-            icon={<Save size={16} color={colors.white} />}
-          >
-            保存
-          </Button>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.wordItem}>
-      <View style={styles.wordItemContent}>
-        <View style={styles.wordItemHeader}>
-          <Text style={styles.wordItemEnglish}>{word.english}</Text>
-          {word.isFavorite && (
-            <Flag size={14} color={colors.orange[500]} fill={colors.orange[500]} />
-          )}
-        </View>
-        <Text style={styles.wordItemJapanese}>{word.japanese}</Text>
-      </View>
-      <View style={styles.wordItemActions}>
-        <TouchableOpacity onPress={onToggleFavorite} style={styles.wordActionButton}>
-          <Flag
-            size={16}
-            color={word.isFavorite ? colors.orange[500] : colors.gray[400]}
-            fill={word.isFavorite ? colors.orange[500] : 'transparent'}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onEdit} style={styles.wordActionButton}>
-          <Edit2 size={16} color={colors.gray[500]} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onDelete} style={styles.wordActionButton}>
-          <Trash2 size={16} color={colors.red[500]} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+function formatScanProjectTitle() {
+  const now = new Date();
+  return `スキャン ${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
 
 export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user, subscription, isPro, isAuthenticated, loading: authLoading } = useAuth();
+  const {
+    user,
+    session,
+    subscription,
+    isAuthenticated,
+    isPro,
+    loading: authLoading,
+    configError,
+  } = useAuth();
 
-  // Projects & navigation
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
-  const [words, setWords] = useState<Word[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [wordsLoading, setWordsLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
-
-  // Word editing
-  const [editingWordId, setEditingWordId] = useState<string | null>(null);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [isWordListExpanded, setIsWordListExpanded] = useState(false);
-
-  // Scan info
-  const [scanInfo, setScanInfo] = useState({ count: 0, remaining: 3, canScan: true });
-
-  // Wrong answers count
+  const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [favoriteCount, setFavoriteCount] = useState(0);
   const [wrongAnswerCount, setWrongAnswerCount] = useState(0);
-
-  // Sharing
-  const [sharing, setSharing] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
-
-  // Scan processing
-  const [processing, setProcessing] = useState(false);
-  const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-
-  // Modals
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [creating, setCreating] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
-  const [showProjectNameModal, setShowProjectNameModal] = useState(false);
-  const [isAddingToExisting, setIsAddingToExisting] = useState(false);
-  const [projectName, setProjectName] = useState('');
-  const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | null>(null);
-  const [selectedScanMode, setSelectedScanMode] = useState<ScanMode>('all');
-  const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
+  const [processing, setProcessing] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([
+    { id: 'upload', label: '画像をアップロード中...', status: 'pending' as const },
+    { id: 'process', label: '単語を抽出中...', status: 'pending' as const },
+    { id: 'save', label: '保存先を準備中...', status: 'pending' as const },
+  ]);
 
-  // Repository
+  const migratedUserIdRef = useRef<string | null>(null);
   const repository = useMemo(
-    () => getRepository(subscription?.status || 'free'),
+    () => getRepository(subscription?.status ?? 'free'),
     [subscription?.status]
   );
 
-  // Current project
-  const currentProject = projects[currentProjectIndex] || null;
+  const resolveActiveUserId = useCallback(async () => {
+    if (isAuthenticated && user?.id) {
+      return user.id;
+    }
 
-  // Load projects
-  const loadProjects = useCallback(async () => {
+    return getGuestUserId();
+  }, [isAuthenticated, user?.id]);
+
+  const loadProjects = useCallback(async (showSpinner = true) => {
+    if (authLoading) return;
+
+    if (showSpinner) {
+      setLoading(true);
+    }
+
     try {
-      const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
-      const data = await repository.getProjects(userId);
-      setProjects(data);
+      if (isAuthenticated && isPro && user?.id && migratedUserIdRef.current !== user.id) {
+        await migrateLocalDataToCloudIfNeeded(user.id);
+        migratedUserIdRef.current = user.id;
+      }
+
+      if (!isAuthenticated) {
+        migratedUserIdRef.current = null;
+      }
+
+      const activeUserId = await resolveActiveUserId();
+      setCurrentUserId(activeUserId);
+
+      const projects = await repository.getProjects(activeUserId);
+      let nextFavoriteCount = 0;
+
+      const summaries = await Promise.all(
+        projects.map(async (project) => {
+          const words = await repository.getWords(project.id);
+          const masteredWords = words.filter((word) => word.status === 'mastered').length;
+          const favoriteWords = words.filter((word) => word.isFavorite).length;
+          nextFavoriteCount += favoriteWords;
+
+          return {
+            project,
+            totalWords: words.length,
+            masteredWords,
+            favoriteWords,
+          };
+        })
+      );
+
+      const wrongAnswers = await getWrongAnswers();
+
+      setProjectSummaries(summaries);
+      setFavoriteCount(nextFavoriteCount);
+      setWrongAnswerCount(wrongAnswers.length);
     } catch (error) {
-      console.error('Failed to load projects:', error);
+      console.error('Failed to load home data:', error);
+      Alert.alert('エラー', 'ホーム画面の読み込みに失敗しました。');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [repository, isAuthenticated, user]);
+  }, [authLoading, isAuthenticated, isPro, repository, resolveActiveUserId, user?.id]);
 
-  // Load words for current project
-  const loadWords = useCallback(async () => {
-    if (!currentProject) {
-      setWords([]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadProjects();
+    }, [loadProjects])
+  );
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    void loadProjects(false);
+  }, [loadProjects]);
+
+  const handleCreateProject = useCallback(async () => {
+    const title = newProjectTitle.trim();
+    if (!title) {
+      Alert.alert('単語帳名を入力してください');
       return;
     }
 
+    setCreating(true);
+
     try {
-      setWordsLoading(true);
-      const wordsData = await repository.getWords(currentProject.id);
-      setWords(wordsData);
+      const userId = currentUserId ?? (await resolveActiveUserId());
+      const createdProject = await repository.createProject({
+        userId,
+        title,
+        sourceLabels: [],
+      });
+
+      setShowCreateModal(false);
+      setNewProjectTitle('');
+      await loadProjects(false);
+      navigation.navigate('Project', { projectId: createdProject.id });
     } catch (error) {
-      console.error('Failed to load words:', error);
+      console.error('Failed to create project:', error);
+      Alert.alert('エラー', '単語帳の作成に失敗しました。');
     } finally {
-      setWordsLoading(false);
+      setCreating(false);
     }
-  }, [currentProject, repository]);
+  }, [currentUserId, loadProjects, navigation, newProjectTitle, repository, resolveActiveUserId]);
 
-  // Load scan info
-  const loadScanInfo = useCallback(async () => {
-    const scanInfoData = await getDailyScanInfo();
-    setScanInfo(scanInfoData);
-  }, []);
+  const handleProtectedAction = useCallback(
+    (options?: { requirePro?: boolean; featureName?: string }) => {
+      if (!isAuthenticated || !session?.access_token) {
+        Alert.alert(
+          'ログインが必要です',
+          `${options?.featureName ?? 'この機能'}を使うにはログインしてください。`,
+          [
+            { text: '閉じる', style: 'cancel' },
+            { text: 'ログイン', onPress: () => navigation.navigate('Login') },
+          ]
+        );
+        return false;
+      }
 
-  // Load wrong answers count
-  const loadWrongAnswerCount = useCallback(async () => {
-    const wrongAnswers = await getWrongAnswers();
-    setWrongAnswerCount(wrongAnswers.length);
-  }, []);
+      if (options?.requirePro && !isPro) {
+        Alert.alert(
+          'Test Pro / Pro が必要です',
+          `${options.featureName ?? 'この機能'}は Test Pro または Pro で確認できます。`,
+          [
+            { text: '閉じる', style: 'cancel' },
+            { text: 'Test Pro を開く', onPress: () => navigation.navigate('Subscription') },
+          ]
+        );
+        return false;
+      }
 
-  // Initial load
-  useEffect(() => {
-    if (!authLoading) {
-      loadProjects();
-      loadScanInfo();
-      loadWrongAnswerCount();
-    }
-  }, [authLoading, loadProjects, loadScanInfo, loadWrongAnswerCount]);
+      return true;
+    },
+    [isAuthenticated, isPro, navigation, session?.access_token]
+  );
 
-  // Load words when project changes
-  useEffect(() => {
-    loadWords();
-  }, [loadWords]);
-
-  // Refresh on focus
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadProjects();
-      loadWords();
-      loadScanInfo();
-      loadWrongAnswerCount();
-    });
-    return unsubscribe;
-  }, [navigation, loadProjects, loadWords, loadScanInfo, loadWrongAnswerCount]);
-
-  // Stats calculations
-  const stats = {
-    total: words.length,
-    favorites: words.filter((w) => w.isFavorite).length,
-    mastered: words.filter((w) => w.status === 'mastered').length,
-  };
-
-  const filteredWords = showFavoritesOnly
-    ? words.filter((w) => w.isFavorite)
-    : words;
-
-  // Navigation
-  const selectProject = (index: number) => {
-    setCurrentProjectIndex(index);
-    setShowFavoritesOnly(false);
-  };
-
-  // Word handlers
-  const handleDeleteWord = (wordId: string) => {
-    Alert.alert('削除の確認', 'この単語を削除しますか？', [
-      { text: 'キャンセル', style: 'cancel' },
-      {
-        text: '削除',
-        style: 'destructive',
-        onPress: async () => {
-          await repository.deleteWord(wordId);
-          setWords((prev) => prev.filter((w) => w.id !== wordId));
+  const promptImageSource = useCallback(
+    (scanMode: SupportedScanMode, eikenLevel?: string | null) => {
+      Alert.alert('画像を選択', 'カメラかライブラリを選んでください。', [
+        {
+          text: 'カメラ',
+          onPress: () => {
+            void startScan(scanMode, 'camera', eikenLevel ?? null);
+          },
         },
-      },
-    ]);
-  };
-
-  const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
-    await repository.updateWord(wordId, { english, japanese });
-    setWords((prev) =>
-      prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w))
-    );
-    setEditingWordId(null);
-  };
-
-  const handleToggleFavorite = async (wordId: string) => {
-    const word = words.find((w) => w.id === wordId);
-    if (!word) return;
-    const newFavorite = !word.isFavorite;
-    await repository.updateWord(wordId, { isFavorite: newFavorite });
-    setWords((prev) =>
-      prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w))
-    );
-  };
-
-  // Project handlers
-  const handleDeleteProject = () => {
-    if (!currentProject) return;
-    Alert.alert('削除の確認', 'この単語帳とすべての単語が削除されます。', [
-      { text: 'キャンセル', style: 'cancel' },
-      {
-        text: '削除',
-        style: 'destructive',
-        onPress: async () => {
-          await repository.deleteProject(currentProject.id);
-          const newProjects = projects.filter((p) => p.id !== currentProject.id);
-          setProjects(newProjects);
-          if (currentProjectIndex >= newProjects.length && newProjects.length > 0) {
-            setCurrentProjectIndex(newProjects.length - 1);
-          }
+        {
+          text: 'ライブラリ',
+          onPress: () => {
+            void startScan(scanMode, 'library', eikenLevel ?? null);
+          },
         },
-      },
-    ]);
-  };
-
-  // Share handler
-  const handleShare = async () => {
-    if (!currentProject) return;
-
-    if (!isAuthenticated) {
-      Alert.alert('共有機能', '共有機能を使用するにはログインが必要です。', [
         { text: 'キャンセル', style: 'cancel' },
-        { text: 'ログイン', onPress: () => navigation.navigate('Login') },
       ]);
+    },
+    []
+  );
+
+  const handleOpenScan = useCallback(() => {
+    if (!handleProtectedAction({ featureName: 'スキャン' })) {
       return;
     }
 
-    setSharing(true);
-    try {
-      let shareId = currentProject.shareId;
+    setShowScanModeModal(true);
+  }, [handleProtectedAction]);
 
-      if (!shareId) {
-        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        shareId = '';
-        for (let i = 0; i < 12; i++) {
-          shareId += chars.charAt(Math.floor(Math.random() * chars.length));
+  const startScan = useCallback(
+    async (
+      scanMode: SupportedScanMode,
+      source: 'camera' | 'library',
+      eikenLevel?: string | null
+    ) => {
+      if (!session?.access_token) {
+        Alert.alert('ログインが必要です', '先にログインしてください。');
+        return;
+      }
+
+      try {
+        const permission =
+          source === 'camera'
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permission.status !== 'granted') {
+          Alert.alert('権限が必要です', source === 'camera' ? 'カメラの使用を許可してください。' : '写真ライブラリの使用を許可してください。');
+          return;
         }
 
-        const { error } = await supabase
-          .from('projects')
-          .update({ share_id: shareId })
-          .eq('id', currentProject.id);
+        const result =
+          source === 'camera'
+            ? await ImagePicker.launchCameraAsync({
+                mediaTypes: ['images'],
+                quality: 0.8,
+              })
+            : await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                quality: 0.8,
+                allowsMultipleSelection: false,
+              });
 
-        if (error) throw error;
+        if (result.canceled || !result.assets[0]?.uri) {
+          return;
+        }
 
-        setProjects((prev) =>
-          prev.map((p) => (p.id === currentProject.id ? { ...p, shareId } : p))
-        );
-      }
+        const asset = result.assets[0];
+        const projectTitle = formatScanProjectTitle();
 
-      const shareUrl = `${SHARE_BASE_URL}/${shareId}`;
-      await Share.share({
-        message: `「${currentProject.title}」の単語帳を共有します\n${shareUrl}`,
-        url: shareUrl,
-      });
+        setProcessing(true);
+        setProcessingSteps([
+          { id: 'upload', label: '画像をアップロード中...', status: 'active' },
+          { id: 'process', label: '単語を抽出中...', status: 'pending' },
+          { id: 'save', label: '保存先を準備中...', status: 'pending' },
+        ]);
 
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to share:', error);
-      Alert.alert('エラー', '共有リンクの生成に失敗しました');
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  // Scan handlers
-  const handleScanButtonClick = (addToExisting: boolean = false) => {
-    setIsAddingToExisting(addToExisting);
-    setShowScanModeModal(true);
-  };
-
-  const handleScanModeSelect = async (mode: ScanMode, eikenLevel: EikenLevel) => {
-    setSelectedScanMode(mode);
-    setSelectedEikenLevel(eikenLevel);
-    setShowScanModeModal(false);
-
-    // Circled mode, eiken mode, and grammar mode require Pro subscription
-    if ((mode === 'circled' || mode === 'eiken' || mode === 'grammar') && !isPro) {
-      navigation.navigate('Subscription');
-      return;
-    }
-
-    // Grammar mode requires existing project
-    if (mode === 'grammar') {
-      if (!currentProject) {
-        Alert.alert('エラー', 'まず単語帳を作成してください');
-        return;
-      }
-      // Navigate to grammar screen
-      navigation.navigate('Grammar', { projectId: currentProject.id });
-      return;
-    }
-
-    // Check scan limit
-    if (!isPro) {
-      const currentScanInfo = await getDailyScanInfo();
-      if (!currentScanInfo.canScan) {
-        navigation.navigate('Subscription');
-        return;
-      }
-    }
-
-    // Request camera permission
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('権限が必要です', 'カメラの使用を許可してください。');
-      return;
-    }
-
-    // If adding to existing project, go directly to image picker
-    if (isAddingToExisting && currentProject) {
-      Alert.alert('画像を選択', 'どちらから画像を取得しますか？', [
-        {
-          text: 'カメラで撮影',
-          onPress: () => pickImage('camera', true),
-        },
-        {
-          text: 'ライブラリから選択',
-          onPress: () => pickImage('library', true),
-        },
-        { text: 'キャンセル', style: 'cancel' },
-      ]);
-    } else {
-      // New project - show name modal first
-      const now = new Date();
-      const defaultTitle = `スキャン ${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-      setProjectName(defaultTitle);
-
-      Alert.alert('画像を選択', 'どちらから画像を取得しますか？', [
-        {
-          text: 'カメラで撮影',
-          onPress: () => {
-            setPendingImageSource('camera');
-            setShowProjectNameModal(true);
-          },
-        },
-        {
-          text: 'ライブラリから選択',
-          onPress: () => {
-            setPendingImageSource('library');
-            setShowProjectNameModal(true);
-          },
-        },
-        { text: 'キャンセル', style: 'cancel' },
-      ]);
-    }
-  };
-
-  const handleProjectNameConfirm = () => {
-    if (!projectName.trim()) {
-      Alert.alert('エラー', 'プロジェクト名を入力してください');
-      return;
-    }
-    const source = pendingImageSource;
-    setShowProjectNameModal(false);
-    setPendingImageSource(null);
-
-    if (source) {
-      setTimeout(() => pickImage(source, false), 300);
-    }
-  };
-
-  const pickImage = async (source: 'camera' | 'library', addToExisting: boolean) => {
-    try {
-      let result: ImagePicker.ImagePickerResult;
-
-      if (source === 'camera') {
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ['images'],
-          quality: 0.8,
-          base64: true,
+        const created = await createScanJob({
+          session,
+          imageUri: asset.uri,
+          projectTitle,
+          scanMode,
+          eikenLevel: eikenLevel ?? null,
+          mimeType: asset.mimeType,
         });
-      } else {
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 0.8,
-          base64: true,
-        });
-      }
 
-      if (result.canceled || !result.assets[0]) return;
+        setProcessingSteps([
+          { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+          { id: 'process', label: '単語を抽出中...', status: 'active' },
+          { id: 'save', label: created.saveMode === 'client_local' ? '確認画面を準備中...' : 'クラウド単語帳を作成中...', status: 'pending' },
+        ]);
 
-      const asset = result.assets[0];
-      if (!asset.base64) {
-        Alert.alert('エラー', '画像の読み込みに失敗しました。');
-        return;
-      }
+        const completed = await waitForScanJobCompletion(session, created.jobId);
+        const parsedResult = completed.parsedResult ?? {};
 
-      await processImage(asset.base64, addToExisting);
-    } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('エラー', '画像の選択に失敗しました。');
-    }
-  };
+        setProcessingSteps([
+          { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+          { id: 'process', label: '単語を抽出中...', status: 'complete' },
+          { id: 'save', label: created.saveMode === 'client_local' ? '確認画面を準備中...' : 'クラウド単語帳を作成中...', status: 'active' },
+        ]);
 
-  const processImage = async (base64: string, addToExisting: boolean) => {
-    setProcessing(true);
-    setProcessingSteps([
-      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-      { id: 'analyze', label: '文字を解析中...', status: 'pending' },
-      { id: 'generate', label: '問題を作成中...', status: 'pending' },
-    ]);
+        if (created.saveMode === 'client_local') {
+          const extractedWords = (parsedResult.extractedWords ?? []) as RootStackParamList['ScanConfirm']['words'];
+          setProcessing(false);
+          navigation.navigate('ScanConfirm', {
+            words: extractedWords,
+            projectName: projectTitle,
+          });
+          return;
+        }
 
-    try {
-      const imageDataUrl = `data:image/jpeg;base64,${base64}`;
+        const projectId =
+          (typeof parsedResult.targetProjectId === 'string' ? parsedResult.targetProjectId : null)
+          || completed.job.project_id
+          || null;
 
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'upload' ? { ...s, status: 'complete' } :
-          s.id === 'analyze' ? { ...s, status: 'active' } : s
-        )
-      );
+        if (!projectId) {
+          throw new Error('保存先の単語帳が見つかりませんでした。');
+        }
 
-      const result = await extractWordsFromImage(imageDataUrl, {
-        mode: selectedScanMode as 'all' | 'circled' | 'eiken', // Grammar mode is handled separately
-        eikenLevel: selectedEikenLevel,
-        isPro,
-      });
-
-      if (!result.success) throw new Error(result.error);
-
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.id === 'analyze' ? { ...s, status: 'complete' } :
-          s.id === 'generate' ? { ...s, status: 'active' } : s
-        )
-      );
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      setProcessingSteps((prev) =>
-        prev.map((s) => (s.id === 'generate' ? { ...s, status: 'complete' } : s))
-      );
-
-      await incrementScanCount();
-      setScanInfo(await getDailyScanInfo());
-
-      setTimeout(() => {
         setProcessing(false);
-        setProcessingSteps([]);
-        navigation.navigate('ScanConfirm', {
-          words: result.words!,
-          projectName: addToExisting ? currentProject?.title : projectName.trim(),
-          projectId: addToExisting ? currentProject?.id : undefined,
+        await loadProjects(false);
+        navigation.reset({
+          index: 1,
+          routes: [
+            { name: 'Main' },
+            { name: 'Project', params: { projectId } },
+          ],
         });
-      }, 300);
-    } catch (error) {
-      console.error('Scan error:', error);
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.status === 'active' || s.status === 'pending'
-            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
-            : s
-        )
-      );
-    }
-  };
+      } catch (error) {
+        console.error('Failed to scan from home:', error);
+        setProcessingSteps((current) => {
+          let handled = false;
+          return current.map((step) => {
+            if (!handled && (step.status === 'active' || step.status === 'pending')) {
+              handled = true;
+              return {
+                ...step,
+                status: 'error',
+                label: error instanceof Error ? error.message : 'スキャンに失敗しました。',
+              };
+            }
+            return step;
+          });
+        });
+      }
+    },
+    [loadProjects, navigation, session]
+  );
 
-  const handleCloseModal = () => {
-    setProcessing(false);
-    setProcessingSteps([]);
-  };
+  const storageLabel = isPro ? 'クラウド同期' : 'この端末に保存';
+  const accountLabel = isAuthenticated ? user?.email ?? 'ログイン中' : 'ゲスト利用中';
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadProjects();
-    loadWords();
-    loadScanInfo();
-    loadWrongAnswerCount();
-  }, [loadProjects, loadWords, loadScanInfo, loadWrongAnswerCount]);
-
-  // Loading state
-  if (loading || authLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[600]} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Empty state - no projects
-  if (projects.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary[600]}
+          />
+        }
+      >
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.headerTitle}>WordSnap</Text>
-            </View>
-            {isPro && (
-              <View style={styles.proBadge}>
-                <Crown size={10} color={colors.white} />
-                <Text style={styles.proBadgeText}>Pro</Text>
-              </View>
-            )}
+          <View>
+            <Text style={styles.brand}>MERKEN</Text>
+            <Text style={styles.tagline}>Android Test Build</Text>
           </View>
           <TouchableOpacity
-            style={styles.settingsButton}
+            style={styles.iconButton}
             onPress={() => navigation.navigate('Settings')}
           >
-            <Settings size={20} color={colors.gray[600]} />
+            <Settings size={20} color={colors.gray[700]} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <BookOpen size={28} color={colors.gray[400]} />
+        <View style={styles.heroCard}>
+          <View style={styles.heroBadge}>
+            <Sparkles size={14} color={colors.primary[700]} />
+            <Text style={styles.heroBadgeText}>Internal Test</Text>
           </View>
-          <Text style={styles.emptyTitle}>単語帳がありません</Text>
-          <Text style={styles.emptyText}>
-            右下のボタンから{'\n'}ノートやプリントを撮影しましょう
+          <Text style={styles.heroTitle}>単語帳、スキャン、復習機能を Android で確認する</Text>
+          <Text style={styles.heroText}>
+            手動 CRUD に加えて、ログイン後のスキャン、苦手単語、間違えた単語、Test Pro 導線まで確認できるテスト build です。
           </Text>
+          <View style={styles.statusRow}>
+            <View style={styles.statusPill}>
+              {isPro ? <Cloud size={14} color={colors.primary[700]} /> : <Lock size={14} color={colors.gray[700]} />}
+              <Text style={styles.statusPillText}>{storageLabel}</Text>
+            </View>
+            <View style={styles.statusPill}>
+              <BookOpen size={14} color={colors.gray[700]} />
+              <Text style={styles.statusPillText}>{accountLabel}</Text>
+            </View>
+          </View>
         </View>
 
-        <ScanButton onPress={() => handleScanButtonClick()} disabled={processing} />
+        {configError ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningTitle}>Supabase 設定が必要です</Text>
+            <Text style={styles.warningText}>{configError}</Text>
+          </View>
+        ) : null}
 
-        <ScanModeModal
-          visible={showScanModeModal}
-          onClose={() => setShowScanModeModal(false)}
-          onSelectMode={handleScanModeSelect}
-          isPro={isPro}
-        />
-
-        <ProcessingModal
-          visible={processing}
-          steps={processingSteps}
-          onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
-        />
-
-        {/* Project name modal */}
-        <Modal
-          visible={showProjectNameModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowProjectNameModal(false)}
-        >
-          <KeyboardAvoidingView
-            style={styles.modalOverlay}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>単語帳の名前</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowProjectNameModal(false);
-                    setPendingImageSource(null);
-                  }}
-                  style={styles.modalCloseButton}
-                >
-                  <X size={20} color={colors.gray[500]} />
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.modalInput}
-                value={projectName}
-                onChangeText={setProjectName}
-                placeholder="例: 英検2級 単語帳"
-                placeholderTextColor={colors.gray[400]}
-                autoFocus
-                selectTextOnFocus
-              />
-              <Button onPress={handleProjectNameConfirm} size="lg" style={styles.modalButton}>
-                次へ
+        {!isAuthenticated ? (
+          <View style={styles.authCard}>
+            <Text style={styles.sectionTitle}>ログインするとスキャンと同期が使えます</Text>
+            <Text style={styles.authText}>
+              `all` スキャンはログイン済み Free でも確認できます。Pro 系の機能は Test Pro 付与後に開きます。
+            </Text>
+            <View style={styles.authButtons}>
+              <Button size="sm" variant="secondary" onPress={() => navigation.navigate('Signup')}>
+                新規登録
+              </Button>
+              <Button size="sm" onPress={() => navigation.navigate('Login')}>
+                ログイン
               </Button>
             </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      </SafeAreaView>
-    );
-  }
-
-  // Main view with project
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        {/* Left: Project selector */}
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.projectSelector}
-            onPress={() => setIsProjectDropdownOpen(true)}
-          >
-            <Text style={styles.projectTitle} numberOfLines={1}>
-              {showFavoritesOnly ? '苦手な単語' : currentProject?.title}
+          </View>
+        ) : !isPro ? (
+          <View style={styles.upgradeCard}>
+            <View style={styles.upgradeHeader}>
+              <Crown size={18} color={colors.amber[700]} />
+              <Text style={styles.upgradeTitle}>Test Pro で残り機能を確認する</Text>
+            </View>
+            <Text style={styles.upgradeText}>
+              circled/eiken スキャン、フラッシュカード、例文クイズ、共有は Test Pro を有効化すると使えます。
             </Text>
-            <ChevronDown size={16} color={colors.gray[500]} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Center: Plus button */}
-        <TouchableOpacity
-          style={styles.newProjectButton}
-          onPress={() => handleScanButtonClick()}
-        >
-          <Plus size={18} color={colors.white} />
-        </TouchableOpacity>
-
-        {/* Right: Action buttons */}
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleShare} disabled={sharing} style={styles.headerButton}>
-            {sharing ? (
-              <ActivityIndicator size="small" color={colors.gray[400]} />
-            ) : shareCopied ? (
-              <Check size={20} color={colors.emerald[600]} />
-            ) : currentProject?.shareId ? (
-              <Link2 size={20} color={colors.primary[600]} />
-            ) : (
-              <Share2 size={20} color={colors.gray[400]} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleDeleteProject} style={styles.headerButton}>
-            <Trash2 size={20} color={colors.gray[400]} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Settings')}
-            style={styles.headerButton}
-          >
-            <Settings size={20} color={colors.gray[500]} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Main content */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        scrollEnabled={isWordListExpanded}
-      >
-        {/* Inline Flashcard */}
-        <View style={styles.flashcardSection}>
-          <InlineFlashcard words={showFavoritesOnly ? filteredWords : words} />
-        </View>
-
-        {/* Study Mode Cards - 2 column grid */}
-        <View style={styles.studyModeGrid}>
-          <View style={styles.studyModeColumn}>
-            <StudyModeCard
-              title="クイズ"
-              description="4択単語テスト"
-              icon={Play}
-              onPress={() => navigation.navigate('Quiz', { projectId: currentProject!.id })}
-              variant="red"
-              disabled={words.length === 0}
-            />
+            <Button size="sm" onPress={() => navigation.navigate('Subscription')}>
+              Test Pro を開く
+            </Button>
           </View>
-          <View style={styles.studyModeColumn}>
-            <StudyModeCard
-              title="カード"
-              description="フラッシュカード"
-              icon={Layers}
-              onPress={() => {
-                if (!isPro) {
-                  navigation.navigate('Subscription');
-                } else {
-                  navigation.navigate('Flashcard', { projectId: currentProject!.id });
-                }
-              }}
-              variant="blue"
-              disabled={words.length === 0}
-              badge={!isPro ? 'Pro' : undefined}
-            />
-          </View>
-        </View>
+        ) : null}
 
-        {/* Grammar Mode Card - Full width */}
-        <View style={styles.grammarCardSection}>
-          <StudyModeCard
-            title="文法問題"
-            description="文法をスキャンして学習"
-            icon={BookText}
-            onPress={() => navigation.navigate('Grammar', { projectId: currentProject!.id })}
-            variant="green"
+        <View style={styles.toolsGrid}>
+          <ActionCard
+            title="スキャン作成"
+            subtitle={isAuthenticated ? (isPro ? 'all / circled / eiken' : 'all スキャン') : 'ログイン必須'}
+            icon={<Camera size={18} color={colors.primary[700]} />}
+            accentColor={colors.primary[50]}
+            onPress={handleOpenScan}
+          />
+          <ActionCard
+            title="苦手単語"
+            subtitle={`${favoriteCount}語を確認`}
+            icon={<Flag size={18} color={colors.orange[700]} />}
+            accentColor={colors.orange[50]}
+            onPress={() => navigation.navigate('Favorites')}
+          />
+          <ActionCard
+            title="間違えた単語"
+            subtitle={`${wrongAnswerCount}語を復習`}
+            icon={<AlertCircle size={18} color={colors.red[700]} />}
+            accentColor={colors.red[50]}
+            onPress={() => navigation.navigate('WrongAnswers')}
+          />
+          <ActionCard
+            title={isPro ? 'Test Pro 有効' : 'Test Pro'}
+            subtitle={isPro ? 'Pro 機能を確認中' : '残り機能を開く'}
+            icon={<Crown size={18} color={colors.amber[700]} />}
+            accentColor={colors.amber[50]}
+            onPress={() => navigation.navigate('Subscription')}
           />
         </View>
 
-        {/* Wrong Answers Card - Show only if there are wrong answers */}
-        {wrongAnswerCount > 0 && (
-          <View style={styles.wrongAnswersCardSection}>
-            <TouchableOpacity
-              style={styles.wrongAnswersCard}
-              onPress={() => navigation.navigate('WrongAnswers')}
-            >
-              <View style={styles.wrongAnswersIcon}>
-                <AlertCircle size={24} color={colors.red[600]} />
-              </View>
-              <View style={styles.wrongAnswersContent}>
-                <Text style={styles.wrongAnswersTitle}>苦手な単語</Text>
-                <Text style={styles.wrongAnswersCount}>{wrongAnswerCount}語</Text>
-              </View>
-              <ChevronDown size={20} color={colors.gray[400]} style={{ transform: [{ rotate: '-90deg' }] }} />
-            </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>単語帳</Text>
+          <Button
+            size="sm"
+            onPress={() => setShowCreateModal(true)}
+            icon={<Plus size={16} color={colors.white} />}
+          >
+            新規作成
+          </Button>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="small" color={colors.primary[600]} />
+            <Text style={styles.loadingText}>単語帳を読み込み中...</Text>
+          </View>
+        ) : projectSummaries.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>まだ単語帳がありません</Text>
+            <Text style={styles.emptyText}>手動で作成するか、ログイン後にスキャンから始めてください。</Text>
+            <View style={styles.emptyActions}>
+              <Button size="lg" onPress={() => setShowCreateModal(true)}>
+                単語帳を作る
+              </Button>
+              <Button size="lg" variant="secondary" onPress={handleOpenScan}>
+                スキャンする
+              </Button>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.projectList}>
+            {projectSummaries.map((summary) => (
+              <ProjectRowCard
+                key={summary.project.id}
+                summary={summary}
+                isPro={isPro}
+                onPress={() => navigation.navigate('Project', { projectId: summary.project.id })}
+              />
+            ))}
           </View>
         )}
-
-        {/* Collapsible Word List */}
-        <View style={styles.wordListSection}>
-          {/* Word list header */}
-          <TouchableOpacity
-            style={styles.wordListHeader}
-            onPress={() => setIsWordListExpanded(!isWordListExpanded)}
-          >
-            <Text style={styles.wordListTitle}>
-              {showFavoritesOnly ? `苦手 (${stats.favorites}語)` : `単語一覧 (${stats.total}語)`}
-            </Text>
-            <View style={styles.wordListHeaderRight}>
-              {stats.favorites > 0 && (
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    setShowFavoritesOnly(!showFavoritesOnly);
-                  }}
-                  style={[
-                    styles.filterButton,
-                    showFavoritesOnly && styles.filterButtonActive,
-                  ]}
-                >
-                  <Flag
-                    size={14}
-                    color={showFavoritesOnly ? colors.orange[600] : colors.gray[500]}
-                    fill={showFavoritesOnly ? colors.orange[500] : 'transparent'}
-                  />
-                </TouchableOpacity>
-              )}
-              {isWordListExpanded ? (
-                <ChevronUp size={20} color={colors.gray[500]} />
-              ) : (
-                <ChevronDown size={20} color={colors.gray[500]} />
-              )}
-            </View>
-          </TouchableOpacity>
-
-          {/* Word list content */}
-          {isWordListExpanded && (
-            <>
-              {wordsLoading ? (
-                <View style={styles.wordsLoading}>
-                  <ActivityIndicator size="small" color={colors.gray[400]} />
-                </View>
-              ) : filteredWords.length === 0 ? (
-                <Text style={styles.emptyWordsText}>
-                  {showFavoritesOnly ? '苦手な単語がありません' : '単語がありません'}
-                </Text>
-              ) : (
-                <View style={styles.wordList}>
-                  {filteredWords.map((word) => (
-                    <WordItem
-                      key={`${word.id}:${word.english}:${word.japanese}`}
-                      word={word}
-                      isEditing={editingWordId === word.id}
-                      onEdit={() => setEditingWordId(word.id)}
-                      onCancel={() => setEditingWordId(null)}
-                      onSave={(english, japanese) => handleUpdateWord(word.id, english, japanese)}
-                      onDelete={() => handleDeleteWord(word.id)}
-                      onToggleFavorite={() => handleToggleFavorite(word.id)}
-                    />
-                  ))}
-                </View>
-              )}
-            </>
-          )}
-        </View>
       </ScrollView>
 
-      {/* Modals */}
-      <ProjectSelectionSheet
-        visible={isProjectDropdownOpen}
-        onClose={() => setIsProjectDropdownOpen(false)}
-        projects={projects}
-        currentProjectIndex={currentProjectIndex}
-        onSelectProject={selectProject}
-        onSelectFavorites={() => setShowFavoritesOnly(true)}
-        showFavoritesOnly={showFavoritesOnly}
-        favoriteCount={stats.favorites}
-      />
-
-      <ScanModeModal
-        visible={showScanModeModal}
-        onClose={() => setShowScanModeModal(false)}
-        onSelectMode={handleScanModeSelect}
-        isPro={isPro}
-      />
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>新しい単語帳</Text>
+            <Input
+              label="単語帳名"
+              value={newProjectTitle}
+              onChangeText={setNewProjectTitle}
+              placeholder="例: 英検準2級"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Button variant="secondary" onPress={() => setShowCreateModal(false)}>
+                キャンセル
+              </Button>
+              <Button onPress={handleCreateProject} loading={creating}>
+                作成
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <ProcessingModal
         visible={processing}
         steps={processingSteps}
-        onClose={processingSteps.some((s) => s.status === 'error') ? handleCloseModal : undefined}
+        onClose={() => {
+          setProcessing(false);
+          setProcessingSteps([
+            { id: 'upload', label: '画像をアップロード中...', status: 'pending' },
+            { id: 'process', label: '単語を抽出中...', status: 'pending' },
+            { id: 'save', label: '保存先を準備中...', status: 'pending' },
+          ]);
+        }}
       />
 
-      {/* Project name modal */}
-      <Modal
-        visible={showProjectNameModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowProjectNameModal(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>単語帳の名前</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowProjectNameModal(false);
-                  setPendingImageSource(null);
-                }}
-                style={styles.modalCloseButton}
-              >
-                <X size={20} color={colors.gray[500]} />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.modalInput}
-              value={projectName}
-              onChangeText={setProjectName}
-              placeholder="例: 英検2級 単語帳"
-              placeholderTextColor={colors.gray[400]}
-              autoFocus
-              selectTextOnFocus
-            />
-            <Button onPress={handleProjectNameConfirm} size="lg" style={styles.modalButton}>
-              次へ
-            </Button>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <ScanModeModal
+        visible={showScanModeModal}
+        isPro={isPro}
+        title="スキャンモード"
+        subtitle="新しい単語帳をどう作るか選んでください。"
+        onClose={() => setShowScanModeModal(false)}
+        onRequirePro={() => {
+          void handleProtectedAction({ requirePro: true, featureName: 'このスキャンモード' });
+        }}
+        onSelectMode={(mode, eikenLevel) => {
+          promptImageSource(mode, eikenLevel ?? null);
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+function ActionCard({
+  title,
+  subtitle,
+  icon,
+  accentColor,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  accentColor: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={onPress}>
+      <View style={[styles.actionIcon, { backgroundColor: accentColor }]}>{icon}</View>
+      <Text style={styles.actionTitle}>{title}</Text>
+      <Text style={styles.actionSubtitle}>{subtitle}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ProjectRowCard({
+  summary,
+  isPro,
+  onPress,
+}: {
+  summary: ProjectSummary;
+  isPro: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.projectCard} activeOpacity={0.85} onPress={onPress}>
+      <View style={styles.projectCardHeader}>
+        <Text style={styles.projectTitle}>{summary.project.title}</Text>
+        <View style={[styles.modeBadge, isPro ? styles.modeBadgeCloud : styles.modeBadgeLocal]}>
+          <Text style={[styles.modeBadgeText, isPro ? styles.modeBadgeTextCloud : styles.modeBadgeTextLocal]}>
+            {isPro ? 'Cloud' : 'Local'}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.projectMetaRow}>
+        <StatPill label={`${summary.totalWords}語`} />
+        <StatPill label={`習得 ${summary.masteredWords}語`} />
+        <StatPill label={`苦手 ${summary.favoriteWords}語`} />
+      </View>
+      {summary.project.sourceLabels.length > 0 ? (
+        <Text style={styles.projectLabels}>{summary.project.sourceLabels.join(' / ')}</Text>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function StatPill({ label }: { label: string }) {
+  return (
+    <View style={styles.statPill}>
+      <Text style={styles.statPillText}>{label}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
-  loadingContainer: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-
-  // Header
+  content: {
+    padding: 20,
+    gap: 16,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    justifyContent: 'space-between',
   },
-  headerLeft: {
-    flex: 1,
-  },
-  logoContainer: {
-    backgroundColor: colors.primary[600],
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  proBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary[500],
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    gap: 2,
-  },
-  proBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  projectSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginLeft: -8,
-  },
-  projectTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  brand: {
+    fontSize: 28,
+    fontWeight: '800',
     color: colors.gray[900],
-    maxWidth: 140,
   },
-  newProjectButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary[500],
+  tagline: {
+    marginTop: 4,
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerRight: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 0,
-  },
-  headerButton: {
-    padding: 8,
-  },
-  settingsButton: {
-    padding: 4,
-  },
-
-  // Stats bar
-  statsBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
     backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
-  statItem: {
+  heroCard: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 10,
+  },
+  heroBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primary[50],
   },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.gray[300],
-  },
-  statValueActive: {
-    color: colors.primary[600],
-  },
-  statLabel: {
+  heroBadgeText: {
     fontSize: 12,
-    color: colors.gray[400],
+    fontWeight: '700',
+    color: colors.primary[700],
   },
-
-  // Content
-  content: {
-    flex: 1,
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.gray[900],
+    lineHeight: 30,
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 120,
+  heroText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.gray[600],
   },
-
-  // Flashcard section
-  flashcardSection: {
-    marginBottom: 16,
-  },
-
-  // Study mode grid
-  studyModeGrid: {
+  statusRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 6,
   },
-  studyModeColumn: {
-    flex: 1,
-  },
-
-  // Grammar card section
-  grammarCardSection: {
-    marginBottom: 12,
-  },
-
-  // Wrong answers card section
-  wrongAnswersCardSection: {
-    marginBottom: 16,
-  },
-  wrongAnswersCard: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.gray[100],
+  },
+  statusPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.gray[700],
+  },
+  warningCard: {
     backgroundColor: colors.red[50],
-    borderRadius: 12,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
     borderColor: colors.red[200],
+    gap: 8,
   },
-  wrongAnswersIcon: {
-    width: 40,
-    height: 40,
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.red[700],
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.red[700],
+  },
+  authCard: {
+    backgroundColor: colors.white,
     borderRadius: 20,
-    backgroundColor: colors.red[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 10,
   },
-  wrongAnswersContent: {
-    flex: 1,
+  authText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.gray[600],
   },
-  wrongAnswersTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.red[800],
+  authButtons: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  wrongAnswersCount: {
-    fontSize: 13,
-    color: colors.red[600],
-    marginTop: 2,
+  upgradeCard: {
+    backgroundColor: colors.amber[50],
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.amber[200],
+    gap: 10,
   },
-
-  // Word list section
-  wordListSection: {
-    backgroundColor: colors.gray[50],
-    borderRadius: 16,
-    padding: 16,
-  },
-  wordListHeaderRight: {
+  upgradeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-
-  // Word list header
-  wordListHeader: {
+  upgradeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray[900],
+  },
+  upgradeText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.gray[700],
+  },
+  toolsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionCard: {
+    width: '47%',
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 8,
+  },
+  actionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray[900],
+  },
+  actionSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.gray[600],
+  },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
   },
-  wordListTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
     color: colors.gray[900],
   },
-  wordListActions: {
+  loadingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 10,
+    padding: 18,
     borderRadius: 20,
-    backgroundColor: colors.gray[100],
-  },
-  filterButtonActive: {
-    backgroundColor: colors.orange[100],
-  },
-  filterButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.gray[600],
-  },
-  filterButtonTextActive: {
-    color: colors.orange[700],
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.primary[100],
-  },
-  addButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.primary[700],
-  },
-
-  // Word list
-  wordList: {
-    gap: 8,
-  },
-  wordsLoading: {
-    paddingVertical: 48,
-    alignItems: 'center',
-  },
-  emptyWordsText: {
-    textAlign: 'center',
-    color: colors.gray[500],
-    paddingVertical: 32,
-  },
-
-  // Word item
-  wordItem: {
     backgroundColor: colors.white,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.gray[200],
-    padding: 16,
-    flexDirection: 'row',
   },
-  wordItemContent: {
-    flex: 1,
-  },
-  wordItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  wordItemEnglish: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.gray[900],
-  },
-  wordItemJapanese: {
+  loadingText: {
     fontSize: 14,
-    color: colors.gray[500],
-    marginTop: 4,
+    color: colors.gray[600],
   },
-  exampleSection: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
-  },
-  exampleSentence: {
-    fontSize: 13,
-    color: colors.gray[700],
-    fontStyle: 'italic',
-  },
-  exampleSentenceJa: {
-    fontSize: 12,
-    color: colors.gray[500],
-    marginTop: 2,
-  },
-  wordItemActions: {
-    flexDirection: 'row',
+  emptyCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 12,
     alignItems: 'flex-start',
-    gap: 4,
-    marginLeft: 8,
-  },
-  wordActionButton: {
-    padding: 6,
-    borderRadius: 6,
-  },
-  wordItemEditing: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.primary[500],
-    padding: 16,
-    gap: 12,
-  },
-  editInputLarge: {
-    backgroundColor: colors.gray[50],
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 18,
-    color: colors.gray[900],
-  },
-  editInputSmall: {
-    backgroundColor: colors.gray[50],
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: colors.gray[900],
-  },
-  editActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editButton: {
-    flex: 1,
-  },
-
-  // Bottom actions
-  bottomActions: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
-    backgroundColor: colors.white,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: colors.primary[500],
-    gap: 6,
-  },
-  actionButtonSecondary: {
-    backgroundColor: colors.primary[50],
-    borderWidth: 1,
-    borderColor: colors.primary[200],
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  actionButtonTextSecondary: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary[600],
-  },
-
-  // Empty state
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 100,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.gray[900],
-    marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: colors.gray[500],
-    textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
+    color: colors.gray[600],
   },
-
-  // Modal
-  modalOverlay: {
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  projectList: {
+    gap: 12,
+  },
+  projectCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 12,
+  },
+  projectCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  projectTitle: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '800',
     color: colors.gray[900],
   },
-  modalCloseButton: {
-    padding: 4,
-    marginRight: -4,
+  modeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  modalInput: {
-    backgroundColor: colors.gray[50],
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.gray[900],
-    marginBottom: 16,
-  },
-  modalButton: {
-    width: '100%',
-  },
-
-  // Scan mode modal
-  scanModeContent: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 360,
-  },
-  scanModeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.gray[900],
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  scanModeSubtitle: {
-    fontSize: 14,
-    color: colors.gray[500],
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  eikenSection: {
-    marginBottom: 16,
-  },
-  eikenLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray[700],
-    marginBottom: 8,
-  },
-  eikenSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    borderRadius: 10,
-    backgroundColor: colors.white,
-  },
-  eikenValue: {
-    fontSize: 16,
-    color: colors.gray[500],
-  },
-  eikenValueSelected: {
-    fontSize: 16,
-    color: colors.gray[900],
-  },
-  eikenDropdown: {
-    marginTop: 4,
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    overflow: 'hidden',
-  },
-  eikenDropdownScroll: {
-    maxHeight: 200,
-  },
-  eikenOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  eikenOptionSelected: {
+  modeBadgeCloud: {
     backgroundColor: colors.primary[50],
   },
-  eikenOptionText: {
-    fontSize: 16,
+  modeBadgeLocal: {
+    backgroundColor: colors.gray[100],
+  },
+  modeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modeBadgeTextCloud: {
+    color: colors.primary[700],
+  },
+  modeBadgeTextLocal: {
     color: colors.gray[700],
   },
-  eikenOptionTextSelected: {
-    color: colors.primary[600],
-  },
-  modeButtons: {
-    gap: 12,
-  },
-  modeButtonTitleRow: {
+  projectMetaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  proBadgeSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary[500],
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    gap: 2,
-  },
-  proBadgeSmallText: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  // EIKEN picker styles
-  eikenPickerScroll: {
-    maxHeight: 280,
-    marginBottom: 16,
-  },
-  eikenPickerOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    borderRadius: 10,
-    marginBottom: 8,
-    backgroundColor: colors.white,
-  },
-  eikenPickerOptionSelected: {
-    borderColor: colors.orange[500],
-    backgroundColor: colors.orange[50],
-  },
-  eikenPickerOptionText: {
-    fontSize: 16,
-    color: colors.gray[700],
-  },
-  eikenPickerOptionTextSelected: {
-    color: colors.orange[700],
-    fontWeight: '500',
-  },
-  eikenPickerButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  eikenPickerBackButton: {
-    flex: 1,
-    paddingVertical: 14,
+  statPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
     backgroundColor: colors.gray[100],
-    borderRadius: 10,
-    alignItems: 'center',
   },
-  eikenPickerBackButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+  statPillText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.gray[700],
   },
-  eikenPickerConfirmButton: {
-    flex: 2,
-    paddingVertical: 14,
-    backgroundColor: colors.orange[500],
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  eikenPickerConfirmButtonDisabled: {
-    backgroundColor: colors.gray[200],
-  },
-  eikenPickerConfirmButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  eikenPickerConfirmButtonTextDisabled: {
-    color: colors.gray[400],
-  },
-  modeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    borderRadius: 12,
-  },
-  modeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modeTextContainer: {
-    flex: 1,
-  },
-  modeButtonTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.gray[900],
-  },
-  modeButtonDesc: {
+  projectLabels: {
     fontSize: 13,
     color: colors.gray[500],
-    marginTop: 2,
   },
-  cancelButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.gray[100],
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray[700],
-  },
-
-  // Project selection sheet
-  sheetOverlay: {
+  modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
-  },
-  sheetContent: {
-    flex: 1,
-    backgroundColor: colors.gray[50],
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    marginTop: 60,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  sheetCloseButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
+    backgroundColor: 'rgba(17, 24, 39, 0.3)',
     justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: colors.white,
     borderRadius: 20,
+    padding: 20,
+    gap: 16,
   },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
     color: colors.gray[900],
   },
-  sheetScroll: {
-    flex: 1,
-  },
-  sheetScrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  sheetSection: {
-    marginBottom: 24,
-  },
-  sheetSectionHeader: {
+  modalButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  sheetSectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray[700],
-  },
-  sheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.gray[200],
-    marginBottom: 8,
-  },
-  sheetItemSelected: {
-    borderColor: colors.emerald[500],
-  },
-  sheetItemContent: {
-    flex: 1,
-  },
-  sheetItemTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.gray[900],
-  },
-  sheetItemSubtitle: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginTop: 2,
-  },
-  sheetItemCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.emerald[500],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
+    justifyContent: 'flex-end',
+    gap: 10,
   },
 });

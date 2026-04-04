@@ -45,7 +45,7 @@ const requestSchema = z.object({
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
   aiEnabled: z.boolean().nullable().optional(),
   targetProjectId: z.string().uuid().optional(),
-  clientPlatform: z.enum(['ios', 'web']).optional().default('web'),
+  clientPlatform: z.enum(['android', 'ios', 'web']).optional().default('web'),
 }).strict().superRefine((value, ctx) => {
   if (!value.imagePath && (!value.imagePaths || value.imagePaths.length === 0)) {
     ctx.addIssue({
@@ -159,7 +159,9 @@ export async function POST(request: NextRequest) {
 
     const isProUser = Boolean(scanData.is_pro);
     const saveMode: 'server_cloud' | 'client_local' =
-      clientPlatform === 'ios' && !isProUser ? 'client_local' : 'server_cloud';
+      (clientPlatform === 'ios' || clientPlatform === 'android') && !isProUser
+        ? 'client_local'
+        : 'server_cloud';
 
     let validatedTargetProjectId: string | null = null;
     if (saveMode === 'server_cloud' && targetProjectId) {

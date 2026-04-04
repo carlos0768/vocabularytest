@@ -22,7 +22,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function LoginScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { signIn, resetPassword } = useAuth();
+  const { signIn, resetPassword, configError } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -123,8 +123,14 @@ export function LoginScreen() {
         >
           <Text style={styles.title}>ログイン</Text>
           <Text style={styles.subtitle}>
-            アカウントにログインしてクラウド同期を有効にしましょう
+            MERKEN にログインして、利用中の保存モードを引き継ぎます
           </Text>
+
+          {configError ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{configError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.form}>
             <Input
@@ -217,6 +223,19 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     marginBottom: 32,
     lineHeight: 22,
+  },
+  errorBanner: {
+    backgroundColor: colors.red[50],
+    borderWidth: 1,
+    borderColor: colors.red[200],
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+  },
+  errorBannerText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.red[700],
   },
   form: {
     gap: 8,

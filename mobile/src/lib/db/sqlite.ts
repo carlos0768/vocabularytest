@@ -18,9 +18,13 @@ async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
       title TEXT NOT NULL,
+      sourceLabels TEXT NOT NULL DEFAULT '[]',
+      iconImage TEXT,
       createdAt TEXT NOT NULL,
       isSynced INTEGER DEFAULT 0,
-      shareId TEXT
+      shareId TEXT,
+      shareScope TEXT DEFAULT 'private',
+      isFavorite INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS words (
@@ -49,6 +53,26 @@ async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
   // Migration: Add new columns if they don't exist (for existing databases)
   try {
     await database.execAsync(`ALTER TABLE projects ADD COLUMN shareId TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execAsync(`ALTER TABLE projects ADD COLUMN sourceLabels TEXT NOT NULL DEFAULT '[]'`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execAsync(`ALTER TABLE projects ADD COLUMN iconImage TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execAsync(`ALTER TABLE projects ADD COLUMN shareScope TEXT DEFAULT 'private'`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execAsync(`ALTER TABLE projects ADD COLUMN isFavorite INTEGER DEFAULT 0`);
   } catch {
     // Column already exists
   }
@@ -96,22 +120,40 @@ async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
 
 export class LocalWordRepository implements WordRepository {
   // Projects
-  async createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
+  async createProject(
+    project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }
+  ): Promise<Project> {
     const database = await getDatabase();
     const id = generateId();
     const createdAt = new Date().toISOString();
 
     await database.runAsync(
-      'INSERT INTO projects (id, userId, title, createdAt, isSynced) VALUES (?, ?, ?, ?, ?)',
-      [id, project.userId, project.title, createdAt, project.isSynced ? 1 : 0]
+      'INSERT INTO projects (id, userId, title, sourceLabels, iconImage, createdAt, isSynced, shareId, shareScope, isFavorite) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        project.userId,
+        project.title,
+        JSON.stringify(project.sourceLabels ?? []),
+        project.iconImage ?? null,
+        createdAt,
+        project.isSynced ? 1 : 0,
+        project.shareId ?? null,
+        project.shareScope ?? 'private',
+        project.isFavorite ? 1 : 0,
+      ]
     );
 
     return {
       id,
       userId: project.userId,
       title: project.title,
+      sourceLabels: project.sourceLabels ?? [],
+      iconImage: project.iconImage,
       createdAt,
       isSynced: project.isSynced,
+      shareId: project.shareId,
+      shareScope: project.shareScope ?? 'private',
+      isFavorite: project.isFavorite ?? false,
     };
   }
 
@@ -121,9 +163,13 @@ export class LocalWordRepository implements WordRepository {
       id: string;
       userId: string;
       title: string;
+      sourceLabels: string | null;
+      iconImage: string | null;
       createdAt: string;
       isSynced: number;
       shareId: string | null;
+      shareScope: string | null;
+      isFavorite: number | null;
     }>(
       'SELECT * FROM projects WHERE userId = ? ORDER BY createdAt DESC',
       [userId]
@@ -133,9 +179,13 @@ export class LocalWordRepository implements WordRepository {
       id: row.id,
       userId: row.userId,
       title: row.title,
+      sourceLabels: row.sourceLabels ? JSON.parse(row.sourceLabels) : [],
+      iconImage: row.iconImage || undefined,
       createdAt: row.createdAt,
       isSynced: row.isSynced === 1,
       shareId: row.shareId || undefined,
+      shareScope: row.shareScope === 'public' ? 'public' : 'private',
+      isFavorite: row.isFavorite === 1,
     }));
   }
 
@@ -145,9 +195,13 @@ export class LocalWordRepository implements WordRepository {
       id: string;
       userId: string;
       title: string;
+      sourceLabels: string | null;
+      iconImage: string | null;
       createdAt: string;
       isSynced: number;
       shareId: string | null;
+      shareScope: string | null;
+      isFavorite: number | null;
     }>('SELECT * FROM projects WHERE id = ?', [id]);
 
     if (!row) return undefined;
@@ -156,9 +210,13 @@ export class LocalWordRepository implements WordRepository {
       id: row.id,
       userId: row.userId,
       title: row.title,
+      sourceLabels: row.sourceLabels ? JSON.parse(row.sourceLabels) : [],
+      iconImage: row.iconImage || undefined,
       createdAt: row.createdAt,
       isSynced: row.isSynced === 1,
       shareId: row.shareId || undefined,
+      shareScope: row.shareScope === 'public' ? 'public' : 'private',
+      isFavorite: row.isFavorite === 1,
     };
   }
 
@@ -171,6 +229,14 @@ export class LocalWordRepository implements WordRepository {
       fields.push('title = ?');
       values.push(updates.title);
     }
+    if (updates.sourceLabels !== undefined) {
+      fields.push('sourceLabels = ?');
+      values.push(JSON.stringify(updates.sourceLabels));
+    }
+    if (updates.iconImage !== undefined) {
+      fields.push('iconImage = ?');
+      values.push(updates.iconImage || null);
+    }
     if (updates.isSynced !== undefined) {
       fields.push('isSynced = ?');
       values.push(updates.isSynced ? 1 : 0);
@@ -178,6 +244,14 @@ export class LocalWordRepository implements WordRepository {
     if (updates.shareId !== undefined) {
       fields.push('shareId = ?');
       values.push(updates.shareId || null);
+    }
+    if (updates.shareScope !== undefined) {
+      fields.push('shareScope = ?');
+      values.push(updates.shareScope);
+    }
+    if (updates.isFavorite !== undefined) {
+      fields.push('isFavorite = ?');
+      values.push(updates.isFavorite ? 1 : 0);
     }
 
     if (fields.length > 0) {

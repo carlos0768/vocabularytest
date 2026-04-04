@@ -22,7 +22,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function SignupScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { signUp } = useAuth();
+  const { signUp, configError } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,8 +127,14 @@ export function SignupScreen() {
         >
           <Text style={styles.title}>新規登録</Text>
           <Text style={styles.subtitle}>
-            アカウントを作成してクラウド同期を利用しましょう
+            MERKEN のアカウントを作成して、Android 版でも継続利用できるようにします
           </Text>
+
+          {configError ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{configError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.form}>
             <Input
@@ -226,6 +232,19 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     marginBottom: 32,
     lineHeight: 22,
+  },
+  errorBanner: {
+    backgroundColor: colors.red[50],
+    borderWidth: 1,
+    borderColor: colors.red[200],
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+  },
+  errorBannerText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.red[700],
   },
   form: {
     gap: 8,

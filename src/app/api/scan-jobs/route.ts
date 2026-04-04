@@ -78,7 +78,10 @@ export async function POST(request: NextRequest) {
     const scanMode = formData.get('scanMode') as string || 'all';
     const eikenLevel = formData.get('eikenLevel') as string || null;
     const clientPlatformRaw = (formData.get('clientPlatform') as string | null)?.trim().toLowerCase();
-    const clientPlatform = clientPlatformRaw === 'ios' ? 'ios' : 'web';
+    const clientPlatform =
+      clientPlatformRaw === 'ios' || clientPlatformRaw === 'android'
+        ? clientPlatformRaw
+        : 'web';
     const targetProjectId = (formData.get('targetProjectId') as string | null)?.trim() || null;
 
     if (!image || !projectTitle) {
@@ -130,7 +133,9 @@ export async function POST(request: NextRequest) {
 
     const isProUser = Boolean(scanData.is_pro);
     const saveMode: 'server_cloud' | 'client_local' =
-      clientPlatform === 'ios' && !isProUser ? 'client_local' : 'server_cloud';
+      (clientPlatform === 'ios' || clientPlatform === 'android') && !isProUser
+        ? 'client_local'
+        : 'server_cloud';
 
     let validatedTargetProjectId: string | null = null;
     if (saveMode === 'server_cloud' && targetProjectId) {

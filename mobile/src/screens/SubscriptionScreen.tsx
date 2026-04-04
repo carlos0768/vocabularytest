@@ -1,78 +1,143 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
+  AlertCircle,
   ArrowLeft,
   Check,
-  X,
-  Crown,
-  Camera,
   Cloud,
-  Smartphone,
-  Shield,
+  Crown,
+  FlaskConical,
+  Lock,
+  Sparkles,
 } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import colors from '../constants/colors';
+import { useAuth } from '../hooks/use-auth';
+import { migrateLocalDataToCloudIfNeeded } from '../lib/db/migration';
+import { WEB_APP_BASE_URL, withWebAppBase } from '../lib/web-base-url';
 import type { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-interface PlanFeature {
-  icon: React.ReactNode;
-  label: string;
-  freeValue: string | boolean;
-  proValue: string | boolean;
-}
+const TEST_PRO_ENABLED = ['1', 'true', 'yes'].includes(
+  (process.env.EXPO_PUBLIC_ENABLE_TEST_PRO || '').trim().toLowerCase()
+);
 
-const features: PlanFeature[] = [
-  {
-    icon: <Camera size={20} color={colors.gray[600]} />,
-    label: '1日のスキャン回数',
-    freeValue: '3回',
-    proValue: '無制限',
-  },
-  {
-    icon: <Cloud size={20} color={colors.gray[600]} />,
-    label: 'クラウド同期',
-    freeValue: false,
-    proValue: true,
-  },
-  {
-    icon: <Smartphone size={20} color={colors.gray[600]} />,
-    label: '複数デバイス対応',
-    freeValue: false,
-    proValue: true,
-  },
-  {
-    icon: <Shield size={20} color={colors.gray[600]} />,
-    label: 'データバックアップ',
-    freeValue: false,
-    proValue: true,
-  },
+const featureRows = [
+  'all スキャンをログイン後に利用可能',
+  'circled / eiken / 例文クイズ / シェアを Pro 扱いで確認可能',
+  'クラウド保存と Android 実機確認用の内部テスト導線',
 ];
 
 export function SubscriptionScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const {
+    user,
+    session,
+    isAuthenticated,
+    isPro,
+    subscription,
+    refreshSubscription,
+  } = useAuth();
+  const [activating, setActivating] = useState(false);
 
-  const handleSubscribe = () => {
-    Alert.alert(
-      '開発中',
-      'サブスクリプション機能は現在開発中です。しばらくお待ちください。'
-    );
+  const statusLabel = useMemo(() => {
+    if (isPro) {
+      return subscription?.proSource === 'test' ? 'Test Pro 有効' : 'Pro 有効';
+    }
+
+    return isAuthenticated ? 'Free' : 'ゲスト';
+  }, [isAuthenticated, isPro, subscription?.proSource]);
+
+  const expiryLabel = useMemo(() => {
+    const expiresAt = subscription?.testProExpiresAt || subscription?.currentPeriodEnd;
+    if (!expiresAt) return null;
+
+    const date = new Date(expiresAt);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return date.toLocaleDateString('ja-JP');
+  }, [subscription?.currentPeriodEnd, subscription?.testProExpiresAt]);
+
+  const canActivateTestPro =
+    TEST_PRO_ENABLED && Boolean(WEB_APP_BASE_URL) && isAuthenticated && Boolean(session?.access_token);
+
+  const handleActivate = async () => {
+    if (!isAuthenticated || !session?.access_token) {
+      Alert.alert('ログインが必要です', 'Test Pro を有効化するにはログインしてください。', [
+        { text: '閉じる', style: 'cancel' },
+        { text: 'ログイン', onPress: () => navigation.navigate('Login') },
+      ]);
+      return;
+    }
+
+    if (!TEST_PRO_ENABLED) {
+      Alert.alert('無効です', 'この build では Test Pro の付与が有効化されていません。');
+      return;
+    }
+
+    if (!WEB_APP_BASE_URL) {
+      Alert.alert('設定不足', 'EXPO_PUBLIC_APP_URL が未設定のため Test Pro API を呼び出せません。');
+      return;
+    }
+
+    setActivating(true);
+
+    try {
+      const response = await fetch(withWebAppBase('/api/subscription/test-grant'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success) {
+        throw new Error(
+          typeof payload?.error === 'string' && payload.error.length > 0
+            ? payload.error
+            : 'Test Pro の有効化に失敗しました。'
+        );
+      }
+
+      await refreshSubscription();
+
+      let migrationSummary = '';
+      if (user?.id) {
+        const result = await migrateLocalDataToCloudIfNeeded(user.id);
+        if (!result.skipped && result.projectsMigrated > 0) {
+          migrationSummary = `\n${result.projectsMigrated}件の単語帳 / ${result.wordsMigrated}語をクラウドへコピーしました。`;
+        }
+      }
+
+      Alert.alert(
+        'Test Pro を有効化しました',
+        `このアカウントで Pro 限定機能を確認できます。${migrationSummary}`
+      );
+      navigation.goBack();
+    } catch (error) {
+      console.error('Failed to activate test pro:', error);
+      Alert.alert(
+        '有効化に失敗しました',
+        error instanceof Error ? error.message : 'Test Pro の有効化に失敗しました。'
+      );
+    } finally {
+      setActivating(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -80,95 +145,94 @@ export function SubscriptionScreen() {
         >
           <ArrowLeft size={20} color={colors.gray[600]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>プランを選択</Text>
+        <Text style={styles.headerTitle}>Test Pro</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {/* Pro Plan Card */}
-        <View style={styles.proPlanCard}>
-          <View style={styles.proPlanHeader}>
-            <View style={styles.crownIcon}>
-              <Crown size={24} color={colors.amber[600]} />
-            </View>
-            <Text style={styles.proPlanTitle}>Pro プラン</Text>
+        <View style={styles.heroCard}>
+          <View style={styles.heroBadge}>
+            <FlaskConical size={16} color={colors.orange[700]} />
+            <Text style={styles.heroBadgeText}>Internal Build</Text>
           </View>
-          <View style={styles.proPlanPrice}>
-            <Text style={styles.proPlanCurrency}>¥</Text>
-            <Text style={styles.proPlanAmount}>500</Text>
-            <Text style={styles.proPlanPeriod}>/月</Text>
-          </View>
-          <Text style={styles.proPlanDescription}>
-            無制限スキャンとクラウド同期で学習効率を最大化
+          <Text style={styles.heroTitle}>Android テスト版の Pro 機能を確認する</Text>
+          <Text style={styles.heroText}>
+            実課金ではなく、内部テスト用の Test Pro を付与してスキャン、例文クイズ、共有、クラウド保存を確認します。
           </Text>
         </View>
 
-        {/* Feature Comparison */}
-        <View style={styles.comparisonSection}>
-          <View style={styles.comparisonHeader}>
-            <View style={styles.comparisonHeaderEmpty} />
-            <Text style={styles.comparisonHeaderLabel}>Free</Text>
-            <Text style={[styles.comparisonHeaderLabel, styles.comparisonHeaderLabelPro]}>
-              Pro
-            </Text>
-          </View>
-
-          {features.map((feature, index) => (
-            <View key={index} style={styles.featureRow}>
-              <View style={styles.featureLabel}>
-                {feature.icon}
-                <Text style={styles.featureLabelText}>{feature.label}</Text>
-              </View>
-              <View style={styles.featureValue}>
-                {typeof feature.freeValue === 'boolean' ? (
-                  feature.freeValue ? (
-                    <Check size={18} color={colors.emerald[500]} />
-                  ) : (
-                    <X size={18} color={colors.gray[300]} />
-                  )
-                ) : (
-                  <Text style={styles.featureValueText}>{feature.freeValue}</Text>
-                )}
-              </View>
-              <View style={[styles.featureValue, styles.featureValuePro]}>
-                {typeof feature.proValue === 'boolean' ? (
-                  feature.proValue ? (
-                    <Check size={18} color={colors.emerald[500]} />
-                  ) : (
-                    <X size={18} color={colors.gray[300]} />
-                  )
-                ) : (
-                  <Text style={[styles.featureValueText, styles.featureValueTextPro]}>
-                    {feature.proValue}
-                  </Text>
-                )}
-              </View>
+        <View style={styles.statusCard}>
+          <View style={styles.statusHeader}>
+            <View style={styles.statusIcon}>
+              {isPro ? (
+                <Sparkles size={18} color={colors.amber[700]} />
+              ) : (
+                <Lock size={18} color={colors.gray[600]} />
+              )}
             </View>
-          ))}
-        </View>
-
-        {/* Subscribe Button */}
-        <Button
-          onPress={handleSubscribe}
-          size="lg"
-          style={styles.subscribeButton}
-          icon={<Crown size={20} color={colors.white} />}
-        >
-          Proプランに登録
-        </Button>
-
-        {/* Current Plan */}
-        <View style={styles.currentPlan}>
-          <View style={styles.currentPlanBadge}>
-            <Text style={styles.currentPlanBadgeText}>現在のプラン</Text>
+            <View style={styles.statusCopy}>
+              <Text style={styles.statusTitle}>{statusLabel}</Text>
+              <Text style={styles.statusSubtitle}>
+                {isAuthenticated ? user?.email : 'ログイン前は手動入力のみ利用可能'}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.currentPlanText}>Free プラン</Text>
+          {expiryLabel ? (
+            <Text style={styles.statusMeta}>有効期限: {expiryLabel}</Text>
+          ) : null}
         </View>
 
-        {/* Terms */}
-        <Text style={styles.terms}>
-          いつでもキャンセル可能。決済はアプリ内課金で処理されます。
-        </Text>
+        <View style={styles.featureCard}>
+          <View style={styles.sectionHeader}>
+            <Crown size={18} color={colors.amber[700]} />
+            <Text style={styles.sectionTitle}>確認できる項目</Text>
+          </View>
+          <View style={styles.featureList}>
+            {featureRows.map((label) => (
+              <View key={label} style={styles.featureRow}>
+                <Check size={16} color={colors.emerald[600]} />
+                <Text style={styles.featureText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {!TEST_PRO_ENABLED || !WEB_APP_BASE_URL ? (
+          <View style={styles.warningCard}>
+            <AlertCircle size={18} color={colors.red[700]} />
+            <View style={styles.warningCopy}>
+              <Text style={styles.warningTitle}>Test Pro を有効化できません</Text>
+              <Text style={styles.warningText}>
+                {!TEST_PRO_ENABLED
+                  ? 'EXPO_PUBLIC_ENABLE_TEST_PRO が有効化されていません。'
+                  : 'EXPO_PUBLIC_APP_URL が未設定です。'}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {!isAuthenticated ? (
+          <View style={styles.loginCard}>
+            <Text style={styles.loginTitle}>先にログインが必要です</Text>
+            <Text style={styles.loginText}>
+              Test Pro は認証済みユーザーにだけ付与します。ログイン後にもう一度実行してください。
+            </Text>
+            <Button onPress={() => navigation.navigate('Login')}>
+              ログインへ進む
+            </Button>
+          </View>
+        ) : (
+          <Button
+            onPress={handleActivate}
+            size="lg"
+            style={styles.activateButton}
+            loading={activating}
+            disabled={!canActivateTestPro}
+            icon={<Crown size={18} color={colors.white} />}
+          >
+            {isPro ? 'Test Pro を再付与する' : 'Test Pro を有効化する'}
+          </Button>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -203,149 +267,151 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 24,
+    padding: 20,
+    gap: 16,
   },
-  proPlanCard: {
-    backgroundColor: colors.amber[50],
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.amber[200],
-    marginBottom: 32,
+  heroCard: {
+    backgroundColor: colors.orange[50],
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.orange[200],
+    gap: 12,
   },
-  proPlanHeader: {
+  heroBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.white,
   },
-  crownIcon: {
+  heroBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.orange[700],
+  },
+  heroTitle: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '800',
+    color: colors.gray[900],
+  },
+  heroText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.gray[700],
+  },
+  statusCard: {
+    backgroundColor: colors.gray[50],
+    borderRadius: 18,
+    padding: 18,
+    gap: 10,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statusIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.amber[100],
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.white,
   },
-  proPlanTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.amber[900],
-  },
-  proPlanPrice: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 8,
-  },
-  proPlanCurrency: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.amber[700],
-  },
-  proPlanAmount: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.amber[700],
-  },
-  proPlanPeriod: {
-    fontSize: 16,
-    color: colors.amber[600],
-    marginLeft: 4,
-  },
-  proPlanDescription: {
-    fontSize: 14,
-    color: colors.amber[700],
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  comparisonSection: {
-    marginBottom: 32,
-  },
-  comparisonHeader: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  comparisonHeaderEmpty: {
+  statusCopy: {
     flex: 1,
+    gap: 4,
   },
-  comparisonHeaderLabel: {
-    width: 60,
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray[900],
+  },
+  statusSubtitle: {
+    fontSize: 13,
+    color: colors.gray[600],
+  },
+  statusMeta: {
+    fontSize: 13,
     color: colors.gray[500],
   },
-  comparisonHeaderLabelPro: {
-    color: colors.amber[600],
+  featureCard: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray[900],
+  },
+  featureList: {
+    gap: 12,
   },
   featureRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
-  },
-  featureLabel: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
   },
-  featureLabelText: {
+  featureText: {
+    flex: 1,
     fontSize: 14,
+    lineHeight: 21,
     color: colors.gray[700],
   },
-  featureValue: {
-    width: 60,
-    alignItems: 'center',
+  warningCard: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: colors.red[50],
+    borderWidth: 1,
+    borderColor: colors.red[200],
+    borderRadius: 18,
+    padding: 16,
   },
-  featureValuePro: {
-    backgroundColor: colors.amber[50],
-    borderRadius: 8,
-    paddingVertical: 4,
-    marginVertical: -4,
+  warningCopy: {
+    flex: 1,
+    gap: 4,
   },
-  featureValueText: {
+  warningTitle: {
     fontSize: 14,
+    fontWeight: '700',
+    color: colors.red[700],
+  },
+  warningText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.red[700],
+  },
+  loginCard: {
+    backgroundColor: colors.gray[50],
+    borderRadius: 18,
+    padding: 18,
+    gap: 12,
+  },
+  loginTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray[900],
+  },
+  loginText: {
+    fontSize: 14,
+    lineHeight: 21,
     color: colors.gray[600],
   },
-  featureValueTextPro: {
-    color: colors.amber[700],
-    fontWeight: '600',
-  },
-  subscribeButton: {
-    marginBottom: 24,
-  },
-  currentPlan: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  currentPlanBadge: {
-    backgroundColor: colors.gray[100],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  currentPlanBadgeText: {
-    fontSize: 12,
-    color: colors.gray[500],
-  },
-  currentPlanText: {
-    fontSize: 14,
-    color: colors.gray[700],
-    fontWeight: '500',
-  },
-  terms: {
-    fontSize: 12,
-    color: colors.gray[400],
-    textAlign: 'center',
-    lineHeight: 18,
+  activateButton: {
+    marginTop: 4,
   },
 });

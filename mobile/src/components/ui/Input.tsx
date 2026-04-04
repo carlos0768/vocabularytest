@@ -4,15 +4,16 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInputProps,
-  ViewStyle,
+  type TextInputProps,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import colors from '../../constants/colors';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
-  containerStyle?: ViewStyle;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export function Input({

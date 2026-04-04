@@ -2,5 +2,12 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true
-  }
+  },
+  "files": [
+    "./App.tsx",
+    "./index.ts"
+  ],
+  "exclude": [
+    "./capacitor.config.ts"
+  ]
 }

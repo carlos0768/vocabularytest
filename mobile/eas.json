@@ -8,7 +8,10 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_ENABLE_TEST_PRO": "1"
+      }
     },
     "preview-simulator": {
       "distribution": "internal",

@@ -1,9 +1,15 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// Supabase credentials - these should match the web app
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://ryoyvpayoacgeqgoehgk.supabase.co';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_6bCANBatXqcB5OgACP0R2g_TSQ8NBak';
+const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+const rawSupabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+export const SUPABASE_CONFIG_ERROR =
+  rawSupabaseUrl && rawSupabaseAnonKey
+    ? null
+    : 'Supabase設定が不足しています。EXPO_PUBLIC_SUPABASE_URL と EXPO_PUBLIC_SUPABASE_ANON_KEY を設定してください。';
+
+export const hasSupabaseConfig = SUPABASE_CONFIG_ERROR === null;
 
 let supabaseInstance: SupabaseClient | null = null;
 
@@ -12,14 +18,18 @@ export function getSupabase(): SupabaseClient {
     return supabaseInstance;
   }
 
-  supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  });
+  supabaseInstance = createClient(
+    rawSupabaseUrl ?? 'https://example.invalid',
+    rawSupabaseAnonKey ?? 'missing-anon-key',
+    {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    }
+  );
 
   return supabaseInstance;
 }
