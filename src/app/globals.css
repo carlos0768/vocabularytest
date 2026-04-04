@@ -486,6 +486,42 @@ body {
   animation: correctFlash 0.3s ease-in-out 2;
 }
 
+/* Scan / generating card — always in CSS (not dependent on Tailwind utility scan). */
+@keyframes merken-generating-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.merken-generating-spin {
+  display: inline-flex;
+  animation: merken-generating-spin 0.85s linear infinite;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+@keyframes merken-generating-chip {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.32;
+  }
+}
+
+.merken-generating-chip {
+  animation: merken-generating-chip 1.15s ease-in-out infinite;
+}
+
+.merken-generating-chip-delay-1 {
+  animation-delay: 0.18s;
+}
+
+.merken-generating-chip-delay-2 {
+  animation-delay: 0.36s;
+}
+
 /* ===== Bottom Navigation ===== */
 
 .bottom-nav {

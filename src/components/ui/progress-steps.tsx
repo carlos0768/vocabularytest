@@ -33,7 +33,9 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
           {/* Status icon */}
           <div className="flex-shrink-0">
             {step.status === 'active' && (
-              <Icon name="progress_activity" size={20} className="text-[var(--color-primary)] animate-spin" />
+              <span className="merken-generating-spin inline-flex text-[var(--color-primary)]">
+                <Icon name="progress_activity" size={20} />
+              </span>
             )}
             {step.status === 'complete' && (
               <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />

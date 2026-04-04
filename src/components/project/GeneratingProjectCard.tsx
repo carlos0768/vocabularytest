@@ -33,14 +33,28 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/30 to-[var(--color-primary)]/5" />
         )}
         <div className="absolute inset-0 flex items-center justify-center">
-          {/* Theme-colored ring so spin is visible on any thumbnail (white-on-white was invisible in light UI). */}
-          <span
-            className="pointer-events-none relative flex h-9 w-9 items-center justify-center"
-            aria-hidden
-          >
-            <span className="absolute inset-0 rounded-full border-[3px] border-[var(--color-primary)]/25" />
-            <span className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[var(--color-primary)] animate-spin" />
-          </span>
+          {/* SVG arc + globals.css spin — reliable vs Tailwind animate-spin in v4 scans. */}
+          <div className="merken-generating-spin pointer-events-none h-9 w-9 text-[var(--color-primary)]" aria-hidden>
+            <svg viewBox="0 0 24 24" className="h-full w-full" fill="none">
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                className="opacity-[0.22]"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="15.7 47.1"
+              />
+            </svg>
+          </div>
         </div>
       </div>
 
@@ -48,9 +62,9 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
         <p className="font-bold text-[var(--color-foreground)] truncate">{title}</p>
         <p className="text-sm font-semibold text-[var(--color-primary)] mt-0.5">生成中...</p>
         <div className="flex items-center gap-2 mt-2">
-          <span className="h-6 w-14 rounded-full bg-[var(--color-border)]/80 animate-pulse" />
-          <span className="h-6 w-14 rounded-full bg-[var(--color-border)]/80 animate-pulse [animation-delay:150ms]" />
-          <span className="h-6 w-14 rounded-full bg-[var(--color-border)]/80 animate-pulse [animation-delay:300ms]" />
+          <span className="merken-generating-chip h-6 w-14 rounded-full bg-[var(--color-border)]" />
+          <span className="merken-generating-chip merken-generating-chip-delay-1 h-6 w-14 rounded-full bg-[var(--color-border)]" />
+          <span className="merken-generating-chip merken-generating-chip-delay-2 h-6 w-14 rounded-full bg-[var(--color-border)]" />
         </div>
       </div>
     </div>
