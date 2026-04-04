@@ -17,12 +17,7 @@ interface ProgressStepsProps {
 // Progress steps component for showing AI processing status
 // Displays: "文字を解析中..." → "問題を作成中..." → "誤答を生成中..."
 export function ProgressSteps({ steps, className }: ProgressStepsProps) {
-  const hasActive = steps.some((s) => s.status === 'active');
   return (
-    <>
-      {hasActive && (
-        <style>{`@keyframes _mgSpin{to{transform:rotate(360deg)}}`}</style>
-      )}
     <div className={cn('space-y-3', className)}>
       {steps.map((step) => (
         <div
@@ -38,13 +33,7 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
           {/* Status icon */}
           <div className="flex-shrink-0">
             {step.status === 'active' && (
-              <span
-                className="inline-flex text-[var(--color-primary)]"
-                style={{
-                  animation: '_mgSpin 0.85s linear infinite',
-                  transformOrigin: 'center center',
-                }}
-              >
+              <span className="inline-flex animate-spin text-[var(--color-primary)]">
                 <Icon name="progress_activity" size={20} />
               </span>
             )}
@@ -76,6 +65,5 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
         </div>
       ))}
     </div>
-    </>
   );
 }
