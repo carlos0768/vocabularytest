@@ -52,6 +52,7 @@ export interface Project {
   isSynced?: boolean;
   shareId?: string;
   shareScope?: ProjectShareScope;
+  importedFromShareId?: string;
   isFavorite?: boolean;
 }
 

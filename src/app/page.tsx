@@ -1377,16 +1377,31 @@ export default function HomePage() {
   }, [allWordsFlat]);
   const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
 
-  const sortedProjects = useMemo(() =>
-    [...projects]
-      .sort((a, b) => {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      })
-      .slice(0, 8),
-    [projects]
-  );
+  const homeSharedProjects = useMemo(() => {
+    const byHomeOrder = (a: Project, b: Project) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    };
+    return [...projects]
+      .filter((p) => Boolean(p.importedFromShareId))
+      .sort(byHomeOrder)
+      .slice(0, 8);
+  }, [projects]);
+
+  const homeMyProjects = useMemo(() => {
+    const byHomeOrder = (a: Project, b: Project) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    };
+    return [...projects]
+      .filter((p) => !p.importedFromShareId)
+      .sort(byHomeOrder)
+      .slice(0, 8);
+  }, [projects]);
+
+  const showSharedProjectsSection = homeSharedProjects.length > 0;
 
   // Session expired: was logged in before but session is now invalid
   // Show re-login prompt instead of local data with free plan restrictions
@@ -1650,25 +1665,48 @@ export default function HomePage() {
           </section>
 
           {/* Word books section - iOS style */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[var(--color-foreground)]">単語帳</h2>
-              <Link href="/projects" className="text-sm text-[var(--color-muted)] font-medium">管理</Link>
-            </div>
-            {projects.length === 0 ? (
-              <div className="card p-6 text-center">
-                <p className="text-sm text-[var(--color-muted)]">まだ単語帳がありません。スキャンから始めましょう。</p>
-              </div>
-            ) : (
+          <section className="space-y-6">
+            {showSharedProjectsSection && (
               <div className="space-y-3">
-                {sortedProjects.map((project) => {
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-[var(--color-foreground)]">共有単語帳</h2>
+                  <Link href="/projects" className="text-sm text-[var(--color-muted)] font-medium">管理</Link>
+                </div>
+                <div className="space-y-3">
+                  {homeSharedProjects.map((project) => {
                     const projectWords = getCachedProjectWords()[project.id] || [];
                     return (
                       <ProjectCard key={project.id} project={project} words={projectWords} />
                     );
                   })}
+                </div>
               </div>
             )}
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-[var(--color-foreground)]">マイ単語帳</h2>
+                <Link href="/projects" className="text-sm text-[var(--color-muted)] font-medium">管理</Link>
+              </div>
+              {projects.length === 0 ? (
+                <div className="card p-6 text-center">
+                  <p className="text-sm text-[var(--color-muted)]">まだ単語帳がありません。スキャンから始めましょう。</p>
+                </div>
+              ) : homeMyProjects.length === 0 ? (
+                <div className="card p-6 text-center">
+                  <p className="text-sm text-[var(--color-muted)]">まだマイ単語帳がありません。スキャンや手入力で追加できます。</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {homeMyProjects.map((project) => {
+                    const projectWords = getCachedProjectWords()[project.id] || [];
+                    return (
+                      <ProjectCard key={project.id} project={project} words={projectWords} />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
         </main>
 
