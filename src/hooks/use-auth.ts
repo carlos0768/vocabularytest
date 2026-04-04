@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Subscription, SubscriptionPlan } from '@/types';
@@ -150,15 +150,16 @@ function logDailyActivity(userId: string) {
 
 // ---- Global state ----
 
-// Start with loading: true for SSR compatibility
-// We'll immediately update to cached state on client mount
-let globalAuthState: AuthState = {
+// Start with loading: true for SSR compatibility; client syncs in useLayoutEffect.
+const SSR_AUTH_INITIAL: AuthState = {
   user: null,
   subscription: null,
   loading: true,
   error: null,
   sessionExpired: false,
 };
+
+let globalAuthState: AuthState = { ...SSR_AUTH_INITIAL };
 
 // Track if we've done the instant-load optimization
 let hasOptimisticLoad = false;
@@ -213,11 +214,14 @@ function notifyListeners(newState: AuthState) {
 }
 
 export function useAuth() {
-  // Try optimistic load on first render (instant UI for returning users)
-  // This runs synchronously before useState, updating globalAuthState
-  tryOptimisticLoad();
-  
-  const [state, setState] = useState<AuthState>(globalAuthState);
+  const [state, setState] = useState<AuthState>(() =>
+    typeof window === 'undefined' ? { ...SSR_AUTH_INITIAL } : { ...globalAuthState }
+  );
+
+  useLayoutEffect(() => {
+    tryOptimisticLoad();
+    setState({ ...globalAuthState });
+  }, []);
 
   // Refs to track component lifecycle
   const isMountedRef = useRef(true);

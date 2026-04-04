@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
 const updateSchema = z.object({
@@ -38,8 +39,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createRouteHandlerClient(request);
-    const { data, error } = await supabase
+    // Use service role after session verification so cookie/JWT → PostgREST auth
+    // cannot block reads (avoids 500 when RLS or JWT claims do not attach in this route).
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
       .from('profiles')
       .select('username')
       .eq('user_id', userId)
@@ -73,8 +76,8 @@ export async function PUT(request: NextRequest) {
       return parsed.response;
     }
 
-    const supabase = await createRouteHandlerClient(request);
-    const { data, error } = await supabase
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
       .from('profiles')
       .upsert(
         {
