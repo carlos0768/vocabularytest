@@ -411,7 +411,7 @@ export class RemoteWordRepository implements WordRepository {
 
     const { error } = await this.supabase
       .from('projects')
-      .update({ share_id: shareId })
+      .update({ share_id: shareId, share_scope: 'private' })
       .eq('id', projectId);
 
     if (error) throw new Error(`Failed to generate share ID: ${error.message}`);

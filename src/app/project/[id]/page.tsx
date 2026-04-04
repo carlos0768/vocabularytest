@@ -9,6 +9,7 @@ import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { getProjectColor } from '@/components/project/ProjectCard';
+import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
@@ -22,7 +23,7 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
-import type { LexiconEntry, Project, Word, SubscriptionStatus } from '@/types';
+import type { LexiconEntry, Project, ProjectShareScope, Word, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
@@ -58,8 +59,10 @@ export default function ProjectDetailPage() {
 
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
 
-  const [sharing, setSharing] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [sharePrepareLoading, setSharePrepareLoading] = useState(false);
+  const [shareScopeUpdating, setShareScopeUpdating] = useState(false);
+  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
 
   const [deleteWordTargetId, setDeleteWordTargetId] = useState<string | null>(null);
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
@@ -586,31 +589,74 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleShare = async () => {
+  const handleOpenShareSheet = () => {
     if (!project || !user || !isPro) return;
+    setInviteCodeCopied(false);
+    setShowShareSheet(true);
+    setSharePrepareLoading(!project.shareId);
+  };
 
-    setSharing(true);
+  useEffect(() => {
+    if (!showShareSheet || !project || !isPro || !user) return;
+    if (project.shareId) {
+      setSharePrepareLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const sid = await remoteRepository.generateShareId(project.id);
+        if (cancelled) return;
+        setProject((p) => (p ? { ...p, shareId: sid, shareScope: 'private' } : p));
+        invalidateHomeCache();
+      } catch (error) {
+        console.error('Failed to prepare share:', error);
+        if (!cancelled) {
+          showToast({ message: '共有の準備に失敗しました', type: 'error' });
+          setShowShareSheet(false);
+        }
+      } finally {
+        if (!cancelled) setSharePrepareLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showShareSheet, project?.id, project?.shareId, isPro, user]);
+
+  const handleSelectShareScope = async (scope: ProjectShareScope) => {
+    if (!project) return;
+    const current: ProjectShareScope = project.shareScope === 'public' ? 'public' : 'private';
+    if (scope === current) return;
+    setShareScopeUpdating(true);
     try {
-      let shareId = project.shareId;
-      if (!shareId) {
-        shareId = await remoteRepository.generateShareId(project.id);
-        setProject((prev) => (prev ? { ...prev, shareId } : prev));
-      }
-      const shareUrl = `${window.location.origin}/share/${shareId}`;
-      const copied = await copyToClipboard(shareUrl);
-      if (copied) {
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-        showToast({ message: '共有リンクをコピーしました', type: 'success' });
-      } else {
-        window.prompt('共有リンクをコピーしてください', shareUrl);
-        showToast({ message: '共有リンクを作成しました', type: 'success' });
-      }
+      await activeRepository.updateProject(project.id, { shareScope: scope });
+      setProject((p) => (p ? { ...p, shareScope: scope } : p));
+      invalidateHomeCache();
+      showToast({
+        message:
+          scope === 'public'
+            ? '共有ページに公開しました'
+            : '非公開（招待コードのみ）にしました',
+        type: 'success',
+      });
     } catch (error) {
-      console.error('Failed to share:', error);
-      showToast({ message: '共有リンクの生成に失敗しました', type: 'error' });
+      console.error('Failed to update share scope:', error);
+      showToast({ message: '公開設定の更新に失敗しました', type: 'error' });
     } finally {
-      setSharing(false);
+      setShareScopeUpdating(false);
+    }
+  };
+
+  const handleCopyInviteCode = async () => {
+    if (!project?.shareId) return;
+    const ok = await copyToClipboard(project.shareId);
+    if (ok) {
+      setInviteCodeCopied(true);
+      showToast({ message: '招待コードをコピーしました', type: 'success' });
+      setTimeout(() => setInviteCodeCopied(false), 2000);
+    } else {
+      showToast({ message: 'コピーできませんでした', type: 'error' });
     }
   };
 
@@ -750,14 +796,13 @@ export default function ProjectDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 {isPro && (
-                  <button onClick={handleShare} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    {sharing ? (
-                      <Icon name="progress_activity" size={18} className="animate-spin text-white" />
-                    ) : shareCopied ? (
-                      <Icon name="check" size={18} className="text-white" />
-                    ) : (
-                      <Icon name="ios_share" size={18} className="text-white" />
-                    )}
+                  <button
+                    type="button"
+                    onClick={handleOpenShareSheet}
+                    className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                    aria-label="共有"
+                  >
+                    <Icon name="ios_share" size={18} className="text-white" />
                   </button>
                 )}
                 <button onClick={() => setDeleteProjectModalOpen(true)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -1011,6 +1056,21 @@ export default function ProjectDetailPage() {
         onSelectMode={handleScanModeSelect}
         isPro={isPro}
       />
+
+      {project && (
+        <ProjectShareSheet
+          open={showShareSheet}
+          onClose={() => setShowShareSheet(false)}
+          projectTitle={project.title}
+          shareId={project.shareId}
+          shareScope={project.shareScope === 'public' ? 'public' : 'private'}
+          preparing={sharePrepareLoading}
+          updatingScope={shareScopeUpdating}
+          onSelectScope={handleSelectShareScope}
+          onCopyInviteCode={() => void handleCopyInviteCode()}
+          inviteCodeCopied={inviteCodeCopied}
+        />
+      )}
 
       {processing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

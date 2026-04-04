@@ -11,6 +11,7 @@ export type {
   LexiconEntry,
   Word,
   Project,
+  ProjectShareScope,
   AIWordExtraction,
   AIResponse,
   QuizQuestion,
