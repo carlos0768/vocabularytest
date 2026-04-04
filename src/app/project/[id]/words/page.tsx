@@ -136,17 +136,30 @@ export default function WordListPage() {
 
     const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
 
+    setWords((prev) =>
+      prev.map((item) => (
+        item.id === wordId
+          ? { ...item, vocabularyType: nextVocabularyType }
+          : item
+      ))
+    );
+
     try {
+      try {
+        sessionStorage.removeItem(`quiz_state_${projectId}`);
+      } catch {
+        /* ignore */
+      }
       await repository.updateWord(wordId, { vocabularyType: nextVocabularyType });
+    } catch (error) {
+      console.error('Failed to update vocabulary type:', error);
       setWords((prev) =>
         prev.map((item) => (
           item.id === wordId
-            ? { ...item, vocabularyType: nextVocabularyType }
+            ? { ...item, vocabularyType: word.vocabularyType }
             : item
         ))
       );
-    } catch (error) {
-      console.error('Failed to update vocabulary type:', error);
       showToast({ message: '語彙モードの更新に失敗しました', type: 'error' });
     }
   };

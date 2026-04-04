@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
-import { getRepository } from '@/lib/db';
+import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
@@ -56,6 +56,14 @@ export default function ProjectDetailPage() {
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeRepository, setActiveRepository] = useState<typeof defaultRepository>(defaultRepository);
+
+  /** Pro ではクイズ等が IndexedDB（ハイブリッド）を読むため、リモートのみへの書き込みだとローカルが古いままになる。変更は常にハイブリッドへ。 */
+  const mutationRepository = useMemo(() => {
+    if (subscriptionStatus === 'active') {
+      return hybridRepository;
+    }
+    return activeRepository;
+  }, [subscriptionStatus, activeRepository]);
 
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
 
@@ -445,7 +453,7 @@ export default function ProjectDetailPage() {
 
     setDeleteWordLoading(true);
     try {
-      await activeRepository.deleteWord(deleteWordTargetId);
+      await mutationRepository.deleteWord(deleteWordTargetId);
       setWords((prev) => prev.filter((w) => w.id !== deleteWordTargetId));
       showToast({ message: '単語を削除しました', type: 'success' });
       invalidateHomeCache();
@@ -463,7 +471,7 @@ export default function ProjectDetailPage() {
   const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
     const originalWord = words.find((w) => w.id === wordId);
     const japaneseChanged = originalWord && originalWord.japanese !== japanese;
-    await activeRepository.updateWord(wordId, { english, japanese });
+    await mutationRepository.updateWord(wordId, { english, japanese });
     setWords((prev) => prev.map((w) => (
       w.id === wordId
         ? {
@@ -485,7 +493,7 @@ export default function ProjectDetailPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.distractors) {
-            await activeRepository.updateWord(wordId, { distractors: data.distractors });
+            await mutationRepository.updateWord(wordId, { distractors: data.distractors });
             setWords((prev) =>
               prev.map((w) => (w.id === wordId ? { ...w, distractors: data.distractors } : w))
             );
@@ -502,7 +510,7 @@ export default function ProjectDetailPage() {
     const word = words.find((w) => w.id === wordId);
     if (!word) return;
     const newFavorite = !word.isFavorite;
-    await activeRepository.updateWord(wordId, { isFavorite: newFavorite });
+    await mutationRepository.updateWord(wordId, { isFavorite: newFavorite });
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, isFavorite: newFavorite } : w)));
   };
 
@@ -511,16 +519,28 @@ export default function ProjectDetailPage() {
     if (!word) return;
 
     const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
+    const previousVocabularyType = word.vocabularyType;
+
+    setWords((prev) => prev.map((item) => (
+      item.id === wordId
+        ? { ...item, vocabularyType: nextVocabularyType }
+        : item
+    )));
 
     try {
-      await activeRepository.updateWord(wordId, { vocabularyType: nextVocabularyType });
-      setWords((prev) => prev.map((item) => (
-        item.id === wordId
-          ? { ...item, vocabularyType: nextVocabularyType }
-          : item
-      )));
+      try {
+        sessionStorage.removeItem(`quiz_state_${projectId}`);
+      } catch {
+        /* ignore */
+      }
+      await mutationRepository.updateWord(wordId, { vocabularyType: nextVocabularyType });
     } catch (error) {
       console.error('Failed to update vocabulary type:', error);
+      setWords((prev) => prev.map((item) => (
+        item.id === wordId
+          ? { ...item, vocabularyType: previousVocabularyType }
+          : item
+      )));
       showToast({ message: '語彙モードの更新に失敗しました', type: 'error' });
     }
   };
@@ -538,7 +558,7 @@ export default function ProjectDetailPage() {
 
     setManualWordSaving(true);
     try {
-      const created = await activeRepository.createWords([
+      const created = await mutationRepository.createWords([
         {
           projectId: project.id,
           english: manualWordEnglish.trim(),
@@ -630,7 +650,7 @@ export default function ProjectDetailPage() {
     if (scope === current) return;
     setShareScopeUpdating(true);
     try {
-      await activeRepository.updateProject(project.id, { shareScope: scope });
+      await mutationRepository.updateProject(project.id, { shareScope: scope });
       setProject((p) => (p ? { ...p, shareScope: scope } : p));
       invalidateHomeCache();
       showToast({
@@ -672,7 +692,7 @@ export default function ProjectDetailPage() {
 
     setEditNameSaving(true);
     try {
-      await activeRepository.updateProject(project.id, { title: editingName.trim() });
+      await mutationRepository.updateProject(project.id, { title: editingName.trim() });
       setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
       showToast({ message: '単語帳名を変更しました', type: 'success' });
       setShowEditNameModal(false);
@@ -690,7 +710,7 @@ export default function ProjectDetailPage() {
 
     setDeleteProjectLoading(true);
     try {
-      await activeRepository.deleteProject(project.id);
+      await mutationRepository.deleteProject(project.id);
       invalidateHomeCache();
       refreshWordCount();
       showToast({ message: '単語帳を削除しました', type: 'success' });
@@ -787,7 +807,12 @@ export default function ProjectDetailPage() {
             className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5"
           >
             <div className="flex items-center justify-between mb-3">
-              <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => startTransition(() => router.push('/'))}
+                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                aria-label="ホームへ戻る"
+              >
                 <Icon name="chevron_left" size={24} className="text-white" />
               </button>
               <div className="flex-1 text-center mx-3">

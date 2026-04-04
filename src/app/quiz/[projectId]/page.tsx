@@ -105,6 +105,8 @@ export default function QuizPage() {
 
   // Track if state was restored from session storage
   const restoredFromStorage = useRef(false);
+  /** sessionStorage のスナップショットに古い vocabularyType が残る場合、IndexedDB の現物で上書きする（1 回のみ） */
+  const vocabularyMergeFromLocalAppliedRef = useRef(false);
   const storageKey = getQuizStorageKey(projectId, reviewMode);
 
   // Save quiz state to sessionStorage
@@ -597,6 +599,52 @@ export default function QuizPage() {
 
     syncRemote();
   }, [authLoading, user, projectId, reviewMode, collectionId]);
+
+  // 復元したクイズ状態の語彙モードを、ローカル DB の最新（ハイブリッドの真実）に合わせる
+  useEffect(() => {
+    if (!restoredFromStorage.current) return;
+    if (reviewMode || collectionId) return;
+    if (questions.length === 0) return;
+    if (vocabularyMergeFromLocalAppliedRef.current) return;
+
+    vocabularyMergeFromLocalAppliedRef.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const fresh = await repository.getWords(projectId);
+        if (cancelled || fresh.length === 0) return;
+        const byId = new Map(fresh.map((w) => [w.id, w]));
+
+        setQuestions((prev) =>
+          prev.map((q) => {
+            const w = byId.get(q.word.id);
+            if (!w) return q;
+            const nextVt = w.vocabularyType ?? null;
+            const curVt = q.word.vocabularyType ?? null;
+            if (nextVt === curVt) return q;
+            return { ...q, word: { ...q.word, vocabularyType: w.vocabularyType } };
+          })
+        );
+        setAllWords((prev) =>
+          prev.map((w) => {
+            const nw = byId.get(w.id);
+            if (!nw) return w;
+            const nextVt = nw.vocabularyType ?? null;
+            const curVt = w.vocabularyType ?? null;
+            if (nextVt === curVt) return w;
+            return { ...w, vocabularyType: nw.vocabularyType };
+          })
+        );
+      } catch {
+        vocabularyMergeFromLocalAppliedRef.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [questions.length, projectId, repository, reviewMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
 
