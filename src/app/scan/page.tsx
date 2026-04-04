@@ -210,6 +210,22 @@ function ScanPageContent() {
         throw new Error(error.error || 'ジョブの作成に失敗しました');
       }
 
+      // Parse jobId so home page can show GeneratingProjectCard
+      const createResult: { jobId?: string } = await response.json();
+
+      // Persist generating-wordbook info for the home page to pick up
+      if (!targetProjectId && createResult.jobId) {
+        sessionStorage.setItem(
+          'scanvocab_generating_wordbook',
+          JSON.stringify({
+            id: `generating-${Date.now()}`,
+            title: name.trim() || '新しい単語帳',
+            iconDataUrl: iconImage || undefined,
+            linkedJobId: createResult.jobId,
+          }),
+        );
+      }
+
       showToast({
         message: `${files.length > 1 ? `${files.length}枚の画像の` : ''}スキャンを開始しました`,
         type: 'success',

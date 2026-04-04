@@ -462,6 +462,27 @@ export default function HomePage() {
     loadWords();
   }, [loadWords]);
 
+  // Restore generating-wordbook placeholder set by /scan page background upload.
+  useEffect(() => {
+    if (pendingGeneratingWordbook) return; // already showing
+    try {
+      const raw = sessionStorage.getItem('scanvocab_generating_wordbook');
+      if (raw) {
+        sessionStorage.removeItem('scanvocab_generating_wordbook');
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.title) {
+          setPendingGeneratingWordbook({
+            id: parsed.id || `generating-${Date.now()}`,
+            title: parsed.title,
+            iconDataUrl: parsed.iconDataUrl,
+            linkedJobId: parsed.linkedJobId,
+          });
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+
   // Remove home placeholder when the linked background scan job finishes.
   useEffect(() => {
     const jobId = pendingGeneratingWordbook?.linkedJobId;
@@ -471,6 +492,7 @@ export default function HomePage() {
     );
     if (finished) {
       setPendingGeneratingWordbook(null);
+      sessionStorage.removeItem('scanvocab_generating_wordbook');
     }
   }, [completedJobs, pendingGeneratingWordbook?.linkedJobId]);
 
