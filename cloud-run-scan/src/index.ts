@@ -136,20 +136,13 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
   // Gemini 2.5 models have "thinking" enabled by default.
   // Thinking tokens count against maxOutputTokens, causing empty content
   // when the budget is consumed entirely by reasoning.
-  // - Extraction tasks (scan_extraction): thinking unnecessary → OFF
-  // - Generation tasks (examples, quiz, etc.): thinking helps quality → budget-capped
+  // Cap thinking at 25% of maxOutputTokens (max 1024) for all features.
   if (model.includes('2.5')) {
-    const NO_THINKING_FEATURES = ['scan_extraction'];
-    if (NO_THINKING_FEATURES.includes(body.feature ?? '')) {
-      generateConfig.thinkingConfig = { thinkingBudget: 0 };
-    } else {
-      // Cap thinking at 25% of maxOutputTokens (max 1024) to prevent empty content
-      const thinkingBudget = Math.min(
-        Math.floor(body.maxOutputTokens * 0.25),
-        1024,
-      );
-      generateConfig.thinkingConfig = { thinkingBudget };
-    }
+    const thinkingBudget = Math.min(
+      Math.floor(body.maxOutputTokens * 0.25),
+      1024,
+    );
+    generateConfig.thinkingConfig = { thinkingBudget };
   }
 
   if (body.responseFormat === 'json') {
