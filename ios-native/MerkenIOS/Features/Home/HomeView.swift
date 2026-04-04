@@ -454,7 +454,7 @@ struct HomeView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 {
+                if viewModel.projects.isEmpty && viewModel.todayAnswered == 0 && homePendingScans.isEmpty {
                     VStack(alignment: .leading, spacing: 18) {
                         homeLogoTitle
                         emptyStateSection
@@ -494,7 +494,7 @@ struct HomeView: View {
 
                     errorSection
 
-                    if !viewModel.projects.isEmpty {
+                    if !viewModel.projects.isEmpty || !homePendingScans.isEmpty {
                         projectsSection
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
@@ -617,9 +617,8 @@ struct HomeView: View {
                     .foregroundStyle(MerkenTheme.primaryText)
             }
 
-            Spacer()
-
             if let firstProject = viewModel.projects.first, viewModel.dueWordCount > 0 {
+                Spacer(minLength: 0)
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     if appState.isAIEnabled {
@@ -635,18 +634,20 @@ struct HomeView: View {
                         )
                     }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 8) {
                         Text("復習を始める")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 17, weight: .bold))
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 15, weight: .bold))
                     }
                     .foregroundStyle(MerkenTheme.accentBlue)
-                    .padding(.vertical, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+            } else {
+                Spacer(minLength: 0)
             }
         }
         .padding(14)
@@ -683,7 +684,7 @@ struct HomeView: View {
                 if reviewFrac > 0 {
                     Circle()
                         .trim(from: masteredFrac, to: masteredFrac + reviewFrac)
-                        .stroke(MerkenTheme.accentBlue, style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+                        .stroke(MerkenTheme.warning, style: StrokeStyle(lineWidth: 14, lineCap: .butt))
                         .rotationEffect(.degrees(-90))
                 }
                 VStack(spacing: 1) {
@@ -700,7 +701,7 @@ struct HomeView: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 donutLegendItem(color: MerkenTheme.success, label: "習得", count: masteredCount)
-                donutLegendItem(color: MerkenTheme.accentBlue, label: "学習中", count: reviewCount)
+                donutLegendItem(color: MerkenTheme.warning, label: "学習中", count: reviewCount)
                 donutLegendItem(color: MerkenTheme.borderLight, label: "未学習", count: newCount)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1094,6 +1095,14 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
+    // MARK: - Pending scan (生成中カード — 管理ページと同条件)
+
+    private var homePendingScans: [PendingScanImportContext] {
+        appState.pendingScanImportContexts.values
+            .filter { $0.source == .homeOrProjectList && $0.localTargetProjectId == nil }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
     // MARK: - Projects Section (マイ単語帳 / 共有単語帳)
 
     private var projectsSection: some View {
@@ -1138,6 +1147,9 @@ struct HomeView: View {
                 }
 
                 LazyVStack(spacing: 10) {
+                    ForEach(homePendingScans, id: \.jobId) { context in
+                        GeneratingProjectCard(context: context)
+                    }
                     ForEach(viewModel.myProjects) { project in
                         featuredProjectCard(project)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1147,6 +1159,7 @@ struct HomeView: View {
                 }
             }
             .animation(MerkenSpring.gentle, value: viewModel.myProjects.map(\.id))
+            .animation(MerkenSpring.gentle, value: homePendingScans.map(\.jobId))
         }
     }
 

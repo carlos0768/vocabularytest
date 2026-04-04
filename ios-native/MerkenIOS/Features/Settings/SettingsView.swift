@@ -242,9 +242,16 @@ struct SettingsView: View {
 
     private var profileSecondaryText: String {
         if appState.isLoggedIn {
-            return appState.isPro
-                ? "クラウドに学習データを保存しています"
-                : "この端末で学習データを管理しています"
+            if appState.isPro {
+                if let email = appState.session?.email, !email.isEmpty {
+                    let showsUsername = !(appState.username ?? "").isEmpty
+                    if showsUsername {
+                        return email
+                    }
+                }
+                return "メールアドレスでクラウド同期しています"
+            }
+            return "この端末で学習データを管理しています"
         }
         return "アカウントを作成するとクラウド同期を使えます"
     }
