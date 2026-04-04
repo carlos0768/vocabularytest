@@ -412,8 +412,8 @@ private struct ShareImportCommitRequest: Encodable {
 private struct SharedProjectSummaryDTO: Decodable {
     let project: ProjectDTO
     let accessRole: SharedProjectAccessRole
-    let wordCount: Int
-    let collaboratorCount: Int
+    let wordCount: Int?
+    let collaboratorCount: Int?
     let ownerUsername: String?
 }
 
@@ -638,8 +638,8 @@ actor WebAPIClient {
         SharedProjectSummary(
             project: SupabaseMapper.project(from: dto.project),
             accessRole: dto.accessRole,
-            wordCount: dto.wordCount,
-            collaboratorCount: dto.collaboratorCount,
+            wordCount: dto.wordCount ?? 0,
+            collaboratorCount: dto.collaboratorCount ?? 1,
             ownerUsername: dto.ownerUsername
         )
     }

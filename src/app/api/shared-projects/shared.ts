@@ -298,27 +298,37 @@ export async function listAccessibleSharedProjects(
     ? await fetchProjectsByIds(admin, joinedProjectIds, shareScopeAvailable)
     : [];
 
-  const allUserIds = Array.from(new Set([...ownedRows, ...joinedRows].map((row) => row.user_id)));
-  const usernameByUserId = await getUsernamesByUserIds(admin, allUserIds);
+  const allRows = [...ownedRows, ...joinedRows];
+  const allUserIds = Array.from(new Set(allRows.map((row) => row.user_id)));
+  const allProjectIds = allRows.map((row) => row.id);
+
+  const [usernameByUserId, metricsByProjectId] = await Promise.all([
+    getUsernamesByUserIds(admin, allUserIds),
+    getSharedProjectMetrics(allProjectIds, admin),
+  ]);
 
   const membershipRoleByProjectId = new Map<string, SharedProjectAccessRole>(
     membershipRows.map((row) => [row.project_id, row.role === 'editor' ? 'editor' : 'editor']),
   );
 
-  const owned = ownedRows.map((row) =>
-    mapSharedProjectCard(row, 'owner', usernameByUserId),
-  );
+  const owned = ownedRows.map((row) => {
+    const card = mapSharedProjectCard(row, 'owner', usernameByUserId);
+    const metrics = metricsByProjectId.get(row.id);
+    return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1 };
+  });
 
   const joined = projectMembersAvailable
     ? joinedRows
       .filter((row) => row.user_id !== userId)
-      .map((row) =>
-        mapSharedProjectCard(
+      .map((row) => {
+        const card = mapSharedProjectCard(
           row,
           membershipRoleByProjectId.get(row.id) ?? 'editor',
           usernameByUserId,
-        ),
-      )
+        );
+        const metrics = metricsByProjectId.get(row.id);
+        return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1 };
+      })
     : [];
 
   return { owned, joined };
@@ -346,13 +356,17 @@ export async function listPublicSharedProjects(
     ? rows.filter((row) => compareRowAgainstCursor(row, cursor) > 0)
     : rows;
   const pageRows = filteredRows.slice(0, limit);
-  const usernameByUserId = await getUsernamesByUserIds(
-    admin,
-    pageRows.map((row) => row.user_id),
-  );
+  const [usernameByUserId, metricsByProjectId] = await Promise.all([
+    getUsernamesByUserIds(admin, pageRows.map((row) => row.user_id)),
+    getSharedProjectMetrics(pageRows.map((row) => row.id), admin),
+  ]);
 
   return {
-    items: pageRows.map((row) => mapSharedProjectCard(row, 'viewer', usernameByUserId)),
+    items: pageRows.map((row) => {
+      const card = mapSharedProjectCard(row, 'viewer', usernameByUserId);
+      const metrics = metricsByProjectId.get(row.id);
+      return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1 };
+    }),
     nextCursor: pageRows.length === limit
       ? encodePublicCursor(pageRows[pageRows.length - 1]!)
       : null,
