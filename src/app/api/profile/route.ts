@@ -17,16 +17,17 @@ type ProfileRow = {
 };
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const supabase = await createRouteHandlerClient(request);
   const authHeader = request.headers.get('authorization');
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (bearerToken) {
-    const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
+    const admin = getSupabaseAdmin();
+    const { data: { user }, error } = await admin.auth.getUser(bearerToken);
     if (error || !user) return null;
     return user.id;
   }
 
+  const supabase = await createRouteHandlerClient(request);
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
   return user.id;

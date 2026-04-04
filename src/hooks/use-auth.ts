@@ -214,13 +214,15 @@ function notifyListeners(newState: AuthState) {
 }
 
 export function useAuth() {
-  const [state, setState] = useState<AuthState>(() =>
-    typeof window === 'undefined' ? { ...SSR_AUTH_INITIAL } : { ...globalAuthState }
-  );
+  // Always start with SSR_AUTH_INITIAL so server HTML and client hydration match.
+  const [state, setState] = useState<AuthState>(SSR_AUTH_INITIAL);
 
+  // Sync to cached / optimistic state after hydration (paint-blocking to avoid flash).
   useLayoutEffect(() => {
     tryOptimisticLoad();
-    setState({ ...globalAuthState });
+    if (globalAuthState !== SSR_AUTH_INITIAL) {
+      setState({ ...globalAuthState });
+    }
   }, []);
 
   // Refs to track component lifecycle
