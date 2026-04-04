@@ -492,12 +492,17 @@ async function fetchOwnedProjects(
   userId: string,
   includeShareScope: boolean,
 ): Promise<ProjectRow[]> {
-  const { data, error } = await admin
+  let query = admin
     .from('projects')
     .select(includeShareScope ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS)
     .eq('user_id', userId)
-    .not('share_id', 'is', null)
-    .order('created_at', { ascending: false });
+    .not('share_id', 'is', null);
+
+  if (includeShareScope) {
+    query = query.eq('share_scope', 'public');
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message || 'shared_owned_lookup_failed');

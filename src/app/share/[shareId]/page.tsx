@@ -85,6 +85,7 @@ export default function SharedProjectPage() {
       const newProject = await repo.createProject({
         title: project.title,
         userId: user.id,
+        importedFromShareId: shareId,
       });
 
       if (words.length > 0) {

@@ -77,6 +77,8 @@ export interface Project {
   isSynced?: boolean; // Local-only flag for cloud sync status
   shareId?: string; // Unique share ID for URL sharing (null = private)
   shareScope?: ProjectShareScope; // Whether the shared project is listed publicly
+  /** Set when this project was created by importing a copy from /share/[shareId] */
+  importedFromShareId?: string;
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
 }
 
