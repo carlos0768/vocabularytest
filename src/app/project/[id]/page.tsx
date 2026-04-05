@@ -950,17 +950,15 @@ export default function ProjectDetailPage() {
                   <Icon name="filter_list" size={18} />
                 </button>
                 {/* Sort */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setWordSortOrder((v) => v === 'createdAsc' ? 'alphabetical' : 'createdAsc')}
-                    className="w-9 h-9 rounded-full flex items-center justify-center border bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)] transition-colors"
-                    aria-label={`ソート: ${wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}`}
-                    title={wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}
-                  >
-                    <Icon name="swap_vert" size={18} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setWordSortOrder((v) => v === 'createdAsc' ? 'alphabetical' : 'createdAsc')}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)] transition-colors"
+                  aria-label={`ソート: ${wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}`}
+                  title={wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}
+                >
+                  <Icon name="swap_vert" size={18} />
+                </button>
                 {/* Filter badge */}
                 {(wordFilterActive || wordSearchText) && (
                   <span className="text-xs font-medium tabular-nums text-[var(--color-accent)]">
