@@ -163,7 +163,7 @@ export default function LandingPage() {
     offset: ['start start', 'end start'],
   });
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.85], [1, 0]);
 
   /* Video player state */
   const [videoPlaying, setVideoPlaying] = useState(false);
