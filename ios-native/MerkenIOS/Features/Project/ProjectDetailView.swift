@@ -2,6 +2,26 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
+private enum NotionSortOrder: String, CaseIterable {
+    case createdAsc  = "追加順"
+    case alphabetical = "アルファベット"
+}
+
+private enum NotionActiveness: Equatable {
+    case active
+    case passive
+}
+
+private struct NotionFilterState {
+    var partOfSpeech: String? = nil
+    var activeness: NotionActiveness? = nil
+    var bookmarkOnly: Bool = false
+
+    var isActive: Bool {
+        partOfSpeech != nil || activeness != nil || bookmarkOnly
+    }
+}
+
 struct ProjectDetailView: View {
     let project: Project
 
@@ -38,6 +58,13 @@ struct ProjectDetailView: View {
     @State private var showingShareRestrictionAlert = false
     @State private var shareRestrictionMessage = ""
 
+    // Notion word list: search, filter, sort
+    @State private var notionSearchText = ""
+    @State private var notionShowSearch = false
+    @State private var notionSortOrder: NotionSortOrder = .createdAsc
+    @State private var notionFilterState = NotionFilterState()
+    @State private var notionShowFilterSheet = false
+
     init(project: Project) {
         self.project = project
         _displayProjectTitle = State(initialValue: project.title)
@@ -53,6 +80,58 @@ struct ProjectDetailView: View {
             return Color(red: 0.15, green: 0.15, blue: 0.18)
         }
         return MerkenTheme.placeholderColor(for: resolvedProject.id, isDark: colorScheme == .dark)
+    }
+
+    private var notionFilteredWords: [Word] {
+        var result = viewModel.words
+
+        // Search
+        if !notionSearchText.isEmpty {
+            result = result.filter {
+                $0.english.localizedCaseInsensitiveContains(notionSearchText)
+                    || $0.japanese.localizedCaseInsensitiveContains(notionSearchText)
+            }
+        }
+
+        // Bookmark
+        if notionFilterState.bookmarkOnly {
+            result = result.filter { $0.isFavorite }
+        }
+
+        // Part of speech
+        if let pos = notionFilterState.partOfSpeech {
+            result = result.filter { word in
+                word.partOfSpeechTags?.contains(where: {
+                    $0.localizedCaseInsensitiveContains(pos)
+                }) ?? false
+            }
+        }
+
+        // Active / Passive
+        if let activeness = notionFilterState.activeness {
+            switch activeness {
+            case .active:
+                result = result.filter { $0.status == .mastered }
+            case .passive:
+                result = result.filter { $0.status == .review || $0.status == .new }
+            }
+        }
+
+        // Sort
+        switch notionSortOrder {
+        case .createdAsc:
+            return result.sorted { $0.createdAt < $1.createdAt }
+        case .alphabetical:
+            return result.sorted {
+                $0.english.localizedCaseInsensitiveCompare($1.english) == .orderedAscending
+            }
+        }
+    }
+
+    private var notionAvailablePartsOfSpeech: [String] {
+        let all = viewModel.words.flatMap { $0.partOfSpeechTags ?? [] }
+        let trimmed = all.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return Array(Set(trimmed)).sorted()
     }
 
     var body: some View {
@@ -95,6 +174,7 @@ struct ProjectDetailView: View {
                     WordDetailView(project: project, wordID: word.id, viewModel: viewModel)
                 }
                 .sheet(isPresented: $showingProjectShareSheet, content: projectShareSheet)
+                .sheet(isPresented: $notionShowFilterSheet) { notionFilterSheet }
         )
 
         return AnyView(
@@ -295,6 +375,7 @@ struct ProjectDetailView: View {
 
             bottomActionBar
         }
+        .ignoresSafeArea(.keyboard)
         .background(MerkenTheme.background.ignoresSafeArea())
     }
 
@@ -471,7 +552,7 @@ struct ProjectDetailView: View {
 
     private var notionWordListSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Section header
+            // Section header + toolbar on same row
             HStack(alignment: .center, spacing: 6) {
                 Text("単語一覧")
                     .font(.system(size: 20, weight: .bold))
@@ -480,8 +561,19 @@ struct ProjectDetailView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(MerkenTheme.mutedText)
                     .monospacedDigit()
+
+                Spacer()
+
+                notionToolbar
             }
             .padding(.bottom, 10)
+
+            // Expandable search bar
+            if notionShowSearch {
+                notionSearchBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.bottom, 8)
+            }
 
             if viewModel.words.isEmpty {
                 HStack {
@@ -497,13 +589,30 @@ struct ProjectDetailView: View {
                     .padding(.vertical, 24)
                     Spacer()
                 }
+            } else if notionFilteredWords.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 6) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 22))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Text(notionSearchText.isEmpty
+                             ? "条件に一致する単語がありません"
+                             : "「\(notionSearchText)」に一致する単語がありません")
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 24)
+                    Spacer()
+                }
             } else {
                 // Horizontal scroll — no outer border box, Notion style
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(spacing: 0) {
                         notionColumnHeader
 
-                        let words = viewModel.words
+                        let words = notionFilteredWords
                         ForEach(Array(words.enumerated()), id: \.element.id) { index, word in
                             notionWordRow(word, isLast: index == words.count - 1)
                         }
@@ -511,6 +620,212 @@ struct ProjectDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Notion Toolbar
+
+    private var notionToolbar: some View {
+        HStack(spacing: 6) {
+            // Search toggle
+            notionToolbarIconButton(
+                icon: notionShowSearch ? "xmark" : "magnifyingglass",
+                isActive: notionShowSearch || !notionSearchText.isEmpty
+            ) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    notionShowSearch.toggle()
+                    if !notionShowSearch { notionSearchText = "" }
+                }
+            }
+
+            // Filter
+            notionToolbarIconButton(
+                icon: "line.3.horizontal.decrease.circle",
+                isActive: notionFilterState.isActive
+            ) {
+                notionShowFilterSheet = true
+            }
+
+            // Sort menu
+            Menu {
+                ForEach(NotionSortOrder.allCases, id: \.self) { order in
+                    Button {
+                        notionSortOrder = order
+                    } label: {
+                        if notionSortOrder == order {
+                            Label(order.rawValue, systemImage: "checkmark")
+                        } else {
+                            Text(order.rawValue)
+                        }
+                    }
+                }
+            } label: {
+                notionToolbarIconLabel(icon: "arrow.up.arrow.down", isActive: false)
+            }
+
+            // Active filter badge
+            if notionFilterState.isActive || !notionSearchText.isEmpty {
+                let count = notionFilteredWords.count
+                let total = viewModel.words.count
+                Text("\(count)/\(total)")
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.accentBlue)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func notionToolbarIconButton(icon: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            notionToolbarIconLabel(icon: icon, isActive: isActive)
+        }
+    }
+
+    private func notionToolbarIconLabel(icon: String, isActive: Bool) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(isActive ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+            .frame(width: 36, height: 36)
+            .background(
+                isActive ? MerkenTheme.accentBlue.opacity(0.12) : MerkenTheme.surface,
+                in: .circle
+            )
+            .overlay(
+                Circle().stroke(
+                    isActive ? MerkenTheme.accentBlue.opacity(0.35) : MerkenTheme.borderLight,
+                    lineWidth: 1
+                )
+            )
+    }
+
+    // MARK: - Notion Search Bar
+
+    private var notionSearchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14))
+                .foregroundStyle(MerkenTheme.mutedText)
+            TextField("単語を検索...", text: $notionSearchText)
+                .font(.system(size: 15))
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+            if !notionSearchText.isEmpty {
+                Button {
+                    notionSearchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+            }
+        }
+        .solidTextField(cornerRadius: 14)
+    }
+
+    // MARK: - Notion Filter Sheet
+
+    private var notionFilterSheet: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Toggle(isOn: $notionFilterState.bookmarkOnly) {
+                        Label("ブックマークのみ", systemImage: "bookmark.fill")
+                            .foregroundStyle(MerkenTheme.primaryText)
+                    }
+                    .tint(MerkenTheme.accentBlue)
+                } header: {
+                    Text("ブックマーク")
+                }
+
+                Section {
+                    notionFilterActivenessRow(label: "すべて", icon: "circle.dashed", iconColor: MerkenTheme.mutedText, value: nil)
+                    notionFilterActivenessRow(label: "アクティブ（習得済み）", icon: "checkmark.seal.fill", iconColor: MerkenTheme.success, value: .active)
+                    notionFilterActivenessRow(label: "パッシブ（学習中・未学習）", icon: "arrow.trianglehead.2.clockwise", iconColor: MerkenTheme.accentBlue, value: .passive)
+                } header: {
+                    Text("アクティブ / パッシブ")
+                }
+
+                if !notionAvailablePartsOfSpeech.isEmpty {
+                    Section {
+                        notionFilterPosRow(label: "すべて", value: nil)
+                        ForEach(notionAvailablePartsOfSpeech, id: \.self) { pos in
+                            notionFilterPosRow(label: notionPosDisplayName(pos), value: pos)
+                        }
+                    } header: {
+                        Text("品詞")
+                    }
+                }
+            }
+            .navigationTitle("フィルタ")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("リセット") {
+                        notionFilterState = NotionFilterState()
+                    }
+                    .foregroundStyle(MerkenTheme.danger)
+                    .disabled(!notionFilterState.isActive)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完了") { notionShowFilterSheet = false }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func notionFilterActivenessRow(label: String, icon: String, iconColor: Color, value: NotionActiveness?) -> some View {
+        let isSelected = notionFilterState.activeness == value
+        return Button {
+            notionFilterState.activeness = value
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 22)
+                Text(label)
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func notionFilterPosRow(label: String, value: String?) -> some View {
+        let isSelected = notionFilterState.partOfSpeech == value
+        return Button {
+            notionFilterState.partOfSpeech = value
+        } label: {
+            HStack {
+                Text(label)
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func notionPosDisplayName(_ tag: String) -> String {
+        let mapping: [String: String] = [
+            "noun": "名詞", "verb": "動詞", "adjective": "形容詞",
+            "adverb": "副詞", "preposition": "前置詞", "conjunction": "接続詞",
+            "pronoun": "代名詞", "interjection": "感動詞",
+            "determiner": "限定詞", "auxiliary": "助動詞",
+        ]
+        return mapping[tag.lowercased()] ?? tag
     }
 
     private var notionColumnHeader: some View {
