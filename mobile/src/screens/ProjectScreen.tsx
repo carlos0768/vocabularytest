@@ -7,27 +7,30 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import {
-  ArrowLeft,
-  BookText,
-  Camera,
-  Flag,
+  ArrowUpDown,
+  ChevronLeft,
+  Filter,
   Layers,
-  Pencil,
-  Play,
+  MoreHorizontal,
   Plus,
+  Search,
   Share2,
-  Trash2,
+  X,
 } from 'lucide-react-native';
-import { ScanModeModal } from '../components/scan/ScanModeModal';
+import { NotionCheckbox } from '../components/project/NotionCheckbox';
+import { VocabularyTypeBadge } from '../components/project/VocabularyTypeBadge';
 import { Button, Input } from '../components/ui';
+import { ScanModeModal } from '../components/scan/ScanModeModal';
 import { ProcessingModal } from '../components/ProcessingModal';
 import colors from '../constants/colors';
 import { useAuth } from '../hooks/use-auth';
@@ -35,50 +38,64 @@ import { getRepository } from '../lib/db';
 import { buildDistractors, MINIMUM_QUIZ_WORDS } from '../lib/quiz-helpers';
 import { createScanJob, waitForScanJobCompletion, type ScanMode } from '../lib/scan-jobs';
 import { withWebAppBase } from '../lib/web-base-url';
-import type { ProgressStep, Project, RootStackParamList, Word } from '../types';
+import type { ProgressStep, Project, RootStackParamList, VocabularyType, Word } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ProjectRoute = RouteProp<RootStackParamList, 'Project'>;
 type SupportedScanMode = Extract<ScanMode, 'all' | 'circled' | 'eiken'>;
 
-function generateShareId() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let shareId = '';
-  for (let index = 0; index < 12; index += 1) {
-    shareId += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return shareId;
+// ─── POS abbreviation map ────────────────────────────────────
+const POS_SHORT: Record<string, string> = {
+  '名詞': '名', '動詞': '動', '形容詞': '形', '副詞': '副',
+  '前置詞': '前', '接続詞': '接', '代名詞': '代', '熟語': '熟',
+  '句動詞': '句', noun: '名', verb: '動', adjective: '形',
+  adverb: '副', preposition: '前', conjunction: '接', pronoun: '代',
+  phrase: '熟', phrasal_verb: '句',
+};
+
+function shortenPos(tags: string[] | undefined): string {
+  if (!tags || tags.length === 0) return '—';
+  return tags
+    .slice(0, 2)
+    .map((t) => POS_SHORT[t.toLowerCase()] ?? POS_SHORT[t] ?? t.charAt(0))
+    .join('・');
 }
 
+type SortMode = 'date' | 'alpha';
+type StatusFilter = 'all' | 'mastered' | 'review' | 'new';
+
+function generateShareId() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 12; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+  return id;
+}
+
+// ═══════════════════════════════════════════════════════════════
 export function ProjectScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ProjectRoute>();
-  const {
-    session,
-    subscription,
-    isAuthenticated,
-    isPro,
-    loading: authLoading,
-  } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { session, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
 
-  const repository = useMemo(
-    () => getRepository(subscription?.status ?? 'free'),
-    [subscription?.status]
-  );
+  const repository = useMemo(() => getRepository(subscription?.status ?? 'free'), [subscription?.status]);
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingWord, setSavingWord] = useState(false);
-  const [savingProject, setSavingProject] = useState(false);
-  const [sharing, setSharing] = useState(false);
+
+  // Word modal
   const [showWordModal, setShowWordModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
-  const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [editingWord, setEditingWord] = useState<Word | null>(null);
   const [wordEnglish, setWordEnglish] = useState('');
   const [wordJapanese, setWordJapanese] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
+  const [savingWord, setSavingWord] = useState(false);
+  const [savingProject, setSavingProject] = useState(false);
+
+  // Scan
+  const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([
     { id: 'upload', label: '画像をアップロード中...', status: 'pending' as const },
@@ -86,952 +103,395 @@ export function ProjectScreen() {
     { id: 'save', label: '保存先を準備中...', status: 'pending' as const },
   ]);
 
+  // Search / Filter / Sort
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('date');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [bookmarkFilter, setBookmarkFilter] = useState(false);
+
+  // ─── Data loading ─────────────────────────────────────────
   const loadProject = useCallback(async () => {
     if (authLoading) return;
-
     setLoading(true);
     try {
-      const [projectData, wordData] = await Promise.all([
+      const [p, w] = await Promise.all([
         repository.getProject(route.params.projectId),
         repository.getWords(route.params.projectId),
       ]);
-
-      if (!projectData) {
-        Alert.alert('単語帳が見つかりません');
-        navigation.goBack();
-        return;
-      }
-
-      setProject(projectData);
-      setProjectTitle(projectData.title);
-      setWords(wordData);
-    } catch (error) {
-      console.error('Failed to load project:', error);
+      if (!p) { Alert.alert('単語帳が見つかりません'); navigation.goBack(); return; }
+      setProject(p); setProjectTitle(p.title); setWords(w);
+    } catch {
       Alert.alert('エラー', '単語帳の読み込みに失敗しました。');
       navigation.goBack();
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [authLoading, navigation, repository, route.params.projectId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadProject();
-    }, [loadProject])
-  );
+  useFocusEffect(useCallback(() => { void loadProject(); }, [loadProject]));
 
+  // ─── Computed ─────────────────────────────────────────────
+  const masteredCount = useMemo(() => words.filter((w) => w.status === 'mastered').length, [words]);
+  const reviewCount = useMemo(() => words.filter((w) => w.status === 'review').length, [words]);
+  const newCount = useMemo(() => words.length - masteredCount - reviewCount, [words, masteredCount, reviewCount]);
+
+  const filteredWords = useMemo(() => {
+    let r = words;
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      r = r.filter((w) => w.english.toLowerCase().includes(q) || w.japanese.toLowerCase().includes(q));
+    }
+    if (statusFilter !== 'all') r = r.filter((w) => w.status === statusFilter);
+    if (bookmarkFilter) r = r.filter((w) => w.isFavorite);
+    if (sortMode === 'alpha') r = [...r].sort((a, b) => a.english.localeCompare(b.english));
+    return r;
+  }, [words, searchText, statusFilter, bookmarkFilter, sortMode]);
+
+  const hasActiveFilters = statusFilter !== 'all' || bookmarkFilter || searchText.trim().length > 0;
+
+  // ─── Handlers ─────────────────────────────────────────────
   const handleProtectedAction = useCallback(
-    (options?: { requirePro?: boolean; featureName?: string }) => {
+    (opts?: { requirePro?: boolean; featureName?: string }) => {
       if (!isAuthenticated || !session?.access_token) {
-        Alert.alert(
-          'ログインが必要です',
-          `${options?.featureName ?? 'この機能'}を使うにはログインしてください。`,
-          [
-            { text: '閉じる', style: 'cancel' },
-            { text: 'ログイン', onPress: () => navigation.navigate('Login') },
-          ]
-        );
+        Alert.alert('ログインが必要です', `${opts?.featureName ?? 'この機能'}を使うにはログインしてください。`, [
+          { text: '閉じる', style: 'cancel' }, { text: 'ログイン', onPress: () => navigation.navigate('Login') },
+        ]);
         return false;
       }
-
-      if (options?.requirePro && !isPro) {
-        Alert.alert(
-          'Test Pro / Pro が必要です',
-          `${options.featureName ?? 'この機能'}は Test Pro または Pro で確認できます。`,
-          [
-            { text: '閉じる', style: 'cancel' },
-            { text: 'Test Pro を開く', onPress: () => navigation.navigate('Subscription') },
-          ]
-        );
+      if (opts?.requirePro && !isPro) {
+        Alert.alert('Pro が必要です', `${opts.featureName ?? 'この機能'}は Pro で確認できます。`, [
+          { text: '閉じる', style: 'cancel' }, { text: 'Pro を見る', onPress: () => navigation.navigate('Subscription') },
+        ]);
         return false;
       }
-
       return true;
-    },
-    [isAuthenticated, isPro, navigation, session?.access_token]
-  );
+    }, [isAuthenticated, isPro, navigation, session?.access_token]);
 
-  const openCreateWordModal = () => {
-    setEditingWord(null);
-    setWordEnglish('');
-    setWordJapanese('');
-    setShowWordModal(true);
-  };
-
-  const openEditWordModal = (word: Word) => {
-    setEditingWord(word);
-    setWordEnglish(word.english);
-    setWordJapanese(word.japanese);
-    setShowWordModal(true);
-  };
+  const openCreateWordModal = () => { setEditingWord(null); setWordEnglish(''); setWordJapanese(''); setShowWordModal(true); };
+  const openEditWordModal = (w: Word) => { setEditingWord(w); setWordEnglish(w.english); setWordJapanese(w.japanese); setShowWordModal(true); };
 
   const handleSaveProjectTitle = useCallback(async () => {
     if (!project) return;
-
-    const nextTitle = projectTitle.trim();
-    if (!nextTitle) {
-      Alert.alert('単語帳名を入力してください');
-      return;
-    }
-
+    const t = projectTitle.trim();
+    if (!t) { Alert.alert('単語帳名を入力してください'); return; }
     setSavingProject(true);
-
-    try {
-      await repository.updateProject(project.id, { title: nextTitle });
-      setProject((current) => (current ? { ...current, title: nextTitle } : current));
-      setShowRenameModal(false);
-    } catch (error) {
-      console.error('Failed to rename project:', error);
-      Alert.alert('エラー', '単語帳名の更新に失敗しました。');
-    } finally {
-      setSavingProject(false);
-    }
+    try { await repository.updateProject(project.id, { title: t }); setProject((c) => c ? { ...c, title: t } : c); setShowRenameModal(false); }
+    catch { Alert.alert('エラー', '更新に失敗しました。'); }
+    finally { setSavingProject(false); }
   }, [project, projectTitle, repository]);
 
   const handleDeleteProject = useCallback(() => {
     if (!project) return;
-
     Alert.alert('単語帳を削除しますか？', 'この操作は取り消せません。', [
       { text: 'キャンセル', style: 'cancel' },
-      {
-        text: '削除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await repository.deleteProject(project.id);
-            navigation.goBack();
-          } catch (error) {
-            console.error('Failed to delete project:', error);
-            Alert.alert('エラー', '単語帳の削除に失敗しました。');
-          }
-        },
-      },
+      { text: '削除', style: 'destructive', onPress: async () => {
+        try { await repository.deleteProject(project.id); navigation.goBack(); }
+        catch { Alert.alert('エラー', '削除に失敗しました。'); }
+      }},
     ]);
   }, [navigation, project, repository]);
 
   const handleSaveWord = useCallback(async () => {
     if (!project) return;
-
-    const english = wordEnglish.trim();
-    const japanese = wordJapanese.trim();
-
-    if (!english || !japanese) {
-      Alert.alert('英単語と日本語訳を入力してください');
-      return;
-    }
-
+    const en = wordEnglish.trim(), ja = wordJapanese.trim();
+    if (!en || !ja) { Alert.alert('英単語と日本語訳を入力してください'); return; }
     setSavingWord(true);
-
     try {
       if (editingWord) {
-        await repository.updateWord(editingWord.id, {
-          english,
-          japanese,
-          distractors: buildDistractors(words, japanese, editingWord.id),
-        });
+        await repository.updateWord(editingWord.id, { english: en, japanese: ja, distractors: buildDistractors(words, ja, editingWord.id) });
       } else {
-        await repository.createWords([
-          {
-            projectId: project.id,
-            english,
-            japanese,
-            distractors: buildDistractors(words, japanese),
-          },
-        ]);
+        await repository.createWords([{ projectId: project.id, english: en, japanese: ja, distractors: buildDistractors(words, ja) }]);
       }
-
-      setShowWordModal(false);
-      setEditingWord(null);
-      setWordEnglish('');
-      setWordJapanese('');
+      setShowWordModal(false); setEditingWord(null); setWordEnglish(''); setWordJapanese('');
       await loadProject();
-    } catch (error) {
-      console.error('Failed to save word:', error);
-      Alert.alert('エラー', '単語の保存に失敗しました。');
-    } finally {
-      setSavingWord(false);
-    }
+    } catch { Alert.alert('エラー', '保存に失敗しました。'); }
+    finally { setSavingWord(false); }
   }, [editingWord, loadProject, project, repository, wordEnglish, wordJapanese, words]);
 
-  const handleDeleteWord = useCallback((word: Word) => {
-    Alert.alert('単語を削除しますか？', `${word.english} を削除します。`, [
+  const handleDeleteWord = useCallback((w: Word) => {
+    Alert.alert('単語を削除しますか？', `${w.english} を削除します。`, [
       { text: 'キャンセル', style: 'cancel' },
-      {
-        text: '削除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await repository.deleteWord(word.id);
-            await loadProject();
-          } catch (error) {
-            console.error('Failed to delete word:', error);
-            Alert.alert('エラー', '単語の削除に失敗しました。');
-          }
-        },
-      },
+      { text: '削除', style: 'destructive', onPress: async () => {
+        try { await repository.deleteWord(w.id); await loadProject(); }
+        catch { Alert.alert('エラー', '削除に失敗しました。'); }
+      }},
     ]);
   }, [loadProject, repository]);
 
-  const handleToggleFavorite = useCallback(async (word: Word) => {
+  const handleStatusChange = useCallback(async (w: Word, s: Word['status']) => {
+    try { await repository.updateWord(w.id, { status: s }); setWords((c) => c.map((x) => x.id === w.id ? { ...x, status: s } : x)); }
+    catch { Alert.alert('エラー', 'ステータス更新に失敗しました。'); }
+  }, [repository]);
+
+  const handleVocabTypeCycle = useCallback(async (w: Word, next: VocabularyType | undefined) => {
     try {
-      await repository.updateWord(word.id, { isFavorite: !word.isFavorite });
-      setWords((currentWords) =>
-        currentWords.map((currentWord) =>
-          currentWord.id === word.id
-            ? { ...currentWord, isFavorite: !currentWord.isFavorite }
-            : currentWord
-        )
-      );
-    } catch (error) {
-      console.error('Failed to toggle favorite:', error);
-      Alert.alert('エラー', '苦手フラグの更新に失敗しました。');
-    }
+      await repository.updateWord(w.id, { vocabularyType: next ?? (null as any) });
+      setWords((c) => c.map((x) => x.id === w.id ? { ...x, vocabularyType: next } : x));
+    } catch { Alert.alert('エラー', '語彙タイプの更新に失敗しました。'); }
   }, [repository]);
 
   const handleShareProject = useCallback(async () => {
-    if (!project) return;
-    if (!handleProtectedAction({ requirePro: true, featureName: '共有' })) {
-      return;
-    }
-
-    setSharing(true);
-
+    if (!project || !handleProtectedAction({ requirePro: true, featureName: '共有' })) return;
     try {
-      let shareId = project.shareId;
-      if (!shareId) {
-        shareId = generateShareId();
-        await repository.updateProject(project.id, {
-          shareId,
-          shareScope: 'public',
-        });
-        setProject((current) =>
-          current ? { ...current, shareId, shareScope: 'public' } : current
-        );
-      }
-
-      const shareUrl = `${withWebAppBase('/share')}/${shareId}`;
-      await Share.share({
-        message: `「${project.title}」の単語帳を共有します\n${shareUrl}`,
-        title: project.title,
-        url: shareUrl,
-      });
-    } catch (error) {
-      console.error('Failed to share project:', error);
-      Alert.alert(
-        '共有に失敗しました',
-        error instanceof Error ? error.message : '共有リンクを生成できませんでした。'
-      );
-    } finally {
-      setSharing(false);
-    }
+      let sid = project.shareId;
+      if (!sid) { sid = generateShareId(); await repository.updateProject(project.id, { shareId: sid, shareScope: 'public' }); setProject((c) => c ? { ...c, shareId: sid, shareScope: 'public' } : c); }
+      const url = `${withWebAppBase('/share')}/${sid}`;
+      await Share.share({ message: `「${project.title}」の単語帳を共有します\n${url}`, title: project.title, url });
+    } catch (e) { Alert.alert('共有に失敗しました', e instanceof Error ? e.message : '共有リンクを生成できませんでした。'); }
   }, [handleProtectedAction, project, repository]);
 
-  const promptImageSource = useCallback(
-    (scanMode: SupportedScanMode, eikenLevel?: string | null) => {
-      Alert.alert('画像を選択', 'カメラかライブラリを選んでください。', [
-        {
-          text: 'カメラ',
-          onPress: () => {
-            void startScan(scanMode, 'camera', eikenLevel ?? null);
-          },
-        },
-        {
-          text: 'ライブラリ',
-          onPress: () => {
-            void startScan(scanMode, 'library', eikenLevel ?? null);
-          },
-        },
-        { text: 'キャンセル', style: 'cancel' },
-      ]);
-    },
-    []
-  );
+  const handleMoreMenu = useCallback(() => {
+    if (!project) return;
+    Alert.alert(project.title, undefined, [
+      { text: '名前を変更', onPress: () => setShowRenameModal(true) },
+      { text: 'スキャン追加', onPress: () => { if (handleProtectedAction({ featureName: 'スキャン' })) setShowScanModeModal(true); } },
+      { text: '単語帳を削除', style: 'destructive', onPress: handleDeleteProject },
+      { text: 'キャンセル', style: 'cancel' },
+    ]);
+  }, [handleDeleteProject, handleProtectedAction, project]);
 
-  const handleOpenScan = useCallback(() => {
-    if (!handleProtectedAction({ featureName: 'スキャン' })) {
-      return;
+  const handleSortMenu = useCallback(() => {
+    Alert.alert('並び替え', undefined, [
+      { text: '追加順', onPress: () => setSortMode('date') },
+      { text: 'アルファベット', onPress: () => setSortMode('alpha') },
+      { text: 'キャンセル', style: 'cancel' },
+    ]);
+  }, []);
+
+  const handleFilterMenu = useCallback(() => {
+    Alert.alert('フィルター', undefined, [
+      { text: bookmarkFilter ? '☆ ブックマーク解除' : '★ ブックマークのみ', onPress: () => setBookmarkFilter((v) => !v) },
+      { text: 'すべて', onPress: () => setStatusFilter('all') },
+      { text: '習得のみ', onPress: () => setStatusFilter('mastered') },
+      { text: '学習中のみ', onPress: () => setStatusFilter('review') },
+      { text: '未学習のみ', onPress: () => setStatusFilter('new') },
+      { text: 'キャンセル', style: 'cancel' },
+    ]);
+  }, [bookmarkFilter]);
+
+  // ─── Scan ─────────────────────────────────────────────────
+  const promptImageSource = useCallback((mode: SupportedScanMode, lvl?: string | null) => {
+    Alert.alert('画像を選択', 'カメラかライブラリを選んでください。', [
+      { text: 'カメラ', onPress: () => { void doScan(mode, 'camera', lvl ?? null); } },
+      { text: 'ライブラリ', onPress: () => { void doScan(mode, 'library', lvl ?? null); } },
+      { text: 'キャンセル', style: 'cancel' },
+    ]);
+  }, []);
+
+  const doScan = useCallback(async (mode: SupportedScanMode, src: 'camera' | 'library', lvl?: string | null) => {
+    if (!project || !session?.access_token) { Alert.alert('ログインが必要です'); return; }
+    try {
+      const perm = src === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== 'granted') { Alert.alert('権限が必要です'); return; }
+      const res = src === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsMultipleSelection: false });
+      if (res.canceled || !res.assets[0]?.uri) return;
+      setProcessing(true);
+      setProcessingSteps([{ id: 'upload', label: '画像をアップロード中...', status: 'active' }, { id: 'process', label: '単語を抽出中...', status: 'pending' }, { id: 'save', label: '単語帳に追加中...', status: 'pending' }]);
+      const created = await createScanJob({ session, imageUri: res.assets[0].uri, projectTitle: project.title, scanMode: mode, eikenLevel: lvl ?? null, targetProjectId: project.id, mimeType: res.assets[0].mimeType });
+      setProcessingSteps([{ id: 'upload', label: '画像をアップロード中...', status: 'complete' }, { id: 'process', label: '単語を抽出中...', status: 'active' }, { id: 'save', label: created.saveMode === 'client_local' ? '確認画面を準備中...' : '単語帳に追加中...', status: 'pending' }]);
+      const done = await waitForScanJobCompletion(session, created.jobId);
+      const pr = done.parsedResult ?? {};
+      setProcessingSteps([{ id: 'upload', label: '画像をアップロード中...', status: 'complete' }, { id: 'process', label: '単語を抽出中...', status: 'complete' }, { id: 'save', label: created.saveMode === 'client_local' ? '確認画面を準備中...' : '単語帳に追加中...', status: 'active' }]);
+      if (created.saveMode === 'client_local') { setProcessing(false); navigation.navigate('ScanConfirm', { words: (pr.extractedWords ?? []) as any, projectName: project.title, projectId: project.id }); return; }
+      setProcessing(false); await loadProject();
+      Alert.alert('スキャン完了', `${typeof pr.wordCount === 'number' ? pr.wordCount : '複数'}語を追加しました。`);
+    } catch (e) {
+      setProcessingSteps((c) => { let h = false; return c.map((s) => { if (!h && (s.status === 'active' || s.status === 'pending')) { h = true; return { ...s, status: 'error', label: e instanceof Error ? e.message : 'スキャンに失敗しました。' }; } return s; }); });
     }
+  }, [loadProject, navigation, project, session]);
 
-    setShowScanModeModal(true);
-  }, [handleProtectedAction]);
-
-  const startScan = useCallback(
-    async (
-      scanMode: SupportedScanMode,
-      source: 'camera' | 'library',
-      eikenLevel?: string | null
-    ) => {
-      if (!project || !session?.access_token) {
-        Alert.alert('ログインが必要です', '先にログインしてください。');
-        return;
-      }
-
-      try {
-        const permission =
-          source === 'camera'
-            ? await ImagePicker.requestCameraPermissionsAsync()
-            : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-        if (permission.status !== 'granted') {
-          Alert.alert('権限が必要です', source === 'camera' ? 'カメラの使用を許可してください。' : '写真ライブラリの使用を許可してください。');
-          return;
-        }
-
-        const result =
-          source === 'camera'
-            ? await ImagePicker.launchCameraAsync({
-                mediaTypes: ['images'],
-                quality: 0.8,
-              })
-            : await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                quality: 0.8,
-                allowsMultipleSelection: false,
-              });
-
-        if (result.canceled || !result.assets[0]?.uri) {
-          return;
-        }
-
-        const asset = result.assets[0];
-
-        setProcessing(true);
-        setProcessingSteps([
-          { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-          { id: 'process', label: '単語を抽出中...', status: 'pending' },
-          { id: 'save', label: '単語帳に追加中...', status: 'pending' },
-        ]);
-
-        const created = await createScanJob({
-          session,
-          imageUri: asset.uri,
-          projectTitle: project.title,
-          scanMode,
-          eikenLevel: eikenLevel ?? null,
-          targetProjectId: project.id,
-          mimeType: asset.mimeType,
-        });
-
-        setProcessingSteps([
-          { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-          { id: 'process', label: '単語を抽出中...', status: 'active' },
-          { id: 'save', label: created.saveMode === 'client_local' ? '確認画面を準備中...' : '単語帳に追加中...', status: 'pending' },
-        ]);
-
-        const completed = await waitForScanJobCompletion(session, created.jobId);
-        const parsedResult = completed.parsedResult ?? {};
-
-        setProcessingSteps([
-          { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-          { id: 'process', label: '単語を抽出中...', status: 'complete' },
-          { id: 'save', label: created.saveMode === 'client_local' ? '確認画面を準備中...' : '単語帳に追加中...', status: 'active' },
-        ]);
-
-        if (created.saveMode === 'client_local') {
-          const extractedWords = (parsedResult.extractedWords ?? []) as RootStackParamList['ScanConfirm']['words'];
-          setProcessing(false);
-          navigation.navigate('ScanConfirm', {
-            words: extractedWords,
-            projectName: project.title,
-            projectId: project.id,
-          });
-          return;
-        }
-
-        setProcessing(false);
-        await loadProject();
-        Alert.alert(
-          'スキャン完了',
-          `${typeof parsedResult.wordCount === 'number' ? parsedResult.wordCount : '複数'}語を単語帳へ追加しました。`
-        );
-      } catch (error) {
-        console.error('Failed to scan project:', error);
-        setProcessingSteps((current) => {
-          let handled = false;
-          return current.map((step) => {
-            if (!handled && (step.status === 'active' || step.status === 'pending')) {
-              handled = true;
-              return {
-                ...step,
-                status: 'error',
-                label: error instanceof Error ? error.message : 'スキャンに失敗しました。',
-              };
-            }
-            return step;
-          });
-        });
-      }
-    },
-    [loadProject, navigation, project, session]
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
-        <Text style={styles.loadingText}>単語帳を読み込み中...</Text>
-      </View>
-    );
-  }
-
-  if (!project) {
-    return null;
-  }
-
+  // ─── Loading ──────────────────────────────────────────────
+  if (loading) return <View style={s.loadWrap}><ActivityIndicator size="large" color={colors.primary[600]} /><Text style={s.loadText}>単語帳を読み込み中...</Text></View>;
+  if (!project) return null;
   const quizReady = words.length >= MINIMUM_QUIZ_WORDS;
-  const favoriteCount = words.filter((word) => word.isFavorite).length;
-  const reviewCount = words.filter((word) => word.status === 'review').length;
 
+  // ─── Render ───────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color={colors.gray[700]} />
-          </TouchableOpacity>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => setShowRenameModal(true)}>
-              <Pencil size={18} color={colors.gray[700]} />
+    <View style={s.root}>
+      {/* ── Blue Gradient Header ──────────────────────────── */}
+      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+          <Defs><SvgLinearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><Stop offset="0" stopColor={colors.primary[600]} /><Stop offset="1" stopColor={colors.primary[500]} stopOpacity="0.85" /></SvgLinearGradient></Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#hg)" />
+        </Svg>
+        <View style={s.hRow}>
+          <TouchableOpacity style={s.hBtn} onPress={() => navigation.goBack()}><ChevronLeft size={16} color="#fff" strokeWidth={2.5} /></TouchableOpacity>
+          <View style={s.hCenter}><Text style={s.hTitle} numberOfLines={1}>{project.title}</Text><Text style={s.hSub}>{words.length}語</Text></View>
+          <View style={s.hRight}>
+            {isPro && <TouchableOpacity style={s.hBtn} onPress={() => void handleShareProject()}><Share2 size={14} color="#fff" strokeWidth={2.5} /></TouchableOpacity>}
+            <TouchableOpacity style={s.hBtn} onPress={handleMoreMenu}><MoreHorizontal size={14} color="#fff" strokeWidth={2.5} /></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Scroll ────────────────────────────────────────── */}
+      <ScrollView style={s.scroll} contentContainerStyle={s.scrollInner} showsVerticalScrollIndicator={false}>
+        {/* Progress card */}
+        <View style={s.statsCard}>
+          <ProgressCol count={masteredCount} total={words.length} label="習得" iconColor={colors.emerald[500]} icon="✓" />
+          <ProgressCol count={reviewCount} total={words.length} label="学習中" iconColor={colors.gray[500]} icon="↻" />
+          <ProgressCol count={newCount} total={words.length} label="未学習" iconColor={colors.gray[300]} icon="✦" />
+        </View>
+
+        {/* Word list header */}
+        <View style={s.wlHeader}>
+          <View style={s.wlTitleRow}><Text style={s.wlTitle}>単語一覧</Text><Text style={s.wlCount}>{words.length}</Text></View>
+          <View style={s.tb}>
+            <TouchableOpacity style={[s.tbBtn, searchActive && s.tbBtnAct]} onPress={() => { setSearchActive((v) => !v); if (searchActive) setSearchText(''); }}>
+              {searchActive ? <X size={16} color={colors.primary[600]} /> : <Search size={16} color={colors.gray[500]} />}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={handleDeleteProject}>
-              <Trash2 size={18} color={colors.red[600]} />
+            <TouchableOpacity style={[s.tbBtn, (statusFilter !== 'all' || bookmarkFilter) && s.tbBtnAct]} onPress={handleFilterMenu}>
+              <Filter size={16} color={(statusFilter !== 'all' || bookmarkFilter) ? colors.primary[600] : colors.gray[500]} />
             </TouchableOpacity>
+            <TouchableOpacity style={s.tbBtn} onPress={handleSortMenu}><ArrowUpDown size={16} color={colors.gray[500]} /></TouchableOpacity>
+            {hasActiveFilters && <Text style={s.fBadge}>{filteredWords.length}/{words.length}語</Text>}
           </View>
         </View>
 
-        <View style={styles.heroCard}>
-          <Text style={styles.projectTitle}>{project.title}</Text>
-          <Text style={styles.projectMeta}>
-            {words.length}語 / 苦手 {favoriteCount}語 / review {reviewCount}語
-          </Text>
-          {project.sourceLabels.length > 0 ? (
-            <Text style={styles.projectLabels}>{project.sourceLabels.join(' / ')}</Text>
-          ) : null}
-          <View style={styles.statRow}>
-            <StatPill label={`習得 ${words.filter((word) => word.status === 'mastered').length}語`} />
-            <StatPill label={isPro ? 'Cloud 保存' : 'Local 保存'} />
-          </View>
-        </View>
-
-        <View style={styles.primaryActions}>
-          <Button
-            size="lg"
-            onPress={() => navigation.navigate('Quiz', { projectId: project.id })}
-            icon={<Play size={16} color={colors.white} />}
-            disabled={!quizReady}
-            style={styles.primaryActionButton}
-          >
-            4択クイズ
-          </Button>
-          <Button
-            size="lg"
-            variant="secondary"
-            onPress={() => {
-              if (!handleProtectedAction({ requirePro: true, featureName: 'フラッシュカード' })) return;
-              navigation.navigate('Flashcard', { projectId: project.id });
-            }}
-            icon={<Layers size={16} color={colors.gray[800]} />}
-            style={styles.primaryActionButton}
-          >
-            フラッシュカード
-          </Button>
-        </View>
-
-        {!quizReady ? (
-          <Text style={styles.helperText}>
-            4択クイズには最低 {MINIMUM_QUIZ_WORDS} 語必要です。
-          </Text>
-        ) : null}
-
-        <View style={styles.toolsGrid}>
-          <ToolCard
-            title="例文クイズ"
-            subtitle={isPro ? 'AI 生成で復習' : 'Test Pro で解放'}
-            icon={<BookText size={18} color={colors.purple[700]} />}
-            accentColor={colors.purple[50]}
-            onPress={() => {
-              if (!handleProtectedAction({ requirePro: true, featureName: '例文クイズ' })) return;
-              navigation.navigate('Grammar', { projectId: project.id });
-            }}
-          />
-          <ToolCard
-            title="スキャン追加"
-            subtitle={isAuthenticated ? '画像から単語を追加' : 'ログイン必須'}
-            icon={<Camera size={18} color={colors.primary[700]} />}
-            accentColor={colors.primary[50]}
-            onPress={handleOpenScan}
-          />
-          <ToolCard
-            title="共有"
-            subtitle={isPro ? '共有リンクを送る' : 'Test Pro で解放'}
-            icon={<Share2 size={18} color={colors.amber[700]} />}
-            accentColor={colors.amber[50]}
-            onPress={() => {
-              void handleShareProject();
-            }}
-          />
-          <ToolCard
-            title="苦手単語"
-            subtitle={`${favoriteCount}語を確認`}
-            icon={<Flag size={18} color={colors.orange[700]} />}
-            accentColor={colors.orange[50]}
-            onPress={() => navigation.navigate('Favorites')}
-          />
-        </View>
-
-        <View style={styles.secondaryActions}>
-          <Button
-            variant="secondary"
-            onPress={() => navigation.navigate('WrongAnswers')}
-          >
-            間違えた単語を見る
-          </Button>
-          {!isPro ? (
-            <Button onPress={() => navigation.navigate('Subscription')}>
-              Test Pro
-            </Button>
-          ) : null}
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>単語一覧</Text>
-          <Button
-            size="sm"
-            onPress={openCreateWordModal}
-            icon={<Plus size={16} color={colors.white} />}
-          >
-            単語を追加
-          </Button>
-        </View>
-
-        {words.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>まだ単語がありません</Text>
-            <Text style={styles.emptyText}>手動で追加するか、ログイン後にスキャンから追加してください。</Text>
-          </View>
-        ) : (
-          <View style={styles.wordList}>
-            {words.map((word) => (
-              <View key={word.id} style={styles.wordCard}>
-                <View style={styles.wordHeader}>
-                  <View style={styles.wordCopy}>
-                    <Text style={styles.wordEnglish}>{word.english}</Text>
-                    <Text style={styles.wordJapanese}>{word.japanese}</Text>
-                  </View>
-                  <View style={styles.wordActions}>
-                    <TouchableOpacity style={styles.wordActionButton} onPress={() => handleToggleFavorite(word)}>
-                      <Flag
-                        size={16}
-                        color={word.isFavorite ? colors.orange[600] : colors.gray[500]}
-                        fill={word.isFavorite ? colors.orange[600] : 'transparent'}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.wordActionButton} onPress={() => openEditWordModal(word)}>
-                      <Pencil size={16} color={colors.gray[700]} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.wordActionButton} onPress={() => handleDeleteWord(word)}>
-                      <Trash2 size={16} color={colors.red[600]} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={styles.wordFooter}>
-                  <StatusBadge status={word.status} />
-                </View>
-              </View>
-            ))}
+        {searchActive && (
+          <View style={s.searchBar}>
+            <Search size={14} color={colors.gray[400]} />
+            <TextInput style={s.searchInput} placeholder="単語を検索..." placeholderTextColor={colors.gray[400]} value={searchText} onChangeText={setSearchText} autoFocus autoCapitalize="none" autoCorrect={false} />
+            {searchText.length > 0 && <TouchableOpacity onPress={() => setSearchText('')}><X size={14} color={colors.gray[400]} /></TouchableOpacity>}
           </View>
         )}
+
+        {/* Table */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={s.table}>
+            <View style={s.colHead}>
+              <View style={{ width: CW.cb }} />
+              <Text style={[s.chText, { width: CW.en, textAlign: 'left', paddingLeft: 8 }]}>単語</Text>
+              <Text style={[s.chText, { width: CW.ap }]}>A/P</Text>
+              <Text style={[s.chText, { width: CW.pos }]}>品詞</Text>
+              <Text style={[s.chText, { width: CW.jp, textAlign: 'left', paddingLeft: 10 }]}>訳</Text>
+            </View>
+            {filteredWords.length === 0 ? (
+              <View style={s.emptyRow}><Text style={s.emptyText}>{hasActiveFilters ? '一致する単語がありません' : '単語がありません'}</Text></View>
+            ) : filteredWords.map((w, i) => (
+              <TouchableOpacity key={w.id} style={[s.row, i < filteredWords.length - 1 && s.rowBorder]} activeOpacity={0.7} onPress={() => openEditWordModal(w)} onLongPress={() => handleDeleteWord(w)}>
+                <View style={{ width: CW.cb }}><NotionCheckbox wordId={w.id} status={w.status} onStatusChange={(ns) => handleStatusChange(w, ns)} /></View>
+                <View style={[s.cellEn, { width: CW.en }]}><Text style={s.enText} numberOfLines={2}>{w.english}</Text>{w.isFavorite && <Text style={s.bm}>★</Text>}</View>
+                <View style={{ width: CW.ap, alignItems: 'center' }}><VocabularyTypeBadge value={w.vocabularyType} onCycle={(n) => handleVocabTypeCycle(w, n)} /></View>
+                <Text style={[s.posText, { width: CW.pos }]}>{shortenPos(w.partOfSpeechTags)}</Text>
+                <Text style={[s.jpText, { width: CW.jp }]} numberOfLines={2}>{w.japanese}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+        <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* ── Bottom Bar ────────────────────────────────────── */}
+      <View style={[s.bot, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <TouchableOpacity style={s.botFlash} onPress={() => { if (handleProtectedAction({ requirePro: true, featureName: 'フラッシュカード' })) navigation.navigate('Flashcard', { projectId: project.id }); }}>
+          <Layers size={20} color={colors.primary[600]} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.botQuiz} onPress={() => { if (!quizReady) { Alert.alert(`最低${MINIMUM_QUIZ_WORDS}語必要です。`); return; } navigation.navigate('Quiz', { projectId: project.id }); }}>
+          <Text style={s.botQuizIcon}>❓</Text><Text style={s.botQuizText}>クイズ</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.botAdd} onPress={openCreateWordModal}>
+          <Plus size={15} color="#fff" strokeWidth={2.5} /><Text style={s.botAddText}>単語追加</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Modals ────────────────────────────────────────── */}
       <Modal visible={showWordModal} transparent animationType="fade" onRequestClose={() => setShowWordModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{editingWord ? '単語を編集' : '単語を追加'}</Text>
-            <Input
-              label="英単語"
-              value={wordEnglish}
-              onChangeText={setWordEnglish}
-              placeholder="example"
-              autoCapitalize="none"
-              autoFocus
-            />
-            <Input
-              label="日本語訳"
-              value={wordJapanese}
-              onChangeText={setWordJapanese}
-              placeholder="例"
-            />
-            <Text style={styles.modalHint}>誤答候補は同じ単語帳の語彙から自動で組み立てます。</Text>
-            <View style={styles.modalButtons}>
-              <Button variant="secondary" onPress={() => setShowWordModal(false)}>
-                キャンセル
-              </Button>
-              <Button onPress={handleSaveWord} loading={savingWord}>
-                保存
-              </Button>
-            </View>
-          </View>
-        </View>
+        <View style={s.mOver}><View style={s.mCard}>
+          <Text style={s.mTitle}>{editingWord ? '単語を編集' : '単語を追加'}</Text>
+          <Input label="英単語" value={wordEnglish} onChangeText={setWordEnglish} placeholder="example" autoCapitalize="none" autoFocus />
+          <Input label="日本語訳" value={wordJapanese} onChangeText={setWordJapanese} placeholder="例" />
+          <View style={s.mBtns}><Button variant="secondary" onPress={() => setShowWordModal(false)}>キャンセル</Button><Button onPress={handleSaveWord} loading={savingWord}>保存</Button></View>
+        </View></View>
       </Modal>
-
       <Modal visible={showRenameModal} transparent animationType="fade" onRequestClose={() => setShowRenameModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>単語帳名を変更</Text>
-            <Input
-              label="単語帳名"
-              value={projectTitle}
-              onChangeText={setProjectTitle}
-              placeholder="単語帳名"
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
-              <Button variant="secondary" onPress={() => setShowRenameModal(false)}>
-                キャンセル
-              </Button>
-              <Button onPress={handleSaveProjectTitle} loading={savingProject}>
-                更新
-              </Button>
-            </View>
-          </View>
-        </View>
+        <View style={s.mOver}><View style={s.mCard}>
+          <Text style={s.mTitle}>単語帳名を変更</Text>
+          <Input label="単語帳名" value={projectTitle} onChangeText={setProjectTitle} placeholder="単語帳名" autoFocus />
+          <View style={s.mBtns}><Button variant="secondary" onPress={() => setShowRenameModal(false)}>キャンセル</Button><Button onPress={handleSaveProjectTitle} loading={savingProject}>更新</Button></View>
+        </View></View>
       </Modal>
-
-      <ProcessingModal
-        visible={processing}
-        steps={processingSteps}
-        onClose={() => {
-          setProcessing(false);
-          setProcessingSteps([
-            { id: 'upload', label: '画像をアップロード中...', status: 'pending' },
-            { id: 'process', label: '単語を抽出中...', status: 'pending' },
-            { id: 'save', label: '保存先を準備中...', status: 'pending' },
-          ]);
-        }}
-      />
-
-      <ScanModeModal
-        visible={showScanModeModal}
-        isPro={isPro}
-        title="追加スキャン"
-        subtitle="この単語帳に追加するモードを選んでください。"
-        onClose={() => setShowScanModeModal(false)}
-        onRequirePro={() => {
-          void handleProtectedAction({ requirePro: true, featureName: 'このスキャンモード' });
-        }}
-        onSelectMode={(mode, eikenLevel) => {
-          promptImageSource(mode, eikenLevel ?? null);
-        }}
-      />
-    </SafeAreaView>
-  );
-}
-
-function ToolCard({
-  title,
-  subtitle,
-  icon,
-  accentColor,
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  accentColor: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.toolCard} activeOpacity={0.85} onPress={onPress}>
-      <View style={[styles.toolIcon, { backgroundColor: accentColor }]}>{icon}</View>
-      <Text style={styles.toolTitle}>{title}</Text>
-      <Text style={styles.toolSubtitle}>{subtitle}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function StatPill({ label }: { label: string }) {
-  return (
-    <View style={styles.statPill}>
-      <Text style={styles.statPillText}>{label}</Text>
+      <ProcessingModal visible={processing} steps={processingSteps} onClose={() => { setProcessing(false); setProcessingSteps([{ id: 'upload', label: '画像をアップロード中...', status: 'pending' }, { id: 'process', label: '単語を抽出中...', status: 'pending' }, { id: 'save', label: '保存先を準備中...', status: 'pending' }]); }} />
+      <ScanModeModal visible={showScanModeModal} isPro={isPro} title="追加スキャン" subtitle="この単語帳に追加するモードを選んでください。" onClose={() => setShowScanModeModal(false)} onRequirePro={() => { void handleProtectedAction({ requirePro: true, featureName: 'このスキャンモード' }); }} onSelectMode={(m, l) => { promptImageSource(m, l ?? null); }} />
     </View>
   );
 }
 
-function StatusBadge({ status }: { status: Word['status'] }) {
-  const label =
-    status === 'mastered' ? 'mastered' : status === 'review' ? 'review' : 'new';
-
-  const badgeStyle =
-    status === 'mastered'
-      ? styles.statusBadgeMastered
-      : status === 'review'
-        ? styles.statusBadgeReview
-        : styles.statusBadgeNew;
-
-  const textStyle =
-    status === 'mastered'
-      ? styles.statusTextMastered
-      : status === 'review'
-        ? styles.statusTextReview
-        : styles.statusTextNew;
-
+// ─── Progress Column ─────────────────────────────────────────
+function ProgressCol({ count, total, label, iconColor, icon }: { count: number; total: number; label: string; iconColor: string; icon: string }) {
   return (
-    <View style={[styles.statusBadge, badgeStyle]}>
-      <Text style={[styles.statusText, textStyle]}>{label}</Text>
+    <View style={s.pCol}>
+      <Text style={s.pCount}>{count}/{total}語</Text>
+      <Text style={s.pLabel}>{label}</Text>
+      <View style={[s.pIcon, { borderColor: iconColor }]}><Text style={[s.pIconTxt, { color: iconColor }]}>{icon}</Text></View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 20,
-    gap: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    color: colors.gray[500],
-    fontSize: 14,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-  },
-  heroCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 10,
-  },
-  projectTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  projectMeta: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  projectLabels: {
-    fontSize: 13,
-    color: colors.gray[500],
-  },
-  statRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  statPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.gray[100],
-  },
-  statPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.gray[700],
-  },
-  primaryActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  primaryActionButton: {
-    flex: 1,
-  },
-  helperText: {
-    marginTop: -6,
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.gray[600],
-  },
-  toolsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  toolCard: {
-    width: '47%',
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 8,
-  },
-  toolIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toolTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  toolSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.gray[600],
-  },
-  secondaryActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  emptyCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 10,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  emptyText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.gray[600],
-  },
-  wordList: {
-    gap: 10,
-  },
-  wordCard: {
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 12,
-  },
-  wordHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  wordCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  wordEnglish: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  wordJapanese: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  wordActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  wordActionButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: colors.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wordFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-  },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusBadgeNew: {
-    backgroundColor: colors.gray[100],
-  },
-  statusBadgeReview: {
-    backgroundColor: colors.amber[100],
-  },
-  statusBadgeMastered: {
-    backgroundColor: colors.emerald[100],
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statusTextNew: {
-    color: colors.gray[700],
-  },
-  statusTextReview: {
-    color: colors.amber[800],
-  },
-  statusTextMastered: {
-    color: colors.emerald[800],
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.3)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 20,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  modalHint: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.gray[500],
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-  },
+// ─── Column widths ───────────────────────────────────────────
+const CW = { cb: 34, en: 158, ap: 48, pos: 48, jp: 180 };
+
+// ─── Styles ──────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
+  loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.background },
+  loadText: { color: colors.gray[500], fontSize: 14 },
+
+  header: { paddingBottom: 20, paddingHorizontal: 16 },
+  hRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  hBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  hCenter: { flex: 1, alignItems: 'center', marginHorizontal: 8 },
+  hTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  hSub: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  hRight: { flexDirection: 'row', gap: 8 },
+
+  scroll: { flex: 1 },
+  scrollInner: { paddingHorizontal: 20, paddingTop: 16 },
+
+  statsCard: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: 16, borderWidth: 1, borderColor: colors.gray[200], padding: 16, gap: 12, marginBottom: 16 },
+  pCol: { flex: 1, alignItems: 'center', gap: 6 },
+  pCount: { fontSize: 12, color: colors.gray[500], fontVariant: ['tabular-nums'] },
+  pLabel: { fontSize: 14, fontWeight: '700', color: colors.gray[900] },
+  pIcon: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  pIconTxt: { fontSize: 16, fontWeight: '700' },
+
+  wlHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  wlTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  wlTitle: { fontSize: 20, fontWeight: '800', color: colors.gray[900] },
+  wlCount: { fontSize: 13, fontWeight: '600', color: colors.gray[500], fontVariant: ['tabular-nums'] },
+  tb: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tbBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.gray[200], backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  tbBtnAct: { backgroundColor: colors.primary[50], borderColor: colors.primary[300] },
+  fBadge: { fontSize: 11, fontWeight: '500', color: colors.primary[600], fontVariant: ['tabular-nums'] },
+
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.gray[100], borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
+  searchInput: { flex: 1, fontSize: 15, color: colors.gray[900], padding: 0 },
+
+  table: { minWidth: CW.cb + CW.en + CW.ap + CW.pos + CW.jp + 16 },
+  colHead: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.gray[200], paddingVertical: 6 },
+  chText: { fontSize: 12, fontWeight: '700', color: colors.gray[500], textAlign: 'center' },
+
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingVertical: 8 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: colors.gray[100] },
+  cellEn: { paddingLeft: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  enText: { fontSize: 18, fontWeight: '700', color: colors.gray[900], flexShrink: 1 },
+  bm: { fontSize: 11, color: colors.amber[500], fontWeight: '700' },
+  posText: { fontSize: 15, fontWeight: '600', color: colors.gray[600], textAlign: 'center' },
+  jpText: { fontSize: 13, color: colors.gray[600], paddingLeft: 10 },
+  emptyRow: { paddingVertical: 24, alignItems: 'center' },
+  emptyText: { fontSize: 14, color: colors.gray[500] },
+
+  bot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 10, backgroundColor: colors.background, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
+  botFlash: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: colors.primary[600], alignItems: 'center', justifyContent: 'center' },
+  botQuiz: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.gray[200] },
+  botQuizIcon: { fontSize: 15 },
+  botQuizText: { fontSize: 15, fontWeight: '700', color: colors.gray[900] },
+  botAdd: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, backgroundColor: colors.primary[600] },
+  botAddText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  mOver: { flex: 1, backgroundColor: 'rgba(17,24,39,0.3)', justifyContent: 'center', padding: 20 },
+  mCard: { backgroundColor: colors.white, borderRadius: 20, padding: 20, gap: 16 },
+  mTitle: { fontSize: 20, fontWeight: '800', color: colors.gray[900] },
+  mBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
 });

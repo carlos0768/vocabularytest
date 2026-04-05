@@ -1,4 +1,5 @@
 export type WordStatus = 'new' | 'review' | 'mastered';
+export type VocabularyType = 'active' | 'passive';
 export type ProjectShareScope = 'private' | 'public';
 
 export interface RelatedWord {
@@ -35,6 +36,7 @@ export interface Word {
   intervalDays: number;
   repetition: number;
   isFavorite: boolean;
+  vocabularyType?: VocabularyType;
   partOfSpeechTags?: string[];
   relatedWords?: RelatedWord[];
   usagePatterns?: UsagePattern[];

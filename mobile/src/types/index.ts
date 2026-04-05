@@ -1,5 +1,6 @@
 export type {
   WordStatus,
+  VocabularyType,
   ProjectShareScope,
   RelatedWord,
   UsagePattern,

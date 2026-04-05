@@ -173,6 +173,7 @@ export interface WordRow {
   interval_days?: number | null;
   repetition?: number | null;
   is_favorite?: boolean | null;
+  vocabulary_type?: 'active' | 'passive' | null;
 }
 
 export function mapWordFromRow(row: WordRow): Word {
@@ -198,6 +199,7 @@ export function mapWordFromRow(row: WordRow): Word {
     intervalDays: row.interval_days ?? defaults.intervalDays,
     repetition: row.repetition ?? defaults.repetition,
     isFavorite: row.is_favorite ?? false,
+    vocabularyType: row.vocabulary_type ?? undefined,
     partOfSpeechTags: normalizeStringArray(row.part_of_speech_tags),
     relatedWords: normalizeRelatedWords(row.related_words),
     usagePatterns: normalizeUsagePatterns(row.usage_patterns),
@@ -238,6 +240,7 @@ export function mapWordToInsert(word: WordInput): Record<string, unknown> {
     ...(word.usagePatterns !== undefined && { usage_patterns: word.usagePatterns }),
     ...(word.insightsGeneratedAt !== undefined && { insights_generated_at: word.insightsGeneratedAt }),
     ...(word.insightsVersion !== undefined && { insights_version: word.insightsVersion }),
+    ...(word.vocabularyType !== undefined && { vocabulary_type: word.vocabularyType }),
     status: 'new',
     ease_factor: defaults.easeFactor,
     interval_days: defaults.intervalDays,
@@ -265,6 +268,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.intervalDays !== undefined) updateData.interval_days = updates.intervalDays;
   if (updates.repetition !== undefined) updateData.repetition = updates.repetition;
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+  if (updates.vocabularyType !== undefined) updateData.vocabulary_type = updates.vocabularyType;
   if (updates.partOfSpeechTags !== undefined) updateData.part_of_speech_tags = updates.partOfSpeechTags;
   if (updates.relatedWords !== undefined) updateData.related_words = updates.relatedWords;
   if (updates.usagePatterns !== undefined) updateData.usage_patterns = updates.usagePatterns;
