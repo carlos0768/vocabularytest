@@ -97,6 +97,15 @@ export default function ProjectDetailPage() {
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const scanFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Word list toolbar: search, filter, sort
+  const [wordSearchText, setWordSearchText] = useState('');
+  const [wordShowSearch, setWordShowSearch] = useState(false);
+  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical'>('createdAsc');
+  const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
+  const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
+  const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
+  const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
+
   const hasLocalLoadedRef = useRef(false);
   const cacheRestoredRef = useRef(false);
 
@@ -732,6 +741,46 @@ export default function ProjectDetailPage() {
     return { total, mastered, learning, unlearned };
   }, [words]);
 
+  const wordFilterActive = wordFilterBookmark || wordFilterActiveness !== 'all' || wordFilterPos !== null;
+
+  const filteredWords = useMemo(() => {
+    let result = words;
+
+    if (wordSearchText) {
+      const q = wordSearchText.toLowerCase();
+      result = result.filter(
+        (w) => w.english.toLowerCase().includes(q) || w.japanese.toLowerCase().includes(q)
+      );
+    }
+    if (wordFilterBookmark) {
+      result = result.filter((w) => w.isFavorite);
+    }
+    if (wordFilterPos) {
+      result = result.filter((w) =>
+        w.partOfSpeechTags?.some((t) => t.toLowerCase().includes(wordFilterPos.toLowerCase()))
+      );
+    }
+    if (wordFilterActiveness === 'active') {
+      result = result.filter((w) => w.status === 'mastered');
+    } else if (wordFilterActiveness === 'passive') {
+      result = result.filter((w) => w.status === 'review' || w.status === 'new' || !w.status);
+    }
+
+    if (wordSortOrder === 'alphabetical') {
+      result = [...result].sort((a, b) => a.english.localeCompare(b.english, undefined, { sensitivity: 'base' }));
+    } else {
+      result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+
+    return result;
+  }, [words, wordSearchText, wordFilterBookmark, wordFilterPos, wordFilterActiveness, wordSortOrder]);
+
+  const availablePartsOfSpeech = useMemo(() => {
+    const all = words.flatMap((w) => w.partOfSpeechTags ?? []);
+    const trimmed = all.map((t) => t.trim()).filter(Boolean);
+    return [...new Set(trimmed)].sort();
+  }, [words]);
+
   const returnPath = project ? encodeURIComponent(`/project/${project.id}`) : '';
   const canUseAiFeatures = aiEnabled !== false;
   const HEADER_DARKEN: Record<string, string> = {
@@ -870,9 +919,164 @@ export default function ProjectDetailPage() {
 
           {/* Word list table - iOS style */}
           <section>
+            {/* Header row: title + toolbar */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
+              <div className="flex items-center gap-1.5">
+                {/* Search toggle */}
+                <button
+                  type="button"
+                  onClick={() => { setWordShowSearch((v) => { if (v) setWordSearchText(''); return !v; }); }}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
+                    wordShowSearch || wordSearchText
+                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
+                  }`}
+                  aria-label="検索"
+                >
+                  <Icon name={wordShowSearch ? 'close' : 'search'} size={18} />
+                </button>
+                {/* Filter */}
+                <button
+                  type="button"
+                  onClick={() => setWordShowFilterSheet((v) => !v)}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
+                    wordFilterActive
+                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
+                  }`}
+                  aria-label="フィルタ"
+                >
+                  <Icon name="filter_list" size={18} />
+                </button>
+                {/* Sort */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setWordSortOrder((v) => v === 'createdAsc' ? 'alphabetical' : 'createdAsc')}
+                    className="w-9 h-9 rounded-full flex items-center justify-center border bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)] transition-colors"
+                    aria-label={`ソート: ${wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}`}
+                    title={wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}
+                  >
+                    <Icon name="swap_vert" size={18} />
+                  </button>
+                </div>
+                {/* Filter badge */}
+                {(wordFilterActive || wordSearchText) && (
+                  <span className="text-xs font-medium tabular-nums text-[var(--color-accent)]">
+                    {filteredWords.length}/{stats.total}
+                  </span>
+                )}
+              </div>
             </div>
+
+            {/* Search bar */}
+            {wordShowSearch && (
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)]">
+                <Icon name="search" size={16} className="text-[var(--color-muted)] shrink-0" />
+                <input
+                  type="text"
+                  value={wordSearchText}
+                  onChange={(e) => setWordSearchText(e.target.value)}
+                  placeholder="単語を検索..."
+                  className="flex-1 bg-transparent text-sm outline-none text-[var(--color-foreground)] placeholder:text-[var(--color-muted)]"
+                  autoFocus
+                />
+                {wordSearchText && (
+                  <button type="button" onClick={() => setWordSearchText('')} className="text-[var(--color-muted)]">
+                    <Icon name="cancel" size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Filter panel */}
+            {wordShowFilterSheet && (
+              <div className="mb-3 p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] space-y-4">
+                {/* Bookmark */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="flex items-center gap-2 text-sm text-[var(--color-foreground)]">
+                    <Icon name="bookmark" size={16} filled={wordFilterBookmark} />
+                    ブックマークのみ
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={wordFilterBookmark}
+                    onChange={(e) => setWordFilterBookmark(e.target.checked)}
+                    className="accent-[var(--color-accent)] w-4 h-4"
+                  />
+                </label>
+
+                {/* Active / Passive */}
+                <div>
+                  <p className="text-xs font-bold text-[var(--color-muted)] mb-2">アクティブ / パッシブ</p>
+                  <div className="flex gap-2">
+                    {([['all', 'すべて'], ['active', 'アクティブ'], ['passive', 'パッシブ']] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setWordFilterActiveness(val)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          wordFilterActiveness === val
+                            ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                            : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Part of speech */}
+                {availablePartsOfSpeech.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-[var(--color-muted)] mb-2">品詞</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWordFilterPos(null)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          !wordFilterPos
+                            ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                            : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
+                        }`}
+                      >
+                        すべて
+                      </button>
+                      {availablePartsOfSpeech.map((pos) => {
+                        const posMap: Record<string, string> = { noun: '名詞', verb: '動詞', adjective: '形容詞', adverb: '副詞', preposition: '前置詞', conjunction: '接続詞', pronoun: '代名詞', interjection: '感動詞', determiner: '限定詞', auxiliary: '助動詞' };
+                        return (
+                          <button
+                            key={pos}
+                            type="button"
+                            onClick={() => setWordFilterPos(pos)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                              wordFilterPos === pos
+                                ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                                : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
+                            }`}
+                          >
+                            {posMap[pos.toLowerCase()] ?? pos}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reset */}
+                {wordFilterActive && (
+                  <button
+                    type="button"
+                    onClick={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
+                    className="text-xs font-semibold text-[var(--color-danger)]"
+                  >
+                    リセット
+                  </button>
+                )}
+              </div>
+            )}
 
             {!wordsLoaded ? (
               <div className="flex items-center gap-3 text-[var(--color-muted)] py-8 justify-center">
@@ -882,6 +1086,12 @@ export default function ProjectDetailPage() {
             ) : words.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-sm text-[var(--color-muted)]">単語がありません</p>
+              </div>
+            ) : filteredWords.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-[var(--color-muted)]">
+                  {wordSearchText ? `「${wordSearchText}」に一致する単語がありません` : '条件に一致する単語がありません'}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -895,7 +1105,7 @@ export default function ProjectDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-light)]">
-                    {words.map((word) => (
+                    {filteredWords.map((word) => (
                       <tr
                         key={word.id}
                         role="link"
