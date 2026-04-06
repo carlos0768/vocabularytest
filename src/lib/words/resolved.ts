@@ -10,7 +10,7 @@ export const RESOLVED_WORD_TEXT_SELECT_COLUMNS =
   `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, status, created_at, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, created_at, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS =
   `${RESOLVED_WORD_TEXT_SELECT_COLUMNS}, embedding` as const;

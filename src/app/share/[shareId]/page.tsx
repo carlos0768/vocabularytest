@@ -114,14 +114,6 @@ export default function SharedProjectPage() {
     }
   };
 
-  const stats = useMemo(() => {
-    const total = words.length;
-    const mastered = words.filter((w) => w.status === 'mastered').length;
-    const learning = words.filter((w) => w.status === 'review').length;
-    const unlearned = words.filter((w) => !w.status || w.status === 'new').length;
-    return { total, mastered, learning, unlearned };
-  }, [words]);
-
   const posLabel = (tags?: string[]) => {
     if (!tags || tags.length === 0) return null;
     const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
@@ -200,7 +192,7 @@ export default function SharedProjectPage() {
               <div className="flex-1 text-center mx-3">
                 <p className="text-white font-bold text-sm truncate">{project.title}</p>
                 <p className="text-white/70 text-xs">
-                  {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} · {stats.total}語
+                  {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} · {words.length}語
                 </p>
               </div>
               <div className="w-10" />
@@ -209,39 +201,10 @@ export default function SharedProjectPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
-          {/* 3-column stats card */}
-          <section>
-            <div className="card p-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
-                  <p className="text-xs text-[var(--color-muted)]">{stats.mastered}/{stats.total}語</p>
-                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">習得</p>
-                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-success)] flex items-center justify-center">
-                    <Icon name="check" size={18} className="text-[var(--color-success)]" />
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-[var(--color-muted)]">{stats.learning}/{stats.total}語</p>
-                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">学習中</p>
-                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-muted)] flex items-center justify-center">
-                    <Icon name="autorenew" size={18} className="text-[var(--color-muted)]" />
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs font-bold text-[var(--color-foreground)]">{stats.unlearned}/{stats.total}語</p>
-                  <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">未学習</p>
-                  <div className="w-10 h-10 mx-auto mt-2 rounded-full border-[3px] border-[var(--color-border)] flex items-center justify-center">
-                    <Icon name="auto_awesome" size={18} className="text-[var(--color-muted)]" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
           {/* Word list table */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
+              <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{words.length}</span></h2>
             </div>
 
             {!wordsLoaded ? (
