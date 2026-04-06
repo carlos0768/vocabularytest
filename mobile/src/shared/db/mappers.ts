@@ -252,10 +252,17 @@ export function mapWordToInsert(word: WordInput): Record<string, unknown> {
 export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> {
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-  if (updates.english !== undefined) updateData.english = updates.english;
-  if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
+  if (updates.english !== undefined) {
+    updateData.english = updates.english;
+    updateData.english_override = updates.english;
+  }
+  if (updates.japanese !== undefined) {
+    updateData.japanese = updates.japanese;
+    updateData.japanese_override = updates.japanese;
+  }
   if (updates.japaneseSource !== undefined) updateData.japanese_source = updates.japaneseSource;
   if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
+  if (updates.lexiconSenseId !== undefined) updateData.lexicon_sense_id = updates.lexiconSenseId;
   if (updates.cefrLevel !== undefined) updateData.cefr_level = updates.cefrLevel;
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
