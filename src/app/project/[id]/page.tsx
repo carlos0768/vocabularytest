@@ -8,6 +8,7 @@ import { DeleteConfirmModal, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+import { NotionCheckbox, nextStatus } from '@/components/home/WordList';
 import { getProjectColor } from '@/components/project/ProjectCard';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -554,6 +555,19 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleCycleStatus = async (wordId: string) => {
+    const word = words.find((w) => w.id === wordId);
+    if (!word) return;
+    const newStatus = nextStatus(word.status);
+    setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: newStatus } : w)));
+    try {
+      await mutationRepository.updateWord(wordId, { status: newStatus });
+    } catch {
+      setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: word.status } : w)));
+      showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });
+    }
+  };
+
   const handleSaveManualWord = async () => {
     if (!project) return;
 
@@ -1096,6 +1110,7 @@ export default function ProjectDetailPage() {
                 <table className="min-w-full w-max border-collapse">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
+                      <th className="w-8 px-1 py-2" />
                       <th className="px-3 py-2 text-left font-medium min-w-[10rem]">単語</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
@@ -1119,6 +1134,12 @@ export default function ProjectDetailPage() {
                         }}
                         className="cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)]"
                       >
+                        <td className="w-8 px-1 py-3.5 text-center">
+                          <NotionCheckbox
+                            status={word.status}
+                            onClick={() => { void handleCycleStatus(word.id); }}
+                          />
+                        </td>
                         <td className="px-3 py-3.5">
                           <span className="inline-flex items-center gap-1 flex-wrap">
                             <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>

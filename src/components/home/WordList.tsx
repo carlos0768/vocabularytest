@@ -6,7 +6,7 @@ import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton'
 import { Button } from '@/components/ui';
 import type { Word, WordStatus } from '@/types';
 
-function nextStatus(current: WordStatus): WordStatus {
+export function nextStatus(current: WordStatus): WordStatus {
   if (current === 'new') return 'review';
   if (current === 'review') return 'mastered';
   return 'new';
@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<WordStatus, string> = {
   mastered: 'var(--color-success, #22c55e)',
 };
 
-function NotionCheckbox({ status, onClick }: { status: WordStatus; onClick: () => void }) {
+export function NotionCheckbox({ status, onClick }: { status: WordStatus; onClick: () => void }) {
   const filledCount = status === 'new' ? 0 : status === 'review' ? 1 : 3;
   const color = STATUS_COLORS[status];
 
