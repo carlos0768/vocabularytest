@@ -35,7 +35,7 @@ export default function SharedProjectPage() {
   // Search / Filter / Sort
   const [wordSearchText, setWordSearchText] = useState('');
   const [wordShowSearch, setWordShowSearch] = useState(false);
-  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical'>('createdAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
   const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
@@ -149,6 +149,9 @@ export default function SharedProjectPage() {
     }
     if (wordSortOrder === 'alphabetical') {
       result = [...result].sort((a, b) => a.english.localeCompare(b.english, undefined, { sensitivity: 'base' }));
+    } else if (wordSortOrder === 'statusAsc') {
+      const statusOrder: Record<string, number> = { new: 0, review: 1, mastered: 2 };
+      result = [...result].sort((a, b) => (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0));
     }
     return result;
   }, [words, wordSearchText, wordFilterActiveness, wordFilterPos, wordSortOrder]);
@@ -277,10 +280,10 @@ export default function SharedProjectPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWordSortOrder((v) => v === 'createdAsc' ? 'alphabetical' : 'createdAsc')}
+                  onClick={() => setWordSortOrder((v) => v === 'createdAsc' ? 'alphabetical' : v === 'alphabetical' ? 'statusAsc' : 'createdAsc')}
                   className="w-9 h-9 rounded-full flex items-center justify-center border bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)] transition-colors"
-                  aria-label={`ソート: ${wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}`}
-                  title={wordSortOrder === 'createdAsc' ? '追加順' : 'アルファベット'}
+                  aria-label={`ソート: ${wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}`}
+                  title={wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}
                 >
                   <Icon name="swap_vert" size={18} />
                 </button>
