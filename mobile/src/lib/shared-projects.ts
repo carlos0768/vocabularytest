@@ -30,6 +30,7 @@ export interface SharedWord {
   exampleSentence?: string;
   exampleSentenceJa?: string;
   vocabularyType?: 'active' | 'passive';
+  partOfSpeechTags?: string[];
 }
 
 export async function fetchSharedProjects(
