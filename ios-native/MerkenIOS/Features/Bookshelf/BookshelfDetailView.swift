@@ -690,10 +690,12 @@ struct SharedProjectDetailView: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
-        .background(MerkenTheme.background)
+        .frame(maxWidth: .infinity)
+        .background(MerkenTheme.background.ignoresSafeArea())
         .presentationDetents([.height(hasActiveFilters && filteredWords.count != viewModel.words.count ? 260 : 200)])
         .presentationDragIndicator(.hidden)
         .presentationCornerRadius(20)
+        .presentationBackground(MerkenTheme.background)
     }
 
     private func importSheetRow(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {

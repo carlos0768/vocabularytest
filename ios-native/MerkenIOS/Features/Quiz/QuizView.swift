@@ -819,7 +819,7 @@ private struct TypeInField: View {
                             .frame(minWidth: slotWidth)
                     }
 
-                    let remaining = t == 0 ? max(n - 1, 0) : max(n - t - 1, 0)
+                    let remaining = max(n - t - 1, 0)
                     ForEach(0..<remaining, id: \.self) { _ in
                         Text("_")
                             .font(.system(size: 20, weight: .medium))

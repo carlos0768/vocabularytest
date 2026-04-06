@@ -140,11 +140,11 @@ final class QuizViewModel: ObservableObject {
 
         let isCorrect = index == question.correctIndex
 
-        let generator = UIImpactFeedbackGenerator(style: isCorrect ? .light : .heavy)
-        generator.impactOccurred()
-
         if isCorrect {
+            MerkenHaptic.success()
             correctCount += 1
+        } else {
+            MerkenHaptic.heavy()
         }
 
         let patch = QuizEngine.statusPatch(for: question.word, isCorrect: isCorrect)
@@ -163,8 +163,11 @@ final class QuizViewModel: ObservableObject {
         typingCorrect = isCorrect
         isRevealed = true
 
-        let generator = UIImpactFeedbackGenerator(style: isCorrect ? .light : .heavy)
-        generator.impactOccurred()
+        if isCorrect {
+            MerkenHaptic.success()
+        } else {
+            MerkenHaptic.heavy()
+        }
 
         if isCorrect {
             correctCount += 1
