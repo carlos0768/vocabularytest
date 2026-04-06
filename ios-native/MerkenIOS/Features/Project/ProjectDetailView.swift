@@ -1098,11 +1098,7 @@ struct ProjectDetailView: View {
     }
 
     private var headerGradient: some View {
-        LinearGradient(
-            colors: [thumbnailBackgroundColor, thumbnailBackgroundColor.opacity(0.85)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        thumbnailBackgroundColor
     }
 
     private func handleShare() async {

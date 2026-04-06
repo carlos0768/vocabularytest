@@ -141,12 +141,7 @@ struct SharedProjectDetailView: View {
     }
 
     private var headerGradient: some View {
-        let color = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
-        return LinearGradient(
-            colors: [color, color.opacity(0.85)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
     }
 
     // MARK: - Scroll Content
