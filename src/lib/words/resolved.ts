@@ -93,7 +93,6 @@ export function resolveSelectedWordTexts<T extends ResolvableWordRow>(
     english: firstNonEmpty(lexicon?.headword) ?? row.english,
     japanese: firstNormalizedJapanese(linkedSense?.translation_ja)
       ?? firstNormalizedJapanese(primarySense?.translation_ja)
-      ?? firstNormalizedJapanese(row.japanese)
       ?? row.japanese,
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
     lexiconSenseId: row.lexicon_sense_id ?? undefined,

@@ -232,7 +232,6 @@ function resolveWordJapanese(row: WordRow): string {
   return (
     normalizeLexiconTranslation(linkedSense?.translation_ja) ??
     normalizeLexiconTranslation(primarySense?.translation_ja) ??
-    normalizeLexiconTranslation(row.japanese) ??
     row.japanese
   );
 }
