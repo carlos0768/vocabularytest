@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { Button } from '@/components/ui';
@@ -12,24 +12,73 @@ export function nextStatus(current: WordStatus): WordStatus {
   return 'new';
 }
 
-const STATUS_COLORS: Record<WordStatus, string> = {
-  new: 'var(--color-muted)',
-  review: 'var(--color-primary)',
-  mastered: 'var(--color-success, #22c55e)',
-};
+const STORAGE_PREFIX = 'notion_cb_mid_';
 
-export function NotionCheckbox({ status, onClick }: { status: WordStatus; onClick: () => void }) {
-  const filledCount = status === 'new' ? 0 : status === 'review' ? 1 : 3;
-  const color = STATUS_COLORS[status];
+/**
+ * iOS と同じ 6 段階サイクルの NotionCheckbox。
+ * new(0) → review(1) → review(2) → mastered(3) → review(2) → review(1) → new(0) → …
+ * review 内の中間状態は localStorage で管理。
+ */
+export function NotionCheckbox({
+  wordId,
+  status,
+  onStatusChange,
+}: {
+  wordId: string;
+  status: WordStatus;
+  onStatusChange: (newStatus: WordStatus) => void;
+}) {
+  const [midFilled, setMidFilled] = useState(false);
+
+  useEffect(() => {
+    if (status === 'review') {
+      try {
+        setMidFilled(localStorage.getItem(STORAGE_PREFIX + wordId) === '1');
+      } catch {
+        setMidFilled(false);
+      }
+    } else {
+      setMidFilled(status === 'mastered');
+    }
+  }, [status, wordId]);
+
+  const filledCount =
+    status === 'mastered' ? 3 :
+    status === 'review' ? (midFilled ? 2 : 1) :
+    0;
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (status === 'new') {
+        localStorage.setItem(STORAGE_PREFIX + wordId, '0');
+        setMidFilled(false);
+        onStatusChange('review');
+      } else if (status === 'review' && !midFilled) {
+        localStorage.setItem(STORAGE_PREFIX + wordId, '1');
+        setMidFilled(true);
+      } else if (status === 'review' && midFilled) {
+        localStorage.removeItem(STORAGE_PREFIX + wordId);
+        onStatusChange('mastered');
+      } else if (status === 'mastered') {
+        localStorage.setItem(STORAGE_PREFIX + wordId, '1');
+        setMidFilled(true);
+        onStatusChange('review');
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, [midFilled, onStatusChange, status, wordId]);
+
+  const color =
+    status === 'mastered' ? 'var(--color-success, #22c55e)' :
+    status === 'review' ? 'var(--color-primary)' :
+    'var(--color-muted)';
 
   return (
     <button
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+      onClick={handleClick}
       aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済'}`}
-      title={status === 'new' ? '未学習 → 学習中' : status === 'review' ? '学習中 → 習得済' : '習得済 → 未学習'}
       className="flex-shrink-0 p-1 rounded hover:bg-[var(--color-surface)] transition-colors"
       style={{ lineHeight: 0 }}
     >
@@ -38,7 +87,7 @@ export function NotionCheckbox({ status, onClick }: { status: WordStatus; onClic
         style={{
           width: 14,
           height: 42,
-          border: `1.5px solid var(--color-border)`,
+          border: '1.5px solid var(--color-border)',
           borderRadius: 3,
         }}
       >
@@ -70,7 +119,7 @@ interface WordItemProps {
   onDelete: () => void;
   onToggleFavorite: () => void;
   onCycleVocabularyType?: () => void;
-  onStatusChange?: () => void;
+  onStatusChange?: (newStatus: WordStatus) => void;
   showProjectName?: boolean;
 }
 
@@ -131,7 +180,7 @@ function WordItem({
   return (
     <div className="card px-3 py-3 flex items-center gap-2">
       {onStatusChange && (
-        <NotionCheckbox status={word.status} onClick={onStatusChange} />
+        <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -340,7 +389,7 @@ export function WordList({
               onDelete={() => onDelete(word.id)}
               onToggleFavorite={() => onToggleFavorite(word.id)}
               onCycleVocabularyType={onCycleVocabularyType ? () => onCycleVocabularyType(word.id) : undefined}
-              onStatusChange={onStatusChange ? () => onStatusChange(word.id, nextStatus(word.status)) : undefined}
+              onStatusChange={onStatusChange ? (newStatus) => onStatusChange(word.id, newStatus) : undefined}
               showProjectName={showProjectName}
             />
           ))

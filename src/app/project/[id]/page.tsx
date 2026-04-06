@@ -8,7 +8,7 @@ import { DeleteConfirmModal, Icon, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
-import { NotionCheckbox, nextStatus } from '@/components/home/WordList';
+import { NotionCheckbox } from '@/components/home/WordList';
 import { getProjectColor } from '@/components/project/ProjectCard';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -24,7 +24,7 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
-import type { LexiconEntry, Project, ProjectShareScope, Word, SubscriptionStatus } from '@/types';
+import type { LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
@@ -555,10 +555,9 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleCycleStatus = async (wordId: string) => {
+  const handleCycleStatus = async (wordId: string, newStatus: WordStatus) => {
     const word = words.find((w) => w.id === wordId);
     if (!word) return;
-    const newStatus = nextStatus(word.status);
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: newStatus } : w)));
     try {
       await mutationRepository.updateWord(wordId, { status: newStatus });
@@ -1106,7 +1105,7 @@ export default function ProjectDetailPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-hidden">
                 <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
@@ -1136,8 +1135,9 @@ export default function ProjectDetailPage() {
                       >
                         <td className="w-7 py-3.5 text-center">
                           <NotionCheckbox
+                            wordId={word.id}
                             status={word.status}
-                            onClick={() => { void handleCycleStatus(word.id); }}
+                            onStatusChange={(newStatus) => { void handleCycleStatus(word.id, newStatus); }}
                           />
                         </td>
                         <td className="px-3 py-3.5 max-w-0">
