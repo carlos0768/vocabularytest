@@ -408,7 +408,7 @@ export function mapWordToInsertWithId(word: Word): {
 }
 
 export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> {
-  const updateData: Record<string, unknown> = {};
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
   if (updates.english !== undefined) {
     updateData.english = updates.english;
