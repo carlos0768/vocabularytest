@@ -1,9 +1,8 @@
 'use client';
 
-import { startTransition, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useEffectEvent, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui';
-import { useAuth } from '@/hooks/use-auth';
 import type {
   SharedProjectCard,
   SharedProjectMetricsMap,
@@ -19,11 +18,6 @@ type SharedPageClientProps = {
   initialPublicNextCursor: string | null;
 };
 
-type AccessibleProjectsResponse = {
-  owned?: SharedProjectCard[];
-  joined?: SharedProjectCard[];
-};
-
 type PublicProjectsResponse = {
   items?: SharedProjectCard[];
   nextCursor?: string | null;
@@ -35,55 +29,18 @@ type MetricsResponse = {
 
 const iconColors = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
 
-const SHARED_ME_STORAGE_PREFIX = 'merken_shared_me:v1:';
-
-function readSharedMeCache(userId: string): { owned: SharedProjectCard[]; joined: SharedProjectCard[] } | null {
-  if (typeof sessionStorage === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(SHARED_ME_STORAGE_PREFIX + userId);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { owned?: unknown; joined?: unknown };
-    return {
-      owned: Array.isArray(parsed.owned) ? (parsed.owned as SharedProjectCard[]) : [],
-      joined: Array.isArray(parsed.joined) ? (parsed.joined as SharedProjectCard[]) : [],
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeSharedMeCache(
-  userId: string,
-  owned: SharedProjectCard[],
-  joined: SharedProjectCard[],
-) {
-  if (typeof sessionStorage === 'undefined') return;
-  try {
-    sessionStorage.setItem(SHARED_ME_STORAGE_PREFIX + userId, JSON.stringify({ owned, joined }));
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
 export default function SharedPageClient({
   initialPublicItems,
   initialPublicNextCursor,
 }: SharedPageClientProps) {
-  const { isAuthenticated, loading: authLoading, user } = useAuth();
-  const [ownedProjects, setOwnedProjects] = useState<SharedProjectCard[]>([]);
-  const [joinedProjects, setJoinedProjects] = useState<SharedProjectCard[]>([]);
   const [publicProjects, setPublicProjects] = useState<SharedProjectCard[]>(initialPublicItems);
   const [publicNextCursor, setPublicNextCursor] = useState<string | null>(initialPublicNextCursor);
-  const [userSectionLoading, setUserSectionLoading] = useState(true);
   const [loadingMorePublic, setLoadingMorePublic] = useState(false);
-  const [userSectionError, setUserSectionError] = useState<string | null>(null);
   const [publicSectionError, setPublicSectionError] = useState<string | null>(null);
   const pendingMetricIdsRef = useRef(new Set<string>());
 
   const applyMetrics = useEffectEvent((metrics: SharedProjectMetricsMap) => {
     startTransition(() => {
-      setOwnedProjects((current) => mergeMetricsIntoCards(current, metrics));
-      setJoinedProjects((current) => mergeMetricsIntoCards(current, metrics));
       setPublicProjects((current) => mergeMetricsIntoCards(current, metrics));
     });
   });
@@ -99,8 +56,8 @@ export default function SharedPageClient({
     }
 
     try {
-      const response = await fetch(`/api/shared-projects/metrics?projectIds=${encodeURIComponent(nextIds.join(','))}`, {
-        cache: 'no-store',
+      const response = await fetch(`/api/shared-projects/metrics?projectIds=${encodeURIComponent(nextIds.join(‘,’))}`, {
+        cache: ‘no-store’,
       });
       if (!response.ok) {
         return;
@@ -121,96 +78,14 @@ export default function SharedPageClient({
     }
   });
 
-  // Hydrate from session cache before paint so revisiting /shared avoids skeleton flash (public list already SSR’d).
-  useLayoutEffect(() => {
-    if (authLoading) {
-      return;
-    }
-
-    if (!isAuthenticated || !user?.id) {
-      setOwnedProjects([]);
-      setJoinedProjects([]);
-      setUserSectionLoading(false);
-      return;
-    }
-
-    const cached = readSharedMeCache(user.id);
-    if (cached) {
-      setOwnedProjects(cached.owned);
-      setJoinedProjects(cached.joined);
-      setUserSectionLoading(false);
-    }
-  }, [authLoading, isAuthenticated, user?.id]);
-
   useEffect(() => {
-    if (authLoading) {
-      setUserSectionLoading(true);
-      return;
-    }
-
-    if (!isAuthenticated || !user?.id) {
-      setUserSectionLoading(false);
-      setUserSectionError(null);
-      setOwnedProjects([]);
-      setJoinedProjects([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const hadCache = readSharedMeCache(user.id) != null;
-
-    if (!hadCache) {
-      setUserSectionLoading(true);
-    }
-    setUserSectionError(null);
-
-    fetch('/api/shared-projects/me', {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error('shared_me_fetch_failed');
-        }
-
-        return response.json() as Promise<AccessibleProjectsResponse>;
-      })
-      .then((payload) => {
-        const owned = payload.owned ?? [];
-        const joined = payload.joined ?? [];
-        writeSharedMeCache(user.id, owned, joined);
-        startTransition(() => {
-          setOwnedProjects(owned);
-          setJoinedProjects(joined);
-        });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        console.error('Failed to load personal shared projects:', error);
-        if (!hadCache) {
-          setUserSectionError('自分の共有単語帳を読み込めませんでした。');
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setUserSectionLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [authLoading, isAuthenticated, user?.id]);
-
-  useEffect(() => {
-    const projectIds = collectMetricProjectIds(ownedProjects, joinedProjects, publicProjects);
+    const projectIds = collectMetricProjectIds([], [], publicProjects);
     if (projectIds.length === 0) {
       return;
     }
 
     requestMetrics(projectIds);
-  }, [ownedProjects, joinedProjects, publicProjects]);
+  }, [publicProjects]);
 
   async function handleLoadMorePublic() {
     if (!publicNextCursor || loadingMorePublic) {
@@ -252,52 +127,6 @@ export default function SharedPageClient({
       </header>
 
       <main className="max-w-3xl mx-auto px-5 pb-8 space-y-8">
-        {(!isAuthenticated ||
-          userSectionLoading ||
-          userSectionError != null ||
-          ownedProjects.length > 0 ||
-          joinedProjects.length > 0) && (
-          <section className="space-y-4">
-            <SectionHeader title="自分の共有 / 参加中" />
-
-            {userSectionLoading ? (
-              <ProjectSkeletonList count={3} />
-            ) : !isAuthenticated ? (
-              <div className="card p-5 text-center">
-                <Icon name="lock" size={36} className="text-[var(--color-muted)] mx-auto mb-3" />
-                <p className="font-bold text-[var(--color-foreground)]">ログインすると自分の共有が表示されます</p>
-                <p className="text-sm text-[var(--color-muted)] mt-2 mb-4">
-                  公開単語帳のプレビューはこのまま閲覧できます。
-                </p>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold"
-                >
-                  <Icon name="login" size={18} />
-                  ログイン
-                </Link>
-              </div>
-            ) : userSectionError ? (
-              <InlineMessage icon="error" tone="error" message={userSectionError} />
-            ) : (
-              <div className="space-y-6">
-                <ProjectGroup
-                  title="自分が公開した単語帳"
-                  emptyMessage="まだ公開している単語帳はありません。"
-                  items={ownedProjects}
-                />
-                {joinedProjects.length > 0 ? (
-                  <ProjectGroup
-                    title="参加中の共有単語帳"
-                    emptyMessage="参加中の共有単語帳はありません。"
-                    items={joinedProjects}
-                  />
-                ) : null}
-              </div>
-            )}
-          </section>
-        )}
-
         <section className="space-y-4">
           <SectionHeader title="共有単語帳" trailing={`${publicProjects.length}件表示`} />
 
@@ -373,35 +202,6 @@ function SectionHeader({
   );
 }
 
-function ProjectGroup({
-  title,
-  items,
-  emptyMessage,
-}: {
-  title: string;
-  items: SharedProjectCard[];
-  emptyMessage: string;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-[var(--color-foreground)]">{title}</h3>
-        <span className="text-xs text-[var(--color-muted)]">{items.length}件</span>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="card p-4 text-sm text-[var(--color-muted)]">{emptyMessage}</div>
-      ) : (
-        <div className="space-y-3">
-          {items.map((item) => (
-            <ProjectCard key={item.project.id} project={item} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ProjectCard({ project }: { project: SharedProjectCard }) {
   const href = project.project.shareId ? `/share/${project.project.shareId}` : '/shared';
   const colorIndex = project.project.title.length % iconColors.length;
@@ -467,27 +267,6 @@ function CountChip({
         <span>{value}{suffix}</span>
       )}
     </span>
-  );
-}
-
-function ProjectSkeletonList({ count }: { count: number }) {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: count }, (_, index) => (
-        <div key={index} className="card p-4 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-[var(--color-surface-secondary)] animate-pulse shrink-0" />
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="h-4 w-40 rounded bg-[var(--color-surface-secondary)] animate-pulse" />
-            <div className="h-3 w-28 rounded bg-[var(--color-surface-secondary)] animate-pulse" />
-            <div className="flex items-center gap-3">
-              <div className="h-3 w-20 rounded bg-[var(--color-surface-secondary)] animate-pulse" />
-              <div className="h-3 w-20 rounded bg-[var(--color-surface-secondary)] animate-pulse" />
-            </div>
-          </div>
-          <div className="w-5 h-5 rounded bg-[var(--color-surface-secondary)] animate-pulse shrink-0" />
-        </div>
-      ))}
-    </div>
   );
 }
 

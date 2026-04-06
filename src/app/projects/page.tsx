@@ -232,13 +232,6 @@ export default function ProjectsPage() {
             <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>
             <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
           </div>
-          <Link
-            href="/scan"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-foreground)] text-white text-sm font-semibold active:opacity-80 transition-all"
-          >
-            <Icon name="add" size={16} />
-            新規スキャン
-          </Link>
         </div>
       </header>
 
