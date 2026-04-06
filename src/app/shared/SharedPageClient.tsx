@@ -56,8 +56,8 @@ export default function SharedPageClient({
     }
 
     try {
-      const response = await fetch(`/api/shared-projects/metrics?projectIds=${encodeURIComponent(nextIds.join(‘,’))}`, {
-        cache: ‘no-store’,
+      const response = await fetch(`/api/shared-projects/metrics?projectIds=${encodeURIComponent(nextIds.join(','))}`, {
+        cache: 'no-store',
       });
       if (!response.ok) {
         return;
