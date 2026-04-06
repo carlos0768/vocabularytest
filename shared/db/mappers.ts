@@ -6,7 +6,6 @@ import type {
   Word,
   VocabularyType,
   LexiconEntry,
-  LexiconSense,
   Collection,
   CollectionProject,
   RelatedWord,
@@ -15,7 +14,6 @@ import type {
 import { normalizeSourceLabels } from '../source-labels';
 import {
   normalizeLexiconDatasetSources,
-  normalizeLexiconSenseTranslationKey,
   normalizeLexiconTranslation,
 } from '../lexicon';
 
@@ -151,21 +149,6 @@ export interface WordRow {
   lexicon_entries?: LexiconEntryRow | LexiconEntryRow[] | null;
 }
 
-export interface LexiconSenseRow {
-  id: string;
-  lexicon_entry_id: string;
-  translation_ja: string;
-  normalized_translation_ja?: string | null;
-  meaning_summary?: string | null;
-  usage_notes?: string | null;
-  example_sentence?: string | null;
-  example_sentence_ja?: string | null;
-  translation_source?: string | null;
-  is_primary?: boolean | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export interface LexiconEntryRow {
   id: string;
   headword: string;
@@ -199,26 +182,6 @@ function resolveLexiconRow(
     return value[0] ?? null;
   }
   return value ?? null;
-}
-
-function resolveLexiconSenseRow(
-  value: WordRow['linked_lexicon_sense'] | LexiconEntryRow['lexicon_senses'],
-): LexiconSenseRow | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-  return value ?? null;
-}
-
-function resolveLexiconSenses(value: LexiconEntryRow['lexicon_senses']): LexiconSenseRow[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is LexiconSenseRow => Boolean(item?.id));
-}
-
-function resolvePrimaryLexiconSenseRow(entry: LexiconEntryRow | null): LexiconSenseRow | null {
-  if (!entry) return null;
-  const senses = resolveLexiconSenses(entry.lexicon_senses);
-  return senses.find((sense) => sense.is_primary) ?? senses[0] ?? null;
 }
 
 function resolveWordEnglish(row: WordRow): string {
@@ -256,26 +219,6 @@ function resolveWordExampleSentenceJa(row: WordRow): string | undefined {
 
 function normalizeVocabularyType(value: unknown): VocabularyType | null {
   return value === 'active' || value === 'passive' ? value : null;
-}
-
-export function mapLexiconSenseFromRow(row: LexiconSenseRow): LexiconSense {
-  const translationJa = normalizeLexiconTranslation(row.translation_ja) ?? row.translation_ja;
-  return {
-    id: row.id,
-    lexiconEntryId: row.lexicon_entry_id,
-    translationJa,
-    normalizedTranslationJa: normalizeLexiconSenseTranslationKey(
-      row.normalized_translation_ja ?? translationJa,
-    ) ?? '',
-    meaningSummary: toNonEmptyString(row.meaning_summary) ?? undefined,
-    usageNotes: toNonEmptyString(row.usage_notes) ?? undefined,
-    exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
-    exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
-    translationSource: row.translation_source ?? undefined,
-    isPrimary: row.is_primary ?? false,
-    createdAt: row.created_at ?? new Date(0).toISOString(),
-    updatedAt: row.updated_at ?? new Date(0).toISOString(),
-  };
 }
 
 export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
