@@ -112,10 +112,14 @@ body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Project detail header: legacy WebKit + env() so iOS Safari paints under the notch */
+/* Project detail header: pull up into safe-area so the color fills behind the notch */
 .project-detail-header-safe-top {
+  margin-top: calc(-1 * constant(safe-area-inset-top));
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   padding-top: constant(safe-area-inset-top);
   padding-top: env(safe-area-inset-top, 0px);
 }

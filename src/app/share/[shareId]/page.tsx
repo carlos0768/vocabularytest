@@ -189,7 +189,7 @@ export default function SharedProjectPage() {
       <div className="pb-28 lg:pb-8">
         {/* Dynamic color header */}
         <div
-          className="sticky top-0 z-40"
+          className="project-detail-header-safe-top sticky top-0 z-40"
           style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
         >
           <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
