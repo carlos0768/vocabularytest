@@ -3,6 +3,26 @@
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
 
+/**
+ * 訳テキストから先頭の括弧表現を除去する。
+ * - 「、」や「,」を含まない場合: 先頭の (…) を除去（途中のものはそのまま）
+ * - 「、」や「,」を含む場合: 区切りごとの各部分に同じルールを適用
+ */
+function stripLeadingParens(text: string): string {
+  const stripPart = (part: string): string => {
+    const trimmed = part.trim();
+    if (trimmed.startsWith('(') || trimmed.startsWith('（')) {
+      return trimmed.replace(/^[（(][^）)]*[）)]/, '').trim();
+    }
+    return trimmed;
+  };
+
+  if (text.includes('、') || text.includes(',')) {
+    return text.split(/[、,]/).map(stripPart).join('、');
+  }
+  return stripPart(text);
+}
+
 interface QuizOptionProps {
   label: string;
   index: number;
@@ -66,7 +86,7 @@ export function QuizOption({
           isInactive && 'text-[var(--color-muted)]'
         )}
       >
-        {label}
+        {stripLeadingParens(label)}
       </span>
 
       {/* Result icon */}
