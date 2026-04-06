@@ -254,34 +254,33 @@ export default function SharedProjectPage() {
                 <p className="text-sm text-[var(--color-muted)]">単語がありません</p>
               </div>
             ) : (
-              <div>
-                <div className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]">
-                  <span className="flex-1">単語</span>
-                  <span className="w-10 text-center">品詞</span>
-                  <span className="w-28 text-right">訳</span>
-                </div>
-                <div className="divide-y divide-[var(--color-border-light)]">
-                  {words.map((word) => (
-                    <div
-                      key={word.id}
-                      className="flex items-center gap-3 px-3 py-3.5"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
-                        {word.status === 'mastered' && (
-                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-success)] text-white text-[9px] items-center justify-center font-bold">A</span>
-                        )}
-                        {word.status === 'review' && (
-                          <span className="inline-flex ml-1.5 w-4 h-4 rounded-full bg-[var(--color-warning)] text-white text-[9px] items-center justify-center font-bold">P</span>
-                        )}
-                      </div>
-                      <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
-                        {posLabel(word.partOfSpeechTags) || '—'}
-                      </span>
-                      <span className="w-28 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="overflow-hidden">
+                <table className="w-full border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
+                      <th className="px-2 py-2 text-left font-medium">単語</th>
+                      <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
+                      <th className="px-2 py-2 text-left font-medium whitespace-nowrap">訳</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border-light)]">
+                    {words.map((word) => (
+                      <tr key={word.id}>
+                        <td className="px-2 py-2.5 max-w-0">
+                          <span className="inline-flex items-center gap-1 min-w-0">
+                            <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{word.english}</span>
+                          </span>
+                        </td>
+                        <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
+                          {posLabel(word.partOfSpeechTags) || '—'}
+                        </td>
+                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] truncate max-w-0">
+                          {word.japanese}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
