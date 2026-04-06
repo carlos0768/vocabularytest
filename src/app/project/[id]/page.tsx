@@ -809,7 +809,7 @@ export default function ProjectDetailPage() {
   };
   const headerFrom = getProjectColor(project?.title ?? 'MERKEN');
   const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
-  const headerBackground = `linear-gradient(135deg, ${headerFrom}, ${headerTo})`;
+  const headerBackground = headerFrom;
   useEffect(() => {
     if (loading || !project) return;
 
