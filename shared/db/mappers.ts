@@ -149,7 +149,6 @@ export interface WordRow {
   repetition?: number | null;
   is_favorite?: boolean | null;
   lexicon_entries?: LexiconEntryRow | LexiconEntryRow[] | null;
-  linked_lexicon_sense?: LexiconSenseRow | LexiconSenseRow[] | null;
 }
 
 export interface LexiconSenseRow {
@@ -174,9 +173,12 @@ export interface LexiconEntryRow {
   pos: string;
   cefr_level?: string | null;
   dataset_sources?: string[] | null;
+  translation_ja?: string | null;
+  translation_source?: string | null;
+  example_sentence?: string | null;
+  example_sentence_ja?: string | null;
   created_at?: string;
   updated_at?: string;
-  lexicon_senses?: LexiconSenseRow[] | null;
 }
 
 function toNonEmptyString(value: unknown): string | null {
@@ -227,11 +229,9 @@ function resolveWordEnglish(row: WordRow): string {
 }
 
 function resolveWordJapanese(row: WordRow): string {
-  const linkedSense = resolveLexiconSenseRow(row.linked_lexicon_sense);
-  const primarySense = resolvePrimaryLexiconSenseRow(resolveLexiconRow(row.lexicon_entries));
+  const lexicon = resolveLexiconRow(row.lexicon_entries);
   return (
-    normalizeLexiconTranslation(linkedSense?.translation_ja) ??
-    normalizeLexiconTranslation(primarySense?.translation_ja) ??
+    normalizeLexiconTranslation(lexicon?.translation_ja) ??
     row.japanese
   );
 }
@@ -241,20 +241,16 @@ function resolveWordCefrLevel(row: WordRow): string | undefined {
 }
 
 function resolveWordExampleSentence(row: WordRow): string | undefined {
-  const linkedSense = resolveLexiconSenseRow(row.linked_lexicon_sense);
-  const primarySense = resolvePrimaryLexiconSenseRow(resolveLexiconRow(row.lexicon_entries));
+  const lexicon = resolveLexiconRow(row.lexicon_entries);
   return toNonEmptyString(row.example_sentence)
-    ?? toNonEmptyString(linkedSense?.example_sentence)
-    ?? toNonEmptyString(primarySense?.example_sentence)
+    ?? toNonEmptyString(lexicon?.example_sentence)
     ?? undefined;
 }
 
 function resolveWordExampleSentenceJa(row: WordRow): string | undefined {
-  const linkedSense = resolveLexiconSenseRow(row.linked_lexicon_sense);
-  const primarySense = resolvePrimaryLexiconSenseRow(resolveLexiconRow(row.lexicon_entries));
+  const lexicon = resolveLexiconRow(row.lexicon_entries);
   return toNonEmptyString(row.example_sentence_ja)
-    ?? toNonEmptyString(linkedSense?.example_sentence_ja)
-    ?? toNonEmptyString(primarySense?.example_sentence_ja)
+    ?? toNonEmptyString(lexicon?.example_sentence_ja)
     ?? undefined;
 }
 
@@ -283,8 +279,6 @@ export function mapLexiconSenseFromRow(row: LexiconSenseRow): LexiconSense {
 }
 
 export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
-  const senses = resolveLexiconSenses(row.lexicon_senses).map(mapLexiconSenseFromRow);
-  const primarySense = senses.find((sense) => sense.isPrimary) ?? senses[0];
   return {
     id: row.id,
     headword: row.headword,
@@ -292,12 +286,10 @@ export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
     pos: row.pos,
     cefrLevel: row.cefr_level ?? undefined,
     datasetSources: normalizeLexiconDatasetSources(row.dataset_sources ?? []),
-    primarySense,
-    senses,
-    translationJa: primarySense?.translationJa,
-    translationSource: primarySense?.translationSource,
-    exampleSentence: primarySense?.exampleSentence,
-    exampleSentenceJa: primarySense?.exampleSentenceJa,
+    translationJa: normalizeLexiconTranslation(row.translation_ja) ?? undefined,
+    translationSource: row.translation_source ?? undefined,
+    exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
+    exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
     createdAt: row.created_at ?? new Date(0).toISOString(),
     updatedAt: row.updated_at ?? new Date(0).toISOString(),
   };
