@@ -1,326 +1,188 @@
 import SwiftUI
 
+private enum SharedSortOrder: String, CaseIterable {
+    case createdAsc   = "追加順"
+    case alphabetical = "アルファベット"
+}
+
+private enum SharedActiveness: Equatable {
+    case active
+    case passive
+}
+
+private struct SharedFilterState {
+    var activeness: SharedActiveness? = nil
+    var partOfSpeech: String? = nil
+
+    var isActive: Bool { activeness != nil || partOfSpeech != nil }
+}
+
 struct SharedProjectDetailView: View {
     let summary: SharedProjectSummary
 
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = SharedProjectDetailViewModel()
 
-    @State private var editorMode: SharedWordEditorMode?
-    @State private var wordToDelete: Word?
-    @State private var scrollOffset: CGFloat = 0
+    // Search / Filter / Sort
+    @State private var searchText = ""
+    @State private var showSearch = false
+    @State private var sortOrder: SharedSortOrder = .createdAsc
+    @State private var filterState = SharedFilterState()
+    @State private var showFilterSheet = false
+
+    // Select mode
+    @State private var selectMode = false
+    @State private var selectedIds: Set<String> = []
+
+    // Import sheet
+    @State private var showImportSheet = false
 
     private var project: Project {
         viewModel.project ?? summary.project
     }
 
-    private var accessRole: SharedProjectAccessRole {
-        viewModel.project == nil ? summary.accessRole : viewModel.accessRole
+    // MARK: - Filtered words
+
+    private var filteredWords: [Word] {
+        var result = viewModel.words
+
+        if !searchText.isEmpty {
+            result = result.filter {
+                $0.english.localizedCaseInsensitiveContains(searchText)
+                    || $0.japanese.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        if let act = filterState.activeness {
+            switch act {
+            case .active:  result = result.filter { $0.vocabularyType == .active }
+            case .passive: result = result.filter { $0.vocabularyType == .passive }
+            }
+        }
+        if let pos = filterState.partOfSpeech {
+            result = result.filter { word in
+                word.partOfSpeechTags?.contains(where: { $0.localizedCaseInsensitiveContains(pos) }) ?? false
+            }
+        }
+        switch sortOrder {
+        case .createdAsc:
+            return result.sorted { $0.createdAt < $1.createdAt }
+        case .alphabetical:
+            return result.sorted { $0.english.localizedCaseInsensitiveCompare($1.english) == .orderedAscending }
+        }
     }
 
-    private var canEdit: Bool { false }
+    private var availablePartsOfSpeech: [String] {
+        let all = viewModel.words.flatMap { $0.partOfSpeechTags ?? [] }
+        let trimmed = all.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return Array(Set(trimmed)).sorted()
+    }
+
+    private var hasActiveFilters: Bool {
+        filterState.isActive || !searchText.isEmpty
+    }
 
     // MARK: - Body
 
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
-                ZStack {
-                    backgroundLayers
-                    scrollContent
-                }
+                headerBar
+                scrollContent
             }
-
             bottomActionBar
         }
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
         .onAppear { appState.tabBarVisible = false }
         .onDisappear { appState.tabBarVisible = true }
-        .sheet(item: $editorMode) { mode in
-            sharedWordEditorSheet(mode)
-        }
-        .alert("この単語を削除しますか？", isPresented: Binding(
-            get: { wordToDelete != nil },
-            set: { if !$0 { wordToDelete = nil } }
-        )) {
-            Button("削除", role: .destructive) {
-                guard let word = wordToDelete else { return }
-                Task {
-                    await viewModel.deleteWord(wordId: word.id, projectId: project.id, using: appState)
-                }
-                wordToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) { wordToDelete = nil }
-        } message: {
-            Text("共同編集中の単語帳からこの単語が削除されます。")
-        }
-        .cameraAreaGlassOverlay(scrollOffset: scrollOffset)
-        .onPreferenceChange(TopSafeAreaScrollOffsetKey.self) { value in
-            scrollOffset = value
-        }
+        .sheet(isPresented: $showFilterSheet) { filterSheet }
+        .sheet(isPresented: $showImportSheet) { importSheet }
         .task(id: "\(summary.project.id)-\(appState.dataVersion)") {
             await viewModel.load(projectId: summary.project.id, using: appState)
         }
     }
 
-    // MARK: - Layout
+    // MARK: - Header (same as ProjectDetailView)
 
-    private var backgroundLayers: some View {
+    private var headerBar: some View {
         VStack(spacing: 0) {
-            thumbnailBackgroundColor
-            MerkenTheme.background
+            HStack(spacing: 12) {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Color.white.opacity(0.2), in: .circle)
+                }
+
+                VStack(spacing: 1) {
+                    Text(project.title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Text("\(viewModel.words.count)語")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .monospacedDigit()
+                }
+                .frame(maxWidth: .infinity)
+
+                // Spacer to balance back button
+                Color.clear.frame(width: 40, height: 40)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 20)
         }
-        .ignoresSafeArea()
+        .background(headerGradient.ignoresSafeArea(edges: .top))
     }
+
+    private var headerGradient: some View {
+        let color = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
+        return LinearGradient(
+            colors: [color, color.opacity(0.85)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    // MARK: - Scroll Content
 
     private var scrollContent: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                topScrollAnchor
-                thumbnailHeader
-                bodyCard
+            VStack(alignment: .leading, spacing: 16) {
+                if let errorMessage = viewModel.errorMessage {
+                    SolidCard {
+                        Text(errorMessage)
+                            .foregroundStyle(MerkenTheme.warning)
+                    }
+                }
+
+                notionWordListSection
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 100)
         }
-        .coordinateSpace(name: "sharedProjectDetailScroll")
         .scrollIndicators(.hidden)
-        .disableTopScrollEdgeEffectIfAvailable()
-        .ignoresSafeArea(.container, edges: .top)
         .refreshable {
             await viewModel.load(projectId: summary.project.id, using: appState)
         }
     }
 
-    private var topScrollAnchor: some View {
-        Color.clear
-            .frame(height: 0)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: TopSafeAreaScrollOffsetKey.self,
-                        value: proxy.frame(in: .named("sharedProjectDetailScroll")).minY
-                    )
-                }
-            )
-    }
+    // MARK: - Word List Section
 
-    // MARK: - Thumbnail Header
-
-    private var thumbnailBackgroundColor: Color {
-        if project.iconImage != nil {
-            return Color(red: 0.15, green: 0.15, blue: 0.18)
-        }
-        return MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
-    }
-
-    private var thumbnailHeader: some View {
-        ZStack(alignment: .bottomLeading) {
-            if let iconImage = project.iconImage,
-               let uiImage = ImageCompressor.decodeBase64Image(iconImage) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                let bgColor = MerkenTheme.placeholderColor(for: project.id, isDark: colorScheme == .dark)
-                bgColor
-                Text(String(project.title.prefix(1)))
-                    .font(.system(size: 48, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-
-            LinearGradient(
-                colors: [.clear, Color.black.opacity(0.14), Color.black.opacity(0.52)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            thumbnailMetadataOverlay
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 300)
-        .contentShape(Rectangle())
-        .clipped()
-    }
-
-    private var thumbnailMetadataOverlay: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Spacer()
-
-            HStack(alignment: .bottom) {
-                Spacer()
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("\(viewModel.words.count)")
-                        .font(.system(size: 22, weight: .bold))
-                        .monospacedDigit()
-                    Text("語")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.black.opacity(0.22), in: Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
-            }
-
-            Text(project.title)
-                .font(.system(size: 26, weight: .black))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 20)
-    }
-
-    // MARK: - Body Card
-
-    private var bodyCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let errorMessage = viewModel.errorMessage {
-                SolidCard {
-                    Text(errorMessage)
-                        .foregroundStyle(MerkenTheme.warning)
-                }
-            }
-
-            statsSection
-
-            notionWordListSection
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 100)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(MerkenTheme.background)
-    }
-
-    // MARK: - Stats Section
-
-    private var statsSection: some View {
-        let words = viewModel.words
-        let total = words.count
-        let masteredCount = words.filter { $0.status == .mastered }.count
-        let reviewCount   = words.filter { $0.status == .review }.count
-        let newCount      = words.filter { $0.status == .new }.count
-
-        return HStack(alignment: .top, spacing: 10) {
-            statsCard(label: "習得",   count: masteredCount, total: total,
-                      color: MerkenTheme.success,    icon: "checkmark.seal.fill")
-            statsCard(label: "学習中", count: reviewCount,   total: total,
-                      color: MerkenTheme.accentBlue, icon: "arrow.trianglehead.2.clockwise")
-            statsCard(label: "未学習", count: newCount,      total: total,
-                      color: MerkenTheme.mutedText,  icon: "sparkle")
-        }
-    }
-
-    private func statsCard(label: String, count: Int, total: Int, color: Color, icon: String) -> some View {
-        let progress: CGFloat = total > 0 ? CGFloat(count) / CGFloat(total) : 0
-
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("\(count)")
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text("/\(total)語")
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
-            .font(.system(size: 21, weight: .bold))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-
-            Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .lineLimit(1)
-
-            Spacer(minLength: 2)
-
-            ZStack {
-                Circle()
-                    .stroke(MerkenTheme.borderLight, lineWidth: 5)
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(color)
-            }
-            .frame(width: 54, height: 54)
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 11)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 120)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(MerkenTheme.border, lineWidth: 1.5))
-    }
-
-    // MARK: - Bottom Action Bar
-
-    private var bottomActionBar: some View {
-        HStack(spacing: 10) {
-            if viewModel.importedProjectId != nil {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                    Text("追加済み")
-                        .font(.system(size: 15, weight: .bold))
-                }
-                .foregroundStyle(MerkenTheme.success)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(MerkenTheme.success.opacity(0.12), in: .capsule)
-            } else {
-                Button {
-                    Task {
-                        await viewModel.importToLocal(
-                            title: project.title,
-                            words: viewModel.words,
-                            sourceShareId: project.shareId ?? project.id,
-                            using: appState
-                        )
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        if viewModel.importing {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 15, weight: .bold))
-                        }
-                        Text(viewModel.importing ? "追加中..." : "単語帳として追加")
-                            .font(.system(size: 15, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(MerkenTheme.accentBlue, in: .capsule)
-                }
-                .disabled(viewModel.importing || viewModel.words.isEmpty)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .background(
-            MerkenTheme.background
-                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: -4)
-        )
-    }
-
-    // MARK: - Notion Word List
-
-    private let notionCheckColWidth: CGFloat = 34
     private let notionEnglishColWidth: CGFloat = 158
     private let notionApPosClusterWidth: CGFloat = 88
     private let notionJapaneseColWidth: CGFloat = 180
+    private let notionCheckColWidth: CGFloat = 34
 
     private var notionWordListSection: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Section header + toolbar
             HStack(alignment: .center, spacing: 6) {
                 Text("単語一覧")
                     .font(.system(size: 20, weight: .bold))
@@ -329,43 +191,35 @@ struct SharedProjectDetailView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(MerkenTheme.mutedText)
                     .monospacedDigit()
+
+                Spacer()
+
+                toolbar
             }
             .padding(.bottom, 10)
 
+            // Search bar
+            if showSearch {
+                searchBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.bottom, 8)
+            }
+
             if viewModel.loading && viewModel.words.isEmpty {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 6) {
-                        ProgressView().progressViewStyle(.circular)
-                        Text("読み込み中...")
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    .padding(.vertical, 24)
-                    Spacer()
-                }
+                loadingPlaceholder
             } else if viewModel.words.isEmpty {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 6) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 22))
-                            .foregroundStyle(MerkenTheme.mutedText)
-                        Text("単語がありません")
-                            .font(.system(size: 13))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    .padding(.vertical, 24)
-                    Spacer()
-                }
+                emptyPlaceholder(text: "単語がありません")
+            } else if filteredWords.isEmpty {
+                emptyPlaceholder(text: searchText.isEmpty
+                    ? "条件に一致する単語がありません"
+                    : "「\(searchText)」に一致する単語がありません")
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(spacing: 0) {
-                        notionColumnHeader
+                        columnHeader
 
-                        let words = viewModel.words
-                        ForEach(Array(words.enumerated()), id: \.element.id) { index, word in
-                            notionWordRow(word, isLast: index == words.count - 1)
+                        ForEach(Array(filteredWords.enumerated()), id: \.element.id) { index, word in
+                            wordRow(word, isLast: index == filteredWords.count - 1)
                         }
                     }
                 }
@@ -373,21 +227,198 @@ struct SharedProjectDetailView: View {
         }
     }
 
-    private var notionColumnHeader: some View {
+    // MARK: - Toolbar
+
+    private var toolbar: some View {
+        HStack(spacing: 6) {
+            toolbarIconButton(
+                icon: showSearch ? "xmark" : "magnifyingglass",
+                isActive: showSearch || !searchText.isEmpty
+            ) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    showSearch.toggle()
+                    if !showSearch { searchText = "" }
+                }
+            }
+
+            toolbarIconButton(
+                icon: "line.3.horizontal.decrease.circle",
+                isActive: filterState.isActive
+            ) {
+                showFilterSheet = true
+            }
+
+            Menu {
+                ForEach(SharedSortOrder.allCases, id: \.self) { order in
+                    Button {
+                        sortOrder = order
+                    } label: {
+                        if sortOrder == order {
+                            Label(order.rawValue, systemImage: "checkmark")
+                        } else {
+                            Text(order.rawValue)
+                        }
+                    }
+                }
+            } label: {
+                toolbarIconLabel(icon: "arrow.up.arrow.down", isActive: false)
+            }
+
+            if hasActiveFilters {
+                Text("\(filteredWords.count)/\(viewModel.words.count)")
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(MerkenTheme.accentBlue)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func toolbarIconButton(icon: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            toolbarIconLabel(icon: icon, isActive: isActive)
+        }
+    }
+
+    private func toolbarIconLabel(icon: String, isActive: Bool) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(isActive ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+            .frame(width: 36, height: 36)
+            .background(isActive ? MerkenTheme.accentBlue.opacity(0.12) : MerkenTheme.surface, in: .circle)
+            .overlay(Circle().stroke(isActive ? MerkenTheme.accentBlue.opacity(0.35) : MerkenTheme.borderLight, lineWidth: 1))
+    }
+
+    // MARK: - Search Bar
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14))
+                .foregroundStyle(MerkenTheme.mutedText)
+            TextField("単語を検索...", text: $searchText)
+                .font(.system(size: 15))
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+            }
+        }
+        .solidTextField(cornerRadius: 14)
+    }
+
+    // MARK: - Filter Sheet
+
+    private var filterSheet: some View {
+        NavigationStack {
+            List {
+                Section {
+                    filterActivenessRow(label: "すべて", icon: "circle.dashed", iconColor: MerkenTheme.mutedText, value: nil)
+                    filterActivenessRow(label: "アクティブ", icon: "a.circle.fill", iconColor: MerkenTheme.accentBlue, value: .active)
+                    filterActivenessRow(label: "パッシブ", icon: "p.circle.fill", iconColor: MerkenTheme.secondaryText, value: .passive)
+                } header: {
+                    Text("アクティブ / パッシブ")
+                }
+
+                if !availablePartsOfSpeech.isEmpty {
+                    Section {
+                        filterPosRow(label: "すべて", value: nil)
+                        ForEach(availablePartsOfSpeech, id: \.self) { pos in
+                            filterPosRow(label: posDisplayName(pos), value: pos)
+                        }
+                    } header: {
+                        Text("品詞")
+                    }
+                }
+            }
+            .navigationTitle("フィルタ")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("リセット") { filterState = SharedFilterState() }
+                        .foregroundStyle(MerkenTheme.danger)
+                        .disabled(!filterState.isActive)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完了") { showFilterSheet = false }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func filterActivenessRow(label: String, icon: String, iconColor: Color, value: SharedActiveness?) -> some View {
+        let isSelected = filterState.activeness == value
+        return Button {
+            filterState.activeness = value
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 22)
+                Text(label)
+                    .foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func filterPosRow(label: String, value: String?) -> some View {
+        let isSelected = filterState.partOfSpeech == value
+        return Button {
+            filterState.partOfSpeech = value
+        } label: {
+            HStack {
+                Text(label).foregroundStyle(MerkenTheme.primaryText)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.accentBlue)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func posDisplayName(_ tag: String) -> String {
+        let mapping: [String: String] = [
+            "noun": "名詞", "verb": "動詞", "adjective": "形容詞",
+            "adverb": "副詞", "preposition": "前置詞", "conjunction": "接続詞",
+            "pronoun": "代名詞", "interjection": "感動詞",
+            "determiner": "限定詞", "auxiliary": "助動詞",
+        ]
+        return mapping[tag.lowercased()] ?? tag
+    }
+
+    // MARK: - Column Header
+
+    private var columnHeader: some View {
         HStack(spacing: 0) {
-            Image(systemName: "square.grid.3x1.below.line.grid.1x2")
-                .font(.system(size: 10, weight: .semibold))
-                .frame(width: notionCheckColWidth, alignment: .center)
+            if selectMode {
+                Spacer().frame(width: notionCheckColWidth)
+            }
 
             Text("単語")
                 .frame(width: notionEnglishColWidth, alignment: .leading)
                 .padding(.leading, 8)
 
             HStack(spacing: 4) {
-                Text("A/P")
-                    .frame(width: 42, alignment: .center)
-                Text("品詞")
-                    .frame(width: 42, alignment: .center)
+                Text("A/P").frame(width: 42, alignment: .center)
+                Text("品詞").frame(width: 42, alignment: .center)
             }
             .frame(width: notionApPosClusterWidth)
 
@@ -403,31 +434,28 @@ struct SharedProjectDetailView: View {
         .overlay(Rectangle().fill(MerkenTheme.border).frame(height: 1), alignment: .bottom)
     }
 
-    private func notionWordRow(_ word: Word, isLast: Bool) -> some View {
-        HStack(spacing: 0) {
-            notionCheckBoxes(filledCount: NotionCheckboxProgress.filledCount(for: word))
-                .frame(width: notionCheckColWidth, alignment: .center)
+    // MARK: - Word Row
 
-            HStack(spacing: 4) {
-                Text(word.english)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                if word.isFavorite {
-                    Image(systemName: "bookmark.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(MerkenTheme.warning)
-                }
+    private func wordRow(_ word: Word, isLast: Bool) -> some View {
+        HStack(spacing: 0) {
+            if selectMode {
+                checkboxView(isSelected: selectedIds.contains(word.id))
+                    .frame(width: notionCheckColWidth, alignment: .center)
             }
-            .frame(width: notionEnglishColWidth, alignment: .leading)
-            .padding(.leading, 8)
-            .padding(.vertical, 8)
+
+            Text(word.english)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(MerkenTheme.primaryText)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: notionEnglishColWidth, alignment: .leading)
+                .padding(.leading, 8)
+                .padding(.vertical, 8)
 
             HStack(spacing: 4) {
                 VocabularyTypeCycleButton(vocabularyType: word.vocabularyType, isEnabled: false) {}
                     .frame(width: 42, alignment: .center)
-                notionPosBadge(for: word)
+                posBadge(for: word)
                     .frame(width: 42, alignment: .center)
             }
             .frame(width: notionApPosClusterWidth)
@@ -447,37 +475,56 @@ struct SharedProjectDetailView: View {
         .frame(minHeight: 48)
         .contentShape(Rectangle())
         .onTapGesture {
-            if canEdit { editorMode = .edit(word: word) }
+            if selectMode {
+                if selectedIds.contains(word.id) {
+                    selectedIds.remove(word.id)
+                } else {
+                    selectedIds.insert(word.id)
+                }
+            }
         }
         .overlay(
             Group {
                 if !isLast {
-                    Rectangle()
-                        .fill(MerkenTheme.borderLight)
-                        .frame(height: 1)
+                    Rectangle().fill(MerkenTheme.borderLight).frame(height: 1)
                 }
             },
             alignment: .bottom
         )
     }
 
+    private func checkboxView(isSelected: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(isSelected ? MerkenTheme.accentBlue : MerkenTheme.border, lineWidth: 2)
+                .frame(width: 22, height: 22)
+            if isSelected {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(MerkenTheme.accentBlue)
+                    .frame(width: 22, height: 22)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+    }
+
     @ViewBuilder
-    private func notionPosBadge(for word: Word) -> some View {
+    private func posBadge(for word: Word) -> some View {
         let tags = word.partOfSpeechTags ?? []
         let label = tags.compactMap { tag -> String? in
             let t = tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             switch t {
-            case "noun", "名詞":                          return "名"
-            case "verb", "動詞":                          return "動"
-            case "adjective", "形容詞":                   return "形"
-            case "adverb", "副詞":                        return "副"
-            case "preposition", "前置詞":                 return "前"
-            case "conjunction", "接続詞":                 return "接"
-            case "pronoun", "代名詞":                     return "代"
-            case "idiom", "熟語", "phrase",
-                 "フレーズ", "idiomatic_expression":      return "熟"
-            case "phrasal_verb", "句動詞":                return "句"
-            default:                                      return nil
+            case "noun", "名詞":        return "名"
+            case "verb", "動詞":        return "動"
+            case "adjective", "形容詞": return "形"
+            case "adverb", "副詞":      return "副"
+            case "preposition", "前置詞": return "前"
+            case "conjunction", "接続詞": return "接"
+            case "pronoun", "代名詞":    return "代"
+            case "idiom", "熟語", "phrase", "フレーズ", "idiomatic_expression": return "熟"
+            case "phrasal_verb", "句動詞": return "句"
+            default: return nil
             }
         }.prefix(2).joined(separator: "・")
 
@@ -493,91 +540,100 @@ struct SharedProjectDetailView: View {
         }
     }
 
-    private func notionCheckBoxes(filledCount: Int) -> some View {
-        let boxSize: CGFloat = 13
+    // MARK: - Bottom Action Bar
 
-        return VStack(spacing: 0) {
-            ForEach(0..<3, id: \.self) { i in
-                Rectangle()
-                    .fill(i < filledCount ? Color.primary : Color.clear)
-                    .frame(width: boxSize, height: boxSize)
-                    .overlay(
-                        Group {
-                            if i < 2 {
-                                Rectangle()
-                                    .fill(MerkenTheme.border)
-                                    .frame(height: 1)
-                            }
-                        },
-                        alignment: .bottom
-                    )
+    private var bottomActionBar: some View {
+        HStack(spacing: 10) {
+            if viewModel.importedProjectId != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                    Text("追加済み")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(MerkenTheme.success)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(MerkenTheme.success.opacity(0.12), in: .capsule)
+            } else if selectMode {
+                Button {
+                    selectMode = false
+                    selectedIds = []
+                } label: {
+                    Text("キャンセル")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MerkenTheme.border, lineWidth: 1.5))
+                }
+
+                Button {
+                    let selected = viewModel.words.filter { selectedIds.contains($0.id) }
+                    Task {
+                        await viewModel.importToLocal(
+                            title: project.title,
+                            words: selected,
+                            sourceShareId: project.shareId ?? project.id,
+                            using: appState
+                        )
+                        selectMode = false
+                        selectedIds = []
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if viewModel.importing {
+                            ProgressView().progressViewStyle(.circular).tint(.white)
+                        } else {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        Text(viewModel.importing ? "追加中..." : "選択した \(selectedIds.count)語を追加")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(selectedIds.isEmpty ? MerkenTheme.border : MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+                }
+                .disabled(viewModel.importing || selectedIds.isEmpty)
+            } else {
+                Button {
+                    showImportSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        if viewModel.importing {
+                            ProgressView().progressViewStyle(.circular).tint(.white)
+                        } else {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        Text(viewModel.importing ? "追加中..." : "単語帳として追加")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+                }
+                .disabled(viewModel.importing || viewModel.words.isEmpty)
             }
         }
-        .overlay(RoundedRectangle(cornerRadius: 3).stroke(MerkenTheme.border, lineWidth: 1))
-        .clipShape(.rect(cornerRadius: 3))
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(
+            MerkenTheme.background
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: -4)
+                .ignoresSafeArea(.container, edges: .bottom)
+        )
     }
 
-    // MARK: - Editor Sheet
+    // MARK: - Import Sheet
 
-    @ViewBuilder
-    private func sharedWordEditorSheet(_ mode: SharedWordEditorMode) -> some View {
-        SharedWordEditorSheet(mode: mode) { english, japanese in
-            switch mode {
-            case .create:
-                Task {
-                    await viewModel.addWord(
-                        english: english, japanese: japanese,
-                        projectId: project.id, using: appState
-                    )
-                }
-            case .edit(let word):
-                Task {
-                    await viewModel.updateWord(
-                        wordId: word.id, english: english, japanese: japanese,
-                        projectId: project.id, using: appState
-                    )
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Editor Mode
-
-private enum SharedWordEditorMode: Identifiable {
-    case create
-    case edit(word: Word)
-
-    var id: String {
-        switch self {
-        case .create:           return "create"
-        case .edit(let word):   return word.id
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .create: return "単語を追加"
-        case .edit:   return "単語を編集"
-        }
-    }
-}
-
-// MARK: - Compact Editor Sheet
-
-private struct SharedWordEditorSheet: View {
-    let mode: SharedWordEditorMode
-    let onSubmit: (_ english: String, _ japanese: String) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @FocusState private var focusedField: Field?
-    @State private var english = ""
-    @State private var japanese = ""
-
-    private enum Field { case english, japanese }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private var importSheet: some View {
+        VStack(spacing: 0) {
             RoundedRectangle(cornerRadius: 2.5)
                 .fill(MerkenTheme.border)
                 .frame(width: 36, height: 5)
@@ -585,79 +641,114 @@ private struct SharedWordEditorSheet: View {
                 .padding(.top, 10)
                 .padding(.bottom, 16)
 
-            Text(mode.title)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
-
-            VStack(spacing: 10) {
-                compactField(label: "英単語", text: $english, field: .english)
-                compactField(label: "日本語訳", text: $japanese, field: .japanese)
+            importSheetRow(
+                icon: "square.and.arrow.down",
+                iconColor: MerkenTheme.primaryText,
+                title: "すべて追加",
+                subtitle: "\(viewModel.words.count)語"
+            ) {
+                showImportSheet = false
+                Task {
+                    await viewModel.importToLocal(
+                        title: project.title,
+                        words: viewModel.words,
+                        sourceShareId: project.shareId ?? project.id,
+                        using: appState
+                    )
+                }
             }
-            .padding(.horizontal, 20)
 
-            Button {
-                onSubmit(
-                    english.trimmingCharacters(in: .whitespacesAndNewlines),
-                    japanese.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-                dismiss()
-            } label: {
-                Text("保存")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(canSubmit ? MerkenTheme.accentBlue : MerkenTheme.border, in: Capsule())
+            if hasActiveFilters && filteredWords.count != viewModel.words.count {
+                importSheetRow(
+                    icon: "line.3.horizontal.decrease.circle",
+                    iconColor: MerkenTheme.accentBlue,
+                    title: "フィルタ結果を追加",
+                    subtitle: "\(filteredWords.count)語"
+                ) {
+                    showImportSheet = false
+                    Task {
+                        await viewModel.importToLocal(
+                            title: project.title,
+                            words: filteredWords,
+                            sourceShareId: project.shareId ?? project.id,
+                            using: appState
+                        )
+                    }
+                }
             }
-            .disabled(!canSubmit)
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 8)
+
+            importSheetRow(
+                icon: "checklist",
+                iconColor: MerkenTheme.secondaryText,
+                title: "選択して追加",
+                subtitle: "追加する単語を選んでください"
+            ) {
+                showImportSheet = false
+                selectMode = true
+                selectedIds = []
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 16)
         .background(MerkenTheme.background)
-        .presentationDetents([.height(260)])
+        .presentationDetents([.height(hasActiveFilters && filteredWords.count != viewModel.words.count ? 260 : 200)])
         .presentationDragIndicator(.hidden)
         .presentationCornerRadius(20)
-        .onAppear {
-            if case .edit(let word) = mode {
-                english  = word.english
-                japanese = word.japanese
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                focusedField = .english
-            }
-        }
     }
 
-    private var canSubmit: Bool {
-        !english.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private func compactField(label: String, text: Binding<String>, field: Field) -> some View {
-        HStack(spacing: 10) {
-            Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .frame(width: 72, alignment: .leading)
-            TextField(label, text: text)
-                .font(.system(size: 15))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .focused($focusedField, equals: field)
-                .submitLabel(field == .english ? .next : .done)
-                .onSubmit {
-                    if field == .english { focusedField = .japanese }
-                    else { focusedField = nil }
+    private func importSheetRow(icon: String, iconColor: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(MerkenTheme.primaryText)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(MerkenTheme.mutedText)
                 }
+                Spacer()
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(focusedField == field ? MerkenTheme.accentBlue : MerkenTheme.border, lineWidth: 1.5)
-        )
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Helpers
+
+    private var loadingPlaceholder: some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 6) {
+                ProgressView().progressViewStyle(.circular)
+                Text("読み込み中...")
+                    .font(.system(size: 13))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+            }
+            .padding(.vertical, 24)
+            Spacer()
+        }
+    }
+
+    private func emptyPlaceholder(text: String) -> some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 6) {
+                Image(systemName: "tray")
+                    .font(.system(size: 22))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                Text(text)
+                    .font(.system(size: 13))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.vertical, 24)
+            Spacer()
+        }
     }
 }
