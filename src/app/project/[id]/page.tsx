@@ -774,9 +774,9 @@ export default function ProjectDetailPage() {
       );
     }
     if (wordFilterActiveness === 'active') {
-      result = result.filter((w) => w.status === 'mastered');
+      result = result.filter((w) => w.vocabularyType === 'active');
     } else if (wordFilterActiveness === 'passive') {
-      result = result.filter((w) => w.status === 'review' || w.status === 'new' || !w.status);
+      result = result.filter((w) => w.vocabularyType === 'passive');
     }
 
     if (wordSortOrder === 'alphabetical') {
