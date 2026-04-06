@@ -45,7 +45,7 @@ export default function StatsPage() {
   const chartMaxMastered = useMemo(() => {
     if (!stats?.weeklyStats) return 10;
     const maxMastered = Math.max(...stats.weeklyStats.map(d => d.masteredCount ?? 0));
-    return Math.max(maxMastered, stats.totalWords, 10);
+    return Math.max(maxMastered, 10);
   }, [stats]);
 
   return (
@@ -95,50 +95,57 @@ export default function StatsPage() {
                   <p className="text-sm font-bold text-[var(--color-foreground)]">暗記した単語数の推移</p>
                   <p className="text-xs text-[var(--color-muted)]">過去14日間</p>
                 </div>
-                <div className="relative h-48">
-                  {/* Y axis labels */}
-                  <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-[var(--color-muted)] w-10">
-                    <span>{chartMaxMastered.toLocaleString()}</span>
-                    <span>{Math.round(chartMaxMastered / 2).toLocaleString()}</span>
-                    <span>0</span>
-                  </div>
-                  {/* Chart area */}
-                  <div className="ml-12 h-full relative">
-                    {/* Grid lines */}
-                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none" style={{ bottom: '24px' }}>
-                      <div className="border-t border-dashed border-[var(--color-border)]" />
-                      <div className="border-t border-dashed border-[var(--color-border)]" />
-                      <div className="border-t border-[var(--color-border)]" />
-                    </div>
-                    {/* Bars */}
-                    <div className="absolute left-0 right-0 bottom-6 flex items-end justify-between gap-1" style={{ top: 0 }}>
-                      {stats.weeklyStats.map((day, i) => {
-                        const mastered = day.masteredCount ?? 0;
-                        const heightPct = mastered > 0 ? Math.max((mastered / chartMaxMastered) * 100, 5) : 0;
-                        return (
-                          <div key={day.date} className="flex-1 flex items-end h-full">
-                            <div
-                              className={`w-full rounded-t-sm transition-all duration-500 ${
-                                mastered > 0
-                                  ? 'bg-[var(--color-success)]'
-                                  : 'bg-[var(--color-border-light)]'
-                              }`}
-                              style={{
-                                height: mastered > 0 ? `${heightPct}%` : '2px',
-                              }}
-                            />
+                {(() => {
+                  const BAR_AREA_HEIGHT = 160;
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {/* Y axis */}
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: '36px', height: BAR_AREA_HEIGHT, flexShrink: 0, fontSize: '10px', color: 'var(--color-muted)' }}>
+                          <span>{chartMaxMastered.toLocaleString()}</span>
+                          <span>{Math.round(chartMaxMastered / 2).toLocaleString()}</span>
+                          <span>0</span>
+                        </div>
+                        {/* Bars */}
+                        <div style={{ flex: 1, position: 'relative', height: BAR_AREA_HEIGHT }}>
+                          {/* Grid lines */}
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                            <div style={{ borderTop: '1px dashed var(--color-border)' }} />
+                            <div style={{ borderTop: '1px dashed var(--color-border)' }} />
+                            <div style={{ borderTop: '1px solid var(--color-border)' }} />
                           </div>
-                        );
-                      })}
+                          {/* Bar items */}
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+                            {stats.weeklyStats.map((day) => {
+                              const mastered = day.masteredCount ?? 0;
+                              const barHeight = mastered > 0
+                                ? Math.max(Math.round((mastered / chartMaxMastered) * BAR_AREA_HEIGHT), 4)
+                                : 2;
+                              return (
+                                <div
+                                  key={day.date}
+                                  style={{
+                                    flex: 1,
+                                    height: `${barHeight}px`,
+                                    backgroundColor: mastered > 0 ? 'var(--color-success)' : 'var(--color-border-light)',
+                                    borderRadius: '2px 2px 0 0',
+                                    transition: 'height 0.5s ease',
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      {/* X axis labels */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', marginLeft: '40px' }}>
+                        {chartDates.filter((_, i) => i % 3 === 0 || i === chartDates.length - 1).map((label) => (
+                          <span key={label} style={{ fontSize: '10px', color: 'var(--color-muted)' }}>{label}</span>
+                        ))}
+                      </div>
                     </div>
-                    {/* X axis labels */}
-                    <div className="absolute bottom-0 left-0 right-0 flex justify-between">
-                      {chartDates.filter((_, i) => i % 3 === 0 || i === chartDates.length - 1).map((label) => (
-                        <span key={label} className="text-[10px] text-[var(--color-muted)]">{label}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
                 {/* Legend */}
                 <div className="flex items-center gap-4 mt-3 ml-12">
                   <span className="flex items-center gap-1.5 text-xs text-[var(--color-muted)]">

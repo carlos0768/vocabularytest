@@ -52,7 +52,7 @@ final class StatsViewModel: ObservableObject {
         }.count
     }
 
-    /// Build cumulative mastered + total word count for each of the last 14 days.
+    /// Build daily mastered word count for each of the last 14 days.
     static func buildMasteryHistory(allWords: [Word], days: Int = 14) -> [MasteryDataPoint] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
@@ -63,11 +63,11 @@ final class StatsViewModel: ObservableObject {
             let date = calendar.date(byAdding: .day, value: -offset, to: today)!
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: date)!
 
-            // Cumulative mastered count up to this day
-            let cumulativeMastered = allWords.filter { word in
+            // Daily mastered count: words mastered on this specific day
+            let dailyMastered = allWords.filter { word in
                 guard word.status == .mastered else { return false }
                 let proxyDate = masteryProxyDate(for: word)
-                return proxyDate < endOfDay
+                return proxyDate >= date && proxyDate < endOfDay
             }.count
 
             // Total words that existed by end of this day
@@ -81,7 +81,7 @@ final class StatsViewModel: ObservableObject {
             return MasteryDataPoint(
                 date: date,
                 label: label,
-                mastered: cumulativeMastered,
+                mastered: dailyMastered,
                 total: cumulativeTotal
             )
         }

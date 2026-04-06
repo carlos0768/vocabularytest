@@ -10,7 +10,7 @@ import { createBrowserClient } from '@/lib/supabase';
 import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId, getWeeklyStats, type WeeklyStatsEntry } from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
-import type { SubscriptionStatus } from '@/types';
+import type { SubscriptionStatus, Word } from '@/types';
 
 export interface CachedStats {
   totalProjects: number;
@@ -35,6 +35,44 @@ let cachedUserId: string | null = null;
 let fetchPromise: Promise<CachedStats | null> | null = null;
 
 /**
+ * 実際のWordデータから14日間の日別習得数を計算する。
+ * 各日にmastered状態になった単語数（lastReviewedAt基準）を表示。
+ * quiz activityカウント(totalCount, correctCount)はlocalStorageから取得。
+ */
+function buildMasteryHistory(allWords: Word[]): WeeklyStatsEntry[] {
+  const localEntries = getWeeklyStats();
+  const result: WeeklyStatsEntry[] = [];
+
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const dateStr = d.toISOString().split('T')[0];
+
+    const startOfDayISO = d.toISOString();
+    const endOfDay = new Date(d);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    const endOfDayISO = endOfDay.toISOString();
+
+    // その日に習得した単語数（proxyDateがその日の範囲内）
+    const dailyMastered = allWords.filter(word => {
+      if (word.status !== 'mastered') return false;
+      const proxyDate = word.lastReviewedAt ?? word.createdAt;
+      return proxyDate >= startOfDayISO && proxyDate < endOfDayISO;
+    }).length;
+
+    const localEntry = localEntries.find(e => e.date === dateStr);
+    result.push({
+      date: dateStr,
+      totalCount: localEntry?.totalCount ?? 0,
+      correctCount: localEntry?.correctCount ?? 0,
+      masteredCount: dailyMastered,
+    });
+  }
+  return result;
+}
+
+/**
  * キャッシュ済みの統計データを返す（なければnull）
  */
 export function getCachedStats(): CachedStats | null {
@@ -45,10 +83,22 @@ export function getCachedStats(): CachedStats | null {
   const wrongAnswers = getWrongAnswers();
   const streakDays = getStreakDays();
 
+  // weeklyStatsのquiz activityカウントのみlocalStorageから更新
+  // masteredCountはWordデータから計算済みなのでキャッシュ値を保持
+  const localEntries = getWeeklyStats();
+  const mergedWeeklyStats = cachedStats.weeklyStats.map(entry => {
+    const localEntry = localEntries.find(e => e.date === entry.date);
+    return {
+      ...entry,
+      totalCount: localEntry?.totalCount ?? entry.totalCount,
+      correctCount: localEntry?.correctCount ?? entry.correctCount,
+    };
+  });
+
   return {
     ...cachedStats,
     wrongAnswersCount: wrongAnswers.length,
-    weeklyStats: getWeeklyStats(),
+    weeklyStats: mergedWeeklyStats,
     quizStats: {
       ...cachedStats.quizStats,
       todayCount: dailyStats.todayCount,
@@ -161,12 +211,14 @@ function buildStatsFromHomeCache(): {
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
+  allWords: Word[];
 } | null {
   if (!getHasLoaded()) return null;
 
   const projects = getCachedProjects();
   const projectWords = getCachedProjectWords();
 
+  const allWords: Word[] = [];
   let totalWords = 0;
   let masteredWords = 0;
   let reviewWords = 0;
@@ -175,6 +227,7 @@ function buildStatsFromHomeCache(): {
 
   for (const project of projects) {
     const words = projectWords[project.id] || [];
+    allWords.push(...words);
     totalWords += words.length;
     for (const word of words) {
       if (word.status === 'mastered') masteredWords++;
@@ -184,7 +237,7 @@ function buildStatsFromHomeCache(): {
     }
   }
 
-  return { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords };
+  return { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords, allWords };
 }
 
 async function fetchStatsData(
@@ -207,14 +260,35 @@ async function fetchStatsData(
       newWords: number;
       favoriteWords: number;
     };
+    let allWords: Word[] = [];
 
     if (hasRemoteData) {
       wordStats = await fetchStatsViaRpc(userId);
+      // Fetch mastered words directly from Supabase for mastery history chart
+      try {
+        const supabase = createBrowserClient();
+        const { data, error } = await supabase
+          .from('words')
+          .select('status, created_at, last_reviewed_at')
+          .eq('user_id', userId)
+          .eq('status', 'mastered');
+        if (!error && data) {
+          allWords = data.map(row => ({
+            status: row.status,
+            createdAt: row.created_at,
+            lastReviewedAt: row.last_reviewed_at ?? undefined,
+          })) as unknown as Word[];
+        }
+      } catch {
+        // Fallback: mastery history will be empty
+      }
     } else {
       // Try home-cache first (no DB query)
       const cached = buildStatsFromHomeCache();
       if (cached) {
-        wordStats = cached;
+        const { allWords: words, ...stats } = cached;
+        wordStats = stats;
+        allWords = words;
       } else {
         // Fallback: home-cache not ready yet, use repository
         const { getRepository } = await import('@/lib/db');
@@ -223,6 +297,7 @@ async function fetchStatsData(
         const allWordsArrays = await Promise.all(
           projects.map((project) => repository.getWords(project.id))
         );
+        allWords = allWordsArrays.flat();
 
         let totalWords = 0;
         let masteredWords = 0;
@@ -230,14 +305,12 @@ async function fetchStatsData(
         let newWords = 0;
         let favoriteWords = 0;
 
-        for (const words of allWordsArrays) {
-          totalWords += words.length;
-          for (const word of words) {
-            if (word.status === 'mastered') masteredWords++;
-            else if (word.status === 'review') reviewWords++;
-            else newWords++;
-            if (word.isFavorite) favoriteWords++;
-          }
+        for (const word of allWords) {
+          totalWords++;
+          if (word.status === 'mastered') masteredWords++;
+          else if (word.status === 'review') reviewWords++;
+          else newWords++;
+          if (word.isFavorite) favoriteWords++;
         }
 
         wordStats = { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords };
@@ -278,10 +351,12 @@ async function fetchStatsData(
       }
     }
 
+    const weeklyStats = buildMasteryHistory(allWords);
+
     const stats: CachedStats = {
       ...wordStats,
       wrongAnswersCount,
-      weeklyStats: getWeeklyStats(),
+      weeklyStats,
       quizStats: {
         todayCount: dailyStats.todayCount,
         correctCount: dailyStats.correctCount,
