@@ -96,11 +96,22 @@ export class HybridWordRepository implements WordRepository {
       // 2. Get all projects from remote
       const remoteProjects = await remoteRepository.getProjects(userId);
 
-      // 3. Push local-only projects to remote before overwriting
+      // 3. Push local-only projects that have a pending create in the sync queue.
+      //    Local-only projects WITHOUT a queued create were deleted from another
+      //    device and must NOT be re-pushed (fixes "deleted project comes back" bug).
       const remoteProjectIds = new Set(remoteProjects.map(p => p.id));
       const localOnlyProjects = localProjects.filter(p => !remoteProjectIds.has(p.id));
 
-      for (const project of localOnlyProjects) {
+      const pendingItems = await syncQueue.getPending();
+      const pendingCreateProjectIds = new Set(
+        pendingItems
+          .filter(item => item.table === 'projects' && item.operation === 'create')
+          .map(item => item.entityId)
+      );
+
+      const projectsToPush = localOnlyProjects.filter(p => pendingCreateProjectIds.has(p.id));
+
+      for (const project of projectsToPush) {
         try {
           await remoteRepository.createProjectWithId(project as Project);
           const localWords = await db.words.where('projectId').equals(project.id).toArray();
@@ -113,8 +124,12 @@ export class HybridWordRepository implements WordRepository {
         }
       }
 
+      if (localOnlyProjects.length > projectsToPush.length) {
+        console.log('[HybridRepo] Skipped', localOnlyProjects.length - projectsToPush.length, 'local-only projects (deleted on another device)');
+      }
+
       // 4. Re-fetch remote projects (now includes pushed local-only data)
-      const mergedProjects = localOnlyProjects.length > 0
+      const mergedProjects = projectsToPush.length > 0
         ? await remoteRepository.getProjects(userId)
         : remoteProjects;
 
