@@ -13,8 +13,6 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'japanese',
     'vocabulary_type',
     'lexicon_entry_id',
-    'english_override',
-    'japanese_override',
     'distractors',
     'example_sentence',
     'example_sentence_ja',

@@ -155,6 +155,7 @@ export interface WordRow {
   japanese: string;
   japanese_source?: 'scan' | 'ai' | null;
   lexicon_entry_id?: string | null;
+  lexicon_sense_id?: string | null;
   cefr_level?: string | null;
   distractors: string[];
   example_sentence?: string | null;
@@ -186,6 +187,7 @@ export function mapWordFromRow(row: WordRow): Word {
     japanese: row.japanese,
     japaneseSource: row.japanese_source ?? undefined,
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
+    lexiconSenseId: row.lexicon_sense_id ?? undefined,
     cefrLevel: row.cefr_level ?? undefined,
     distractors: Array.isArray(row.distractors) ? row.distractors : [],
     exampleSentence: row.example_sentence ?? undefined,
@@ -230,6 +232,7 @@ export function mapWordToInsert(word: WordInput): Record<string, unknown> {
     japanese: word.japanese,
     ...(word.japaneseSource !== undefined && { japanese_source: word.japaneseSource }),
     ...(word.lexiconEntryId !== undefined && { lexicon_entry_id: word.lexiconEntryId }),
+    ...(word.lexiconSenseId !== undefined && { lexicon_sense_id: word.lexiconSenseId }),
     ...(word.cefrLevel !== undefined && { cefr_level: word.cefrLevel }),
     distractors: word.distractors,
     ...(word.exampleSentence !== undefined && { example_sentence: word.exampleSentence }),
@@ -252,14 +255,8 @@ export function mapWordToInsert(word: WordInput): Record<string, unknown> {
 export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> {
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-  if (updates.english !== undefined) {
-    updateData.english = updates.english;
-    updateData.english_override = updates.english;
-  }
-  if (updates.japanese !== undefined) {
-    updateData.japanese = updates.japanese;
-    updateData.japanese_override = updates.japanese;
-  }
+  if (updates.english !== undefined) updateData.english = updates.english;
+  if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
   if (updates.japaneseSource !== undefined) updateData.japanese_source = updates.japaneseSource;
   if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
   if (updates.lexiconSenseId !== undefined) updateData.lexicon_sense_id = updates.lexiconSenseId;
