@@ -29,6 +29,7 @@ export interface SharedWord {
   pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
+  vocabularyType?: 'active' | 'passive';
 }
 
 export async function fetchSharedProjects(

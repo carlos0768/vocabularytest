@@ -105,6 +105,7 @@ export function SharedProjectDetailScreen() {
                   pronunciation: w.pronunciation,
                   exampleSentence: w.exampleSentence,
                   exampleSentenceJa: w.exampleSentenceJa,
+                  vocabularyType: w.vocabularyType,
                 })),
               );
 
