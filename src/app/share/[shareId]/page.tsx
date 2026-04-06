@@ -28,6 +28,9 @@ export default function SharedProjectPage() {
   const [importing, setImporting] = useState(false);
   const [importedProjectId, setImportedProjectId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showImportSheet, setShowImportSheet] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
 
   // Search / Filter / Sort
   const [wordSearchText, setWordSearchText] = useState('');
@@ -83,10 +86,11 @@ export default function SharedProjectPage() {
     loadData();
   }, [shareId]);
 
-  const handleImport = async () => {
-    if (!user || !project) return;
+  const handleImport = async (targetWords: Word[]) => {
+    if (!user || !project || targetWords.length === 0) return;
 
     setImporting(true);
+    setShowImportSheet(false);
     try {
       const repo = getRepository(subscriptionStatus, wasPro);
 
@@ -96,25 +100,25 @@ export default function SharedProjectPage() {
         importedFromShareId: shareId,
       });
 
-      if (words.length > 0) {
-        await repo.createWords(
-          words.map((w) => ({
-            projectId: newProject.id,
-            english: w.english,
-            japanese: w.japanese,
-            distractors: w.distractors ?? [],
-            exampleSentence: w.exampleSentence ?? undefined,
-            exampleSentenceJa: w.exampleSentenceJa ?? undefined,
-            pronunciation: w.pronunciation ?? undefined,
-            partOfSpeechTags: w.partOfSpeechTags ?? undefined,
-            vocabularyType: w.vocabularyType ?? undefined,
-          })),
-        );
-      }
+      await repo.createWords(
+        targetWords.map((w) => ({
+          projectId: newProject.id,
+          english: w.english,
+          japanese: w.japanese,
+          distractors: w.distractors ?? [],
+          exampleSentence: w.exampleSentence ?? undefined,
+          exampleSentenceJa: w.exampleSentenceJa ?? undefined,
+          pronunciation: w.pronunciation ?? undefined,
+          partOfSpeechTags: w.partOfSpeechTags ?? undefined,
+          vocabularyType: w.vocabularyType ?? undefined,
+        })),
+      );
 
       setImportedProjectId(newProject.id);
+      setSelectMode(false);
+      setSelectedWordIds(new Set());
       invalidateHomeCache();
-      showToast({ message: '単語帳を追加しました！', type: 'success' });
+      showToast({ message: `${targetWords.length}語を追加しました！`, type: 'success' });
     } catch (err) {
       console.error('Failed to import project:', err);
       showToast({ message: 'インポートに失敗しました', type: 'error' });
@@ -382,6 +386,7 @@ export default function SharedProjectPage() {
                 <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
+                      {selectMode && <th className="w-8 px-1 py-2 text-center font-medium" />}
                       <th className="px-2 py-2 text-left font-medium">単語</th>
                       <th className="w-8 px-1 py-2 text-center font-medium">A/P</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
@@ -390,7 +395,26 @@ export default function SharedProjectPage() {
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-light)]">
                     {filteredWords.map((word) => (
-                      <tr key={word.id}>
+                      <tr
+                        key={word.id}
+                        className={selectMode ? 'cursor-pointer' : ''}
+                        onClick={selectMode ? () => setSelectedWordIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(word.id)) next.delete(word.id); else next.add(word.id);
+                          return next;
+                        }) : undefined}
+                      >
+                        {selectMode && (
+                          <td className="w-8 px-1 py-2.5 text-center">
+                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
+                              selectedWordIds.has(word.id)
+                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                : 'border-[var(--color-border)] bg-transparent'
+                            }`}>
+                              {selectedWordIds.has(word.id) && <Icon name="check" size={14} />}
+                            </span>
+                          </td>
+                        )}
                         <td className="px-2 py-2.5 max-w-0">
                           <span className="inline-flex items-center gap-1 min-w-0">
                             <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{word.english}</span>
@@ -434,25 +458,85 @@ export default function SharedProjectPage() {
                   <Icon name="check_circle" size={18} />
                   追加済み — 単語帳を開く
                 </button>
+              ) : selectMode ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setSelectMode(false); setSelectedWordIds(new Set()); }}
+                    className="flex-none px-4 py-3.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)]"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={() => void handleImport(words.filter((w) => selectedWordIds.has(w.id)))}
+                    disabled={importing || selectedWordIds.size === 0}
+                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm disabled:opacity-50"
+                  >
+                    {importing ? (
+                      <><Icon name="progress_activity" size={18} className="animate-spin" />追加中...</>
+                    ) : (
+                      <><Icon name="download" size={18} />選択した {selectedWordIds.size}語を追加</>
+                    )}
+                  </button>
+                </div>
               ) : (
                 <button
-                  onClick={handleImport}
+                  onClick={() => setShowImportSheet(true)}
                   disabled={importing}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm disabled:opacity-50"
                 >
                   {importing ? (
-                    <>
-                      <Icon name="progress_activity" size={18} className="animate-spin" />
-                      追加中...
-                    </>
+                    <><Icon name="progress_activity" size={18} className="animate-spin" />追加中...</>
                   ) : (
-                    <>
-                      <Icon name="download" size={18} />
-                      単語帳として追加
-                    </>
+                    <><Icon name="download" size={18} />単語帳として追加</>
                   )}
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Import sheet overlay */}
+        {showImportSheet && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowImportSheet(false)}>
+            <div className="absolute inset-0 bg-black/30" />
+            <div
+              className="relative w-full max-w-lg bg-[var(--color-surface)] rounded-t-2xl px-5 pt-5 pb-8 space-y-2"
+              style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 rounded-full bg-[var(--color-border)] mx-auto mb-3" />
+              <button
+                onClick={() => { setShowImportSheet(false); void handleImport(words); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--color-background)] transition-colors"
+              >
+                <Icon name="download" size={20} className="text-[var(--color-foreground)]" />
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-[var(--color-foreground)]">すべて追加</p>
+                  <p className="text-xs text-[var(--color-muted)]">{words.length}語</p>
+                </div>
+              </button>
+              {(wordFilterActive || wordSearchText) && filteredWords.length !== words.length && (
+                <button
+                  onClick={() => { setShowImportSheet(false); void handleImport(filteredWords); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--color-background)] transition-colors"
+                >
+                  <Icon name="filter_list" size={20} className="text-[var(--color-accent)]" />
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-[var(--color-foreground)]">フィルタ結果を追加</p>
+                    <p className="text-xs text-[var(--color-muted)]">{filteredWords.length}語</p>
+                  </div>
+                </button>
+              )}
+              <button
+                onClick={() => { setShowImportSheet(false); setSelectMode(true); setSelectedWordIds(new Set()); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--color-background)] transition-colors"
+              >
+                <Icon name="checklist" size={20} className="text-[var(--color-muted)]" />
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-[var(--color-foreground)]">選択して追加</p>
+                  <p className="text-xs text-[var(--color-muted)]">追加する単語を選んでください</p>
+                </div>
+              </button>
             </div>
           </div>
         )}
