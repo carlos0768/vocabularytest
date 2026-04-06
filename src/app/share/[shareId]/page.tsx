@@ -258,7 +258,7 @@ export default function SharedProjectPage() {
                 <div className="flex items-center gap-3 px-3 py-2 text-xs text-[var(--color-muted)] border-b border-[var(--color-border)]">
                   <span className="flex-1">単語</span>
                   <span className="w-10 text-center">品詞</span>
-                  <span className="w-16 text-right">訳</span>
+                  <span className="w-28 text-right">訳</span>
                 </div>
                 <div className="divide-y divide-[var(--color-border-light)]">
                   {words.map((word) => (
@@ -278,7 +278,7 @@ export default function SharedProjectPage() {
                       <span className="w-10 text-center text-xs font-bold text-[var(--color-muted)]">
                         {posLabel(word.partOfSpeechTags) || '—'}
                       </span>
-                      <span className="w-20 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
+                      <span className="w-28 text-right text-xs text-[var(--color-muted)] truncate">{word.japanese}</span>
                     </div>
                   ))}
                 </div>
