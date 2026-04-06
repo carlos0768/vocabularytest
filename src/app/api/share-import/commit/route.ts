@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { resolveOrCreateLexiconEntry } from '@/lib/lexicon/resolver';
 import { RESOLVED_WORD_TEXT_SELECT_COLUMNS } from '@/lib/words/resolved';
 import { mapWordFromRow, type WordRow as SharedWordRow } from '../../../../../shared/db';
@@ -132,6 +133,27 @@ const defaultDeps: CommitDeps = {
   },
 };
 
+/** Fire-and-forget: log share import for admin analytics */
+function logShareImport(
+  userId: string,
+  projectId: string,
+  wordId: string,
+  english: string,
+  japanese: string,
+  sourceApp: string | undefined,
+  duplicate: boolean,
+) {
+  try {
+    const admin = getSupabaseAdmin();
+    admin
+      .from('share_import_logs')
+      .insert({ user_id: userId, project_id: projectId, word_id: wordId, english, japanese, source_app: sourceApp ?? null, duplicate })
+      .then(({ error }) => { if (error) console.error('share_import_log insert failed:', error.message); });
+  } catch {
+    // non-critical — swallow
+  }
+}
+
 function findDuplicateWord(rows: WordRow[], english: string, japanese: string): WordRow | null {
   const normalizedEnglish = normalizeEnglish(english);
   const normalizedJapanese = normalizeJapanese(japanese);
@@ -190,6 +212,7 @@ export async function handleShareImportCommitPost(
     const duplicate = findDuplicateWord(words, normalizedEnglishValue, normalizedJapaneseValue);
 
     if (duplicate) {
+      logShareImport(user.id, project.id, duplicate.id, normalizedEnglishValue, normalizedJapaneseValue, parsed.data.sourceApp, true);
       return NextResponse.json({
         success: true,
         projectId: project.id,
@@ -206,6 +229,8 @@ export async function handleShareImportCommitPost(
       normalizedEnglishValue,
       normalizedJapaneseValue,
     );
+
+    logShareImport(user.id, project.id, inserted.id, normalizedEnglishValue, normalizedJapaneseValue, parsed.data.sourceApp, false);
 
     return NextResponse.json({
       success: true,
