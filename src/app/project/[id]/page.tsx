@@ -1107,11 +1107,11 @@ export default function ProjectDetailPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full w-max border-collapse">
+                <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
-                      <th className="w-8 px-1 py-2" />
-                      <th className="px-3 py-2 text-left font-medium min-w-[10rem]">単語</th>
+                      <th className="w-7 py-2" />
+                      <th className="px-3 py-2 text-left font-medium">単語</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
                       <th className="px-3 py-2 text-left font-medium whitespace-nowrap">訳</th>
@@ -1134,15 +1134,15 @@ export default function ProjectDetailPage() {
                         }}
                         className="cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)]"
                       >
-                        <td className="w-8 px-1 py-3.5 text-center">
+                        <td className="w-7 py-3.5 text-center">
                           <NotionCheckbox
                             status={word.status}
                             onClick={() => { void handleCycleStatus(word.id); }}
                           />
                         </td>
-                        <td className="px-3 py-3.5">
-                          <span className="inline-flex items-center gap-1 flex-wrap">
-                            <span className="text-sm font-medium text-[var(--color-foreground)]">{word.english}</span>
+                        <td className="px-3 py-3.5 max-w-0">
+                          <span className="inline-flex items-center gap-1 min-w-0">
+                            <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{word.english}</span>
                             {word.isFavorite && (
                               <Icon
                                 name="flag"
@@ -1167,7 +1167,7 @@ export default function ProjectDetailPage() {
                         <td className="w-10 px-1 py-3.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-3 py-3.5 text-xs text-[var(--color-muted)] whitespace-nowrap">
+                        <td className="px-3 py-3.5 text-xs text-[var(--color-muted)] truncate max-w-0">
                           {word.japanese}
                         </td>
                       </tr>
