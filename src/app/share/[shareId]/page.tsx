@@ -186,15 +186,15 @@ export default function SharedProjectPage() {
 
   return (
     <>
-      <div className="pb-28 lg:pb-8">
+      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8">
         {/* Dynamic color header */}
         <div
-          className="project-detail-header-safe-top sticky top-0 z-40"
+          className="project-detail-header-safe-top z-[50] sticky top-0"
           style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
         >
           <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
             <div className="flex items-center justify-between mb-3">
-              <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center" aria-label="戻る">
                 <Icon name="chevron_left" size={24} className="text-white" />
               </button>
               <div className="flex-1 text-center mx-3">
@@ -208,7 +208,7 @@ export default function SharedProjectPage() {
           </div>
         </div>
 
-        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 lg:px-6 -mt-2 space-y-5">
+        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
           {/* 3-column stats card */}
           <section>
             <div className="card p-4">
