@@ -102,7 +102,7 @@ export function TypeInQuizField({
               ? renderUnderscores(n - t, 'u-dis')
               : t === 0
                 ? renderUnderscores(Math.max(0, n - 1), 'u-act')
-                : renderUnderscores(Math.max(0, n - t - 1), 'u-act')}
+                : renderUnderscores(Math.max(0, n - t), 'u-act')}
           </>
         )}
       </div>
@@ -123,7 +123,8 @@ export function TypeInQuizField({
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-text disabled:cursor-default"
+        className="absolute inset-0 w-full h-full cursor-text disabled:cursor-default"
+        style={{ color: 'transparent', caretColor: 'transparent', background: 'transparent' }}
         aria-label="回答を入力"
       />
     </div>
