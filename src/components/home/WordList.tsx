@@ -28,47 +28,84 @@ export function NotionCheckbox({
   status: WordStatus;
   onStatusChange: (newStatus: WordStatus) => void;
 }) {
-  const [midFilled, setMidFilled] = useState(false);
+  // filledCount: 0-3, direction: 'up' (ascending) or 'down' (descending)
+  const [filledCount, setFilledCount] = useState(0);
+  const [direction, setDirection] = useState<'up' | 'down'>('up');
 
   useEffect(() => {
-    if (status === 'review') {
-      try {
-        setMidFilled(localStorage.getItem(STORAGE_PREFIX + wordId) === '1');
-      } catch {
-        setMidFilled(false);
-      }
+    if (status === 'new') {
+      setFilledCount(0);
+      setDirection('up');
+    } else if (status === 'mastered') {
+      setFilledCount(3);
+      setDirection('down');
     } else {
-      setMidFilled(status === 'mastered');
+      // review: read mid state from localStorage
+      try {
+        const val = localStorage.getItem(STORAGE_PREFIX + wordId);
+        if (val === 'down2') {
+          setFilledCount(2);
+          setDirection('down');
+        } else if (val === 'down1') {
+          setFilledCount(1);
+          setDirection('down');
+        } else if (val === '1') {
+          setFilledCount(2);
+          setDirection('up');
+        } else {
+          setFilledCount(1);
+          setDirection('up');
+        }
+      } catch {
+        setFilledCount(1);
+        setDirection('up');
+      }
     }
   }, [status, wordId]);
-
-  const filledCount =
-    status === 'mastered' ? 3 :
-    status === 'review' ? (midFilled ? 2 : 1) :
-    0;
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      if (status === 'new') {
-        localStorage.setItem(STORAGE_PREFIX + wordId, '0');
-        setMidFilled(false);
-        onStatusChange('review');
-      } else if (status === 'review' && !midFilled) {
-        localStorage.setItem(STORAGE_PREFIX + wordId, '1');
-        setMidFilled(true);
-      } else if (status === 'review' && midFilled) {
-        localStorage.removeItem(STORAGE_PREFIX + wordId);
-        onStatusChange('mastered');
-      } else if (status === 'mastered') {
-        localStorage.setItem(STORAGE_PREFIX + wordId, '1');
-        setMidFilled(true);
-        onStatusChange('review');
+      if (direction === 'up') {
+        if (filledCount === 0) {
+          // 0 → 1 (new → review)
+          localStorage.setItem(STORAGE_PREFIX + wordId, '0');
+          setFilledCount(1);
+          onStatusChange('review');
+        } else if (filledCount === 1) {
+          // 1 → 2
+          localStorage.setItem(STORAGE_PREFIX + wordId, '1');
+          setFilledCount(2);
+        } else if (filledCount === 2) {
+          // 2 → 3 (review → mastered)
+          localStorage.removeItem(STORAGE_PREFIX + wordId);
+          setFilledCount(3);
+          setDirection('down');
+          onStatusChange('mastered');
+        }
+      } else {
+        // direction === 'down'
+        if (filledCount === 3) {
+          // 3 → 2 (mastered → review)
+          localStorage.setItem(STORAGE_PREFIX + wordId, 'down2');
+          setFilledCount(2);
+          onStatusChange('review');
+        } else if (filledCount === 2) {
+          // 2 → 1
+          localStorage.setItem(STORAGE_PREFIX + wordId, 'down1');
+          setFilledCount(1);
+        } else if (filledCount === 1) {
+          // 1 → 0 (review → new)
+          localStorage.removeItem(STORAGE_PREFIX + wordId);
+          setFilledCount(0);
+          setDirection('up');
+          onStatusChange('new');
+        }
       }
     } catch {
       // localStorage unavailable
     }
-  }, [midFilled, onStatusChange, status, wordId]);
+  }, [filledCount, direction, onStatusChange, wordId]);
 
   const color =
     status === 'mastered' ? 'var(--color-success, #22c55e)' :
