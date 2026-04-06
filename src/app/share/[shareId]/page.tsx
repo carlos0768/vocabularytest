@@ -182,7 +182,7 @@ export default function SharedProjectPage() {
         {/* Dynamic color header */}
         <div
           className="project-detail-header-safe-top z-[50] sticky top-0"
-          style={{ background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
+          style={{ backgroundColor: headerFrom, background: `linear-gradient(135deg, ${headerFrom}, ${headerTo})` }}
         >
           <div className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5">
             <div className="flex items-center justify-between mb-3">
