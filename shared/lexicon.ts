@@ -178,6 +178,10 @@ function sanitizeLexiconTranslation(value: string): string {
   );
 }
 
+export function normalizeLexiconSenseTranslationKey(value: string | null | undefined): string | null {
+  return normalizeLexiconTranslation(value);
+}
+
 function extractTranslationFromJson(value: string): string | null {
   const trimmed = value.trim();
   try {

@@ -21,6 +21,21 @@ export interface UsagePattern {
   register?: string;
 }
 
+export interface LexiconSense {
+  id: string;
+  lexiconEntryId: string;
+  translationJa: string;
+  normalizedTranslationJa: string;
+  meaningSummary?: string;
+  usageNotes?: string;
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
+  translationSource?: string;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LexiconEntry {
   id: string;
   headword: string;
@@ -28,6 +43,8 @@ export interface LexiconEntry {
   pos: string;
   cefrLevel?: string;
   datasetSources: string[];
+  primarySense?: LexiconSense;
+  senses?: LexiconSense[];
   translationJa?: string;
   translationSource?: string;
   exampleSentence?: string;
@@ -44,6 +61,7 @@ export interface Word {
   vocabularyType?: VocabularyType | null;
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
   cefrLevel?: string;
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
@@ -107,6 +125,7 @@ export interface AIWordExtraction {
   japanese: string;
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
