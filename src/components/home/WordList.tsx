@@ -79,15 +79,15 @@ export function NotionCheckbox({
     <button
       onClick={handleClick}
       aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済'}`}
-      className="flex-shrink-0 p-1 rounded hover:bg-[var(--color-surface)] transition-colors"
-      style={{ lineHeight: 0 }}
+      className="flex-shrink-0 rounded hover:bg-[var(--color-surface)] transition-colors"
+      style={{ lineHeight: 0, padding: 2 }}
     >
       <div
         className="relative rounded-sm overflow-hidden"
         style={{
-          width: 14,
-          height: 42,
-          border: '1.5px solid var(--color-border)',
+          width: 11,
+          height: 33,
+          border: '1px solid var(--color-border)',
           borderRadius: 3,
         }}
       >
@@ -96,10 +96,10 @@ export function NotionCheckbox({
             key={i}
             style={{
               position: 'absolute',
-              top: i * 14,
+              top: i * 11,
               left: 0,
               width: '100%',
-              height: 14,
+              height: 11,
               background: i < filledCount ? color : 'transparent',
               transition: 'background 0.15s ease',
             }}

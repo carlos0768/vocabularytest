@@ -1109,11 +1109,11 @@ export default function ProjectDetailPage() {
                 <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
-                      <th className="w-7 py-2" />
-                      <th className="px-3 py-2 text-left font-medium">単語</th>
+                      <th className="w-5 py-2" />
+                      <th className="px-2 py-2 text-left font-medium">単語</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
-                      <th className="px-3 py-2 text-left font-medium whitespace-nowrap">訳</th>
+                      <th className="px-2 py-2 text-left font-medium whitespace-nowrap">訳</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-light)]">
@@ -1133,14 +1133,14 @@ export default function ProjectDetailPage() {
                         }}
                         className="cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)]"
                       >
-                        <td className="w-7 py-3.5 text-center">
+                        <td className="w-5 pl-1 py-2.5">
                           <NotionCheckbox
                             wordId={word.id}
                             status={word.status}
                             onStatusChange={(newStatus) => { void handleCycleStatus(word.id, newStatus); }}
                           />
                         </td>
-                        <td className="px-3 py-3.5 max-w-0">
+                        <td className="px-2 py-2.5 max-w-0">
                           <span className="inline-flex items-center gap-1 min-w-0">
                             <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{word.english}</span>
                             {word.isFavorite && (
@@ -1154,7 +1154,7 @@ export default function ProjectDetailPage() {
                             )}
                           </span>
                         </td>
-                        <td className="w-10 px-1 py-3.5 text-center">
+                        <td className="w-10 px-1 py-2.5 text-center">
                           <span className="flex justify-center">
                             <VocabularyTypeButton
                               vocabularyType={word.vocabularyType}
@@ -1164,10 +1164,10 @@ export default function ProjectDetailPage() {
                             />
                           </span>
                         </td>
-                        <td className="w-10 px-1 py-3.5 text-center text-xs font-bold text-[var(--color-muted)]">
+                        <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-3 py-3.5 text-xs text-[var(--color-muted)] truncate max-w-0">
+                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] truncate max-w-0">
                           {word.japanese}
                         </td>
                       </tr>
