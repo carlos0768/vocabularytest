@@ -525,11 +525,9 @@ struct StatsView: View {
     }
 
     private var masteryChart: some View {
-        let totalData = viewModel.masteryHistory
         let data = animatedMasteryHistory
-        let maxTotal = data.map(\.total).max() ?? 0
-        let maxMastered = data.map(\.mastered).max() ?? 0
-        let maxVal = max(max(maxTotal, maxMastered), 1)
+        let maxMastered = max(data.map(\.mastered).max() ?? 0, 1)
+        let today = Calendar.current.startOfDay(for: Date())
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -553,47 +551,26 @@ struct StatsView: View {
                     )
             } else {
                 Chart {
-                    ForEach(totalData) { point in
-                        LineMark(
-                            x: .value("日付", point.date, unit: .day),
-                            y: .value("合計", point.total),
-                            series: .value("series", "total")
-                        )
-                        .foregroundStyle(MerkenTheme.chartBlue.opacity(0.18 + (0.22 * chartRevealProgress)))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                        .interpolationMethod(.monotone)
-                    }
-
                     ForEach(data) { point in
-                        AreaMark(
+                        let isToday = Calendar.current.isDate(point.date, inSameDayAs: today)
+                        BarMark(
                             x: .value("日付", point.date, unit: .day),
-                            yStart: .value("yStart", 0),
-                            yEnd: .value("習得", point.mastered)
+                            y: .value("習得", point.mastered)
                         )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [MerkenTheme.success.opacity(0.3), MerkenTheme.success.opacity(0.05)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .interpolationMethod(.monotone)
-                    }
-
-                    ForEach(data) { point in
-                        LineMark(
-                            x: .value("日付", point.date, unit: .day),
-                            y: .value("習得", point.mastered),
-                            series: .value("series", "mastered")
-                        )
-                        .foregroundStyle(MerkenTheme.success)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-                        .interpolationMethod(.monotone)
+                        .foregroundStyle(isToday ? MerkenTheme.success : MerkenTheme.success.opacity(0.5))
+                        .cornerRadius(3)
+                        .annotation(position: .top, spacing: 2) {
+                            if point.mastered > 0 {
+                                Text("\(point.mastered)")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(MerkenTheme.success)
+                            }
+                        }
                     }
                 }
-                .chartYScale(domain: 0...maxVal)
+                .chartYScale(domain: 0...maxMastered)
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 3)) { value in
+                    AxisMarks(values: .stride(by: .day, count: 3)) { _ in
                         AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
                             .font(.system(size: 9))
                             .foregroundStyle(MerkenTheme.mutedText)
@@ -617,23 +594,13 @@ struct StatsView: View {
                         .scaleEffect(x: max(chartRevealProgress, 0.001), y: 1, anchor: .leading)
                 )
 
-                HStack(spacing: 16) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(MerkenTheme.success)
-                            .frame(width: 8, height: 8)
-                        Text("習得済み")
-                            .font(.system(size: 11))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(MerkenTheme.chartBlue.opacity(0.4))
-                            .frame(width: 8, height: 8)
-                        Text("総単語数")
-                            .font(.system(size: 11))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(MerkenTheme.success)
+                        .frame(width: 8, height: 8)
+                    Text("習得済み")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
         }
