@@ -4,13 +4,13 @@ export const LEXICON_ENTRY_SELECT_COLUMNS =
   'id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at' as const;
 
 export const RESOLVED_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_TEXT_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_sense_id, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, status, created_at, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, status, created_at, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS =
   `${RESOLVED_WORD_TEXT_SELECT_COLUMNS}, embedding` as const;
@@ -25,7 +25,6 @@ export type ResolvableWordRow = {
   english: string;
   japanese: string;
   lexicon_entry_id?: string | null;
-  lexicon_sense_id?: string | null;
   lexicon_entries?: LexiconJoinRow | LexiconJoinRow[] | null;
 };
 
@@ -52,7 +51,6 @@ export function resolveSelectedWordTexts<T extends ResolvableWordRow>(
   english: string;
   japanese: string;
   lexiconEntryId?: string;
-  lexiconSenseId?: string;
   cefrLevel?: string;
 } {
   const lexicon = firstLexiconJoinRow(row.lexicon_entries);
@@ -63,7 +61,6 @@ export function resolveSelectedWordTexts<T extends ResolvableWordRow>(
     japanese: firstNormalizedJapanese(lexicon?.translation_ja)
       ?? row.japanese,
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
-    lexiconSenseId: row.lexicon_sense_id ?? undefined,
     cefrLevel: firstNonEmpty(lexicon?.cefr_level),
   };
 }

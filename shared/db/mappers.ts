@@ -128,7 +128,6 @@ export interface WordRow {
   japanese: string;
   vocabulary_type?: string | null;
   lexicon_entry_id?: string | null;
-  lexicon_sense_id?: string | null;
   distractors: string[];
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
@@ -305,7 +304,6 @@ export function mapWordFromRow(row: WordRow): Word {
     japanese: resolveWordJapanese(row),
     vocabularyType: normalizeVocabularyType(row.vocabulary_type),
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
-    lexiconSenseId: row.lexicon_sense_id ?? undefined,
     cefrLevel: resolveWordCefrLevel(row),
     distractors: normalizeDistractors(row.distractors),
     exampleSentence: resolveWordExampleSentence(row),
@@ -335,7 +333,6 @@ export function mapWordToInsert(word: WordInput): {
   japanese: string;
   vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
-  lexicon_sense_id?: string;
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
@@ -358,7 +355,6 @@ export function mapWordToInsert(word: WordInput): {
     japanese: word.japanese,
     vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
-    lexicon_sense_id: word.lexiconSenseId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
@@ -383,7 +379,6 @@ export function mapWordToInsertWithId(word: Word): {
   japanese: string;
   vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
-  lexicon_sense_id?: string;
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
@@ -409,7 +404,6 @@ export function mapWordToInsertWithId(word: Word): {
     japanese: word.japanese,
     vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
-    lexicon_sense_id: word.lexiconSenseId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
@@ -437,7 +431,6 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
   if (updates.vocabularyType !== undefined) updateData.vocabulary_type = updates.vocabularyType;
   if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
-  if (updates.lexiconSenseId !== undefined) updateData.lexicon_sense_id = updates.lexiconSenseId;
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.status !== undefined) updateData.status = updates.status;
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
