@@ -37,6 +37,11 @@ final class FlashcardViewModel: ObservableObject {
         }
     }
 
+    deinit {
+        autoPlayTask?.cancel()
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+
     var currentWord: Word? {
         words.indices.contains(currentIndex) ? words[currentIndex] : nil
     }

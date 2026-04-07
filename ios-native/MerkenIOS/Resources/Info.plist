@@ -47,7 +47,9 @@
 		<false/>
 	</dict>
 	<key>UIBackgroundModes</key>
-	<array/>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

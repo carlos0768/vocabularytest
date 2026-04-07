@@ -499,12 +499,8 @@ struct ProjectDetailView: View {
                 MerkenHaptic.light()
                 quizDestination = project
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "questionmark.circle")
-                        .font(.system(size: 15, weight: .bold))
-                    Text("クイズ")
-                        .font(.system(size: 15, weight: .bold))
-                }
+                Text("クイズ")
+                    .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(MerkenTheme.primaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)

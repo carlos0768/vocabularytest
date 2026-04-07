@@ -258,25 +258,25 @@ struct FlashcardCardView: View {
 
     private var englishRichFace: some View {
         richCardBase {
+            GeometryReader { geo in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 16) {
-                    Text(word.english)
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .staggerIn(index: 0, isVisible: true)
+                    VStack(spacing: 12) {
+                        Text(word.english)
+                            .font(.largeTitle.bold())
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .staggerIn(index: 0, isVisible: true)
 
-                    if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
-                        Text(pronunciation)
-                            .font(.system(.callout, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .staggerIn(index: 1, isVisible: true)
+                        if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
+                            Text(pronunciation)
+                                .font(.system(.callout, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .staggerIn(index: 1, isVisible: true)
+                        }
                     }
-
-                    Text(word.japanese)
-                        .font(.callout)
-                        .foregroundStyle(.white.opacity(0.5))
-                        .staggerIn(index: 1, isVisible: true)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: max(geo.size.height * 0.42, 220), alignment: .center)
 
                     dividerLine
                         .staggerIn(index: 1, isVisible: true)
@@ -345,9 +345,10 @@ struct FlashcardCardView: View {
                     Spacer(minLength: 8)
                 }
                 .padding(24)
-                .padding(.top, 4)
+                .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
             }
             .simultaneousGesture(swipeGesture)
+            }
         }
     }
 

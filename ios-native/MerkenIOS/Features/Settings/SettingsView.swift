@@ -181,25 +181,6 @@ struct SettingsView: View {
             .frame(width: 62, height: 62)
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    if appState.isPro {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(MerkenTheme.warning)
-                        Text("Pro")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    } else if appState.isLoggedIn {
-                        Text("Free")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    } else {
-                        Text("ゲスト")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                    }
-                }
-
                 Text(profilePrimaryText)
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
@@ -214,12 +195,7 @@ struct SettingsView: View {
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .trailing, spacing: 6) {
-                planBadge
-                Text(appState.isPro ? "クラウド同期" : "ローカル保存")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
+            planBadge
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 18)
@@ -270,24 +246,6 @@ struct SettingsView: View {
 
     private var accountRows: some View {
         Group {
-            settingsInfoRow(
-                icon: "person.text.rectangle",
-                title: "アカウント状態",
-                subtitle: appState.isSessionExpired ? "セッション期限切れ" : (appState.isLoggedIn ? "認証済み" : "未ログイン"),
-                trailingText: appState.isPro ? "Pro" : (appState.isLoggedIn ? "Free" : "Guest")
-            )
-
-            settingsDivider
-
-            settingsInfoRow(
-                icon: appState.isPro ? "icloud" : "iphone",
-                title: "保存先",
-                subtitle: appState.isPro ? "クラウド保存" : "この端末に保存",
-                trailingText: appState.isPro ? "Cloud" : "Local"
-            )
-
-            settingsDivider
-
             planSettingsBlock
         }
     }
@@ -444,12 +402,9 @@ struct SettingsView: View {
                 settingsIcon("creditcard.fill", color: MerkenTheme.accentBlue)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Merken Pro")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                        proChip
-                    }
+                    Text("Merken Pro")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(MerkenTheme.primaryText)
                     Text("¥300/月")
                         .font(.system(size: 12))
                         .foregroundStyle(MerkenTheme.secondaryText)

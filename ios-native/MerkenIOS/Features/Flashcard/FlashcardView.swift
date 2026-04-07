@@ -11,7 +11,6 @@ struct FlashcardView: View {
     @State private var showingEditSheet = false
     @State private var editEnglish = ""
     @State private var editJapanese = ""
-    @State private var favoriteScale: CGFloat = 1.0
     @State private var pressedButton: String?
     @State private var showTinderSort = false
     @State private var showTimeAttack = false
@@ -53,6 +52,9 @@ struct FlashcardView: View {
                     }
                 }
             }
+        }
+        .onDisappear {
+            viewModel.stopAutoPlay()
         }
         .task(id: project.id) {
             guard preloadedWords == nil || preloadedWords?.isEmpty == true else { return }
@@ -185,12 +187,6 @@ struct FlashcardView: View {
                         Divider()
 
                         Button {
-                            dictionaryURL = viewModel.dictionaryURL
-                        } label: {
-                            Label("辞書で調べる", systemImage: "book")
-                        }
-
-                        Button {
                             if let word = viewModel.currentWord {
                                 editEnglish = word.english
                                 editJapanese = word.japanese
@@ -257,8 +253,8 @@ struct FlashcardView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
-                // Card with favorite overlay
-                ZStack(alignment: .topTrailing) {
+                // Card
+                Group {
                     if let word = viewModel.currentWord {
                         FlashcardCardView(
                             word: word,
@@ -269,56 +265,58 @@ struct FlashcardView: View {
                             onSwipeRight: { viewModel.goPrevious() }
                         )
                     }
-
-                    // Favorite badge on card corner
-                    if let word = viewModel.currentWord {
-                        Button {
-                            Task {
-                                await viewModel.toggleFavorite(using: appState)
-                                if !word.isFavorite { // was false, now becoming true
-                                    MerkenHaptic.medium()
-                                    withAnimation(MerkenSpring.bouncy) {
-                                        favoriteScale = 1.4
-                                    }
-                                    withAnimation(MerkenSpring.bouncy.delay(0.15)) {
-                                        favoriteScale = 1.0
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
-                                .font(.system(size: 18))
-                                .foregroundStyle(word.isFavorite ? MerkenTheme.danger : MerkenTheme.mutedText)
-                                .frame(width: 36, height: 36)
-                                .background(.ultraThinMaterial, in: Circle())
-                                .scaleEffect(favoriteScale)
-                        }
-                        .offset(x: -8, y: 8)
-                    }
                 }
                 .padding(.horizontal, 24)
 
                 Spacer(minLength: 0)
 
-                // Navigation — clean, focused
+                Spacer(minLength: 18).fixedSize()
+
+                // Action buttons (small) — matches Web layout
+                HStack(spacing: 12) {
+                    // Translate toggle
+                    actionButton(
+                        icon: "textformat",
+                        active: viewModel.japaneseFirst
+                    ) {
+                        viewModel.toggleDirection()
+                    }
+
+                    // Favorite / bookmark
+                    actionButton(
+                        icon: viewModel.currentWord?.isFavorite == true ? "bookmark.fill" : "bookmark",
+                        active: viewModel.currentWord?.isFavorite == true,
+                        activeColor: MerkenTheme.danger
+                    ) {
+                        MerkenHaptic.medium()
+                        Task { await viewModel.toggleFavorite(using: appState) }
+                    }
+
+                    // Dictionary
+                    actionButton(icon: "book", active: false) {
+                        dictionaryURL = viewModel.dictionaryURL
+                    }
+
+                    // Edit
+                    actionButton(icon: "pencil", active: false) {
+                        if let word = viewModel.currentWord {
+                            editEnglish = word.english
+                            editJapanese = word.japanese
+                            showingEditSheet = true
+                        }
+                    }
+
+                    // Delete
+                    actionButton(icon: "trash", active: false, activeColor: MerkenTheme.danger) {
+                        showingDeleteConfirm = true
+                    }
+                }
+                .padding(.bottom, 12)
+
+                // Navigation buttons (large) — prev, flip, next
                 HStack(spacing: 28) {
                     navButton(icon: "chevron.left", enabled: viewModel.hasPrevious) {
                         viewModel.goPrevious()
-                    }
-
-                    navButton(icon: viewModel.slowSpeed ? "speaker.wave.1.fill" : "speaker.wave.2.fill", enabled: true) {
-                        viewModel.speak()
-                    }
-                    .simultaneousGesture(
-                        LongPressGesture(minimumDuration: 0.5)
-                            .onEnded { _ in
-                                MerkenHaptic.medium()
-                                viewModel.toggleSpeed()
-                            }
-                    )
-
-                    navButton(icon: "book", enabled: viewModel.dictionaryURL != nil) {
-                        dictionaryURL = viewModel.dictionaryURL
                     }
 
                     navButton(icon: "arrow.trianglehead.2.clockwise", enabled: true) {
@@ -351,6 +349,26 @@ struct FlashcardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
+    private func actionButton(
+        icon: String,
+        active: Bool,
+        activeColor: Color = MerkenTheme.accentBlue,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            MerkenHaptic.light()
+            action()
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(active ? activeColor : MerkenTheme.mutedText)
+                .frame(width: 44, height: 44)
+                .background(MerkenTheme.surface, in: .circle)
+                .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
+                .shadow(color: MerkenTheme.border.opacity(0.3), radius: 2, y: 1)
+        }
+    }
+
     private func navButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button {
             MerkenHaptic.light()
@@ -367,9 +385,9 @@ struct FlashcardView: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.title2)
+                .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(enabled ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
-                .frame(width: 48, height: 48)
+                .frame(width: 56, height: 56)
                 .background(MerkenTheme.surface, in: .circle)
                 .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
                 .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)

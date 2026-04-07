@@ -52,8 +52,8 @@ final class StatsViewModel: ObservableObject {
         }.count
     }
 
-    /// Build daily mastered word count for each of the last 14 days.
-    static func buildMasteryHistory(allWords: [Word], days: Int = 14) -> [MasteryDataPoint] {
+    /// Build daily mastered word count for each of the last 7 days.
+    static func buildMasteryHistory(allWords: [Word], days: Int = 7) -> [MasteryDataPoint] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
         let today = calendar.startOfDay(for: Date())

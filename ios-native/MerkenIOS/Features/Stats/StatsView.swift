@@ -354,7 +354,7 @@ struct StatsView: View {
                                 .foregroundStyle(MerkenTheme.primaryText)
                         }
 
-                        Text("\(viewModel.totalWords)語中 / 復習中 \(viewModel.reviewWords)語")
+                        Text("\(viewModel.totalWords)語中 / 学習中 \(viewModel.reviewWords)語")
                             .font(.system(size: 13, weight: .medium))
                             .monospacedDigit()
                             .lineLimit(1)
@@ -376,9 +376,9 @@ struct StatsView: View {
                     )
                     statsMetricTile(
                         icon: "arrow.triangle.2.circlepath.circle.fill",
-                        tint: MerkenTheme.chartBlue,
+                        tint: MerkenTheme.warning,
                         value: "\(viewModel.reviewWords)",
-                        label: "復習中"
+                        label: "学習中"
                     )
                     statsMetricTile(
                         icon: "clock.fill",
@@ -387,10 +387,10 @@ struct StatsView: View {
                         label: "未学習"
                     )
                     statsMetricTile(
-                        icon: "exclamationmark.circle.fill",
-                        tint: MerkenTheme.danger,
-                        value: "\(viewModel.wrongAnswersCount)",
-                        label: "間違い"
+                        icon: "books.vertical.fill",
+                        tint: MerkenTheme.chartBlue,
+                        value: "\(viewModel.totalWords)",
+                        label: "全単語数"
                     )
                 }
             }
@@ -510,7 +510,7 @@ struct StatsView: View {
                         .fill(MerkenTheme.success)
                         .frame(width: max(masteredWidth, 0))
                     Rectangle()
-                        .fill(MerkenTheme.chartBlue)
+                        .fill(MerkenTheme.warning)
                         .frame(width: max(reviewWidth, 0))
                     Rectangle()
                         .fill(MerkenTheme.borderLight)
@@ -535,7 +535,7 @@ struct StatsView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(MerkenTheme.primaryText)
                 Spacer()
-                Text("過去14日間")
+                Text("過去7日間")
                     .font(.system(size: 12))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
@@ -570,7 +570,7 @@ struct StatsView: View {
                 }
                 .chartYScale(domain: 0...maxMastered)
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 3)) { _ in
+                    AxisMarks(values: .stride(by: .day, count: 1)) { _ in
                         AxisValueLabel(format: .dateTime.month(.defaultDigits).day())
                             .font(.system(size: 9))
                             .foregroundStyle(MerkenTheme.mutedText)
