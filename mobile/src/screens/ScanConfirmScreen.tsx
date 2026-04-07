@@ -134,7 +134,7 @@ export function ScanConfirmScreen() {
       navigation.reset({
         index: 1,
         routes: [
-          { name: 'Main' },
+          { name: 'ProjectList' as any },
           { name: 'Project', params: { projectId: targetProjectId } },
         ],
       });
@@ -368,14 +368,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   addingInfo: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: 'rgba(26,26,26,0.06)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
   },
   addingInfoText: {
     fontSize: 14,
-    color: colors.primary[700],
+    color: '#0d0d0d',
     textAlign: 'center',
     fontWeight: '500',
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
   },
   wordCountValue: {
-    color: colors.primary[600],
+    color: '#1a1a1a',
   },
   wordList: {
     gap: 12,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   wordCardEditing: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: 'rgba(26,26,26,0.06)',
     borderRadius: 12,
     padding: 16,
   },

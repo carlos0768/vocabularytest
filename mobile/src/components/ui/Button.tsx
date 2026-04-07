@@ -42,7 +42,7 @@ export function Button({
     switch (variant) {
       case 'primary':
         return {
-          backgroundColor: colors.primary[600],
+          backgroundColor: '#1a1a1a',
         };
       case 'secondary':
         return {

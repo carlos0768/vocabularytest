@@ -97,7 +97,7 @@ export function WrongAnswersScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[600]} />
+          <ActivityIndicator size="large" color={'#1a1a1a'} />
         </View>
       </SafeAreaView>
     );

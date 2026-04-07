@@ -18,7 +18,7 @@ export function VocabularyTypeBadge({ value, onCycle }: VocabularyTypeBadgeProps
   const label = value === 'active' ? 'A' : value === 'passive' ? 'P' : '—';
 
   const bgColor =
-    value === 'active' ? colors.primary[600] :
+    value === 'active' ? '#1a1a1a' :
     value === 'passive' ? 'rgba(107,114,128,0.5)' :
     'transparent';
 

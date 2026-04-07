@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,17 +11,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Globe, Users } from 'lucide-react-native';
-import { Button } from '../components/ui';
-import colors from '../constants/colors';
+import { ChevronRight, Globe, Users } from 'lucide-react-native';
+import { SolidCard, LoginGateView, Button } from '../components/ui';
+import theme, { getThumbnailColor } from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import {
   fetchSharedProjects,
   type SharedProjectSummary,
 } from '../lib/shared-projects';
-import type { RootStackParamList } from '../types';
+import type { SharedStackParamList } from '../types';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = NativeStackNavigationProp<SharedStackParamList>;
 
 export function SharedProjectsScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -40,29 +39,26 @@ export function SharedProjectsScreen() {
         setLoading(false);
         return;
       }
-
       if (showSpinner) setLoading(true);
       setError(null);
-
       try {
         const result = await fetchSharedProjects(session.access_token);
         setPublicProjects(result.publicProjects ?? []);
         setOwnedProjects(result.owned ?? []);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : '取得に失敗しました。';
-        setError(msg);
+        setError(e instanceof Error ? e.message : '取得に失敗しました。');
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [isAuthenticated, session?.access_token],
+    [isAuthenticated, session?.access_token]
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadData();
-    }, [loadData]),
+    }, [loadData])
   );
 
   const handleRefresh = useCallback(() => {
@@ -70,57 +66,64 @@ export function SharedProjectsScreen() {
     void loadData(false);
   }, [loadData]);
 
+  // Guest: show login gate
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color={colors.gray[700]} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>共有単語帳</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.loginGate}>
-          <Users size={40} color={colors.gray[300]} />
-          <Text style={styles.loginGateTitle}>ログインが必要です</Text>
-          <Text style={styles.loginGateText}>
-            共有単語帳を閲覧するにはログインしてください。
-          </Text>
-          <View style={styles.loginGateButtons}>
-            <Button variant="secondary" onPress={() => navigation.navigate('Signup')}>
-              新規登録
-            </Button>
-            <Button onPress={() => navigation.navigate('Login')}>ログイン</Button>
-          </View>
-        </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Text style={styles.title}>共有</Text>
+        <LoginGateView
+          title="ログインが必要です"
+          message="共有単語帳を閲覧するにはログインしてください。"
+          onLogin={() => {
+            // Navigate to settings tab login — handled by parent navigator
+            (navigation as any).getParent()?.navigate('SettingsTab', { screen: 'Login' });
+          }}
+        />
       </SafeAreaView>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color={colors.gray[700]} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>共有単語帳</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+  // Deduplicate: owned projects may also appear in public list
+  const seen = new Set<string>();
+  const allProjects: SharedProjectSummary[] = [];
+  for (const p of [...ownedProjects, ...publicProjects]) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      allProjects.push(p);
+    }
+  }
+  const totalCount = allProjects.length;
 
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary[600]}
+            tintColor={theme.accentBlack}
           />
         }
       >
+        {/* Title */}
+        <Text style={styles.title}>共有</Text>
+
+        {/* Context header */}
+        <View style={styles.contextHeader}>
+          <Text style={styles.contextLabel}>公開単語帳</Text>
+          <View style={styles.contextCountWrap}>
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.secondaryText} />
+            ) : (
+              <Text style={styles.contextCount}>{totalCount}件</Text>
+            )}
+          </View>
+        </View>
+
         {loading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={colors.primary[600]} />
-            <Text style={styles.loadingText}>共有単語帳を読み込み中...</Text>
+            <ActivityIndicator size="small" color={theme.secondaryText} />
           </View>
         ) : error ? (
           <View style={styles.errorCard}>
@@ -129,44 +132,24 @@ export function SharedProjectsScreen() {
               再読み込み
             </Button>
           </View>
+        ) : allProjects.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Globe size={40} color={theme.mutedText} />
+            <Text style={styles.emptyText}>公開されている単語帳はまだありません。</Text>
+          </View>
         ) : (
-          <>
-            {ownedProjects.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>あなたの公開単語帳</Text>
-                {ownedProjects.map((p) => (
-                  <SharedProjectCard
-                    key={p.id}
-                    project={p}
-                    onPress={() =>
-                      navigation.navigate('SharedProjectDetail', { projectId: p.id })
-                    }
-                  />
-                ))}
-              </View>
-            ) : null}
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>公開単語帳</Text>
-              {publicProjects.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <Globe size={32} color={colors.gray[300]} />
-                  <Text style={styles.emptyText}>公開されている単語帳はまだありません。</Text>
-                </View>
-              ) : (
-                publicProjects.map((p) => (
-                  <SharedProjectCard
-                    key={p.id}
-                    project={p}
-                    onPress={() =>
-                      navigation.navigate('SharedProjectDetail', { projectId: p.id })
-                    }
-                  />
-                ))
-              )}
-            </View>
-          </>
+          <View style={styles.projectList}>
+            {allProjects.map((p, i) => (
+              <SharedProjectCard
+                key={p.id ?? `project-${i}`}
+                project={p}
+                onPress={() => navigation.navigate('SharedProjectDetail', { projectId: p.id })}
+              />
+            ))}
+          </View>
         )}
+
+        <View style={{ height: 120 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -179,34 +162,44 @@ function SharedProjectCard({
   project: SharedProjectSummary;
   onPress: () => void;
 }) {
+  const bgColor = getThumbnailColor(project.id);
+  const title = project.title ?? '無題';
+  const initial = title.charAt(0) || '?';
+  const badgeLabel = project.accessRole === 'owner' ? '公開中' : '共有中';
+
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
-      <View style={styles.cardRow}>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{project.title}</Text>
-          <Text style={styles.cardMeta}>
-            {project.wordCount}語
-            {project.ownerName ? ` · ${project.ownerName}` : ''}
-          </Text>
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
+      <SolidCard style={styles.card}>
+        <View style={styles.cardRow}>
+          {/* Thumbnail */}
+          <View style={[styles.thumbnail, { backgroundColor: bgColor }]}>
+            <Text style={styles.thumbnailText}>{initial}</Text>
+          </View>
+
+          {/* Info */}
+          <View style={styles.cardInfo}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+              <View style={[styles.badge, project.accessRole === 'owner' ? styles.badgeOwner : styles.badgeViewer]}>
+                <Text style={[styles.badgeText, project.accessRole === 'owner' ? styles.badgeTextOwner : null]}>
+                  {badgeLabel}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.cardMeta}>
+              {project.ownerName ? (
+                <View style={styles.metaItem}>
+                  <Users size={11} color={theme.mutedText} />
+                  <Text style={styles.metaText}>{project.ownerName}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.metaText}>{project.wordCount}語</Text>
+            </View>
+          </View>
+
+          <ChevronRight size={16} color={theme.mutedText} />
         </View>
-        <View
-          style={[
-            styles.roleBadge,
-            project.accessRole === 'owner' ? styles.roleBadgeOwner : styles.roleBadgeViewer,
-          ]}
-        >
-          <Text
-            style={[
-              styles.roleBadgeText,
-              project.accessRole === 'owner'
-                ? styles.roleBadgeTextOwner
-                : styles.roleBadgeTextViewer,
-            ]}
-          >
-            {project.accessRole === 'owner' ? 'owner' : 'viewer'}
-          </Text>
-        </View>
-      </View>
+      </SolidCard>
     </TouchableOpacity>
   );
 }
@@ -214,148 +207,139 @@ function SharedProjectCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
   },
-  header: {
+  content: {
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: theme.fontSize.title1,
+    fontWeight: '700',
+    color: theme.primaryText,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  contextHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
+  contextLabel: {
+    fontSize: theme.fontSize.subheadline,
+    fontWeight: '500',
+    color: theme.secondaryText,
   },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.gray[900],
+  contextCountWrap: {
+    minWidth: 30,
+    alignItems: 'flex-end',
   },
-  headerSpacer: {
-    width: 42,
-  },
-  content: {
-    padding: 20,
-    gap: 20,
-    paddingBottom: 40,
-  },
-  loginGate: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    gap: 16,
-  },
-  loginGateTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  loginGateText: {
-    fontSize: 14,
-    color: colors.gray[500],
-    textAlign: 'center',
-  },
-  loginGateButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
+  contextCount: {
+    fontSize: theme.fontSize.subheadline,
+    fontWeight: '500',
+    color: theme.secondaryText,
   },
   loadingWrap: {
-    alignItems: 'center',
-    gap: 12,
     paddingVertical: 40,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: colors.gray[500],
+    alignItems: 'center',
   },
   errorCard: {
-    backgroundColor: colors.red[50],
-    borderRadius: 20,
+    marginHorizontal: 16,
+    backgroundColor: theme.dangerBg,
+    borderRadius: theme.radius.lg,
     padding: 18,
-    borderWidth: 1,
-    borderColor: colors.red[200],
     gap: 12,
     alignItems: 'center',
   },
   errorText: {
-    fontSize: 14,
-    color: colors.red[700],
+    fontSize: theme.fontSize.callout,
+    color: theme.danger,
     textAlign: 'center',
   },
-  section: {
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  emptyCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
+  emptyWrap: {
     alignItems: 'center',
+    paddingVertical: 48,
     gap: 12,
   },
   emptyText: {
-    fontSize: 14,
-    color: colors.gray[500],
+    fontSize: theme.fontSize.callout,
+    color: theme.secondaryText,
+  },
+  projectList: {
+    paddingHorizontal: 16,
+    gap: 10,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
+    padding: 14,
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
+  },
+  thumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbnailText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: theme.white,
   },
   cardInfo: {
     flex: 1,
     gap: 4,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.gray[900],
+    color: theme.primaryText,
+    flexShrink: 1,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+  },
+  badgeOwner: {
+    backgroundColor: theme.chartBlueBg,
+  },
+  badgeViewer: {
+    backgroundColor: theme.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.secondaryText,
+  },
+  badgeTextOwner: {
+    color: theme.chartBlue,
   },
   cardMeta: {
-    fontSize: 13,
-    color: colors.gray[500],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
-  roleBadgeOwner: {
-    backgroundColor: colors.primary[50],
-  },
-  roleBadgeViewer: {
-    backgroundColor: colors.gray[100],
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  roleBadgeTextOwner: {
-    color: colors.primary[700],
-  },
-  roleBadgeTextViewer: {
-    color: colors.gray[600],
+  metaText: {
+    fontSize: theme.fontSize.footnote,
+    fontWeight: '500',
+    color: theme.mutedText,
   },
 });

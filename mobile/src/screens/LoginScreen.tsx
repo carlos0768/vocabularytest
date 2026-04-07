@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'lucide-react-native';
 import { Button, Input } from '../components/ui';
 import { useAuth } from '../hooks/use-auth';
-import colors from '../constants/colors';
+import theme from '../constants/theme';
 import type { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -65,11 +65,8 @@ export function LoginScreen() {
         }
         Alert.alert('エラー', errorMessage);
       } else {
-        // Success - navigate to main screen
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
+        // Success - navigate to home tab
+        (navigation.getParent() as any)?.navigate('HomeTab');
       }
     } catch {
       Alert.alert('エラー', 'ログインに失敗しました');
@@ -109,7 +106,7 @@ export function LoginScreen() {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft size={20} color={colors.gray[600]} />
+          <ArrowLeft size={20} color={theme.secondaryText} />
         </TouchableOpacity>
       </View>
 
@@ -194,7 +191,7 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: theme.white,
   },
   header: {
     paddingHorizontal: 16,
@@ -213,29 +210,29 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.gray[900],
+    fontSize: 34,
+    fontWeight: '900',
+    color: theme.primaryText,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: colors.gray[500],
+    fontSize: theme.fontSize.body,
+    color: theme.secondaryText,
     marginBottom: 32,
     lineHeight: 22,
   },
   errorBanner: {
-    backgroundColor: colors.red[50],
+    backgroundColor: theme.dangerBg,
     borderWidth: 1,
-    borderColor: colors.red[200],
-    borderRadius: 12,
+    borderColor: theme.danger,
+    borderRadius: theme.radius.md,
     padding: 12,
     marginBottom: 20,
   },
   errorBannerText: {
     fontSize: 13,
     lineHeight: 19,
-    color: colors.red[700],
+    color: theme.danger,
   },
   form: {
     gap: 8,
@@ -249,7 +246,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: colors.primary[600],
+    color: theme.chartBlue,
   },
   divider: {
     flexDirection: 'row',
@@ -259,12 +256,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.gray[200],
+    backgroundColor: theme.border,
   },
   dividerText: {
     paddingHorizontal: 16,
     fontSize: 14,
-    color: colors.gray[400],
+    color: theme.mutedText,
   },
   signupSection: {
     flexDirection: 'row',
@@ -273,11 +270,11 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 14,
-    color: colors.gray[600],
+    color: theme.secondaryText,
   },
   signupLink: {
     fontSize: 14,
-    color: colors.primary[600],
+    color: theme.chartBlue,
     fontWeight: '600',
   },
 });

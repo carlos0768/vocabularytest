@@ -6,7 +6,9 @@ import type { WordStatus } from '../../shared/types';
 
 const BOX_SIZE = 13;
 const BORDER_RADIUS = 3;
-const STORAGE_PREFIX = 'notion_cb_mid_';
+const KEY_TIER2 = 'notion_cb_mid_';
+const KEY_FROM_MASTERED = 'notion_cb_fromM_';
+const KEY_WALKBACK = 'notion_cb_walk_';
 
 interface NotionCheckboxProps {
   wordId: string;
@@ -15,54 +17,119 @@ interface NotionCheckboxProps {
 }
 
 /**
- * iOS の NotionCheckboxProgress に相当。
- * 3段のボックスで status を視覚的に表示し、タップで循環する。
+ * iOS の NotionCheckboxProgress + advanceNotionCheckbox を完全再現。
  *
- *  new     → □□□  (0 filled)
- *  review  → ■□□ or ■■□  (1-2 filled, 2段目は AsyncStorage で管理)
- *  mastered→ ■■■  (3 filled)
+ * 前進: new(0) → review(1) → review(2) → mastered(3)
+ * 後退: mastered(3) → review(2,fromMastered) → review(1,walkback) → new(0)
  *
- * タップ: new → review(1) → review(2) → mastered → review(2) → review(1) → new → ...
+ * fromMastered フラグで 2↔3 のループを防止。
  */
 export function NotionCheckbox({ wordId, status, onStatusChange }: NotionCheckboxProps) {
-  const [midFilled, setMidFilled] = useState(false);
+  const [tier2, setTier2] = useState(false);
+  const [fromMastered, setFromMastered] = useState(false);
+  const [walkback, setWalkback] = useState(false);
 
   useEffect(() => {
     if (status === 'review') {
-      AsyncStorage.getItem(STORAGE_PREFIX + wordId).then((val) => {
-        setMidFilled(val === '1');
+      Promise.all([
+        AsyncStorage.getItem(KEY_TIER2 + wordId),
+        AsyncStorage.getItem(KEY_FROM_MASTERED + wordId),
+        AsyncStorage.getItem(KEY_WALKBACK + wordId),
+      ]).then(([t2, fm, wb]) => {
+        setTier2(t2 === '1');
+        setFromMastered(fm === '1');
+        setWalkback(wb === '1');
       });
     } else {
-      setMidFilled(status === 'mastered');
+      setTier2(false);
+      setFromMastered(false);
+      setWalkback(false);
     }
   }, [status, wordId]);
 
   const filledCount =
     status === 'mastered' ? 3 :
-    status === 'review' ? (midFilled ? 2 : 1) :
+    status === 'review' ? (tier2 ? 2 : 1) :
     0;
 
   const handleTap = useCallback(async () => {
-    if (status === 'new') {
-      // new → review (1 filled)
-      await AsyncStorage.setItem(STORAGE_PREFIX + wordId, '0');
-      setMidFilled(false);
-      onStatusChange('review');
-    } else if (status === 'review' && !midFilled) {
-      // review(1) → review(2)
-      await AsyncStorage.setItem(STORAGE_PREFIX + wordId, '1');
-      setMidFilled(true);
-    } else if (status === 'review' && midFilled) {
-      // review(2) → mastered
-      await AsyncStorage.removeItem(STORAGE_PREFIX + wordId);
-      onStatusChange('mastered');
-    } else if (status === 'mastered') {
-      // mastered → review(2)
-      await AsyncStorage.setItem(STORAGE_PREFIX + wordId, '1');
-      setMidFilled(true);
-      onStatusChange('review');
+    switch (true) {
+      // new → review(1)
+      case status === 'new': {
+        await AsyncStorage.multiSet([
+          [KEY_TIER2 + wordId, '0'],
+          [KEY_FROM_MASTERED + wordId, '0'],
+          [KEY_WALKBACK + wordId, '0'],
+        ]);
+        setTier2(false);
+        setFromMastered(false);
+        setWalkback(false);
+        onStatusChange('review');
+        break;
+      }
+
+      // review(1, walkback) → new  (戻り経路: 1マス目からさらに戻る)
+      case status === 'review' && !tier2 && walkback: {
+        await AsyncStorage.multiRemove([
+          KEY_TIER2 + wordId,
+          KEY_FROM_MASTERED + wordId,
+          KEY_WALKBACK + wordId,
+        ]);
+        setWalkback(false);
+        onStatusChange('new');
+        break;
+      }
+
+      // review(1, forward) → review(2)  (前進経路)
+      case status === 'review' && !tier2 && !walkback: {
+        await AsyncStorage.multiSet([
+          [KEY_TIER2 + wordId, '1'],
+          [KEY_FROM_MASTERED + wordId, '0'],
+        ]);
+        setTier2(true);
+        setFromMastered(false);
+        break;
+      }
+
+      // review(2, fromMastered) → review(1, walkback)  (戻り経路: 2↔3ループ防止)
+      case status === 'review' && tier2 && fromMastered: {
+        await AsyncStorage.multiSet([
+          [KEY_TIER2 + wordId, '0'],
+          [KEY_FROM_MASTERED + wordId, '0'],
+          [KEY_WALKBACK + wordId, '1'],
+        ]);
+        setTier2(false);
+        setFromMastered(false);
+        setWalkback(true);
+        break;
+      }
+
+      // review(2, forward) → mastered  (前進経路)
+      case status === 'review' && tier2 && !fromMastered: {
+        await AsyncStorage.multiRemove([
+          KEY_TIER2 + wordId,
+          KEY_FROM_MASTERED + wordId,
+          KEY_WALKBACK + wordId,
+        ]);
+        onStatusChange('mastered');
+        break;
+      }
+
+      // mastered → review(2, fromMastered)
+      case status === 'mastered': {
+        await AsyncStorage.multiSet([
+          [KEY_TIER2 + wordId, '1'],
+          [KEY_FROM_MASTERED + wordId, '1'],
+          [KEY_WALKBACK + wordId, '0'],
+        ]);
+        setTier2(true);
+        setFromMastered(true);
+        setWalkback(false);
+        onStatusChange('review');
+        break;
+      }
     }
-  }, [midFilled, onStatusChange, status, wordId]);
+  }, [status, tier2, fromMastered, walkback, onStatusChange, wordId]);
 
   return (
     <TouchableOpacity
@@ -74,7 +141,7 @@ export function NotionCheckbox({ wordId, status, onStatusChange }: NotionCheckbo
       <View style={styles.stack}>
         <View style={[styles.box, filledCount >= 1 && styles.boxFilled]} />
         <View style={[styles.box, styles.boxMiddle, filledCount >= 2 && styles.boxFilled]} />
-        <View style={[styles.box, filledCount >= 3 && styles.boxFilledGreen]} />
+        <View style={[styles.box, filledCount >= 3 && styles.boxFilled]} />
       </View>
     </TouchableOpacity>
   );
@@ -104,9 +171,6 @@ const styles = StyleSheet.create({
     borderColor: colors.gray[400],
   },
   boxFilled: {
-    backgroundColor: colors.gray[900],
-  },
-  boxFilledGreen: {
     backgroundColor: colors.gray[900],
   },
 });

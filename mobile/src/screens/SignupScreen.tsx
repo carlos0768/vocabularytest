@@ -92,11 +92,8 @@ export function SignupScreen() {
           ]
         );
       } else {
-        // Success - navigate to main screen
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
+        // Success - navigate to home tab
+        (navigation.getParent() as any)?.navigate('HomeTab');
       }
     } catch {
       Alert.alert('エラー', '登録に失敗しました');
@@ -285,7 +282,7 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     fontSize: 14,
-    color: colors.primary[600],
+    color: '#1a1a1a',
     fontWeight: '600',
   },
 });

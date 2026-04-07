@@ -18,7 +18,7 @@ export function ProgressSteps({ steps }: ProgressStepsProps) {
               <View style={styles.pendingDot} />
             )}
             {step.status === 'active' && (
-              <ActivityIndicator size="small" color={colors.primary[600]} />
+              <ActivityIndicator size="small" color={'#1a1a1a'} />
             )}
             {step.status === 'complete' && (
               <View style={styles.completeIcon}>

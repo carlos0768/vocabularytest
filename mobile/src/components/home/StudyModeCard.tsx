@@ -33,10 +33,10 @@ const variantStyles: Record<ColorVariant, {
     iconColor: colors.red[600],
   },
   blue: {
-    borderColor: colors.primary[200],
-    bgColor: colors.primary[50],
+    borderColor: 'rgba(26,26,26,0.15)',
+    bgColor: 'rgba(26,26,26,0.06)',
     iconBgColor: colors.primary[100],
-    iconColor: colors.primary[600],
+    iconColor: '#1a1a1a',
   },
   green: {
     borderColor: colors.emerald[200],

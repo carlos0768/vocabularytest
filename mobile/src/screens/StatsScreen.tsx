@@ -9,30 +9,28 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Flame, GraduationCap } from 'lucide-react-native';
-import Svg, { Circle as SvgCircle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
-import colors from '../constants/colors';
+import { useFocusEffect } from '@react-navigation/native';
+import { Flame, GraduationCap } from 'lucide-react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import { SolidCard, IconBadge, LoginGateView } from '../components/ui';
+import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { getRepository } from '../lib/db';
 import { fetchAllWordsForUser } from '../lib/db/fetch-all-words';
 import { getDailyStats, getGuestUserId, getStreakDays, getWrongAnswers } from '../lib/utils';
-import type { RootStackParamList, Word } from '../types';
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+import type { Word } from '../types';
 
 interface DayMastery {
   label: string;
   count: number;
+  isToday: boolean;
 }
 
 export function StatsScreen() {
-  const navigation = useNavigation<NavigationProp>();
   const { user, isAuthenticated, subscription, loading: authLoading } = useAuth();
   const repository = useMemo(
     () => getRepository(subscription?.status ?? 'free'),
-    [subscription?.status],
+    [subscription?.status]
   );
 
   const [loading, setLoading] = useState(true);
@@ -52,19 +50,15 @@ export function StatsScreen() {
     async (showSpinner = true) => {
       if (authLoading) return;
       if (showSpinner) setLoading(true);
-
       try {
-        const userId =
-          isAuthenticated && user?.id ? user.id : await getGuestUserId();
+        const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
         const isPro = subscription?.status === 'active';
         const [allWords, dailyStats, streak, wrongAnswers] = await Promise.all([
           isPro
             ? fetchAllWordsForUser(userId)
             : repository.getProjects(userId).then(async (projects) => {
                 const words: Word[] = [];
-                for (const p of projects) {
-                  words.push(...(await repository.getWords(p.id)));
-                }
+                for (const p of projects) words.push(...(await repository.getWords(p.id)));
                 return words;
               }),
           getDailyStats(),
@@ -72,21 +66,15 @@ export function StatsScreen() {
           getWrongAnswers(),
         ]);
 
-        const mastered = allWords.filter((w) => w.status === 'mastered').length;
-        const review = allWords.filter((w) => w.status === 'review').length;
-        const newW = allWords.filter((w) => w.status === 'new').length;
-
-        setMasteredCount(mastered);
-        setReviewCount(review);
-        setNewCount(newW);
+        setMasteredCount(allWords.filter((w) => w.status === 'mastered').length);
+        setReviewCount(allWords.filter((w) => w.status === 'review').length);
+        setNewCount(allWords.filter((w) => w.status === 'new').length);
         setTotalWords(allWords.length);
         setWrongCount(wrongAnswers.length);
-
         setStreakDays(streak);
         setTodayMastered(dailyStats.masteredCount);
         setTodayAnswered(dailyStats.todayCount);
         setTodayCorrect(dailyStats.correctCount);
-
         setMasteryHistory(buildMasteryHistory(allWords));
       } catch (error) {
         console.error('Failed to load stats:', error);
@@ -95,13 +83,13 @@ export function StatsScreen() {
         setRefreshing(false);
       }
     },
-    [authLoading, isAuthenticated, repository, user?.id],
+    [authLoading, isAuthenticated, repository, subscription?.status, user?.id]
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadStats();
-    }, [loadStats]),
+    }, [loadStats])
   );
 
   const handleRefresh = useCallback(() => {
@@ -110,141 +98,234 @@ export function StatsScreen() {
   }, [loadStats]);
 
   const masteryPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
-  const accuracyPercent =
-    todayAnswered > 0 ? Math.round((todayCorrect / todayAnswered) * 100) : 0;
+
+  // Guest gate
+  if (!isAuthenticated && !loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Text style={styles.title}>進歩</Text>
+        <LoginGateView
+          title="ログインが必要です"
+          message="学習の統計を見るにはログインしてください。"
+          onLogin={() => {}}
+        />
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
-        <Text style={styles.loadingText}>統計を読み込み中...</Text>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Text style={styles.title}>進歩</Text>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="small" color={theme.secondaryText} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color={colors.gray[700]} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>進歩</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary[600]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.accentBlack} />
         }
       >
+        <Text style={styles.title}>進歩</Text>
+
+        {/* Summary widgets - 2 column */}
         <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryIconWrap}>
-              <Flame size={18} color={colors.orange[600]} />
-            </View>
-            <Text style={styles.summaryValue}>{streakDays}</Text>
+          <SolidCard style={styles.summaryCard}>
+            <IconBadge
+              icon={<Flame size={18} color="#f97316" />}
+              size={42}
+              backgroundColor="rgba(249,115,22,0.10)"
+            />
+            <Text style={styles.summaryValue}>{streakDays}日</Text>
             <Text style={styles.summaryLabel}>連続学習日数</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <View style={[styles.summaryIconWrap, { backgroundColor: colors.emerald[50] }]}>
-              <GraduationCap size={18} color={colors.emerald[600]} />
-            </View>
-            <Text style={styles.summaryValue}>{todayMastered}</Text>
+          </SolidCard>
+          <SolidCard style={styles.summaryCard}>
+            <IconBadge
+              icon={<GraduationCap size={18} color={theme.success} />}
+              size={42}
+              backgroundColor={theme.successBg}
+            />
+            <Text style={styles.summaryValue}>{todayMastered}語</Text>
             <Text style={styles.summaryLabel}>今日の習得</Text>
-          </View>
+          </SolidCard>
         </View>
 
-        {todayAnswered > 0 ? (
-          <View style={styles.todayCard}>
-            <Text style={styles.todayTitle}>今日の学習</Text>
-            <View style={styles.todayRow}>
-              <TodayMetric label="回答数" value={todayAnswered} />
-              <TodayMetric label="正解数" value={todayCorrect} />
-              <TodayMetric label="正答率" value={`${accuracyPercent}%`} />
-            </View>
+        {/* Mastery bar chart */}
+        <SolidCard style={styles.chartCard}>
+          <View style={styles.chartHeader}>
+            <Text style={styles.chartTitle}>暗記した単語数の推移</Text>
+            <Text style={styles.chartSubtitle}>7日間</Text>
           </View>
-        ) : null}
+          <MasteryBarChart data={masteryHistory} />
+          <View style={styles.chartLegend}>
+            <View style={[styles.legendDot, { backgroundColor: theme.success }]} />
+            <Text style={styles.legendText}>習得済み</Text>
+          </View>
+        </SolidCard>
 
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>習得推移（14日間）</Text>
-          <MasteryChart data={masteryHistory} />
-        </View>
-
-        <View style={styles.donutCard}>
-          <View style={styles.donutRow}>
+        {/* Word stats card */}
+        <SolidCard style={styles.statsCard}>
+          <View style={styles.statsTop}>
             <DonutChart
               mastered={masteredCount}
               review={reviewCount}
-              newWords={newCount}
               total={totalWords}
               percent={masteryPercent}
             />
-            <View style={styles.legendColumn}>
-              <LegendItem color={colors.emerald[500]} label="習得" count={masteredCount} />
-              <LegendItem color={colors.primary[500]} label="学習中" count={reviewCount} />
-              <LegendItem color={colors.gray[300]} label="未学習" count={newCount} />
+            <View style={styles.statsRight}>
+              <Text style={styles.statsMainValue}>{masteredCount}</Text>
+              <Text style={styles.statsMainLabel}>語を習得</Text>
+              <Text style={styles.statsSubLabel}>全{totalWords}語 / 復習{reviewCount}語</Text>
             </View>
           </View>
-        </View>
 
-        <View style={styles.tilesRow}>
-          <StatTile
-            label="習得済み"
-            value={masteredCount}
-            color={colors.emerald[600]}
-            bg={colors.emerald[50]}
-          />
-          <StatTile
-            label="復習中"
-            value={reviewCount}
-            color={colors.primary[600]}
-            bg={colors.primary[50]}
-          />
-        </View>
-        <View style={styles.tilesRow}>
-          <StatTile
-            label="未学習"
-            value={newCount}
-            color={colors.gray[600]}
-            bg={colors.gray[100]}
-          />
-          <StatTile
-            label="間違い"
-            value={wrongCount}
-            color={colors.red[600]}
-            bg={colors.red[50]}
-          />
-        </View>
+          {/* Distribution bar */}
+          <View style={styles.distBar}>
+            {masteredCount > 0 && (
+              <View style={[styles.distSegment, { flex: masteredCount, backgroundColor: theme.success }]} />
+            )}
+            {reviewCount > 0 && (
+              <View style={[styles.distSegment, { flex: reviewCount, backgroundColor: theme.chartBlue }]} />
+            )}
+            {newCount > 0 && (
+              <View style={[styles.distSegment, { flex: newCount, backgroundColor: theme.border }]} />
+            )}
+          </View>
+
+          {/* 2x2 metric grid */}
+          <View style={styles.metricsGrid}>
+            <MetricTile label="習得済み" value={masteredCount} color={theme.success} bg={theme.successBg} />
+            <MetricTile label="復習中" value={reviewCount} color={theme.chartBlue} bg={theme.chartBlueBg} />
+            <MetricTile label="未学習" value={newCount} color={theme.secondaryText} bg={theme.surfaceAlt} />
+            <MetricTile label="間違い" value={wrongCount} color={theme.danger} bg={theme.dangerBg} />
+          </View>
+        </SolidCard>
+
+        <View style={{ height: 120 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function TodayMetric({ label, value }: { label: string; value: number | string }) {
+// ---------- Bar Chart (matching iOS StatsView bar chart) ----------
+
+function MasteryBarChart({ data }: { data: DayMastery[] }) {
+  if (data.length === 0) return null;
+
+  const maxVal = Math.max(...data.map((d) => d.count), 1);
+  // iOS uses UIScreen.main.bounds.height * 0.32
+  const { height: screenHeight } = require('react-native').Dimensions.get('window');
+  const chartHeight = Math.round(screenHeight * 0.28);
+  const yAxisWidth = 36;
+  const yLabels = [maxVal, Math.round(maxVal / 2), 0];
+  const barCount = data.length;
+
   return (
-    <View style={styles.todayMetric}>
-      <Text style={styles.todayMetricValue}>{value}</Text>
-      <Text style={styles.todayMetricLabel}>{label}</Text>
+    <View style={{ flexDirection: 'row' }}>
+      {/* Y-axis */}
+      <View style={{ width: yAxisWidth, height: chartHeight, justifyContent: 'space-between', paddingBottom: 20 }}>
+        {yLabels.map((v, i) => (
+          <Text key={i} style={styles.yLabel}>{v}</Text>
+        ))}
+      </View>
+
+      {/* Bars — flex layout, no fixed SVG width */}
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: chartHeight - 20, gap: 8 }}>
+          {data.map((d, i) => {
+            const barHeight = maxVal > 0 ? (d.count / maxVal) * (chartHeight - 40) : 0;
+            return (
+              <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                <View
+                  style={{
+                    width: '70%',
+                    maxWidth: 32,
+                    height: Math.max(barHeight, 3),
+                    borderRadius: 4,
+                    backgroundColor: d.isToday ? theme.success : 'rgba(33,197,89,0.65)',
+                  }}
+                />
+              </View>
+            );
+          })}
+        </View>
+        {/* X-axis labels */}
+        <View style={{ flexDirection: 'row', marginTop: 6, gap: 8 }}>
+          {data.map((d, i) => (
+            <View key={i} style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={styles.xLabel} numberOfLines={1}>
+                {d.label.slice(-5)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 
-function LegendItem({ color, label, count }: { color: string; label: string; count: number }) {
+// ---------- Donut Chart ----------
+
+function DonutChart({
+  mastered,
+  review,
+  total,
+  percent,
+}: {
+  mastered: number;
+  review: number;
+  total: number;
+  percent: number;
+}) {
+  const size = 84;
+  const strokeWidth = 6;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const masteredFrac = total > 0 ? mastered / total : 0;
+  const reviewFrac = total > 0 ? review / total : 0;
+  const masteredDash = circumference * masteredFrac;
+  const reviewDash = circumference * reviewFrac;
+
   return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
-      <Text style={styles.legendLabel}>{label}</Text>
-      <Text style={styles.legendCount}>{count}</Text>
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size}>
+        <SvgCircle cx={size / 2} cy={size / 2} r={radius} stroke={theme.border} strokeWidth={strokeWidth} fill="none" />
+        {masteredFrac > 0 && (
+          <SvgCircle
+            cx={size / 2} cy={size / 2} r={radius}
+            stroke={theme.success} strokeWidth={strokeWidth} fill="none"
+            strokeDasharray={`${masteredDash} ${circumference - masteredDash}`}
+            strokeLinecap="butt" rotation={-90} origin={`${size / 2}, ${size / 2}`}
+          />
+        )}
+        {reviewFrac > 0 && (
+          <SvgCircle
+            cx={size / 2} cy={size / 2} r={radius}
+            stroke={theme.chartBlue} strokeWidth={strokeWidth} fill="none"
+            strokeDasharray={`${reviewDash} ${circumference - reviewDash}`}
+            strokeDashoffset={-masteredDash}
+            strokeLinecap="butt" rotation={-90} origin={`${size / 2}, ${size / 2}`}
+          />
+        )}
+      </Svg>
+      <View style={styles.donutCenter}>
+        <Text style={styles.donutPercent}>{percent}%</Text>
+        <Text style={styles.donutLabel}>習得</Text>
+      </View>
     </View>
   );
 }
 
-function StatTile({
+// ---------- Metric Tile ----------
+
+function MetricTile({
   label,
   value,
   color,
@@ -256,166 +337,38 @@ function StatTile({
   bg: string;
 }) {
   return (
-    <View style={[styles.tile, { backgroundColor: bg }]}>
-      <Text style={[styles.tileValue, { color }]}>{value}</Text>
-      <Text style={styles.tileLabel}>{label}</Text>
+    <View style={[styles.metricTile, { backgroundColor: bg }]}>
+      <Text style={[styles.metricValue, { color }]}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
 }
 
-function DonutChart({
-  mastered,
-  review,
-  total,
-  percent,
-}: {
-  mastered: number;
-  review: number;
-  newWords: number;
-  total: number;
-  percent: number;
-}) {
-  const size = 120;
-  const strokeWidth = 14;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-
-  const masteredFrac = total > 0 ? mastered / total : 0;
-  const reviewFrac = total > 0 ? review / total : 0;
-
-  const masteredDash = circumference * masteredFrac;
-  const reviewDash = circumference * reviewFrac;
-  const masteredOffset = 0;
-  const reviewOffset = -(masteredDash);
-
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size}>
-        <SvgCircle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={colors.gray[200]}
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        {masteredFrac > 0 ? (
-          <SvgCircle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={colors.emerald[500]}
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeDasharray={`${masteredDash} ${circumference - masteredDash}`}
-            strokeDashoffset={masteredOffset}
-            strokeLinecap="butt"
-            rotation={-90}
-            origin={`${size / 2}, ${size / 2}`}
-          />
-        ) : null}
-        {reviewFrac > 0 ? (
-          <SvgCircle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={colors.primary[500]}
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeDasharray={`${reviewDash} ${circumference - reviewDash}`}
-            strokeDashoffset={reviewOffset}
-            strokeLinecap="butt"
-            rotation={-90}
-            origin={`${size / 2}, ${size / 2}`}
-          />
-        ) : null}
-      </Svg>
-      <View style={styles.donutCenter}>
-        <Text style={styles.donutPercent}>{percent}%</Text>
-        <Text style={styles.donutPercentLabel}>習得</Text>
-      </View>
-    </View>
-  );
-}
-
-function MasteryChart({ data }: { data: DayMastery[] }) {
-  if (data.length === 0) return null;
-
-  const maxVal = Math.max(...data.map((d) => d.count), 1);
-  const chartWidth = 300;
-  const chartHeight = 120;
-  const paddingLeft = 30;
-  const paddingBottom = 24;
-  const drawWidth = chartWidth - paddingLeft;
-  const drawHeight = chartHeight - paddingBottom;
-
-  const points = data.map((d, i) => {
-    const x = paddingLeft + (i / Math.max(data.length - 1, 1)) * drawWidth;
-    const y = drawHeight - (d.count / maxVal) * drawHeight;
-    return { x, y };
-  });
-
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-  const areaPath = `${linePath} L${points[points.length - 1].x},${drawHeight} L${points[0].x},${drawHeight} Z`;
-
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <Svg width={chartWidth} height={chartHeight}>
-        <Defs>
-          <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={colors.emerald[400]} stopOpacity={0.35} />
-            <Stop offset="1" stopColor={colors.emerald[400]} stopOpacity={0.02} />
-          </LinearGradient>
-        </Defs>
-        <Path d={areaPath} fill="url(#areaGrad)" />
-        <Path d={linePath} stroke={colors.emerald[500]} strokeWidth={2.5} fill="none" />
-        {points.map((p, i) => (
-          <SvgCircle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={3}
-            fill={colors.emerald[500]}
-          />
-        ))}
-      </Svg>
-      <View style={styles.chartLabels}>
-        {data.map((d, i) =>
-          i % 3 === 0 || i === data.length - 1 ? (
-            <Text key={i} style={styles.chartLabelText}>
-              {d.label}
-            </Text>
-          ) : (
-            <Text key={i} style={styles.chartLabelText}>
-              {''}
-            </Text>
-          ),
-        )}
-      </View>
-    </View>
-  );
-}
+// ---------- Helpers ----------
 
 function buildMasteryHistory(allWords: Word[]): DayMastery[] {
-  const calendar = new Date();
-  const today = startOfDay(calendar);
+  const today = startOfDay(new Date());
   const history: DayMastery[] = [];
 
-  for (let offset = -13; offset <= 0; offset++) {
+  // 前日5日 + 今日 + 翌日 = 7日間
+  for (let offset = -5; offset <= 1; offset++) {
     const date = new Date(today);
     date.setDate(date.getDate() + offset);
     const nextDate = new Date(date);
     nextDate.setDate(nextDate.getDate() + 1);
 
-    const count = allWords.filter((w) => {
-      if (w.status !== 'mastered') return false;
-      const masteryDate = w.lastReviewedAt ? new Date(w.lastReviewedAt) : new Date(w.createdAt);
-      return masteryDate >= date && masteryDate < nextDate;
-    }).length;
+    const count = offset <= 0
+      ? allWords.filter((w) => {
+          if (w.status !== 'mastered') return false;
+          const d = w.lastReviewedAt ? new Date(w.lastReviewedAt) : new Date(w.createdAt);
+          return d >= date && d < nextDate;
+        }).length
+      : 0; // 翌日はまだデータなし
 
     history.push({
-      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      label: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
       count,
+      isToday: offset === 0,
     });
   }
 
@@ -431,205 +384,174 @@ function startOfDay(date: Date): Date {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
   },
-  loadingContainer: {
+  content: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    gap: 20,
+  },
+  title: {
+    fontSize: theme.fontSize.title1,
+    fontWeight: '700',
+    color: theme.primaryText,
+    paddingTop: 16,
+  },
+  loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
   },
-  loadingText: {
-    fontSize: 14,
-    color: colors.gray[500],
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  headerSpacer: {
-    width: 42,
-  },
-  content: {
-    padding: 20,
-    gap: 16,
-    paddingBottom: 40,
-  },
+
+  // ── Summary cards (iOS: padding 16, minHeight 146, spacing 12, left-aligned) ──
   summaryRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    alignItems: 'center',
-    gap: 8,
-  },
-  summaryIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.orange[50],
+    minHeight: 146,
+    padding: 16,
+    alignItems: 'flex-start',
+    gap: 12,
   },
   summaryValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.gray[900],
+    fontSize: 30,
+    fontWeight: '700',
+    color: theme.primaryText,
   },
   summaryLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.gray[500],
+    color: theme.secondaryText,
   },
-  todayCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 12,
-  },
-  todayTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  todayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  todayMetric: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  todayMetricValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  todayMetricLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.gray[500],
-  },
+
+  // ── Bar chart card (iOS: padding 16, title 15pt bold, spacing 10) ──
   chartCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 14,
+    padding: 16,
+    gap: 10,
   },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  chartLabels: {
+  chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 300,
-    paddingLeft: 30,
-    marginTop: 4,
+    alignItems: 'center',
   },
-  chartLabelText: {
-    fontSize: 10,
-    color: colors.gray[400],
-    width: 28,
-    textAlign: 'center',
+  chartTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.primaryText,
   },
-  donutCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
+  chartSubtitle: {
+    fontSize: 12,
+    color: theme.secondaryText,
   },
-  donutRow: {
+  chartLegend: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
-  },
-  donutCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  donutPercent: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.gray[900],
-  },
-  donutPercentLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.gray[500],
-  },
-  legendColumn: {
-    flex: 1,
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   legendDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
   },
-  legendLabel: {
-    fontSize: 14,
-    color: colors.gray[600],
-    flex: 1,
+  legendText: {
+    fontSize: 11,
+    color: theme.secondaryText,
   },
-  legendCount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.gray[900],
+  yLabel: {
+    fontSize: 10,
+    color: theme.mutedText,
+    textAlign: 'right',
   },
-  tilesRow: {
+  xLabel: {
+    fontSize: 9,
+    color: theme.mutedText,
+    textAlign: 'center',
+  },
+
+  // ── Word stats card (iOS: hPad 16, vPad 22, minHeight 192, gap 14) ──
+  statsCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 22,
+    minHeight: 192,
+    gap: 14,
+  },
+  statsTop: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 14,
   },
-  tile: {
+  statsRight: {
     flex: 1,
-    borderRadius: 18,
-    padding: 16,
     gap: 4,
   },
-  tileValue: {
-    fontSize: 28,
-    fontWeight: '800',
+  statsMainValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: theme.primaryText,
   },
-  tileLabel: {
+  statsMainLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.gray[600],
+    color: theme.secondaryText,
+  },
+  statsSubLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: theme.mutedText,
+  },
+
+  // ── Donut (iOS: 84x84, stroke 6, center text 15pt bold + 10pt) ──
+  donutCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+    gap: 1,
+  },
+  donutPercent: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.primaryText,
+    fontVariant: ['tabular-nums'],
+  },
+  donutLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: theme.secondaryText,
+  },
+
+  // ── Distribution bar (iOS: height 14, radius 7) ──
+  distBar: {
+    flexDirection: 'row',
+    height: 14,
+    borderRadius: 7,
+    overflow: 'hidden',
+    backgroundColor: theme.border,
+  },
+  distSegment: {
+    height: 14,
+  },
+
+  // ── 2x2 metric grid (iOS: 2 cols, spacing 10) ──
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  metricTile: {
+    width: '47%',
+    borderRadius: 16,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  metricValue: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.secondaryText,
   },
 });

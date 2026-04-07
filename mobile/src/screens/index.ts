@@ -1,4 +1,5 @@
 export { HomeScreen } from './HomeScreen';
+export { ProjectListScreen } from './ProjectListScreen';
 export { ProjectScreen } from './ProjectScreen';
 export { QuizScreen } from './QuizScreen';
 export { ScanConfirmScreen } from './ScanConfirmScreen';

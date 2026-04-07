@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
+import { File as ExpoFile } from 'expo-file-system';
 import { supabase } from './supabase';
 import { withWebAppBase } from './web-base-url';
 import { generateId } from './utils';
@@ -58,12 +59,13 @@ async function uploadScanImage(
   imageUri: string,
   mimeType?: string | null
 ): Promise<string> {
-  const response = await fetch(imageUri);
-  const blob = await response.blob();
-  const buffer = await blob.arrayBuffer();
   const extension = guessFileExtension(imageUri, mimeType);
-  const contentType = mimeType || blob.type || 'image/jpeg';
+  const contentType = mimeType || 'image/jpeg';
   const imagePath = `${userId}/${Date.now()}-${generateId()}.${extension}`;
+
+  // Use expo-file-system v19 File class which implements Blob + arrayBuffer()
+  const file = new ExpoFile(imageUri);
+  const buffer = await file.arrayBuffer();
 
   const { error } = await supabase.storage
     .from('scan-images')

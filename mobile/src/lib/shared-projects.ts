@@ -5,8 +5,8 @@ export interface SharedProjectSummary {
   title: string;
   wordCount: number;
   ownerName: string | null;
-  accessRole: 'owner' | 'viewer';
-  shareScope: 'public' | 'private';
+  accessRole: 'owner' | 'viewer' | 'editor';
+  shareScope?: 'public' | 'private';
 }
 
 export interface SharedProjectDetail {
@@ -33,6 +33,34 @@ export interface SharedWord {
   partOfSpeechTags?: string[];
 }
 
+// The API returns nested objects: { project: { id, title, ... }, accessRole, ownerUsername, wordCount }
+// We flatten them into SharedProjectSummary for the UI.
+interface RawSharedProjectCard {
+  project?: {
+    id?: string;
+    title?: string;
+    [key: string]: unknown;
+  };
+  accessRole?: string;
+  ownerUsername?: string | null;
+  wordCount?: number;
+  collaboratorCount?: number;
+  // Flat fallback fields (in case API ever returns flat)
+  id?: string;
+  title?: string;
+  ownerName?: string | null;
+}
+
+function normalizeCard(raw: RawSharedProjectCard): SharedProjectSummary {
+  const id = raw.project?.id ?? raw.id ?? '';
+  const title = raw.project?.title ?? raw.title ?? '無題';
+  const ownerName = raw.ownerUsername ?? raw.ownerName ?? null;
+  const accessRole = (raw.accessRole ?? 'viewer') as SharedProjectSummary['accessRole'];
+  const wordCount = raw.wordCount ?? 0;
+
+  return { id, title, wordCount, ownerName, accessRole };
+}
+
 export async function fetchSharedProjects(
   token: string,
 ): Promise<{
@@ -49,7 +77,13 @@ export async function fetchSharedProjects(
     throw new Error(`共有単語帳の取得に失敗しました (${response.status})`);
   }
 
-  return response.json();
+  const json = await response.json();
+
+  return {
+    owned: ((json.owned ?? []) as RawSharedProjectCard[]).map(normalizeCard),
+    joined: ((json.joined ?? []) as RawSharedProjectCard[]).map(normalizeCard),
+    publicProjects: ((json.publicProjects ?? json.public ?? []) as RawSharedProjectCard[]).map(normalizeCard),
+  };
 }
 
 export async function fetchSharedProjectDetail(

@@ -26,7 +26,9 @@ import {
 } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import colors from '../constants/colors';
+import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
+import { useTabBar } from '../hooks/use-tab-bar';
 import { getRepository } from '../lib/db';
 import { fetchSharedProjectDetail, type SharedProjectDetail, type SharedWord } from '../lib/shared-projects';
 import { getGuestUserId } from '../lib/utils';
@@ -55,6 +57,7 @@ export function SharedProjectDetailScreen() {
   const insets = useSafeAreaInsets();
   const { projectId } = route.params;
   const { session, user, isAuthenticated, subscription } = useAuth();
+  const { hide: hideTabBar, show: showTabBar } = useTabBar();
 
   const repository = useMemo(
     () => getRepository(subscription?.status ?? 'free'),
@@ -100,7 +103,14 @@ export function SharedProjectDetailScreen() {
     [projectId, session?.access_token],
   );
 
-  useFocusEffect(useCallback(() => { void loadDetail(); }, [loadDetail]));
+  useFocusEffect(useCallback(() => {
+    hideTabBar();
+    return () => showTabBar();
+  }, [hideTabBar, showTabBar]));
+
+  useFocusEffect(useCallback(() => {
+    void loadDetail();
+  }, [loadDetail]));
 
   const words = detail?.words ?? [];
 
@@ -144,7 +154,7 @@ export function SharedProjectDetailScreen() {
       setSelectMode(false);
       setSelectedIds(new Set());
       Alert.alert('完了', `${targetWords.length}語を追加しました。`, [
-        { text: '開く', onPress: () => navigation.navigate('Project', { projectId: createdProject.id }) },
+        { text: '開く', onPress: () => (navigation as any).navigate('HomeTab', { screen: 'Project', params: { projectId: createdProject.id } }) },
         { text: 'OK' },
       ]);
     } catch (e) {
@@ -187,7 +197,7 @@ export function SharedProjectDetailScreen() {
   if (loading) {
     return (
       <View style={s.loadWrap}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
+        <ActivityIndicator size="large" color={'#1a1a1a'} />
         <Text style={s.loadText}>共有単語帳を読み込み中...</Text>
       </View>
     );
@@ -209,11 +219,11 @@ export function SharedProjectDetailScreen() {
   // ─── Render ───────────────────────────────────────────────
   return (
     <View style={s.root}>
-      {/* ── Blue Header ──── */}
-      <View style={[s.header, { paddingTop: insets.top + 8, backgroundColor: colors.primary[600] }]}>
+      {/* ── Header ──── */}
+      <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <View style={s.hRow}>
           <TouchableOpacity style={s.hBtn} onPress={() => navigation.goBack()}>
-            <ChevronLeft size={16} color="#fff" strokeWidth={2.5} />
+            <ChevronLeft size={20} color={theme.primaryText} strokeWidth={2} />
           </TouchableOpacity>
           <View style={s.hCenter}>
             <Text style={s.hTitle} numberOfLines={1}>{detail.project.title}</Text>
@@ -236,13 +246,13 @@ export function SharedProjectDetailScreen() {
               style={[s.tbBtn, searchActive && s.tbBtnAct]}
               onPress={() => { setSearchActive((v) => !v); if (searchActive) setSearchText(''); }}
             >
-              {searchActive ? <X size={16} color={colors.primary[600]} /> : <Search size={16} color={colors.gray[500]} />}
+              {searchActive ? <X size={16} color={'#1a1a1a'} /> : <Search size={16} color={colors.gray[500]} />}
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.tbBtn, apFilter !== 'all' && s.tbBtnAct]}
               onPress={handleFilterMenu}
             >
-              <Filter size={16} color={apFilter !== 'all' ? colors.primary[600] : colors.gray[500]} />
+              <Filter size={16} color={apFilter !== 'all' ? '#1a1a1a' : colors.gray[500]} />
             </TouchableOpacity>
             <TouchableOpacity style={s.tbBtn} onPress={handleSortMenu}>
               <ArrowUpDown size={16} color={colors.gray[500]} />
@@ -377,7 +387,7 @@ export function SharedProjectDetailScreen() {
             </TouchableOpacity>
             {hasActiveFilters && filteredWords.length !== words.length && (
               <TouchableOpacity style={s.sheetRow} onPress={() => { setShowImportSheet(false); void doImport(filteredWords); }}>
-                <Filter size={20} color={colors.primary[600]} />
+                <Filter size={20} color={'#1a1a1a'} />
                 <View style={s.sheetRowText}>
                   <Text style={s.sheetRowTitle}>フィルタ結果を追加</Text>
                   <Text style={s.sheetRowSub}>{filteredWords.length}語</Text>
@@ -430,12 +440,12 @@ const s = StyleSheet.create({
   errorCard: { backgroundColor: colors.red[50], borderRadius: 20, padding: 18, borderWidth: 1, borderColor: colors.red[200], gap: 12, alignItems: 'center', marginHorizontal: 20 },
   errorText: { fontSize: 14, color: colors.red[700], textAlign: 'center' },
 
-  header: { paddingBottom: 20, paddingHorizontal: 16 },
+  header: { paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.gray[200] },
   hRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  hBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  hBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.gray[200], alignItems: 'center', justifyContent: 'center' },
   hCenter: { flex: 1, alignItems: 'center', marginHorizontal: 8 },
-  hTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  hSub: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  hTitle: { fontSize: 16, fontWeight: '700', color: colors.gray[900] },
+  hSub: { fontSize: 13, fontWeight: '600', color: colors.gray[500], marginTop: 2 },
 
   scroll: { flex: 1 },
   scrollInner: { paddingHorizontal: 20, paddingTop: 16 },
@@ -446,8 +456,8 @@ const s = StyleSheet.create({
   wlCount: { fontSize: 13, fontWeight: '600', color: colors.gray[500], fontVariant: ['tabular-nums'] },
   tb: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tbBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.gray[200], backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  tbBtnAct: { backgroundColor: colors.primary[50], borderColor: colors.primary[300] },
-  fBadge: { fontSize: 11, fontWeight: '500', color: colors.primary[600], fontVariant: ['tabular-nums'] },
+  tbBtnAct: { backgroundColor: 'rgba(26,26,26,0.06)', borderColor: 'rgba(26,26,26,0.2)' },
+  fBadge: { fontSize: 11, fontWeight: '500', color: '#1a1a1a', fontVariant: ['tabular-nums'] },
 
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.gray[100], borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
   searchInput: { flex: 1, fontSize: 15, color: colors.gray[900], padding: 0 },
@@ -466,16 +476,16 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 14, color: colors.gray[500] },
 
   apBadge: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  apActive: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
+  apActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   apPassive: { backgroundColor: colors.gray[500], borderColor: colors.gray[500] },
   apNone: { backgroundColor: 'transparent', borderColor: colors.gray[300] },
   apText: { fontSize: 11, fontWeight: '900' },
 
   checkbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: colors.gray[300], alignItems: 'center', justifyContent: 'center' },
-  checkboxActive: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
+  checkboxActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
 
-  bot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 10, backgroundColor: colors.background, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
-  botImport: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: colors.primary[600] },
+  bot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 10, backgroundColor: colors.background,    },
+  botImport: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: '#1a1a1a' },
   botImportText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   botCancel: { paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.gray[200] },
   botCancelText: { fontSize: 15, fontWeight: '600', color: colors.gray[500] },
@@ -491,7 +501,7 @@ const s = StyleSheet.create({
   filterTitle: { fontSize: 13, fontWeight: '700', color: colors.gray[500], marginBottom: 10 },
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: colors.gray[200], backgroundColor: colors.white },
-  filterChipActive: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
+  filterChipActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   filterChipText: { fontSize: 13, fontWeight: '600', color: colors.gray[600] },
   filterChipTextActive: { color: '#fff' },
 });

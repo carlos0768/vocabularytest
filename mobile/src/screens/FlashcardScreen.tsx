@@ -9,6 +9,7 @@ import {
   PanResponder,
   Dimensions,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -19,16 +20,18 @@ import {
   ChevronRight,
   RotateCcw,
   Flag,
-  Eye,
-  EyeOff,
   Volume2,
   Trash2,
+  Pencil,
+  Search,
+  Languages,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
+import { useTabBar } from '../hooks/use-tab-bar';
 import { shuffleArray, saveFlashcardProgress, loadFlashcardProgress } from '../lib/utils';
-import colors from '../constants/colors';
+import theme from '../constants/theme';
 import type { RootStackParamList, Word } from '../types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -37,9 +40,18 @@ const SWIPE_THRESHOLD = 80;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, 'Flashcard'>;
 
+const MASTERY_DOTS = [0, 1, 2, 3];
+
+function getMasteryLevel(word: Word): number {
+  if (word.status === 'mastered') return 4;
+  if (word.status === 'review') return 2;
+  return 0;
+}
+
 export function FlashcardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
+  const { hide: hideTabBar, show: showTabBar } = useTabBar();
   const projectId = route.params.projectId;
   const favoritesOnly = route.params.favoritesOnly ?? false;
   const { subscription, isPro, loading: authLoading } = useAuth();
@@ -51,680 +63,332 @@ export function FlashcardScreen() {
   const [flipAnim] = useState(new Animated.Value(0));
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Swipe animation
   const swipeAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  // Refs to track current state for PanResponder
   const currentIndexRef = useRef(currentIndex);
   const wordsLengthRef = useRef(words.length);
   const isAnimatingRef = useRef(isAnimating);
-  const wordsRef = useRef(words);
 
-  // Keep refs in sync with state
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
+  useEffect(() => { hideTabBar(); return () => showTabBar(); }, [hideTabBar, showTabBar]);
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+  useEffect(() => { wordsLengthRef.current = words.length; }, [words]);
+  useEffect(() => { isAnimatingRef.current = isAnimating; }, [isAnimating]);
 
-  useEffect(() => {
-    wordsLengthRef.current = words.length;
-    wordsRef.current = words;
-  }, [words]);
-
-  useEffect(() => {
-    isAnimatingRef.current = isAnimating;
-  }, [isAnimating]);
-
-  // Authenticated users use remote repository (Supabase), guests use local SQLite
   const repository = getRepository(subscription?.status || 'free');
 
-  // Save progress when index or words change
   const saveProgress = useCallback(async (wordList: Word[], index: number) => {
     if (wordList.length > 0) {
-      await saveFlashcardProgress(
-        projectId,
-        favoritesOnly,
-        wordList.map(w => w.id),
-        index
-      );
+      await saveFlashcardProgress(projectId, favoritesOnly, wordList.map(w => w.id), index);
     }
   }, [projectId, favoritesOnly]);
 
-  // Save progress when current index changes
   useEffect(() => {
-    if (words.length > 0 && !loading) {
-      saveProgress(words, currentIndex);
-    }
+    if (words.length > 0 && !loading) saveProgress(words, currentIndex);
   }, [currentIndex, words, saveProgress, loading]);
 
-  // Load words
   useEffect(() => {
     if (authLoading) return;
-
-    // Only require Pro for non-favorites mode
     if (!isPro && !favoritesOnly) {
-      navigation.navigate('Subscription');
+      (navigation as any).navigate('SettingsTab', { screen: 'Subscription' });
       return;
     }
-
     const loadWords = async () => {
       try {
         const allWords = await repository.getWords(projectId);
-        const wordsData = favoritesOnly
-          ? allWords.filter((w) => w.isFavorite)
-          : allWords;
-
-        if (wordsData.length === 0) {
-          if (navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('Main');
-          }
-          return;
-        }
-
-        // Check for saved progress
+        const wordsData = favoritesOnly ? allWords.filter((w) => w.isFavorite) : allWords;
+        if (wordsData.length === 0) { navigation.canGoBack() ? navigation.goBack() : (navigation.getParent() as any)?.navigate('HomeTab'); return; }
         const savedProgress = await loadFlashcardProgress(projectId, favoritesOnly);
-
         if (savedProgress) {
-          // Reconstruct word order from saved IDs
           const wordMap = new Map(wordsData.map(w => [w.id, w]));
-          const orderedWords = savedProgress.wordIds
-            .map(id => wordMap.get(id))
-            .filter((w): w is Word => w !== undefined);
-
-          // If most words still exist, resume automatically
-          if (orderedWords.length >= wordsData.length * 0.8) {
-            setWords(orderedWords);
-            setCurrentIndex(savedProgress.currentIndex);
-            setLoading(false);
-            return;
-          }
+          const orderedWords = savedProgress.wordIds.map(id => wordMap.get(id)).filter((w): w is Word => w !== undefined);
+          if (orderedWords.length >= wordsData.length * 0.8) { setWords(orderedWords); setCurrentIndex(savedProgress.currentIndex); setLoading(false); return; }
         }
-
-        // No valid saved progress - start fresh with shuffled words
         setWords(shuffleArray(wordsData));
-      } catch (error) {
-        console.error('Failed to load words:', error);
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        } else {
-          navigation.navigate('Main');
-        }
-      } finally {
-        setLoading(false);
-      }
+      } catch { navigation.canGoBack() ? navigation.goBack() : (navigation.getParent() as any)?.navigate('HomeTab'); }
+      finally { setLoading(false); }
     };
-
     loadWords();
   }, [projectId, repository, navigation, authLoading, favoritesOnly, isPro]);
 
   const currentWord = words[currentIndex];
 
-  const handleFlip = () => {
+  // ── Flip with simple opacity crossfade (no 3D rotation issues) ──
+  const handleFlip = useCallback(() => {
     if (isAnimating) return;
+    setIsAnimating(true);
     const toValue = isFlipped ? 0 : 1;
-    Animated.spring(flipAnim, {
+    Animated.timing(flipAnim, {
       toValue,
-      friction: 8,
-      tension: 10,
+      duration: 300,
       useNativeDriver: true,
-    }).start();
-    setIsFlipped(!isFlipped);
-  };
+    }).start(() => {
+      setIsFlipped(!isFlipped);
+      setIsAnimating(false);
+    });
+  }, [isFlipped, isAnimating, flipAnim]);
 
-  const handleNext = (withAnimation = false) => {
-    if (currentIndex < words.length - 1 && !isAnimating) {
-      if (withAnimation) {
-        setIsAnimating(true);
-        // Exit to left
-        Animated.timing(swipeAnim, {
-          toValue: -SCREEN_WIDTH * 1.2,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          setCurrentIndex((prev) => prev + 1);
-          setIsFlipped(false);
-          flipAnim.setValue(0);
-          // Enter from right
-          swipeAnim.setValue(SCREEN_WIDTH * 1.2);
-          Animated.timing(swipeAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            setIsAnimating(false);
-          });
-        });
-      } else {
-        setCurrentIndex((prev) => prev + 1);
-        setIsFlipped(false);
-        flipAnim.setValue(0);
-      }
-    }
-  };
-
-  const handlePrev = (withAnimation = false) => {
-    if (currentIndex > 0 && !isAnimating) {
-      if (withAnimation) {
-        setIsAnimating(true);
-        // Exit to right
-        Animated.timing(swipeAnim, {
-          toValue: SCREEN_WIDTH * 1.2,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          setCurrentIndex((prev) => prev - 1);
-          setIsFlipped(false);
-          flipAnim.setValue(0);
-          // Enter from left
-          swipeAnim.setValue(-SCREEN_WIDTH * 1.2);
-          Animated.timing(swipeAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            setIsAnimating(false);
-          });
-        });
-      } else {
-        setCurrentIndex((prev) => prev - 1);
-        setIsFlipped(false);
-        flipAnim.setValue(0);
-      }
-    }
-  };
-
-  const handleShuffle = () => {
+  const goToCard = useCallback((nextIndex: number) => {
     if (isAnimating) return;
-    const shuffled = shuffleArray([...words]);
-    setWords(shuffled);
-    setCurrentIndex(0);
+    setCurrentIndex(nextIndex);
     setIsFlipped(false);
     flipAnim.setValue(0);
     swipeAnim.setValue(0);
-    // Save new shuffled order
-    saveProgress(shuffled, 0);
-  };
+  }, [isAnimating, flipAnim, swipeAnim]);
 
-  // Refs for handler functions
-  const handleNextRef = useRef<(withAnimation?: boolean) => void>(() => {});
-  const handlePrevRef = useRef<(withAnimation?: boolean) => void>(() => {});
+  const handleNext = useCallback(() => { if (currentIndex < words.length - 1) goToCard(currentIndex + 1); }, [currentIndex, words.length, goToCard]);
+  const handlePrev = useCallback(() => { if (currentIndex > 0) goToCard(currentIndex - 1); }, [currentIndex, goToCard]);
 
-  // Update handler refs when functions change
-  useEffect(() => {
-    handleNextRef.current = handleNext;
-    handlePrevRef.current = handlePrev;
-  });
+  const handleNextRef = useRef(handleNext);
+  const handlePrevRef = useRef(handlePrev);
+  useEffect(() => { handleNextRef.current = handleNext; handlePrevRef.current = handlePrev; });
 
-  // Pan responder for swipe gestures
+  // Swipe: right = prev, left = next (iOS-style)
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only respond to horizontal swipes
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 5;
-      },
-      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 5;
-      },
-      onPanResponderGrant: () => {
-        // Reset animations when starting a new gesture
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (!isAnimatingRef.current) {
-          swipeAnim.setValue(gestureState.dx);
-          rotateAnim.setValue(gestureState.dx * 0.02);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (isAnimatingRef.current) return;
-
-        if (gestureState.dx < -SWIPE_THRESHOLD && currentIndexRef.current < wordsLengthRef.current - 1) {
-          // Swipe left - next
-          handleNextRef.current(true);
-        } else if (gestureState.dx > SWIPE_THRESHOLD && currentIndexRef.current > 0) {
-          // Swipe right - prev
-          handlePrevRef.current(true);
-        } else {
-          // Reset position
-          Animated.spring(swipeAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-        rotateAnim.setValue(0);
-      },
-      onPanResponderTerminate: () => {
-        // Reset if gesture is terminated
-        Animated.spring(swipeAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-        rotateAnim.setValue(0);
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 10,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -SWIPE_THRESHOLD) handleNextRef.current();
+        else if (g.dx > SWIPE_THRESHOLD) handlePrevRef.current();
       },
     })
   ).current;
 
-  const handleToggleFavorite = async () => {
+  const handleShuffle = useCallback(() => {
+    if (isAnimating) return;
+    const shuffled = shuffleArray([...words]);
+    setWords(shuffled); setCurrentIndex(0); setIsFlipped(false); flipAnim.setValue(0); swipeAnim.setValue(0);
+    saveProgress(shuffled, 0);
+  }, [isAnimating, words, flipAnim, swipeAnim, saveProgress]);
+
+  const handleSpeak = useCallback(() => {
+    if (currentWord?.english) Speech.speak(currentWord.english, { language: 'en-US', rate: 0.85 });
+  }, [currentWord]);
+
+  const handleToggleFavorite = useCallback(async () => {
     if (!currentWord) return;
-    const newFavorite = !currentWord.isFavorite;
-    await repository.updateWord(currentWord.id, { isFavorite: newFavorite });
-    setWords((prev) =>
-      prev.map((w, i) =>
-        i === currentIndex ? { ...w, isFavorite: newFavorite } : w
-      )
-    );
-  };
+    const next = !currentWord.isFavorite;
+    await repository.updateWord(currentWord.id, { isFavorite: next });
+    setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, isFavorite: next } : w));
+  }, [currentWord, currentIndex, repository]);
 
-  const handleDeleteWord = async () => {
+  const handleDeleteWord = useCallback(() => {
     if (!currentWord) return;
+    Alert.alert('単語を削除', `「${currentWord.english}」を削除しますか？`, [
+      { text: 'キャンセル', style: 'cancel' },
+      { text: '削除', style: 'destructive', onPress: async () => {
+        await repository.deleteWord(currentWord.id);
+        const newWords = words.filter((_, i) => i !== currentIndex);
+        if (newWords.length === 0) { navigation.canGoBack() ? navigation.goBack() : (navigation.getParent() as any)?.navigate('HomeTab'); return; }
+        setWords(newWords); setCurrentIndex(Math.min(currentIndex, newWords.length - 1)); setIsFlipped(false); flipAnim.setValue(0);
+      }},
+    ]);
+  }, [currentWord, currentIndex, words, repository, navigation, flipAnim]);
 
-    Alert.alert(
-      '単語を削除',
-      `「${currentWord.english}」を削除しますか？`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            await repository.deleteWord(currentWord.id);
+  const handleClose = useCallback(() => {
+    navigation.canGoBack() ? navigation.goBack() : (navigation.getParent() as any)?.navigate('HomeTab');
+  }, [navigation]);
 
-            // Remove word from state
-            const newWords = words.filter((_, i) => i !== currentIndex);
-
-            if (newWords.length === 0) {
-              // No more words, go back
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                navigation.navigate('Main');
-              }
-              return;
-            }
-
-            // Adjust index if we deleted the last word
-            const newIndex = currentIndex >= newWords.length ? newWords.length - 1 : currentIndex;
-            setWords(newWords);
-            setCurrentIndex(newIndex);
-            setIsFlipped(false);
-            flipAnim.setValue(0);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleClose = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('Main');
-    }
-  };
-
-  // Interpolations for flip animation
-  const frontAnimatedStyle = {
-    transform: [
-      {
-        rotateY: flipAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '180deg'],
-        }),
-      },
-    ],
-  };
-
-  const backAnimatedStyle = {
-    transform: [
-      {
-        rotateY: flipAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['180deg', '360deg'],
-        }),
-      },
-    ],
-  };
+  // Flip interpolation: crossfade
+  const frontOpacity = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0, 0] });
+  const backOpacity = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
-        <Text style={styles.loadingText}>フラッシュカードを準備中...</Text>
-      </View>
-    );
+    return <View style={s.loadingWrap}><ActivityIndicator size="large" color={theme.accentBlack} /><Text style={s.loadingText}>フラッシュカードを準備中...</Text></View>;
   }
 
+  if (!currentWord) return null;
+
+  const mastery = getMasteryLevel(currentWord);
+  const progress = words.length > 0 ? (currentIndex + 1) / words.length : 0;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleClose} style={styles.headerButton}>
-          <X size={24} color={colors.gray[600]} />
+    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+      {/* Header: X + progress counter */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={handleClose} style={s.closeBtn}>
+          <X size={22} color={theme.secondaryText} strokeWidth={2.5} />
         </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
-          {favoritesOnly && (
-            <View style={styles.favoriteBadge}>
-              <Flag size={12} fill={colors.orange[500]} color={colors.orange[500]} />
-              <Text style={styles.favoriteBadgeText}>苦手</Text>
-            </View>
-          )}
-          <Text style={styles.progress}>
-            {currentIndex + 1} / {words.length}
-          </Text>
+        <View style={s.progressPill}>
+          <Text style={s.progressText}>{currentIndex + 1} / {words.length}</Text>
         </View>
-
-        <TouchableOpacity onPress={handleShuffle} style={styles.headerButton}>
-          <RotateCcw size={20} color={colors.gray[600]} />
-        </TouchableOpacity>
+        <View style={{ width: 38 }} />
       </View>
 
-      {/* Card area */}
-      <View style={styles.cardContainer}>
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[
-            styles.cardTouchable,
-            {
-              transform: [
-                { translateX: swipeAnim },
-                { rotate: rotateAnim.interpolate({
-                  inputRange: [-10, 10],
-                  outputRange: ['-10deg', '10deg'],
-                  extrapolate: 'clamp',
-                }) },
-              ],
-            },
-          ]}
-        >
-          <TouchableOpacity
-            activeOpacity={0.95}
-            onPress={handleFlip}
-            style={styles.cardTouchableInner}
-          >
-            {/* Front (English) */}
-            <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
-              {/* Voice button above the word */}
-              <TouchableOpacity
-                onPress={() => {
-                  if (currentWord?.english) {
-                    Speech.speak(currentWord.english, { language: 'en-US', rate: 0.9 });
-                  }
-                }}
-                style={styles.voiceButton}
-              >
-                <Volume2 size={24} color={colors.gray[400]} />
-              </TouchableOpacity>
-              <View style={styles.cardTextContainer}>
-                <Text
-                  style={styles.englishText}
-                  numberOfLines={4}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.5}
-                >
-                  {currentWord?.english}
+      {/* Progress bar */}
+      <View style={s.progressBar}>
+        <View style={[s.progressFill, { width: `${progress * 100}%` }]} />
+      </View>
+
+      {/* Card */}
+      <View style={s.cardArea}>
+        <Animated.View {...panResponder.panHandlers} style={s.cardWrap}>
+          <TouchableOpacity activeOpacity={0.97} onPress={handleFlip} style={s.cardTouchable}>
+            {/* Front */}
+            <Animated.View style={[s.card, s.cardFront, { opacity: frontOpacity }]}>
+              {/* Mode badge + speaker */}
+              <View style={s.cardTopRow}>
+                <View style={s.modeBadge}><Text style={s.modeBadgeText}>英→日</Text></View>
+                <TouchableOpacity onPress={handleSpeak} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Volume2 size={22} color={theme.primaryText} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Mastery dots */}
+              <View style={s.masteryRow}>
+                {MASTERY_DOTS.map(i => (
+                  <View key={i} style={[s.masteryDot, i < mastery && s.masteryDotFilled]} />
+                ))}
+              </View>
+
+              {/* English word */}
+              <View style={s.cardCenter}>
+                <Text style={s.englishText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.5}>
+                  {currentWord.english}
                 </Text>
+                {currentWord.pronunciation ? (
+                  <Text style={s.pronunciationText}>{currentWord.pronunciation}</Text>
+                ) : null}
+                {currentWord.partOfSpeechTags && currentWord.partOfSpeechTags.length > 0 ? (
+                  <View style={s.posRow}>
+                    {currentWord.partOfSpeechTags.slice(0, 3).map((tag, i) => (
+                      <View key={i} style={s.posTag}><Text style={s.posTagText}>{tag}</Text></View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.cardHint}>
-                <Eye size={16} color={colors.gray[400]} />
-                <Text style={styles.hintText}>タップで意味を見る</Text>
-              </View>
+
+              <Text style={s.hintText}>タップして意味を表示</Text>
             </Animated.View>
 
-            {/* Back (Japanese) */}
-            <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
-              <View style={styles.cardTextContainer}>
-                <Text
-                  style={styles.japaneseText}
-                  numberOfLines={4}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.5}
-                >
-                  {currentWord?.japanese}
-                </Text>
-              </View>
-              <View style={styles.cardHintBack}>
-                <EyeOff size={16} color="rgba(255,255,255,0.6)" />
-                <Text style={styles.hintTextBack}>タップで戻る</Text>
-              </View>
+            {/* Back */}
+            <Animated.View style={[s.card, s.cardBack, { opacity: backOpacity }]} pointerEvents={isFlipped ? 'auto' : 'none'}>
+              <ScrollView contentContainerStyle={s.backContent} showsVerticalScrollIndicator={false}>
+                {/* Japanese */}
+                <Text style={s.japaneseText}>{currentWord.japanese}</Text>
+                <Text style={s.backEnglish}>{currentWord.english}</Text>
+                {currentWord.pronunciation ? <Text style={s.backPronunciation}>{currentWord.pronunciation}</Text> : null}
+
+                {/* Example sentence */}
+                {currentWord.exampleSentence ? (
+                  <View style={s.exampleSection}>
+                    <Text style={s.sectionLabel}>例文</Text>
+                    <Text style={s.exampleText}>{currentWord.exampleSentence}</Text>
+                    {currentWord.exampleSentenceJa ? <Text style={s.exampleJa}>{currentWord.exampleSentenceJa}</Text> : null}
+                  </View>
+                ) : null}
+
+                {/* Related words */}
+                {currentWord.relatedWords && currentWord.relatedWords.length > 0 ? (
+                  <View style={s.exampleSection}>
+                    <Text style={s.sectionLabel}>関連語</Text>
+                    <View style={s.tagsWrap}>
+                      {currentWord.relatedWords.slice(0, 6).map((rw, i) => (
+                        <View key={i} style={s.relTag}>
+                          <Text style={s.relTagText}>{typeof rw === 'string' ? rw : rw.word}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+              </ScrollView>
+              <Text style={s.hintTextBack}>タップで戻る</Text>
             </Animated.View>
           </TouchableOpacity>
         </Animated.View>
-
-        {/* Action buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            onPress={handleToggleFavorite}
-            style={styles.actionButton}
-          >
-            <Flag
-              size={24}
-              color={currentWord?.isFavorite ? colors.orange[500] : colors.gray[400]}
-              fill={currentWord?.isFavorite ? colors.orange[500] : 'transparent'}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleDeleteWord}
-            style={styles.actionButton}
-          >
-            <Trash2 size={24} color={colors.gray[400]} />
-          </TouchableOpacity>
-        </View>
       </View>
 
-      {/* Navigation */}
-      <View style={styles.navigation}>
-        <TouchableOpacity
-          onPress={() => handlePrev(true)}
-          disabled={currentIndex === 0 || isAnimating}
-          style={[
-            styles.navButton,
-            (currentIndex === 0 || isAnimating) && styles.navButtonDisabled,
-          ]}
-        >
-          <ChevronLeft
-            size={24}
-            color={(currentIndex === 0 || isAnimating) ? colors.gray[300] : colors.gray[600]}
-          />
+      {/* Action buttons row (Web-style: translate, flag, search, edit, delete) */}
+      <View style={s.actionsRow}>
+        <TouchableOpacity style={s.actionBtn} onPress={handleSpeak}>
+          <Languages size={20} color={theme.secondaryText} />
         </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleToggleFavorite}>
+          <Flag size={20} color={currentWord.isFavorite ? '#f97316' : theme.secondaryText} fill={currentWord.isFavorite ? '#f97316' : 'transparent'} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleSpeak}>
+          <Search size={20} color={theme.secondaryText} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={() => { /* edit placeholder */ }}>
+          <Pencil size={20} color={theme.secondaryText} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleDeleteWord}>
+          <Trash2 size={20} color={theme.secondaryText} />
+        </TouchableOpacity>
+      </View>
 
-        <TouchableOpacity
-          onPress={() => handleNext(true)}
-          disabled={currentIndex === words.length - 1 || isAnimating}
-          style={[
-            styles.navButton,
-            (currentIndex === words.length - 1 || isAnimating) && styles.navButtonDisabled,
-          ]}
-        >
-          <ChevronRight
-            size={24}
-            color={
-              (currentIndex === words.length - 1 || isAnimating)
-                ? colors.gray[300]
-                : colors.gray[600]
-            }
-          />
+      {/* Navigation row: prev / shuffle / next */}
+      <View style={s.navRow}>
+        <TouchableOpacity style={[s.navBtn, currentIndex === 0 && s.navBtnDisabled]} onPress={handlePrev} disabled={currentIndex === 0 || isAnimating}>
+          <ChevronLeft size={24} color={currentIndex === 0 ? theme.mutedText : theme.primaryText} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navBtn} onPress={handleFlip}>
+          <RotateCcw size={20} color={theme.primaryText} />
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.navBtn, currentIndex === words.length - 1 && s.navBtnDisabled]} onPress={handleNext} disabled={currentIndex === words.length - 1 || isAnimating}>
+          <ChevronRight size={24} color={currentIndex === words.length - 1 ? theme.mutedText : theme.primaryText} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.gray[50],
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.gray[50],
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  favoriteBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.orange[100],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  favoriteBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.orange[700],
-  },
-  progress: {
-    fontSize: 14,
-    color: colors.gray[500],
-  },
-  cardContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  cardTouchable: {
-    width: '100%',
-    maxWidth: 320,
-    aspectRatio: 3 / 4,
-  },
-  cardTouchableInner: {
-    width: '100%',
-    height: '100%',
-  },
-  card: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backfaceVisibility: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cardFront: {
-    backgroundColor: colors.white,
-  },
-  voiceButton: {
-    position: 'absolute',
-    top: 24,
-    padding: 8,
-  },
-  cardBack: {
-    backgroundColor: colors.primary[600],
-  },
-  cardTextContainer: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 40,
-  },
-  englishText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.gray[900],
-    textAlign: 'center',
-    width: '100%',
-  },
-  japaneseText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.white,
-    textAlign: 'center',
-    width: '100%',
-  },
-  cardHint: {
-    position: 'absolute',
-    bottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  hintText: {
-    fontSize: 12,
-    color: colors.gray[400],
-  },
-  cardHintBack: {
-    position: 'absolute',
-    bottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  hintTextBack: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    marginTop: 24,
-    gap: 16,
-  },
-  actionButton: {
-    padding: 12,
-    borderRadius: 24,
-    backgroundColor: colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  navigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 32,
-    paddingVertical: 24,
-    paddingHorizontal: 24,
-  },
-  navButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  navButtonDisabled: {
-    backgroundColor: colors.gray[100],
-    shadowOpacity: 0,
-    elevation: 0,
-  },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
+  loadingText: { marginTop: 12, fontSize: 14, color: theme.secondaryText },
+
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
+  closeBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  progressPill: { backgroundColor: theme.surfaceAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: theme.borderLight },
+  progressText: { fontSize: 14, fontWeight: '600', color: theme.secondaryText, fontVariant: ['tabular-nums'] },
+
+  // Progress bar
+  progressBar: { height: 3, backgroundColor: theme.borderLight, marginHorizontal: 16 },
+  progressFill: { height: 3, backgroundColor: theme.accentBlack, borderRadius: 2 },
+
+  // Card area
+  cardArea: { flex: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
+  cardWrap: { flex: 1 },
+  cardTouchable: { flex: 1 },
+  card: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 20, padding: 20, borderWidth: 1.5, borderColor: theme.border },
+  cardFront: { backgroundColor: theme.white },
+  cardBack: { backgroundColor: theme.accentBlack },
+
+  // Front card content
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  modeBadge: { backgroundColor: theme.surfaceAlt, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  modeBadgeText: { fontSize: 12, fontWeight: '600', color: theme.secondaryText },
+  masteryRow: { flexDirection: 'row', gap: 4, marginTop: 12 },
+  masteryDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.borderLight },
+  masteryDotFilled: { backgroundColor: theme.success },
+  cardCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, width: '100%' },
+  englishText: { fontSize: 32, fontWeight: '700', color: theme.primaryText, textAlign: 'center' },
+  pronunciationText: { fontSize: 15, color: theme.mutedText, fontFamily: 'monospace', textAlign: 'center' },
+  posRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  posTag: { backgroundColor: 'rgba(26,26,26,0.06)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  posTagText: { fontSize: 11, fontWeight: '600', color: theme.secondaryText },
+  hintText: { fontSize: 12, color: theme.mutedText, textAlign: 'center', marginTop: 8 },
+
+  // Back card content
+  backContent: { paddingTop: 20, paddingBottom: 40, gap: 16 },
+  japaneseText: { fontSize: 28, fontWeight: '700', color: theme.white, textAlign: 'center' },
+  backEnglish: { fontSize: 18, fontWeight: '500', color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
+  backPronunciation: { fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', textAlign: 'center' },
+  exampleSection: { gap: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)' },
+  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 },
+  exampleText: { fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 20 },
+  exampleJa: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  relTag: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  relTagText: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
+  hintTextBack: { position: 'absolute', bottom: 16, alignSelf: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+
+  // Action buttons (Web-style row)
+  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, paddingVertical: 8 },
+  actionBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.borderLight, alignItems: 'center', justifyContent: 'center' },
+
+  // Navigation row
+  navRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingBottom: 16, paddingTop: 4 },
+  navBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.borderLight, alignItems: 'center', justifyContent: 'center' },
+  navBtnDisabled: { opacity: 0.4 },
 });

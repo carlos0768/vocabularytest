@@ -61,7 +61,7 @@ export function FavoritesQuizScreen() {
         if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
-          navigation.navigate('Main');
+          (navigation.getParent() as any)?.navigate('HomeTab');
         }
         return;
       }
@@ -74,7 +74,7 @@ export function FavoritesQuizScreen() {
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
-        navigation.navigate('Main');
+        (navigation.getParent() as any)?.navigate('HomeTab');
       }
     } finally {
       setLoading(false);
@@ -85,7 +85,7 @@ export function FavoritesQuizScreen() {
     if (authLoading) return;
 
     if (!isPro) {
-      navigation.navigate('Subscription');
+      (navigation as any).navigate('SettingsTab', { screen: 'Subscription' });
       return;
     }
 
@@ -141,14 +141,14 @@ export function FavoritesQuizScreen() {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      navigation.navigate('Main');
+      (navigation.getParent() as any)?.navigate('HomeTab');
     }
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
+        <ActivityIndicator size="large" color={'#1a1a1a'} />
         <Text style={styles.loadingText}>苦手単語クイズを準備中...</Text>
       </View>
     );
@@ -177,7 +177,7 @@ export function FavoritesQuizScreen() {
             </View>
             <View style={styles.resultStatDivider} />
             <View style={styles.resultStatItem}>
-              <Text style={[styles.resultStatValue, { color: colors.primary[600] }]}>
+              <Text style={[styles.resultStatValue, { color: '#1a1a1a' }]}>
                 {accuracy}%
               </Text>
               <Text style={styles.resultStatLabel}>正答率</Text>
@@ -188,7 +188,7 @@ export function FavoritesQuizScreen() {
               style={styles.retryButton}
               onPress={handleRetry}
             >
-              <RotateCcw size={20} color={colors.primary[600]} />
+              <RotateCcw size={20} color={'#1a1a1a'} />
               <Text style={styles.retryButtonText}>もう一度</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: '#333333',
     paddingVertical: 16,
     borderRadius: 12,
     gap: 4,
@@ -413,15 +413,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     borderRadius: 12,
-    backgroundColor: colors.primary[50],
+    backgroundColor: 'rgba(26,26,26,0.06)',
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: 'rgba(26,26,26,0.15)',
     gap: 8,
   },
   retryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.primary[600],
+    color: '#1a1a1a',
   },
   doneButton: {
     flex: 1,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     borderRadius: 12,
-    backgroundColor: colors.primary[500],
+    backgroundColor: '#333333',
   },
   doneButtonText: {
     fontSize: 16,

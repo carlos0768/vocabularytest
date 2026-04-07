@@ -70,7 +70,7 @@ export function FavoritesFlashcardScreen() {
         if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
-          navigation.navigate('Main');
+          (navigation.getParent() as any)?.navigate('HomeTab');
         }
         return;
       }
@@ -81,7 +81,7 @@ export function FavoritesFlashcardScreen() {
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
-        navigation.navigate('Main');
+        (navigation.getParent() as any)?.navigate('HomeTab');
       }
     } finally {
       setLoading(false);
@@ -226,7 +226,7 @@ export function FavoritesFlashcardScreen() {
         if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
-          navigation.navigate('Main');
+          (navigation.getParent() as any)?.navigate('HomeTab');
         }
         return;
       }
@@ -249,7 +249,7 @@ export function FavoritesFlashcardScreen() {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      navigation.navigate('Main');
+      (navigation.getParent() as any)?.navigate('HomeTab');
     }
   };
 
@@ -279,7 +279,7 @@ export function FavoritesFlashcardScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
+        <ActivityIndicator size="large" color={'#1a1a1a'} />
         <Text style={styles.loadingText}>苦手単語を読み込み中...</Text>
       </View>
     );
@@ -487,11 +487,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backfaceVisibility: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    
+    
+    
+    
+    
   },
   cardFront: {
     backgroundColor: colors.white,
@@ -553,11 +553,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 24,
     backgroundColor: colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    
+    
+    
+    
+    
   },
   navigation: {
     flexDirection: 'row',
@@ -574,15 +574,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    
+    
+    
+    
+    
   },
   navButtonDisabled: {
     backgroundColor: colors.gray[100],
-    shadowOpacity: 0,
-    elevation: 0,
+    
+    
   },
 });

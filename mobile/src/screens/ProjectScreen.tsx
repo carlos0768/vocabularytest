@@ -15,7 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
+// SVG import removed — header no longer uses gradient
 import {
   ArrowUpDown,
   ChevronLeft,
@@ -33,7 +33,9 @@ import { Button, Input } from '../components/ui';
 import { ScanModeModal } from '../components/scan/ScanModeModal';
 import { ProcessingModal } from '../components/ProcessingModal';
 import colors from '../constants/colors';
+import { getThumbnailColor } from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
+import { useTabBar } from '../hooks/use-tab-bar';
 import { getRepository } from '../lib/db';
 import { buildDistractors, MINIMUM_QUIZ_WORDS } from '../lib/quiz-helpers';
 import { createScanJob, waitForScanJobCompletion, type ScanMode } from '../lib/scan-jobs';
@@ -76,6 +78,7 @@ export function ProjectScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ProjectRoute>();
   const insets = useSafeAreaInsets();
+  const { hide: hideTabBar, show: showTabBar } = useTabBar();
   const { session, subscription, isAuthenticated, isPro, loading: authLoading } = useAuth();
 
   const repository = useMemo(() => getRepository(subscription?.status ?? 'free'), [subscription?.status]);
@@ -127,7 +130,14 @@ export function ProjectScreen() {
     } finally { setLoading(false); }
   }, [authLoading, navigation, repository, route.params.projectId]);
 
-  useFocusEffect(useCallback(() => { void loadProject(); }, [loadProject]));
+  useFocusEffect(useCallback(() => {
+    hideTabBar();
+    return () => showTabBar();
+  }, [hideTabBar, showTabBar]));
+
+  useFocusEffect(useCallback(() => {
+    void loadProject();
+  }, [loadProject]));
 
   // ─── Computed ─────────────────────────────────────────────
   const masteredCount = useMemo(() => words.filter((w) => w.status === 'mastered').length, [words]);
@@ -153,13 +163,13 @@ export function ProjectScreen() {
     (opts?: { requirePro?: boolean; featureName?: string }) => {
       if (!isAuthenticated || !session?.access_token) {
         Alert.alert('ログインが必要です', `${opts?.featureName ?? 'この機能'}を使うにはログインしてください。`, [
-          { text: '閉じる', style: 'cancel' }, { text: 'ログイン', onPress: () => navigation.navigate('Login') },
+          { text: '閉じる', style: 'cancel' }, { text: 'ログイン', onPress: () => (navigation as any).navigate('SettingsTab', { screen: 'Login' }) },
         ]);
         return false;
       }
       if (opts?.requirePro && !isPro) {
         Alert.alert('Pro が必要です', `${opts.featureName ?? 'この機能'}は Pro で確認できます。`, [
-          { text: '閉じる', style: 'cancel' }, { text: 'Pro を見る', onPress: () => navigation.navigate('Subscription') },
+          { text: '閉じる', style: 'cancel' }, { text: 'Pro を見る', onPress: () => (navigation as any).navigate('SettingsTab', { screen: 'Subscription' }) },
         ]);
         return false;
       }
@@ -302,25 +312,32 @@ export function ProjectScreen() {
   }, [loadProject, navigation, project, session]);
 
   // ─── Loading ──────────────────────────────────────────────
-  if (loading) return <View style={s.loadWrap}><ActivityIndicator size="large" color={colors.primary[600]} /><Text style={s.loadText}>単語帳を読み込み中...</Text></View>;
+  if (loading) return <View style={s.loadWrap}><ActivityIndicator size="large" color={'#1a1a1a'} /><Text style={s.loadText}>単語帳を読み込み中...</Text></View>;
   if (!project) return null;
   const quizReady = words.length >= MINIMUM_QUIZ_WORDS;
 
   // ─── Render ───────────────────────────────────────────────
   return (
     <View style={s.root}>
-      {/* ── Blue Gradient Header ──────────────────────────── */}
-      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-          <Defs><SvgLinearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><Stop offset="0" stopColor={colors.primary[600]} /><Stop offset="1" stopColor={colors.primary[500]} stopOpacity="0.85" /></SvgLinearGradient></Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#hg)" />
-        </Svg>
+      {/* ── Header (colored like thumbnail) ──────────────────────────── */}
+      <View style={[s.header, { paddingTop: insets.top + 12, backgroundColor: getThumbnailColor(project.id) }]}>
         <View style={s.hRow}>
-          <TouchableOpacity style={s.hBtn} onPress={() => navigation.goBack()}><ChevronLeft size={16} color="#fff" strokeWidth={2.5} /></TouchableOpacity>
-          <View style={s.hCenter}><Text style={s.hTitle} numberOfLines={1}>{project.title}</Text><Text style={s.hSub}>{words.length}語</Text></View>
+          <TouchableOpacity style={s.hBtn} onPress={() => navigation.goBack()}>
+            <ChevronLeft size={20} color="#fff" strokeWidth={2} />
+          </TouchableOpacity>
+          <View style={s.hCenter}>
+            <Text style={s.hTitle} numberOfLines={1}>{project.title}</Text>
+            <Text style={s.hSub}>{words.length}語</Text>
+          </View>
           <View style={s.hRight}>
-            {isPro && <TouchableOpacity style={s.hBtn} onPress={() => void handleShareProject()}><Share2 size={14} color="#fff" strokeWidth={2.5} /></TouchableOpacity>}
-            <TouchableOpacity style={s.hBtn} onPress={handleMoreMenu}><MoreHorizontal size={14} color="#fff" strokeWidth={2.5} /></TouchableOpacity>
+            {isPro && (
+              <TouchableOpacity style={s.hBtn} onPress={() => void handleShareProject()}>
+                <Share2 size={18} color="#fff" strokeWidth={2} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={s.hBtn} onPress={handleMoreMenu}>
+              <MoreHorizontal size={18} color="#fff" strokeWidth={2} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -339,10 +356,10 @@ export function ProjectScreen() {
           <View style={s.wlTitleRow}><Text style={s.wlTitle}>単語一覧</Text><Text style={s.wlCount}>{words.length}</Text></View>
           <View style={s.tb}>
             <TouchableOpacity style={[s.tbBtn, searchActive && s.tbBtnAct]} onPress={() => { setSearchActive((v) => !v); if (searchActive) setSearchText(''); }}>
-              {searchActive ? <X size={16} color={colors.primary[600]} /> : <Search size={16} color={colors.gray[500]} />}
+              {searchActive ? <X size={16} color={'#1a1a1a'} /> : <Search size={16} color={colors.gray[500]} />}
             </TouchableOpacity>
             <TouchableOpacity style={[s.tbBtn, (statusFilter !== 'all' || bookmarkFilter) && s.tbBtnAct]} onPress={handleFilterMenu}>
-              <Filter size={16} color={(statusFilter !== 'all' || bookmarkFilter) ? colors.primary[600] : colors.gray[500]} />
+              <Filter size={16} color={(statusFilter !== 'all' || bookmarkFilter) ? '#1a1a1a' : colors.gray[500]} />
             </TouchableOpacity>
             <TouchableOpacity style={s.tbBtn} onPress={handleSortMenu}><ArrowUpDown size={16} color={colors.gray[500]} /></TouchableOpacity>
             {hasActiveFilters && <Text style={s.fBadge}>{filteredWords.length}/{words.length}語</Text>}
@@ -370,7 +387,7 @@ export function ProjectScreen() {
             {filteredWords.length === 0 ? (
               <View style={s.emptyRow}><Text style={s.emptyText}>{hasActiveFilters ? '一致する単語がありません' : '単語がありません'}</Text></View>
             ) : filteredWords.map((w, i) => (
-              <TouchableOpacity key={w.id} style={[s.row, i < filteredWords.length - 1 && s.rowBorder]} activeOpacity={0.7} onPress={() => openEditWordModal(w)} onLongPress={() => handleDeleteWord(w)}>
+              <TouchableOpacity key={w.id} style={[s.row, i < filteredWords.length - 1 && s.rowBorder]} activeOpacity={0.7} onPress={() => (navigation as any).navigate('WordDetail', { word: w })} onLongPress={() => handleDeleteWord(w)}>
                 <View style={{ width: CW.cb }}><NotionCheckbox wordId={w.id} status={w.status} onStatusChange={(ns) => handleStatusChange(w, ns)} /></View>
                 <View style={[s.cellEn, { width: CW.en }]}><Text style={s.enText} numberOfLines={2}>{w.english}</Text>{w.isFavorite && <Text style={s.bm}>★</Text>}</View>
                 <View style={{ width: CW.ap, alignItems: 'center' }}><VocabularyTypeBadge value={w.vocabularyType} onCycle={(n) => handleVocabTypeCycle(w, n)} /></View>
@@ -386,12 +403,18 @@ export function ProjectScreen() {
       {/* ── Bottom Bar ────────────────────────────────────── */}
       <View style={[s.bot, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         <TouchableOpacity style={s.botFlash} onPress={() => { if (handleProtectedAction({ requirePro: true, featureName: 'フラッシュカード' })) navigation.navigate('Flashcard', { projectId: project.id }); }}>
-          <Layers size={20} color={colors.primary[600]} />
+          <Layers size={20} color={'#1a1a1a'} />
         </TouchableOpacity>
         <TouchableOpacity style={s.botQuiz} onPress={() => { if (!quizReady) { Alert.alert(`最低${MINIMUM_QUIZ_WORDS}語必要です。`); return; } navigation.navigate('Quiz', { projectId: project.id }); }}>
-          <Text style={s.botQuizIcon}>❓</Text><Text style={s.botQuizText}>クイズ</Text>
+          <Text style={s.botQuizText}>クイズ</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.botAdd} onPress={openCreateWordModal}>
+        <TouchableOpacity style={s.botAdd} onPress={() => {
+          Alert.alert('単語を追加', undefined, [
+            { text: '手動で追加', onPress: openCreateWordModal },
+            { text: 'スキャンで追加', onPress: () => { if (handleProtectedAction({ featureName: 'スキャン' })) setShowScanModeModal(true); } },
+            { text: 'キャンセル', style: 'cancel' },
+          ]);
+        }}>
           <Plus size={15} color="#fff" strokeWidth={2.5} /><Text style={s.botAddText}>単語追加</Text>
         </TouchableOpacity>
       </View>
@@ -438,12 +461,12 @@ const s = StyleSheet.create({
   loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.background },
   loadText: { color: colors.gray[500], fontSize: 14 },
 
-  header: { paddingBottom: 20, paddingHorizontal: 16 },
+  header: { paddingBottom: 16, paddingHorizontal: 16 },
   hRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   hCenter: { flex: 1, alignItems: 'center', marginHorizontal: 8 },
-  hTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  hSub: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  hTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  hSub: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   hRight: { flexDirection: 'row', gap: 8 },
 
   scroll: { flex: 1 },
@@ -462,8 +485,8 @@ const s = StyleSheet.create({
   wlCount: { fontSize: 13, fontWeight: '600', color: colors.gray[500], fontVariant: ['tabular-nums'] },
   tb: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tbBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.gray[200], backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  tbBtnAct: { backgroundColor: colors.primary[50], borderColor: colors.primary[300] },
-  fBadge: { fontSize: 11, fontWeight: '500', color: colors.primary[600], fontVariant: ['tabular-nums'] },
+  tbBtnAct: { backgroundColor: 'rgba(26,26,26,0.06)', borderColor: 'rgba(26,26,26,0.2)' },
+  fBadge: { fontSize: 11, fontWeight: '500', color: '#1a1a1a', fontVariant: ['tabular-nums'] },
 
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.gray[100], borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
   searchInput: { flex: 1, fontSize: 15, color: colors.gray[900], padding: 0 },
@@ -482,12 +505,12 @@ const s = StyleSheet.create({
   emptyRow: { paddingVertical: 24, alignItems: 'center' },
   emptyText: { fontSize: 14, color: colors.gray[500] },
 
-  bot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 10, backgroundColor: colors.background, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
-  botFlash: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: colors.primary[600], alignItems: 'center', justifyContent: 'center' },
+  bot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 10, backgroundColor: colors.background,    },
+  botFlash: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
   botQuiz: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.gray[200] },
   botQuizIcon: { fontSize: 15 },
   botQuizText: { fontSize: 15, fontWeight: '700', color: colors.gray[900] },
-  botAdd: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, backgroundColor: colors.primary[600] },
+  botAdd: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, backgroundColor: '#1a1a1a' },
   botAddText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   mOver: { flex: 1, backgroundColor: 'rgba(17,24,39,0.3)', justifyContent: 'center', padding: 20 },

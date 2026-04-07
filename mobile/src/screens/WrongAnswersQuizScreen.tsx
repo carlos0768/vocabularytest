@@ -149,7 +149,7 @@ export function WrongAnswersQuizScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
+        <ActivityIndicator size="large" color={'#1a1a1a'} />
         <Text style={styles.loadingText}>苦手単語クイズを準備中...</Text>
       </View>
     );
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.primary[600],
+    backgroundColor: '#1a1a1a',
     borderRadius: 999,
   },
   questionCard: {
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   completeScore: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.primary[700],
+    color: '#0d0d0d',
   },
   completeMessage: {
     fontSize: 15,

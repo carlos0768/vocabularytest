@@ -67,12 +67,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     backgroundColor: colors.white,
-    borderColor: colors.primary[500],
-    shadowColor: colors.primary[500],
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#333333',
   },
   inputError: {
     borderColor: colors.red[500],

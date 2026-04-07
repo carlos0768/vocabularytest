@@ -9,11 +9,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Flag, RotateCcw, Trophy } from 'lucide-react-native';
+import { X, Flag, RotateCcw, Trophy } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { QuizOption } from '../components/quiz';
 import colors from '../constants/colors';
 import { useAuth } from '../hooks/use-auth';
+import { useTabBar } from '../hooks/use-tab-bar';
 import { getRepository } from '../lib/db';
 import { buildQuizQuestions, MINIMUM_QUIZ_WORDS } from '../lib/quiz-helpers';
 import { recordWrongAnswer, updateDailyStats } from '../lib/utils';
@@ -26,6 +27,7 @@ export function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<QuizRoute>();
   const { subscription, loading: authLoading } = useAuth();
+  const { hide: hideTabBar, show: showTabBar } = useTabBar();
   const repository = useMemo(
     () => getRepository(subscription?.status ?? 'free'),
     [subscription?.status]
@@ -55,7 +57,7 @@ export function QuizScreen() {
       }
 
       setWords(nextWords);
-      setQuestions(buildQuizQuestions(nextWords, nextWords.length));
+      setQuestions(buildQuizQuestions(nextWords, Math.min(nextWords.length, 10)));
       setCurrentIndex(0);
       setSelectedIndex(null);
       setRevealed(false);
@@ -68,6 +70,13 @@ export function QuizScreen() {
       setLoading(false);
     }
   }, [authLoading, navigation, repository, route.params.projectId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      hideTabBar();
+      return () => showTabBar();
+    }, [hideTabBar, showTabBar])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -185,11 +194,7 @@ export function QuizScreen() {
       const { becameMastered } = await applyWordStatusUpdate(currentQuestion, isCorrect);
       await updateDailyStats(isCorrect, becameMastered);
 
-      if (isCorrect) {
-        setTimeout(() => {
-          moveNext();
-        }, 450);
-      }
+      // No auto-advance — user taps "次へ" button for both correct and wrong
     },
     [applyWordStatusUpdate, currentQuestion, moveNext, revealed, route.params.projectId, selectedIndex]
   );
@@ -197,7 +202,7 @@ export function QuizScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[600]} />
+        <ActivityIndicator size="large" color={'#1a1a1a'} />
         <Text style={styles.loadingText}>クイズを準備中...</Text>
       </View>
     );
@@ -264,28 +269,27 @@ export function QuizScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Top bar: X button + progress bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color={colors.gray[700]} />
+        <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
+          <X size={20} color={colors.gray[700]} strokeWidth={2.5} />
         </TouchableOpacity>
-        <Text style={styles.progressLabel}>{currentIndex + 1} / {questions.length}</Text>
-        <TouchableOpacity style={styles.iconButton} onPress={() => void handleToggleFavorite()}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+        </View>
+        <Text style={styles.progressLabel}>{currentIndex + 1}/{questions.length}</Text>
+      </View>
+
+      {/* Word display — no border */}
+      <View style={styles.questionArea}>
+        <Text style={styles.questionWord}>{currentQuestion.word.english}</Text>
+        <TouchableOpacity style={styles.flagButton} onPress={() => void handleToggleFavorite()}>
           <Flag
             size={18}
-            color={currentQuestion.word.isFavorite ? colors.orange[600] : colors.gray[500]}
+            color={currentQuestion.word.isFavorite ? colors.orange[600] : colors.gray[400]}
             fill={currentQuestion.word.isFavorite ? colors.orange[600] : 'transparent'}
           />
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-      </View>
-
-      <View style={styles.questionCard}>
-        <Text style={styles.questionLabel}>英単語</Text>
-        <Text style={styles.questionWord}>{currentQuestion.word.english}</Text>
-        <Text style={styles.questionHint}>もっとも近い日本語訳を選んでください。</Text>
       </View>
 
       <View style={styles.optionsList}>
@@ -305,11 +309,24 @@ export function QuizScreen() {
         ))}
       </View>
 
-      {revealed && selectedIndex !== currentQuestion.correctIndex ? (
+      {/* Example sentence — shown after answer */}
+      {revealed && currentQuestion.word.exampleSentence ? (
+        <View style={styles.exampleCard}>
+          <Text style={styles.exampleText}>{currentQuestion.word.exampleSentence}</Text>
+          {currentQuestion.word.exampleSentenceJa ? (
+            <Text style={styles.exampleJa}>{currentQuestion.word.exampleSentenceJa}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Next button — always shown after answering */}
+      {revealed ? (
         <View style={styles.footer}>
-          <Text style={styles.answerHint}>
-            正解は「{currentQuestion.options[currentQuestion.correctIndex]}」です。
-          </Text>
+          {selectedIndex !== currentQuestion.correctIndex ? (
+            <Text style={styles.answerHint}>
+              正解は「{currentQuestion.options[currentQuestion.correctIndex]}」です。
+            </Text>
+          ) : null}
           <Button onPress={moveNext}>次へ</Button>
         </View>
       ) : null}
@@ -337,65 +354,71 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 24,
   },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-  },
-  headerSpacer: {
-    width: 42,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.gray[600],
   },
   progressTrack: {
-    height: 10,
+    flex: 1,
+    height: 6,
     borderRadius: 999,
     backgroundColor: colors.gray[200],
     overflow: 'hidden',
-    marginBottom: 24,
   },
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: colors.primary[600],
+    backgroundColor: colors.gray[900],
   },
-  questionCard: {
-    backgroundColor: colors.white,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 8,
-    marginBottom: 20,
-  },
-  questionLabel: {
+  progressLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.gray[500],
+    fontVariant: ['tabular-nums' as const],
+    minWidth: 32,
+    textAlign: 'right',
+  },
+  questionArea: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 10,
+    gap: 10,
   },
   questionWord: {
-    fontSize: 34,
-    fontWeight: '800',
+    fontSize: 36,
+    fontWeight: '700',
     color: colors.gray[900],
+    textAlign: 'center',
   },
-  questionHint: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.gray[600],
+  flagButton: {
+    padding: 6,
   },
   optionsList: {
     gap: 8,
+  },
+  exampleCard: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.gray[50],
+    borderRadius: 14,
+    gap: 4,
+  },
+  exampleText: {
+    fontSize: 14,
+    color: colors.gray[800],
+    lineHeight: 20,
+  },
+  exampleJa: {
+    fontSize: 13,
+    color: colors.gray[500],
+    lineHeight: 18,
   },
   footer: {
     marginTop: 'auto',

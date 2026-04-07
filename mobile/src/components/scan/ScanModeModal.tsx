@@ -141,8 +141,8 @@ export function ScanModeModal({
               onClose();
             }}
           >
-            <View style={[styles.modeIcon, { backgroundColor: colors.primary[50] }]}>
-              <Camera size={20} color={colors.primary[700]} />
+            <View style={[styles.modeIcon, { backgroundColor: 'rgba(26,26,26,0.06)' }]}>
+              <Camera size={20} color={'#0d0d0d'} />
             </View>
             <View style={styles.modeCopy}>
               <Text style={styles.modeTitle}>all</Text>
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 16,
-    backgroundColor: colors.primary[600],
+    backgroundColor: '#1a1a1a',
   },
   footerButtonSecondary: {
     backgroundColor: colors.gray[100],

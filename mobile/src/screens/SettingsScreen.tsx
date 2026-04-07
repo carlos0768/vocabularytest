@@ -13,14 +13,28 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Check, ExternalLink, LogOut, Mail, Pencil, Shield, User, X } from 'lucide-react-native';
-import { Button } from '../components/ui';
-import colors from '../constants/colors';
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Cloud,
+  ExternalLink,
+  HardDrive,
+  LogIn,
+  LogOut,
+  Mail,
+  Pencil,
+  Shield,
+  User,
+  X,
+} from 'lucide-react-native';
+import { SolidCard, PrimaryButton } from '../components/ui';
+import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { WEB_APP_BASE_URL, withWebAppBase } from '../lib/web-base-url';
-import type { RootStackParamList } from '../types';
+import type { SettingsStackParamList } from '../types';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = NativeStackNavigationProp<SettingsStackParamList>;
 
 async function fetchProfile(token: string): Promise<{ username: string | null }> {
   const url = withWebAppBase('/api/profile');
@@ -33,10 +47,7 @@ async function updateProfile(token: string, username: string): Promise<void> {
   const url = withWebAppBase('/api/profile');
   const res = await fetch(url, {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ username }),
   });
   if (!res.ok) throw new Error('ユーザー名の更新に失敗しました。');
@@ -61,35 +72,26 @@ export function SettingsScreen() {
   const [savingUsername, setSavingUsername] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
+  // Login form state (embedded for guests)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
   useEffect(() => {
     if (!isAuthenticated || !session?.access_token) return;
     let active = true;
     setLoadingProfile(true);
     fetchProfile(session.access_token)
-      .then((p) => {
-        if (active) setUsername(p.username);
-      })
-      .catch((e) => {
-        console.warn('Failed to load profile:', e);
-      })
-      .finally(() => {
-        if (active) setLoadingProfile(false);
-      });
+      .then((p) => { if (active) setUsername(p.username); })
+      .catch((e) => console.warn('Failed to load profile:', e))
+      .finally(() => { if (active) setLoadingProfile(false); });
     return () => { active = false; };
   }, [isAuthenticated, session?.access_token]);
 
   const handleSaveUsername = useCallback(async () => {
     const trimmed = editValue.trim();
-    if (!trimmed) {
-      Alert.alert('ユーザー名を入力してください。');
-      return;
-    }
-    if (trimmed.length > 20) {
-      Alert.alert('ユーザー名は20文字以内で入力してください。');
-      return;
-    }
+    if (!trimmed) { Alert.alert('ユーザー名を入力してください。'); return; }
+    if (trimmed.length > 20) { Alert.alert('ユーザー名は20文字以内で入力してください。'); return; }
     if (!session?.access_token) return;
-
     setSavingUsername(true);
     try {
       await updateProfile(session.access_token, trimmed);
@@ -110,20 +112,17 @@ export function SettingsScreen() {
     return 'ローカル保存';
   }, [isPro, subscription?.proSource]);
 
-  const planLabel = useMemo(() => {
-    if (!subscription) return 'free';
-    if (subscription.proSource === 'test') {
-      return `${subscription.plan} / ${subscription.status} / test`;
-    }
-    return `${subscription.plan} / ${subscription.status}`;
-  }, [subscription]);
+  const planBadge = useMemo(() => {
+    if (!isAuthenticated) return 'Guest';
+    if (isPro) return 'Pro';
+    return 'Free';
+  }, [isAuthenticated, isPro]);
 
   const openExternal = async (path: string) => {
     if (!WEB_APP_BASE_URL) {
       Alert.alert('リンク設定が不足しています', 'EXPO_PUBLIC_APP_URL を設定してください。');
       return;
     }
-
     await Linking.openURL(withWebAppBase(path));
   };
 
@@ -137,300 +136,414 @@ export function SettingsScreen() {
           const result = await signOut();
           if (!result.success) {
             Alert.alert('エラー', result.error || 'ログアウトに失敗しました。');
-            return;
           }
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Main' }],
-          });
         },
       },
     ]);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color={colors.gray[700]} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>設定</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>MERKEN</Text>
-          <Text style={styles.sectionBody}>
-            AI を使って写真から英単語を抽出し、クイズやフラッシュカードで効率的に学習できるアプリです。
-          </Text>
-        </View>
+        {/* Title */}
+        <Text style={styles.title}>設定</Text>
 
+        {/* Config error */}
         {configError ? (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Supabase 設定が不足しています</Text>
+          <View style={styles.warningBanner}>
             <Text style={styles.warningText}>{configError}</Text>
           </View>
         ) : null}
 
-        <View style={styles.sectionCard}>
-          {isAuthenticated ? (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <User size={18} color={colors.gray[700]} />
-              </View>
-              <View style={styles.infoCopy}>
-                <Text style={styles.infoLabel}>ユーザー名</Text>
-                {editingUsername ? (
-                  <View style={styles.usernameEditRow}>
-                    <TextInput
-                      style={styles.usernameInput}
-                      value={editValue}
-                      onChangeText={setEditValue}
-                      maxLength={20}
-                      autoFocus
-                      placeholder="ユーザー名"
-                      placeholderTextColor={colors.gray[400]}
-                    />
-                    <TouchableOpacity
-                      style={styles.usernameActionBtn}
-                      onPress={handleSaveUsername}
-                      disabled={savingUsername}
-                    >
-                      {savingUsername ? (
-                        <ActivityIndicator size="small" color={colors.primary[600]} />
-                      ) : (
-                        <Check size={16} color={colors.emerald[600]} />
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.usernameActionBtn}
-                      onPress={() => setEditingUsername(false)}
-                    >
-                      <X size={16} color={colors.gray[500]} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.usernameDisplayRow}
-                    onPress={() => {
-                      setEditValue(username ?? '');
-                      setEditingUsername(true);
-                    }}
-                  >
-                    <Text style={styles.infoValue}>
-                      {loadingProfile ? '...' : username || '未設定'}
-                    </Text>
-                    <Pencil size={14} color={colors.gray[400]} />
-                  </TouchableOpacity>
-                )}
-              </View>
+        {/* Profile hero card */}
+        <SolidCard style={styles.heroCard}>
+          <View style={styles.heroRow}>
+            <View style={styles.avatarCircle}>
+              <User size={28} color={theme.white} />
             </View>
-          ) : null}
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Mail size={18} color={colors.gray[700]} />
-            </View>
-            <View style={styles.infoCopy}>
-              <Text style={styles.infoLabel}>アカウント</Text>
-              <Text style={styles.infoValue}>
-                {isAuthenticated ? user?.email ?? 'ログイン中' : 'ゲスト'}
+            <View style={styles.heroInfo}>
+              <View style={[styles.planBadge, isPro ? styles.planBadgePro : isAuthenticated ? styles.planBadgeFree : styles.planBadgeGuest]}>
+                <Text style={[styles.planBadgeText, isPro ? styles.planBadgeTextPro : null]}>{planBadge}</Text>
+              </View>
+              <Text style={styles.heroName} numberOfLines={1}>
+                {isAuthenticated
+                  ? (loadingProfile ? '...' : username || user?.email || 'ユーザー')
+                  : 'ゲスト'}
+              </Text>
+              <Text style={styles.heroSub} numberOfLines={2}>
+                {isAuthenticated ? user?.email ?? '' : 'ログインして全ての機能を使おう'}
               </Text>
             </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Shield size={18} color={colors.gray[700]} />
-            </View>
-            <View style={styles.infoCopy}>
-              <Text style={styles.infoLabel}>保存方式</Text>
-              <Text style={styles.infoValue}>{storageLabel}</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Mail size={18} color={colors.gray[700]} />
-            </View>
-            <View style={styles.infoCopy}>
-              <Text style={styles.infoLabel}>プラン</Text>
-              <Text style={styles.infoValue}>
-                {planLabel}
-              </Text>
+            <View style={styles.heroTrail}>
+              <View style={styles.storageBadge}>
+                {isPro
+                  ? <Cloud size={12} color={theme.chartBlue} />
+                  : <HardDrive size={12} color={theme.secondaryText} />
+                }
+                <Text style={styles.storageBadgeText}>{isPro ? 'Cloud' : 'Local'}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        </SolidCard>
 
-        {isAuthenticated ? (
-          <Button
-            variant={isPro ? 'secondary' : 'primary'}
-            onPress={() => navigation.navigate('Subscription')}
-            icon={<Shield size={16} color={isPro ? colors.gray[800] : colors.white} />}
-          >
-            {isPro ? 'Pro プランの状態を確認' : 'Pro プランにアップグレード'}
-          </Button>
+        {/* Guest: embedded login form */}
+        {!isAuthenticated ? (
+          <SolidCard style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>ログイン</Text>
+            <View style={styles.loginForm}>
+              <View style={styles.loginField}>
+                <Mail size={16} color={theme.mutedText} />
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="メールアドレス"
+                  placeholderTextColor={theme.mutedText}
+                  value={loginEmail}
+                  onChangeText={setLoginEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={styles.loginField}>
+                <Shield size={16} color={theme.mutedText} />
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="パスワード"
+                  placeholderTextColor={theme.mutedText}
+                  value={loginPassword}
+                  onChangeText={setLoginPassword}
+                  secureTextEntry
+                />
+              </View>
+              <PrimaryButton
+                title="サインイン"
+                icon={<ArrowRight size={16} color={theme.white} />}
+                onPress={() => navigation.navigate('Login')}
+              />
+              <View style={styles.featureChips}>
+                <View style={styles.featureChip}>
+                  <Cloud size={12} color={theme.chartBlue} />
+                  <Text style={styles.featureChipText}>クラウド同期</Text>
+                </View>
+                <View style={styles.featureChip}>
+                  <Shield size={12} color={theme.success} />
+                  <Text style={styles.featureChipText}>進捗を保持</Text>
+                </View>
+              </View>
+            </View>
+            <SettingsRow
+              icon={<User size={16} color={theme.secondaryText} />}
+              label="新規登録"
+              trailing={<ArrowRight size={16} color={theme.mutedText} />}
+              onPress={() => navigation.navigate('Signup')}
+            />
+          </SolidCard>
         ) : null}
 
-        {!isAuthenticated ? (
-          <View style={styles.authActions}>
-            <Button variant="secondary" onPress={() => navigation.navigate('Signup')}>
-              新規登録
-            </Button>
-            <Button onPress={() => navigation.navigate('Login')}>
-              ログイン
-            </Button>
-          </View>
-        ) : (
-          <Button
-            variant="danger"
-            onPress={handleSignOut}
-            loading={loading}
-            icon={<LogOut size={16} color={colors.white} />}
-          >
-            ログアウト
-          </Button>
-        )}
+        {/* Profile section */}
+        {isAuthenticated ? (
+          <SolidCard style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>プロフィール</Text>
+            {/* Username */}
+            {editingUsername ? (
+              <View style={styles.usernameEditRow}>
+                <TextInput
+                  style={styles.usernameInput}
+                  value={editValue}
+                  onChangeText={setEditValue}
+                  maxLength={20}
+                  autoFocus
+                  placeholder="ユーザー名"
+                  placeholderTextColor={theme.mutedText}
+                />
+                <TouchableOpacity style={styles.usernameBtn} onPress={handleSaveUsername} disabled={savingUsername}>
+                  {savingUsername
+                    ? <ActivityIndicator size="small" color={theme.chartBlue} />
+                    : <Check size={16} color={theme.success} />
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.usernameBtn} onPress={() => setEditingUsername(false)}>
+                  <X size={16} color={theme.secondaryText} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <SettingsRow
+                icon={<User size={16} color={theme.secondaryText} />}
+                label="ユーザー名"
+                value={loadingProfile ? '...' : username || '未設定'}
+                trailing={<Pencil size={14} color={theme.mutedText} />}
+                onPress={() => { setEditValue(username ?? ''); setEditingUsername(true); }}
+              />
+            )}
+            <Divider />
+            <SettingsRow
+              icon={<Mail size={16} color={theme.secondaryText} />}
+              label="ステータス"
+              value={storageLabel}
+            />
+          </SolidCard>
+        ) : null}
 
-        <View style={styles.sectionCard}>
+
+        {/* Support section */}
+        <SolidCard style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>サポート</Text>
-          <SettingsLinkItem label="お問い合わせ" onPress={() => Linking.openURL('mailto:support@merken.jp')} />
-          <SettingsLinkItem label="利用規約" onPress={() => void openExternal('/terms')} />
-          <SettingsLinkItem label="プライバシーポリシー" onPress={() => void openExternal('/privacy')} />
-          <SettingsLinkItem label="Web サイト" onPress={() => WEB_APP_BASE_URL ? Linking.openURL(WEB_APP_BASE_URL) : Alert.alert('EXPO_PUBLIC_APP_URL を設定してください。')} />
-        </View>
+          <SettingsRow
+            icon={<Mail size={16} color={theme.secondaryText} />}
+            label="お問い合わせ"
+            trailing={<ExternalLink size={14} color={theme.mutedText} />}
+            onPress={() => Linking.openURL('mailto:support@merken.jp')}
+          />
+          <Divider />
+          <SettingsRow
+            icon={<ExternalLink size={16} color={theme.secondaryText} />}
+            label="利用規約"
+            trailing={<ExternalLink size={14} color={theme.mutedText} />}
+            onPress={() => void openExternal('/terms')}
+          />
+          <Divider />
+          <SettingsRow
+            icon={<ExternalLink size={16} color={theme.secondaryText} />}
+            label="プライバシーポリシー"
+            trailing={<ExternalLink size={14} color={theme.mutedText} />}
+            onPress={() => void openExternal('/privacy')}
+          />
+        </SolidCard>
+
+        {/* Logout */}
+        {isAuthenticated ? (
+          <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut} activeOpacity={0.8}>
+            <LogOut size={16} color={theme.danger} />
+            <Text style={styles.logoutText}>ログアウト</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Version */}
+        {isAuthenticated ? (
+          <Text style={styles.version}>v1.0.0</Text>
+        ) : null}
+
+        {/* Bottom spacer for tab bar */}
+        <View style={{ height: 120 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function SettingsLinkItem({
+function SettingsRow({
+  icon,
   label,
+  value,
+  trailing,
   onPress,
 }: {
+  icon: React.ReactNode;
   label: string;
-  onPress: () => void;
+  value?: string;
+  trailing?: React.ReactNode;
+  onPress?: () => void;
 }) {
+  const Container = onPress ? TouchableOpacity : View;
   return (
-    <TouchableOpacity style={styles.linkRow} onPress={onPress}>
-      <Text style={styles.linkLabel}>{label}</Text>
-      <ExternalLink size={16} color={colors.gray[500]} />
-    </TouchableOpacity>
+    <Container style={styles.row} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.rowIcon}>{icon}</View>
+      <View style={styles.rowContent}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+      </View>
+      {trailing ?? null}
+    </Container>
   );
+}
+
+function Divider() {
+  return <View style={styles.divider} />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.gray[900],
-  },
-  headerSpacer: {
-    width: 42,
+    backgroundColor: theme.background,
   },
   content: {
-    padding: 20,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
-  sectionCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: 14,
-  },
-  sectionTitle: {
-    fontSize: 18,
+  title: {
+    fontSize: theme.fontSize.title1,
     fontWeight: '700',
-    color: colors.gray[900],
+    color: theme.primaryText,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  sectionBody: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.gray[600],
-  },
-  warningCard: {
-    backgroundColor: colors.red[50],
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.red[200],
-    gap: 8,
-  },
-  warningTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.red[700],
+  warningBanner: {
+    backgroundColor: theme.warningBg,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginBottom: 12,
   },
   warningText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.red[700],
+    fontSize: theme.fontSize.subheadline,
+    color: theme.warning,
   },
-  infoRow: {
+  heroCard: {
+    marginBottom: 12,
+  },
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
-  infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  avatarCircle: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: theme.accentBlack,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.gray[100],
   },
-  infoCopy: {
+  heroInfo: {
     flex: 1,
     gap: 2,
   },
-  infoLabel: {
-    fontSize: 12,
+  planBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+  },
+  planBadgePro: {
+    backgroundColor: theme.chartBlueBg,
+  },
+  planBadgeFree: {
+    backgroundColor: theme.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  planBadgeGuest: {
+    backgroundColor: theme.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  planBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.gray[500],
+    color: theme.secondaryText,
   },
-  infoValue: {
-    fontSize: 15,
-    color: colors.gray[800],
-    fontWeight: '600',
+  planBadgeTextPro: {
+    color: theme.chartBlue,
   },
-  authActions: {
-    flexDirection: 'row',
-    gap: 10,
+  heroName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.primaryText,
   },
-  linkRow: {
+  heroSub: {
+    fontSize: theme.fontSize.subheadline,
+    color: theme.secondaryText,
+    lineHeight: 18,
+  },
+  heroTrail: {
+    alignItems: 'flex-end',
+  },
+  storageBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+  },
+  storageBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.secondaryText,
+  },
+  sectionCard: {
+    marginBottom: 12,
+    gap: 10,
+  },
+  sectionTitle: {
+    fontSize: theme.fontSize.body,
+    fontWeight: '700',
+    color: theme.secondaryText,
+    marginBottom: 2,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     paddingVertical: 4,
   },
-  linkLabel: {
-    fontSize: 15,
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.surfaceAlt,
+  },
+  rowContent: {
+    flex: 1,
+    gap: 1,
+  },
+  rowLabel: {
+    fontSize: theme.fontSize.body,
     fontWeight: '600',
-    color: colors.gray[800],
+    color: theme.primaryText,
+  },
+  rowValue: {
+    fontSize: theme.fontSize.subheadline,
+    fontWeight: '500',
+    color: theme.secondaryText,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.borderLight,
+    marginLeft: 44,
+  },
+  loginForm: {
+    gap: 10,
+  },
+  loginField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.surfaceAlt,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  loginInput: {
+    flex: 1,
+    fontSize: theme.fontSize.body,
+    color: theme.primaryText,
+    padding: 0,
+  },
+  featureChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  featureChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+  },
+  featureChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.secondaryText,
   },
   usernameEditRow: {
     flexDirection: 'row',
@@ -441,25 +554,42 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: colors.gray[800],
+    color: theme.primaryText,
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: theme.border,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: colors.white,
+    backgroundColor: theme.white,
   },
-  usernameActionBtn: {
+  usernameBtn: {
     width: 32,
     height: 32,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.gray[100],
+    backgroundColor: theme.surfaceAlt,
   },
-  usernameDisplayRow: {
+  logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1.5,
+    borderColor: theme.dangerBg,
+    marginBottom: 12,
+  },
+  logoutText: {
+    fontSize: theme.fontSize.body,
+    fontWeight: '600',
+    color: theme.danger,
+  },
+  version: {
+    textAlign: 'center',
+    fontSize: theme.fontSize.footnote,
+    color: theme.mutedText,
+    marginBottom: 8,
   },
 });
