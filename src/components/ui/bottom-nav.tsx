@@ -67,7 +67,7 @@ export function BottomNav() {
                 <Icon
                   name={item.icon}
                   filled={active}
-                  size={20}
+                  size={26}
                   className={cn(
                     'transition-colors',
                     active ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'

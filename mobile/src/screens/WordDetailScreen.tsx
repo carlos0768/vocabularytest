@@ -18,6 +18,17 @@ import { getRepository } from '../lib/db';
 import { VocabularyTypeBadge } from '../components/project/VocabularyTypeBadge';
 import type { HomeStackParamList, Word, VocabularyType } from '../types';
 
+const POS_JA: Record<string, string> = {
+  noun: '名詞', verb: '動詞', adjective: '形容詞', adverb: '副詞',
+  preposition: '前置詞', conjunction: '接続詞', pronoun: '代名詞',
+  phrase: '熟語', phrasal_verb: '句動詞', idiom: '熟語',
+  interjection: '感嘆詞', determiner: '限定詞', article: '冠詞',
+};
+
+function posToJapanese(tag: string): string {
+  return POS_JA[tag.toLowerCase()] ?? POS_JA[tag] ?? tag;
+}
+
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 type WordDetailRoute = RouteProp<HomeStackParamList, 'WordDetail'>;
 
@@ -131,7 +142,7 @@ export function WordDetailScreen() {
         <View style={s.meaningSection}>
           <Text style={s.meaningText}>
             {word.partOfSpeechTags && word.partOfSpeechTags.length > 0 && (
-              <Text style={s.posPrefix}>({word.partOfSpeechTags.join('・')}) </Text>
+              <Text style={s.posPrefix}>({word.partOfSpeechTags.map(posToJapanese).join('・')}) </Text>
             )}
             {word.japanese}
           </Text>

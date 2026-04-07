@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     width: BOX_SIZE,
     borderRadius: BORDER_RADIUS,
     borderWidth: 1,
-    borderColor: colors.gray[400],
+    borderColor: colors.gray[200],
     overflow: 'hidden',
   },
   box: {
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   boxMiddle: {
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: colors.gray[400],
+    borderColor: colors.gray[200],
   },
   boxFilled: {
     backgroundColor: colors.gray[900],
