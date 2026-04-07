@@ -121,7 +121,6 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {isPro && <span className="text-sm">👑</span>}
                     <span className="text-sm font-medium text-[var(--color-muted)]">{isPro ? 'Pro' : 'Free'}</span>
                   </div>
                   <p className="font-bold text-[var(--color-foreground)] truncate">{user?.email}</p>
