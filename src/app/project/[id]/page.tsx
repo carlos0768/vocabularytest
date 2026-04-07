@@ -91,6 +91,7 @@ export default function ProjectDetailPage() {
   const [editingName, setEditingName] = useState('');
   const [editNameSaving, setEditNameSaving] = useState(false);
 
+  const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
@@ -1201,7 +1202,7 @@ export default function ProjectDetailPage() {
                 クイズ
               </Link>
               <button
-                onClick={() => setShowManualWordModal(true)}
+                onClick={() => setShowAddMethodSheet(true)}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
               >
                 <Icon name="add" size={18} />
@@ -1252,6 +1253,53 @@ export default function ProjectDetailPage() {
         onClose={() => setShowWordLimitModal(false)}
         currentCount={totalWordCount}
       />
+
+      {/* Add method action sheet */}
+      {showAddMethodSheet && (
+        <div className="fixed inset-0 z-50" onClick={() => setShowAddMethodSheet(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px]"
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="max-w-lg mx-auto">
+              <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-5" />
+              <p className="text-base font-bold text-[var(--color-foreground)] mb-4">単語を追加</p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setShowAddMethodSheet(false);
+                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
+                    setShowScanModeModal(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"
+                >
+                  <Icon name="photo_camera" size={20} />
+                  スキャンで追加
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddMethodSheet(false);
+                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
+                    setShowManualWordModal(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"
+                >
+                  <Icon name="edit" size={20} />
+                  手動で追加
+                </button>
+              </div>
+              <button
+                onClick={() => setShowAddMethodSheet(false)}
+                className="w-full mt-3 py-3 rounded-xl text-[var(--color-muted)] font-semibold text-sm hover:bg-[var(--color-surface-secondary)] transition-colors"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditNameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
