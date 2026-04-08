@@ -45,6 +45,9 @@ struct WordListView: View {
     @State private var showSearch = false
     @State private var showFilterSheet = false
     @State private var filterState = WordListFilterState()
+    @State private var selectMode = false
+    @State private var selectedWordIds = Set<String>()
+    @State private var showBulkDeleteConfirm = false
 
     private let initialStatus: WordStatus?
 
@@ -205,6 +208,58 @@ struct WordListView: View {
                 viewModel: viewModel
             )
         }
+        .overlay(alignment: .bottom) {
+            if selectMode {
+                HStack(spacing: 12) {
+                    Button {
+                        withAnimation { selectMode = false; selectedWordIds.removeAll() }
+                    } label: {
+                        Text("キャンセル")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MerkenTheme.border, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        showBulkDeleteConfirm = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(selectedWordIds.isEmpty ? "削除" : "\(selectedWordIds.count)語を削除")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(selectedWordIds.isEmpty ? MerkenTheme.danger.opacity(0.5) : MerkenTheme.danger, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(selectedWordIds.isEmpty)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
+            }
+        }
+        .alert("選択した\(selectedWordIds.count)語を削除しますか？", isPresented: $showBulkDeleteConfirm) {
+            Button("キャンセル", role: .cancel) {}
+            Button("削除", role: .destructive) {
+                Task {
+                    for id in selectedWordIds {
+                        await viewModel.deleteWord(wordId: id, projectId: project.id, using: appState)
+                    }
+                    selectedWordIds.removeAll()
+                    selectMode = false
+                }
+            }
+        } message: {
+            Text("この操作は取り消せません。")
+        }
         .onAppear {
             if case .all = selectedFilter, let initialStatus {
                 selectedFilter = .status(initialStatus)
@@ -289,6 +344,17 @@ struct WordListView: View {
                 }
             } label: {
                 toolbarIconLabel(icon: "arrow.up.arrow.down", isActive: false)
+            }
+
+            // Select mode toggle
+            toolbarIconButton(
+                icon: selectMode ? "xmark.circle" : "checkmark.circle",
+                isActive: selectMode
+            ) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    selectMode.toggle()
+                    if !selectMode { selectedWordIds.removeAll() }
+                }
             }
 
             Spacer()
@@ -560,8 +626,31 @@ struct WordListView: View {
 
     private func wordRow(_ word: Word) -> some View {
         HStack(alignment: .center, spacing: 8) {
+            if selectMode {
+                Button {
+                    if selectedWordIds.contains(word.id) {
+                        selectedWordIds.remove(word.id)
+                    } else {
+                        selectedWordIds.insert(word.id)
+                    }
+                } label: {
+                    Image(systemName: selectedWordIds.contains(word.id) ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 22))
+                        .foregroundStyle(selectedWordIds.contains(word.id) ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                }
+                .buttonStyle(.plain)
+            }
+
             Button {
-                selectedWord = word
+                if selectMode {
+                    if selectedWordIds.contains(word.id) {
+                        selectedWordIds.remove(word.id)
+                    } else {
+                        selectedWordIds.insert(word.id)
+                    }
+                } else {
+                    selectedWord = word
+                }
             } label: {
                 HStack(alignment: .center, spacing: 8) {
                     Text(word.english)

@@ -117,6 +117,18 @@ func ensureProjectSourceLabels(_ values: [String]?) -> [String] {
     return normalized.isEmpty ? ["ノート"] : normalized
 }
 
+struct CustomSection: Identifiable, Hashable, Codable, Sendable {
+    var id: String
+    var title: String
+    var content: String
+
+    init(id: String = UUID().uuidString, title: String = "", content: String = "") {
+        self.id = id
+        self.title = title
+        self.content = content
+    }
+}
+
 struct RelatedWord: Hashable, Codable, Sendable {
     var term: String
     var relation: String
@@ -154,6 +166,7 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
     var repetition: Int
     var isFavorite: Bool
     var vocabularyType: VocabularyType?
+    var customSections: [CustomSection]?
 
     init(
         id: String = UUID().uuidString,
@@ -177,7 +190,8 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
         intervalDays: Int = 0,
         repetition: Int = 0,
         isFavorite: Bool = false,
-        vocabularyType: VocabularyType? = nil
+        vocabularyType: VocabularyType? = nil,
+        customSections: [CustomSection]? = nil
     ) {
         self.id = id
         self.projectId = projectId
@@ -201,6 +215,7 @@ struct Word: Identifiable, Hashable, Codable, Sendable {
         self.repetition = repetition
         self.isFavorite = isFavorite
         self.vocabularyType = vocabularyType
+        self.customSections = customSections
     }
 }
 
@@ -240,6 +255,7 @@ struct WordPatch: Hashable, Sendable {
     var repetition: Int?
     var isFavorite: Bool?
     var vocabularyType: VocabularyType??
+    var customSections: [CustomSection]??
 
     static let empty = WordPatch()
 
@@ -262,7 +278,8 @@ struct WordPatch: Hashable, Sendable {
         intervalDays: Int? = nil,
         repetition: Int? = nil,
         isFavorite: Bool? = nil,
-        vocabularyType: VocabularyType?? = nil
+        vocabularyType: VocabularyType?? = nil,
+        customSections: [CustomSection]?? = nil
     ) {
         self.english = english
         self.japanese = japanese
@@ -283,6 +300,7 @@ struct WordPatch: Hashable, Sendable {
         self.repetition = repetition
         self.isFavorite = isFavorite
         self.vocabularyType = vocabularyType
+        self.customSections = customSections
     }
 }
 

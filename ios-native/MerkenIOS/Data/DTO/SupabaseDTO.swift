@@ -36,12 +36,13 @@ struct WordDTO: Codable, Sendable {
     let repetition: Int?
     let isFavorite: Bool?
     let vocabularyType: String?
+    let customSections: [CustomSection]?
 
     private enum CodingKeys: String, CodingKey {
         case id, projectId, english, japanese, distractors, exampleSentence, exampleSentenceJa
         case pronunciation, partOfSpeechTags, relatedWords, usagePatterns
         case insightsGeneratedAt, insightsVersion, status, createdAt, lastReviewedAt, nextReviewAt
-        case easeFactor, intervalDays, repetition, isFavorite, vocabularyType
+        case easeFactor, intervalDays, repetition, isFavorite, vocabularyType, customSections
     }
 
     /// Tolerates Int, Double, or numeric String from PostgREST / legacy JSON (matches web row normalization).
@@ -77,6 +78,7 @@ struct WordDTO: Codable, Sendable {
         repetition = Self.decodeLossyInt(from: c, forKey: .repetition)
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite)
         vocabularyType = try c.decodeIfPresent(String.self, forKey: .vocabularyType)
+        customSections = try? c.decodeIfPresent([CustomSection].self, forKey: .customSections)
     }
 }
 
@@ -142,6 +144,7 @@ struct WordUpdateDTO: Codable, Sendable {
     var repetition: Int?
     var isFavorite: Bool?
     var vocabularyType: String??
+    var customSections: [CustomSection]??
 }
 
 struct CollectionDTO: Codable, Sendable {
@@ -216,7 +219,8 @@ enum SupabaseMapper {
             intervalDays: dto.intervalDays ?? 0,
             repetition: dto.repetition ?? 0,
             isFavorite: dto.isFavorite ?? false,
-            vocabularyType: dto.vocabularyType.flatMap { VocabularyType(rawValue: $0) }
+            vocabularyType: dto.vocabularyType.flatMap { VocabularyType(rawValue: $0) },
+            customSections: dto.customSections
         )
     }
 
@@ -258,7 +262,8 @@ enum SupabaseMapper {
             intervalDays: patch.intervalDays,
             repetition: patch.repetition,
             isFavorite: patch.isFavorite,
-            vocabularyType: patch.vocabularyType.map { $0?.rawValue }
+            vocabularyType: patch.vocabularyType.map { $0?.rawValue },
+            customSections: patch.customSections
         )
     }
 
