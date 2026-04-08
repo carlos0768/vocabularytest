@@ -308,8 +308,8 @@ export default function SharedProjectPage() {
                 className="w-10 h-10 rounded-full bg-white/20 flex flex-col items-center justify-center disabled:opacity-50 transition-transform active:scale-90"
                 aria-label={liked ? 'いいねを取り消す' : 'いいね'}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: liked ? "'FILL' 1" : "'FILL' 0", color: liked ? '#f87171' : 'white' }}>
-                  favorite
+                <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: liked ? "'FILL' 1" : "'FILL' 0", color: liked ? '#60a5fa' : 'white' }}>
+                  thumb_up
                 </span>
                 {likeCount > 0 && <span className="text-[9px] font-bold text-white/90 -mt-0.5 leading-none">{likeCount}</span>}
               </button>
