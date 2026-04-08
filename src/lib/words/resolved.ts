@@ -4,7 +4,7 @@ export const LEXICON_ENTRY_SELECT_COLUMNS =
   'id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at' as const;
 
 export const RESOLVED_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_TEXT_SELECT_COLUMNS =
   `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
