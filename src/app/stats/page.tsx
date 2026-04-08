@@ -137,10 +137,12 @@ export default function StatsPage() {
                           </div>
                         </div>
                       </div>
-                      {/* X axis labels */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', marginLeft: '40px' }}>
-                        {chartDates.filter((_, i) => i % 3 === 0 || i === chartDates.length - 1).map((label) => (
-                          <span key={label} style={{ fontSize: '10px', color: 'var(--color-muted)' }}>{label}</span>
+                      {/* X axis labels — one slot per bar, show label every 3 days + last day */}
+                      <div style={{ display: 'flex', gap: '2px', marginTop: '4px', marginLeft: '40px' }}>
+                        {chartDates.map((label, i) => (
+                          <span key={label} style={{ flex: 1, fontSize: '10px', color: 'var(--color-muted)', textAlign: 'center' }}>
+                            {(i % 3 === 0 || i === chartDates.length - 1) ? label : ''}
+                          </span>
                         ))}
                       </div>
                     </div>
