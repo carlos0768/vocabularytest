@@ -55,6 +55,8 @@ export default function ProjectDetailPage() {
   // Scroll position restoration
   const scrollKey = `project-scroll-${projectId}`;
   const scrollRestoredRef = useRef(false);
+  const hasSavedScroll = typeof window !== 'undefined' && !!sessionStorage.getItem(`project-scroll-${projectId}`);
+  const [contentVisible, setContentVisible] = useState(!hasSavedScroll);
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -281,7 +283,7 @@ export default function ProjectDetailPage() {
     }
   }, [project?.id, user?.id]);
 
-  // Restore scroll position synchronously before paint to prevent flash
+  // Restore scroll position before paint, then reveal content
   useLayoutEffect(() => {
     if (!wordsLoaded || scrollRestoredRef.current) return;
     scrollRestoredRef.current = true;
@@ -292,6 +294,7 @@ export default function ProjectDetailPage() {
         window.scrollTo(0, y);
       }
     }
+    setContentVisible(true);
   }, [wordsLoaded, scrollKey]);
 
   // Scan-to-add handlers
@@ -925,7 +928,7 @@ export default function ProjectDetailPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8">
+      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8" style={contentVisible ? undefined : { visibility: 'hidden' }}>
         <div
           className="project-detail-header-safe-top z-[50] sticky top-0"
           style={{ background: headerBackground }}
@@ -1254,7 +1257,7 @@ export default function ProjectDetailPage() {
                         </td>
                         <td className="px-2 py-2.5 max-w-0">
                           <span className="inline-flex items-center gap-1 min-w-0">
-                            <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{word.english}</span>
+                            <span className="text-base font-bold text-[var(--color-foreground)] truncate">{word.english}</span>
                             {word.isFavorite && (
                               <Icon
                                 name="flag"
@@ -1293,7 +1296,7 @@ export default function ProjectDetailPage() {
 
         {/* Bottom action bar */}
         {words.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', visibility: 'visible' }}>
             <div className="max-w-lg mx-auto flex items-center gap-3">
               {selectMode ? (
                 <>
