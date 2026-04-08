@@ -6,6 +6,7 @@
 export type {
   VocabularyType,
   WordStatus,
+  CustomSection,
   RelatedWord,
   UsagePattern,
   LexiconEntry,
