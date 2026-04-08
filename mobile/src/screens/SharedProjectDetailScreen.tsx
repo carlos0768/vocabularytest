@@ -30,12 +30,7 @@ import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { useTabBar } from '../hooks/use-tab-bar';
 import { getRepository } from '../lib/db';
-import {
-  fetchSharedProjectDetail,
-  importSharedProjectToCloud,
-  type SharedProjectDetail,
-  type SharedWord,
-} from '../lib/shared-projects';
+import { fetchSharedProjectDetail, type SharedProjectDetail, type SharedWord } from '../lib/shared-projects';
 import { getGuestUserId } from '../lib/utils';
 import type { RootStackParamList } from '../types';
 
@@ -134,54 +129,40 @@ export function SharedProjectDetailScreen() {
   const hasActiveFilters = searchText.trim().length > 0 || apFilter !== 'all';
 
   const doImport = useCallback(async (targetWords: SharedWord[]) => {
-      if (!detail || targetWords.length === 0) return;
-      setImporting(true);
-      setShowImportSheet(false);
-      try {
-        const isActivePro = subscription?.status === 'active' && subscription?.plan === 'pro';
-        let createdProjectId: string;
-
-        if (isActivePro && session?.access_token) {
-          const imported = await importSharedProjectToCloud(
-            projectId,
-            targetWords.map((word) => word.id),
-            session.access_token,
-          );
-          createdProjectId = imported.project.id;
-        } else {
-          const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
-          const createdProject = await repository.createProject({
-            userId,
-            title: detail.project.title,
-            importedFromShareId: projectId,
-          });
-          await repository.createWords(
-            targetWords.map((w) => ({
-              projectId: createdProject.id,
-              english: w.english,
-              japanese: w.japanese,
-              distractors: [],
-              pronunciation: w.pronunciation,
-              exampleSentence: w.exampleSentence,
-              exampleSentenceJa: w.exampleSentenceJa,
-              vocabularyType: w.vocabularyType,
-            })),
-          );
-          createdProjectId = createdProject.id;
-        }
-
-        setSelectMode(false);
-        setSelectedIds(new Set());
-        Alert.alert('完了', `${targetWords.length}語を追加しました。`, [
-          { text: '開く', onPress: () => (navigation as any).navigate('HomeTab', { screen: 'Project', params: { projectId: createdProjectId } }) },
-          { text: 'OK' },
-        ]);
-      } catch (e) {
-        Alert.alert('エラー', e instanceof Error ? e.message : '取り込みに失敗しました。');
-      } finally {
-        setImporting(false);
-      }
-    }, [detail, isAuthenticated, navigation, projectId, repository, session?.access_token, subscription?.plan, subscription?.status, user?.id]);
+    if (!detail || targetWords.length === 0) return;
+    setImporting(true);
+    setShowImportSheet(false);
+    try {
+      const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
+      const createdProject = await repository.createProject({
+        userId,
+        title: detail.project.title,
+        importedFromShareId: projectId,
+      });
+      await repository.createWords(
+        targetWords.map((w) => ({
+          projectId: createdProject.id,
+          english: w.english,
+          japanese: w.japanese,
+          distractors: [],
+          pronunciation: w.pronunciation,
+          exampleSentence: w.exampleSentence,
+          exampleSentenceJa: w.exampleSentenceJa,
+          vocabularyType: w.vocabularyType,
+        })),
+      );
+      setSelectMode(false);
+      setSelectedIds(new Set());
+      Alert.alert('完了', `${targetWords.length}語を追加しました。`, [
+        { text: '開く', onPress: () => (navigation as any).navigate('HomeTab', { screen: 'Project', params: { projectId: createdProject.id } }) },
+        { text: 'OK' },
+      ]);
+    } catch (e) {
+      Alert.alert('エラー', e instanceof Error ? e.message : '取り込みに失敗しました。');
+    } finally {
+      setImporting(false);
+    }
+  }, [detail, isAuthenticated, navigation, projectId, repository, user?.id]);
 
   const handleSortMenu = useCallback(() => {
     Alert.alert('並び替え', undefined, [

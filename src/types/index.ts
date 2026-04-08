@@ -10,7 +10,6 @@ export type {
   RelatedWord,
   UsagePattern,
   LexiconEntry,
-  LexiconSense,
   Word,
   Project,
   ProjectShareScope,
@@ -47,13 +46,6 @@ export type {
   // Collection types
   Collection,
   CollectionProject,
-  // Grammar types
-  ProjectType,
-  GrammarQuizType,
-  GrammarWordOption,
-  GrammarQuizQuestion,
-  GrammarPattern,
-  AIGrammarResponse,
 } from '../../shared/types';
 
 // ============ Web-Specific Types ============

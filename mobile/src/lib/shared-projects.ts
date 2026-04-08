@@ -33,20 +33,6 @@ export interface SharedWord {
   partOfSpeechTags?: string[];
 }
 
-export interface SharedProjectImportResult {
-  project: {
-    id: string;
-    title: string;
-    importedFromShareId?: string;
-    createdAt: string;
-  };
-  importedAt: string;
-  wordMappings: Array<{
-    sourceWordId: string;
-    targetWordId: string;
-  }>;
-}
-
 // The API returns nested objects: { project: { id, title, ... }, accessRole, ownerUsername, wordCount }
 // We flatten them into SharedProjectSummary for the UI.
 interface RawSharedProjectCard {
@@ -114,31 +100,4 @@ export async function fetchSharedProjectDetail(
   }
 
   return response.json();
-}
-
-export async function importSharedProjectToCloud(
-  projectId: string,
-  sourceWordIds: string[],
-  token: string,
-): Promise<SharedProjectImportResult> {
-  const url = withWebAppBase(`/api/shared-projects/${projectId}/import`);
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ sourceWordIds }),
-  });
-
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || `共有単語帳の取り込みに失敗しました (${response.status})`);
-  }
-
-  return {
-    project: payload.project,
-    importedAt: payload.importedAt,
-    wordMappings: payload.wordMappings ?? [],
-  };
 }
