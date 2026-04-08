@@ -238,6 +238,7 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
         <div className="flex items-center gap-3 mt-2 text-xs text-[var(--color-muted)]">
           <CountChip icon="description" value={project.wordCount} suffix="語" />
           <CountChip icon="group" value={project.collaboratorCount} suffix="人" />
+          <CountChip icon="favorite" value={project.likeCount} suffix="" />
         </div>
       </div>
 

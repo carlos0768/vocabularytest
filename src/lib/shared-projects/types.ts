@@ -7,6 +7,7 @@ export type SharedProjectCard = {
   accessRole: SharedProjectAccessRole;
   wordCount?: number;
   collaboratorCount?: number;
+  likeCount?: number;
   ownerUsername?: string | null;
 };
 
@@ -28,6 +29,7 @@ export type PublicSharedProjectListPayload = {
 export type SharedProjectMetrics = {
   wordCount: number;
   collaboratorCount: number;
+  likeCount: number;
 };
 
 export type SharedProjectMetricsMap = Record<string, SharedProjectMetrics>;

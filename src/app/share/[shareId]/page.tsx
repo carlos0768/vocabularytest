@@ -32,6 +32,11 @@ export default function SharedProjectPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
 
+  // Like state
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [likeLoading, setLikeLoading] = useState(true);
+
   // Search / Filter / Sort
   const [wordSearchText, setWordSearchText] = useState('');
   const [wordShowSearch, setWordShowSearch] = useState(false);
@@ -188,6 +193,45 @@ export default function SharedProjectPage() {
     };
   }, [headerFrom, project]);
 
+  // Fetch like status when project loads
+  useEffect(() => {
+    if (!project || !user) { setLikeLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/shared-projects/${project.id}/like`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setLiked(data.liked);
+          setLikeCount(data.likeCount ?? 0);
+        }
+      } catch { /* silent */ }
+      finally { if (!cancelled) setLikeLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [project, user]);
+
+  const handleToggleLike = async () => {
+    if (!user || !project) return;
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setLikeCount((prev) => prev + (nextLiked ? 1 : -1));
+    try {
+      const res = await fetch(`/api/shared-projects/${project.id}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liked: nextLiked }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setLikeCount(data.likeCount);
+    } catch {
+      setLiked(!nextLiked);
+      setLikeCount((prev) => prev + (nextLiked ? -1 : 1));
+      showToast({ message: 'いいねに失敗しました', type: 'error' });
+    }
+  };
+
   const posLabel = (tags?: string[]) => {
     if (!tags || tags.length === 0) return null;
     const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
@@ -258,7 +302,17 @@ export default function SharedProjectPage() {
                   {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} · {words.length}語
                 </p>
               </div>
-              <div className="w-10" />
+              <button
+                onClick={handleToggleLike}
+                disabled={!user || likeLoading}
+                className="w-10 h-10 rounded-full bg-white/20 flex flex-col items-center justify-center disabled:opacity-50 transition-transform active:scale-90"
+                aria-label={liked ? 'いいねを取り消す' : 'いいね'}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: liked ? "'FILL' 1" : "'FILL' 0", color: liked ? '#f87171' : 'white' }}>
+                  favorite
+                </span>
+                {likeCount > 0 && <span className="text-[9px] font-bold text-white/90 -mt-0.5 leading-none">{likeCount}</span>}
+              </button>
             </div>
           </div>
         </div>

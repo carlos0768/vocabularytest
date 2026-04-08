@@ -124,6 +124,7 @@ export async function handleSharedProjectsMetricsGet(
       payload[projectId] = {
         wordCount: metric.wordCount,
         collaboratorCount: metric.collaboratorCount,
+        likeCount: metric.likeCount,
       };
     }
 

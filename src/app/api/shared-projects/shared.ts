@@ -29,6 +29,7 @@ type SharedProjectMetricsRow = {
   project_id: string;
   word_count: number | string | null;
   collaborator_count: number | string | null;
+  like_count?: number | string | null;
 };
 
 type SharedProjectCursor = {
@@ -314,7 +315,7 @@ export async function listAccessibleSharedProjects(
   const owned = ownedRows.map((row) => {
     const card = mapSharedProjectCard(row, 'owner', usernameByUserId);
     const metrics = metricsByProjectId.get(row.id);
-    return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1 };
+    return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
   });
 
   const joined = projectMembersAvailable
@@ -327,7 +328,7 @@ export async function listAccessibleSharedProjects(
           usernameByUserId,
         );
         const metrics = metricsByProjectId.get(row.id);
-        return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1 };
+        return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
       })
     : [];
 
@@ -365,7 +366,7 @@ export async function listPublicSharedProjects(
     items: pageRows.map((row) => {
       const card = mapSharedProjectCard(row, 'viewer', usernameByUserId);
       const metrics = metricsByProjectId.get(row.id);
-      return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1 };
+      return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
     }),
     nextCursor: pageRows.length === limit
       ? encodePublicCursor(pageRows[pageRows.length - 1]!)
@@ -381,7 +382,7 @@ export async function getSharedProjectMetrics(
   const result = new Map<string, SharedProjectMetrics>();
 
   for (const projectId of uniqueProjectIds) {
-    result.set(projectId, { wordCount: 0, collaboratorCount: 1 });
+    result.set(projectId, { wordCount: 0, collaboratorCount: 1, likeCount: 0 });
   }
 
   if (uniqueProjectIds.length === 0) {
@@ -404,6 +405,7 @@ export async function getSharedProjectMetrics(
       result.set(row.project_id, {
         wordCount: Number(row.word_count ?? 0),
         collaboratorCount: Number(row.collaborator_count ?? 1),
+        likeCount: Number(row.like_count ?? 0),
       });
     }
 
@@ -594,7 +596,7 @@ async function getSharedProjectMetricsFallback(
   seed: Map<string, SharedProjectMetrics>,
 ): Promise<Map<string, SharedProjectMetrics>> {
   await Promise.all(projectIds.map(async (projectId) => {
-    const [wordResult, collaboratorResult] = await Promise.all([
+    const [wordResult, collaboratorResult, likeResult] = await Promise.all([
       admin
         .from('words')
         .select('*', { count: 'exact', head: true })
@@ -603,10 +605,15 @@ async function getSharedProjectMetricsFallback(
         .from('project_members')
         .select('*', { count: 'exact', head: true })
         .eq('project_id', projectId),
+      admin
+        .from('project_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId),
     ]);
 
     const wordCount = wordResult.count ?? 0;
     let collaboratorCount = 1;
+    let likeCount = 0;
 
     if (collaboratorResult.error) {
       if (getSharedProjectsSchemaIssue(collaboratorResult.error) === 'project_members') {
@@ -622,9 +629,14 @@ async function getSharedProjectMetricsFallback(
       throw new Error(wordResult.error.message || 'shared_word_counts_failed');
     }
 
+    if (likeResult && !likeResult.error) {
+      likeCount = likeResult.count ?? 0;
+    }
+
     seed.set(projectId, {
       wordCount,
       collaboratorCount,
+      likeCount,
     });
   }));
 
@@ -649,12 +661,13 @@ function mapSharedProjectSummary(
   metricsByProjectId: Map<string, SharedProjectMetrics>,
   usernameByUserId?: Map<string, string | null>,
 ): SharedProjectSummary {
-  const metrics = metricsByProjectId.get(row.id) ?? { wordCount: 0, collaboratorCount: 1 };
+  const metrics = metricsByProjectId.get(row.id) ?? { wordCount: 0, collaboratorCount: 1, likeCount: 0 };
 
   return {
     ...mapSharedProjectCard(row, accessRole, usernameByUserId),
     wordCount: metrics.wordCount,
     collaboratorCount: metrics.collaboratorCount,
+    likeCount: metrics.likeCount,
   };
 }
 

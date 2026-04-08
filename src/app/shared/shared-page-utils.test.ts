@@ -37,7 +37,7 @@ test('mergeUniqueProjectCards appends only unseen public cards', () => {
 test('mergeMetricsIntoCards replaces placeholder counts', () => {
   const cards = [makeCard('project-1')];
   const merged = mergeMetricsIntoCards(cards, {
-    'project-1': { wordCount: 12, collaboratorCount: 3 },
+    'project-1': { wordCount: 12, collaboratorCount: 3, likeCount: 5 },
   });
 
   assert.equal(merged[0]?.wordCount, 12);

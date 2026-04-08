@@ -41,14 +41,14 @@ test('shared-projects/metrics GET returns only accessible metrics', async () => 
       },
     } as never),
     getSharedProjectMetrics: async () => new Map([
-      ['project-1', { wordCount: 3, collaboratorCount: 2 }],
-      ['project-2', { wordCount: 9, collaboratorCount: 4 }],
+      ['project-1', { wordCount: 3, collaboratorCount: 2, likeCount: 1 }],
+      ['project-2', { wordCount: 9, collaboratorCount: 4, likeCount: 0 }],
     ]),
   });
 
   assert.equal(res.status, 200);
   const payload = await res.json();
   assert.deepEqual(payload.metrics, {
-    'project-1': { wordCount: 3, collaboratorCount: 2 },
+    'project-1': { wordCount: 3, collaboratorCount: 2, likeCount: 1 },
   });
 });

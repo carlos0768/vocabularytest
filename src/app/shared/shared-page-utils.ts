@@ -33,6 +33,7 @@ export function mergeMetricsIntoCards(
     if (
       card.wordCount === metric.wordCount
       && card.collaboratorCount === metric.collaboratorCount
+      && card.likeCount === metric.likeCount
     ) {
       return card;
     }
@@ -42,6 +43,7 @@ export function mergeMetricsIntoCards(
       ...card,
       wordCount: metric.wordCount,
       collaboratorCount: metric.collaboratorCount,
+      likeCount: metric.likeCount,
     };
   });
 
