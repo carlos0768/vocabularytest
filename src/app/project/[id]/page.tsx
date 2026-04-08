@@ -1309,7 +1309,7 @@ export default function ProjectDetailPage() {
                   <button
                     onClick={() => setBulkDeleteModalOpen(true)}
                     disabled={selectedWordIds.size === 0}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-danger)] text-white font-semibold text-sm disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-error)] text-white font-semibold text-sm disabled:opacity-50"
                   >
                     <Icon name="delete" size={18} />
                     {selectedWordIds.size > 0 ? `${selectedWordIds.size}語を削除` : '削除'}
