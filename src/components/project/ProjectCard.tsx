@@ -71,6 +71,7 @@ export function ProjectCard(props: ProjectCardProps) {
     <div className="relative">
       <Link
         href={`/project/${project.id}`}
+        prefetch={true}
         className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
       >
         <div
