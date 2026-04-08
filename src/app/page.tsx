@@ -1705,10 +1705,7 @@ export default function HomePage() {
         <header className="px-5 pt-6 pb-2 lg:hidden">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
-            <div className="flex items-center gap-2">
-              {isPro && <SyncStatusIndicator />}
-              <ModeSwitcher mode={homeMode} onModeChange={handleHomeModeChange} />
-            </div>
+            <ModeSwitcher mode={homeMode} onModeChange={handleHomeModeChange} />
           </div>
         </header>
 
@@ -1716,10 +1713,7 @@ export default function HomePage() {
         <header className="sticky top-0 hidden lg:block z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
             <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
-            <div className="flex items-center gap-2">
-              {isPro && <SyncStatusIndicator />}
-              <ModeSwitcher mode={homeMode} onModeChange={handleHomeModeChange} />
-            </div>
+            <ModeSwitcher mode={homeMode} onModeChange={handleHomeModeChange} />
           </div>
         </header>
 
