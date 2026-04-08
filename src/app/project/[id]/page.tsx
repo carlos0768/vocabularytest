@@ -52,6 +52,10 @@ export default function ProjectDetailPage() {
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const defaultRepository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
+  // Scroll position restoration
+  const scrollKey = `project-scroll-${projectId}`;
+  const scrollRestoredRef = useRef(false);
+
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [wordsLoaded, setWordsLoaded] = useState(false);
@@ -276,6 +280,22 @@ export default function ProjectDetailPage() {
       }
     }
   }, [project?.id, user?.id]);
+
+  // Restore scroll position after words load
+  useEffect(() => {
+    if (!wordsLoaded || scrollRestoredRef.current) return;
+    scrollRestoredRef.current = true;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (saved) {
+      const y = parseInt(saved, 10);
+      if (Number.isFinite(y)) {
+        // requestAnimationFrame ensures DOM has rendered the word list
+        requestAnimationFrame(() => {
+          window.scrollTo(0, y);
+        });
+      }
+    }
+  }, [wordsLoaded, scrollKey]);
 
   // Scan-to-add handlers
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
@@ -1200,6 +1220,7 @@ export default function ProjectDetailPage() {
                           if (selectMode) {
                             handleToggleSelectWord(word.id);
                           } else {
+                            sessionStorage.setItem(scrollKey, String(window.scrollY));
                             router.push(`/word/${word.id}?from=${returnPath}`);
                           }
                         }}
@@ -1209,6 +1230,7 @@ export default function ProjectDetailPage() {
                             if (selectMode) {
                               handleToggleSelectWord(word.id);
                             } else {
+                              sessionStorage.setItem(scrollKey, String(window.scrollY));
                               router.push(`/word/${word.id}?from=${returnPath}`);
                             }
                           }
