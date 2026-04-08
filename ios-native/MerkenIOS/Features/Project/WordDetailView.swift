@@ -97,6 +97,27 @@ struct WordDetailView: View {
                                 .padding(.vertical, 16)
                         }
 
+                        if let sections = word.customSections, !sections.isEmpty {
+                            ForEach(sections) { section in
+                                rowDivider
+                                VStack(alignment: .leading, spacing: 8) {
+                                    if !section.title.isEmpty {
+                                        Text(section.title)
+                                            .font(.system(size: 15, weight: .bold))
+                                            .foregroundStyle(MerkenTheme.primaryText)
+                                    }
+                                    if !section.content.isEmpty {
+                                        Text(section.content)
+                                            .font(.system(size: 15))
+                                            .foregroundStyle(MerkenTheme.secondaryText)
+                                            .lineSpacing(3)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 16)
+                            }
+                        }
+
                         rowDivider
                     }
                     .padding(.bottom, 100)
