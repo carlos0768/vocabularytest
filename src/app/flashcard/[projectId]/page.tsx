@@ -96,12 +96,8 @@ export default function FlashcardPage() {
     if (words.length > 0) {
       saveProgress(words, currentIndex);
     }
-    if (returnPath) {
-      router.back();
-    } else {
-      router.replace(`/project/${projectId}`);
-    }
-  }, [words, currentIndex, saveProgress, router, returnPath, projectId]);
+    router.back();
+  }, [words, currentIndex, saveProgress, router]);
 
   // Load words
   useEffect(() => {
@@ -406,7 +402,6 @@ export default function FlashcardPage() {
   const handleFlip = () => {
     if (!isAnimating && !isSwiping.current) {
       setIsFlipped((prev) => !prev);
-      speakWord();
     }
   };
 
