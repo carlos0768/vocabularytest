@@ -303,6 +303,43 @@ export default function FlashcardPage() {
     syncRemote();
   }, [authLoading, user, projectId, collectionId, favoritesOnly]);
 
+  // Refresh word data when returning from quiz (visibility change)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (words.length === 0) return;
+
+      try {
+        let freshWords: Word[];
+        if (collectionId) {
+          freshWords = await loadCollectionWords(collectionId);
+        } else if (projectId === 'all' && favoritesOnly) {
+          const userId = user ? user.id : getGuestUserId();
+          const projects = await repository.getProjects(userId);
+          const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
+          freshWords = allProjectWords.flat().filter(w => w.isFavorite);
+        } else {
+          freshWords = await repository.getWords(projectId);
+          if (favoritesOnly) {
+            freshWords = freshWords.filter(w => w.isFavorite);
+          }
+        }
+
+        const freshMap = new Map(freshWords.map(w => [w.id, w]));
+
+        // Update existing words in-place (preserve order & current index)
+        setWords(prev =>
+          prev.map(w => freshMap.get(w.id) ?? w)
+        );
+      } catch {
+        // Silent fail - current data is still displayed
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [words.length, projectId, collectionId, favoritesOnly, repository, user]);
+
   // Auto-save progress when index changes
   useEffect(() => {
     if (words.length > 0) {
