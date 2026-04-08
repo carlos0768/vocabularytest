@@ -71,13 +71,8 @@ export default function QuizPage() {
   });
 
   const backToProject = useCallback(() => {
-    // Use router.back() for bfcache/instant back navigation
-    if (returnPath) {
-      router.back();
-    } else {
-      router.replace(`/project/${projectId}`);
-    }
-  }, [router, returnPath, projectId]);
+    router.back();
+  }, [router]);
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
