@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  InteractionManager,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Flame, GraduationCap } from 'lucide-react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { SolidCard, IconBadge, LoginGateView } from '../components/ui';
+import { StatsScreenSkeleton } from '../components/ui/ScreenSkeleton';
 import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { getRepository } from '../lib/db';
@@ -33,23 +35,39 @@ export function StatsScreen() {
     [subscription?.status]
   );
 
+  interface StatsData {
+    streakDays: number;
+    todayMastered: number;
+    todayAnswered: number;
+    todayCorrect: number;
+    masteredCount: number;
+    reviewCount: number;
+    newCount: number;
+    wrongCount: number;
+    totalWords: number;
+    masteryHistory: DayMastery[];
+  }
+
+  const [statsData, setStatsData] = useState<StatsData>({
+    streakDays: 0,
+    todayMastered: 0,
+    todayAnswered: 0,
+    todayCorrect: 0,
+    masteredCount: 0,
+    reviewCount: 0,
+    newCount: 0,
+    wrongCount: 0,
+    totalWords: 0,
+    masteryHistory: [],
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [streakDays, setStreakDays] = useState(0);
-  const [todayMastered, setTodayMastered] = useState(0);
-  const [todayAnswered, setTodayAnswered] = useState(0);
-  const [todayCorrect, setTodayCorrect] = useState(0);
-  const [masteredCount, setMasteredCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
-  const [newCount, setNewCount] = useState(0);
-  const [wrongCount, setWrongCount] = useState(0);
-  const [totalWords, setTotalWords] = useState(0);
-  const [masteryHistory, setMasteryHistory] = useState<DayMastery[]>([]);
+  const isFirstLoadRef = useRef(true);
 
   const loadStats = useCallback(
     async (showSpinner = true) => {
       if (authLoading) return;
-      if (showSpinner) setLoading(true);
+      if (showSpinner && isFirstLoadRef.current) setLoading(true);
       try {
         const userId = isAuthenticated && user?.id ? user.id : await getGuestUserId();
         const isPro = subscription?.status === 'active';
@@ -66,19 +84,23 @@ export function StatsScreen() {
           getWrongAnswers(),
         ]);
 
-        setMasteredCount(allWords.filter((w) => w.status === 'mastered').length);
-        setReviewCount(allWords.filter((w) => w.status === 'review').length);
-        setNewCount(allWords.filter((w) => w.status === 'new').length);
-        setTotalWords(allWords.length);
-        setWrongCount(wrongAnswers.length);
-        setStreakDays(streak);
-        setTodayMastered(dailyStats.masteredCount);
-        setTodayAnswered(dailyStats.todayCount);
-        setTodayCorrect(dailyStats.correctCount);
-        setMasteryHistory(buildMasteryHistory(allWords));
+        // Single setState to avoid multiple re-renders after await
+        setStatsData({
+          masteredCount: allWords.filter((w) => w.status === 'mastered').length,
+          reviewCount: allWords.filter((w) => w.status === 'review').length,
+          newCount: allWords.filter((w) => w.status === 'new').length,
+          totalWords: allWords.length,
+          wrongCount: wrongAnswers.length,
+          streakDays: streak,
+          todayMastered: dailyStats.masteredCount,
+          todayAnswered: dailyStats.todayCount,
+          todayCorrect: dailyStats.correctCount,
+          masteryHistory: buildMasteryHistory(allWords),
+        });
       } catch (error) {
         console.error('Failed to load stats:', error);
       } finally {
+        isFirstLoadRef.current = false;
         setLoading(false);
         setRefreshing(false);
       }
@@ -88,7 +110,10 @@ export function StatsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadStats();
+      const task = InteractionManager.runAfterInteractions(() => {
+        void loadStats();
+      });
+      return () => task.cancel();
     }, [loadStats])
   );
 
@@ -97,6 +122,7 @@ export function StatsScreen() {
     void loadStats(false);
   }, [loadStats]);
 
+  const { streakDays, todayMastered, todayAnswered, todayCorrect, masteredCount, reviewCount, newCount, wrongCount, totalWords, masteryHistory } = statsData;
   const masteryPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
 
   // Guest gate
@@ -116,10 +142,7 @@ export function StatsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Text style={styles.title}>進歩</Text>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color={theme.secondaryText} />
-        </View>
+        <StatsScreenSkeleton />
       </SafeAreaView>
     );
   }

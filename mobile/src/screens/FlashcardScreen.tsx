@@ -192,7 +192,9 @@ export function FlashcardScreen() {
   const backOpacity = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
 
   if (loading) {
-    return <View style={s.loadingWrap}><ActivityIndicator size="large" color={theme.accentBlack} /><Text style={s.loadingText}>フラッシュカードを準備中...</Text></View>;
+    // SQLite reads are fast (<100ms) — show a blank frame instead of a spinner
+    // to avoid a visible loading flash during navigation transition
+    return <View style={s.loadingWrap} />;
   }
 
   if (!currentWord) return null;

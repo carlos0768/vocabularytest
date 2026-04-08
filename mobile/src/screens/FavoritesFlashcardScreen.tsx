@@ -277,12 +277,7 @@ export function FavoritesFlashcardScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={'#1a1a1a'} />
-        <Text style={styles.loadingText}>苦手単語を読み込み中...</Text>
-      </View>
-    );
+    return <View style={styles.loadingContainer} />;
   }
 
   return (

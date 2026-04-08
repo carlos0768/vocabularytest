@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -41,11 +41,12 @@ export function QuizScreen() {
   const [correctCount, setCorrectCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
+  const isFirstLoadRef = useRef(true);
 
   const loadQuiz = useCallback(async () => {
     if (authLoading) return;
 
-    setLoading(true);
+    if (isFirstLoadRef.current) setLoading(true);
     try {
       const nextWords = await repository.getWords(route.params.projectId);
 
@@ -67,6 +68,7 @@ export function QuizScreen() {
       console.error('Failed to load quiz:', error);
       navigation.goBack();
     } finally {
+      isFirstLoadRef.current = false;
       setLoading(false);
     }
   }, [authLoading, navigation, repository, route.params.projectId]);
@@ -200,12 +202,7 @@ export function QuizScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={'#1a1a1a'} />
-        <Text style={styles.loadingText}>クイズを準備中...</Text>
-      </View>
-    );
+    return <View style={styles.loadingContainer} />;
   }
 
   if (words.length < MINIMUM_QUIZ_WORDS) {

@@ -18,7 +18,8 @@ import type {
   TabParamList,
 } from '../types';
 
-// Screens
+// Screens — all eager imports (Metro bundles everything into one file anyway;
+// React.lazy only adds Suspense overhead without real code-split benefit)
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProjectListScreen } from '../screens/ProjectListScreen';
 import { ProjectScreen } from '../screens/ProjectScreen';
@@ -61,33 +62,33 @@ function HomeStackScreen() {
       <HomeStack.Screen name="ProjectList" component={ProjectListScreen} />
       <HomeStack.Screen name="Project" component={ProjectScreen} />
       <HomeStack.Screen name="WordDetail" component={WordDetailScreen} />
-      <HomeStack.Screen name="Quiz" component={QuizScreen} options={{ animation: 'fade' }} />
+      <HomeStack.Screen name="Quiz" component={QuizScreen} options={{ animation: 'none' }} />
       <HomeStack.Screen
         name="Flashcard"
         component={FlashcardScreen}
-        options={{ animation: 'fade', gestureEnabled: false }}
+        options={{ animation: 'none', gestureEnabled: false }}
       />
       <HomeStack.Screen
         name="Grammar"
         component={SentenceQuizScreen}
-        options={{ animation: 'fade', gestureEnabled: false }}
+        options={{ animation: 'none', gestureEnabled: false }}
       />
       <HomeStack.Screen name="Favorites" component={FavoritesScreen} />
       <HomeStack.Screen
         name="FavoritesFlashcard"
         component={FavoritesFlashcardScreen}
-        options={{ animation: 'fade', gestureEnabled: false }}
+        options={{ animation: 'none', gestureEnabled: false }}
       />
       <HomeStack.Screen
         name="FavoritesQuiz"
         component={FavoritesQuizScreen}
-        options={{ animation: 'fade', gestureEnabled: false }}
+        options={{ animation: 'none', gestureEnabled: false }}
       />
       <HomeStack.Screen name="WrongAnswers" component={WrongAnswersScreen} />
       <HomeStack.Screen
         name="WrongAnswersQuiz"
         component={WrongAnswersQuizScreen}
-        options={{ animation: 'fade', gestureEnabled: false }}
+        options={{ animation: 'none', gestureEnabled: false }}
       />
       <HomeStack.Screen
         name="ScanConfirm"
@@ -188,7 +189,6 @@ function ScanOverlays() {
 // ---------- Root navigation ----------
 
 export function Navigation() {
-  // We need a ref to navigation so ScanFlowProvider can navigate
   const navigationRef = React.useRef<any>(null);
 
   const onNavigateLogin = useCallback(() => {

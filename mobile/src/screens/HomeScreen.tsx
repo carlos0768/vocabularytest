@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  InteractionManager,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronRight, Flame, LogIn } from 'lucide-react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { SolidCard, IconBadge } from '../components/ui';
+import { HomeScreenSkeleton } from '../components/ui/ScreenSkeleton';
 import theme, { getThumbnailColor } from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { getRepository } from '../lib/db';
@@ -42,18 +44,30 @@ export function HomeScreen() {
     loading: authLoading,
   } = useAuth();
 
-  const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
+  interface HomeData {
+    projectSummaries: ProjectSummary[];
+    totalWords: number;
+    masteredCount: number;
+    reviewCount: number;
+    newCount: number;
+    streakDays: number;
+    dueWordCount: number;
+    reviewCompletedCount: number;
+  }
+
+  const [data, setData] = useState<HomeData>({
+    projectSummaries: [],
+    totalWords: 0,
+    masteredCount: 0,
+    reviewCount: 0,
+    newCount: 0,
+    streakDays: 0,
+    dueWordCount: 0,
+    reviewCompletedCount: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Stats
-  const [totalWords, setTotalWords] = useState(0);
-  const [masteredCount, setMasteredCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
-  const [newCount, setNewCount] = useState(0);
-  const [streakDays, setStreakDays] = useState(0);
-  const [dueWordCount, setDueWordCount] = useState(0);
-  const [reviewCompletedCount, setReviewCompletedCount] = useState(0);
+  const isFirstLoadRef = useRef(true);
 
   const migratedUserIdRef = useRef<string | null>(null);
   const repository = useMemo(
@@ -69,7 +83,8 @@ export function HomeScreen() {
   const loadData = useCallback(
     async (showSpinner = true) => {
       if (authLoading) return;
-      if (showSpinner) setLoading(true);
+      // Only show spinner on first load; subsequent loads keep stale data visible
+      if (showSpinner && isFirstLoadRef.current) setLoading(true);
 
       try {
         if (isAuthenticated && isPro && user?.id && migratedUserIdRef.current !== user.id) {
@@ -111,8 +126,6 @@ export function HomeScreen() {
         const mastered = allWords.filter((w) => w.status === 'mastered').length;
         const review = allWords.filter((w) => w.status === 'review').length;
         const newW = allWords.filter((w) => w.status === 'new').length;
-
-        // Due words = review status words (simplified — iOS uses nextReviewAt)
         const due = allWords.filter((w) => w.status === 'review').length;
 
         const [dailyStats, streak] = await Promise.all([
@@ -120,17 +133,21 @@ export function HomeScreen() {
           getStreakDays(),
         ]);
 
-        setProjectSummaries(summaries);
-        setTotalWords(allWords.length);
-        setMasteredCount(mastered);
-        setReviewCount(review);
-        setNewCount(newW);
-        setDueWordCount(due);
-        setReviewCompletedCount(dailyStats.masteredCount);
-        setStreakDays(streak);
+        // Single setState to avoid multiple re-renders after await
+        setData({
+          projectSummaries: summaries,
+          totalWords: allWords.length,
+          masteredCount: mastered,
+          reviewCount: review,
+          newCount: newW,
+          dueWordCount: due,
+          reviewCompletedCount: dailyStats.masteredCount,
+          streakDays: streak,
+        });
       } catch (error) {
         console.error('Failed to load home data:', error);
       } finally {
+        isFirstLoadRef.current = false;
         setLoading(false);
         setRefreshing(false);
       }
@@ -140,7 +157,11 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadData();
+      // Defer data fetch until navigation transition animation completes
+      const task = InteractionManager.runAfterInteractions(() => {
+        void loadData();
+      });
+      return () => task.cancel();
     }, [loadData])
   );
 
@@ -149,6 +170,7 @@ export function HomeScreen() {
     void loadData(false);
   }, [loadData]);
 
+  const { projectSummaries, totalWords, masteredCount, reviewCount, newCount, streakDays, dueWordCount, reviewCompletedCount } = data;
   const masteryPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
 
   // Navigate to first project's quiz for review
@@ -161,9 +183,7 @@ export function HomeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color={theme.secondaryText} />
-        </View>
+        <HomeScreenSkeleton />
       </SafeAreaView>
     );
   }
@@ -363,7 +383,7 @@ function MiniStat({ icon, value, label }: { icon?: React.ReactNode; value: strin
 
 // ---------- Featured Project Card ----------
 
-function FeaturedProjectCard({
+const FeaturedProjectCard = React.memo(function FeaturedProjectCard({
   summary,
   onPress,
 }: {
@@ -397,7 +417,7 @@ function FeaturedProjectCard({
       </SolidCard>
     </TouchableOpacity>
   );
-}
+});
 
 function StatusDot({ color, label }: { color: string; label: string }) {
   return (

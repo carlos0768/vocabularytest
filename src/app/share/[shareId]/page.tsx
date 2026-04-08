@@ -223,6 +223,23 @@ export default function SharedProjectPage() {
   const headerFrom = getProjectColor(project.title);
   const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
 
+  // Match project page: set html/body background to header color so iOS PWA
+  // safe-area above sticky header shows the header color instead of white.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtml = html.style.backgroundColor;
+    const previousBody = body.style.backgroundColor;
+
+    html.style.backgroundColor = headerFrom;
+    body.style.backgroundColor = headerFrom;
+
+    return () => {
+      html.style.backgroundColor = previousHtml;
+      body.style.backgroundColor = previousBody;
+    };
+  }, [headerFrom]);
+
   return (
     <>
       <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8">

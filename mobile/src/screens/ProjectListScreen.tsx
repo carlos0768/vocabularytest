@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Modal,
   RefreshControl,
   ScrollView,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react-native';
 import { SolidCard, SearchBar, SortChips, Input, Button } from '../components/ui';
 import type { SortChipOption } from '../components/ui';
+import { ProjectListSkeleton } from '../components/ui/ScreenSkeleton';
 import theme, { getThumbnailColor } from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { getRepository } from '../lib/db';
@@ -67,6 +69,7 @@ export function ProjectListScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [creating, setCreating] = useState(false);
+  const isFirstLoadRef = useRef(true);
 
   const migratedUserIdRef = useRef<string | null>(null);
   const repository = useMemo(
@@ -82,7 +85,7 @@ export function ProjectListScreen() {
   const loadProjects = useCallback(
     async (showSpinner = true) => {
       if (authLoading) return;
-      if (showSpinner) setLoading(true);
+      if (showSpinner && isFirstLoadRef.current) setLoading(true);
 
       try {
         if (isAuthenticated && isPro && user?.id && migratedUserIdRef.current !== user.id) {
@@ -128,6 +131,7 @@ export function ProjectListScreen() {
         console.error('Failed to load projects:', error);
         Alert.alert('エラー', '単語帳の読み込みに失敗しました。');
       } finally {
+        isFirstLoadRef.current = false;
         setLoading(false);
         setRefreshing(false);
       }
@@ -137,7 +141,10 @@ export function ProjectListScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadProjects();
+      const task = InteractionManager.runAfterInteractions(() => {
+        void loadProjects();
+      });
+      return () => task.cancel();
     }, [loadProjects])
   );
 
@@ -233,9 +240,7 @@ export function ProjectListScreen() {
 
         {/* Project list */}
         {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="small" color={theme.secondaryText} />
-          </View>
+          <ProjectListSkeleton />
         ) : displayedSummaries.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>単語帳がありません</Text>
@@ -301,7 +306,7 @@ export function ProjectListScreen() {
 
 // ---------- Project card matching iOS screenshot ----------
 
-function ProjectCardRow({
+const ProjectCardRow = React.memo(function ProjectCardRow({
   summary,
   onPress,
 }: {
@@ -348,7 +353,7 @@ function ProjectCardRow({
       </SolidCard>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

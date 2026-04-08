@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
+  InteractionManager,
   Modal,
   ScrollView,
   Share,
@@ -86,6 +88,7 @@ export function ProjectScreen() {
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
+  const isFirstLoadRef = useRef(true);
 
   // Word modal
   const [showWordModal, setShowWordModal] = useState(false);
@@ -116,7 +119,7 @@ export function ProjectScreen() {
   // ─── Data loading ─────────────────────────────────────────
   const loadProject = useCallback(async () => {
     if (authLoading) return;
-    setLoading(true);
+    if (isFirstLoadRef.current) setLoading(true);
     try {
       const [p, w] = await Promise.all([
         repository.getProject(route.params.projectId),
@@ -127,7 +130,10 @@ export function ProjectScreen() {
     } catch {
       Alert.alert('エラー', '単語帳の読み込みに失敗しました。');
       navigation.goBack();
-    } finally { setLoading(false); }
+    } finally {
+      isFirstLoadRef.current = false;
+      setLoading(false);
+    }
   }, [authLoading, navigation, repository, route.params.projectId]);
 
   useFocusEffect(useCallback(() => {
@@ -136,7 +142,10 @@ export function ProjectScreen() {
   }, [hideTabBar, showTabBar]));
 
   useFocusEffect(useCallback(() => {
-    void loadProject();
+    const task = InteractionManager.runAfterInteractions(() => {
+      void loadProject();
+    });
+    return () => task.cancel();
   }, [loadProject]));
 
   // ─── Computed ─────────────────────────────────────────────
@@ -227,16 +236,27 @@ export function ProjectScreen() {
     ]);
   }, [loadProject, repository]);
 
-  const handleStatusChange = useCallback(async (w: Word, s: Word['status']) => {
-    try { await repository.updateWord(w.id, { status: s }); setWords((c) => c.map((x) => x.id === w.id ? { ...x, status: s } : x)); }
-    catch { Alert.alert('エラー', 'ステータス更新に失敗しました。'); }
+  const handleStatusChange = useCallback((w: Word, s: Word['status']) => {
+    // Optimistic UI: update state immediately, persist in background
+    setWords((c) => c.map((x) => x.id === w.id ? { ...x, status: s } : x));
+    InteractionManager.runAfterInteractions(() => {
+      repository.updateWord(w.id, { status: s }).catch(() => {
+        // Rollback on failure
+        setWords((c) => c.map((x) => x.id === w.id ? { ...x, status: w.status } : x));
+        Alert.alert('エラー', 'ステータス更新に失敗しました。');
+      });
+    });
   }, [repository]);
 
-  const handleVocabTypeCycle = useCallback(async (w: Word, next: VocabularyType | undefined) => {
-    try {
-      await repository.updateWord(w.id, { vocabularyType: next ?? (null as any) });
-      setWords((c) => c.map((x) => x.id === w.id ? { ...x, vocabularyType: next } : x));
-    } catch { Alert.alert('エラー', '語彙タイプの更新に失敗しました。'); }
+  const handleVocabTypeCycle = useCallback((w: Word, next: VocabularyType | undefined) => {
+    // Optimistic UI: update state immediately, persist in background
+    setWords((c) => c.map((x) => x.id === w.id ? { ...x, vocabularyType: next } : x));
+    InteractionManager.runAfterInteractions(() => {
+      repository.updateWord(w.id, { vocabularyType: next ?? (null as any) }).catch(() => {
+        setWords((c) => c.map((x) => x.id === w.id ? { ...x, vocabularyType: w.vocabularyType } : x));
+        Alert.alert('エラー', '語彙タイプの更新に失敗しました。');
+      });
+    });
   }, [repository]);
 
   const handleShareProject = useCallback(async () => {
@@ -343,61 +363,75 @@ export function ProjectScreen() {
       </View>
 
       {/* ── Scroll ────────────────────────────────────────── */}
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollInner} showsVerticalScrollIndicator={false}>
-        {/* Progress card */}
-        <View style={s.statsCard}>
-          <ProgressCol count={masteredCount} total={words.length} label="習得" iconColor={colors.emerald[500]} icon="✓" />
-          <ProgressCol count={reviewCount} total={words.length} label="学習中" iconColor={colors.gray[500]} icon="↻" />
-          <ProgressCol count={newCount} total={words.length} label="未学習" iconColor={colors.gray[300]} icon="✦" />
-        </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.scroll}>
+        <FlatList
+          data={filteredWords}
+          keyExtractor={wordKeyExtractor}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          getItemLayout={wordItemLayout}
+          contentContainerStyle={s.scrollInner}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <>
+              {/* Progress card */}
+              <View style={s.statsCard}>
+                <ProgressCol count={masteredCount} total={words.length} label="習得" iconColor={colors.emerald[500]} icon="✓" />
+                <ProgressCol count={reviewCount} total={words.length} label="学習中" iconColor={colors.gray[500]} icon="↻" />
+                <ProgressCol count={newCount} total={words.length} label="未学習" iconColor={colors.gray[300]} icon="✦" />
+              </View>
 
-        {/* Word list header */}
-        <View style={s.wlHeader}>
-          <View style={s.wlTitleRow}><Text style={s.wlTitle}>単語一覧</Text><Text style={s.wlCount}>{words.length}</Text></View>
-          <View style={s.tb}>
-            <TouchableOpacity style={[s.tbBtn, searchActive && s.tbBtnAct]} onPress={() => { setSearchActive((v) => !v); if (searchActive) setSearchText(''); }}>
-              {searchActive ? <X size={16} color={'#1a1a1a'} /> : <Search size={16} color={colors.gray[500]} />}
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.tbBtn, (statusFilter !== 'all' || bookmarkFilter) && s.tbBtnAct]} onPress={handleFilterMenu}>
-              <Filter size={16} color={(statusFilter !== 'all' || bookmarkFilter) ? '#1a1a1a' : colors.gray[500]} />
-            </TouchableOpacity>
-            <TouchableOpacity style={s.tbBtn} onPress={handleSortMenu}><ArrowUpDown size={16} color={colors.gray[500]} /></TouchableOpacity>
-            {hasActiveFilters && <Text style={s.fBadge}>{filteredWords.length}/{words.length}語</Text>}
-          </View>
-        </View>
+              {/* Word list header */}
+              <View style={s.wlHeader}>
+                <View style={s.wlTitleRow}><Text style={s.wlTitle}>単語一覧</Text><Text style={s.wlCount}>{words.length}</Text></View>
+                <View style={s.tb}>
+                  <TouchableOpacity style={[s.tbBtn, searchActive && s.tbBtnAct]} onPress={() => { setSearchActive((v) => !v); if (searchActive) setSearchText(''); }}>
+                    {searchActive ? <X size={16} color={'#1a1a1a'} /> : <Search size={16} color={colors.gray[500]} />}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.tbBtn, (statusFilter !== 'all' || bookmarkFilter) && s.tbBtnAct]} onPress={handleFilterMenu}>
+                    <Filter size={16} color={(statusFilter !== 'all' || bookmarkFilter) ? '#1a1a1a' : colors.gray[500]} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.tbBtn} onPress={handleSortMenu}><ArrowUpDown size={16} color={colors.gray[500]} /></TouchableOpacity>
+                  {hasActiveFilters && <Text style={s.fBadge}>{filteredWords.length}/{words.length}語</Text>}
+                </View>
+              </View>
 
-        {searchActive && (
-          <View style={s.searchBar}>
-            <Search size={14} color={colors.gray[400]} />
-            <TextInput style={s.searchInput} placeholder="単語を検索..." placeholderTextColor={colors.gray[400]} value={searchText} onChangeText={setSearchText} autoFocus autoCapitalize="none" autoCorrect={false} />
-            {searchText.length > 0 && <TouchableOpacity onPress={() => setSearchText('')}><X size={14} color={colors.gray[400]} /></TouchableOpacity>}
-          </View>
-        )}
+              {searchActive && (
+                <View style={s.searchBar}>
+                  <Search size={14} color={colors.gray[400]} />
+                  <TextInput style={s.searchInput} placeholder="単語を検索..." placeholderTextColor={colors.gray[400]} value={searchText} onChangeText={setSearchText} autoFocus autoCapitalize="none" autoCorrect={false} />
+                  {searchText.length > 0 && <TouchableOpacity onPress={() => setSearchText('')}><X size={14} color={colors.gray[400]} /></TouchableOpacity>}
+                </View>
+              )}
 
-        {/* Table */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={s.table}>
-            <View style={s.colHead}>
-              <View style={{ width: CW.cb }} />
-              <Text style={[s.chText, { width: CW.en, textAlign: 'left', paddingLeft: 8 }]}>単語</Text>
-              <Text style={[s.chText, { width: CW.ap }]}>A/P</Text>
-              <Text style={[s.chText, { width: CW.pos }]}>品詞</Text>
-              <Text style={[s.chText, { width: CW.jp, textAlign: 'left', paddingLeft: 10 }]}>訳</Text>
-            </View>
-            {filteredWords.length === 0 ? (
-              <View style={s.emptyRow}><Text style={s.emptyText}>{hasActiveFilters ? '一致する単語がありません' : '単語がありません'}</Text></View>
-            ) : filteredWords.map((w, i) => (
-              <TouchableOpacity key={w.id} style={[s.row, i < filteredWords.length - 1 && s.rowBorder]} activeOpacity={0.7} onPress={() => (navigation as any).navigate('WordDetail', { word: w })} onLongPress={() => handleDeleteWord(w)}>
-                <View style={{ width: CW.cb }}><NotionCheckbox wordId={w.id} status={w.status} onStatusChange={(ns) => handleStatusChange(w, ns)} /></View>
-                <View style={[s.cellEn, { width: CW.en }]}><Text style={s.enText} numberOfLines={2}>{w.english}</Text>{w.isFavorite && <Text style={s.bm}>★</Text>}</View>
-                <View style={{ width: CW.ap, alignItems: 'center' }}><VocabularyTypeBadge value={w.vocabularyType} onCycle={(n) => handleVocabTypeCycle(w, n)} /></View>
-                <Text style={[s.posText, { width: CW.pos }]}>{shortenPos(w.partOfSpeechTags)}</Text>
-                <Text style={[s.jpText, { width: CW.jp }]} numberOfLines={2}>{w.japanese}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-        <View style={{ height: 100 }} />
+              {/* Column header */}
+              <View style={s.table}>
+                <View style={s.colHead}>
+                  <View style={{ width: CW.cb }} />
+                  <Text style={[s.chText, { width: CW.en, textAlign: 'left', paddingLeft: 8 }]}>単語</Text>
+                  <Text style={[s.chText, { width: CW.ap }]}>A/P</Text>
+                  <Text style={[s.chText, { width: CW.pos }]}>品詞</Text>
+                  <Text style={[s.chText, { width: CW.jp, textAlign: 'left', paddingLeft: 10 }]}>訳</Text>
+                </View>
+              </View>
+            </>
+          }
+          ListEmptyComponent={
+            <View style={s.emptyRow}><Text style={s.emptyText}>{hasActiveFilters ? '一致する単語がありません' : '単語がありません'}</Text></View>
+          }
+          renderItem={({ item: w, index: i }) => (
+            <WordRow
+              word={w}
+              isLast={i === filteredWords.length - 1}
+              onPress={() => (navigation as any).navigate('WordDetail', { word: w })}
+              onLongPress={() => handleDeleteWord(w)}
+              onStatusChange={handleStatusChange}
+              onVocabTypeCycle={handleVocabTypeCycle}
+            />
+          )}
+          ListFooterComponent={<View style={{ height: 100 }} />}
+        />
       </ScrollView>
 
       {/* ── Bottom Bar ────────────────────────────────────── */}
@@ -440,6 +474,45 @@ export function ProjectScreen() {
     </View>
   );
 }
+
+// ─── FlatList helpers ────────────────────────────────────────
+const WORD_ROW_HEIGHT = 48;
+const wordKeyExtractor = (item: Word) => item.id;
+const wordItemLayout = (_data: unknown, index: number) => ({
+  length: WORD_ROW_HEIGHT,
+  offset: WORD_ROW_HEIGHT * index,
+  index,
+});
+
+// ─── WordRow (memoized for FlatList performance) ─────────────
+const WordRow = React.memo(function WordRow({
+  word: w,
+  isLast,
+  onPress,
+  onLongPress,
+  onStatusChange,
+  onVocabTypeCycle,
+}: {
+  word: Word;
+  isLast: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+  onStatusChange: (w: Word, s: Word['status']) => void;
+  onVocabTypeCycle: (w: Word, next: VocabularyType | undefined) => void;
+}) {
+  const handleStatus = useCallback((ns: Word['status']) => onStatusChange(w, ns), [onStatusChange, w]);
+  const handleVocab = useCallback((n: VocabularyType | undefined) => onVocabTypeCycle(w, n), [onVocabTypeCycle, w]);
+
+  return (
+    <TouchableOpacity style={[s.row, !isLast && s.rowBorder]} activeOpacity={0.7} onPress={onPress} onLongPress={onLongPress}>
+      <View style={{ width: CW.cb }}><NotionCheckbox wordId={w.id} status={w.status} onStatusChange={handleStatus} /></View>
+      <View style={[s.cellEn, { width: CW.en }]}><Text style={s.enText} numberOfLines={2}>{w.english}</Text>{w.isFavorite && <Text style={s.bm}>★</Text>}</View>
+      <View style={{ width: CW.ap, alignItems: 'center' }}><VocabularyTypeBadge value={w.vocabularyType} onCycle={handleVocab} /></View>
+      <Text style={[s.posText, { width: CW.pos }]}>{shortenPos(w.partOfSpeechTags)}</Text>
+      <Text style={[s.jpText, { width: CW.jp }]} numberOfLines={2}>{w.japanese}</Text>
+    </TouchableOpacity>
+  );
+});
 
 // ─── Progress Column ─────────────────────────────────────────
 function ProgressCol({ count, total, label, iconColor, icon }: { count: number; total: number; label: string; iconColor: string; icon: string }) {

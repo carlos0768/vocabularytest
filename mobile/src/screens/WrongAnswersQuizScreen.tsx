@@ -147,12 +147,7 @@ export function WrongAnswersQuizScreen() {
   }, [currentIndex, currentQuestion, moveNext, revealed, selectedIndex]);
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={'#1a1a1a'} />
-        <Text style={styles.loadingText}>苦手単語クイズを準備中...</Text>
-      </View>
-    );
+    return <View style={styles.loadingContainer} />;
   }
 
   if (questions.length === 0) {

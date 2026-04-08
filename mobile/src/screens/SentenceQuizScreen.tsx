@@ -252,19 +252,18 @@ export function SentenceQuizScreen() {
   };
 
   // Loading
-  if (loading || generating) {
+  if (loading && !generating) {
+    // SQLite read is fast — blank frame avoids visible loading flash
+    return <View style={styles.loadingContainer} />;
+  }
+
+  if (generating) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.purple[600]} />
-          <Text style={styles.loadingText}>
-            {generating ? '問題を生成中...' : '読み込み中...'}
-          </Text>
-          {generating && (
-            <Text style={styles.loadingSubtext}>
-              AIが例文を作成しています
-            </Text>
-          )}
+          <Text style={styles.loadingText}>問題を生成中...</Text>
+          <Text style={styles.loadingSubtext}>AIが例文を作成しています</Text>
         </View>
       </SafeAreaView>
     );

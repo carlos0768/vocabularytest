@@ -129,7 +129,6 @@ export default function SettingsPage() {
                 {isPro && (
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <span className="chip chip-pro text-xs">
-                      <Icon name="add" size={12} />
                       Pro
                     </span>
                     <span className="text-xs text-[var(--color-muted)]">クラウド同期</span>
@@ -238,7 +237,7 @@ export default function SettingsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-[var(--color-foreground)]">Merken Pro</p>
-                    {isPro && <span className="chip chip-pro text-[10px] py-0.5 px-2"><Icon name="add" size={10} /> Pro</span>}
+                    {isPro && <span className="chip chip-pro text-[10px] py-0.5 px-2">Pro</span>}
                   </div>
                   <p className="text-xs text-[var(--color-muted)]">¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}/月</p>
                 </div>
