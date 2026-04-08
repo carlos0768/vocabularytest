@@ -49,20 +49,14 @@ export default function WordDetailPage() {
   const [sections, setSections] = useState<CustomSection[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Swapy — slot-item mapping is the source of truth for order
-  // Slots are stable indices ("slot-0", "slot-1", ...), items are section IDs
-  const [slotItemMap, setSlotItemMap] = useState<Array<{ slot: string; item: string }>>([]);
+  // Swapy — order tracking via ref (NOT state) to avoid re-render conflicts
   const swapyContainerRef = useRef<HTMLDivElement>(null);
   const swapyRef = useRef<ReturnType<typeof createSwapy> | null>(null);
+  const swapyOrderRef = useRef<string[]>([]); // ordered section IDs after swaps
+  // Track the number of slots for triggering swapy re-init
+  const [slotCount, setSlotCount] = useState(0);
 
-  // Derive ordered sections from slotItemMap
   const sectionById = useMemo(() => new Map(sections.map(s => [s.id, s])), [sections]);
-  const orderedSections = useMemo(() => {
-    if (slotItemMap.length === 0) return sections;
-    return slotItemMap
-      .map(entry => sectionById.get(entry.item))
-      .filter((s): s is CustomSection => !!s);
-  }, [slotItemMap, sectionById, sections]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -72,7 +66,8 @@ export default function WordDetailPage() {
         setWord(w ?? null);
         if (w?.customSections?.length) {
           setSections(w.customSections);
-          setSlotItemMap(w.customSections.map((s, i) => ({ slot: `slot-${i}`, item: s.id })));
+          swapyOrderRef.current = w.customSections.map(s => s.id);
+          setSlotCount(w.customSections.length);
         }
       } catch (err) {
         console.error('Failed to load word:', err);
@@ -82,9 +77,9 @@ export default function WordDetailPage() {
     })();
   }, [wordId, authLoading, repository]);
 
-  // Initialize Swapy
+  // Initialize Swapy — only depends on isEditing and slotCount
   useEffect(() => {
-    if (!isEditing || slotItemMap.length < 2 || !swapyContainerRef.current) {
+    if (!isEditing || slotCount < 2 || !swapyContainerRef.current) {
       swapyRef.current?.destroy();
       swapyRef.current = null;
       return;
@@ -100,9 +95,10 @@ export default function WordDetailPage() {
         dragAxis: 'y',
       });
 
+      // Track order in ref only — no setState, no re-render, no DOM conflict
       instance.onSwapEnd((event) => {
         if (!event.hasChanged) return;
-        setSlotItemMap(event.slotItemMap.asArray);
+        swapyOrderRef.current = event.slotItemMap.asArray.map(e => e.item);
       });
 
       swapyRef.current = instance;
@@ -113,9 +109,7 @@ export default function WordDetailPage() {
       swapyRef.current?.destroy();
       swapyRef.current = null;
     };
-  // Re-init only when editing toggles or number of slots changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, slotItemMap.length]);
+  }, [isEditing, slotCount]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!word) return;
@@ -148,46 +142,63 @@ export default function WordDetailPage() {
   }, [word]);
 
   const handleStartEditing = useCallback(() => {
+    swapyOrderRef.current = sections.map(s => s.id);
     setIsEditing(true);
-  }, []);
+  }, [sections]);
 
   const handleFinishEditing = useCallback(async () => {
     if (!word) return;
     setSaving(true);
     try {
-      // Use orderedSections (derived from slotItemMap) for the final order
-      const cleaned = orderedSections.filter(s => s.title.trim() || s.content.trim());
+      // Resolve final order from swapy ref
+      const finalOrder = swapyOrderRef.current;
+      const byId = new Map(sections.map(s => [s.id, s]));
+      const ordered = finalOrder
+        .map(id => byId.get(id))
+        .filter((s): s is CustomSection => !!s);
+      // Include any sections not tracked by swapy (e.g. newly added after last init)
+      const tracked = new Set(finalOrder);
+      for (const s of sections) {
+        if (!tracked.has(s.id)) ordered.push(s);
+      }
+      const cleaned = ordered.filter(s => s.title.trim() || s.content.trim());
+
       await repository.updateWord(word.id, { customSections: cleaned });
       setWord(prev => prev ? { ...prev, customSections: cleaned } : prev);
       setSections(cleaned);
-      setSlotItemMap(cleaned.map((s, i) => ({ slot: `slot-${i}`, item: s.id })));
+      swapyOrderRef.current = cleaned.map(s => s.id);
+      setSlotCount(cleaned.length);
     } catch (err) {
       console.error('Failed to save custom sections:', err);
     } finally {
       setSaving(false);
       setIsEditing(false);
     }
-  }, [word, orderedSections, repository]);
+  }, [word, sections, repository]);
 
   const handleAddSection = useCallback(() => {
     swapyRef.current?.destroy();
     swapyRef.current = null;
 
     const newSection: CustomSection = { id: crypto.randomUUID(), title: '', content: '' };
-    setSections(prev => [...prev, newSection]);
-    setSlotItemMap(prev => [...prev, { slot: `slot-${prev.length}`, item: newSection.id }]);
+    setSections(prev => {
+      const next = [...prev, newSection];
+      swapyOrderRef.current = next.map(s => s.id);
+      return next;
+    });
+    setSlotCount(prev => prev + 1);
   }, []);
 
   const handleRemoveSection = useCallback((id: string) => {
     swapyRef.current?.destroy();
     swapyRef.current = null;
 
-    setSections(prev => prev.filter(s => s.id !== id));
-    setSlotItemMap(prev => {
-      const filtered = prev.filter(entry => entry.item !== id);
-      // Re-index slots
-      return filtered.map((entry, i) => ({ slot: `slot-${i}`, item: entry.item }));
+    setSections(prev => {
+      const next = prev.filter(s => s.id !== id);
+      swapyOrderRef.current = next.map(s => s.id);
+      return next;
     });
+    setSlotCount(prev => prev - 1);
   }, []);
 
   const handleUpdateSection = useCallback((id: string, field: 'title' | 'content', value: string) => {
@@ -208,6 +219,12 @@ export default function WordDetailPage() {
       regex.test(part) ? <strong key={i} className="font-bold underline decoration-2">{part}</strong> : part
     );
   };
+
+  // For read mode: resolve display order from swapyOrderRef
+  const displaySections = useMemo(() => {
+    if (sections.length === 0) return [];
+    return sections; // In read mode, sections state IS the saved order
+  }, [sections]);
 
   if (loading) {
     return (
@@ -266,7 +283,6 @@ export default function WordDetailPage() {
             </span>
           </div>
 
-          {/* Pronunciation + bookmark */}
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--color-muted)]">{word.pronunciation || '——'}</span>
@@ -343,53 +359,49 @@ export default function WordDetailPage() {
               </button>
             </div>
 
-            {slotItemMap.length === 0 ? (
+            {sections.length === 0 ? (
               <p className="text-sm text-[var(--color-muted)] text-center py-6">
                 ＋ボタンからセクションを追加できます
               </p>
             ) : (
               <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {slotItemMap.map((entry) => {
-                  const section = sectionById.get(entry.item);
-                  if (!section) return null;
-                  return (
-                    <div key={entry.slot} data-swapy-slot={entry.slot}>
-                      <div data-swapy-item={entry.item} className="p-4 space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)]">
-                        <div className="flex items-center gap-2">
-                          <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
-                            <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
-                          </div>
-                          <input
-                            type="text"
-                            value={section.title}
-                            onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
-                            placeholder="セクション名"
-                            className="flex-1 text-sm font-bold text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
-                          />
-                          <button
-                            onClick={() => handleRemoveSection(section.id)}
-                            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
-                          >
-                            <Icon name="close" size={16} className="text-[var(--color-muted)]" />
-                          </button>
+                {sections.map((section, i) => (
+                  <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
+                    <div data-swapy-item={section.id} className="p-4 space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)]">
+                      <div className="flex items-center gap-2">
+                        <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
+                          <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
                         </div>
-                        <textarea
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          placeholder="内容を入力..."
-                          rows={3}
-                          className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none resize-none placeholder:text-[var(--color-muted)] leading-relaxed"
+                        <input
+                          type="text"
+                          value={section.title}
+                          onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
+                          placeholder="セクション名"
+                          className="flex-1 text-sm font-bold text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
                         />
+                        <button
+                          onClick={() => handleRemoveSection(section.id)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
+                        >
+                          <Icon name="close" size={16} className="text-[var(--color-muted)]" />
+                        </button>
                       </div>
+                      <textarea
+                        value={section.content}
+                        onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                        placeholder="内容を入力..."
+                        rows={3}
+                        className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none resize-none placeholder:text-[var(--color-muted)] leading-relaxed"
+                      />
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        ) : orderedSections.length > 0 ? (
+        ) : displaySections.length > 0 ? (
           <div className="space-y-5 pt-2">
-            {orderedSections.map((section) => (
+            {displaySections.map((section) => (
               <div key={section.id} className="space-y-2">
                 <h3 className="text-sm font-bold text-[var(--color-foreground)]">{section.title}</h3>
                 <p className="text-sm text-[var(--color-foreground)] leading-relaxed whitespace-pre-wrap">{section.content}</p>
