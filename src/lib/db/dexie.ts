@@ -1,11 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { LexiconEntry, Project, Word, Collection, CollectionProject } from '@/types';
+import type { LexiconEntry, Project, Word, Collection, CollectionProject, GrammarPattern } from '@/types';
 
 // Sync Queue item for offline changes
 export interface SyncQueueItem {
   id?: number; // Auto-increment
   operation: 'create' | 'update' | 'delete';
-  table: 'projects' | 'words';
+  table: 'projects' | 'words' | 'grammarPatterns';
   entityId: string; // ID of the entity being synced
   data: unknown; // The data to sync
   createdAt: string; // ISO string
@@ -20,6 +20,7 @@ export class WordSnapDB extends Dexie {
   words!: EntityTable<Word, 'id'>;
   lexiconEntries!: EntityTable<LexiconEntry, 'id'>;
   syncQueue!: EntityTable<SyncQueueItem, 'id'>;
+  grammarPatterns!: EntityTable<GrammarPattern, 'id'>;
   collections!: EntityTable<Collection, 'id'>;
   collectionProjects!: EntityTable<CollectionProject & { id?: number }, 'id'>;
 
@@ -69,6 +70,17 @@ export class WordSnapDB extends Dexie {
       projects: 'id, userId, createdAt, isFavorite',
       words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite, lexiconEntryId',
       lexiconEntries: 'id, normalizedHeadword, pos, cefrLevel',
+      syncQueue: '++id, table, entityId, createdAt',
+      collections: 'id, userId, createdAt',
+      collectionProjects: '++id, [collectionId+projectId], collectionId, projectId',
+    });
+
+    // Version 8: Add grammarPatterns table for grammar learning feature
+    this.version(8).stores({
+      projects: 'id, userId, createdAt, isFavorite',
+      words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite, lexiconEntryId',
+      lexiconEntries: 'id, normalizedHeadword, pos, cefrLevel',
+      grammarPatterns: 'id, projectId, level, createdAt, nextReviewAt',
       syncQueue: '++id, table, entityId, createdAt',
       collections: 'id, userId, createdAt',
       collectionProjects: '++id, [collectionId+projectId], collectionId, projectId',

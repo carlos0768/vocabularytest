@@ -93,10 +93,13 @@ export interface Word {
   customSections?: CustomSection[];
 }
 
+export type ProjectType = 'vocabulary' | 'grammar';
+
 export interface Project {
   id: string;
   userId: string;
   title: string;
+  projectType?: ProjectType; // 'vocabulary' (default) or 'grammar'
   sourceLabels: string[]; // Physical source labels extracted from scans
   iconImage?: string; // Base64 data URL icon shown on project cards
   createdAt: string; // ISO string
@@ -398,3 +401,53 @@ export type EnhancedSentenceQuizQuestion =
   | FillInBlankQuestion
   | MultiFillInBlankQuestion
   | WordOrderQuestion;
+
+// ============ Grammar Types ============
+
+export type GrammarQuizType = 'single_select' | 'word_tap' | 'sentence_build';
+
+export interface GrammarWordOption {
+  word: string;
+  isCorrect: boolean;
+  isDistractor: boolean;
+}
+
+export interface GrammarQuizQuestion {
+  questionType: GrammarQuizType;
+  question: string;
+  questionJa: string;
+  wordOptions?: GrammarWordOption[];
+  sentenceWords?: string[];
+  extraWords?: string[];
+  correctAnswer: string;
+  explanation: string;
+  grammarPoint: string;
+}
+
+export interface GrammarPattern {
+  id: string;
+  projectId: string;
+  patternName: string;
+  patternNameEn: string;
+  originalSentence: string;
+  explanation: string;
+  structure: string;
+  example: string;
+  exampleJa: string;
+  level: 'pre1' | '1';
+  quizQuestions: GrammarQuizQuestion[];
+  createdAt: string;
+  // Spaced repetition at pattern level
+  lastReviewedAt?: string;
+  nextReviewAt?: string;
+  easeFactor: number;
+  intervalDays: number;
+  repetition: number;
+}
+
+/**
+ * AI Grammar extraction response
+ */
+export interface AIGrammarResponse {
+  grammarPatterns: Omit<GrammarPattern, 'id' | 'projectId' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition'>[];
+}

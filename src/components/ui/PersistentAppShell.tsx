@@ -14,7 +14,7 @@ const NO_SHELL_PATHS = [
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
   '/quick-response/', '/sentence-quiz/', '/scan/confirm',
-  '/subscription', '/collections/new', '/word/',
+  '/subscription', '/collections/new', '/word/', '/grammar/',
 ];
 
 function shouldHideShell(pathname: string): boolean {
