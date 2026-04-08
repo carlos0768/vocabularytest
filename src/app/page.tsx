@@ -11,6 +11,8 @@ import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/li
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
+import { ModeSwitcher, type HomeMode } from '@/components/home/ModeSwitcher';
+import { GrammarProjectCard } from '@/components/grammar/GrammarProjectCard';
 import { useCollections } from '@/hooks/use-collections';
 import { useScanJobs } from '@/hooks/use-scan-jobs';
 import { getRepository } from '@/lib/db';
@@ -39,7 +41,8 @@ import {
   invalidateHomeCache,
   restoreFromSessionStorage,
 } from '@/lib/home-cache';
-import type { LexiconEntry, Project, Word } from '@/types';
+import type { LexiconEntry, Project, Word, GrammarPattern } from '@/types';
+import { getDb } from '@/lib/db/dexie';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 // Dynamic imports for modals - loaded only when opened (not in initial bundle)
@@ -196,6 +199,46 @@ export default function HomePage() {
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
   const [deleteProjectTargetId, setDeleteProjectTargetId] = useState<string | null>(null);
+
+  // Home mode switcher (vocabulary / grammar)
+  const [homeMode, setHomeMode] = useState<HomeMode>(() => {
+    if (typeof window === 'undefined') return 'vocabulary';
+    return (localStorage.getItem('merken_home_mode') as HomeMode) || 'vocabulary';
+  });
+  const [grammarProjects, setGrammarProjects] = useState<Project[]>([]);
+  const [grammarPatternsByProject, setGrammarPatternsByProject] = useState<Record<string, GrammarPattern[]>>({});
+
+  const handleHomeModeChange = useCallback((mode: HomeMode) => {
+    setHomeMode(mode);
+    localStorage.setItem('merken_home_mode', mode);
+  }, []);
+
+  // Load grammar projects and patterns when in grammar mode
+  useEffect(() => {
+    if (homeMode !== 'grammar') return;
+    let cancelled = false;
+    async function loadGrammarData() {
+      try {
+        const db = getDb();
+        const allProjects = await db.projects.toArray();
+        const gProjects = allProjects.filter((p) => p.projectType === 'grammar');
+        if (cancelled) return;
+        setGrammarProjects(gProjects);
+
+        const patternMap: Record<string, GrammarPattern[]> = {};
+        for (const p of gProjects) {
+          const patterns = await db.grammarPatterns.where('projectId').equals(p.id).toArray();
+          patternMap[p.id] = patterns;
+        }
+        if (cancelled) return;
+        setGrammarPatternsByProject(patternMap);
+      } catch (e) {
+        console.error('Failed to load grammar data:', e);
+      }
+    }
+    loadGrammarData();
+    return () => { cancelled = true; };
+  }, [homeMode]);
 
   // Edit project name modal
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
@@ -1658,15 +1701,14 @@ export default function HomePage() {
           className="hidden"
         />
 
-        {/* Header - iOS style: just MERKEN title */}
+        {/* Header - iOS style: MERKEN title + mode switcher */}
         <header className="px-5 pt-6 pb-2 lg:hidden">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
-            {isPro && (
-              <div className="flex items-center gap-2">
-                <SyncStatusIndicator />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {isPro && <SyncStatusIndicator />}
+              <ModeSwitcher mode={homeMode} onModeChange={handleHomeModeChange} />
+            </div>
           </div>
         </header>
 
@@ -1674,15 +1716,44 @@ export default function HomePage() {
         <header className="sticky top-0 hidden lg:block z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
           <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
             <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
-            {isPro && (
-              <div className="flex items-center gap-2">
-                <SyncStatusIndicator />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {isPro && <SyncStatusIndicator />}
+              <ModeSwitcher mode={homeMode} onModeChange={handleHomeModeChange} />
+            </div>
           </div>
         </header>
 
         {/* Main content - iOS style */}
+        {homeMode === 'grammar' ? (
+          <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-[var(--color-foreground)]">文法パターン帳</h2>
+              </div>
+              {grammarProjects.length === 0 ? (
+                <div className="card p-8 text-center">
+                  <div className="w-16 h-16 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Icon name="school" size={32} className="text-[var(--color-primary)]" />
+                  </div>
+                  <p className="font-bold text-[var(--color-foreground)] mb-1">文法帳がありません</p>
+                  <p className="text-sm text-[var(--color-muted)]">
+                    スキャンで「文法パターン」モードを選択して<br />文法問題を抽出しましょう
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {grammarProjects.map((project) => (
+                    <GrammarProjectCard
+                      key={project.id}
+                      project={project}
+                      patterns={grammarPatternsByProject[project.id] || []}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </main>
+        ) : (
         <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
 
           {/* Today's goal + Mastery donut — 2-column layout */}
@@ -1818,6 +1889,7 @@ export default function HomePage() {
             </div>
           </section>
         </main>
+        )}
 
       {/* Modals */}
       {processing && (
