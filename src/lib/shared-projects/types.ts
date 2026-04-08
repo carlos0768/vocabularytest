@@ -33,14 +33,3 @@ export type SharedProjectMetrics = {
 };
 
 export type SharedProjectMetricsMap = Record<string, SharedProjectMetrics>;
-
-export type SharedProjectImportWordMapping = {
-  sourceWordId: string;
-  targetWordId: string;
-};
-
-export type SharedProjectImportResponse = {
-  project: Project;
-  importedAt: string;
-  wordMappings: SharedProjectImportWordMapping[];
-};

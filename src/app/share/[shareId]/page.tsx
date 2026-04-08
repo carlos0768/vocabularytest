@@ -7,17 +7,17 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { getRepository } from '@/lib/db';
 import { createBrowserClient } from '@/lib/supabase';
 import { getProjectColor } from '@/components/project/ProjectCard';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import { importSharedProject, seedImportedSharedProjectLocally } from '@/lib/shared-projects/import';
 import type { Project, Word } from '@/types';
 
 export default function SharedProjectPage() {
   const router = useRouter();
   const params = useParams();
   const shareId = params.shareId as string;
-  const { user, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -43,6 +43,9 @@ export default function SharedProjectPage() {
   const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
+
+  const subscriptionStatus = subscription?.status || 'free';
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
 
   useEffect(() => {
     // Start fetching immediately without waiting for auth.
@@ -93,23 +96,29 @@ export default function SharedProjectPage() {
     setImporting(true);
     setShowImportSheet(false);
     try {
-      const imported = await importSharedProject(
-        project.id,
-        targetWords.map((word) => word.id),
+      const repo = getRepository(subscriptionStatus, wasPro);
+
+      const newProject = await repo.createProject({
+        title: project.title,
+        userId: user.id,
+        importedFromShareId: shareId,
+      });
+
+      await repo.createWords(
+        targetWords.map((w) => ({
+          projectId: newProject.id,
+          english: w.english,
+          japanese: w.japanese,
+          distractors: w.distractors ?? [],
+          exampleSentence: w.exampleSentence ?? undefined,
+          exampleSentenceJa: w.exampleSentenceJa ?? undefined,
+          pronunciation: w.pronunciation ?? undefined,
+          partOfSpeechTags: w.partOfSpeechTags ?? undefined,
+          vocabularyType: w.vocabularyType ?? undefined,
+        })),
       );
 
-      try {
-        await seedImportedSharedProjectLocally({
-          project: imported.project,
-          sourceWords: targetWords,
-          importedAt: imported.importedAt,
-          wordMappings: imported.wordMappings,
-        });
-      } catch (seedError) {
-        console.error('Failed to seed imported shared project locally:', seedError);
-      }
-
-      setImportedProjectId(imported.project.id);
+      setImportedProjectId(newProject.id);
       setSelectMode(false);
       setSelectedWordIds(new Set());
       invalidateHomeCache();

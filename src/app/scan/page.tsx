@@ -11,8 +11,6 @@ import { type ProgressStep, useToast, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
-
-type ScanMode = ExtractMode | 'grammar';
 import {
   expandFilesForScan,
   isPdfFile,
@@ -49,7 +47,7 @@ function ScanPageContent() {
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const [scanInfo, setScanInfo] = useState<{ currentCount: number; limit: number | null; isPro: boolean } | null>(null);
-  const [selectedMode, setSelectedMode] = useState<ScanMode>('all');
+  const [selectedMode, setSelectedMode] = useState<ExtractMode>('all');
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
   const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -98,13 +96,6 @@ function ScanPageContent() {
       title: '熟語・イディオム',
       description: '句動詞や熟語だけを抽出',
       icon: 'translate',
-      pro: true,
-    },
-    {
-      id: 'grammar' as ScanMode,
-      title: '文法パターン',
-      description: '高度な文法を抽出し問題を生成',
-      icon: 'school',
       pro: true,
     },
   ];
@@ -282,7 +273,7 @@ function ScanPageContent() {
 
     sessionStorage.setItem('scanvocab_ai_enabled', effectiveAiPreference ? '1' : '0');
 
-    const requiresPro = ['circled', 'eiken', 'idiom', 'grammar'].includes(selectedMode);
+    const requiresPro = ['circled', 'eiken', 'idiom'].includes(selectedMode);
     if (requiresPro && !isPro) {
       showToast({
         message: 'このスキャンモードはProプラン限定です',
@@ -324,61 +315,6 @@ function ScanPageContent() {
         });
         return;
       }
-    }
-
-    // Grammar mode: always use inline processing (single image → grammar confirm)
-    if (selectedMode === 'grammar') {
-      const totalFiles = scanFiles.length;
-      setProcessing(true);
-      const initialSteps: ProgressStep[] = [
-        { id: 'ocr', label: 'テキストを抽出中...', status: 'active' },
-        { id: 'analysis', label: '文法パターンを分析中...', status: 'pending' },
-      ];
-      setProcessingSteps(initialSteps);
-
-      try {
-        // Use only the first image for grammar extraction
-        const base64 = await processImageToBase64(scanFiles[0], getImageProfile());
-
-        setProcessingSteps(prev => prev.map((s) =>
-          s.id === 'ocr' ? { ...s, status: 'complete', label: 'テキスト抽出完了' } :
-          s.id === 'analysis' ? { ...s, status: 'active' } : s
-        ));
-
-        const response = await fetch('/api/grammar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64 }),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || '文法抽出に失敗しました');
-        }
-
-        setProcessingSteps(prev => prev.map((s) => ({ ...s, status: 'complete' })));
-
-        // Save to sessionStorage for grammar confirm page
-        sessionStorage.setItem('grammar_extracted_patterns', JSON.stringify(result.data.grammarPatterns));
-        if (projectId) {
-          sessionStorage.setItem('grammar_existing_project_id', projectId);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 100));
-        startTransition(() => { router.replace('/grammar/confirm'); });
-      } catch (error) {
-        console.error('Grammar extraction error:', error);
-        setProcessing(false);
-        setProcessingSteps((prev) =>
-          prev.map((s) =>
-            s.status === 'active' || s.status === 'pending'
-              ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
-              : s
-          )
-        );
-      }
-      return;
     }
 
     // Pro users: always use background processing.
