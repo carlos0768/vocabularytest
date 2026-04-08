@@ -161,6 +161,33 @@ export default function SharedProjectPage() {
     return [...new Set(all.map((t) => t.trim()).filter(Boolean))].sort();
   }, [words]);
 
+  // Header color — computed before early returns so useEffect hook order is stable
+  const HEADER_DARKEN: Record<string, string> = {
+    '#ef4444': '#b91c1c',
+    '#16a34a': '#166534',
+    '#1e3a8a': '#1e40af',
+    '#f97316': '#c2410c',
+    '#9333ea': '#7e22ce',
+    '#0d9488': '#0f766e',
+  };
+  const headerFrom = getProjectColor(project?.title ?? '');
+  const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
+
+  // Set html/body background to header color so iOS PWA safe-area matches header
+  useEffect(() => {
+    if (!project) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.backgroundColor;
+    const prevBody = body.style.backgroundColor;
+    html.style.backgroundColor = headerFrom;
+    body.style.backgroundColor = headerFrom;
+    return () => {
+      html.style.backgroundColor = prevHtml;
+      body.style.backgroundColor = prevBody;
+    };
+  }, [headerFrom, project]);
+
   const posLabel = (tags?: string[]) => {
     if (!tags || tags.length === 0) return null;
     const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
@@ -211,17 +238,6 @@ export default function SharedProjectPage() {
       </div>
     );
   }
-
-  const HEADER_DARKEN: Record<string, string> = {
-    '#ef4444': '#b91c1c',
-    '#16a34a': '#166534',
-    '#1e3a8a': '#1e40af',
-    '#f97316': '#c2410c',
-    '#9333ea': '#7e22ce',
-    '#0d9488': '#0f766e',
-  };
-  const headerFrom = getProjectColor(project.title);
-  const headerTo = HEADER_DARKEN[headerFrom] ?? headerFrom;
 
   return (
     <>
