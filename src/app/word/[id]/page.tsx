@@ -73,14 +73,6 @@ export default function WordDetailPage() {
     })();
   }, [wordId, authLoading, repository]);
 
-  // Swapy slot-item mapping for dynamic reorder
-  const [slotItemMap, setSlotItemMap] = useState<Array<{ slot: string; item: string }>>([]);
-
-  // Keep slotItemMap in sync with sections
-  useEffect(() => {
-    setSlotItemMap(sections.map(s => ({ slot: s.id, item: s.id })));
-  }, [sections]);
-
   // Initialize Swapy when editing and there are 2+ sections
   useEffect(() => {
     if (!isEditing || sections.length < 2 || !swapyContainerRef.current) {
@@ -94,18 +86,15 @@ export default function WordDetailPage() {
       swapyRef.current?.destroy();
 
       const instance = createSwapy(swapyContainerRef.current, {
-        animation: 'spring',
-        manualSwap: true,
-        swapMode: 'drop',
+        animation: 'dynamic',
+        swapMode: 'hover',
         dragAxis: 'y',
       });
 
+      // When drag ends, sync the final order to React state
       instance.onSwapEnd((event) => {
         if (!event.hasChanged) return;
         const newMap = event.slotItemMap.asArray;
-        setSlotItemMap(newMap);
-
-        // Reorder sections based on new slot-item mapping
         const currentSections = sectionsRef.current;
         const sectionById = new Map(currentSections.map(s => [s.id, s]));
         const reordered = newMap
