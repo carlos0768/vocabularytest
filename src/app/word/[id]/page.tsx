@@ -73,6 +73,14 @@ export default function WordDetailPage() {
     })();
   }, [wordId, authLoading, repository]);
 
+  // Swapy slot-item mapping for dynamic reorder
+  const [slotItemMap, setSlotItemMap] = useState<Array<{ slot: string; item: string }>>([]);
+
+  // Keep slotItemMap in sync with sections
+  useEffect(() => {
+    setSlotItemMap(sections.map(s => ({ slot: s.id, item: s.id })));
+  }, [sections]);
+
   // Initialize Swapy when editing and there are 2+ sections
   useEffect(() => {
     if (!isEditing || sections.length < 2 || !swapyContainerRef.current) {
@@ -81,20 +89,26 @@ export default function WordDetailPage() {
       return;
     }
 
-    // Small delay to let DOM update after section add/remove
     const timer = setTimeout(() => {
       if (!swapyContainerRef.current) return;
       swapyRef.current?.destroy();
 
       const instance = createSwapy(swapyContainerRef.current, {
-        animation: 'dynamic',
+        animation: 'spring',
+        manualSwap: true,
+        swapMode: 'drop',
+        dragAxis: 'y',
       });
 
-      instance.onSwap((event) => {
-        const slotItemMap = event.newSlotItemMap.asArray;
+      instance.onSwapEnd((event) => {
+        if (!event.hasChanged) return;
+        const newMap = event.slotItemMap.asArray;
+        setSlotItemMap(newMap);
+
+        // Reorder sections based on new slot-item mapping
         const currentSections = sectionsRef.current;
         const sectionById = new Map(currentSections.map(s => [s.id, s]));
-        const reordered = slotItemMap
+        const reordered = newMap
           .map(entry => sectionById.get(entry.item))
           .filter((s): s is CustomSection => !!s);
         if (reordered.length === currentSections.length) {
@@ -103,13 +117,14 @@ export default function WordDetailPage() {
       });
 
       swapyRef.current = instance;
-    }, 50);
+    }, 80);
 
     return () => {
       clearTimeout(timer);
       swapyRef.current?.destroy();
       swapyRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, sections.length]);
 
   const handleToggleFavorite = useCallback(async () => {
@@ -165,7 +180,7 @@ export default function WordDetailPage() {
   }, [word, sections, repository]);
 
   const handleAddSection = useCallback(() => {
-    // Destroy swapy before changing DOM
+    // Destroy swapy — it will reinitialize via the useEffect when sections.length changes
     swapyRef.current?.destroy();
     swapyRef.current = null;
 
@@ -340,10 +355,10 @@ export default function WordDetailPage() {
                 ＋ボタンからセクションを追加できます
               </p>
             ) : (
-              <div ref={swapyContainerRef} className="space-y-3">
+              <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {sections.map((section) => (
                   <div key={section.id} data-swapy-slot={section.id}>
-                    <div data-swapy-item={section.id} className="card p-4 space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)]">
+                    <div data-swapy-item={section.id} className="p-4 space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)]">
                       <div className="flex items-center gap-2">
                         <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
                           <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
