@@ -48,6 +48,9 @@ export default function WordDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [sections, setSections] = useState<CustomSection[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editJapanese, setEditJapanese] = useState('');
+  const [editExampleSentence, setEditExampleSentence] = useState('');
+  const [editExampleSentenceJa, setEditExampleSentenceJa] = useState('');
 
   // Swapy — order tracking via ref (NOT state) to avoid re-render conflicts
   const swapyContainerRef = useRef<HTMLDivElement>(null);
@@ -142,9 +145,13 @@ export default function WordDetailPage() {
   }, [word]);
 
   const handleStartEditing = useCallback(() => {
+    if (!word) return;
     swapyOrderRef.current = sections.map(s => s.id);
+    setEditJapanese(word.japanese);
+    setEditExampleSentence(word.exampleSentence ?? '');
+    setEditExampleSentenceJa(word.exampleSentenceJa ?? '');
     setIsEditing(true);
-  }, [sections]);
+  }, [word, sections]);
 
   const handleFinishEditing = useCallback(async () => {
     if (!word) return;
@@ -163,8 +170,23 @@ export default function WordDetailPage() {
       }
       const cleaned = ordered.filter(s => s.title.trim() || s.content.trim());
 
-      await repository.updateWord(word.id, { customSections: cleaned });
-      setWord(prev => prev ? { ...prev, customSections: cleaned } : prev);
+      const trimmedJapanese = editJapanese.trim();
+      const trimmedExample = editExampleSentence.trim() || undefined;
+      const trimmedExampleJa = editExampleSentenceJa.trim() || undefined;
+
+      await repository.updateWord(word.id, {
+        japanese: trimmedJapanese,
+        exampleSentence: trimmedExample,
+        exampleSentenceJa: trimmedExampleJa,
+        customSections: cleaned,
+      });
+      setWord(prev => prev ? {
+        ...prev,
+        japanese: trimmedJapanese,
+        exampleSentence: trimmedExample,
+        exampleSentenceJa: trimmedExampleJa,
+        customSections: cleaned,
+      } : prev);
       setSections(cleaned);
       swapyOrderRef.current = cleaned.map(s => s.id);
       setSlotCount(cleaned.length);
@@ -174,7 +196,7 @@ export default function WordDetailPage() {
       setSaving(false);
       setIsEditing(false);
     }
-  }, [word, sections, repository]);
+  }, [word, sections, editJapanese, editExampleSentence, editExampleSentenceJa, repository]);
 
   const handleAddSection = useCallback(() => {
     swapyRef.current?.destroy();
@@ -313,14 +335,44 @@ export default function WordDetailPage() {
 
         {/* Part of speech + Japanese */}
         <div className="border-t border-[var(--color-border-light)] pt-4">
-          <p className="text-base text-[var(--color-foreground)]">
-            {posDisplay && <span className="text-[var(--color-muted)]">({posDisplay}) </span>}
-            {word.japanese}
-          </p>
+          {isEditing ? (
+            <div className="space-y-1">
+              {posDisplay && <span className="text-sm text-[var(--color-muted)]">({posDisplay})</span>}
+              <input
+                type="text"
+                value={editJapanese}
+                onChange={(e) => setEditJapanese(e.target.value)}
+                className="w-full text-base text-[var(--color-foreground)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--color-foreground)]/20"
+              />
+            </div>
+          ) : (
+            <p className="text-base text-[var(--color-foreground)]">
+              {posDisplay && <span className="text-[var(--color-muted)]">({posDisplay}) </span>}
+              {word.japanese}
+            </p>
+          )}
         </div>
 
         {/* Example sentence */}
-        {word.exampleSentence && (
+        {isEditing ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-[var(--color-foreground)]">例文</h3>
+            <textarea
+              value={editExampleSentence}
+              onChange={(e) => setEditExampleSentence(e.target.value)}
+              placeholder="例文（英語）を入力..."
+              rows={2}
+              className="w-full text-base text-[var(--color-foreground)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-[var(--color-foreground)]/20 leading-relaxed"
+            />
+            <textarea
+              value={editExampleSentenceJa}
+              onChange={(e) => setEditExampleSentenceJa(e.target.value)}
+              placeholder="例文の日本語訳を入力..."
+              rows={2}
+              className="w-full text-sm text-[var(--color-muted)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-[var(--color-foreground)]/20 leading-relaxed"
+            />
+          </div>
+        ) : word.exampleSentence ? (
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-[var(--color-foreground)]">例文</h3>
             <div className="flex items-start gap-3">
@@ -343,7 +395,7 @@ export default function WordDetailPage() {
               <p className="text-sm text-[var(--color-muted)]">{word.exampleSentenceJa}</p>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* Custom Sections */}
         {isEditing ? (
