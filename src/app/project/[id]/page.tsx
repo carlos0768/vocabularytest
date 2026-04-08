@@ -52,9 +52,11 @@ export default function ProjectDetailPage() {
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const defaultRepository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
-  // Scroll position restoration
+  // Scroll position restoration — hide content until scroll is restored to prevent flash
   const scrollKey = `project-scroll-${projectId}`;
   const scrollRestoredRef = useRef(false);
+  const needsScrollRestore = useRef(!!sessionStorage.getItem(`project-scroll-${projectId}`));
+  const [scrollReady, setScrollReady] = useState(!needsScrollRestore.current);
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -281,20 +283,25 @@ export default function ProjectDetailPage() {
     }
   }, [project?.id, user?.id]);
 
-  // Restore scroll position after words load
+  // Restore scroll position after words load — use double rAF to ensure DOM is painted
   useEffect(() => {
     if (!wordsLoaded || scrollRestoredRef.current) return;
     scrollRestoredRef.current = true;
     const saved = sessionStorage.getItem(scrollKey);
     if (saved) {
       const y = parseInt(saved, 10);
-      if (Number.isFinite(y)) {
-        // requestAnimationFrame ensures DOM has rendered the word list
+      if (Number.isFinite(y) && y > 0) {
+        // Double rAF: first to let React commit, second to let browser layout
         requestAnimationFrame(() => {
-          window.scrollTo(0, y);
+          requestAnimationFrame(() => {
+            window.scrollTo(0, y);
+            setScrollReady(true);
+          });
         });
+        return;
       }
     }
+    setScrollReady(true);
   }, [wordsLoaded, scrollKey]);
 
   // Scan-to-add handlers
@@ -928,7 +935,7 @@ export default function ProjectDetailPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8">
+      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8" style={{ opacity: scrollReady ? 1 : 0 }}>
         <div
           className="project-detail-header-safe-top z-[50] sticky top-0"
           style={{ background: headerBackground }}

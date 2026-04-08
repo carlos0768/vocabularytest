@@ -96,7 +96,11 @@ export default function FlashcardPage() {
     if (words.length > 0) {
       saveProgress(words, currentIndex);
     }
-    router.replace(returnPath || `/project/${projectId}`);
+    if (returnPath) {
+      router.back();
+    } else {
+      router.replace(`/project/${projectId}`);
+    }
   }, [words, currentIndex, saveProgress, router, returnPath, projectId]);
 
   // Load words
