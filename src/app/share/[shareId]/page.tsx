@@ -32,10 +32,9 @@ export default function SharedProjectPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
 
-  // Like state
+  // Like state — not gated by loading so button is interactive immediately
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [likeLoading, setLikeLoading] = useState(true);
 
   // Search / Filter / Sort
   const [wordSearchText, setWordSearchText] = useState('');
@@ -195,7 +194,7 @@ export default function SharedProjectPage() {
 
   // Fetch like status when project loads
   useEffect(() => {
-    if (!project || !user) { setLikeLoading(false); return; }
+    if (!project || !user) return;
     let cancelled = false;
     (async () => {
       try {
@@ -206,7 +205,6 @@ export default function SharedProjectPage() {
           setLikeCount(data.likeCount ?? 0);
         }
       } catch { /* silent */ }
-      finally { if (!cancelled) setLikeLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [project, user]);
@@ -304,7 +302,7 @@ export default function SharedProjectPage() {
               </div>
               <button
                 onClick={handleToggleLike}
-                disabled={!user || likeLoading}
+                disabled={!user}
                 className="w-10 h-10 rounded-full bg-white/20 flex flex-col items-center justify-center disabled:opacity-50 transition-transform active:scale-90"
                 aria-label={liked ? 'いいねを取り消す' : 'いいね'}
               >
