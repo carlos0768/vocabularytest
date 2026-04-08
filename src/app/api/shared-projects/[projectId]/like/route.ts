@@ -27,13 +27,19 @@ export async function GET(request: NextRequest, { params }: Params) {
         .eq('project_id', projectId),
     ]);
 
+    // Table may not exist yet if migration hasn't been applied
+    if (likeRow.error || countResult.error) {
+      return NextResponse.json({ liked: false, likeCount: 0 });
+    }
+
     return NextResponse.json({
       liked: !!likeRow.data,
       likeCount: countResult.count ?? 0,
     });
   } catch (error) {
     console.error('like GET error:', error);
-    return NextResponse.json({ error: 'いいね状態の取得に失敗しました。' }, { status: 500 });
+    // Graceful fallback if table doesn't exist
+    return NextResponse.json({ liked: false, likeCount: 0 });
   }
 }
 
@@ -51,18 +57,26 @@ export async function POST(request: NextRequest, { params }: Params) {
     const admin = getSupabaseAdmin();
 
     if (liked) {
-      await admin
+      const { error: upsertError } = await admin
         .from('project_likes')
         .upsert(
           { project_id: projectId, user_id: user.id },
           { onConflict: 'project_id,user_id', ignoreDuplicates: true },
         );
+      if (upsertError) {
+        console.error('like upsert error:', upsertError);
+        return NextResponse.json({ error: 'いいねの更新に失敗しました。' }, { status: 500 });
+      }
     } else {
-      await admin
+      const { error: deleteError } = await admin
         .from('project_likes')
         .delete()
         .eq('project_id', projectId)
         .eq('user_id', user.id);
+      if (deleteError) {
+        console.error('like delete error:', deleteError);
+        return NextResponse.json({ error: 'いいねの更新に失敗しました。' }, { status: 500 });
+      }
     }
 
     const { count } = await admin
