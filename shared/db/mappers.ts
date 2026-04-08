@@ -4,6 +4,7 @@
 import type {
   Project,
   Word,
+  CustomSection,
   VocabularyType,
   LexiconEntry,
   Collection,
@@ -145,6 +146,7 @@ export interface WordRow {
   interval_days?: number | null;
   repetition?: number | null;
   is_favorite?: boolean | null;
+  custom_sections?: unknown | null;
   lexicon_entries?: LexiconEntryRow | LexiconEntryRow[] | null;
 }
 
@@ -322,7 +324,18 @@ export function mapWordFromRow(row: WordRow): Word {
     intervalDays: row.interval_days ?? defaultSR.intervalDays,
     repetition: row.repetition ?? defaultSR.repetition,
     isFavorite: row.is_favorite ?? false,
+    customSections: normalizeCustomSections(row.custom_sections),
   };
+}
+
+function normalizeCustomSections(raw: unknown): CustomSection[] | undefined {
+  if (!raw) return undefined;
+  const arr = Array.isArray(raw) ? raw : typeof raw === 'string' ? JSON.parse(raw) : [];
+  if (!Array.isArray(arr)) return undefined;
+  return arr.filter(
+    (s: unknown): s is CustomSection =>
+      typeof s === 'object' && s !== null && typeof (s as any).id === 'string' && typeof (s as any).title === 'string' && typeof (s as any).content === 'string',
+  );
 }
 
 export type WordInput = Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>;
@@ -449,6 +462,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.intervalDays !== undefined) updateData.interval_days = updates.intervalDays;
   if (updates.repetition !== undefined) updateData.repetition = updates.repetition;
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+  if (updates.customSections !== undefined) updateData.custom_sections = updates.customSections;
 
   return updateData;
 }

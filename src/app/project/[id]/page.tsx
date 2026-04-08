@@ -52,6 +52,10 @@ export default function ProjectDetailPage() {
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const defaultRepository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
+  // Scroll position restoration
+  const scrollKey = `project-scroll-${projectId}`;
+  const scrollRestoredRef = useRef(false);
+
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [wordsLoaded, setWordsLoaded] = useState(false);
@@ -107,6 +111,12 @@ export default function ProjectDetailPage() {
   const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
+
+  // Select mode
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
 
   const hasLocalLoadedRef = useRef(false);
   const cacheRestoredRef = useRef(false);
@@ -270,6 +280,22 @@ export default function ProjectDetailPage() {
       }
     }
   }, [project?.id, user?.id]);
+
+  // Restore scroll position after words load
+  useEffect(() => {
+    if (!wordsLoaded || scrollRestoredRef.current) return;
+    scrollRestoredRef.current = true;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (saved) {
+      const y = parseInt(saved, 10);
+      if (Number.isFinite(y)) {
+        // requestAnimationFrame ensures DOM has rendered the word list
+        requestAnimationFrame(() => {
+          window.scrollTo(0, y);
+        });
+      }
+    }
+  }, [wordsLoaded, scrollKey]);
 
   // Scan-to-add handlers
   const handleScanModeSelect = (mode: ExtractMode, eikenLevel: EikenLevel) => {
@@ -476,6 +502,44 @@ export default function ProjectDetailPage() {
       setDeleteWordLoading(false);
       setDeleteWordModalOpen(false);
       setDeleteWordTargetId(null);
+    }
+  };
+
+  const handleToggleSelectWord = (wordId: string) => {
+    setSelectedWordIds(prev => {
+      const next = new Set(prev);
+      if (next.has(wordId)) next.delete(wordId); else next.add(wordId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedWordIds.size === filteredWords.length) {
+      setSelectedWordIds(new Set());
+    } else {
+      setSelectedWordIds(new Set(filteredWords.map(w => w.id)));
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedWordIds.size === 0) return;
+    setBulkDeleteLoading(true);
+    try {
+      for (const id of selectedWordIds) {
+        await mutationRepository.deleteWord(id);
+      }
+      setWords(prev => prev.filter(w => !selectedWordIds.has(w.id)));
+      showToast({ message: `${selectedWordIds.size}語を削除しました`, type: 'success' });
+      invalidateHomeCache();
+      refreshWordCount();
+      setSelectedWordIds(new Set());
+      setSelectMode(false);
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setBulkDeleteLoading(false);
+      setBulkDeleteModalOpen(false);
     }
   };
 
@@ -976,6 +1040,19 @@ export default function ProjectDetailPage() {
                 >
                   <Icon name="swap_vert" size={18} />
                 </button>
+                {/* Select mode */}
+                <button
+                  type="button"
+                  onClick={() => { setSelectMode(v => !v); setSelectedWordIds(new Set()); }}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
+                    selectMode
+                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
+                  }`}
+                  aria-label="選択"
+                >
+                  <Icon name="check_box" size={18} />
+                </button>
                 {/* Filter badge */}
                 {(wordFilterActive || wordSearchText) && (
                   <span className="text-xs font-medium tabular-nums text-[var(--color-accent)]">
@@ -1113,6 +1190,19 @@ export default function ProjectDetailPage() {
                 <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
+                      {selectMode && (
+                        <th className="w-8 py-2 text-center">
+                          <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
+                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
+                              selectedWordIds.size === filteredWords.length && filteredWords.length > 0
+                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                : 'border-[var(--color-border)] bg-transparent'
+                            }`}>
+                              {selectedWordIds.size === filteredWords.length && filteredWords.length > 0 && <Icon name="check" size={14} />}
+                            </span>
+                          </button>
+                        </th>
+                      )}
                       <th className="w-5 py-2" />
                       <th className="px-2 py-2 text-left font-medium">単語</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
@@ -1124,19 +1214,40 @@ export default function ProjectDetailPage() {
                     {filteredWords.map((word) => (
                       <tr
                         key={word.id}
-                        role="link"
+                        role={selectMode ? undefined : 'link'}
                         tabIndex={0}
                         onClick={() => {
-                          router.push(`/word/${word.id}?from=${returnPath}`);
+                          if (selectMode) {
+                            handleToggleSelectWord(word.id);
+                          } else {
+                            sessionStorage.setItem(scrollKey, String(window.scrollY));
+                            router.push(`/word/${word.id}?from=${returnPath}`);
+                          }
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault();
-                            router.push(`/word/${word.id}?from=${returnPath}`);
+                            if (selectMode) {
+                              handleToggleSelectWord(word.id);
+                            } else {
+                              sessionStorage.setItem(scrollKey, String(window.scrollY));
+                              router.push(`/word/${word.id}?from=${returnPath}`);
+                            }
                           }
                         }}
-                        className="cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)]"
+                        className={`cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)] ${selectMode && selectedWordIds.has(word.id) ? 'bg-[var(--color-accent)]/5' : ''}`}
                       >
+                        {selectMode && (
+                          <td className="w-8 pl-2 py-2.5 text-center">
+                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
+                              selectedWordIds.has(word.id)
+                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                : 'border-[var(--color-border)] bg-transparent'
+                            }`}>
+                              {selectedWordIds.has(word.id) && <Icon name="check" size={14} />}
+                            </span>
+                          </td>
+                        )}
                         <td className="w-5 pl-1 py-2.5">
                           <NotionCheckbox
                             wordId={word.id}
@@ -1183,31 +1294,52 @@ export default function ProjectDetailPage() {
           </section>
         </main>
 
-        {/* Bottom action bar - iOS style */}
+        {/* Bottom action bar */}
         {words.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             <div className="max-w-lg mx-auto flex items-center gap-3">
-              <Link
-                href={`/flashcard/${project.id}?from=${returnPath}`}
-                className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] transition-colors"
-                title="フラッシュカード"
-              >
-                <Icon name="style" size={20} />
-              </Link>
-              <Link
-                href={canUseAiFeatures ? `/quiz/${project.id}?from=${returnPath}` : `/quiz2/${project.id}?from=${returnPath}`}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm"
-              >
-                <Icon name="help" size={18} />
-                クイズ
-              </Link>
-              <button
-                onClick={() => setShowAddMethodSheet(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
-              >
-                <Icon name="add" size={18} />
-                単語追加
-              </button>
+              {selectMode ? (
+                <>
+                  <button
+                    onClick={() => { setSelectMode(false); setSelectedWordIds(new Set()); }}
+                    className="px-4 py-3 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)]"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={() => setBulkDeleteModalOpen(true)}
+                    disabled={selectedWordIds.size === 0}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-error)] text-white font-semibold text-sm disabled:opacity-50"
+                  >
+                    <Icon name="delete" size={18} />
+                    {selectedWordIds.size > 0 ? `${selectedWordIds.size}語を削除` : '削除'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={`/flashcard/${project.id}?from=${returnPath}`}
+                    className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] transition-colors"
+                    title="フラッシュカード"
+                  >
+                    <Icon name="style" size={20} />
+                  </Link>
+                  <Link
+                    href={canUseAiFeatures ? `/quiz/${project.id}?from=${returnPath}` : `/quiz2/${project.id}?from=${returnPath}`}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm"
+                  >
+                    <Icon name="help" size={18} />
+                    クイズ
+                  </Link>
+                  <button
+                    onClick={() => setShowAddMethodSheet(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
+                  >
+                    <Icon name="add" size={18} />
+                    単語追加
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1237,6 +1369,15 @@ export default function ProjectDetailPage() {
         title="単語を削除"
         message="この単語を削除します。この操作は取り消せません。"
         isLoading={deleteWordLoading}
+      />
+
+      <DeleteConfirmModal
+        isOpen={bulkDeleteModalOpen}
+        onClose={() => setBulkDeleteModalOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title={`${selectedWordIds.size}語を削除`}
+        message={`選択した${selectedWordIds.size}語を削除します。この操作は取り消せません。`}
+        isLoading={bulkDeleteLoading}
       />
 
       <DeleteConfirmModal

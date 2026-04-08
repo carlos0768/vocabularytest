@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { createSwapy } from 'swapy';
 import { Icon } from '@/components/ui';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
-import type { Word, SubscriptionStatus } from '@/types';
+import type { Word, CustomSection, SubscriptionStatus } from '@/types';
 
 const STATUS_LABELS: Record<string, string> = {
   mastered: '習得',
@@ -43,13 +44,34 @@ export default function WordDetailPage() {
   const [word, setWord] = useState<Word | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [sections, setSections] = useState<CustomSection[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [editJapanese, setEditJapanese] = useState('');
+  const [editExampleSentence, setEditExampleSentence] = useState('');
+  const [editExampleSentenceJa, setEditExampleSentenceJa] = useState('');
+
+  // Swapy — order tracking via ref (NOT state) to avoid re-render conflicts
+  const swapyContainerRef = useRef<HTMLDivElement>(null);
+  const swapyRef = useRef<ReturnType<typeof createSwapy> | null>(null);
+  const swapyOrderRef = useRef<string[]>([]); // ordered section IDs after swaps
+  // Track the number of slots for triggering swapy re-init
+  const [slotCount, setSlotCount] = useState(0);
+
+  const sectionById = useMemo(() => new Map(sections.map(s => [s.id, s])), [sections]);
+
   useEffect(() => {
     if (authLoading) return;
-
     (async () => {
       try {
         const w = await repository.getWord(wordId);
         setWord(w ?? null);
+        if (w?.customSections?.length) {
+          setSections(w.customSections);
+          swapyOrderRef.current = w.customSections.map(s => s.id);
+          setSlotCount(w.customSections.length);
+        }
       } catch (err) {
         console.error('Failed to load word:', err);
       } finally {
@@ -57,6 +79,40 @@ export default function WordDetailPage() {
       }
     })();
   }, [wordId, authLoading, repository]);
+
+  // Initialize Swapy — only depends on isEditing and slotCount
+  useEffect(() => {
+    if (!isEditing || slotCount < 2 || !swapyContainerRef.current) {
+      swapyRef.current?.destroy();
+      swapyRef.current = null;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!swapyContainerRef.current) return;
+      swapyRef.current?.destroy();
+
+      const instance = createSwapy(swapyContainerRef.current, {
+        animation: 'dynamic',
+        swapMode: 'hover',
+        dragAxis: 'y',
+      });
+
+      // Track order in ref only — no setState, no re-render, no DOM conflict
+      instance.onSwapEnd((event) => {
+        if (!event.hasChanged) return;
+        swapyOrderRef.current = event.slotItemMap.asArray.map(e => e.item);
+      });
+
+      swapyRef.current = instance;
+    }, 60);
+
+    return () => {
+      clearTimeout(timer);
+      swapyRef.current?.destroy();
+      swapyRef.current = null;
+    };
+  }, [isEditing, slotCount]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!word) return;
@@ -72,7 +128,6 @@ export default function WordDetailPage() {
   const handleCycleVocabularyType = useCallback(async () => {
     if (!word) return;
     const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
-
     try {
       await repository.updateWord(word.id, { vocabularyType: nextVocabularyType });
       setWord((prev) => prev ? { ...prev, vocabularyType: nextVocabularyType } : prev);
@@ -89,6 +144,89 @@ export default function WordDetailPage() {
     speechSynthesis.speak(utterance);
   }, [word]);
 
+  const handleStartEditing = useCallback(() => {
+    if (!word) return;
+    swapyOrderRef.current = sections.map(s => s.id);
+    setEditJapanese(word.japanese);
+    setEditExampleSentence(word.exampleSentence ?? '');
+    setEditExampleSentenceJa(word.exampleSentenceJa ?? '');
+    setIsEditing(true);
+  }, [word, sections]);
+
+  const handleFinishEditing = useCallback(async () => {
+    if (!word) return;
+    setSaving(true);
+    try {
+      // Resolve final order from swapy ref
+      const finalOrder = swapyOrderRef.current;
+      const byId = new Map(sections.map(s => [s.id, s]));
+      const ordered = finalOrder
+        .map(id => byId.get(id))
+        .filter((s): s is CustomSection => !!s);
+      // Include any sections not tracked by swapy (e.g. newly added after last init)
+      const tracked = new Set(finalOrder);
+      for (const s of sections) {
+        if (!tracked.has(s.id)) ordered.push(s);
+      }
+      const cleaned = ordered.filter(s => s.title.trim() || s.content.trim());
+
+      const trimmedJapanese = editJapanese.trim();
+      const trimmedExample = editExampleSentence.trim() || undefined;
+      const trimmedExampleJa = editExampleSentenceJa.trim() || undefined;
+
+      await repository.updateWord(word.id, {
+        japanese: trimmedJapanese,
+        exampleSentence: trimmedExample,
+        exampleSentenceJa: trimmedExampleJa,
+        customSections: cleaned,
+      });
+      setWord(prev => prev ? {
+        ...prev,
+        japanese: trimmedJapanese,
+        exampleSentence: trimmedExample,
+        exampleSentenceJa: trimmedExampleJa,
+        customSections: cleaned,
+      } : prev);
+      setSections(cleaned);
+      swapyOrderRef.current = cleaned.map(s => s.id);
+      setSlotCount(cleaned.length);
+    } catch (err) {
+      console.error('Failed to save custom sections:', err);
+    } finally {
+      setSaving(false);
+      setIsEditing(false);
+    }
+  }, [word, sections, editJapanese, editExampleSentence, editExampleSentenceJa, repository]);
+
+  const handleAddSection = useCallback(() => {
+    swapyRef.current?.destroy();
+    swapyRef.current = null;
+
+    const newSection: CustomSection = { id: crypto.randomUUID(), title: '', content: '' };
+    setSections(prev => {
+      const next = [...prev, newSection];
+      swapyOrderRef.current = next.map(s => s.id);
+      return next;
+    });
+    setSlotCount(prev => prev + 1);
+  }, []);
+
+  const handleRemoveSection = useCallback((id: string) => {
+    swapyRef.current?.destroy();
+    swapyRef.current = null;
+
+    setSections(prev => {
+      const next = prev.filter(s => s.id !== id);
+      swapyOrderRef.current = next.map(s => s.id);
+      return next;
+    });
+    setSlotCount(prev => prev - 1);
+  }, []);
+
+  const handleUpdateSection = useCallback((id: string, field: 'title' | 'content', value: string) => {
+    setSections(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  }, []);
+
   const statusLabel = word?.status ? (STATUS_LABELS[word.status] ?? '未学習') : '未学習';
   const vocabularyTypeLabel = getVocabularyTypeLabel(word?.vocabularyType);
   const posDisplay = word?.partOfSpeechTags?.length
@@ -104,119 +242,226 @@ export default function WordDetailPage() {
     );
   };
 
+  // For read mode: resolve display order from swapyOrderRef
+  const displaySections = useMemo(() => {
+    if (sections.length === 0) return [];
+    return sections; // In read mode, sections state IS the saved order
+  }, [sections]);
+
   if (loading) {
     return (
-      <>
-        <div className="min-h-screen flex items-center justify-center">
-          <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
-        </div>
-      </>
+      <div className="min-h-screen flex items-center justify-center">
+        <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
+      </div>
     );
   }
 
   if (!word) {
     return (
-      <>
-        <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-          <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語が見つかりません</h1>
-          <button onClick={() => router.back()} className="mt-4 px-6 py-2.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold">
-            戻る
-          </button>
-        </div>
-      </>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+        <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語が見つかりません</h1>
+        <button onClick={() => router.back()} className="mt-4 px-6 py-2.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold">
+          戻る
+        </button>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="min-h-screen pb-24">
-        {/* Header - iOS style */}
-        <header className="px-5 pt-4 pb-2 flex items-center justify-between">
+    <div className="min-h-screen pb-24">
+      {/* Header */}
+      <header className="px-5 pt-4 pb-2 flex items-center justify-between">
+        <button
+          onClick={() => from ? router.replace(decodeURIComponent(from)) : router.back()}
+          className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+        >
+          <Icon name="chevron_left" size={24} className="text-[var(--color-foreground)]" />
+        </button>
+        {isEditing ? (
           <button
-            onClick={() => from ? router.replace(decodeURIComponent(from)) : router.back()}
+            onClick={handleFinishEditing}
+            disabled={saving}
+            className="px-4 py-2 rounded-full bg-[var(--color-foreground)] text-white text-sm font-semibold disabled:opacity-50"
+          >
+            {saving ? '保存中...' : '完了'}
+          </button>
+        ) : (
+          <button
+            onClick={handleStartEditing}
             className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
           >
-            <Icon name="chevron_left" size={24} className="text-[var(--color-foreground)]" />
-          </button>
-          <button className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center">
             <Icon name="edit" size={18} className="text-[var(--color-foreground)]" />
           </button>
-        </header>
+        )}
+      </header>
 
-        <main className="max-w-lg mx-auto px-5 pt-4 space-y-6">
-          {/* Word title + status */}
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-black text-[var(--color-foreground)]">{word.english}</h1>
-              <span className="px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] text-xs font-semibold text-[var(--color-muted)]">
-                {statusLabel}
-              </span>
-            </div>
-
-            {/* Pronunciation + bookmark */}
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--color-muted)]">{word.pronunciation || '——'}</span>
-                <button onClick={handleSpeak} className="w-8 h-8 rounded-full bg-[var(--color-surface-secondary)] flex items-center justify-center">
-                  <Icon name="volume_up" size={16} className="text-[var(--color-foreground)]" />
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <VocabularyTypeButton
-                    vocabularyType={word.vocabularyType}
-                    onClick={handleCycleVocabularyType}
-                    size="md"
-                  />
-                  <span className="text-sm text-[var(--color-muted)]">{vocabularyTypeLabel}</span>
-                </div>
-                <button onClick={handleToggleFavorite}>
-                  <Icon
-                    name="bookmark"
-                    size={24}
-                    filled={word.isFavorite}
-                    className={word.isFavorite ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'}
-                  />
-                </button>
-              </div>
-            </div>
+      <main className="max-w-lg mx-auto px-5 pt-4 space-y-6">
+        {/* Word title + status */}
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-black text-[var(--color-foreground)]">{word.english}</h1>
+            <span className="px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] text-xs font-semibold text-[var(--color-muted)]">
+              {statusLabel}
+            </span>
           </div>
 
-          {/* Part of speech + Japanese */}
-          <div className="border-t border-[var(--color-border-light)] pt-4">
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--color-muted)]">{word.pronunciation || '——'}</span>
+              <button onClick={handleSpeak} className="w-8 h-8 rounded-full bg-[var(--color-surface-secondary)] flex items-center justify-center">
+                <Icon name="volume_up" size={16} className="text-[var(--color-foreground)]" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <VocabularyTypeButton
+                  vocabularyType={word.vocabularyType}
+                  onClick={handleCycleVocabularyType}
+                  size="md"
+                />
+                <span className="text-sm text-[var(--color-muted)]">{vocabularyTypeLabel}</span>
+              </div>
+              <button onClick={handleToggleFavorite}>
+                <Icon
+                  name="bookmark"
+                  size={24}
+                  filled={word.isFavorite}
+                  className={word.isFavorite ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Part of speech + Japanese */}
+        <div className="border-t border-[var(--color-border-light)] pt-4">
+          {isEditing ? (
+            <div className="space-y-1">
+              {posDisplay && <span className="text-sm text-[var(--color-muted)]">({posDisplay})</span>}
+              <input
+                type="text"
+                value={editJapanese}
+                onChange={(e) => setEditJapanese(e.target.value)}
+                className="w-full text-base text-[var(--color-foreground)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--color-foreground)]/20"
+              />
+            </div>
+          ) : (
             <p className="text-base text-[var(--color-foreground)]">
               {posDisplay && <span className="text-[var(--color-muted)]">({posDisplay}) </span>}
               {word.japanese}
             </p>
-          </div>
-
-          {/* Example sentence - iOS style */}
-          {word.exampleSentence && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-[var(--color-foreground)]">例文</h3>
-              <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <p className="text-base text-[var(--color-foreground)] leading-relaxed">
-                    {highlightWord(word.exampleSentence, word.english)}
-                  </p>
-                </div>
-                <button onClick={() => {
-                  if (!word.exampleSentence) return;
-                  const u = new SpeechSynthesisUtterance(word.exampleSentence);
-                  u.lang = 'en-US';
-                  u.rate = 0.85;
-                  speechSynthesis.speak(u);
-                }} className="shrink-0 mt-1">
-                  <Icon name="volume_up" size={20} className="text-[var(--color-muted)]" />
-                </button>
-              </div>
-              {word.exampleSentenceJa && (
-                <p className="text-sm text-[var(--color-muted)]">{word.exampleSentenceJa}</p>
-              )}
-            </div>
           )}
-        </main>
-      </div>
-    </>
+        </div>
+
+        {/* Example sentence */}
+        {isEditing ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-[var(--color-foreground)]">例文</h3>
+            <textarea
+              value={editExampleSentence}
+              onChange={(e) => setEditExampleSentence(e.target.value)}
+              placeholder="例文（英語）を入力..."
+              rows={2}
+              className="w-full text-base text-[var(--color-foreground)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-[var(--color-foreground)]/20 leading-relaxed"
+            />
+            <textarea
+              value={editExampleSentenceJa}
+              onChange={(e) => setEditExampleSentenceJa(e.target.value)}
+              placeholder="例文の日本語訳を入力..."
+              rows={2}
+              className="w-full text-sm text-[var(--color-muted)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-[var(--color-foreground)]/20 leading-relaxed"
+            />
+          </div>
+        ) : word.exampleSentence ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-[var(--color-foreground)]">例文</h3>
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="text-base text-[var(--color-foreground)] leading-relaxed">
+                  {highlightWord(word.exampleSentence, word.english)}
+                </p>
+              </div>
+              <button onClick={() => {
+                if (!word.exampleSentence) return;
+                const u = new SpeechSynthesisUtterance(word.exampleSentence);
+                u.lang = 'en-US';
+                u.rate = 0.85;
+                speechSynthesis.speak(u);
+              }} className="shrink-0 mt-1">
+                <Icon name="volume_up" size={20} className="text-[var(--color-muted)]" />
+              </button>
+            </div>
+            {word.exampleSentenceJa && (
+              <p className="text-sm text-[var(--color-muted)]">{word.exampleSentenceJa}</p>
+            )}
+          </div>
+        ) : null}
+
+        {/* Custom Sections */}
+        {isEditing ? (
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[var(--color-foreground)]">カスタムセクション</h3>
+              <button
+                onClick={handleAddSection}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[var(--color-foreground)] text-white text-xs font-semibold"
+              >
+                <Icon name="add" size={14} />
+                追加
+              </button>
+            </div>
+
+            {sections.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted)] text-center py-6">
+                ＋ボタンからセクションを追加できます
+              </p>
+            ) : (
+              <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {sections.map((section, i) => (
+                  <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
+                    <div data-swapy-item={section.id} className="p-4 space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)]">
+                      <div className="flex items-center gap-2">
+                        <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
+                          <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
+                        </div>
+                        <input
+                          type="text"
+                          value={section.title}
+                          onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
+                          placeholder="セクション名"
+                          className="flex-1 text-sm font-bold text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
+                        />
+                        <button
+                          onClick={() => handleRemoveSection(section.id)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
+                        >
+                          <Icon name="close" size={16} className="text-[var(--color-muted)]" />
+                        </button>
+                      </div>
+                      <textarea
+                        value={section.content}
+                        onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                        placeholder="内容を入力..."
+                        rows={3}
+                        className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none resize-none placeholder:text-[var(--color-muted)] leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : displaySections.length > 0 ? (
+          <div className="space-y-5 pt-2">
+            {displaySections.map((section) => (
+              <div key={section.id} className="space-y-2">
+                <h3 className="text-sm font-bold text-[var(--color-foreground)]">{section.title}</h3>
+                <p className="text-sm text-[var(--color-foreground)] leading-relaxed whitespace-pre-wrap">{section.content}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </main>
+    </div>
   );
 }

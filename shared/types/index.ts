@@ -53,6 +53,12 @@ export interface LexiconEntry {
   updatedAt: string;
 }
 
+export interface CustomSection {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -83,6 +89,8 @@ export interface Word {
   usagePatterns?: UsagePattern[];
   insightsGeneratedAt?: string; // ISO string
   insightsVersion?: number; // Schema version
+  // User-created custom sections
+  customSections?: CustomSection[];
 }
 
 export interface Project {
