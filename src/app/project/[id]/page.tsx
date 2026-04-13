@@ -1080,7 +1080,7 @@ export default function ProjectDetailPage() {
                   onClick={() => { setWordShowSearch((v) => { if (v) setWordSearchText(''); return !v; }); }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     wordShowSearch || wordSearchText
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label="検索"
@@ -1093,7 +1093,7 @@ export default function ProjectDetailPage() {
                   onClick={() => setWordShowFilterSheet((v) => !v)}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     wordFilterActive
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label="フィルタ"
@@ -1106,7 +1106,7 @@ export default function ProjectDetailPage() {
                   onClick={() => setWordShowSortSheet(true)}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     wordSortOrder !== 'createdAsc'
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label={`並べ替え: ${wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}`}
@@ -1120,7 +1120,7 @@ export default function ProjectDetailPage() {
                   onClick={() => { setSelectMode(v => !v); setSelectedWordIds(new Set()); }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     selectMode
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label="選択"
@@ -1129,7 +1129,7 @@ export default function ProjectDetailPage() {
                 </button>
                 {/* Filter badge */}
                 {(wordFilterActive || wordSearchText) && (
-                  <span className="text-xs font-medium tabular-nums text-[var(--color-accent)]">
+                  <span className="text-xs font-medium tabular-nums text-[var(--color-primary)]">
                     {filteredWords.length}/{stats.total}
                   </span>
                 )}
@@ -1212,7 +1212,7 @@ export default function ProjectDetailPage() {
                           <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
                               selectedWordIds.size === filteredWords.length && filteredWords.length > 0
-                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-background)]'
                                 : 'border-[var(--color-border)] bg-transparent'
                             }`}>
                               {selectedWordIds.size === filteredWords.length && filteredWords.length > 0 && <Icon name="check" size={14} />}
@@ -1252,13 +1252,13 @@ export default function ProjectDetailPage() {
                             }
                           }
                         }}
-                        className={`cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)] ${selectMode && selectedWordIds.has(word.id) ? 'bg-[var(--color-accent)]/5' : ''}`}
+                        className={`cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)] ${selectMode && selectedWordIds.has(word.id) ? 'bg-[var(--color-primary)]/5' : ''}`}
                       >
                         {selectMode && (
                           <td className="w-8 pl-2 py-2.5 text-center">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
                               selectedWordIds.has(word.id)
-                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-background)]'
                                 : 'border-[var(--color-border)] bg-transparent'
                             }`}>
                               {selectedWordIds.has(word.id) && <Icon name="check" size={14} />}
