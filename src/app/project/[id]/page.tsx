@@ -137,9 +137,13 @@ export default function ProjectDetailPage() {
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
 
-  const [showEditNameModal, setShowEditNameModal] = useState(false);
-  const [editingName, setEditingName] = useState('');
-  const [editNameSaving, setEditNameSaving] = useState(false);
+  const [titleInlineEditing, setTitleInlineEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const [descriptionInlineEditing, setDescriptionInlineEditing] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
@@ -837,28 +841,61 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleOpenEditNameModal = () => {
-    if (project) {
-      setEditingName(project.title);
-      setShowEditNameModal(true);
-    }
+  const beginTitleEdit = () => {
+    if (!project) return;
+    setTitleDraft(project.title);
+    setTitleInlineEditing(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
   };
 
-  const handleSaveProjectName = async () => {
-    if (!project || !editingName.trim()) return;
+  const beginDescriptionEdit = () => {
+    if (!project) return;
+    setDescriptionDraft(project.description ?? '');
+    setDescriptionInlineEditing(true);
+    setTimeout(() => {
+      const el = descriptionTextareaRef.current;
+      if (el) {
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    }, 0);
+  };
 
-    setEditNameSaving(true);
+  const commitInlineTitle = async () => {
+    if (!project) {
+      setTitleInlineEditing(false);
+      return;
+    }
+    const trimmed = titleDraft.trim();
+    setTitleInlineEditing(false);
+    if (!trimmed || trimmed === project.title) return;
     try {
-      await mutationRepository.updateProject(project.id, { title: editingName.trim() });
-      setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
-      showToast({ message: '単語帳名を変更しました', type: 'success' });
-      setShowEditNameModal(false);
+      await mutationRepository.updateProject(project.id, { title: trimmed });
+      setProject((prev) => (prev ? { ...prev, title: trimmed } : prev));
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project name:', error);
       showToast({ message: '名前の変更に失敗しました', type: 'error' });
-    } finally {
-      setEditNameSaving(false);
+    }
+  };
+
+  const commitInlineDescription = async () => {
+    if (!project) {
+      setDescriptionInlineEditing(false);
+      return;
+    }
+    const trimmed = descriptionDraft.trim();
+    setDescriptionInlineEditing(false);
+    const current = project.description ?? '';
+    if (trimmed === current) return;
+    try {
+      await mutationRepository.updateProject(project.id, { description: trimmed });
+      setProject((prev) => (prev ? { ...prev, description: trimmed } : prev));
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to update project description:', error);
+      showToast({ message: '説明の更新に失敗しました', type: 'error' });
     }
   };
 
@@ -1004,34 +1041,34 @@ export default function ProjectDetailPage() {
           style={{ background: headerBackground }}
         >
           <div
-            className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5"
+            className="max-w-lg lg:max-w-xl mx-auto px-5 py-1.5"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between min-h-[44px]">
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                className="w-10 h-10 flex items-center justify-center"
                 aria-label="ホームへ戻る"
               >
                 <Icon name="chevron_left" size={24} className="text-white" />
               </button>
-              <div className="flex-1 text-center mx-3">
-                <p className="text-white font-bold text-sm truncate">{project.title}</p>
-                <p className="text-white/70 text-xs">{stats.total}語</p>
-              </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {isPro && (
                   <button
                     type="button"
                     onClick={handleOpenShareSheet}
-                    className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                    className="w-10 h-10 flex items-center justify-center"
                     aria-label="共有"
                   >
-                    <Icon name="ios_share" size={18} className="text-white" />
+                    <Icon name="ios_share" size={20} className="text-white" />
                   </button>
                 )}
-                <button onClick={() => setDeleteProjectModalOpen(true)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <Icon name="more_horiz" size={18} className="text-white" />
+                <button
+                  onClick={() => setDeleteProjectModalOpen(true)}
+                  className="w-10 h-10 flex items-center justify-center"
+                  aria-label="メニュー"
+                >
+                  <Icon name="more_horiz" size={22} className="text-white" />
                 </button>
               </div>
             </div>
@@ -1039,6 +1076,76 @@ export default function ProjectDetailPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
+          {/* Title + description (Notion-style, inline-editable) */}
+          <section className="mb-3">
+            <div className="flex items-start gap-2">
+              {titleInlineEditing ? (
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={commitInlineTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      (e.target as HTMLInputElement).blur();
+                    } else if (e.key === 'Escape') {
+                      setTitleInlineEditing(false);
+                    }
+                  }}
+                  maxLength={50}
+                  className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight bg-transparent border-0 border-b border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none px-0 py-0"
+                />
+              ) : (
+                <h1
+                  onClick={beginTitleEdit}
+                  className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight break-words cursor-text"
+                >
+                  {project.title}
+                </h1>
+              )}
+              <button
+                type="button"
+                onClick={beginTitleEdit}
+                className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
+                aria-label="単語帳名を編集"
+              >
+                <Icon name="edit" size={18} />
+              </button>
+            </div>
+            {descriptionInlineEditing ? (
+              <textarea
+                ref={descriptionTextareaRef}
+                value={descriptionDraft}
+                onChange={(e) => setDescriptionDraft(e.target.value)}
+                onBlur={commitInlineDescription}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setDescriptionInlineEditing(false);
+                  }
+                }}
+                maxLength={300}
+                rows={3}
+                placeholder="説明を追加する..."
+                className="mt-2 w-full text-sm text-[var(--color-muted)] leading-relaxed bg-transparent border-0 focus:outline-none resize-none p-0 placeholder:text-[var(--color-muted)]/60"
+              />
+            ) : (
+              <div
+                onClick={beginDescriptionEdit}
+                className="mt-2 cursor-text"
+              >
+                {project.description ? (
+                  <p className="text-sm text-[var(--color-muted)] leading-relaxed whitespace-pre-wrap">
+                    {project.description}
+                  </p>
+                ) : (
+                  <p className="text-sm text-[var(--color-muted)]/60 leading-relaxed">説明を追加する...</p>
+                )}
+              </div>
+            )}
+          </section>
+
           {/* 3-column stats card - iOS style */}
           <section>
             <div className="card p-4">
@@ -1472,44 +1579,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {showEditNameModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語帳名を編集</h2>
-
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                単語帳名
-              </label>
-              <input
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                placeholder="単語帳名"
-                autoFocus
-              />
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowEditNameModal(false)}
-                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
-                disabled={editNameSaving}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSaveProjectName}
-                disabled={editNameSaving || !editingName.trim()}
-                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {editNameSaving ? '保存中...' : '保存'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <input
         ref={scanCameraInputRef}
         type="file"
