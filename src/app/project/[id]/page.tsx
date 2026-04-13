@@ -38,6 +38,36 @@ function isOwnedBy(project: Project | undefined | null, expectedUserId: string):
   return Boolean(project && project.userId === expectedUserId);
 }
 
+// Compare two word arrays by content (id-keyed) on the fields that affect
+// list rendering. If equivalent, Phase 2's setWords can reuse the previous
+// state reference and React will bail out of re-rendering, preventing the
+// visible chirp when returning to the page with a warm home cache.
+// Order-independent so cache order vs fetch order doesn't matter — the list
+// is always sorted by filteredWords useMemo before display.
+function areWordListsEquivalentForDisplay(a: Word[], b: Word[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  const mapA = new Map<string, Word>();
+  for (const w of a) mapA.set(w.id, w);
+  for (const wb of b) {
+    const wa = mapA.get(wb.id);
+    if (!wa) return false;
+    if (wa.status !== wb.status) return false;
+    if (wa.isFavorite !== wb.isFavorite) return false;
+    if (wa.vocabularyType !== wb.vocabularyType) return false;
+    if (wa.english !== wb.english) return false;
+    if (wa.japanese !== wb.japanese) return false;
+    if (wa.createdAt !== wb.createdAt) return false;
+    const pa = wa.partOfSpeechTags ?? [];
+    const pb = wb.partOfSpeechTags ?? [];
+    if (pa.length !== pb.length) return false;
+    for (let j = 0; j < pa.length; j++) {
+      if (pa[j] !== pb[j]) return false;
+    }
+  }
+  return true;
+}
+
 export default function ProjectDetailPage() {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -194,7 +224,7 @@ export default function ProjectDetailPage() {
               setProject(localProject);
               setActiveRepository(localRepository);
               const localWords = await localRepository.getWords(projectId);
-              setWords(localWords);
+              setWords((prev) => areWordListsEquivalentForDisplay(prev, localWords) ? prev : localWords);
               setWordsLoaded(true);
             }
           }
@@ -213,7 +243,7 @@ export default function ProjectDetailPage() {
             void (async () => {
               try {
                 const localWords = await localRepository.getWords(projectId);
-                setWords(localWords);
+                setWords((prev) => areWordListsEquivalentForDisplay(prev, localWords) ? prev : localWords);
               } catch (error) {
                 console.error('Local Pro words preload failed:', error);
               } finally {
@@ -241,7 +271,7 @@ export default function ProjectDetailPage() {
           void (async () => {
             try {
               const remoteWords = await remoteRepository.getWords(projectId);
-              setWords(remoteWords);
+              setWords((prev) => areWordListsEquivalentForDisplay(prev, remoteWords) ? prev : remoteWords);
             } catch (error) {
               console.error('Remote words load failed:', error);
             } finally {
@@ -258,7 +288,7 @@ export default function ProjectDetailPage() {
             void (async () => {
               try {
                 const fallbackWords = await defaultRepository.getWords(projectId);
-                setWords(fallbackWords);
+                setWords((prev) => areWordListsEquivalentForDisplay(prev, fallbackWords) ? prev : fallbackWords);
               } catch (error) {
                 console.error('Fallback words load failed:', error);
               } finally {
