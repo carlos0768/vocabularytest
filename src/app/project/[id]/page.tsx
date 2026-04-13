@@ -1256,18 +1256,23 @@ export default function ProjectDetailPage() {
                           />
                         </td>
                         <td className="px-2 py-2.5 max-w-0">
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <span className="text-base font-bold text-[var(--color-foreground)] truncate">{word.english}</span>
-                            {word.isFavorite && (
-                              <Icon
-                                name="flag"
-                                size={14}
-                                filled
-                                className="text-[var(--color-warning)] shrink-0"
-                                aria-label="苦手マーク"
-                              />
-                            )}
-                          </span>
+                          <div
+                            className="overflow-x-auto"
+                            style={{ scrollbarWidth: 'thin' }}
+                          >
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                              <span className="text-base font-bold text-[var(--color-foreground)]">{word.english}</span>
+                              {word.isFavorite && (
+                                <Icon
+                                  name="flag"
+                                  size={14}
+                                  filled
+                                  className="text-[var(--color-warning)] shrink-0"
+                                  aria-label="苦手マーク"
+                                />
+                              )}
+                            </span>
+                          </div>
                         </td>
                         <td className="w-10 px-1 py-2.5 text-center">
                           <span className="flex justify-center">
@@ -1282,8 +1287,14 @@ export default function ProjectDetailPage() {
                         <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] truncate max-w-0">
-                          {word.japanese}
+                        <td className="px-2 py-2.5 max-w-0">
+                          <div
+                            className="text-xs text-[var(--color-muted)] whitespace-nowrap overflow-x-auto"
+                            style={{ scrollbarWidth: 'thin' }}
+                            title={word.japanese}
+                          >
+                            {word.japanese}
+                          </div>
                         </td>
                       </tr>
                     ))}
