@@ -78,6 +78,7 @@ function areProjectsEquivalentForDisplay(a: Project | null, b: Project | undefin
     a.id === b.id &&
     a.title === b.title &&
     a.iconImage === b.iconImage &&
+    (a.description ?? '') === (b.description ?? '') &&
     (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0)
   );
 }
@@ -140,6 +141,9 @@ export default function ProjectDetailPage() {
   const [showEditNameModal, setShowEditNameModal] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [editNameSaving, setEditNameSaving] = useState(false);
+
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
 
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
@@ -862,6 +866,32 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleStartEditDescription = () => {
+    if (!project) return;
+    setDescriptionDraft(project.description ?? '');
+    setIsEditingDescription(true);
+  };
+
+  const handleSaveDescription = async () => {
+    if (!project) {
+      setIsEditingDescription(false);
+      return;
+    }
+    const nextValue = descriptionDraft.trim();
+    const current = project.description ?? '';
+    setIsEditingDescription(false);
+    if (nextValue === current) return;
+    const nextDescription = nextValue.length > 0 ? nextValue : undefined;
+    try {
+      await mutationRepository.updateProject(project.id, { description: nextDescription });
+      setProject((prev) => (prev ? { ...prev, description: nextDescription } : prev));
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to update project description:', error);
+      showToast({ message: '説明の保存に失敗しました', type: 'error' });
+    }
+  };
+
   const handleConfirmDeleteProject = async () => {
     if (!project) return;
 
@@ -1004,9 +1034,9 @@ export default function ProjectDetailPage() {
           style={{ background: headerBackground }}
         >
           <div
-            className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5"
+            className="max-w-lg lg:max-w-xl mx-auto px-3 pt-1 pb-1"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
@@ -1015,10 +1045,6 @@ export default function ProjectDetailPage() {
               >
                 <Icon name="chevron_left" size={24} className="text-white" />
               </button>
-              <div className="flex-1 text-center mx-3">
-                <p className="text-white font-bold text-sm truncate">{project.title}</p>
-                <p className="text-white/70 text-xs">{stats.total}語</p>
-              </div>
               <div className="flex items-center gap-2">
                 {isPro && (
                   <button
@@ -1039,6 +1065,46 @@ export default function ProjectDetailPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
+          {/* Project title + description (Notion-style) */}
+          <section>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-[var(--color-foreground)] flex-1 truncate">
+                {project.title}
+              </h1>
+              <button
+                type="button"
+                onClick={handleOpenEditNameModal}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
+                aria-label="単語帳名を編集"
+              >
+                <Icon name="edit" size={18} />
+              </button>
+            </div>
+            {isEditingDescription ? (
+              <textarea
+                value={descriptionDraft}
+                onChange={(e) => setDescriptionDraft(e.target.value)}
+                onBlur={handleSaveDescription}
+                autoFocus
+                rows={2}
+                placeholder="説明を追加する..."
+                className="mt-1 w-full bg-transparent text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] resize-none focus:outline-none"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartEditDescription}
+                className={`mt-1 w-full text-left text-sm ${
+                  project.description
+                    ? 'text-[var(--color-foreground)]'
+                    : 'text-[var(--color-muted)]'
+                }`}
+              >
+                {project.description || '説明を追加する...'}
+              </button>
+            )}
+          </section>
+
           {/* 3-column stats card - iOS style */}
           <section>
             <div className="card p-4">

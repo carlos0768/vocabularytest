@@ -106,6 +106,7 @@ export interface Project {
   /** Set when this project was created by importing a copy from /share/[shareId] */
   importedFromShareId?: string;
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
+  description?: string; // User-editable description shown on the project detail page
 }
 
 // ============ Collection Types ============

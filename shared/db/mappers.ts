@@ -41,6 +41,7 @@ export interface ProjectRow {
   share_scope?: string | null;
   imported_from_share_id?: string | null;
   is_favorite?: boolean | null;
+  description?: string | null;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -57,6 +58,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
       ? row.imported_from_share_id.trim()
       : undefined,
     isFavorite: row.is_favorite ?? false,
+    description: row.description ?? undefined,
   };
 }
 
@@ -66,6 +68,7 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
   source_labels: string[];
   icon_image?: string;
   imported_from_share_id?: string;
+  description?: string;
 } {
   return {
     user_id: project.userId,
@@ -75,6 +78,7 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
     ...(project.importedFromShareId !== undefined && {
       imported_from_share_id: project.importedFromShareId,
     }),
+    ...(project.description !== undefined && { description: project.description }),
   };
 }
 
@@ -89,6 +93,7 @@ export function mapProjectToInsertWithId(project: Project): {
   share_scope?: string;
   imported_from_share_id?: string;
   is_favorite?: boolean;
+  description?: string;
 } {
   return {
     id: project.id,
@@ -103,6 +108,7 @@ export function mapProjectToInsertWithId(project: Project): {
       imported_from_share_id: project.importedFromShareId,
     }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
+    ...(project.description !== undefined && { description: project.description }),
   };
 }
 
@@ -117,6 +123,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
     updateData.imported_from_share_id = updates.importedFromShareId;
   }
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+  if (updates.description !== undefined) updateData.description = updates.description ?? null;
   return updateData;
 }
 
