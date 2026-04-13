@@ -35,6 +35,7 @@ export interface ProjectRow {
   id: string;
   user_id: string;
   title: string;
+  description?: string | null;
   source_labels?: unknown[] | null;
   icon_image?: string | null;
   created_at: string;
@@ -76,6 +77,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     id: row.id,
     userId: row.user_id,
     title: row.title,
+    description: row.description ?? undefined,
     sourceLabels: normalizeSourceLabels(row.source_labels),
     iconImage: row.icon_image ?? undefined,
     createdAt: row.created_at,
@@ -92,6 +94,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
 export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }): {
   user_id: string;
   title: string;
+  description?: string;
   source_labels: string[];
   icon_image?: string;
   imported_from_share_id?: string;
@@ -99,6 +102,7 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
   return {
     user_id: project.userId,
     title: project.title,
+    ...(project.description !== undefined && { description: project.description }),
     source_labels: normalizeSourceLabels(project.sourceLabels),
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
     ...(project.importedFromShareId !== undefined && {
@@ -111,6 +115,7 @@ export function mapProjectToInsertWithId(project: Project): {
   id: string;
   user_id: string;
   title: string;
+  description?: string;
   source_labels: string[];
   icon_image?: string;
   created_at: string;
@@ -124,6 +129,7 @@ export function mapProjectToInsertWithId(project: Project): {
     id: project.id,
     user_id: project.userId,
     title: project.title,
+    ...(project.description !== undefined && { description: project.description }),
     source_labels: normalizeSourceLabels(project.sourceLabels),
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
     created_at: project.createdAt,
@@ -140,6 +146,7 @@ export function mapProjectToInsertWithId(project: Project): {
 export function mapProjectUpdates(updates: Partial<Project>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.sourceLabels !== undefined) updateData.source_labels = normalizeSourceLabels(updates.sourceLabels);
   if (updates.iconImage !== undefined) updateData.icon_image = updates.iconImage;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
