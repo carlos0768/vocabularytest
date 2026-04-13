@@ -216,8 +216,8 @@ function WordItem({
         <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-semibold text-[var(--color-foreground)] truncate min-w-0">{word.english}</span>
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
           {word.isFavorite && (
             <Icon
               name="flag"
@@ -228,9 +228,9 @@ function WordItem({
             />
           )}
         </div>
-        <p className="text-sm text-[var(--color-muted)] truncate">{word.japanese}</p>
+        <p className="text-sm text-[var(--color-muted)] whitespace-nowrap overflow-x-auto no-scrollbar" title={word.japanese}>{word.japanese}</p>
         {showProjectName && word.projectTitle && (
-          <p className="text-xs text-[var(--color-primary)] mt-1 truncate">{word.projectTitle}</p>
+          <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap overflow-x-auto no-scrollbar">{word.projectTitle}</p>
         )}
       </div>
       <div className="flex items-center gap-1">
