@@ -78,6 +78,7 @@ function areProjectsEquivalentForDisplay(a: Project | null, b: Project | undefin
     a.id === b.id &&
     a.title === b.title &&
     a.iconImage === b.iconImage &&
+    (a.description ?? '') === (b.description ?? '') &&
     (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0)
   );
 }
@@ -889,9 +890,10 @@ export default function ProjectDetailPage() {
       if (trimmed !== descriptionDraft) setDescriptionDraft(trimmed);
       return;
     }
+    const nextDescription = trimmed.length > 0 ? trimmed : undefined;
     try {
-      await mutationRepository.updateProject(project.id, { description: trimmed });
-      setProject((prev) => (prev ? { ...prev, description: trimmed } : prev));
+      await mutationRepository.updateProject(project.id, { description: nextDescription });
+      setProject((prev) => (prev ? { ...prev, description: nextDescription } : prev));
       setDescriptionDraft(trimmed);
       invalidateHomeCache();
     } catch (error) {
@@ -1065,6 +1067,7 @@ export default function ProjectDetailPage() {
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => setDeleteProjectModalOpen(true)}
                   className="w-10 h-10 flex items-center justify-center"
                   aria-label="メニュー"
@@ -1079,7 +1082,7 @@ export default function ProjectDetailPage() {
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
           {/* Title + description (Notion-style, inline-editable) */}
           <section className="mb-3">
-            <div className="flex items-start gap-2">
+            <div className="flex items-center gap-2">
               {titleInlineEditing ? (
                 <input
                   ref={titleInputRef}
@@ -1092,6 +1095,7 @@ export default function ProjectDetailPage() {
                       e.preventDefault();
                       (e.target as HTMLInputElement).blur();
                     } else if (e.key === 'Escape') {
+                      e.preventDefault();
                       setTitleInlineEditing(false);
                     }
                   }}

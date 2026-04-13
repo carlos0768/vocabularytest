@@ -45,7 +45,7 @@ type PublicSharedProjectListOptions = {
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
 const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,64}$/;
-const PROJECT_BASE_SELECT_COLUMNS = 'id,user_id,title,source_labels,icon_image,created_at,share_id,is_favorite';
+const PROJECT_BASE_SELECT_COLUMNS = 'id,user_id,title,source_labels,icon_image,created_at,share_id,is_favorite,description';
 const PROJECT_SHARED_SELECT_COLUMNS = `${PROJECT_BASE_SELECT_COLUMNS},share_scope`;
 const DEFAULT_PUBLIC_PAGE_SIZE = 8;
 const MAX_PUBLIC_PAGE_SIZE = 24;
