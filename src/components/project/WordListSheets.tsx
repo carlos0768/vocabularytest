@@ -16,6 +16,10 @@ const POS_LABEL_MAP: Record<string, string> = {
   interjection: '感動詞',
   determiner: '限定詞',
   auxiliary: '助動詞',
+  phrase: '句',
+  idiom: 'イディオム',
+  phrasal_verb: '句動詞',
+  other: 'その他',
 };
 
 type BottomSheetShellProps = {

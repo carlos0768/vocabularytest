@@ -97,6 +97,7 @@ export interface Project {
   id: string;
   userId: string;
   title: string;
+  description?: string; // Optional free-form description shown on the detail page
   sourceLabels: string[]; // Physical source labels extracted from scans
   iconImage?: string; // Base64 data URL icon shown on project cards
   createdAt: string; // ISO string
@@ -106,7 +107,6 @@ export interface Project {
   /** Set when this project was created by importing a copy from /share/[shareId] */
   importedFromShareId?: string;
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
-  description?: string; // User-editable description shown on the project detail page
 }
 
 // ============ Collection Types ============

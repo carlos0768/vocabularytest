@@ -138,11 +138,13 @@ export default function ProjectDetailPage() {
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
 
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInlineEditing, setTitleInlineEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionInlineEditing, setDescriptionInlineEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
@@ -840,23 +842,38 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleStartEditTitle = () => {
+  const beginTitleEdit = () => {
     if (!project) return;
     setTitleDraft(project.title);
-    setIsEditingTitle(true);
+    setTitleInlineEditing(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
   };
 
-  const handleSaveTitle = async () => {
+  const beginDescriptionEdit = () => {
+    if (!project) return;
+    setDescriptionDraft(project.description ?? '');
+    setDescriptionInlineEditing(true);
+    setTimeout(() => {
+      const el = descriptionTextareaRef.current;
+      if (el) {
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    }, 0);
+  };
+
+  const commitInlineTitle = async () => {
     if (!project) {
-      setIsEditingTitle(false);
+      setTitleInlineEditing(false);
       return;
     }
-    const nextValue = titleDraft.trim();
-    setIsEditingTitle(false);
-    if (!nextValue || nextValue === project.title) return;
+    const trimmed = titleDraft.trim();
+    setTitleInlineEditing(false);
+    if (!trimmed || trimmed === project.title) return;
     try {
-      await mutationRepository.updateProject(project.id, { title: nextValue });
-      setProject((prev) => (prev ? { ...prev, title: nextValue } : prev));
+      await mutationRepository.updateProject(project.id, { title: trimmed });
+      setProject((prev) => (prev ? { ...prev, title: trimmed } : prev));
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project name:', error);
@@ -864,29 +881,23 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleStartEditDescription = () => {
-    if (!project) return;
-    setDescriptionDraft(project.description ?? '');
-    setIsEditingDescription(true);
-  };
-
-  const handleSaveDescription = async () => {
+  const commitInlineDescription = async () => {
     if (!project) {
-      setIsEditingDescription(false);
+      setDescriptionInlineEditing(false);
       return;
     }
-    const nextValue = descriptionDraft.trim();
+    const trimmed = descriptionDraft.trim();
+    setDescriptionInlineEditing(false);
     const current = project.description ?? '';
-    setIsEditingDescription(false);
-    if (nextValue === current) return;
-    const nextDescription = nextValue.length > 0 ? nextValue : undefined;
+    if (trimmed === current) return;
+    const nextDescription = trimmed.length > 0 ? trimmed : undefined;
     try {
       await mutationRepository.updateProject(project.id, { description: nextDescription });
       setProject((prev) => (prev ? { ...prev, description: nextDescription } : prev));
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project description:', error);
-      showToast({ message: '説明の保存に失敗しました', type: 'error' });
+      showToast({ message: '説明の更新に失敗しました', type: 'error' });
     }
   };
 
@@ -1032,9 +1043,9 @@ export default function ProjectDetailPage() {
           style={{ background: headerBackground }}
         >
           <div
-            className="max-w-lg lg:max-w-xl mx-auto px-3 pt-1 pb-1"
+            className="max-w-lg lg:max-w-xl mx-auto px-5 py-1.5"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between min-h-[44px]">
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
@@ -1043,7 +1054,7 @@ export default function ProjectDetailPage() {
               >
                 <Icon name="chevron_left" size={24} className="text-white" />
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {isPro && (
                   <button
                     type="button"
@@ -1068,79 +1079,80 @@ export default function ProjectDetailPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
-          {/* Project title + description (Notion-style, fully inline) */}
-          <section>
-            <div className="flex items-center gap-2 min-h-[2.25rem]">
-              {isEditingTitle ? (
+          {/* Title + description (Notion-style, inline-editable) */}
+          <section className="mb-3">
+            <div className="flex items-center gap-2">
+              {titleInlineEditing ? (
                 <input
+                  ref={titleInputRef}
                   type="text"
                   value={titleDraft}
                   onChange={(e) => setTitleDraft(e.target.value)}
-                  onBlur={handleSaveTitle}
+                  onBlur={commitInlineTitle}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       (e.target as HTMLInputElement).blur();
                     } else if (e.key === 'Escape') {
                       e.preventDefault();
-                      setIsEditingTitle(false);
+                      setTitleInlineEditing(false);
                     }
                   }}
-                  autoFocus
-                  className="flex-1 min-w-0 bg-transparent text-2xl font-bold text-[var(--color-foreground)] focus:outline-none"
+                  maxLength={50}
+                  className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight bg-transparent border-0 border-b border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none px-0 py-0"
                 />
               ) : (
                 <h1
-                  onClick={handleStartEditTitle}
-                  className="text-2xl font-bold text-[var(--color-foreground)] flex-1 min-w-0 truncate cursor-text"
+                  onClick={beginTitleEdit}
+                  className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight break-words cursor-text"
                 >
                   {project.title}
                 </h1>
               )}
               <button
                 type="button"
-                onClick={handleStartEditTitle}
-                className="w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
+                onClick={beginTitleEdit}
+                className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
                 aria-label="単語帳名を編集"
               >
                 <Icon name="edit" size={18} />
               </button>
             </div>
-            {/* Reserve fixed vertical space so toggling the description does not move the stats card below.
-                Both the display and edit states use block-level elements with identical box dimensions and
-                top-aligned text so the placeholder does not appear to jump vertically when toggling. */}
-            <div className="mt-1 h-[2.5rem]">
-              {isEditingDescription ? (
+            {/* Reserve a fixed-height container so toggling the description edit state does not push
+                the stats card below, and both states share the same top-aligned text origin so the
+                "説明を追加する..." placeholder does not visibly jump when entering edit mode. */}
+            <div className="mt-2 h-[4.5rem]">
+              {descriptionInlineEditing ? (
                 <textarea
+                  ref={descriptionTextareaRef}
                   value={descriptionDraft}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
-                  onBlur={handleSaveDescription}
+                  onBlur={commitInlineDescription}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
-                      e.preventDefault();
-                      setIsEditingDescription(false);
+                      setDescriptionInlineEditing(false);
                     }
                   }}
-                  autoFocus
-                  rows={2}
+                  maxLength={300}
+                  rows={3}
                   placeholder="説明を追加する..."
-                  className="block w-full h-full m-0 p-0 border-0 bg-transparent text-sm leading-5 text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] resize-none focus:outline-none align-top"
+                  className="block w-full h-full m-0 p-0 border-0 bg-transparent text-sm leading-relaxed text-[var(--color-muted)] placeholder:text-[var(--color-muted)]/60 resize-none focus:outline-none align-top"
                 />
               ) : (
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={handleStartEditDescription}
+                  onClick={beginDescriptionEdit}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      handleStartEditDescription();
+                      beginDescriptionEdit();
                     }
                   }}
-                  className={`block w-full h-full m-0 p-0 text-left text-sm leading-5 overflow-hidden whitespace-pre-wrap cursor-text ${
+                  className={`block w-full h-full m-0 p-0 text-left text-sm leading-relaxed overflow-hidden whitespace-pre-wrap cursor-text ${
                     project.description
-                      ? 'text-[var(--color-foreground)]'
-                      : 'text-[var(--color-muted)]'
+                      ? 'text-[var(--color-muted)]'
+                      : 'text-[var(--color-muted)]/60'
                   }`}
                 >
                   {project.description || '説明を追加する...'}
@@ -1190,7 +1202,7 @@ export default function ProjectDetailPage() {
                   onClick={() => { setWordShowSearch((v) => { if (v) setWordSearchText(''); return !v; }); }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     wordShowSearch || wordSearchText
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label="検索"
@@ -1203,7 +1215,7 @@ export default function ProjectDetailPage() {
                   onClick={() => setWordShowFilterSheet((v) => !v)}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     wordFilterActive
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label="フィルタ"
@@ -1216,7 +1228,7 @@ export default function ProjectDetailPage() {
                   onClick={() => setWordShowSortSheet(true)}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     wordSortOrder !== 'createdAsc'
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label={`並べ替え: ${wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}`}
@@ -1230,7 +1242,7 @@ export default function ProjectDetailPage() {
                   onClick={() => { setSelectMode(v => !v); setSelectedWordIds(new Set()); }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
                     selectMode
-                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)]/12 border-[var(--color-primary)]/35 text-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
                   }`}
                   aria-label="選択"
@@ -1239,7 +1251,7 @@ export default function ProjectDetailPage() {
                 </button>
                 {/* Filter badge */}
                 {(wordFilterActive || wordSearchText) && (
-                  <span className="text-xs font-medium tabular-nums text-[var(--color-accent)]">
+                  <span className="text-xs font-medium tabular-nums text-[var(--color-primary)]">
                     {filteredWords.length}/{stats.total}
                   </span>
                 )}
@@ -1322,7 +1334,7 @@ export default function ProjectDetailPage() {
                           <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
                               selectedWordIds.size === filteredWords.length && filteredWords.length > 0
-                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-background)]'
                                 : 'border-[var(--color-border)] bg-transparent'
                             }`}>
                               {selectedWordIds.size === filteredWords.length && filteredWords.length > 0 && <Icon name="check" size={14} />}
@@ -1362,13 +1374,13 @@ export default function ProjectDetailPage() {
                             }
                           }
                         }}
-                        className={`cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)] ${selectMode && selectedWordIds.has(word.id) ? 'bg-[var(--color-accent)]/5' : ''}`}
+                        className={`cursor-pointer transition-colors active:bg-[var(--color-surface-secondary)] ${selectMode && selectedWordIds.has(word.id) ? 'bg-[var(--color-primary)]/5' : ''}`}
                       >
                         {selectMode && (
                           <td className="w-8 pl-2 py-2.5 text-center">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
                               selectedWordIds.has(word.id)
-                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-background)]'
                                 : 'border-[var(--color-border)] bg-transparent'
                             }`}>
                               {selectedWordIds.has(word.id) && <Icon name="check" size={14} />}
