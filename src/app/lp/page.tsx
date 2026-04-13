@@ -814,6 +814,7 @@ export default function LandingPage() {
               <ul className="space-y-3 text-sm text-[var(--color-muted)]">
                 <li><Link href="/terms" className="hover:text-[#137fec] transition-colors">利用規約</Link></li>
                 <li><Link href="/privacy" className="hover:text-[#137fec] transition-colors">プライバシー</Link></li>
+                <li><Link href="/tokusho" className="hover:text-[#137fec] transition-colors">特商法表記</Link></li>
                 <li><Link href="/contact" className="hover:text-[#137fec] transition-colors">お問い合わせ</Link></li>
               </ul>
             </div>

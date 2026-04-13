@@ -281,6 +281,13 @@ export default function SettingsPage() {
               </div>
               <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
             </Link>
+            <Link href="/tokusho" className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-light)] active:bg-[var(--color-surface-secondary)]">
+              <div className="flex items-center gap-3">
+                <Icon name="storefront" size={20} className="text-[var(--color-muted)]" />
+                <span className="text-sm text-[var(--color-foreground)]">特定商取引法に基づく表記</span>
+              </div>
+              <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
+            </Link>
             <Link href="/contact" className="flex items-center justify-between px-5 py-4 active:bg-[var(--color-surface-secondary)]">
               <div className="flex items-center gap-3">
                 <Icon name="mail" size={20} className="text-[var(--color-muted)]" />

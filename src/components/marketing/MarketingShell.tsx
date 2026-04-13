@@ -100,9 +100,10 @@ export function MarketingShell({ children, active }: MarketingShellProps) {
       <footer className="relative z-10 border-t border-[var(--color-border-light)] mt-16">
         <div className="max-w-6xl mx-auto px-4 py-8 flex flex-wrap items-center justify-between gap-4 text-sm">
           <p className="text-[var(--color-muted)]">© {new Date().getFullYear()} MERKEN</p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-4">
             <Link href="/privacy" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]">プライバシー</Link>
             <Link href="/terms" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]">利用規約</Link>
+            <Link href="/tokusho" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]">特商法表記</Link>
             <Link href="/contact" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]">お問い合わせ</Link>
           </div>
         </div>
