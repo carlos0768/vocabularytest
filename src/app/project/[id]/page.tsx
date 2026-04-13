@@ -103,7 +103,9 @@ export default function ProjectDetailPage() {
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-  const scanFileInputRef = useRef<HTMLInputElement>(null);
+  const scanCameraInputRef = useRef<HTMLInputElement>(null);
+  const scanGalleryInputRef = useRef<HTMLInputElement>(null);
+  const [pendingScanSource, setPendingScanSource] = useState<'camera' | 'gallery'>('gallery');
 
   // Word list toolbar: search, filter, sort
   const [wordSearchText, setWordSearchText] = useState('');
@@ -306,7 +308,11 @@ export default function ProjectDetailPage() {
     }
     setSelectedScanMode(mode);
     setSelectedEikenLevel(eikenLevel);
-    scanFileInputRef.current?.click();
+    if (pendingScanSource === 'camera') {
+      scanCameraInputRef.current?.click();
+    } else {
+      scanGalleryInputRef.current?.click();
+    }
   };
 
   const handleScanFiles = async (files: File[]) => {
@@ -1423,12 +1429,25 @@ export default function ProjectDetailPage() {
                   onClick={() => {
                     setShowAddMethodSheet(false);
                     if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
+                    setPendingScanSource('camera');
                     setShowScanModeModal(true);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"
                 >
                   <Icon name="photo_camera" size={20} />
-                  スキャンで追加
+                  カメラで撮影
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddMethodSheet(false);
+                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
+                    setPendingScanSource('gallery');
+                    setShowScanModeModal(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"
+                >
+                  <Icon name="photo_library" size={20} />
+                  画像を選択
                 </button>
                 <button
                   onClick={() => {
@@ -1492,7 +1511,22 @@ export default function ProjectDetailPage() {
         </div>
       )}
       <input
-        ref={scanFileInputRef}
+        ref={scanCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => {
+          setShowScanModeModal(false);
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            handleScanFiles(Array.from(files));
+          }
+          e.target.value = '';
+        }}
+        className="hidden"
+      />
+      <input
+        ref={scanGalleryInputRef}
         type="file"
         accept="image/*,.heic,.heif,.pdf,application/pdf"
         multiple
