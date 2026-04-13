@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import type { Word, CustomSection, SubscriptionStatus } from '@/types';
 
@@ -60,6 +61,20 @@ export default function WordDetailPage() {
   const [slotCount, setSlotCount] = useState(0);
 
   const sectionById = useMemo(() => new Map(sections.map(s => [s.id, s])), [sections]);
+
+  // Keep the in-memory project-words cache in sync with edits made here,
+  // otherwise the project list page re-renders with stale data on return
+  // (first showing pre-edit values, then flashing to post-edit values).
+  const syncHomeCacheForWord = useCallback((updated: Word) => {
+    const projectId = updated.projectId;
+    if (!projectId) return;
+    const cached = getCachedProjectWords()[projectId];
+    if (!cached) return;
+    updateProjectWordsCache(
+      projectId,
+      cached.map((w) => (w.id === updated.id ? updated : w))
+    );
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -119,22 +134,26 @@ export default function WordDetailPage() {
     const newFav = !word.isFavorite;
     try {
       await repository.updateWord(word.id, { isFavorite: newFav });
-      setWord((prev) => prev ? { ...prev, isFavorite: newFav } : prev);
+      const updated = { ...word, isFavorite: newFav };
+      setWord((prev) => (prev ? { ...prev, isFavorite: newFav } : prev));
+      syncHomeCacheForWord(updated);
     } catch (err) {
       console.error('Failed to toggle favorite:', err);
     }
-  }, [word, repository]);
+  }, [word, repository, syncHomeCacheForWord]);
 
   const handleCycleVocabularyType = useCallback(async () => {
     if (!word) return;
     const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
     try {
       await repository.updateWord(word.id, { vocabularyType: nextVocabularyType });
-      setWord((prev) => prev ? { ...prev, vocabularyType: nextVocabularyType } : prev);
+      const updated = { ...word, vocabularyType: nextVocabularyType };
+      setWord((prev) => (prev ? { ...prev, vocabularyType: nextVocabularyType } : prev));
+      syncHomeCacheForWord(updated);
     } catch (err) {
       console.error('Failed to update vocabulary type:', err);
     }
-  }, [word, repository]);
+  }, [word, repository, syncHomeCacheForWord]);
 
   const handleSpeak = useCallback(() => {
     if (!word) return;
@@ -180,6 +199,13 @@ export default function WordDetailPage() {
         exampleSentenceJa: trimmedExampleJa,
         customSections: cleaned,
       });
+      const updated: Word = {
+        ...word,
+        japanese: trimmedJapanese,
+        exampleSentence: trimmedExample,
+        exampleSentenceJa: trimmedExampleJa,
+        customSections: cleaned,
+      };
       setWord(prev => prev ? {
         ...prev,
         japanese: trimmedJapanese,
@@ -190,13 +216,14 @@ export default function WordDetailPage() {
       setSections(cleaned);
       swapyOrderRef.current = cleaned.map(s => s.id);
       setSlotCount(cleaned.length);
+      syncHomeCacheForWord(updated);
     } catch (err) {
       console.error('Failed to save custom sections:', err);
     } finally {
       setSaving(false);
       setIsEditing(false);
     }
-  }, [word, sections, editJapanese, editExampleSentence, editExampleSentenceJa, repository]);
+  }, [word, sections, editJapanese, editExampleSentence, editExampleSentenceJa, repository, syncHomeCacheForWord]);
 
   const handleAddSection = useCallback(() => {
     swapyRef.current?.destroy();
