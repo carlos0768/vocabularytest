@@ -103,7 +103,10 @@ export default function ProjectDetailPage() {
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
-  const scanFileInputRef = useRef<HTMLInputElement>(null);
+  const scanCameraInputRef = useRef<HTMLInputElement>(null);
+  const scanGalleryInputRef = useRef<HTMLInputElement>(null);
+  const wordTableScrollRef = useRef<HTMLDivElement>(null);
+  const [pendingScanSource, setPendingScanSource] = useState<'camera' | 'gallery'>('gallery');
 
   // Word list toolbar: search, filter, sort
   const [wordSearchText, setWordSearchText] = useState('');
@@ -283,6 +286,24 @@ export default function ProjectDetailPage() {
     }
   }, [project?.id, user?.id]);
 
+  // Convert vertical mouse-wheel to horizontal scroll on the word table,
+  // so desktop users can reveal long translations without shift+wheel.
+  useEffect(() => {
+    const el = wordTableScrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (e.deltaY === 0) return;
+      const atStart = el.scrollLeft <= 0 && e.deltaY < 0;
+      const atEnd = Math.ceil(el.scrollLeft + el.clientWidth) >= el.scrollWidth && e.deltaY > 0;
+      if (atStart || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [wordsLoaded]);
+
   // Restore scroll position before paint, then reveal content
   useLayoutEffect(() => {
     if (!wordsLoaded || scrollRestoredRef.current) return;
@@ -306,7 +327,11 @@ export default function ProjectDetailPage() {
     }
     setSelectedScanMode(mode);
     setSelectedEikenLevel(eikenLevel);
-    scanFileInputRef.current?.click();
+    if (pendingScanSource === 'camera') {
+      scanCameraInputRef.current?.click();
+    } else {
+      scanGalleryInputRef.current?.click();
+    }
   };
 
   const handleScanFiles = async (files: File[]) => {
@@ -1186,8 +1211,12 @@ export default function ProjectDetailPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden">
-                <table className="w-full border-collapse table-fixed">
+              <div
+                ref={wordTableScrollRef}
+                className="overflow-x-auto overflow-y-hidden"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
                       {selectMode && (
@@ -1255,9 +1284,9 @@ export default function ProjectDetailPage() {
                             onStatusChange={(newStatus) => { void handleCycleStatus(word.id, newStatus); }}
                           />
                         </td>
-                        <td className="px-2 py-2.5 max-w-0">
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <span className="text-base font-bold text-[var(--color-foreground)] truncate">{word.english}</span>
+                        <td className="px-2 py-2.5 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-base font-bold text-[var(--color-foreground)]">{word.english}</span>
                             {word.isFavorite && (
                               <Icon
                                 name="flag"
@@ -1282,7 +1311,7 @@ export default function ProjectDetailPage() {
                         <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] truncate max-w-0">
+                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
                           {word.japanese}
                         </td>
                       </tr>
@@ -1412,12 +1441,25 @@ export default function ProjectDetailPage() {
                   onClick={() => {
                     setShowAddMethodSheet(false);
                     if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
+                    setPendingScanSource('camera');
                     setShowScanModeModal(true);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"
                 >
                   <Icon name="photo_camera" size={20} />
-                  スキャンで追加
+                  カメラで撮影
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddMethodSheet(false);
+                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
+                    setPendingScanSource('gallery');
+                    setShowScanModeModal(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"
+                >
+                  <Icon name="photo_library" size={20} />
+                  画像を選択
                 </button>
                 <button
                   onClick={() => {
@@ -1481,7 +1523,22 @@ export default function ProjectDetailPage() {
         </div>
       )}
       <input
-        ref={scanFileInputRef}
+        ref={scanCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => {
+          setShowScanModeModal(false);
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            handleScanFiles(Array.from(files));
+          }
+          e.target.value = '';
+        }}
+        className="hidden"
+      />
+      <input
+        ref={scanGalleryInputRef}
         type="file"
         accept="image/*,.heic,.heif,.pdf,application/pdf"
         multiple
