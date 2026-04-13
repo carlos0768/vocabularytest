@@ -30,18 +30,6 @@ export default function StatsPage() {
     ? Math.round((stats.masteredWords / stats.totalWords) * 100)
     : 0;
 
-  const chartDates = useMemo(() => {
-    if (!stats?.weeklyStats) return [];
-    const dates: string[] = [];
-    const today = new Date();
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      dates.push(`${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`);
-    }
-    return dates;
-  }, [stats]);
-
   const chartMaxMastered = useMemo(() => {
     if (!stats?.weeklyStats) return 10;
     const maxMastered = Math.max(...stats.weeklyStats.map(d => d.masteredCount ?? 0));
@@ -97,6 +85,10 @@ export default function StatsPage() {
                 </div>
                 {(() => {
                   const BAR_AREA_HEIGHT = 160;
+                  const formatMD = (iso: string) => {
+                    const [, m, d] = iso.split('-');
+                    return `${m}/${d}`;
+                  };
                   return (
                     <div>
                       <div style={{ display: 'flex', gap: '4px' }}>
@@ -115,7 +107,13 @@ export default function StatsPage() {
                             <div style={{ borderTop: '1px solid var(--color-border)' }} />
                           </div>
                           {/* Bar items */}
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${stats.weeklyStats.length}, 1fr)`,
+                            columnGap: '2px',
+                            alignItems: 'end',
+                          }}>
                             {stats.weeklyStats.map((day) => {
                               const mastered = day.masteredCount ?? 0;
                               const barHeight = mastered > 0
@@ -125,7 +123,6 @@ export default function StatsPage() {
                                 <div
                                   key={day.date}
                                   style={{
-                                    flex: 1,
                                     height: `${barHeight}px`,
                                     backgroundColor: mastered > 0 ? 'var(--color-success)' : 'var(--color-border-light)',
                                     borderRadius: '2px 2px 0 0',
@@ -137,13 +134,35 @@ export default function StatsPage() {
                           </div>
                         </div>
                       </div>
-                      {/* X axis labels — one slot per bar, show label every 3 days + last day */}
-                      <div style={{ display: 'flex', gap: '2px', marginTop: '4px', marginLeft: '40px' }}>
-                        {chartDates.map((label, i) => (
-                          <span key={label} style={{ flex: 1, fontSize: '10px', color: 'var(--color-muted)', textAlign: 'center' }}>
-                            {(i % 3 === 0 || i === chartDates.length - 1) ? label : ''}
-                          </span>
-                        ))}
+                      {/* X axis labels — one cell per bar, show label every 3 days + last day */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${stats.weeklyStats.length}, 1fr)`,
+                        columnGap: '2px',
+                        marginTop: '4px',
+                        marginLeft: '40px',
+                      }}>
+                        {stats.weeklyStats.map((day, i) => {
+                          const show = i % 3 === 0 || i === stats.weeklyStats.length - 1;
+                          return (
+                            <div key={day.date} style={{ position: 'relative', height: '12px' }}>
+                              {show && (
+                                <span style={{
+                                  position: 'absolute',
+                                  left: '50%',
+                                  top: 0,
+                                  transform: 'translateX(-50%)',
+                                  fontSize: '10px',
+                                  color: 'var(--color-muted)',
+                                  whiteSpace: 'nowrap',
+                                  pointerEvents: 'none',
+                                }}>
+                                  {formatMD(day.date)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
