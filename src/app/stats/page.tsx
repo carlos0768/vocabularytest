@@ -30,11 +30,16 @@ export default function StatsPage() {
     ? Math.round((stats.masteredWords / stats.totalWords) * 100)
     : 0;
 
-  const chartMaxMastered = useMemo(() => {
-    if (!stats?.weeklyStats) return 10;
-    const maxMastered = Math.max(...stats.weeklyStats.map(d => d.masteredCount ?? 0));
-    return Math.max(maxMastered, 10);
+  const recentWeeklyStats = useMemo(() => {
+    if (!stats?.weeklyStats) return [];
+    return stats.weeklyStats.slice(-7);
   }, [stats]);
+
+  const chartMaxMastered = useMemo(() => {
+    if (recentWeeklyStats.length === 0) return 10;
+    const maxMastered = Math.max(...recentWeeklyStats.map(d => d.masteredCount ?? 0));
+    return Math.max(maxMastered, 10);
+  }, [recentWeeklyStats]);
 
   return (
     <>
@@ -81,7 +86,7 @@ export default function StatsPage() {
               <div className="card p-5">
                 <div className="flex items-center justify-between mb-6">
                   <p className="text-sm font-bold text-[var(--color-foreground)]">暗記した単語数の推移</p>
-                  <p className="text-xs text-[var(--color-muted)]">過去14日間</p>
+                  <p className="text-xs text-[var(--color-muted)]">過去7日間</p>
                 </div>
                 {(() => {
                   const BAR_AREA_HEIGHT = 160;
@@ -110,11 +115,11 @@ export default function StatsPage() {
                           <div style={{
                             position: 'absolute', inset: 0,
                             display: 'grid',
-                            gridTemplateColumns: `repeat(${stats.weeklyStats.length}, 1fr)`,
-                            columnGap: '2px',
+                            gridTemplateColumns: `repeat(${recentWeeklyStats.length}, 1fr)`,
+                            columnGap: '4px',
                             alignItems: 'end',
                           }}>
-                            {stats.weeklyStats.map((day) => {
+                            {recentWeeklyStats.map((day) => {
                               const mastered = day.masteredCount ?? 0;
                               const barHeight = mastered > 0
                                 ? Math.max(Math.round((mastered / chartMaxMastered) * BAR_AREA_HEIGHT), 4)
@@ -134,35 +139,30 @@ export default function StatsPage() {
                           </div>
                         </div>
                       </div>
-                      {/* X axis labels — one cell per bar, show label every 3 days + last day */}
+                      {/* X axis labels — one cell per bar, show all dates */}
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(${stats.weeklyStats.length}, 1fr)`,
-                        columnGap: '2px',
+                        gridTemplateColumns: `repeat(${recentWeeklyStats.length}, 1fr)`,
+                        columnGap: '4px',
                         marginTop: '4px',
                         marginLeft: '40px',
                       }}>
-                        {stats.weeklyStats.map((day, i) => {
-                          const show = i % 3 === 0 || i === stats.weeklyStats.length - 1;
-                          return (
-                            <div key={day.date} style={{ position: 'relative', height: '12px' }}>
-                              {show && (
-                                <span style={{
-                                  position: 'absolute',
-                                  left: '50%',
-                                  top: 0,
-                                  transform: 'translateX(-50%)',
-                                  fontSize: '10px',
-                                  color: 'var(--color-muted)',
-                                  whiteSpace: 'nowrap',
-                                  pointerEvents: 'none',
-                                }}>
-                                  {formatMD(day.date)}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {recentWeeklyStats.map((day) => (
+                          <div key={day.date} style={{ position: 'relative', height: '12px' }}>
+                            <span style={{
+                              position: 'absolute',
+                              left: '50%',
+                              top: 0,
+                              transform: 'translateX(-50%)',
+                              fontSize: '10px',
+                              color: 'var(--color-muted)',
+                              whiteSpace: 'nowrap',
+                              pointerEvents: 'none',
+                            }}>
+                              {formatMD(day.date)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
