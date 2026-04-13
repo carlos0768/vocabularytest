@@ -141,9 +141,15 @@ export default function ProjectDetailPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [descriptionInlineEditing, setDescriptionInlineEditing] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizeDescriptionTextarea = () => {
+    const el = descriptionTextareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
@@ -174,6 +180,15 @@ export default function ProjectDetailPage() {
 
   const hasLocalLoadedRef = useRef(false);
   const cacheRestoredRef = useRef(false);
+
+  // Keep description draft in sync with the project and auto-resize the textarea
+  useEffect(() => {
+    setDescriptionDraft(project?.description ?? '');
+  }, [project?.id, project?.description]);
+
+  useLayoutEffect(() => {
+    resizeDescriptionTextarea();
+  }, [descriptionDraft]);
 
   // Phase 0: Instant restore from home-cache (no async, no auth wait)
   useLayoutEffect(() => {
@@ -848,20 +863,6 @@ export default function ProjectDetailPage() {
     setTimeout(() => titleInputRef.current?.focus(), 0);
   };
 
-  const beginDescriptionEdit = () => {
-    if (!project) return;
-    setDescriptionDraft(project.description ?? '');
-    setDescriptionInlineEditing(true);
-    setTimeout(() => {
-      const el = descriptionTextareaRef.current;
-      if (el) {
-        el.focus();
-        const len = el.value.length;
-        el.setSelectionRange(len, len);
-      }
-    }, 0);
-  };
-
   const commitInlineTitle = async () => {
     if (!project) {
       setTitleInlineEditing(false);
@@ -881,17 +882,17 @@ export default function ProjectDetailPage() {
   };
 
   const commitInlineDescription = async () => {
-    if (!project) {
-      setDescriptionInlineEditing(false);
+    if (!project) return;
+    const trimmed = descriptionDraft.trim();
+    const current = project.description ?? '';
+    if (trimmed === current) {
+      if (trimmed !== descriptionDraft) setDescriptionDraft(trimmed);
       return;
     }
-    const trimmed = descriptionDraft.trim();
-    setDescriptionInlineEditing(false);
-    const current = project.description ?? '';
-    if (trimmed === current) return;
     try {
       await mutationRepository.updateProject(project.id, { description: trimmed });
       setProject((prev) => (prev ? { ...prev, description: trimmed } : prev));
+      setDescriptionDraft(trimmed);
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project description:', error);
@@ -1114,36 +1115,25 @@ export default function ProjectDetailPage() {
                 <Icon name="edit" size={18} />
               </button>
             </div>
-            {descriptionInlineEditing ? (
-              <textarea
-                ref={descriptionTextareaRef}
-                value={descriptionDraft}
-                onChange={(e) => setDescriptionDraft(e.target.value)}
-                onBlur={commitInlineDescription}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setDescriptionInlineEditing(false);
-                  }
-                }}
-                maxLength={300}
-                rows={3}
-                placeholder="説明を追加する..."
-                className="mt-2 w-full text-sm text-[var(--color-muted)] leading-relaxed bg-transparent border-0 focus:outline-none resize-none p-0 placeholder:text-[var(--color-muted)]/60"
-              />
-            ) : (
-              <div
-                onClick={beginDescriptionEdit}
-                className="mt-2 cursor-text"
-              >
-                {project.description ? (
-                  <p className="text-sm text-[var(--color-muted)] leading-relaxed whitespace-pre-wrap">
-                    {project.description}
-                  </p>
-                ) : (
-                  <p className="text-sm text-[var(--color-muted)]/60 leading-relaxed">説明を追加する...</p>
-                )}
-              </div>
-            )}
+            <textarea
+              ref={descriptionTextareaRef}
+              value={descriptionDraft}
+              onChange={(e) => {
+                setDescriptionDraft(e.target.value);
+                resizeDescriptionTextarea();
+              }}
+              onBlur={commitInlineDescription}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setDescriptionDraft(project.description ?? '');
+                  (e.target as HTMLTextAreaElement).blur();
+                }
+              }}
+              maxLength={300}
+              rows={1}
+              placeholder="説明を追加する..."
+              className="mt-2 w-full block text-sm text-[var(--color-muted)] leading-relaxed bg-transparent border-0 focus:outline-none resize-none p-0 m-0 overflow-hidden placeholder:text-[var(--color-muted)]/60"
+            />
           </section>
 
           {/* 3-column stats card - iOS style */}
