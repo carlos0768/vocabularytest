@@ -131,7 +131,6 @@ export default function SettingsPage() {
                     <span className="chip chip-pro text-xs">
                       Pro
                     </span>
-                    <span className="text-xs text-[var(--color-muted)]">クラウド同期</span>
                   </div>
                 )}
               </div>
@@ -216,7 +215,9 @@ export default function SettingsPage() {
                 <Icon name="badge" size={20} className="text-[var(--color-muted)]" />
                 <div>
                   <p className="text-sm font-medium text-[var(--color-foreground)]">アカウント状態</p>
-                  <p className="text-xs text-[var(--color-muted)]">{isAuthenticated ? '認証済み' : '未認証'}</p>
+                  {!isAuthenticated && (
+                    <p className="text-xs text-[var(--color-muted)]">未認証</p>
+                  )}
                 </div>
               </div>
               <span className="text-sm text-[var(--color-foreground)]">{isPro ? 'Pro' : 'Free'}</span>
@@ -226,7 +227,9 @@ export default function SettingsPage() {
                 <Icon name="cloud" size={20} className="text-[var(--color-muted)]" />
                 <div>
                   <p className="text-sm font-medium text-[var(--color-foreground)]">保存先</p>
-                  <p className="text-xs text-[var(--color-muted)]">{isPro ? 'クラウド保存' : 'このデバイスのみ'}</p>
+                  {!isPro && (
+                    <p className="text-xs text-[var(--color-muted)]">このデバイスのみ</p>
+                  )}
                 </div>
               </div>
               <span className="text-sm text-[var(--color-foreground)]">{isPro ? 'Cloud' : 'Local'}</span>
@@ -242,13 +245,6 @@ export default function SettingsPage() {
                   <p className="text-xs text-[var(--color-muted)]">¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}/月</p>
                 </div>
               </div>
-              {isPro && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-muted)]">スキャン無制限</span>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-muted)]">単語数無制限</span>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-muted)]">クラウド同期</span>
-                </div>
-              )}
               {subscriptionDisplayDate && (
                 <p className="text-xs text-[var(--color-muted)] mt-2">
                   有効期限: {new Date(subscriptionDisplayDate.isoDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
