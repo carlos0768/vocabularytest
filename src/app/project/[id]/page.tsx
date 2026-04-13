@@ -73,11 +73,17 @@ function areWordListsEquivalentForDisplay(a: Word[], b: Word[]): boolean {
 function areProjectsEquivalentForDisplay(a: Project | null, b: Project | undefined | null): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
+  const aCols = a.customColumns ?? [];
+  const bCols = b.customColumns ?? [];
+  const columnsEqual =
+    aCols.length === bCols.length &&
+    aCols.every((col, i) => col.id === bCols[i].id && col.title === bCols[i].title);
   return (
     a.id === b.id &&
     a.title === b.title &&
     a.iconImage === b.iconImage &&
-    (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0)
+    (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0) &&
+    columnsEqual
   );
 }
 
@@ -738,6 +744,43 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleAddCustomColumn = async () => {
+    if (!project) return;
+    const input = typeof window !== 'undefined' ? window.prompt('追加する列名を入力してください') : null;
+    const title = input?.trim();
+    if (!title) return;
+
+    const newColumn = { id: crypto.randomUUID(), title };
+    const nextColumns = [...(project.customColumns ?? []), newColumn];
+    try {
+      await mutationRepository.updateProject(project.id, { customColumns: nextColumns });
+      setProject((prev) => (prev ? { ...prev, customColumns: nextColumns } : prev));
+      showToast({ message: '列を追加しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to add custom column:', error);
+      showToast({ message: '列の追加に失敗しました', type: 'error' });
+    }
+  };
+
+  const handleDeleteCustomColumn = async (columnId: string) => {
+    if (!project) return;
+    const current = project.customColumns ?? [];
+    const target = current.find((c) => c.id === columnId);
+    if (!target) return;
+    if (typeof window !== 'undefined' && !window.confirm(`列「${target.title}」を削除しますか？\n各単語に入力された値は残りますが、一覧には表示されなくなります。`)) {
+      return;
+    }
+    const nextColumns = current.filter((c) => c.id !== columnId);
+    try {
+      await mutationRepository.updateProject(project.id, { customColumns: nextColumns });
+      setProject((prev) => (prev ? { ...prev, customColumns: nextColumns } : prev));
+      showToast({ message: '列を削除しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete custom column:', error);
+      showToast({ message: '列の削除に失敗しました', type: 'error' });
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       try {
@@ -1261,7 +1304,7 @@ export default function ProjectDetailPage() {
               >
                 <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
                   <thead>
-                    <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
+                    <tr className="border-b border-[var(--color-border)] text-[0.975rem] text-[var(--color-muted)]">
                       {selectMode && (
                         <th className="w-8 py-2 text-center">
                           <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
@@ -1280,6 +1323,37 @@ export default function ProjectDetailPage() {
                       <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
                       <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
                       <th className="px-2 py-2 text-left font-medium whitespace-nowrap">訳</th>
+                      {(project?.customColumns ?? []).map((col) => (
+                        <th
+                          key={col.id}
+                          className="px-2 py-2 text-left font-medium whitespace-nowrap"
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            <span>{col.title}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDeleteCustomColumn(col.id);
+                              }}
+                              aria-label={`${col.title}列を削除`}
+                              className="inline-flex items-center justify-center h-4 w-4 rounded-full text-[var(--color-muted)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-foreground)]"
+                            >
+                              <Icon name="close" size={12} />
+                            </button>
+                          </span>
+                        </th>
+                      ))}
+                      <th className="w-10 px-1 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={handleAddCustomColumn}
+                          aria-label="列を追加"
+                          className="inline-flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-foreground)] hover:text-[var(--color-foreground)]"
+                        >
+                          <Icon name="add" size={14} />
+                        </button>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-light)]">
@@ -1357,6 +1431,19 @@ export default function ProjectDetailPage() {
                         <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
                           {word.japanese}
                         </td>
+                        {(project?.customColumns ?? []).map((col) => {
+                          const value = word.customSections?.find((s) => s.id === col.id)?.content ?? '';
+                          return (
+                            <td
+                              key={col.id}
+                              className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis"
+                              title={value}
+                            >
+                              {value || '—'}
+                            </td>
+                          );
+                        })}
+                        <td className="w-10 px-1 py-2.5" />
                       </tr>
                     ))}
                   </tbody>

@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
-import type { Word, CustomSection, SubscriptionStatus } from '@/types';
+import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 
 const STATUS_LABELS: Record<string, string> = {
   mastered: '習得',
@@ -82,10 +82,33 @@ export default function WordDetailPage() {
       try {
         const w = await repository.getWord(wordId);
         setWord(w ?? null);
-        if (w?.customSections?.length) {
-          setSections(w.customSections);
-          swapyOrderRef.current = w.customSections.map(s => s.id);
-          setSlotCount(w.customSections.length);
+
+        // Load project-level custom columns. The word's own customSections hold
+        // the per-word values; we synthesize placeholder sections for any
+        // project column that this word hasn't filled in yet so the editor
+        // surfaces them. Placeholder sections with empty content are dropped
+        // on save (see handleFinishEditing) but will be regenerated on the
+        // next load because the project still defines the column.
+        let projectColumns: CustomColumn[] = [];
+        if (w?.projectId) {
+          try {
+            const p = await repository.getProject(w.projectId);
+            projectColumns = p?.customColumns ?? [];
+          } catch (projectErr) {
+            console.warn('Failed to load project custom columns:', projectErr);
+          }
+        }
+
+        const existingSections = w?.customSections ?? [];
+        const existingIds = new Set(existingSections.map((s) => s.id));
+        const synthesized: CustomSection[] = projectColumns
+          .filter((col) => !existingIds.has(col.id))
+          .map((col) => ({ id: col.id, title: col.title, content: '' }));
+        const merged = [...existingSections, ...synthesized];
+        if (merged.length > 0) {
+          setSections(merged);
+          swapyOrderRef.current = merged.map((s) => s.id);
+          setSlotCount(merged.length);
         }
       } catch (err) {
         console.error('Failed to load word:', err);

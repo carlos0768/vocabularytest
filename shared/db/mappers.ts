@@ -5,6 +5,7 @@ import type {
   Project,
   Word,
   CustomSection,
+  CustomColumn,
   VocabularyType,
   LexiconEntry,
   Collection,
@@ -41,6 +42,31 @@ export interface ProjectRow {
   share_scope?: string | null;
   imported_from_share_id?: string | null;
   is_favorite?: boolean | null;
+  custom_columns?: unknown | null;
+}
+
+function normalizeCustomColumns(raw: unknown): CustomColumn[] | undefined {
+  if (!raw) return undefined;
+  const arr = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  if (!Array.isArray(arr)) return undefined;
+  const result = arr.filter(
+    (c: unknown): c is CustomColumn =>
+      typeof c === 'object' &&
+      c !== null &&
+      typeof (c as { id?: unknown }).id === 'string' &&
+      typeof (c as { title?: unknown }).title === 'string',
+  );
+  return result.length > 0 ? result : undefined;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -57,6 +83,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
       ? row.imported_from_share_id.trim()
       : undefined,
     isFavorite: row.is_favorite ?? false,
+    customColumns: normalizeCustomColumns(row.custom_columns),
   };
 }
 
@@ -89,6 +116,7 @@ export function mapProjectToInsertWithId(project: Project): {
   share_scope?: string;
   imported_from_share_id?: string;
   is_favorite?: boolean;
+  custom_columns?: CustomColumn[];
 } {
   return {
     id: project.id,
@@ -103,6 +131,7 @@ export function mapProjectToInsertWithId(project: Project): {
       imported_from_share_id: project.importedFromShareId,
     }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
+    ...(project.customColumns !== undefined && { custom_columns: project.customColumns }),
   };
 }
 
@@ -117,6 +146,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
     updateData.imported_from_share_id = updates.importedFromShareId;
   }
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+  if (updates.customColumns !== undefined) updateData.custom_columns = updates.customColumns;
   return updateData;
 }
 
