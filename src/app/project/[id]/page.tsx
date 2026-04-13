@@ -105,6 +105,7 @@ export default function ProjectDetailPage() {
   const [processingSteps, setProcessingSteps] = useState<ProgressStep[]>([]);
   const scanCameraInputRef = useRef<HTMLInputElement>(null);
   const scanGalleryInputRef = useRef<HTMLInputElement>(null);
+  const wordTableScrollRef = useRef<HTMLDivElement>(null);
   const [pendingScanSource, setPendingScanSource] = useState<'camera' | 'gallery'>('gallery');
 
   // Word list toolbar: search, filter, sort
@@ -284,6 +285,24 @@ export default function ProjectDetailPage() {
       }
     }
   }, [project?.id, user?.id]);
+
+  // Convert vertical mouse-wheel to horizontal scroll on the word table,
+  // so desktop users can reveal long translations without shift+wheel.
+  useEffect(() => {
+    const el = wordTableScrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (e.deltaY === 0) return;
+      const atStart = el.scrollLeft <= 0 && e.deltaY < 0;
+      const atEnd = Math.ceil(el.scrollLeft + el.clientWidth) >= el.scrollWidth && e.deltaY > 0;
+      if (atStart || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [wordsLoaded]);
 
   // Restore scroll position before paint, then reveal content
   useLayoutEffect(() => {
@@ -1192,8 +1211,12 @@ export default function ProjectDetailPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                <table className="border-collapse" style={{ minWidth: '100%' }}>
+              <div
+                ref={wordTableScrollRef}
+                className="overflow-x-auto overflow-y-hidden"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
                       {selectMode && (
