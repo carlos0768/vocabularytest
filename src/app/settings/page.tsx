@@ -120,11 +120,7 @@ export default function SettingsPage() {
                   <Icon name="mail" size={28} className="text-[var(--color-muted)]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--color-muted)]">{isPro ? 'Pro' : 'Free'}</span>
-                  </div>
                   <p className="font-bold text-[var(--color-foreground)] truncate">{user?.email}</p>
-                  
                 </div>
                 {isPro && (
                   <div className="shrink-0 flex flex-col items-end gap-1">
