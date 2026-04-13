@@ -8,6 +8,7 @@ export type {
   WordStatus,
   CustomSection,
   CustomColumn,
+  CustomColumnType,
   RelatedWord,
   UsagePattern,
   LexiconEntry,

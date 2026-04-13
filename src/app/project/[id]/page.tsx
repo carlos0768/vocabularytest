@@ -24,7 +24,7 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
-import type { LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
+import type { CustomColumn, CustomColumnType, LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
@@ -66,6 +66,27 @@ function areWordListsEquivalentForDisplay(a: Word[], b: Word[]): boolean {
     }
   }
   return true;
+}
+
+// Format a custom column cell value for display in the word list table.
+// Numbers and dates fall back to the raw string if they cannot be parsed
+// (e.g. the user entered text in an older untyped column).
+function formatCustomColumnValue(value: string, type: CustomColumnType): string {
+  if (!value) return '';
+  if (type === 'number') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed.toLocaleString('ja-JP') : value;
+  }
+  if (type === 'date') {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    });
+  }
+  return value;
 }
 
 // Avoid setProject re-render when the fetched project matches what we
@@ -136,6 +157,11 @@ export default function ProjectDetailPage() {
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
+
+  const [showAddColumnSheet, setShowAddColumnSheet] = useState(false);
+  const [newColumnTitle, setNewColumnTitle] = useState('');
+  const [newColumnType, setNewColumnType] = useState<CustomColumnType>('text');
+  const [addColumnSaving, setAddColumnSaving] = useState(false);
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
@@ -744,21 +770,34 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleAddCustomColumn = async () => {
+  const handleOpenAddColumnSheet = () => {
+    setNewColumnTitle('');
+    setNewColumnType('text');
+    setShowAddColumnSheet(true);
+  };
+
+  const handleConfirmAddColumn = async () => {
     if (!project) return;
-    const input = typeof window !== 'undefined' ? window.prompt('追加する列名を入力してください') : null;
-    const title = input?.trim();
+    const title = newColumnTitle.trim();
     if (!title) return;
 
-    const newColumn = { id: crypto.randomUUID(), title };
+    const newColumn: CustomColumn = {
+      id: crypto.randomUUID(),
+      title,
+      type: newColumnType,
+    };
     const nextColumns = [...(project.customColumns ?? []), newColumn];
+    setAddColumnSaving(true);
     try {
       await mutationRepository.updateProject(project.id, { customColumns: nextColumns });
       setProject((prev) => (prev ? { ...prev, customColumns: nextColumns } : prev));
       showToast({ message: '列を追加しました', type: 'success' });
+      setShowAddColumnSheet(false);
     } catch (error) {
       console.error('Failed to add custom column:', error);
       showToast({ message: '列の追加に失敗しました', type: 'error' });
+    } finally {
+      setAddColumnSaving(false);
     }
   };
 
@@ -1347,7 +1386,7 @@ export default function ProjectDetailPage() {
                       <th className="w-10 px-1 py-2 text-center">
                         <button
                           type="button"
-                          onClick={handleAddCustomColumn}
+                          onClick={handleOpenAddColumnSheet}
                           aria-label="列を追加"
                           className="inline-flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-foreground)] hover:text-[var(--color-foreground)]"
                         >
@@ -1433,13 +1472,14 @@ export default function ProjectDetailPage() {
                         </td>
                         {(project?.customColumns ?? []).map((col) => {
                           const value = word.customSections?.find((s) => s.id === col.id)?.content ?? '';
+                          const display = formatCustomColumnValue(value, col.type);
                           return (
                             <td
                               key={col.id}
                               className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis"
-                              title={value}
+                              title={display || value}
                             >
-                              {value || '—'}
+                              {display || '—'}
                             </td>
                           );
                         })}
@@ -1609,6 +1649,91 @@ export default function ProjectDetailPage() {
               >
                 キャンセル
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add custom column bottom sheet */}
+      {showAddColumnSheet && (
+        <div className="fixed inset-0 z-50" onClick={() => !addColumnSaving && setShowAddColumnSheet(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px]"
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-w-lg mx-auto">
+              <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-5" />
+              <p className="text-base font-bold text-[var(--color-foreground)] mb-4">新しい列を追加</p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                  プロパティ名
+                </label>
+                <input
+                  type="text"
+                  value={newColumnTitle}
+                  onChange={(e) => setNewColumnTitle(e.target.value)}
+                  placeholder="例: 例文メモ"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newColumnTitle.trim() && !addColumnSaving) {
+                      void handleConfirmAddColumn();
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                />
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                  種類
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'text', label: 'テキスト', icon: 'notes' },
+                    { value: 'number', label: '数値', icon: 'tag' },
+                    { value: 'date', label: '日付', icon: 'calendar_today' },
+                  ] as { value: CustomColumnType; label: string; icon: string }[]).map((opt) => {
+                    const selected = newColumnType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewColumnType(opt.value)}
+                        className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-[var(--radius-lg)] border transition-colors ${
+                          selected
+                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-foreground)]'
+                            : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
+                        }`}
+                      >
+                        <Icon name={opt.icon} size={20} />
+                        <span className="text-xs font-semibold">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddColumnSheet(false)}
+                  disabled={addColumnSaving}
+                  className="flex-1 py-3 rounded-xl text-[var(--color-muted)] font-semibold text-sm hover:bg-[var(--color-surface-secondary)] transition-colors disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void handleConfirmAddColumn(); }}
+                  disabled={!newColumnTitle.trim() || addColumnSaving}
+                  className="flex-1 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm disabled:opacity-50"
+                >
+                  {addColumnSaving ? '追加中...' : '追加'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -18,6 +18,20 @@ const STATUS_LABELS: Record<string, string> = {
   new: '未学習',
 };
 
+function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
+  if (!value) return '';
+  if (type === 'number') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed.toLocaleString('ja-JP') : value;
+  }
+  if (type === 'date') {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
+  }
+  return value;
+}
+
 const POS_LABELS: Record<string, string> = {
   noun: '名詞',
   verb: '動詞',
@@ -43,7 +57,14 @@ export default function WordDetailPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const [word, setWord] = useState<Word | null>(null);
+  const [projectCustomColumns, setProjectCustomColumns] = useState<CustomColumn[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const columnTypeById = useMemo(() => {
+    const map = new Map<string, CustomColumn['type']>();
+    for (const col of projectCustomColumns) map.set(col.id, col.type);
+    return map;
+  }, [projectCustomColumns]);
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -98,6 +119,7 @@ export default function WordDetailPage() {
             console.warn('Failed to load project custom columns:', projectErr);
           }
         }
+        setProjectCustomColumns(projectColumns);
 
         const existingSections = w?.customSections ?? [];
         const existingIds = new Set(existingSections.map((s) => s.id));
@@ -467,7 +489,10 @@ export default function WordDetailPage() {
               </p>
             ) : (
               <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {sections.map((section, i) => (
+                {sections.map((section, i) => {
+                  const columnType = columnTypeById.get(section.id) ?? 'text';
+                  const isProjectColumn = columnTypeById.has(section.id);
+                  return (
                   <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
                     <div data-swapy-item={section.id} className="p-4 space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface)]">
                       <div className="flex items-center gap-2">
@@ -479,36 +504,62 @@ export default function WordDetailPage() {
                           value={section.title}
                           onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
                           placeholder="セクション名"
+                          readOnly={isProjectColumn}
                           className="flex-1 text-sm font-bold text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
                         />
-                        <button
-                          onClick={() => handleRemoveSection(section.id)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
-                        >
-                          <Icon name="close" size={16} className="text-[var(--color-muted)]" />
-                        </button>
+                        {!isProjectColumn && (
+                          <button
+                            onClick={() => handleRemoveSection(section.id)}
+                            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
+                          >
+                            <Icon name="close" size={16} className="text-[var(--color-muted)]" />
+                          </button>
+                        )}
                       </div>
-                      <textarea
-                        value={section.content}
-                        onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                        placeholder="内容を入力..."
-                        rows={3}
-                        className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none resize-none placeholder:text-[var(--color-muted)] leading-relaxed"
-                      />
+                      {columnType === 'number' ? (
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={section.content}
+                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                          placeholder="数値を入力..."
+                          className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
+                        />
+                      ) : columnType === 'date' ? (
+                        <input
+                          type="date"
+                          value={section.content}
+                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                          className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
+                        />
+                      ) : (
+                        <textarea
+                          value={section.content}
+                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                          placeholder="内容を入力..."
+                          rows={3}
+                          className="w-full text-sm text-[var(--color-foreground)] bg-transparent outline-none resize-none placeholder:text-[var(--color-muted)] leading-relaxed"
+                        />
+                      )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         ) : displaySections.length > 0 ? (
           <div className="space-y-5 pt-2">
-            {displaySections.map((section) => (
-              <div key={section.id} className="space-y-2">
-                <h3 className="text-sm font-bold text-[var(--color-foreground)]">{section.title}</h3>
-                <p className="text-sm text-[var(--color-foreground)] leading-relaxed whitespace-pre-wrap">{section.content}</p>
-              </div>
-            ))}
+            {displaySections.map((section) => {
+              const columnType = columnTypeById.get(section.id) ?? 'text';
+              const display = formatCustomSectionValue(section.content, columnType);
+              return (
+                <div key={section.id} className="space-y-2">
+                  <h3 className="text-sm font-bold text-[var(--color-foreground)]">{section.title}</h3>
+                  <p className="text-sm text-[var(--color-foreground)] leading-relaxed whitespace-pre-wrap">{display}</p>
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </main>

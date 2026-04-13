@@ -62,9 +62,12 @@ export interface CustomSection {
 // Project-level column definition used by the word list table.
 // The column `id` matches the Word.customSections entry `id` so cell values
 // flow through the existing per-word custom sections storage.
+export type CustomColumnType = 'text' | 'number' | 'date';
+
 export interface CustomColumn {
   id: string;
   title: string;
+  type: CustomColumnType;
 }
 
 export interface Word {

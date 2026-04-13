@@ -59,13 +59,15 @@ function normalizeCustomColumns(raw: unknown): CustomColumn[] | undefined {
         })()
       : [];
   if (!Array.isArray(arr)) return undefined;
-  const result = arr.filter(
-    (c: unknown): c is CustomColumn =>
-      typeof c === 'object' &&
-      c !== null &&
-      typeof (c as { id?: unknown }).id === 'string' &&
-      typeof (c as { title?: unknown }).title === 'string',
-  );
+  const result: CustomColumn[] = [];
+  for (const entry of arr) {
+    if (!entry || typeof entry !== 'object') continue;
+    const record = entry as { id?: unknown; title?: unknown; type?: unknown };
+    if (typeof record.id !== 'string' || typeof record.title !== 'string') continue;
+    const type: CustomColumn['type'] =
+      record.type === 'number' || record.type === 'date' ? record.type : 'text';
+    result.push({ id: record.id, title: record.title, type });
+  }
   return result.length > 0 ? result : undefined;
 }
 
