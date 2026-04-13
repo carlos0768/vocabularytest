@@ -146,7 +146,7 @@ export function mapProjectToInsertWithId(project: Project): {
 export function mapProjectUpdates(updates: Partial<Project>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
-  if (updates.description !== undefined) updateData.description = updates.description;
+  if (updates.description !== undefined) updateData.description = updates.description ?? null;
   if (updates.sourceLabels !== undefined) updateData.source_labels = normalizeSourceLabels(updates.sourceLabels);
   if (updates.iconImage !== undefined) updateData.icon_image = updates.iconImage;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
