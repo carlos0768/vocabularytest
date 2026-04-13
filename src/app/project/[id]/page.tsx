@@ -138,9 +138,8 @@ export default function ProjectDetailPage() {
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
 
-  const [showEditNameModal, setShowEditNameModal] = useState(false);
-  const [editingName, setEditingName] = useState('');
-  const [editNameSaving, setEditNameSaving] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -841,28 +840,27 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleOpenEditNameModal = () => {
-    if (project) {
-      setEditingName(project.title);
-      setShowEditNameModal(true);
-    }
+  const handleStartEditTitle = () => {
+    if (!project) return;
+    setTitleDraft(project.title);
+    setIsEditingTitle(true);
   };
 
-  const handleSaveProjectName = async () => {
-    if (!project || !editingName.trim()) return;
-
-    setEditNameSaving(true);
+  const handleSaveTitle = async () => {
+    if (!project) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const nextValue = titleDraft.trim();
+    setIsEditingTitle(false);
+    if (!nextValue || nextValue === project.title) return;
     try {
-      await mutationRepository.updateProject(project.id, { title: editingName.trim() });
-      setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
-      showToast({ message: '単語帳名を変更しました', type: 'success' });
-      setShowEditNameModal(false);
+      await mutationRepository.updateProject(project.id, { title: nextValue });
+      setProject((prev) => (prev ? { ...prev, title: nextValue } : prev));
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project name:', error);
       showToast({ message: '名前の変更に失敗しました', type: 'error' });
-    } finally {
-      setEditNameSaving(false);
     }
   };
 
@@ -1040,7 +1038,7 @@ export default function ProjectDetailPage() {
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                className="w-10 h-10 flex items-center justify-center"
                 aria-label="ホームへ戻る"
               >
                 <Icon name="chevron_left" size={24} className="text-white" />
@@ -1050,14 +1048,19 @@ export default function ProjectDetailPage() {
                   <button
                     type="button"
                     onClick={handleOpenShareSheet}
-                    className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                    className="w-10 h-10 flex items-center justify-center"
                     aria-label="共有"
                   >
-                    <Icon name="ios_share" size={18} className="text-white" />
+                    <Icon name="ios_share" size={20} className="text-white" />
                   </button>
                 )}
-                <button onClick={() => setDeleteProjectModalOpen(true)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <Icon name="more_horiz" size={18} className="text-white" />
+                <button
+                  type="button"
+                  onClick={() => setDeleteProjectModalOpen(true)}
+                  className="w-10 h-10 flex items-center justify-center"
+                  aria-label="メニュー"
+                >
+                  <Icon name="more_horiz" size={22} className="text-white" />
                 </button>
               </div>
             </div>
@@ -1065,44 +1068,76 @@ export default function ProjectDetailPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
-          {/* Project title + description (Notion-style) */}
+          {/* Project title + description (Notion-style, fully inline) */}
           <section>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-[var(--color-foreground)] flex-1 truncate">
-                {project.title}
-              </h1>
+            <div className="flex items-center gap-2 min-h-[2.25rem]">
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={handleSaveTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      (e.target as HTMLInputElement).blur();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  autoFocus
+                  className="flex-1 min-w-0 bg-transparent text-2xl font-bold text-[var(--color-foreground)] focus:outline-none"
+                />
+              ) : (
+                <h1
+                  onClick={handleStartEditTitle}
+                  className="text-2xl font-bold text-[var(--color-foreground)] flex-1 min-w-0 truncate cursor-text"
+                >
+                  {project.title}
+                </h1>
+              )}
               <button
                 type="button"
-                onClick={handleOpenEditNameModal}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
+                onClick={handleStartEditTitle}
+                className="w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
                 aria-label="単語帳名を編集"
               >
                 <Icon name="edit" size={18} />
               </button>
             </div>
-            {isEditingDescription ? (
-              <textarea
-                value={descriptionDraft}
-                onChange={(e) => setDescriptionDraft(e.target.value)}
-                onBlur={handleSaveDescription}
-                autoFocus
-                rows={2}
-                placeholder="説明を追加する..."
-                className="mt-1 w-full bg-transparent text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] resize-none focus:outline-none"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={handleStartEditDescription}
-                className={`mt-1 w-full text-left text-sm ${
-                  project.description
-                    ? 'text-[var(--color-foreground)]'
-                    : 'text-[var(--color-muted)]'
-                }`}
-              >
-                {project.description || '説明を追加する...'}
-              </button>
-            )}
+            {/* Reserve fixed vertical space so toggling the description does not move the stats card below */}
+            <div className="mt-1 min-h-[2.5rem]">
+              {isEditingDescription ? (
+                <textarea
+                  value={descriptionDraft}
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                  onBlur={handleSaveDescription}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setIsEditingDescription(false);
+                    }
+                  }}
+                  autoFocus
+                  rows={2}
+                  placeholder="説明を追加する..."
+                  className="block w-full h-[2.5rem] bg-transparent text-sm leading-5 text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] resize-none focus:outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStartEditDescription}
+                  className={`block w-full h-[2.5rem] text-left text-sm leading-5 overflow-hidden whitespace-pre-wrap ${
+                    project.description
+                      ? 'text-[var(--color-foreground)]'
+                      : 'text-[var(--color-muted)]'
+                  }`}
+                >
+                  {project.description || '説明を追加する...'}
+                </button>
+              )}
+            </div>
           </section>
 
           {/* 3-column stats card - iOS style */}
@@ -1538,44 +1573,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {showEditNameModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語帳名を編集</h2>
-
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                単語帳名
-              </label>
-              <input
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                placeholder="単語帳名"
-                autoFocus
-              />
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowEditNameModal(false)}
-                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
-                disabled={editNameSaving}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSaveProjectName}
-                disabled={editNameSaving || !editingName.trim()}
-                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {editNameSaving ? '保存中...' : '保存'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <input
         ref={scanCameraInputRef}
         type="file"
