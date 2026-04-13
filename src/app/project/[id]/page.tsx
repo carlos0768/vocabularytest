@@ -68,6 +68,19 @@ function areWordListsEquivalentForDisplay(a: Word[], b: Word[]): boolean {
   return true;
 }
 
+// Avoid setProject re-render when the fetched project matches what we
+// already have for display purposes.
+function areProjectsEquivalentForDisplay(a: Project | null, b: Project | undefined | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.iconImage === b.iconImage &&
+    (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0)
+  );
+}
+
 export default function ProjectDetailPage() {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -221,7 +234,7 @@ export default function ProjectDetailPage() {
             const guestUserId = getGuestUserId();
             const localProject = await localRepository.getProject(projectId);
             if (isOwnedBy(localProject, guestUserId)) {
-              setProject(localProject);
+              setProject((prev) => areProjectsEquivalentForDisplay(prev, localProject) ? prev : localProject);
               setActiveRepository(localRepository);
               const localWords = await localRepository.getWords(projectId);
               setWords((prev) => areWordListsEquivalentForDisplay(prev, localWords) ? prev : localWords);
@@ -236,7 +249,7 @@ export default function ProjectDetailPage() {
         try {
           const localProject = await localRepository.getProject(projectId);
           if (isOwnedBy(localProject, user.id)) {
-            setProject(localProject);
+            setProject((prev) => areProjectsEquivalentForDisplay(prev, localProject) ? prev : localProject);
             setActiveRepository(localRepository);
             setLoading(false);
             showedLocalProject = true;
@@ -265,7 +278,7 @@ export default function ProjectDetailPage() {
         }
 
         if (isOwnedBy(remoteProject, user.id)) {
-          setProject(remoteProject);
+          setProject((prev) => areProjectsEquivalentForDisplay(prev, remoteProject) ? prev : remoteProject ?? prev);
           setActiveRepository(remoteRepository);
           setLoading(false);
           void (async () => {
@@ -282,7 +295,7 @@ export default function ProjectDetailPage() {
           const expectedUserId = user.id;
           const fallback = await defaultRepository.getProject(projectId);
           if (isOwnedBy(fallback, expectedUserId)) {
-            setProject(fallback);
+            setProject((prev) => areProjectsEquivalentForDisplay(prev, fallback) ? prev : fallback);
             setActiveRepository(defaultRepository);
             setLoading(false);
             void (async () => {
