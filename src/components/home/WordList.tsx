@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { Button } from '@/components/ui';
@@ -170,6 +170,28 @@ function WordItem({
 }: WordItemProps) {
   const [editEnglish, setEditEnglish] = useState(word.english);
   const [editJapanese, setEditJapanese] = useState(word.japanese);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Convert vertical mouse-wheel to horizontal scroll so desktop users can
+  // reach hidden text in long translations. Only hijacks the wheel when the
+  // element actually has horizontal overflow, otherwise page scroll stays
+  // untouched.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (e.deltaY === 0) return;
+      // If already scrolled to edge in the wheel direction, let page scroll.
+      const atStart = el.scrollLeft <= 0 && e.deltaY < 0;
+      const atEnd = Math.ceil(el.scrollLeft + el.clientWidth) >= el.scrollWidth && e.deltaY > 0;
+      if (atStart || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const handleSave = () => {
     if (editEnglish.trim() && editJapanese.trim()) {
@@ -215,23 +237,29 @@ function WordItem({
       {onStatusChange && (
         <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
-          {word.isFavorite && (
-            <Icon
-              name="flag"
-              size={14}
-              filled
-              className="text-[var(--color-warning)] shrink-0"
-              aria-label="苦手マーク"
-            />
+      <div
+        ref={scrollRef}
+        className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden"
+        style={{ scrollbarWidth: 'thin' }}
+      >
+        <div className="w-max max-w-none">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
+            {word.isFavorite && (
+              <Icon
+                name="flag"
+                size={14}
+                filled
+                className="text-[var(--color-warning)] shrink-0"
+                aria-label="苦手マーク"
+              />
+            )}
+          </div>
+          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>{word.japanese}</p>
+          {showProjectName && word.projectTitle && (
+            <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap">{word.projectTitle}</p>
           )}
         </div>
-        <p className="text-sm text-[var(--color-muted)] whitespace-nowrap overflow-x-auto no-scrollbar" title={word.japanese}>{word.japanese}</p>
-        {showProjectName && word.projectTitle && (
-          <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap overflow-x-auto no-scrollbar">{word.projectTitle}</p>
-        )}
       </div>
       <div className="flex items-center gap-1">
         {onCycleVocabularyType && (
