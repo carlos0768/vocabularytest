@@ -168,6 +168,15 @@ export default function SubscriptionPage() {
         <p className="text-center text-xs text-[var(--color-muted)] mt-6">
           クレジットカードでお支払いいただけます
         </p>
+        <p className="text-center text-xs text-[var(--color-muted)] mt-2">
+          <Link href="/tokusho" className="underline underline-offset-2 hover:text-[var(--color-foreground)]">
+            特定商取引法に基づく表記
+          </Link>
+          <span className="mx-2">/</span>
+          <Link href="/terms" className="underline underline-offset-2 hover:text-[var(--color-foreground)]">
+            利用規約
+          </Link>
+        </p>
       </main>
     </div>
   );

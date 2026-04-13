@@ -7,7 +7,7 @@ import { BottomNav } from './bottom-nav';
 
 const NO_SHELL_PATHS = [
   '/lp', '/login', '/signup', '/reset-password', '/auth',
-  '/privacy', '/terms', '/contact', '/features', '/pricing',
+  '/privacy', '/terms', '/tokusho', '/contact', '/features', '/pricing',
   '/offline', '/share-target', '/admin',
 ];
 
