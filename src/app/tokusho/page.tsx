@@ -88,22 +88,26 @@ export default function TokushoPage() {
             </p>
           </div>
 
-          <section className="space-y-4">
-            {commercialDisclosureItems.map((item) => (
-              <div
-                key={item.label}
-                className="grid gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:grid-cols-[200px_1fr] md:gap-4"
-              >
-                <h2 className="text-sm font-semibold text-[var(--color-muted)]">{item.label}</h2>
-                {item.href ? (
-                  <a href={item.href} className="whitespace-pre-line break-words font-medium text-[var(--color-primary)]">
-                    {item.value}
-                  </a>
-                ) : (
-                  <p className="whitespace-pre-line break-words">{item.value}</p>
-                )}
-              </div>
-            ))}
+          <section>
+            <dl className="divide-y divide-[var(--color-border)]">
+              {commercialDisclosureItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="grid gap-2 py-4 md:grid-cols-[200px_1fr] md:gap-4"
+                >
+                  <dt className="text-sm font-semibold text-[var(--color-muted)]">{item.label}</dt>
+                  <dd>
+                    {item.href ? (
+                      <a href={item.href} className="whitespace-pre-line break-words font-medium text-[var(--color-primary)]">
+                        {item.value}
+                      </a>
+                    ) : (
+                      <p className="whitespace-pre-line break-words">{item.value}</p>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </section>
         </div>
       </main>
