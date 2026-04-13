@@ -1106,8 +1106,10 @@ export default function ProjectDetailPage() {
                 <Icon name="edit" size={18} />
               </button>
             </div>
-            {/* Reserve fixed vertical space so toggling the description does not move the stats card below */}
-            <div className="mt-1 min-h-[2.5rem]">
+            {/* Reserve fixed vertical space so toggling the description does not move the stats card below.
+                Both the display and edit states use block-level elements with identical box dimensions and
+                top-aligned text so the placeholder does not appear to jump vertically when toggling. */}
+            <div className="mt-1 h-[2.5rem]">
               {isEditingDescription ? (
                 <textarea
                   value={descriptionDraft}
@@ -1122,20 +1124,27 @@ export default function ProjectDetailPage() {
                   autoFocus
                   rows={2}
                   placeholder="説明を追加する..."
-                  className="block w-full h-[2.5rem] bg-transparent text-sm leading-5 text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] resize-none focus:outline-none"
+                  className="block w-full h-full m-0 p-0 border-0 bg-transparent text-sm leading-5 text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] resize-none focus:outline-none align-top"
                 />
               ) : (
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={handleStartEditDescription}
-                  className={`block w-full h-[2.5rem] text-left text-sm leading-5 overflow-hidden whitespace-pre-wrap ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleStartEditDescription();
+                    }
+                  }}
+                  className={`block w-full h-full m-0 p-0 text-left text-sm leading-5 overflow-hidden whitespace-pre-wrap cursor-text ${
                     project.description
                       ? 'text-[var(--color-foreground)]'
                       : 'text-[var(--color-muted)]'
                   }`}
                 >
                   {project.description || '説明を追加する...'}
-                </button>
+                </div>
               )}
             </div>
           </section>
