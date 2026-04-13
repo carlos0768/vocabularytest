@@ -11,6 +11,7 @@ import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton'
 import { NotionCheckbox } from '@/components/home/WordList';
 import { getProjectColor } from '@/components/project/ProjectCard';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
+import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
@@ -159,6 +160,7 @@ export default function ProjectDetailPage() {
   const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
+  const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
 
   // Select mode
   const [selectMode, setSelectMode] = useState(false);
@@ -1101,9 +1103,13 @@ export default function ProjectDetailPage() {
                 {/* Sort */}
                 <button
                   type="button"
-                  onClick={() => setWordSortOrder((v) => v === 'createdAsc' ? 'alphabetical' : v === 'alphabetical' ? 'statusAsc' : 'createdAsc')}
-                  className="w-9 h-9 rounded-full flex items-center justify-center border bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)] transition-colors"
-                  aria-label={`ソート: ${wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}`}
+                  onClick={() => setWordShowSortSheet(true)}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center border transition-colors ${
+                    wordSortOrder !== 'createdAsc'
+                      ? 'bg-[var(--color-accent)]/12 border-[var(--color-accent)]/35 text-[var(--color-accent)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border-light)] text-[var(--color-muted)]'
+                  }`}
+                  aria-label={`並べ替え: ${wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}`}
                   title={wordSortOrder === 'createdAsc' ? '追加順' : wordSortOrder === 'alphabetical' ? 'アルファベット' : '未習得順'}
                 >
                   <Icon name="swap_vert" size={18} />
@@ -1150,93 +1156,32 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
-            {/* Filter panel */}
-            {wordShowFilterSheet && (
-              <div className="mb-3 p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] space-y-4">
-                {/* Bookmark */}
-                <label className="flex items-center justify-between cursor-pointer">
-                  <span className="flex items-center gap-2 text-sm text-[var(--color-foreground)]">
-                    <Icon name="bookmark" size={16} filled={wordFilterBookmark} />
-                    ブックマークのみ
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={wordFilterBookmark}
-                    onChange={(e) => setWordFilterBookmark(e.target.checked)}
-                    className="accent-[var(--color-accent)] w-4 h-4"
-                  />
-                </label>
+            {/* Filter bottom sheet */}
+            <WordFilterSheet
+              open={wordShowFilterSheet}
+              onClose={() => setWordShowFilterSheet(false)}
+              bookmark={wordFilterBookmark}
+              onBookmarkChange={setWordFilterBookmark}
+              activeness={wordFilterActiveness}
+              onActivenessChange={setWordFilterActiveness}
+              pos={wordFilterPos}
+              onPosChange={setWordFilterPos}
+              availablePartsOfSpeech={availablePartsOfSpeech}
+              hasActiveFilters={wordFilterActive}
+              onReset={() => {
+                setWordFilterBookmark(false);
+                setWordFilterActiveness('all');
+                setWordFilterPos(null);
+              }}
+            />
 
-                {/* Active / Passive */}
-                <div>
-                  <p className="text-xs font-bold text-[var(--color-muted)] mb-2">アクティブ / パッシブ</p>
-                  <div className="flex gap-2">
-                    {([['all', 'すべて'], ['active', 'アクティブ'], ['passive', 'パッシブ']] as const).map(([val, label]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setWordFilterActiveness(val)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                          wordFilterActiveness === val
-                            ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
-                            : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Part of speech */}
-                {availablePartsOfSpeech.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-[var(--color-muted)] mb-2">品詞</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setWordFilterPos(null)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                          !wordFilterPos
-                            ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
-                            : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
-                        }`}
-                      >
-                        すべて
-                      </button>
-                      {availablePartsOfSpeech.map((pos) => {
-                        const posMap: Record<string, string> = { noun: '名詞', verb: '動詞', adjective: '形容詞', adverb: '副詞', preposition: '前置詞', conjunction: '接続詞', pronoun: '代名詞', interjection: '感動詞', determiner: '限定詞', auxiliary: '助動詞' };
-                        return (
-                          <button
-                            key={pos}
-                            type="button"
-                            onClick={() => setWordFilterPos(pos)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                              wordFilterPos === pos
-                                ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
-                                : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
-                            }`}
-                          >
-                            {posMap[pos.toLowerCase()] ?? pos}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Reset */}
-                {wordFilterActive && (
-                  <button
-                    type="button"
-                    onClick={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
-                    className="text-xs font-semibold text-[var(--color-danger)]"
-                  >
-                    リセット
-                  </button>
-                )}
-              </div>
-            )}
+            {/* Sort bottom sheet */}
+            <WordSortSheet
+              open={wordShowSortSheet}
+              onClose={() => setWordShowSortSheet(false)}
+              sortOrder={wordSortOrder}
+              onSortOrderChange={setWordSortOrder}
+            />
 
             {!wordsLoaded ? (
               <div className="flex items-center gap-3 text-[var(--color-muted)] py-8 justify-center">
