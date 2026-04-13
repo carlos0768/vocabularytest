@@ -109,7 +109,7 @@ export function WordFilterSheet({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 h-11 rounded-full bg-[var(--color-accent)] text-sm font-bold text-white"
+            className="flex-1 h-11 rounded-full bg-[var(--color-primary)] text-sm font-bold text-[var(--color-background)]"
           >
             適用
           </button>
@@ -127,7 +127,7 @@ export function WordFilterSheet({
             type="checkbox"
             checked={bookmark}
             onChange={(e) => onBookmarkChange(e.target.checked)}
-            className="accent-[var(--color-accent)] w-4 h-4"
+            className="accent-[var(--color-primary)] w-4 h-4"
           />
         </label>
 
@@ -146,7 +146,7 @@ export function WordFilterSheet({
                 onClick={() => onActivenessChange(val)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                   activeness === val
-                    ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                    ? 'bg-[var(--color-primary)] text-[var(--color-background)] border-[var(--color-primary)]'
                     : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
                 }`}
               >
@@ -166,7 +166,7 @@ export function WordFilterSheet({
                 onClick={() => onPosChange(null)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                   !pos
-                    ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                    ? 'bg-[var(--color-primary)] text-[var(--color-background)] border-[var(--color-primary)]'
                     : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
                 }`}
               >
@@ -179,7 +179,7 @@ export function WordFilterSheet({
                   onClick={() => onPosChange(p)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                     pos === p
-                      ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                      ? 'bg-[var(--color-primary)] text-[var(--color-background)] border-[var(--color-primary)]'
                       : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border-light)]'
                   }`}
                 >
@@ -223,14 +223,14 @@ export function WordSortSheet({ open, onClose, sortOrder, onSortOrderChange }: W
               }}
               className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-colors ${
                 selected
-                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
                   : 'border-[var(--color-border)] bg-[var(--color-surface-secondary)]'
               }`}
             >
               <span
                 className={`w-9 h-9 rounded-full flex items-center justify-center ${
                   selected
-                    ? 'bg-[var(--color-accent)] text-white'
+                    ? 'bg-[var(--color-primary)] text-[var(--color-background)]'
                     : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
                 }`}
               >
@@ -243,7 +243,7 @@ export function WordSortSheet({ open, onClose, sortOrder, onSortOrderChange }: W
               <Icon
                 name={selected ? 'check_circle' : 'radio_button_unchecked'}
                 size={20}
-                className={selected ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}
+                className={selected ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]'}
               />
             </button>
           );
