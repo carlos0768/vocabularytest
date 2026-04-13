@@ -97,6 +97,7 @@ export interface Project {
   id: string;
   userId: string;
   title: string;
+  description?: string; // Optional free-form description shown on the detail page
   sourceLabels: string[]; // Physical source labels extracted from scans
   iconImage?: string; // Base64 data URL icon shown on project cards
   createdAt: string; // ISO string

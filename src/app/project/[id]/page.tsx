@@ -140,6 +140,10 @@ export default function ProjectDetailPage() {
   const [editingName, setEditingName] = useState('');
   const [editNameSaving, setEditNameSaving] = useState(false);
 
+  const [showEditDescriptionModal, setShowEditDescriptionModal] = useState(false);
+  const [editingDescription, setEditingDescription] = useState('');
+  const [editDescriptionSaving, setEditDescriptionSaving] = useState(false);
+
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
@@ -860,6 +864,25 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleSaveProjectDescription = async () => {
+    if (!project) return;
+
+    const trimmed = editingDescription.trim();
+    setEditDescriptionSaving(true);
+    try {
+      await mutationRepository.updateProject(project.id, { description: trimmed });
+      setProject((prev) => (prev ? { ...prev, description: trimmed } : prev));
+      showToast({ message: '説明を更新しました', type: 'success' });
+      setShowEditDescriptionModal(false);
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to update project description:', error);
+      showToast({ message: '説明の更新に失敗しました', type: 'error' });
+    } finally {
+      setEditDescriptionSaving(false);
+    }
+  };
+
   const handleConfirmDeleteProject = async () => {
     if (!project) return;
 
@@ -1002,34 +1025,34 @@ export default function ProjectDetailPage() {
           style={{ background: headerBackground }}
         >
           <div
-            className="max-w-lg lg:max-w-xl mx-auto px-5 pt-4 pb-5"
+            className="max-w-lg lg:max-w-xl mx-auto px-5 pt-2 pb-2"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                className="w-10 h-10 flex items-center justify-center"
                 aria-label="ホームへ戻る"
               >
                 <Icon name="chevron_left" size={24} className="text-white" />
               </button>
-              <div className="flex-1 text-center mx-3">
-                <p className="text-white font-bold text-sm truncate">{project.title}</p>
-                <p className="text-white/70 text-xs">{stats.total}語</p>
-              </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {isPro && (
                   <button
                     type="button"
                     onClick={handleOpenShareSheet}
-                    className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                    className="w-10 h-10 flex items-center justify-center"
                     aria-label="共有"
                   >
-                    <Icon name="ios_share" size={18} className="text-white" />
+                    <Icon name="ios_share" size={20} className="text-white" />
                   </button>
                 )}
-                <button onClick={() => setDeleteProjectModalOpen(true)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <Icon name="more_horiz" size={18} className="text-white" />
+                <button
+                  onClick={() => setDeleteProjectModalOpen(true)}
+                  className="w-10 h-10 flex items-center justify-center"
+                  aria-label="メニュー"
+                >
+                  <Icon name="more_horiz" size={22} className="text-white" />
                 </button>
               </div>
             </div>
@@ -1037,6 +1060,43 @@ export default function ProjectDetailPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
+          {/* Title + description (Notion-style) */}
+          <section className="-mb-1">
+            <div className="flex items-start gap-2">
+              <h1 className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight break-words">
+                {project.title}
+              </h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingName(project.title);
+                  setShowEditNameModal(true);
+                }}
+                className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
+                aria-label="単語帳名を編集"
+              >
+                <Icon name="edit" size={18} />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingDescription(project.description ?? '');
+                setShowEditDescriptionModal(true);
+              }}
+              className="mt-1 w-full text-left"
+              aria-label="説明を編集"
+            >
+              {project.description ? (
+                <p className="text-sm text-[var(--color-muted)] leading-relaxed whitespace-pre-wrap">
+                  {project.description}
+                </p>
+              ) : (
+                <p className="text-sm text-[var(--color-muted)]/60 leading-relaxed">説明を追加する...</p>
+              )}
+            </button>
+          </section>
+
           {/* 3-column stats card - iOS style */}
           <section>
             <div className="card p-4">
@@ -1560,6 +1620,46 @@ export default function ProjectDetailPage() {
                 className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {editNameSaving ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditDescriptionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">説明を編集</h2>
+
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+                説明
+              </label>
+              <textarea
+                value={editingDescription}
+                onChange={(e) => setEditingDescription(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] resize-none"
+                placeholder="説明を追加する..."
+                rows={4}
+                maxLength={300}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditDescriptionModal(false)}
+                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
+                disabled={editDescriptionSaving}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveProjectDescription}
+                disabled={editDescriptionSaving}
+                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {editDescriptionSaving ? '保存中...' : '保存'}
               </button>
             </div>
           </div>
