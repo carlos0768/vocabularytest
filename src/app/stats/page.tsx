@@ -77,7 +77,6 @@ export default function StatsPage() {
                   </div>
                   <p className="text-3xl font-black text-[var(--color-foreground)]">{stats.quizStats.streakDays}<span className="text-lg font-bold">日</span></p>
                   <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">連続学習</p>
-                  <p className="text-xs text-[var(--color-muted)]">学習を継続中</p>
                 </div>
                 <div className="card p-5">
                   <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center mb-3">
@@ -85,7 +84,6 @@ export default function StatsPage() {
                   </div>
                   <p className="text-3xl font-black text-[var(--color-foreground)]">{stats.quizStats.correctCount ?? 0}<span className="text-lg font-bold">語</span></p>
                   <p className="text-sm font-bold text-[var(--color-foreground)] mt-1">今日正解</p>
-                  <p className="text-xs text-[var(--color-muted)]">今日の正解数</p>
                 </div>
               </div>
 
