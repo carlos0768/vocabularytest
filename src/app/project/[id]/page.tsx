@@ -136,13 +136,13 @@ export default function ProjectDetailPage() {
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
 
-  const [showEditNameModal, setShowEditNameModal] = useState(false);
-  const [editingName, setEditingName] = useState('');
-  const [editNameSaving, setEditNameSaving] = useState(false);
+  const [titleInlineEditing, setTitleInlineEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [showEditDescriptionModal, setShowEditDescriptionModal] = useState(false);
-  const [editingDescription, setEditingDescription] = useState('');
-  const [editDescriptionSaving, setEditDescriptionSaving] = useState(false);
+  const [descriptionInlineEditing, setDescriptionInlineEditing] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
@@ -839,47 +839,61 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleOpenEditNameModal = () => {
-    if (project) {
-      setEditingName(project.title);
-      setShowEditNameModal(true);
-    }
+  const beginTitleEdit = () => {
+    if (!project) return;
+    setTitleDraft(project.title);
+    setTitleInlineEditing(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
   };
 
-  const handleSaveProjectName = async () => {
-    if (!project || !editingName.trim()) return;
+  const beginDescriptionEdit = () => {
+    if (!project) return;
+    setDescriptionDraft(project.description ?? '');
+    setDescriptionInlineEditing(true);
+    setTimeout(() => {
+      const el = descriptionTextareaRef.current;
+      if (el) {
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    }, 0);
+  };
 
-    setEditNameSaving(true);
+  const commitInlineTitle = async () => {
+    if (!project) {
+      setTitleInlineEditing(false);
+      return;
+    }
+    const trimmed = titleDraft.trim();
+    setTitleInlineEditing(false);
+    if (!trimmed || trimmed === project.title) return;
     try {
-      await mutationRepository.updateProject(project.id, { title: editingName.trim() });
-      setProject((prev) => (prev ? { ...prev, title: editingName.trim() } : prev));
-      showToast({ message: '単語帳名を変更しました', type: 'success' });
-      setShowEditNameModal(false);
+      await mutationRepository.updateProject(project.id, { title: trimmed });
+      setProject((prev) => (prev ? { ...prev, title: trimmed } : prev));
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project name:', error);
       showToast({ message: '名前の変更に失敗しました', type: 'error' });
-    } finally {
-      setEditNameSaving(false);
     }
   };
 
-  const handleSaveProjectDescription = async () => {
-    if (!project) return;
-
-    const trimmed = editingDescription.trim();
-    setEditDescriptionSaving(true);
+  const commitInlineDescription = async () => {
+    if (!project) {
+      setDescriptionInlineEditing(false);
+      return;
+    }
+    const trimmed = descriptionDraft.trim();
+    setDescriptionInlineEditing(false);
+    const current = project.description ?? '';
+    if (trimmed === current) return;
     try {
       await mutationRepository.updateProject(project.id, { description: trimmed });
       setProject((prev) => (prev ? { ...prev, description: trimmed } : prev));
-      showToast({ message: '説明を更新しました', type: 'success' });
-      setShowEditDescriptionModal(false);
       invalidateHomeCache();
     } catch (error) {
       console.error('Failed to update project description:', error);
       showToast({ message: '説明の更新に失敗しました', type: 'error' });
-    } finally {
-      setEditDescriptionSaving(false);
     }
   };
 
@@ -1025,9 +1039,9 @@ export default function ProjectDetailPage() {
           style={{ background: headerBackground }}
         >
           <div
-            className="max-w-lg lg:max-w-xl mx-auto px-5 pt-2 pb-2"
+            className="max-w-lg lg:max-w-xl mx-auto px-5 py-1.5"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between min-h-[44px]">
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
@@ -1060,41 +1074,74 @@ export default function ProjectDetailPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
-          {/* Title + description (Notion-style) */}
-          <section className="-mb-1">
+          {/* Title + description (Notion-style, inline-editable) */}
+          <section className="mb-3">
             <div className="flex items-start gap-2">
-              <h1 className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight break-words">
-                {project.title}
-              </h1>
+              {titleInlineEditing ? (
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={commitInlineTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      (e.target as HTMLInputElement).blur();
+                    } else if (e.key === 'Escape') {
+                      setTitleInlineEditing(false);
+                    }
+                  }}
+                  maxLength={50}
+                  className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight bg-transparent border-0 border-b border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none px-0 py-0"
+                />
+              ) : (
+                <h1
+                  onClick={beginTitleEdit}
+                  className="flex-1 text-2xl font-bold text-[var(--color-foreground)] leading-tight break-words cursor-text"
+                >
+                  {project.title}
+                </h1>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setEditingName(project.title);
-                  setShowEditNameModal(true);
-                }}
+                onClick={beginTitleEdit}
                 className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
                 aria-label="単語帳名を編集"
               >
                 <Icon name="edit" size={18} />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingDescription(project.description ?? '');
-                setShowEditDescriptionModal(true);
-              }}
-              className="mt-1 w-full text-left"
-              aria-label="説明を編集"
-            >
-              {project.description ? (
-                <p className="text-sm text-[var(--color-muted)] leading-relaxed whitespace-pre-wrap">
-                  {project.description}
-                </p>
-              ) : (
-                <p className="text-sm text-[var(--color-muted)]/60 leading-relaxed">説明を追加する...</p>
-              )}
-            </button>
+            {descriptionInlineEditing ? (
+              <textarea
+                ref={descriptionTextareaRef}
+                value={descriptionDraft}
+                onChange={(e) => setDescriptionDraft(e.target.value)}
+                onBlur={commitInlineDescription}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setDescriptionInlineEditing(false);
+                  }
+                }}
+                maxLength={300}
+                rows={3}
+                placeholder="説明を追加する..."
+                className="mt-2 w-full text-sm text-[var(--color-muted)] leading-relaxed bg-transparent border-0 focus:outline-none resize-none p-0 placeholder:text-[var(--color-muted)]/60"
+              />
+            ) : (
+              <div
+                onClick={beginDescriptionEdit}
+                className="mt-2 cursor-text"
+              >
+                {project.description ? (
+                  <p className="text-sm text-[var(--color-muted)] leading-relaxed whitespace-pre-wrap">
+                    {project.description}
+                  </p>
+                ) : (
+                  <p className="text-sm text-[var(--color-muted)]/60 leading-relaxed">説明を追加する...</p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* 3-column stats card - iOS style */}
@@ -1587,84 +1634,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {showEditNameModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語帳名を編集</h2>
-
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                単語帳名
-              </label>
-              <input
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                placeholder="単語帳名"
-                autoFocus
-              />
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowEditNameModal(false)}
-                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
-                disabled={editNameSaving}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSaveProjectName}
-                disabled={editNameSaving || !editingName.trim()}
-                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {editNameSaving ? '保存中...' : '保存'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEditDescriptionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-[var(--color-background)] rounded-2xl p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">説明を編集</h2>
-
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                説明
-              </label>
-              <textarea
-                value={editingDescription}
-                onChange={(e) => setEditingDescription(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] resize-none"
-                placeholder="説明を追加する..."
-                rows={4}
-                maxLength={300}
-                autoFocus
-              />
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowEditDescriptionModal(false)}
-                className="flex-1 px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors"
-                disabled={editDescriptionSaving}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSaveProjectDescription}
-                disabled={editDescriptionSaving}
-                className="flex-1 px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {editDescriptionSaving ? '保存中...' : '保存'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <input
         ref={scanCameraInputRef}
         type="file"
