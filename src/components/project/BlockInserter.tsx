@@ -44,7 +44,7 @@ export function BlockInserter({ onInsert }: BlockInserterProps) {
 
   return (
     <div ref={rootRef} className="relative group/inserter flex items-center py-1">
-      {/* Inline "+" trigger (Notion-style) — always visible but subtle */}
+      {/* Minimal "+" trigger — invisible until hovered, Notion-style. */}
       <button
         type="button"
         aria-label="ブロックを追加"
@@ -52,19 +52,13 @@ export function BlockInserter({ onInsert }: BlockInserterProps) {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className={`flex h-5 items-center gap-1.5 px-2 text-[0.7rem] transition-colors ${
+        className={`flex h-5 w-5 items-center justify-center rounded-sm text-[var(--color-muted)] transition-opacity ${
           open
-            ? 'text-[var(--color-foreground)]'
-            : 'text-[var(--color-muted)]/50 hover:text-[var(--color-foreground)]'
+            ? 'opacity-100'
+            : 'opacity-0 group-hover/inserter:opacity-60 hover:opacity-100'
         }`}
       >
-        <span
-          aria-hidden="true"
-          className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-gradient-to-br from-[#f5b638] to-[#2f6ee3] text-[9px] font-bold text-white"
-        >
-          +
-        </span>
-        <span className="hidden group-hover/inserter:inline">テンプレートを選択</span>
+        <Icon name="add" size={14} />
       </button>
       <span className="ml-1 h-px flex-1 bg-transparent transition-colors group-hover/inserter:bg-[var(--color-border-light)]" />
 
