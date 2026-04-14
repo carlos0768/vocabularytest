@@ -6,6 +6,9 @@ import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistr
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { StatsSync } from '@/components/StatsSync';
 import { PersistentAppShell } from '@/components/ui/PersistentAppShell';
+import { GoogleAdSenseScript } from '@/components/ads/GoogleAdSenseScript';
+import { GooglePublisherTagScript } from '@/components/ads/GooglePublisherTagScript';
+import { ADSENSE_CLIENT_ID } from '@/lib/adsense';
 import './globals.css';
 
 const lexend = Lexend({
@@ -116,10 +119,13 @@ export default function RootLayout({
             }),
           }}
         />
+        <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
       </head>
       <body
         className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
       >
+        <GoogleAdSenseScript />
+        <GooglePublisherTagScript />
         <ThemeProvider>
           <ToastProvider>
             <OfflineSyncProvider>
