@@ -59,6 +59,17 @@ export interface CustomSection {
   content: string;
 }
 
+// Project-level column definition used by the word list table.
+// The column `id` matches the Word.customSections entry `id` so cell values
+// flow through the existing per-word custom sections storage.
+export type CustomColumnType = 'text' | 'number' | 'date';
+
+export interface CustomColumn {
+  id: string;
+  title: string;
+  type: CustomColumnType;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -107,6 +118,8 @@ export interface Project {
   /** Set when this project was created by importing a copy from /share/[shareId] */
   importedFromShareId?: string;
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
+  /** User-defined extra columns shown in the project word list table. */
+  customColumns?: CustomColumn[];
 }
 
 // ============ Collection Types ============
