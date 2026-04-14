@@ -8,6 +8,7 @@ import { cn, getGuestUserId } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { getRepository } from '@/lib/db';
+import { BlankProjectModal } from '@/components/home/BlankProjectModal';
 
 interface NavItem {
   href: string;
@@ -48,6 +49,7 @@ export function BottomNav() {
   const router = useRouter();
   const { user, subscription, wasPro } = useAuth();
   const { showToast } = useToast();
+  const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const isActive = (item: NavItem) => {
@@ -59,7 +61,7 @@ export function BottomNav() {
     return pathname === item.href;
   };
 
-  const handleCreateBlankProject = async () => {
+  const handleConfirmCreate = async (name: string, description?: string) => {
     if (creating) return;
     setCreating(true);
     try {
@@ -68,13 +70,16 @@ export function BottomNav() {
       const userId = user?.id || getGuestUserId();
       const created = await repository.createProject({
         userId,
-        title: '無題の単語帳',
+        title: name,
+        description,
         sourceLabels: [],
       });
+      setModalOpen(false);
       router.push(`/project/${created.id}`);
     } catch (error) {
       console.error('Failed to create blank project:', error);
       showToast({ message: '単語帳の作成に失敗しました', type: 'error' });
+    } finally {
       setCreating(false);
     }
   };
@@ -107,16 +112,23 @@ export function BottomNav() {
           })}
         </div>
       </nav>
-      {/* FAB - creates a blank Notion-style flashcard instantly */}
+      {/* FAB — opens a name + description dialog before creating the project. */}
       <button
         type="button"
-        onClick={handleCreateBlankProject}
-        disabled={creating}
-        className="fab lg:hidden active:scale-95 transition-transform disabled:opacity-60"
+        onClick={() => setModalOpen(true)}
+        className="fab lg:hidden active:scale-95 transition-transform"
         aria-label="新規単語帳を作成"
       >
-        <Icon name={creating ? 'progress_activity' : 'add'} size={28} className={creating ? 'animate-spin' : ''} />
+        <Icon name="add" size={28} />
       </button>
+      <BlankProjectModal
+        isOpen={modalOpen}
+        onClose={() => {
+          if (!creating) setModalOpen(false);
+        }}
+        onConfirm={handleConfirmCreate}
+        isSubmitting={creating}
+      />
     </>
   );
 }
