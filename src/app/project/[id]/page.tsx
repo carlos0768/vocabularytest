@@ -1372,10 +1372,12 @@ export default function ProjectDetailPage() {
                 card widget). */}
           <section className="space-y-1">
             {blocksAbove.length === 0 ? (
-              <div className="my-8">
-                <BlockInserter
-                  onInsert={(type) => handleInsertBlock(type, 'above', -1)}
-                />
+              <div className="my-8 flex justify-center">
+                <div className="w-10">
+                  <BlockInserter
+                    onInsert={(type) => handleInsertBlock(type, 'above', -1)}
+                  />
+                </div>
               </div>
             ) : (
               blocksAbove.map((block, idx) => (
@@ -1716,10 +1718,12 @@ export default function ProjectDetailPage() {
               against the word list. */}
           <section className="space-y-1">
             {blocksBelow.length === 0 ? (
-              <div className="mt-16">
-                <BlockInserter
-                  onInsert={(type) => handleInsertBlock(type, 'below', -1)}
-                />
+              <div className="mt-16 flex justify-center">
+                <div className="w-10">
+                  <BlockInserter
+                    onInsert={(type) => handleInsertBlock(type, 'below', -1)}
+                  />
+                </div>
               </div>
             ) : (
               blocksBelow.map((block, idx) => (
