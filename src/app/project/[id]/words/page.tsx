@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, Icon } from '@/components/ui';
-import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { WordList } from '@/components/home';
 import { useAuth } from '@/hooks/use-auth';
@@ -21,7 +20,7 @@ export default function WordListPage() {
   const projectId = params.id as string;
   const { user, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
-  const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
+  const { refresh: refreshWordCount } = useWordCount();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -40,8 +39,6 @@ export default function WordListPage() {
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
-
-  const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
   // Load project and words
   useEffect(() => {
@@ -181,12 +178,6 @@ export default function WordListPage() {
   const handleSaveManualWord = async () => {
     if (!manualWordEnglish.trim() || !manualWordJapanese.trim() || !project) return;
 
-    const { canAdd, wouldExceed } = canAddWords(1);
-    if (!canAdd || wouldExceed) {
-      setShowWordLimitModal(true);
-      return;
-    }
-
     setManualWordSaving(true);
     try {
       const created = await repository.createWords([{
@@ -294,11 +285,6 @@ export default function WordListPage() {
         isLoading={deleteWordLoading}
       />
 
-      <WordLimitModal
-        isOpen={showWordLimitModal}
-        onClose={() => setShowWordLimitModal(false)}
-        currentCount={totalWordCount}
-      />
     </>
   );
 }

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, Icon, type ProgressStep } from '@/components/ui';
-import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { NotionCheckbox } from '@/components/home/WordList';
@@ -118,7 +117,7 @@ export default function ProjectDetailPage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { aiEnabled } = useUserPreferences();
   const { showToast } = useToast();
-  const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
+  const { refresh: refreshWordCount } = useWordCount();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -168,7 +167,6 @@ export default function ProjectDetailPage() {
   const [editingCell, setEditingCell] = useState<{ wordId: string; columnId: string } | null>(null);
   const [editingCellValue, setEditingCellValue] = useState('');
 
-  const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
   const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
@@ -759,12 +757,6 @@ export default function ProjectDetailPage() {
 
   const handleSaveManualWord = async () => {
     if (!project) return;
-
-    const { canAdd, wouldExceed } = canAddWords(1);
-    if (!canAdd || wouldExceed) {
-      setShowWordLimitModal(true);
-      return;
-    }
 
     if (!manualWordEnglish.trim() || !manualWordJapanese.trim()) return;
 
@@ -1698,12 +1690,6 @@ export default function ProjectDetailPage() {
         isLoading={deleteProjectLoading}
       />
 
-      <WordLimitModal
-        isOpen={showWordLimitModal}
-        onClose={() => setShowWordLimitModal(false)}
-        currentCount={totalWordCount}
-      />
-
       {/* Add method action sheet */}
       {showAddMethodSheet && (
         <div className="fixed inset-0 z-50" onClick={() => setShowAddMethodSheet(false)}>
@@ -1720,7 +1706,6 @@ export default function ProjectDetailPage() {
                 <button
                   onClick={() => {
                     setShowAddMethodSheet(false);
-                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
                     setPendingScanSource('camera');
                     setShowScanModeModal(true);
                   }}
@@ -1732,7 +1717,6 @@ export default function ProjectDetailPage() {
                 <button
                   onClick={() => {
                     setShowAddMethodSheet(false);
-                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
                     setPendingScanSource('gallery');
                     setShowScanModeModal(true);
                   }}
@@ -1744,7 +1728,6 @@ export default function ProjectDetailPage() {
                 <button
                   onClick={() => {
                     setShowAddMethodSheet(false);
-                    if (!canAddWords(1)) { setShowWordLimitModal(true); return; }
                     setShowManualWordModal(true);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm hover:opacity-80 transition-opacity"

@@ -7,11 +7,9 @@ import { Icon, Button } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/components/theme-provider';
-import { useWordCount } from '@/hooks/use-word-count';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
 import { getSubscriptionDisplayDate } from '@/lib/subscription/display';
-import { FREE_DAILY_SCAN_LIMIT, FREE_WORD_LIMIT } from '@/lib/utils';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -19,7 +17,6 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, subscription, isPro, signOut, refresh, loading: authLoading, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { count: wordCount, loading: wordCountLoading } = useWordCount();
   const {
     username,
     loading: profileLoading,

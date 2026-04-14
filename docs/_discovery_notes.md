@@ -220,7 +220,7 @@ When `CLOUD_RUN_URL` and `CLOUD_RUN_AUTH_TOKEN` are both set, all AI extraction 
 - **CONFIRMED**: IndexedDB is never accessed server-side — `getDb()` throws if `window === undefined`.
 - **CONFIRMED**: KOMOJU webhook signature is verified with timing-safe comparison before any processing.
 - **CONFIRMED**: Supabase RLS is enabled on `subscriptions`, `projects`, `words` tables (initial migration). Additional tables from later migrations — verify RLS is enabled on all.
-- **LIKELY**: Free users are limited to 100 words total (`FREE_WORD_LIMIT = 100` in `src/lib/utils.ts:L44`) and 3 scans/day (`FREE_DAILY_SCAN_LIMIT = 3`). Server enforces scan limit via RPC; word limit enforced client-side only at save time.
+- **CONFIRMED**: Free users have no total word limit (removed); 3 scans/day remains (`FREE_DAILY_SCAN_LIMIT = 3`). Server enforces scan limit via RPC.
 - **NEEDS VERIFICATION**: Whether all tables added after migration 001 (e.g., `scan_jobs`, `webhook_events`, `subscription_sessions`, `user_activity_logs`, `word_embeddings`, `web_push_subscriptions`, `ios_device_tokens`, `collections`) have RLS enabled.
 
 ---

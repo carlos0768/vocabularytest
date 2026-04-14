@@ -42,7 +42,6 @@ const SCAN_COUNT_KEY = 'scanvocab_scan_count';
 const SCAN_DATE_KEY = 'scanvocab_scan_date';
 // Free plan limits (must match server-side in /api/extract and /api/grammar)
 export const FREE_DAILY_SCAN_LIMIT = 3;
-export const FREE_WORD_LIMIT = 100;
 
 export function getDailyScanInfo(): { count: number; remaining: number; canScan: boolean } {
   if (typeof window === 'undefined') {

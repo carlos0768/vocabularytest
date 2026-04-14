@@ -105,7 +105,7 @@ getRepository(subscriptionStatus, wasPro)
 | Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
 | Scans per day | 3 (server-enforced) | Unlimited |
-| Words total | 100 (client-enforced) | Unlimited |
+| Words total | Unlimited | Unlimited |
 | Scan modes | `all` only | all, circled, highlighted, eiken, idiom, wrong |
 | Data storage | IndexedDB (browser-local) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | No | Yes |

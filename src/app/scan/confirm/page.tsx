@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getRepository } from '@/lib/db';
 import { getDb } from '@/lib/db/dexie';
-import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
+import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
 import type { AIWordExtraction, LexiconEntry, Word } from '@/types';
@@ -125,8 +125,8 @@ function getInitialData(): {
 
 export default function ConfirmPage() {
   const router = useRouter();
-  const { count: currentWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
-  const { isPro, subscription, user } = useAuth();
+  const { refresh: refreshWordCount } = useWordCount();
+  const { subscription, user } = useAuth();
   const { aiEnabled: accountAiEnabled } = useUserPreferences();
   const { showToast } = useToast();
 
@@ -158,10 +158,7 @@ export default function ConfirmPage() {
   const [saving, setSaving] = useState(false);
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
 
-  // Check if adding these words would exceed limit
-  const { wouldExceed, excessCount, availableSlots } = canAddWords(words.filter(w => w.isSelected).length);
   const selectedCount = words.filter(w => w.isSelected).length;
-  const showLimitWarning = !isPro && wouldExceed;
 
   // Check if adding to existing project
   const isAddingToExisting = !!existingProjectId;
@@ -387,12 +384,6 @@ export default function ConfirmPage() {
       return;
     }
 
-    // Check limit again before saving
-    if (!isPro && wouldExceed) {
-      alert(`保存できる単語は${availableSlots}語までです。単語を減らしてください。`);
-      return;
-    }
-
     setSaving(true);
     try {
       // Get repository and userId
@@ -461,20 +452,6 @@ export default function ConfirmPage() {
       // Refresh word count
       refreshWordCount();
 
-      // Check if user just crossed 80 words (nudge)
-      const newTotal = currentWordCount + selectedWords.length;
-      if (!isPro && currentWordCount < 80 && newTotal >= 80) {
-        showToast({
-          message: `80語達成! あと${FREE_WORD_LIMIT - newTotal}語で上限です`,
-          type: 'success',
-          action: {
-            label: 'Pro詳細',
-            onClick: () => router.push('/subscription'),
-          },
-          duration: 4000,
-        });
-      }
-
       // Show success message for adding words
       if (isAddingToExisting) {
         showToast({
@@ -541,25 +518,6 @@ export default function ConfirmPage() {
         </div>
       </header>
 
-      {/* Limit warning */}
-      {showLimitWarning && (
-        <div className="bg-[var(--color-warning-light)] border-b border-[var(--color-border)]">
-          <div className="max-w-lg mx-auto px-5 py-3">
-            <div className="flex items-start gap-3">
-              <Icon name="warning" size={20} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-[var(--color-foreground)]">単語数が上限に近づいています</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  現在: {currentWordCount}語 / 上限: {FREE_WORD_LIMIT}語　
-                  今回: +{selectedCount}語 → 合計{currentWordCount + selectedCount}語
-                  {excessCount > 0 && <span className="text-[var(--color-error)] font-medium"> （{excessCount}語超過）</span>}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <main className="max-w-lg mx-auto px-5 pt-5">
         {/* Project title input */}
         {!isAddingToExisting && (
@@ -578,7 +536,7 @@ export default function ConfirmPage() {
         {/* Stats bar */}
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm text-[var(--color-muted)]">
-            {selectedCount}語選択中{!isPro && ` / 残り${availableSlots}語`}
+            {selectedCount}語選択中
           </p>
         </div>
 
@@ -589,7 +547,7 @@ export default function ConfirmPage() {
               <WordCard
                 key={`${word.tempId}:${word.english}:${word.japanese}`}
                 word={word}
-                showCheckbox={!isPro && showLimitWarning}
+                showCheckbox={false}
                 onToggle={() => handleToggleWord(word.tempId)}
                 onDelete={() => handleDeleteWord(word.tempId)}
                 onEdit={() => handleEditWord(word.tempId)}
@@ -612,14 +570,11 @@ export default function ConfirmPage() {
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleSaveProject}
-            disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
+            disabled={saving || selectedCount === 0}
             className="w-full py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50 transition-opacity"
           >
             {saving ? '保存中...' : isAddingToExisting ? `${selectedCount}語を追加` : `単語帳として追加 (${selectedCount}語)`}
           </button>
-          {!isPro && excessCount > 0 && (
-            <p className="text-xs text-[var(--color-error)] text-center mt-2">{excessCount}語減らしてください</p>
-          )}
         </div>
       </div>
     </div>

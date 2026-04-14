@@ -202,8 +202,6 @@ When you change X, you must also check Y.
 
 1. **RLS on newer tables**: Tables added after migration 001 (e.g., `scan_jobs`, `webhook_events`, `subscription_sessions`, `word_embeddings`, `web_push_subscriptions`, `ios_device_tokens`, `collections`, `api_cost_events`, `feature_usage_daily`) -- RLS status is not confirmed for all. Migration `20260209000500_explicit_rls_for_internal_tables.sql` exists and likely addresses some, but a full audit is needed.
 
-2. **Free user word limit (100 words)**: Enforced client-side only at `src/app/scan/confirm/page.tsx`. No server-side enforcement exists at the word creation level. A user calling the API directly could bypass this limit.
+2. **`wasPro` inconsistency**: `use-projects.ts` correctly passes `wasPro` to `getRepository()`, but `scan/confirm/page.tsx` may not pass it in all code paths. This could cause downgraded Pro users to get `localRepository` instead of `readonlyRemoteRepository` during certain operations.
 
-3. **`wasPro` inconsistency**: `use-projects.ts` correctly passes `wasPro` to `getRepository()`, but `scan/confirm/page.tsx` may not pass it in all code paths. This could cause downgraded Pro users to get `localRepository` instead of `readonlyRemoteRepository` during certain operations.
-
-4. **Grammar feature**: No `src/app/grammar/` or `src/app/api/grammar/` routes exist in the codebase, though `vercel.json` references `src/app/api/grammar/route.ts` and CLAUDE.md describes it. The feature appears to have been removed or never implemented. The `vercel.json` reference should be cleaned up.
+3. **Grammar feature**: No `src/app/grammar/` or `src/app/api/grammar/` routes exist in the codebase, though `vercel.json` references `src/app/api/grammar/route.ts` and CLAUDE.md describes it. The feature appears to have been removed or never implemented. The `vercel.json` reference should be cleaned up.

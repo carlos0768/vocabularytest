@@ -6,9 +6,8 @@ import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, Icon } from '@/components/ui';
-import { ScanLimitModal, WordLimitModal } from '@/components/limits';
+import { ScanLimitModal } from '@/components/limits';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import {
@@ -41,7 +40,6 @@ function ScanPageContent() {
     saving: userPreferencesSaving,
     setAiEnabled: saveAiEnabledPreference,
   } = useUserPreferences();
-  const { isAtLimit } = useWordCount();
   const { showToast } = useToast();
 
   const [processing, setProcessing] = useState(false);
@@ -55,8 +53,7 @@ function ScanPageContent() {
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
-  const [showWordLimitModal, setShowWordLimitModal] = useState(false);
-  
+
   // Background scan state
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [projectName, setProjectName] = useState('');
@@ -346,11 +343,6 @@ function ScanPageContent() {
     }
 
     // Free users or adding to existing project: use traditional flow
-    if (!isPro && isAtLimit) {
-      setShowWordLimitModal(true);
-      return;
-    }
-
     const totalFiles = scanFiles.length;
     setProcessing(true);
 
@@ -474,7 +466,6 @@ function ScanPageContent() {
     userPreferencesLoading,
     isPro,
     isAuthenticated,
-    isAtLimit,
     projectId,
     router,
     showToast,
@@ -731,13 +722,6 @@ function ScanPageContent() {
           isOpen={showScanLimitModal}
           onClose={() => setShowScanLimitModal(false)}
           todayWordsLearned={0}
-        />
-
-        {/* Word limit modal */}
-        <WordLimitModal
-          isOpen={showWordLimitModal}
-          onClose={() => setShowWordLimitModal(false)}
-          currentCount={0}
         />
 
         {/* Project name modal for background scan */}

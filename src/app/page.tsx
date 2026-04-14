@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, Icon } from '@/components/ui';
-import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
+import { ScanLimitModal } from '@/components/limits';
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
@@ -17,7 +17,7 @@ import { getRepository } from '@/lib/db';
 import { LocalWordRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
-import { getGuestUserId, FREE_WORD_LIMIT, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
+import { getGuestUserId, getWrongAnswers, removeWrongAnswer, getDailyStats, getStreakDays, type WrongAnswer } from '@/lib/utils';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { prefetchStats } from '@/lib/stats-cache';
 import { expandFilesForScan, isPdfFile, processImageToBase64 } from '@/lib/image-utils';
@@ -93,7 +93,7 @@ export default function HomePage() {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const { user, subscription, isAuthenticated, isPro, wasPro, loading: authLoading, sessionExpired } = useAuth();
-  const { isAlmostFull, isAtLimit, refresh: refreshWordCount } = useWordCount();
+  const { refresh: refreshWordCount } = useWordCount();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -179,7 +179,6 @@ export default function HomePage() {
 
   // Modals
   const [showScanLimitModal, setShowScanLimitModal] = useState(false);
-  const [showWordLimitModal, setShowWordLimitModal] = useState(false);
   const [showProjectNameModal, setShowProjectNameModal] = useState(false);
   const [scanUploadStatus, setScanUploadStatus] = useState<'uploading' | 'done' | 'error' | undefined>(undefined);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
@@ -1010,11 +1009,6 @@ export default function HomePage() {
       return;
     }
 
-    if (!isPro && isAtLimit) {
-      setShowWordLimitModal(true);
-      return;
-    }
-
     let scanFiles = files;
     if (files.some((file) => isPdfFile(file))) {
       try {
@@ -1618,7 +1612,6 @@ export default function HomePage() {
             isPro={isPro}
           />
           <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
-          <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
           <ProjectNameModal
             isOpen={showProjectNameModal}
             onClose={() => {
@@ -1640,8 +1633,6 @@ export default function HomePage() {
   return (
     <>
       <div className="flex flex-col pb-28 lg:pb-8">
-        {!authLoading && !isPro && isAlmostFull && <WordLimitBanner currentCount={totalWords} />}
-
         <input
           ref={fileInputRef}
           type="file"
@@ -1839,7 +1830,6 @@ export default function HomePage() {
         isPro={isPro}
       />
       <ScanLimitModal isOpen={showScanLimitModal} onClose={() => setShowScanLimitModal(false)} todayWordsLearned={0} />
-      <WordLimitModal isOpen={showWordLimitModal} onClose={() => setShowWordLimitModal(false)} currentCount={totalWords} />
       <ProjectNameModal
         isOpen={showProjectNameModal}
         onClose={() => {
