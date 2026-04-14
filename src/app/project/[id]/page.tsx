@@ -1334,27 +1334,30 @@ export default function ProjectDetailPage() {
             </div>
           </section>
 
-          {/* User blocks rendered above the word list (Notion-like) */}
-          <section className="space-y-1">
-            <BlockInserter
-              onInsert={(type) => handleInsertBlock(type, 'above', -1)}
-            />
-            {blocksAbove.map((block, idx) => (
-              <div key={block.id}>
-                {block.type === 'richText' && (
-                  <RichTextBlock
-                    block={block}
-                    autoFocus={newlyAddedBlockId === block.id}
-                    onChange={(html) => handleUpdateBlockHtml(block.id, html)}
-                    onDelete={() => handleDeleteBlock(block.id)}
-                  />
-                )}
-                <BlockInserter
-                  onInsert={(type) => handleInsertBlock(type, 'above', idx)}
-                />
-              </div>
-            ))}
-          </section>
+          {/* User blocks rendered above the word list (Notion-like).
+              Inserters adjacent to surrounding widgets (title above, stats
+              card below) are hidden; only between-block inserters remain. */}
+          {blocksAbove.length > 0 && (
+            <section className="space-y-1">
+              {blocksAbove.map((block, idx) => (
+                <div key={block.id}>
+                  {block.type === 'richText' && (
+                    <RichTextBlock
+                      block={block}
+                      autoFocus={newlyAddedBlockId === block.id}
+                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                    />
+                  )}
+                  {idx < blocksAbove.length - 1 && (
+                    <BlockInserter
+                      onInsert={(type) => handleInsertBlock(type, 'above', idx)}
+                    />
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
 
           {/* 3-column stats card - iOS style */}
           <section>
@@ -1697,26 +1700,36 @@ export default function ProjectDetailPage() {
             )}
           </section>
 
-          {/* User blocks rendered below the word list (Notion-like) */}
+          {/* User blocks rendered below the word list (Notion-like).
+              The inserter directly below the word list (adjacent to a widget)
+              is hidden. Between-block inserters and the final page-bottom
+              inserter remain visible. When empty, a single page-bottom
+              inserter is rendered with extra top margin so it is not flush
+              against the word list. */}
           <section className="space-y-1">
-            <BlockInserter
-              onInsert={(type) => handleInsertBlock(type, 'below', -1)}
-            />
-            {blocksBelow.map((block, idx) => (
-              <div key={block.id}>
-                {block.type === 'richText' && (
-                  <RichTextBlock
-                    block={block}
-                    autoFocus={newlyAddedBlockId === block.id}
-                    onChange={(html) => handleUpdateBlockHtml(block.id, html)}
-                    onDelete={() => handleDeleteBlock(block.id)}
-                  />
-                )}
+            {blocksBelow.length === 0 ? (
+              <div className="mt-16">
                 <BlockInserter
-                  onInsert={(type) => handleInsertBlock(type, 'below', idx)}
+                  onInsert={(type) => handleInsertBlock(type, 'below', -1)}
                 />
               </div>
-            ))}
+            ) : (
+              blocksBelow.map((block, idx) => (
+                <div key={block.id}>
+                  {block.type === 'richText' && (
+                    <RichTextBlock
+                      block={block}
+                      autoFocus={newlyAddedBlockId === block.id}
+                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                    />
+                  )}
+                  <BlockInserter
+                    onInsert={(type) => handleInsertBlock(type, 'below', idx)}
+                  />
+                </div>
+              ))
+            )}
           </section>
         </main>
 

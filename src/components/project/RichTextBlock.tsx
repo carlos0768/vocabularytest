@@ -59,7 +59,7 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
 
   return (
     <div
-      className="group relative my-1"
+      className="group relative"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
@@ -86,7 +86,7 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
         contentEditable
         suppressContentEditableWarning
         data-placeholder="本文を入力..."
-        className="rich-text-block min-h-[2rem] rounded-md px-3 py-2 text-[var(--color-foreground)] outline-none focus:bg-[var(--color-surface-secondary)]"
+        className="rich-text-block text-[var(--color-foreground)] outline-none"
         onFocus={() => setFocused(true)}
         onBlur={handleBlur}
       />
@@ -97,7 +97,7 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
           type="button"
           onClick={onDelete}
           aria-label="ブロックを削除"
-          className="absolute -left-7 top-1 hidden h-6 w-6 items-center justify-center rounded text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] lg:flex"
+          className="absolute -left-7 top-0 hidden h-6 w-6 items-center justify-center rounded text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] lg:flex"
         >
           <Icon name="close" size={14} />
         </button>

@@ -31,9 +31,7 @@ export function BlockInserter({ onInsert }: BlockInserterProps) {
           onInsert('richText');
         }
       }}
-      className="group/inserter h-4 w-full cursor-text"
-    >
-      <span className="block h-px w-full bg-transparent transition-colors group-hover/inserter:bg-[var(--color-border-light)]" />
-    </div>
+      className="h-4 w-full cursor-text"
+    />
   );
 }
