@@ -49,20 +49,20 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       className={cn(
-        'fixed inset-0 z-50 flex justify-center',
+        'fixed inset-0 z-[100] flex justify-center',
         isSheet ? 'items-end' : 'items-center p-4'
       )}
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-black/50" />
 
       {/* Modal content */}
       <div
         className={cn(
-          'relative bg-[var(--color-surface)] shadow-card border border-[var(--color-border)]',
+          'relative bg-[var(--color-surface)] shadow-2xl border border-[var(--color-border)]',
           isSheet
-            ? 'w-full max-w-lg max-h-[calc(100dvh-2rem)] rounded-t-[var(--radius-xl)] flex flex-col animate-in slide-in-from-bottom fade-in duration-200'
+            ? 'w-full max-w-lg max-h-[85dvh] rounded-t-2xl flex flex-col animate-in slide-in-from-bottom fade-in duration-200'
             : 'w-full max-w-sm rounded-[var(--radius-xl)] animate-in fade-in zoom-in-95 duration-200',
           className
         )}

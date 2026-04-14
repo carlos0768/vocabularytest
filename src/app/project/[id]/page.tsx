@@ -192,37 +192,12 @@ export default function ProjectDetailPage() {
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [openWordId, setOpenWordId] = useState<string | null>(null);
 
-  // Open the word detail modal and push a history entry so the back button closes it.
   const handleOpenWordModal = useCallback((wordId: string) => {
     setOpenWordId(wordId);
-    if (typeof window !== 'undefined') {
-      try {
-        window.history.pushState({ wordModal: wordId }, '');
-      } catch {
-        // history.pushState may throw in restricted contexts — modal still opens via state.
-      }
-    }
   }, []);
 
   const handleCloseWordModal = useCallback(() => {
     setOpenWordId(null);
-    if (typeof window !== 'undefined' && window.history.state?.wordModal) {
-      try {
-        window.history.back();
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
-
-  // When the user taps the system back button, close the modal instead of leaving the page.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handlePopState = () => {
-      setOpenWordId(null);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Mirror updates from the modal back into the local list state so the row re-renders immediately.
