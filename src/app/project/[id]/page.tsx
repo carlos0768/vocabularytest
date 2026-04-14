@@ -1547,7 +1547,7 @@ export default function ProjectDetailPage() {
                         </td>
                         <td className="px-2 py-2.5 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1">
-                            <span className="text-[19.2px] leading-[24px] font-bold text-[var(--color-foreground)]">{word.english}</span>
+                            <span className="text-base font-bold text-[var(--color-foreground)] inline-block origin-left scale-[1.2]">{word.english}</span>
                             {word.isFavorite && (
                               <Icon
                                 name="flag"
@@ -1572,8 +1572,8 @@ export default function ProjectDetailPage() {
                         <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-2 py-2.5 text-[14.4px] leading-[16px] text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
-                          {word.japanese}
+                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
+                          <span className="inline-block origin-left scale-[1.2]">{word.japanese}</span>
                         </td>
                         {(project?.customColumns ?? []).map((col) => {
                           const rawValue = word.customSections?.find((s) => s.id === col.id)?.content ?? '';
