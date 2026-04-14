@@ -19,7 +19,6 @@ interface RichTextBlockProps {
 export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichTextBlockProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
-  const [hover, setHover] = useState(false);
 
   const initialHtml = (block.data as RichTextBlockData)?.html ?? '';
 
@@ -58,14 +57,10 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
   };
 
   return (
-    <div
-      className="group relative"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div className="group relative lg:pl-7">
       {/* Floating toolbar shown while the editor has focus. */}
       {focused && (
-        <div className="absolute -top-9 left-0 z-10 flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-sm">
+        <div className="absolute -top-9 left-0 z-10 flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-sm lg:left-7">
           <ToolbarButton label="見出し" onClick={() => exec('formatBlock', '<h2>')}>
             <Icon name="title" size={16} />
           </ToolbarButton>
@@ -91,17 +86,19 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
         onBlur={handleBlur}
       />
 
-      {/* Delete handle (hover only) */}
-      {hover && (
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label="ブロックを削除"
-          className="absolute -left-7 top-0 hidden h-6 w-6 items-center justify-center rounded text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] lg:flex"
-        >
-          <Icon name="close" size={14} />
-        </button>
-      )}
+      {/* Delete handle — always mounted inside the group, toggled via CSS so
+          moving the pointer onto it doesn't exit the hover area. */}
+      <button
+        type="button"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onDelete();
+        }}
+        aria-label="ブロックを削除"
+        className="absolute left-0 top-0 hidden h-6 w-6 items-center justify-center rounded text-[var(--color-muted)] opacity-0 transition-opacity hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] group-hover:opacity-100 lg:flex"
+      >
+        <Icon name="close" size={14} />
+      </button>
     </div>
   );
 }
