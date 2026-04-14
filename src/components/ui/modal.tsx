@@ -55,15 +55,15 @@ export function Modal({
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-0 bg-black/50 animate-in fade-in duration-300 ease-out" />
 
       {/* Modal content */}
       <div
         className={cn(
           'relative bg-[var(--color-surface)] shadow-2xl border border-[var(--color-border)]',
           isSheet
-            ? 'w-full max-w-lg max-h-[85dvh] rounded-t-2xl md:rounded-2xl md:max-w-md md:max-h-[80dvh] flex flex-col animate-in slide-in-from-bottom fade-in duration-200 md:slide-in-from-bottom-0 md:zoom-in-95'
-            : 'w-full max-w-sm rounded-[var(--radius-xl)] animate-in fade-in zoom-in-95 duration-200',
+            ? 'w-full max-w-lg max-h-[85dvh] rounded-t-2xl md:rounded-2xl md:max-w-md md:max-h-[80dvh] flex flex-col animate-in slide-in-from-bottom-8 fade-in duration-400 ease-out md:slide-in-from-bottom-0 md:zoom-in-95'
+            : 'w-full max-w-sm rounded-[var(--radius-xl)] animate-in fade-in zoom-in-95 duration-300 ease-out',
           className
         )}
         onClick={(e) => e.stopPropagation()}
