@@ -1382,7 +1382,7 @@ export default function ProjectDetailPage() {
                 card widget). */}
           <section className="space-y-1">
             {blocksAbove.length === 0 ? (
-              <div className="my-2">
+              <div>
                 <BlockInserter
                   onInsert={(type) => handleInsertBlock(type, 'above', -1)}
                 />
@@ -1410,8 +1410,10 @@ export default function ProjectDetailPage() {
             )}
           </section>
 
-          {/* Word list table - iOS style */}
-          <section>
+          {/* Word list table - iOS style. mt-2 overrides the main's
+              space-y-5 default so the gap from the progress widget is
+              tightened to roughly 2/3. */}
+          <section className="!mt-2">
             {/* Header row: title + toolbar */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
