@@ -243,8 +243,8 @@ function WordItem({
         style={{ scrollbarWidth: 'thin' }}
       >
         <div className="w-max max-w-none">
-          <div className="flex items-center gap-1.5 h-6 overflow-visible">
-            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap inline-block origin-left scale-[1.2] leading-none">{word.english}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
             {word.isFavorite && (
               <Icon
                 name="flag"
@@ -255,7 +255,7 @@ function WordItem({
               />
             )}
           </div>
-          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap h-5 overflow-visible" title={word.japanese}><span className="inline-block origin-left scale-[1.2] leading-none">{word.japanese}</span></p>
+          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>{word.japanese}</p>
           {showProjectName && word.projectTitle && (
             <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap">{word.projectTitle}</p>
           )}
