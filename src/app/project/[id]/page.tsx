@@ -880,25 +880,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleDeleteCustomColumn = async (columnId: string) => {
-    if (!project) return;
-    const current = project.customColumns ?? [];
-    const target = current.find((c) => c.id === columnId);
-    if (!target) return;
-    if (typeof window !== 'undefined' && !window.confirm(`列「${target.title}」を削除しますか？\n各単語に入力された値は残りますが、一覧には表示されなくなります。`)) {
-      return;
-    }
-    const nextColumns = current.filter((c) => c.id !== columnId);
-    try {
-      await mutationRepository.updateProject(project.id, { customColumns: nextColumns });
-      setProject((prev) => (prev ? { ...prev, customColumns: nextColumns } : prev));
-      showToast({ message: '列を削除しました', type: 'success' });
-    } catch (error) {
-      console.error('Failed to delete custom column:', error);
-      showToast({ message: '列の削除に失敗しました', type: 'error' });
-    }
-  };
-
   const copyToClipboard = async (text: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       try {
@@ -1470,20 +1451,7 @@ export default function ProjectDetailPage() {
                           key={col.id}
                           className="px-2 py-2 text-left font-medium whitespace-nowrap"
                         >
-                          <span className="inline-flex items-center gap-1">
-                            <span>{col.title}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleDeleteCustomColumn(col.id);
-                              }}
-                              aria-label={`${col.title}列を削除`}
-                              className="inline-flex items-center justify-center h-4 w-4 rounded-full text-[var(--color-muted)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-foreground)]"
-                            >
-                              <Icon name="close" size={12} />
-                            </button>
-                          </span>
+                          {col.title}
                         </th>
                       ))}
                       <th className="w-10 px-1 py-2 text-center">
