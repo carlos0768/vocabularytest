@@ -6,7 +6,6 @@ import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistr
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { StatsSync } from '@/components/StatsSync';
 import { PersistentAppShell } from '@/components/ui/PersistentAppShell';
-import { GoogleAdSenseScript } from '@/components/ads/GoogleAdSenseScript';
 import { GooglePublisherTagScript } from '@/components/ads/GooglePublisherTagScript';
 import { ADSENSE_CLIENT_ID } from '@/lib/adsense';
 import './globals.css';
@@ -120,11 +119,17 @@ export default function RootLayout({
           }}
         />
         <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
+        {ADSENSE_CLIENT_ID && (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+            crossOrigin="anonymous"
+          />
+        )}
       </head>
       <body
         className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
       >
-        <GoogleAdSenseScript />
         <GooglePublisherTagScript />
         <ThemeProvider>
           <ToastProvider>
