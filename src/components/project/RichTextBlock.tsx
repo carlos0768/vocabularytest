@@ -81,7 +81,7 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
         contentEditable
         suppressContentEditableWarning
         data-placeholder="本文を入力..."
-        className="rich-text-block text-[var(--color-foreground)] outline-none"
+        className="rich-text-block h-8 overflow-y-auto overflow-x-hidden text-[var(--color-foreground)] outline-none"
         onFocus={() => setFocused(true)}
         onBlur={handleBlur}
       />

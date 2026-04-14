@@ -1388,9 +1388,11 @@ export default function ProjectDetailPage() {
                       onDelete={() => handleDeleteBlock(block.id)}
                     />
                   )}
-                  <BlockInserter
-                    onInsert={(type) => handleInsertBlock(type, 'above', idx)}
-                  />
+                  {idx < blocksAbove.length - 1 && (
+                    <BlockInserter
+                      onInsert={(type) => handleInsertBlock(type, 'above', idx)}
+                    />
+                  )}
                 </div>
               ))
             )}

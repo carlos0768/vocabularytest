@@ -45,7 +45,7 @@ export function BlockInserter({ onInsert }: BlockInserterProps) {
         e.preventDefault();
         onInsert('richText');
       }}
-      className="h-4 w-full cursor-text"
+      className="h-8 w-full cursor-text"
     />
   );
 }
