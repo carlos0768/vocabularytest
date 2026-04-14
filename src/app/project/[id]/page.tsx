@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
-import { DeleteConfirmModal, Icon, type ProgressStep } from '@/components/ui';
+import { DeleteConfirmModal, Icon, Modal, type ProgressStep } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { NotionCheckbox } from '@/components/home/WordList';
+import { WordDetailView } from '@/components/word/WordDetailView';
 import { getProjectColor } from '@/components/project/ProjectCard';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
@@ -189,6 +190,46 @@ export default function ProjectDetailPage() {
 
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
+  const [openWordId, setOpenWordId] = useState<string | null>(null);
+
+  // Open the word detail modal and push a history entry so the back button closes it.
+  const handleOpenWordModal = useCallback((wordId: string) => {
+    setOpenWordId(wordId);
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.pushState({ wordModal: wordId }, '');
+      } catch {
+        // history.pushState may throw in restricted contexts — modal still opens via state.
+      }
+    }
+  }, []);
+
+  const handleCloseWordModal = useCallback(() => {
+    setOpenWordId(null);
+    if (typeof window !== 'undefined' && window.history.state?.wordModal) {
+      try {
+        window.history.back();
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // When the user taps the system back button, close the modal instead of leaving the page.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      setOpenWordId(null);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Mirror updates from the modal back into the local list state so the row re-renders immediately.
+  const handleWordUpdatedFromModal = useCallback((updated: Word) => {
+    setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+  }, []);
+
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
@@ -1477,8 +1518,7 @@ export default function ProjectDetailPage() {
                           if (selectMode) {
                             handleToggleSelectWord(word.id);
                           } else {
-                            sessionStorage.setItem(scrollKey, String(window.scrollY));
-                            router.push(`/word/${word.id}?from=${returnPath}`);
+                            handleOpenWordModal(word.id);
                           }
                         }}
                         onKeyDown={(event) => {
@@ -1488,8 +1528,7 @@ export default function ProjectDetailPage() {
                             if (selectMode) {
                               handleToggleSelectWord(word.id);
                             } else {
-                              sessionStorage.setItem(scrollKey, String(window.scrollY));
-                              router.push(`/word/${word.id}?from=${returnPath}`);
+                              handleOpenWordModal(word.id);
                             }
                           }
                         }}
@@ -1886,6 +1925,23 @@ export default function ProjectDetailPage() {
         onSelectMode={handleScanModeSelect}
         isPro={isPro}
       />
+
+      <Modal
+        isOpen={!!openWordId}
+        onClose={handleCloseWordModal}
+        variant="sheet"
+        showCloseButton={false}
+      >
+        {openWordId && (
+          <WordDetailView
+            key={openWordId}
+            wordId={openWordId}
+            onClose={handleCloseWordModal}
+            variant="modal"
+            onWordUpdated={handleWordUpdatedFromModal}
+          />
+        )}
+      </Modal>
 
       {project && (
         <ProjectShareSheet

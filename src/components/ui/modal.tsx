@@ -11,6 +11,7 @@ interface ModalProps {
   className?: string;
   showCloseButton?: boolean;
   closeOnBackdrop?: boolean;
+  variant?: 'center' | 'sheet';
 }
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
   className,
   showCloseButton = true,
   closeOnBackdrop = true,
+  variant = 'center',
 }: ModalProps) {
   // Handle escape key
   useEffect(() => {
@@ -40,9 +42,16 @@ export function Modal({
 
   if (!isOpen) return null;
 
+  const isSheet = variant === 'sheet';
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      className={cn(
+        'fixed inset-0 z-50 flex justify-center',
+        isSheet ? 'items-end' : 'items-center p-4'
+      )}
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       {/* Backdrop */}
@@ -51,22 +60,36 @@ export function Modal({
       {/* Modal content */}
       <div
         className={cn(
-          'relative bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-card w-full max-w-sm border border-[var(--color-border)]',
-          'animate-in fade-in zoom-in-95 duration-200',
+          'relative bg-[var(--color-surface)] shadow-card border border-[var(--color-border)]',
+          isSheet
+            ? 'w-full max-w-lg max-h-[calc(100dvh-2rem)] rounded-t-[var(--radius-xl)] flex flex-col animate-in slide-in-from-bottom fade-in duration-200'
+            : 'w-full max-w-sm rounded-[var(--radius-xl)] animate-in fade-in zoom-in-95 duration-200',
           className
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {isSheet && (
+          <div
+            aria-hidden="true"
+            className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--color-border)]"
+          />
+        )}
         {showCloseButton && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+            className="absolute top-4 right-4 z-10 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
             aria-label="閉じる"
           >
             <Icon name="close" size={20} />
           </button>
         )}
-        {children}
+        {isSheet ? (
+          <div className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </div>
     </div>
   );
