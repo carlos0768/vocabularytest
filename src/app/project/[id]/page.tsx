@@ -165,6 +165,9 @@ export default function ProjectDetailPage() {
   const [newColumnType, setNewColumnType] = useState<CustomColumnType>('text');
   const [addColumnSaving, setAddColumnSaving] = useState(false);
 
+  const [editingCell, setEditingCell] = useState<{ wordId: string; columnId: string } | null>(null);
+  const [editingCellValue, setEditingCellValue] = useState('');
+
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
   const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
@@ -823,6 +826,60 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleStartCellEdit = (wordId: string, columnId: string, currentRawValue: string) => {
+    setEditingCell({ wordId, columnId });
+    setEditingCellValue(currentRawValue);
+  };
+
+  const handleCancelCellEdit = () => {
+    setEditingCell(null);
+    setEditingCellValue('');
+  };
+
+  const handleSaveCellEdit = async () => {
+    if (!editingCell || !project) return;
+    const { wordId, columnId } = editingCell;
+    const word = words.find((w) => w.id === wordId);
+    const col = project.customColumns?.find((c) => c.id === columnId);
+    if (!word || !col) {
+      setEditingCell(null);
+      return;
+    }
+
+    const value = editingCellValue;
+    const existing = word.customSections ?? [];
+    const idx = existing.findIndex((s) => s.id === columnId);
+    let nextSections;
+    if (idx >= 0) {
+      nextSections = existing.map((s) =>
+        s.id === columnId ? { ...s, content: value, title: col.title } : s,
+      );
+    } else {
+      nextSections = [...existing, { id: columnId, title: col.title, content: value }];
+    }
+
+    // No-op short-circuit
+    if (idx >= 0 && existing[idx].content === value && existing[idx].title === col.title) {
+      setEditingCell(null);
+      setEditingCellValue('');
+      return;
+    }
+
+    const previousWord = word;
+    setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, customSections: nextSections } : w)));
+    setEditingCell(null);
+    setEditingCellValue('');
+
+    try {
+      await mutationRepository.updateWord(wordId, { customSections: nextSections });
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to save cell:', error);
+      showToast({ message: 'セルの保存に失敗しました', type: 'error' });
+      setWords((prev) => prev.map((w) => (w.id === wordId ? previousWord : w)));
+    }
+  };
+
   const handleDeleteCustomColumn = async (columnId: string) => {
     if (!project) return;
     const current = project.customColumns ?? [];
@@ -1389,7 +1446,7 @@ export default function ProjectDetailPage() {
               >
                 <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
                   <thead>
-                    <tr className="border-b border-[var(--color-border)] text-[0.975rem] text-[var(--color-muted)]">
+                    <tr className="border-b border-[var(--color-border)] text-[0.65rem] text-[var(--color-muted)]">
                       {selectMode && (
                         <th className="w-8 py-2 text-center">
                           <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
@@ -1448,6 +1505,7 @@ export default function ProjectDetailPage() {
                         role={selectMode ? undefined : 'link'}
                         tabIndex={0}
                         onClick={() => {
+                          if (editingCell?.wordId === word.id) return;
                           if (selectMode) {
                             handleToggleSelectWord(word.id);
                           } else {
@@ -1456,6 +1514,7 @@ export default function ProjectDetailPage() {
                           }
                         }}
                         onKeyDown={(event) => {
+                          if (editingCell?.wordId === word.id) return;
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault();
                             if (selectMode) {
@@ -1517,13 +1576,50 @@ export default function ProjectDetailPage() {
                           {word.japanese}
                         </td>
                         {(project?.customColumns ?? []).map((col) => {
-                          const value = word.customSections?.find((s) => s.id === col.id)?.content ?? '';
-                          const display = formatCustomColumnValue(value, col.type);
+                          const rawValue = word.customSections?.find((s) => s.id === col.id)?.content ?? '';
+                          const isEditing = editingCell?.wordId === word.id && editingCell?.columnId === col.id;
+                          const display = formatCustomColumnValue(rawValue, col.type);
+
+                          if (isEditing) {
+                            const inputType = col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text';
+                            return (
+                              <td
+                                key={col.id}
+                                className="px-2 py-1 max-w-[200px]"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type={inputType}
+                                  inputMode={col.type === 'number' ? 'decimal' : undefined}
+                                  autoFocus
+                                  value={editingCellValue}
+                                  onChange={(e) => setEditingCellValue(e.target.value)}
+                                  onBlur={() => { void handleSaveCellEdit(); }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === 'Tab') {
+                                      e.preventDefault();
+                                      void handleSaveCellEdit();
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      handleCancelCellEdit();
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 text-xs text-[var(--color-foreground)] bg-[var(--color-surface)] border border-[var(--color-primary)] rounded outline-none"
+                                />
+                              </td>
+                            );
+                          }
+
                           return (
                             <td
                               key={col.id}
-                              className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis"
-                              title={display || value}
+                              className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis cursor-text hover:bg-[var(--color-surface-secondary)]"
+                              title={display || rawValue}
+                              onClick={(e) => {
+                                if (selectMode) return;
+                                e.stopPropagation();
+                                handleStartCellEdit(word.id, col.id, rawValue);
+                              }}
                             >
                               {display || '—'}
                             </td>
