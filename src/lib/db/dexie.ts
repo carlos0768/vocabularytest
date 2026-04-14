@@ -73,6 +73,25 @@ export class WordSnapDB extends Dexie {
       collections: 'id, userId, createdAt',
       collectionProjects: '++id, [collectionId+projectId], collectionId, projectId',
     });
+
+    // Version 8: Add Notion-like blocks field on projects (no index change, but
+    // run an upgrade transaction so existing rows carry an empty blocks array).
+    this.version(8)
+      .stores({
+        projects: 'id, userId, createdAt, isFavorite',
+        words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite, lexiconEntryId',
+        lexiconEntries: 'id, normalizedHeadword, pos, cefrLevel',
+        syncQueue: '++id, table, entityId, createdAt',
+        collections: 'id, userId, createdAt',
+        collectionProjects: '++id, [collectionId+projectId], collectionId, projectId',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('projects').toCollection().modify((project: Project) => {
+          if (project.blocks === undefined) {
+            project.blocks = [];
+          }
+        });
+      });
   }
 }
 

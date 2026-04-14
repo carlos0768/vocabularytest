@@ -13,6 +13,8 @@ import { WordDetailView } from '@/components/word/WordDetailView';
 import { getProjectColor } from '@/components/project/ProjectCard';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
+import { RichTextBlock } from '@/components/project/RichTextBlock';
+import { BlockInserter } from '@/components/project/BlockInserter';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
@@ -26,7 +28,7 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
-import type { CustomColumn, CustomColumnType, LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
+import type { CustomColumn, CustomColumnType, LexiconEntry, Project, ProjectBlock, ProjectBlockType, ProjectShareScope, RichTextBlockData, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
@@ -101,13 +103,27 @@ function areProjectsEquivalentForDisplay(a: Project | null, b: Project | undefin
   const columnsEqual =
     aCols.length === bCols.length &&
     aCols.every((col, i) => col.id === bCols[i].id && col.title === bCols[i].title);
+  const aBlocks = a.blocks ?? [];
+  const bBlocks = b.blocks ?? [];
+  const blocksEqual =
+    aBlocks.length === bBlocks.length &&
+    aBlocks.every((block, i) => {
+      const other = bBlocks[i];
+      if (!other) return false;
+      if (block.id !== other.id || block.type !== other.type || block.position !== other.position) {
+        return false;
+      }
+      // Compare data by JSON equality — cheap for small rich-text blobs.
+      return JSON.stringify(block.data) === JSON.stringify(other.data);
+    });
   return (
     a.id === b.id &&
     a.title === b.title &&
     a.iconImage === b.iconImage &&
     (a.description ?? '') === (b.description ?? '') &&
     (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0) &&
-    columnsEqual
+    columnsEqual &&
+    blocksEqual
   );
 }
 
@@ -178,16 +194,6 @@ export default function ProjectDetailPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [descriptionDraft, setDescriptionDraft] = useState('');
-  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const resizeDescriptionTextarea = () => {
-    const el = descriptionTextareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  };
-
   const [showAddMethodSheet, setShowAddMethodSheet] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [openWordId, setOpenWordId] = useState<string | null>(null);
@@ -232,15 +238,6 @@ export default function ProjectDetailPage() {
 
   const hasLocalLoadedRef = useRef(false);
   const cacheRestoredRef = useRef(false);
-
-  // Keep description draft in sync with the project and auto-resize the textarea
-  useEffect(() => {
-    setDescriptionDraft(project?.description ?? '');
-  }, [project?.id, project?.description]);
-
-  useLayoutEffect(() => {
-    resizeDescriptionTextarea();
-  }, [descriptionDraft]);
 
   // Phase 0: Instant restore from home-cache (no async, no auth wait)
   useLayoutEffect(() => {
@@ -842,6 +839,106 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // ============ Project blocks (Notion-like) ============
+  // Convention: blocks with position < WORDLIST_PIVOT render above the word
+  // list section; blocks with position >= WORDLIST_PIVOT render below. This
+  // lets us keep the existing word-list UI intact while still persisting
+  // user-added blocks in a single ordered array.
+  const WORDLIST_PIVOT = 1000;
+  const [newlyAddedBlockId, setNewlyAddedBlockId] = useState<string | null>(null);
+
+  const sortedBlocks = useMemo<ProjectBlock[]>(() => {
+    const arr = project?.blocks ?? [];
+    return [...arr].sort((a, b) => a.position - b.position);
+  }, [project?.blocks]);
+
+  const blocksAbove = useMemo(
+    () => sortedBlocks.filter((b) => b.position < WORDLIST_PIVOT),
+    [sortedBlocks],
+  );
+  const blocksBelow = useMemo(
+    () => sortedBlocks.filter((b) => b.position >= WORDLIST_PIVOT),
+    [sortedBlocks],
+  );
+
+  const persistBlocks = useCallback(
+    async (nextBlocks: ProjectBlock[]) => {
+      if (!project) return;
+      try {
+        await mutationRepository.updateProject(project.id, { blocks: nextBlocks });
+        setProject((prev) => (prev ? { ...prev, blocks: nextBlocks } : prev));
+      } catch (error) {
+        console.error('Failed to persist project blocks:', error);
+        showToast({ message: 'ブロックの保存に失敗しました', type: 'error' });
+      }
+    },
+    [project, mutationRepository, showToast],
+  );
+
+  const handleInsertBlock = useCallback(
+    (type: ProjectBlockType, location: 'above' | 'below', anchorIndex?: number) => {
+      if (!project) return;
+      if (type !== 'richText') return; // database block is disabled in Phase 1
+      const newBlock: ProjectBlock = {
+        id: crypto.randomUUID(),
+        type,
+        position: 0, // assigned below
+        data: { html: '' } as RichTextBlockData,
+      };
+
+      const current = [...sortedBlocks];
+      let insertionPos: number;
+      if (location === 'above') {
+        // anchorIndex is the index in blocksAbove after which to insert;
+        // -1 means insert at the very top.
+        const aboveArr = blocksAbove;
+        const beforePos =
+          anchorIndex !== undefined && anchorIndex >= 0 ? aboveArr[anchorIndex]?.position ?? 0 : -1000;
+        const afterPos =
+          anchorIndex !== undefined && anchorIndex + 1 < aboveArr.length
+            ? aboveArr[anchorIndex + 1].position
+            : WORDLIST_PIVOT;
+        insertionPos = (beforePos + afterPos) / 2;
+      } else {
+        const belowArr = blocksBelow;
+        const beforePos =
+          anchorIndex !== undefined && anchorIndex >= 0
+            ? belowArr[anchorIndex]?.position ?? WORDLIST_PIVOT
+            : WORDLIST_PIVOT;
+        const afterPos =
+          anchorIndex !== undefined && anchorIndex + 1 < belowArr.length
+            ? belowArr[anchorIndex + 1].position
+            : WORDLIST_PIVOT + 1000;
+        insertionPos = (beforePos + afterPos) / 2;
+      }
+      newBlock.position = insertionPos;
+      const next = [...current, newBlock].sort((a, b) => a.position - b.position);
+      setNewlyAddedBlockId(newBlock.id);
+      void persistBlocks(next);
+    },
+    [project, sortedBlocks, blocksAbove, blocksBelow, persistBlocks],
+  );
+
+  const handleUpdateBlockHtml = useCallback(
+    (blockId: string, html: string) => {
+      if (!project) return;
+      const next = sortedBlocks.map((b) =>
+        b.id === blockId ? { ...b, data: { ...b.data, html } as RichTextBlockData } : b,
+      );
+      void persistBlocks(next);
+    },
+    [project, sortedBlocks, persistBlocks],
+  );
+
+  const handleDeleteBlock = useCallback(
+    (blockId: string) => {
+      if (!project) return;
+      const next = sortedBlocks.filter((b) => b.id !== blockId);
+      void persistBlocks(next);
+    },
+    [project, sortedBlocks, persistBlocks],
+  );
+
   const handleStartCellEdit = (wordId: string, columnId: string, currentRawValue: string) => {
     setEditingCell({ wordId, columnId });
     setEditingCellValue(currentRawValue);
@@ -1018,26 +1115,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const commitInlineDescription = async () => {
-    if (!project) return;
-    const trimmed = descriptionDraft.trim();
-    const current = project.description ?? '';
-    if (trimmed === current) {
-      if (trimmed !== descriptionDraft) setDescriptionDraft(trimmed);
-      return;
-    }
-    const nextDescription = trimmed.length > 0 ? trimmed : undefined;
-    try {
-      await mutationRepository.updateProject(project.id, { description: nextDescription });
-      setProject((prev) => (prev ? { ...prev, description: nextDescription } : prev));
-      setDescriptionDraft(trimmed);
-      invalidateHomeCache();
-    } catch (error) {
-      console.error('Failed to update project description:', error);
-      showToast({ message: '説明の更新に失敗しました', type: 'error' });
-    }
-  };
-
   const handleConfirmDeleteProject = async () => {
     if (!project) return;
 
@@ -1174,7 +1251,7 @@ export default function ProjectDetailPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-8" style={contentVisible ? undefined : { visibility: 'hidden' }}>
+      <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-[calc(20vh+5rem)]" style={contentVisible ? undefined : { visibility: 'hidden' }}>
         <div
           className="project-detail-header-safe-top z-[50] sticky top-0"
           style={{ background: headerBackground }}
@@ -1215,7 +1292,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
+        <main className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
           {/* Title + description (Notion-style, inline-editable) */}
           <section className="mb-3">
             <div className="flex items-center gap-2">
@@ -1255,25 +1332,6 @@ export default function ProjectDetailPage() {
                 <Icon name="edit" size={18} />
               </button>
             </div>
-            <textarea
-              ref={descriptionTextareaRef}
-              value={descriptionDraft}
-              onChange={(e) => {
-                setDescriptionDraft(e.target.value);
-                resizeDescriptionTextarea();
-              }}
-              onBlur={commitInlineDescription}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setDescriptionDraft(project.description ?? '');
-                  (e.target as HTMLTextAreaElement).blur();
-                }
-              }}
-              maxLength={300}
-              rows={1}
-              placeholder="説明を追加する..."
-              className="mt-2 w-full block text-sm text-[var(--color-muted)] leading-relaxed bg-transparent border-0 focus:outline-none resize-none p-0 m-0 overflow-hidden placeholder:text-[var(--color-muted)]/60"
-            />
           </section>
 
           {/* 3-column stats card - iOS style */}
@@ -1303,6 +1361,41 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* User blocks rendered directly above the word list (Notion-like).
+              - Empty: a single inserter with vertical margin to separate from
+                surrounding widgets (stats card above, word list below).
+              - Non-empty: each block followed by an inserter so the user can
+                keep appending blocks down toward the word list. No inserter
+                before the first block (it would be flush against the stats
+                card widget). */}
+          <section className="space-y-1">
+            {blocksAbove.length === 0 ? (
+              <div className="my-2">
+                <BlockInserter
+                  onInsert={(type) => handleInsertBlock(type, 'above', -1)}
+                />
+              </div>
+            ) : (
+              blocksAbove.map((block, idx) => (
+                <div key={block.id}>
+                  {block.type === 'richText' && (
+                    <RichTextBlock
+                      block={block}
+                      autoFocus={newlyAddedBlockId === block.id}
+                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                    />
+                  )}
+                  {idx < blocksAbove.length - 1 && (
+                    <BlockInserter
+                      onInsert={(type) => handleInsertBlock(type, 'above', idx)}
+                    />
+                  )}
+                </div>
+              ))
+            )}
           </section>
 
           {/* Word list table - iOS style */}
@@ -1443,9 +1536,9 @@ export default function ProjectDetailPage() {
               >
                 <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
                   <thead>
-                    <tr className="border-b border-[var(--color-border)] text-[0.78rem] text-[var(--color-muted)]">
+                    <tr className="border-b border-[var(--color-border)] text-sm text-[var(--color-muted)]">
                       {selectMode && (
-                        <th className="w-8 py-2 text-center">
+                        <th className="w-8 py-1 text-center">
                           <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 text-xs ${
                               selectedWordIds.size === filteredWords.length && filteredWords.length > 0
@@ -1457,27 +1550,28 @@ export default function ProjectDetailPage() {
                           </button>
                         </th>
                       )}
-                      <th className="w-5 py-2" />
-                      <th className="px-2 py-2 text-left font-medium">単語</th>
-                      <th className="w-10 px-1 py-2 text-center font-medium">A/P</th>
-                      <th className="w-10 px-1 py-2 text-center font-medium">品詞</th>
-                      <th className="px-2 py-2 text-left font-medium whitespace-nowrap">訳</th>
+                      <th className="w-5 py-1" />
+                      <th className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)]">単語</th>
+                      <th className="w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">A/P</th>
+                      <th className="w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">品詞</th>
+                      <th className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap">訳</th>
                       {(project?.customColumns ?? []).map((col) => (
                         <th
                           key={col.id}
-                          className="px-2 py-2 text-left font-medium whitespace-nowrap"
+                          className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap"
                         >
                           {col.title}
                         </th>
                       ))}
-                      <th className="w-10 px-1 py-2 text-center">
+                      <th className="px-2 py-1 text-left">
                         <button
                           type="button"
                           onClick={handleOpenAddColumnSheet}
-                          aria-label="列を追加"
-                          className="inline-flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-foreground)] hover:text-[var(--color-foreground)]"
+                          aria-label="プロパティを追加"
+                          className="inline-flex items-center gap-1 text-xs font-normal text-[var(--color-muted)] hover:text-[var(--color-foreground)] whitespace-nowrap"
                         >
                           <Icon name="add" size={14} />
+                          <span>プロパティ</span>
                         </button>
                       </th>
                     </tr>
@@ -1615,6 +1709,38 @@ export default function ProjectDetailPage() {
               </div>
             )}
           </section>
+
+          {/* User blocks rendered below the word list (Notion-like).
+              The inserter directly below the word list (adjacent to a widget)
+              is hidden. Between-block inserters and the final page-bottom
+              inserter remain visible. When empty, a single page-bottom
+              inserter is rendered with extra top margin so it is not flush
+              against the word list. */}
+          <section className="space-y-1">
+            {blocksBelow.length === 0 ? (
+              <div className="mt-8">
+                <BlockInserter
+                  onInsert={(type) => handleInsertBlock(type, 'below', -1)}
+                />
+              </div>
+            ) : (
+              blocksBelow.map((block, idx) => (
+                <div key={block.id}>
+                  {block.type === 'richText' && (
+                    <RichTextBlock
+                      block={block}
+                      autoFocus={newlyAddedBlockId === block.id}
+                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                    />
+                  )}
+                  <BlockInserter
+                    onInsert={(type) => handleInsertBlock(type, 'below', idx)}
+                  />
+                </div>
+              ))
+            )}
+          </section>
         </main>
 
         {/* Bottom action bar */}
@@ -1720,15 +1846,15 @@ export default function ProjectDetailPage() {
 
       {/* Add method action sheet */}
       {showAddMethodSheet && (
-        <div className="fixed inset-0 z-50" onClick={() => setShowAddMethodSheet(false)}>
+        <div className="fixed inset-0 z-50 lg:flex lg:items-center lg:justify-center lg:pl-[280px]" onClick={() => setShowAddMethodSheet(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px]"
+            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px] lg:static lg:left-auto lg:right-auto lg:bottom-auto lg:ml-0 lg:max-w-md lg:rounded-2xl lg:shadow-2xl lg:border lg:border-[var(--color-border)]"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="max-w-lg mx-auto">
-              <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-5" />
+              <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-5 lg:hidden" />
               <p className="text-base font-bold text-[var(--color-foreground)] mb-4">単語を追加</p>
               <div className="space-y-2">
                 <button
@@ -1780,16 +1906,16 @@ export default function ProjectDetailPage() {
 
       {/* Add custom column bottom sheet */}
       {showAddColumnSheet && (
-        <div className="fixed inset-0 z-50" onClick={() => !addColumnSaving && setShowAddColumnSheet(false)}>
+        <div className="fixed inset-0 z-50 lg:flex lg:items-center lg:justify-center lg:pl-[280px]" onClick={() => !addColumnSaving && setShowAddColumnSheet(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px]"
+            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px] lg:static lg:left-auto lg:right-auto lg:bottom-auto lg:ml-0 lg:max-w-md lg:rounded-2xl lg:shadow-2xl lg:border lg:border-[var(--color-border)]"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="max-w-lg mx-auto">
-              <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-5" />
-              <p className="text-base font-bold text-[var(--color-foreground)] mb-4">新しい列を追加</p>
+              <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-5 lg:hidden" />
+              <p className="text-base font-bold text-[var(--color-foreground)] mb-4">新しいプロパティを追加</p>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
