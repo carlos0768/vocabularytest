@@ -103,13 +103,27 @@ function areProjectsEquivalentForDisplay(a: Project | null, b: Project | undefin
   const columnsEqual =
     aCols.length === bCols.length &&
     aCols.every((col, i) => col.id === bCols[i].id && col.title === bCols[i].title);
+  const aBlocks = a.blocks ?? [];
+  const bBlocks = b.blocks ?? [];
+  const blocksEqual =
+    aBlocks.length === bBlocks.length &&
+    aBlocks.every((block, i) => {
+      const other = bBlocks[i];
+      if (!other) return false;
+      if (block.id !== other.id || block.type !== other.type || block.position !== other.position) {
+        return false;
+      }
+      // Compare data by JSON equality — cheap for small rich-text blobs.
+      return JSON.stringify(block.data) === JSON.stringify(other.data);
+    });
   return (
     a.id === b.id &&
     a.title === b.title &&
     a.iconImage === b.iconImage &&
     (a.description ?? '') === (b.description ?? '') &&
     (a.sourceLabels?.length ?? 0) === (b.sourceLabels?.length ?? 0) &&
-    columnsEqual
+    columnsEqual &&
+    blocksEqual
   );
 }
 

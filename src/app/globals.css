@@ -739,6 +739,59 @@ body {
   transform: scale(0.95);
 }
 
+/* ===== Rich Text Block (Notion-style) ===== */
+
+.rich-text-block {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.rich-text-block:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-muted);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.rich-text-block h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.rich-text-block h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.rich-text-block h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.rich-text-block ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.rich-text-block ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.rich-text-block li {
+  margin: 0.125rem 0;
+}
+
+.rich-text-block strong,
+.rich-text-block b {
+  font-weight: 700;
+}
+
 /* ===== Circular Progress ===== */
 
 .circular-progress {

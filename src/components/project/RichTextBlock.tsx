@@ -35,6 +35,7 @@ export function RichTextBlock({ block, autoFocus, onChange, onDelete }: RichText
   useEffect(() => {
     if (autoFocus && editorRef.current) {
       editorRef.current.focus();
+      editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       // Move caret to the end
       const range = document.createRange();
       range.selectNodeContents(editorRef.current);
