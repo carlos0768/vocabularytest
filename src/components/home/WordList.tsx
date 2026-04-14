@@ -244,7 +244,7 @@ function WordItem({
       >
         <div className="w-max max-w-none">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap text-[19.2px] leading-[24px]">{word.english}</span>
+            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap inline-block origin-left scale-[1.2]">{word.english}</span>
             {word.isFavorite && (
               <Icon
                 name="flag"
@@ -255,7 +255,7 @@ function WordItem({
               />
             )}
           </div>
-          <p className="text-[16.8px] leading-[20px] text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>{word.japanese}</p>
+          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}><span className="inline-block origin-left scale-[1.2]">{word.japanese}</span></p>
           {showProjectName && word.projectTitle && (
             <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap">{word.projectTitle}</p>
           )}
