@@ -861,6 +861,19 @@ export default function ProjectDetailPage() {
     [sortedBlocks],
   );
 
+  // Map of lowercased English headword → word id, used by rich text blocks
+  // to highlight words that exist in the current project's word list.
+  // Multi-word phrases are supported. Duplicate headwords keep the first id.
+  const wordHighlightMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of words) {
+      const key = w.english?.toLowerCase().trim();
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, w.id);
+    }
+    return map;
+  }, [words]);
+
   const persistBlocks = useCallback(
     async (nextBlocks: ProjectBlock[]) => {
       if (!project) return;
@@ -1384,8 +1397,10 @@ export default function ProjectDetailPage() {
                     <RichTextBlock
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
+                      wordHighlightMap={wordHighlightMap}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
+                      onOpenWord={handleOpenWordModal}
                     />
                   )}
                   {idx < blocksAbove.length - 1 && (
@@ -1730,8 +1745,10 @@ export default function ProjectDetailPage() {
                     <RichTextBlock
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
+                      wordHighlightMap={wordHighlightMap}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
+                      onOpenWord={handleOpenWordModal}
                     />
                   )}
                   <BlockInserter
