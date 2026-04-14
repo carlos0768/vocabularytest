@@ -125,8 +125,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
         case backgroundAuto
     }
 
-    // Must match Web FREE_WORD_LIMIT (src/lib/utils.ts)
-    static let freeWordLimit = 100
     static let maxPhotoSelection = 10
 
     private let quizPrefillBatchSize = 30
@@ -137,7 +135,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
     @Published var editableWords: [EditableExtractedWord] = []
     @Published var projectTitle: String = ""
     @Published var projectThumbnail: UIImage?
-    @Published private(set) var currentWordCount: Int = 0
     @Published private(set) var selectedImages: [SelectedScanImage] = []
     @Published private(set) var processingPages: [ScanPageProgress] = []
     @Published private(set) var processingSummary: ScanProcessingSummary?
@@ -241,7 +238,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
         selectedImages.append(contentsOf: limited.map { SelectedScanImage(image: $0) })
         editableWords = []
-        currentWordCount = 0
         processingPages = []
         processingSummary = nil
         projectThumbnail = selectedImages.first?.image
@@ -565,7 +561,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
     func goBackToModeSelection() {
         resetSelectionData()
         editableWords = []
-        currentWordCount = 0
         scanDraft = nil
         currentStep = .modeSelection
     }
@@ -657,11 +652,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
             extractedWordCount: extractedWordCount,
             dedupedWordCount: dedupedWordCount
         )
-    }
-
-    private func fetchCurrentWordCount(using appState: AppState) async throws -> Int {
-        let allWords = try await appState.activeRepository.fetchAllWords(userId: appState.activeUserId)
-        return allWords.count
     }
 
     private func ensureProjectOwnership(projectId: String, appState: AppState) async throws {
@@ -1046,22 +1036,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
 
         do {
-            if !appState.isPro {
-                let latestCount = try await fetchCurrentWordCount(using: appState)
-                currentWordCount = latestCount
-                let projectedTotal = latestCount + editableWords.count
-                if projectedTotal > Self.freeWordLimit {
-                    let available = max(0, Self.freeWordLimit - latestCount)
-                    let message = "保存できる単語はあと\(available)語までです。単語を減らしてください。"
-                    currentStep = .error(message)
-                    if completionSource == .backgroundAuto {
-                        appState.postScanFailure(message: message)
-                    }
-                    endBackgroundTask()
-                    return
-                }
-            }
-
             currentStep = .saving
 
             let projectId: String

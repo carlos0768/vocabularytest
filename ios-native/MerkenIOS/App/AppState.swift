@@ -955,14 +955,6 @@ final class AppState: ObservableObject {
         let incomingSourceLabels = ensureProjectSourceLabels(result?.sourceLabels)
 
         do {
-            let currentWords = try await localRepository.fetchAllWords(userId: localUserId)
-            let projectedCount = currentWords.count + dedupedWords.count
-            if projectedCount > ScanCoordinatorViewModel.freeWordLimit {
-                let available = max(0, ScanCoordinatorViewModel.freeWordLimit - currentWords.count)
-                postScanFailure(message: "保存できる単語はあと\(available)語までです。")
-                return false
-            }
-
             let projectTitleCandidate = context.requestedProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let fallbackTitle = projectTitleCandidate.isEmpty ? job.projectTitle : projectTitleCandidate
 
