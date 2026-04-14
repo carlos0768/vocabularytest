@@ -1372,24 +1372,10 @@ export default function ProjectDetailPage() {
                 card widget). */}
           <section className="space-y-1">
             {blocksAbove.length === 0 ? (
-              <div className="my-4 flex justify-center">
-                <button
-                  type="button"
-                  aria-label="ブロックを追加"
-                  onMouseDown={(e) => {
-                    const active = document.activeElement as HTMLElement | null;
-                    if (active && active.isContentEditable) {
-                      e.preventDefault();
-                      active.blur();
-                      return;
-                    }
-                    e.preventDefault();
-                    handleInsertBlock('richText', 'above', -1);
-                  }}
-                  className="flex h-5 w-9 items-center justify-center rounded text-[var(--color-muted)]/50 hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] transition-colors"
-                >
-                  <Icon name="add" size={14} />
-                </button>
+              <div className="my-2">
+                <BlockInserter
+                  onInsert={(type) => handleInsertBlock(type, 'above', -1)}
+                />
               </div>
             ) : (
               blocksAbove.map((block, idx) => (
@@ -1730,24 +1716,10 @@ export default function ProjectDetailPage() {
               against the word list. */}
           <section className="space-y-1">
             {blocksBelow.length === 0 ? (
-              <div className="mt-16 flex justify-center">
-                <button
-                  type="button"
-                  aria-label="ブロックを追加"
-                  onMouseDown={(e) => {
-                    const active = document.activeElement as HTMLElement | null;
-                    if (active && active.isContentEditable) {
-                      e.preventDefault();
-                      active.blur();
-                      return;
-                    }
-                    e.preventDefault();
-                    handleInsertBlock('richText', 'below', -1);
-                  }}
-                  className="flex h-5 w-9 items-center justify-center rounded text-[var(--color-muted)]/50 hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] transition-colors"
-                >
-                  <Icon name="add" size={14} />
-                </button>
+              <div className="mt-8">
+                <BlockInserter
+                  onInsert={(type) => handleInsertBlock(type, 'below', -1)}
+                />
               </div>
             ) : (
               blocksBelow.map((block, idx) => (
