@@ -49,6 +49,10 @@ type GooglePublisherAdsService = {
   ) => void;
 };
 
+type GoogleTagCommandQueue = {
+  cmd: Array<() => void>;
+};
+
 type GoogleTag = {
   apiReady?: boolean;
   cmd: Array<() => void>;
@@ -67,7 +71,7 @@ type GoogleTag = {
 
 declare global {
   interface Window {
-    googletag?: GoogleTag;
+    googletag?: GoogleTag | GoogleTagCommandQueue;
   }
 }
 
@@ -116,6 +120,19 @@ export function useRewardedDownloadAd() {
       let slot: GoogleRewardedSlot | null = null;
       let pubAds: GooglePublisherAdsService | null = null;
 
+      const isGoogleTagReady = (
+        value: GoogleTag | GoogleTagCommandQueue | undefined,
+      ): value is GoogleTag =>
+        Boolean(
+          value &&
+          'pubads' in value &&
+          'enableServices' in value &&
+          'defineOutOfPageSlot' in value &&
+          'display' in value &&
+          'destroySlots' in value &&
+          'enums' in value,
+        );
+
       const finish = (outcome: RewardedDownloadAdOutcome) => {
         if (resolved) return;
         resolved = true;
@@ -129,7 +146,7 @@ export function useRewardedDownloadAd() {
           pubAds.removeEventListener('slotRenderEnded', onRenderEnded);
         }
 
-        if (slot && window.googletag) {
+        if (slot && isGoogleTagReady(window.googletag)) {
           window.googletag.destroySlots([slot]);
         }
 
@@ -187,7 +204,7 @@ export function useRewardedDownloadAd() {
       }, GPT_READY_TIMEOUT_MS);
 
       try {
-        const googletag = window.googletag ?? ({ cmd: [] } as GoogleTag);
+        const googletag = window.googletag ?? { cmd: [] };
         window.googletag = googletag;
 
         googletag.cmd.push(() => {
@@ -195,7 +212,7 @@ export function useRewardedDownloadAd() {
 
           try {
             const liveGoogleTag = window.googletag;
-            if (!liveGoogleTag?.pubads || !liveGoogleTag.enums?.OutOfPageFormat?.REWARDED) {
+            if (!isGoogleTagReady(liveGoogleTag) || !liveGoogleTag.enums.OutOfPageFormat.REWARDED) {
               finish('unavailable');
               return;
             }
