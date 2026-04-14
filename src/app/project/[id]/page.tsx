@@ -1334,31 +1334,6 @@ export default function ProjectDetailPage() {
             </div>
           </section>
 
-          {/* User blocks rendered above the word list (Notion-like).
-              Inserters adjacent to surrounding widgets (title above, stats
-              card below) are hidden; only between-block inserters remain. */}
-          {blocksAbove.length > 0 && (
-            <section className="space-y-1">
-              {blocksAbove.map((block, idx) => (
-                <div key={block.id}>
-                  {block.type === 'richText' && (
-                    <RichTextBlock
-                      block={block}
-                      autoFocus={newlyAddedBlockId === block.id}
-                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
-                      onDelete={() => handleDeleteBlock(block.id)}
-                    />
-                  )}
-                  {idx < blocksAbove.length - 1 && (
-                    <BlockInserter
-                      onInsert={(type) => handleInsertBlock(type, 'above', idx)}
-                    />
-                  )}
-                </div>
-              ))}
-            </section>
-          )}
-
           {/* 3-column stats card - iOS style */}
           <section>
             <div className="card p-4">
@@ -1388,8 +1363,41 @@ export default function ProjectDetailPage() {
             </div>
           </section>
 
+          {/* User blocks rendered directly above the word list (Notion-like).
+              - Empty: a single inserter with vertical margin to separate from
+                surrounding widgets (stats card above, word list below).
+              - Non-empty: each block followed by an inserter so the user can
+                keep appending blocks down toward the word list. No inserter
+                before the first block (it would be flush against the stats
+                card widget). */}
+          <section className="space-y-1">
+            {blocksAbove.length === 0 ? (
+              <div className="my-8">
+                <BlockInserter
+                  onInsert={(type) => handleInsertBlock(type, 'above', -1)}
+                />
+              </div>
+            ) : (
+              blocksAbove.map((block, idx) => (
+                <div key={block.id}>
+                  {block.type === 'richText' && (
+                    <RichTextBlock
+                      block={block}
+                      autoFocus={newlyAddedBlockId === block.id}
+                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                    />
+                  )}
+                  <BlockInserter
+                    onInsert={(type) => handleInsertBlock(type, 'above', idx)}
+                  />
+                </div>
+              ))
+            )}
+          </section>
+
           {/* Word list table - iOS style */}
-          <section className="pt-6 lg:pt-10">
+          <section>
             {/* Header row: title + toolbar */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
