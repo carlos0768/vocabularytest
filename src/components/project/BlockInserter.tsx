@@ -20,16 +20,30 @@ export function BlockInserter({ onInsert }: BlockInserterProps) {
       tabIndex={0}
       aria-label="ブロックを追加"
       onMouseDown={(e) => {
+        // If a rich text block is currently being edited, treat the click as
+        // "commit the current block" — blur it and do NOT insert a new one.
+        // The user has to deliberately click again after editing ends.
+        const active = document.activeElement as HTMLElement | null;
+        if (active && active.isContentEditable) {
+          e.preventDefault();
+          active.blur();
+          return;
+        }
         // Use mousedown so the new block is mounted and focused before any
         // later click would steal focus.
         e.preventDefault();
         onInsert('richText');
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const active = document.activeElement as HTMLElement | null;
+        if (active && active.isContentEditable) {
           e.preventDefault();
-          onInsert('richText');
+          active.blur();
+          return;
         }
+        e.preventDefault();
+        onInsert('richText');
       }}
       className="h-4 w-full cursor-text"
     />
