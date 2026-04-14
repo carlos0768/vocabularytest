@@ -55,7 +55,7 @@ export function WeeklyCalendarWidget() {
         </div>
         <div className="grid grid-cols-7 gap-1">
           {days.map((day, i) => {
-            const count = day.entry.totalCount;
+            const count = day.masteredDelta;
             const active = count > 0;
             const isSelected = selectedIdx === i;
             return (
@@ -82,7 +82,7 @@ export function WeeklyCalendarWidget() {
                 <span
                   className={`mt-1 flex h-6 w-6 items-center justify-center rounded-full text-[0.65rem] font-semibold ${
                     active
-                      ? 'bg-[var(--color-primary)] text-white'
+                      ? 'bg-[var(--color-success)] text-white'
                       : 'bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
                   }`}
                 >
@@ -104,9 +104,13 @@ export function WeeklyCalendarWidget() {
               })}
             </p>
             <p className="mt-0.5 text-[var(--color-muted)]">
-              クイズ {selected.entry.totalCount} 問 / 正解 {selected.entry.correctCount} 問
-              {selected.masteredDelta > 0 && (
-                <> ・ <span className="text-[var(--color-success)]">+{selected.masteredDelta} 語習得</span></>
+              {selected.masteredDelta > 0 ? (
+                <>
+                  <span className="text-[var(--color-success)]">{selected.masteredDelta} 語</span>
+                  を習得
+                </>
+              ) : (
+                'この日は習得した単語はありません'
               )}
             </p>
           </div>
