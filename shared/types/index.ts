@@ -70,6 +70,32 @@ export interface CustomColumn {
   type: CustomColumnType;
 }
 
+// ============ Project Block Types (Notion-like) ============
+
+export type ProjectBlockType = 'richText' | 'wordList' | 'database';
+
+export interface RichTextBlockData {
+  html: string;
+}
+
+/** Reserved for future per-block config (filters, view mode, etc.). */
+export type WordListBlockData = Record<string, never>;
+
+/** Reserved for future nested database support. */
+export type DatabaseBlockData = Record<string, never>;
+
+export type ProjectBlockData =
+  | RichTextBlockData
+  | WordListBlockData
+  | DatabaseBlockData;
+
+export interface ProjectBlock {
+  id: string;
+  type: ProjectBlockType;
+  position: number;
+  data: ProjectBlockData;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -120,6 +146,8 @@ export interface Project {
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
   /** User-defined extra columns shown in the project word list table. */
   customColumns?: CustomColumn[];
+  /** Notion-like block layout. When undefined, treat as a single implicit wordList block. */
+  blocks?: ProjectBlock[];
 }
 
 // ============ Collection Types ============

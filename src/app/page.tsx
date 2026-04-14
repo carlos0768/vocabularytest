@@ -9,6 +9,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { type ProgressStep, useToast, DeleteConfirmModal, Icon } from '@/components/ui';
 import { ScanLimitModal, WordLimitModal, WordLimitBanner } from '@/components/limits';
 import { ProjectCard } from '@/components/project/ProjectCard';
+import { WeeklyCalendarWidget } from '@/components/home/WeeklyCalendarWidget';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { SyncStatusIndicator } from '@/components/pwa/SyncStatusIndicator';
 import { useCollections } from '@/hooks/use-collections';
@@ -1672,7 +1673,7 @@ export default function HomePage() {
 
         {/* Desktop header */}
         <header className="sticky top-0 hidden lg:block z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-          <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
+          <div className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
             <h1 className="text-3xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</h1>
             {isPro && (
               <div className="flex items-center gap-2">
@@ -1683,7 +1684,7 @@ export default function HomePage() {
         </header>
 
         {/* Main content - iOS style */}
-        <main className="flex-1 max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
+        <main className="flex-1 max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-4 lg:px-8 pt-4 pb-8 w-full space-y-5">
 
           {/* Today's goal + Mastery donut — 2-column layout */}
           <section>
@@ -1766,6 +1767,9 @@ export default function HomePage() {
               </div>
             </div>
           </section>
+
+          {/* Weekly calendar widget */}
+          <WeeklyCalendarWidget />
 
           {/* Word books section - iOS style */}
           <section className="space-y-6">
