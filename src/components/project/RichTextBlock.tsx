@@ -281,8 +281,13 @@ export function highlightWordsInHtml(
     .filter((k) => k.length > 0)
     .sort((a, b) => b.length - a.length);
   if (keys.length === 0) return html;
+  // \b is a word boundary (transition between [A-Za-z0-9_] and anything
+  // else). Combined with the `i` flag, this matches "hello" inside "Hello"
+  // even when the word in the project list is lowercased and the text
+  // capitalizes it at the start of a sentence. We deliberately avoid
+  // lookbehind assertions for broader browser support (older Safari).
   const pattern = new RegExp(
-    `(?<![A-Za-z0-9])(${keys.map(escapeRegExp).join('|')})(?![A-Za-z0-9])`,
+    `\\b(${keys.map(escapeRegExp).join('|')})\\b`,
     'gi',
   );
 
@@ -305,6 +310,8 @@ export function highlightWordsInHtml(
         if (start > lastIdx) {
           pieces.push(document.createTextNode(text.slice(lastIdx, start)));
         }
+        // match[0] preserves original casing from the text (e.g. "Hello"),
+        // while wordMap keys are stored lowercased. Look up case-insensitively.
         const wid = wordMap.get(match[0].toLowerCase());
         if (wid) {
           const span = document.createElement('span');
