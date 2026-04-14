@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { type ReactNode, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
+import { DesktopAdFrame } from '@/components/ads/DesktopAdFrame';
 import { QuizOption, TypeInQuizField } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -49,6 +50,21 @@ interface QuizPersistState {
 }
 
 const QUIZ_STATE_TTL = 30 * 60 * 1000; // 30 minutes
+
+function QuizDesktopViewport({ children }: { children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 bg-[var(--color-background)] lg:left-[280px]">
+      <DesktopAdFrame
+        label="クイズ"
+        sticky={false}
+        className="h-full"
+        contentClassName="h-full min-h-0"
+      >
+        {children}
+      </DesktopAdFrame>
+    </div>
+  );
+}
 
 export default function QuizPage() {
   const router = useRouter();
@@ -809,82 +825,88 @@ export default function QuizPage() {
   // Loading screen (initial load)
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">クイズを準備中...</p>
+      <QuizDesktopViewport>
+        <div className="h-full flex items-center justify-center overflow-hidden">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[var(--color-muted)]">クイズを準備中...</p>
+          </div>
         </div>
-      </div>
+      </QuizDesktopViewport>
     );
   }
 
   if (aiEnabled === false) {
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
-        <header className="sticky top-0 flex-shrink-0 p-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
-        </header>
-        <main className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center max-w-sm">
-            <p className="text-[var(--color-foreground)] font-semibold mb-2">この機能は現在OFFです</p>
-            <p className="text-sm text-[var(--color-muted)] mb-6">
-              設定の「単語帳生成設定」でAI機能をONにすると4択クイズを使えます。
-            </p>
-            <Button onClick={backToProject} className="w-full" size="lg">
-              単語帳に戻る
-            </Button>
-          </div>
-        </main>
-      </div>
+      <QuizDesktopViewport>
+        <div className="h-full flex flex-col bg-[var(--color-background)] overflow-hidden">
+          <header className="sticky top-0 flex-shrink-0 p-4">
+            <button
+              onClick={backToProject}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+            >
+              <Icon name="close" size={24} />
+            </button>
+          </header>
+          <main className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-sm">
+              <p className="text-[var(--color-foreground)] font-semibold mb-2">この機能は現在OFFです</p>
+              <p className="text-sm text-[var(--color-muted)] mb-6">
+                設定の「単語帳生成設定」でAI機能をONにすると4択クイズを使えます。
+              </p>
+              <Button onClick={backToProject} className="w-full" size="lg">
+                単語帳に戻る
+              </Button>
+            </div>
+          </main>
+        </div>
+      </QuizDesktopViewport>
     );
   }
 
   // Distractor generation error screen
   if (distractorError) {
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
-        <header className="sticky top-0 flex-shrink-0 p-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
-        </header>
-        <main className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center max-w-sm">
-            <p className="text-[var(--color-error)] mb-6">{distractorError}</p>
-            <div className="space-y-3">
-              <Button
-                onClick={() => {
-                  setDistractorError(null);
-                  if (questionCount) {
-                    startQuizWithDistractors(allWords, questionCount);
-                  }
-                }}
-                className="w-full"
-                size="lg"
-              >
-                <Icon name="refresh" size={20} className="mr-2" />
-                再試行
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={backToProject}
-                className="w-full"
-                size="lg"
-              >
-                単語一覧に戻る
-              </Button>
+      <QuizDesktopViewport>
+        <div className="h-full flex flex-col bg-[var(--color-background)] overflow-hidden">
+          <header className="sticky top-0 flex-shrink-0 p-4">
+            <button
+              onClick={backToProject}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+            >
+              <Icon name="close" size={24} />
+            </button>
+          </header>
+          <main className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-sm">
+              <p className="text-[var(--color-error)] mb-6">{distractorError}</p>
+              <div className="space-y-3">
+                <Button
+                  onClick={() => {
+                    setDistractorError(null);
+                    if (questionCount) {
+                      startQuizWithDistractors(allWords, questionCount);
+                    }
+                  }}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Icon name="refresh" size={20} className="mr-2" />
+                  再試行
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={backToProject}
+                  className="w-full"
+                  size="lg"
+                >
+                  単語一覧に戻る
+                </Button>
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
+      </QuizDesktopViewport>
     );
   }
 
@@ -901,87 +923,89 @@ export default function QuizPage() {
     };
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
-        {/* Header */}
-        <header className="sticky top-0 flex-shrink-0 p-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
-        </header>
+      <QuizDesktopViewport>
+        <div className="h-full flex flex-col bg-[var(--color-background)] overflow-hidden">
+          {/* Header */}
+          <header className="sticky top-0 flex-shrink-0 p-4">
+            <button
+              onClick={backToProject}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+            >
+              <Icon name="close" size={24} />
+            </button>
+          </header>
 
-        {/* Selection */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="w-full max-w-sm animate-fade-in-up">
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] text-center mb-2">
-              問題数を入力
-            </h1>
-            <p className="text-[var(--color-muted)] text-center mb-8">
-              1〜{maxQuestions}問まで
-            </p>
+          {/* Selection */}
+          <main className="flex-1 flex flex-col items-center justify-center p-6">
+            <div className="w-full max-w-sm animate-fade-in-up">
+              <h1 className="text-2xl font-bold text-[var(--color-foreground)] text-center mb-2">
+                問題数を入力
+              </h1>
+              <p className="text-[var(--color-muted)] text-center mb-8">
+                1〜{maxQuestions}問まで
+              </p>
 
-            <div className="space-y-6">
-              <div className="flex items-center justify-center gap-3">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min={1}
-                  max={maxQuestions}
-                  value={inputCount}
-                  onChange={(e) => setInputCount(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isValidInput) {
-                      handleSubmit();
-                    }
-                  }}
-                  placeholder={String(DEFAULT_QUESTION_COUNT)}
-                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)] focus:border-[var(--color-primary)] focus:outline-none transition-colors"
-                  autoFocus
-                />
-                <span className="text-xl text-[var(--color-muted)]">問</span>
-              </div>
-
-              {/* Direction toggle */}
-              <div className="flex items-center justify-center">
-                <div className="inline-flex rounded-full border border-[var(--color-border)] p-1 bg-[var(--color-surface)]">
-                  <button
-                    onClick={() => setQuizDirection('en-to-ja')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      quizDirection === 'en-to-ja'
-                        ? 'bg-[var(--color-primary)] text-white'
-                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                    }`}
-                  >
-                    英→日
-                  </button>
-                  <button
-                    onClick={() => setQuizDirection('ja-to-en')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      quizDirection === 'ja-to-en'
-                        ? 'bg-[var(--color-primary)] text-white'
-                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                    }`}
-                  >
-                    日→英
-                  </button>
+              <div className="space-y-6">
+                <div className="flex items-center justify-center gap-3">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    max={maxQuestions}
+                    value={inputCount}
+                    onChange={(e) => setInputCount(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && isValidInput) {
+                        handleSubmit();
+                      }
+                    }}
+                    placeholder={String(DEFAULT_QUESTION_COUNT)}
+                    className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)] focus:border-[var(--color-primary)] focus:outline-none transition-colors"
+                    autoFocus
+                  />
+                  <span className="text-xl text-[var(--color-muted)]">問</span>
                 </div>
-              </div>
 
-              <Button
-                onClick={handleSubmit}
-                disabled={!isValidInput}
-                className="w-full"
-                size="lg"
-              >
-                スタート
-              </Button>
+                {/* Direction toggle */}
+                <div className="flex items-center justify-center">
+                  <div className="inline-flex rounded-full border border-[var(--color-border)] p-1 bg-[var(--color-surface)]">
+                    <button
+                      onClick={() => setQuizDirection('en-to-ja')}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        quizDirection === 'en-to-ja'
+                          ? 'bg-[var(--color-primary)] text-white'
+                          : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                      }`}
+                    >
+                      英→日
+                    </button>
+                    <button
+                      onClick={() => setQuizDirection('ja-to-en')}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        quizDirection === 'ja-to-en'
+                          ? 'bg-[var(--color-primary)] text-white'
+                          : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                      }`}
+                    >
+                      日→英
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!isValidInput}
+                  className="w-full"
+                  size="lg"
+                >
+                  スタート
+                </Button>
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
+      </QuizDesktopViewport>
     );
   }
 
@@ -990,238 +1014,242 @@ export default function QuizPage() {
     const percentage = Math.round((results.correct / results.total) * 100);
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
-        {/* Header */}
-        <header className="sticky top-0 p-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
-        </header>
+      <QuizDesktopViewport>
+        <div className="h-full flex flex-col bg-[var(--color-background)] overflow-hidden">
+          {/* Header */}
+          <header className="sticky top-0 p-4">
+            <button
+              onClick={backToProject}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
+            >
+              <Icon name="close" size={24} />
+            </button>
+          </header>
 
-        {/* Results */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
-            <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
-            </div>
+          {/* Results */}
+          <main className="flex-1 flex flex-col items-center justify-center p-6">
+            <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
+              <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
+                <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
+              </div>
 
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
-              クイズ完了!
-            </h1>
+              <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
+                クイズ完了!
+              </h1>
 
-            <div className="mb-6">
-              <p className="text-5xl font-bold text-[var(--color-primary)] mb-1">
-                {percentage}%
+              <div className="mb-6">
+                <p className="text-5xl font-bold text-[var(--color-primary)] mb-1">
+                  {percentage}%
+                </p>
+                <p className="text-[var(--color-muted)]">
+                  {results.total}問中 {results.correct}問正解
+                </p>
+              </div>
+
+              <p className="text-[var(--color-foreground)] mb-8">
+                {percentage === 100
+                  ? 'パーフェクト! 素晴らしい!'
+                  : percentage >= 80
+                  ? 'よくできました!'
+                  : percentage >= 60
+                  ? 'もう少し! 復習しましょう'
+                  : '繰り返し練習しましょう!'}
               </p>
-              <p className="text-[var(--color-muted)]">
-                {results.total}問中 {results.correct}問正解
-              </p>
-            </div>
 
-            <p className="text-[var(--color-foreground)] mb-8">
-              {percentage === 100
-                ? 'パーフェクト! 素晴らしい!'
-                : percentage >= 80
-                ? 'よくできました!'
-                : percentage >= 60
-                ? 'もう少し! 復習しましょう'
-                : '繰り返し練習しましょう!'}
-            </p>
-
-            <div className="space-y-3">
-              {reviewMode ? (
-                <>
-                  <Button onClick={goToNextReviewQuiz} className="w-full" size="lg">
-                    <Icon name="arrow_forward" size={20} className="mr-2" />
-                    次へ進む
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={handleRestart}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <Icon name="refresh" size={20} className="mr-2" />
-                    もう一度
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button onClick={handleRestart} className="w-full" size="lg">
-                    <Icon name="refresh" size={20} className="mr-2" />
-                    もう一度
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={backToProject}
-                    className="w-full"
-                    size="lg"
-                  >
-                    単語一覧に戻る
-                  </Button>
-                </>
-              )}
+              <div className="space-y-3">
+                {reviewMode ? (
+                  <>
+                    <Button onClick={goToNextReviewQuiz} className="w-full" size="lg">
+                      <Icon name="arrow_forward" size={20} className="mr-2" />
+                      次へ進む
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleRestart}
+                      className="w-full"
+                      size="lg"
+                    >
+                      <Icon name="refresh" size={20} className="mr-2" />
+                      もう一度
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={handleRestart} className="w-full" size="lg">
+                      <Icon name="refresh" size={20} className="mr-2" />
+                      もう一度
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={backToProject}
+                      className="w-full"
+                      size="lg"
+                    >
+                      単語一覧に戻る
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
+      </QuizDesktopViewport>
     );
   }
 
   // Main quiz screen
   return (
-    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
-      {/* Header - iOS style */}
-      <header className="sticky top-0 flex-shrink-0 py-4 px-6 w-full">
-        <div className="mx-auto w-full max-w-lg flex items-center gap-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-foreground)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
-
-          <div className="flex-1 progress-bar min-w-0">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-            />
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-6 flex flex-col flex-1 min-h-0">
-        {/* Mode badges - iOS style */}
-        <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
-          <span
-            className={`px-3 py-1 text-xs font-medium rounded-full ${
-              isActiveVocab
-                ? 'bg-[var(--color-accent-blue-light)] text-[var(--color-accent-blue)]'
-                : 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
-            }`}
-          >
-            {isActiveVocab ? 'Active — タイプ入力' : 'Passive — 4択'}
-          </span>
-        </div>
-
-        {/* Question word - iOS style */}
-        <div className="flex flex-col items-center justify-center py-6 flex-shrink-0 animate-fade-in-up">
-          <h1 className="text-4xl font-black text-[var(--color-foreground)] text-center mb-3 tracking-tight">
-            {isActiveVocab
-              ? currentQuestion?.word.japanese
-              : quizDirection === 'en-to-ja'
-                ? currentQuestion?.word.english
-                : currentQuestion?.word.japanese}
-          </h1>
-
-          <button
-            onClick={async () => {
-              if (!currentQuestion) return;
-              const word = currentQuestion.word;
-              const newFavorite = !word.isFavorite;
-              await repository.updateWord(word.id, { isFavorite: newFavorite });
-              setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q));
-              setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, isFavorite: newFavorite } : w));
-            }}
-            className="p-2"
-            aria-label={currentQuestion?.word.isFavorite ? 'お気に入り解除' : 'お気に入り'}
-          >
-            <Icon name="bookmark" size={24} filled={currentQuestion?.word.isFavorite ?? false} className={currentQuestion?.word.isFavorite ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'} />
-          </button>
-        </div>
-
-        {/* Quiz content - conditional on active/passive vocabularyType */}
-        {!isActiveVocab ? (
-          <div className="space-y-2.5 w-full flex-shrink-0">
-            {currentQuestion?.options.map((option, index) => (
-              <QuizOption
-                key={index}
-                label={option}
-                index={index}
-                isSelected={selectedIndex === index}
-                isCorrect={index === currentQuestion.correctIndex}
-                isRevealed={isRevealed}
-                onSelect={() => handleSelect(index)}
-                disabled={isRevealed}
-              />
-            ))}
-          </div>
-        ) : (
-          /* Type-in mode - iOS style */
-          <div className="w-full flex-shrink-0 space-y-4">
-            <TypeInQuizField
-              answer={currentQuestion?.word.english ?? ''}
-              value={typeInAnswer}
-              onChange={setTypeInAnswer}
-              onSubmit={() => {
-                if (!isRevealed) handleTypeInSubmit();
-              }}
-              disabled={isRevealed}
-              result={typeInResult}
-            />
-            {!isRevealed && (
-              <button
-                onClick={handleTypeInSubmit}
-                disabled={!typeInAnswer.trim()}
-                className="w-full py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-40 transition-opacity"
-              >
-                回答する
-              </button>
-            )}
-            {isRevealed && typeInResult === 'wrong' && currentQuestion && (
-              <div className="text-center">
-                <p className="text-sm text-[var(--color-muted)]">正解:</p>
-                <p className="text-lg font-bold text-[var(--color-foreground)]">
-                  {isActiveVocab
-                    ? currentQuestion.word.english
-                    : quizDirection === 'en-to-ja'
-                      ? currentQuestion.word.japanese
-                      : currentQuestion.word.english}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Example sentence after answering */}
-        {isRevealed && currentQuestion && (
-          <div className="w-full mt-4 flex-shrink-0">
-            {currentQuestion.word.exampleSentence && (
-              <div className="card p-4 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold">
-                  <Icon name="format_quote" size={14} />
-                  例文
-                </div>
-                <p className="text-sm text-[var(--color-foreground)] leading-relaxed">{currentQuestion.word.exampleSentence}</p>
-                {currentQuestion.word.exampleSentenceJa && (
-                  <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        </div>
-      </main>
-
-      {/* Bottom next button */}
-      {isRevealed && (
-        <div className="flex-shrink-0 bg-[var(--color-background)] pt-3 pb-6 safe-area-bottom w-full">
-          <div className="mx-auto w-full max-w-lg px-6">
+    <QuizDesktopViewport>
+      <div className="h-full flex flex-col bg-[var(--color-background)] overflow-hidden">
+        {/* Header - iOS style */}
+        <header className="sticky top-0 flex-shrink-0 py-4 px-6 w-full">
+          <div className="mx-auto w-full max-w-lg flex items-center gap-4">
             <button
-              onClick={moveToNext}
-              disabled={isTransitioning}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
+              onClick={backToProject}
+              className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-foreground)]"
             >
-              次へ
-              <Icon name="chevron_right" size={20} />
+              <Icon name="close" size={24} />
+            </button>
+
+            <div className="flex-1 progress-bar min-w-0">
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+              />
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto">
+          <div className="mx-auto w-full max-w-lg px-6 flex flex-col flex-1 min-h-0">
+          {/* Mode badges - iOS style */}
+          <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
+            <span
+              className={`px-3 py-1 text-xs font-medium rounded-full ${
+                isActiveVocab
+                  ? 'bg-[var(--color-accent-blue-light)] text-[var(--color-accent-blue)]'
+                  : 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
+              }`}
+            >
+              {isActiveVocab ? 'Active — タイプ入力' : 'Passive — 4択'}
+            </span>
+          </div>
+
+          {/* Question word - iOS style */}
+          <div className="flex flex-col items-center justify-center py-6 flex-shrink-0 animate-fade-in-up">
+            <h1 className="text-4xl font-black text-[var(--color-foreground)] text-center mb-3 tracking-tight">
+              {isActiveVocab
+                ? currentQuestion?.word.japanese
+                : quizDirection === 'en-to-ja'
+                  ? currentQuestion?.word.english
+                  : currentQuestion?.word.japanese}
+            </h1>
+
+            <button
+              onClick={async () => {
+                if (!currentQuestion) return;
+                const word = currentQuestion.word;
+                const newFavorite = !word.isFavorite;
+                await repository.updateWord(word.id, { isFavorite: newFavorite });
+                setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q));
+                setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, isFavorite: newFavorite } : w));
+              }}
+              className="p-2"
+              aria-label={currentQuestion?.word.isFavorite ? 'お気に入り解除' : 'お気に入り'}
+            >
+              <Icon name="bookmark" size={24} filled={currentQuestion?.word.isFavorite ?? false} className={currentQuestion?.word.isFavorite ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'} />
             </button>
           </div>
-        </div>
-      )}
-    </div>
+
+          {/* Quiz content - conditional on active/passive vocabularyType */}
+          {!isActiveVocab ? (
+            <div className="space-y-2.5 w-full flex-shrink-0">
+              {currentQuestion?.options.map((option, index) => (
+                <QuizOption
+                  key={index}
+                  label={option}
+                  index={index}
+                  isSelected={selectedIndex === index}
+                  isCorrect={index === currentQuestion.correctIndex}
+                  isRevealed={isRevealed}
+                  onSelect={() => handleSelect(index)}
+                  disabled={isRevealed}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Type-in mode - iOS style */
+            <div className="w-full flex-shrink-0 space-y-4">
+              <TypeInQuizField
+                answer={currentQuestion?.word.english ?? ''}
+                value={typeInAnswer}
+                onChange={setTypeInAnswer}
+                onSubmit={() => {
+                  if (!isRevealed) handleTypeInSubmit();
+                }}
+                disabled={isRevealed}
+                result={typeInResult}
+              />
+              {!isRevealed && (
+                <button
+                  onClick={handleTypeInSubmit}
+                  disabled={!typeInAnswer.trim()}
+                  className="w-full py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-40 transition-opacity"
+                >
+                  回答する
+                </button>
+              )}
+              {isRevealed && typeInResult === 'wrong' && currentQuestion && (
+                <div className="text-center">
+                  <p className="text-sm text-[var(--color-muted)]">正解:</p>
+                  <p className="text-lg font-bold text-[var(--color-foreground)]">
+                    {isActiveVocab
+                      ? currentQuestion.word.english
+                      : quizDirection === 'en-to-ja'
+                        ? currentQuestion.word.japanese
+                        : currentQuestion.word.english}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Example sentence after answering */}
+          {isRevealed && currentQuestion && (
+            <div className="w-full mt-4 flex-shrink-0">
+              {currentQuestion.word.exampleSentence && (
+                <div className="card p-4 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold">
+                    <Icon name="format_quote" size={14} />
+                    例文
+                  </div>
+                  <p className="text-sm text-[var(--color-foreground)] leading-relaxed">{currentQuestion.word.exampleSentence}</p>
+                  {currentQuestion.word.exampleSentenceJa && (
+                    <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          </div>
+        </main>
+
+        {/* Bottom next button */}
+        {isRevealed && (
+          <div className="flex-shrink-0 bg-[var(--color-background)] pt-3 pb-6 safe-area-bottom w-full">
+            <div className="mx-auto w-full max-w-lg px-6">
+              <button
+                onClick={moveToNext}
+                disabled={isTransitioning}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
+              >
+                次へ
+                <Icon name="chevron_right" size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </QuizDesktopViewport>
   );
 }

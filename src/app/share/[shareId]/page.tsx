@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
+import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getRepository } from '@/lib/db';
 import { createBrowserClient } from '@/lib/supabase';
@@ -19,6 +20,11 @@ export default function SharedProjectPage() {
   const shareId = params.shareId as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const {
+    isConfigured: rewardedDownloadConfigured,
+    isPreparing: preparingRewardedDownloadAd,
+    showRewardedDownloadAd,
+  } = useRewardedDownloadAd();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -90,11 +96,10 @@ export default function SharedProjectPage() {
     loadData();
   }, [shareId]);
 
-  const handleImport = async (targetWords: Word[]) => {
+  const performImport = async (targetWords: Word[]) => {
     if (!user || !project || targetWords.length === 0) return;
 
     setImporting(true);
-    setShowImportSheet(false);
     try {
       const repo = getRepository(subscriptionStatus, wasPro);
 
@@ -129,6 +134,34 @@ export default function SharedProjectPage() {
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleImport = async (targetWords: Word[]) => {
+    if (!user || !project || targetWords.length === 0 || importing || preparingRewardedDownloadAd) {
+      return;
+    }
+
+    if (!rewardedDownloadConfigured) {
+      await performImport(targetWords);
+      return;
+    }
+
+    const rewardedOutcome = await showRewardedDownloadAd();
+
+    if (rewardedOutcome === 'granted') {
+      await performImport(targetWords);
+      return;
+    }
+
+    if (rewardedOutcome === 'unavailable') {
+      await performImport(targetWords);
+      return;
+    }
+
+    showToast({
+      message: '動画広告を最後まで視聴すると追加できます',
+      type: 'warning',
+    });
   };
 
   const wordFilterActive = wordFilterActiveness !== 'all' || wordFilterPos !== null;
@@ -235,6 +268,9 @@ export default function SharedProjectPage() {
     const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
     return map[tags[0]] || tags[0].slice(0, 1);
   };
+
+  const importActionBusy = importing || preparingRewardedDownloadAd;
+  const importProgressLabel = preparingRewardedDownloadAd ? '広告を準備中...' : '追加中...';
 
   if (loading || authLoading) {
     return (
@@ -539,11 +575,11 @@ export default function SharedProjectPage() {
                   </button>
                   <button
                     onClick={() => void handleImport(words.filter((w) => selectedWordIds.has(w.id)))}
-                    disabled={importing || selectedWordIds.size === 0}
+                    disabled={importActionBusy || selectedWordIds.size === 0}
                     className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm disabled:opacity-50"
                   >
-                    {importing ? (
-                      <><Icon name="progress_activity" size={18} className="animate-spin" />追加中...</>
+                    {importActionBusy ? (
+                      <><Icon name="progress_activity" size={18} className="animate-spin" />{importProgressLabel}</>
                     ) : (
                       <><Icon name="download" size={18} />選択した {selectedWordIds.size}語を追加</>
                     )}
@@ -552,15 +588,21 @@ export default function SharedProjectPage() {
               ) : (
                 <button
                   onClick={() => setShowImportSheet(true)}
-                  disabled={importing}
+                  disabled={importActionBusy}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm disabled:opacity-50"
                 >
-                  {importing ? (
-                    <><Icon name="progress_activity" size={18} className="animate-spin" />追加中...</>
+                  {importActionBusy ? (
+                    <><Icon name="progress_activity" size={18} className="animate-spin" />{importProgressLabel}</>
                   ) : (
                     <><Icon name="download" size={18} />単語帳として追加</>
                   )}
                 </button>
+              )}
+
+              {rewardedDownloadConfigured && !importedProjectId && (
+                <p className="mt-2 text-center text-[11px] text-[var(--color-muted)]">
+                  追加前に動画広告が再生されます
+                </p>
               )}
             </div>
           </div>
