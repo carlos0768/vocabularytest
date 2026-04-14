@@ -1427,7 +1427,7 @@ export default function ProjectDetailPage() {
               >
                 <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
                   <thead>
-                    <tr className="border-b border-[var(--color-border)] text-[0.65rem] text-[var(--color-muted)]">
+                    <tr className="border-b border-[var(--color-border)] text-[0.78rem] text-[var(--color-muted)]">
                       {selectMode && (
                         <th className="w-8 py-2 text-center">
                           <button type="button" onClick={handleSelectAll} className="inline-flex items-center justify-center">
