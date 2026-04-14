@@ -13,6 +13,37 @@ import { useAuth } from '@/hooks/use-auth';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import type { Word, SubscriptionStatus } from '@/types';
 
+// Mastery level derived from SM-2 repetition count (mirrors iOS FlashcardCardView)
+function getMasteryInfo(repetition: number): { level: number; label: string; color: string } {
+  if (repetition === 0) return { level: 0, label: '新規', color: 'var(--color-muted)' };
+  if (repetition <= 2) return { level: 1, label: '学習中', color: '#f59e0b' };
+  if (repetition <= 5) return { level: 2, label: '定着中', color: 'var(--color-primary)' };
+  return { level: 3, label: 'マスター', color: '#10b981' };
+}
+
+// Highlights the target word inside the example sentence (case-insensitive)
+function HighlightedExample({ text, term }: { text: string; term: string }) {
+  if (!term) {
+    return <p className="text-sm leading-relaxed text-white/90">{text}</p>;
+  }
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <p className="text-sm leading-relaxed text-white/90">
+      {parts.map((part, i) =>
+        part.toLowerCase() === term.toLowerCase() ? (
+          <span key={i} className="font-bold text-white">
+            {part}
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </p>
+  );
+}
+
 // Progress storage key generator (localStorage for long-term, sessionStorage for immediate restore)
 const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
   `flashcard_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
@@ -706,10 +737,64 @@ export default function FlashcardPage() {
                 </button>
               )}
 
-              {/* Word */}
-              <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center tracking-tight">
-                {japaneseFirst ? currentWord?.japanese : currentWord?.english}
-              </h1>
+              {japaneseFirst ? (
+                <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center tracking-tight">
+                  {currentWord?.japanese}
+                </h1>
+              ) : (
+                <div className="flex flex-col items-center gap-3 w-full px-4">
+                  {/* Mastery dots */}
+                  {(() => {
+                    const info = getMasteryInfo(currentWord?.repetition ?? 0);
+                    return (
+                      <div className="flex items-center gap-1">
+                        {[0, 1, 2, 3].map((i) => (
+                          <span
+                            key={i}
+                            className="block w-1.5 h-1.5 rounded-full"
+                            style={{
+                              backgroundColor:
+                                i <= info.level ? info.color : 'var(--color-border)',
+                            }}
+                          />
+                        ))}
+                        <span
+                          className="ml-1.5 text-[10px] font-medium"
+                          style={{ color: info.color }}
+                        >
+                          {info.label}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Word */}
+                  <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] text-center tracking-tight">
+                    {currentWord?.english}
+                  </h1>
+
+                  {/* Pronunciation */}
+                  {currentWord?.pronunciation && (
+                    <p className="font-mono text-sm text-[var(--color-muted)]">
+                      {currentWord.pronunciation}
+                    </p>
+                  )}
+
+                  {/* Part of speech tags */}
+                  {currentWord?.partOfSpeechTags && currentWord.partOfSpeechTags.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      {currentWord.partOfSpeechTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Hint */}
               <p className="absolute bottom-6 text-sm text-[var(--color-muted)]">
@@ -733,9 +818,47 @@ export default function FlashcardPage() {
                 </button>
               )}
 
-              <h2 className="text-3xl font-bold text-white text-center">
-                {japaneseFirst ? currentWord?.english : currentWord?.japanese}
-              </h2>
+              <div className="flex flex-col items-center gap-3 w-full px-2 max-h-full overflow-y-auto">
+                {/* Main translation / word */}
+                <div className="flex flex-col items-center gap-1">
+                  <h2 className="text-3xl font-bold text-white text-center">
+                    {japaneseFirst ? currentWord?.english : currentWord?.japanese}
+                  </h2>
+                  <p className="text-sm text-white/60 text-center">
+                    {japaneseFirst ? currentWord?.japanese : currentWord?.english}
+                  </p>
+                  {currentWord?.pronunciation && (
+                    <p className="font-mono text-xs text-white/50">
+                      {currentWord.pronunciation}
+                    </p>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="w-10 h-0.5 rounded-full bg-white/20" />
+
+                {/* Example sentence */}
+                {currentWord?.exampleSentence ? (
+                  <div className="w-full rounded-xl bg-white/10 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-[1.5px] text-white/50 mb-2">
+                      例文
+                    </p>
+                    <HighlightedExample
+                      text={currentWord.exampleSentence}
+                      term={currentWord.english}
+                    />
+                    {currentWord.exampleSentenceJa && (
+                      <p className="mt-1.5 text-xs text-white/60 leading-relaxed">
+                        {currentWord.exampleSentenceJa}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full rounded-xl bg-white/10 p-3.5 text-center">
+                    <p className="text-xs text-white/60">例文はまだありません</p>
+                  </div>
+                )}
+              </div>
 
               <p className="absolute bottom-6 text-sm text-white/60">
                 タップして戻る
