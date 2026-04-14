@@ -49,8 +49,7 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       className={cn(
-        'fixed inset-0 z-[100] flex justify-center',
-        isSheet ? 'items-end md:items-center md:p-4' : 'items-center p-4'
+        'fixed inset-0 z-[100] flex items-center justify-center p-4'
       )}
       onClick={closeOnBackdrop ? onClose : undefined}
     >
@@ -62,18 +61,12 @@ export function Modal({
         className={cn(
           'relative bg-[var(--color-surface)] shadow-2xl border border-[var(--color-border)]',
           isSheet
-            ? 'w-full max-w-lg max-h-[85dvh] rounded-t-2xl md:rounded-2xl md:max-w-md md:max-h-[80dvh] flex flex-col animate-in slide-in-from-bottom-8 fade-in duration-400 ease-out md:slide-in-from-bottom-0 md:zoom-in-95'
+            ? 'w-full max-w-md max-h-[80dvh] rounded-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300 ease-out'
             : 'w-full max-w-sm rounded-[var(--radius-xl)] animate-in fade-in zoom-in-95 duration-300 ease-out',
           className
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {isSheet && (
-          <div
-            aria-hidden="true"
-            className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--color-border)] md:hidden"
-          />
-        )}
         {showCloseButton && (
           <button
             onClick={onClose}
@@ -84,7 +77,7 @@ export function Modal({
           </button>
         )}
         {isSheet ? (
-          <div className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] md:pb-0">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             {children}
           </div>
         ) : (
