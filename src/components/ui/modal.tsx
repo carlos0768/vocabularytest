@@ -54,15 +54,16 @@ export function Modal({
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 animate-in fade-in duration-300 ease-out" />
+      <div className="absolute inset-0 bg-black/50 animate-fade-in" />
 
-      {/* Modal content */}
+      {/* Modal content — animated with the same fade-in-up as the word list
+          sort / filter bottom sheets so the transition feels consistent. */}
       <div
         className={cn(
-          'relative bg-[var(--color-surface)] shadow-2xl border border-[var(--color-border)]',
+          'relative bg-[var(--color-surface)] shadow-2xl border border-[var(--color-border)] animate-fade-in-up',
           isSheet
-            ? 'w-full max-w-md max-h-[80dvh] rounded-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300 ease-out'
-            : 'w-full max-w-sm rounded-[var(--radius-xl)] animate-in fade-in zoom-in-95 duration-300 ease-out',
+            ? 'w-full max-w-md max-h-[80dvh] rounded-2xl flex flex-col'
+            : 'w-full max-w-sm rounded-[var(--radius-xl)]',
           className
         )}
         onClick={(e) => e.stopPropagation()}

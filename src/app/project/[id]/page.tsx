@@ -861,6 +861,19 @@ export default function ProjectDetailPage() {
     [sortedBlocks],
   );
 
+  // Map of lowercased English headword → word id, used by rich text blocks
+  // to highlight words that exist in the current project's word list.
+  // Multi-word phrases are supported. Duplicate headwords keep the first id.
+  const wordHighlightMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of words) {
+      const key = w.english?.toLowerCase().trim();
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, w.id);
+    }
+    return map;
+  }, [words]);
+
   const persistBlocks = useCallback(
     async (nextBlocks: ProjectBlock[]) => {
       if (!project) return;
@@ -1384,8 +1397,10 @@ export default function ProjectDetailPage() {
                     <RichTextBlock
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
+                      wordHighlightMap={wordHighlightMap}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
+                      onOpenWord={handleOpenWordModal}
                     />
                   )}
                   {idx < blocksAbove.length - 1 && (
@@ -1730,8 +1745,10 @@ export default function ProjectDetailPage() {
                     <RichTextBlock
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
+                      wordHighlightMap={wordHighlightMap}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
+                      onOpenWord={handleOpenWordModal}
                     />
                   )}
                   <BlockInserter
@@ -1743,55 +1760,80 @@ export default function ProjectDetailPage() {
           </section>
         </main>
 
-        {/* Bottom action bar */}
-        {words.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', visibility: 'visible' }}>
-            <div className="max-w-lg mx-auto flex items-center gap-3">
-              {selectMode ? (
-                <>
-                  <button
-                    onClick={() => { setSelectMode(false); setSelectedWordIds(new Set()); }}
-                    className="px-4 py-3 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)]"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={() => setBulkDeleteModalOpen(true)}
-                    disabled={selectedWordIds.size === 0}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-error)] text-white font-semibold text-sm disabled:opacity-50"
-                  >
-                    <Icon name="delete" size={18} />
-                    {selectedWordIds.size > 0 ? `${selectedWordIds.size}語を削除` : '削除'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href={`/flashcard/${project.id}?from=${returnPath}`}
-                    className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] transition-colors"
-                    title="フラッシュカード"
-                  >
-                    <Icon name="style" size={20} />
-                  </Link>
-                  <Link
-                    href={canUseAiFeatures ? `/quiz/${project.id}?from=${returnPath}` : `/quiz2/${project.id}?from=${returnPath}`}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm"
-                  >
-                    <Icon name="help" size={18} />
-                    クイズ
-                  </Link>
-                  <button
-                    onClick={() => setShowAddMethodSheet(true)}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
-                  >
-                    <Icon name="add" size={18} />
-                    単語追加
-                  </button>
-                </>
-              )}
-            </div>
+        {/* Bottom action bar — always shown (even for newly-created empty
+            projects) so the user always has access to 単語追加 and can
+            navigate to flashcard / quiz once words exist. */}
+        <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-5 py-3 z-40 lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', visibility: 'visible' }}>
+          <div className="max-w-lg mx-auto flex items-center gap-3">
+            {selectMode ? (
+              <>
+                <button
+                  onClick={() => { setSelectMode(false); setSelectedWordIds(new Set()); }}
+                  className="px-4 py-3 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)]"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={() => setBulkDeleteModalOpen(true)}
+                  disabled={selectedWordIds.size === 0}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-error)] text-white font-semibold text-sm disabled:opacity-50"
+                >
+                  <Icon name="delete" size={18} />
+                  {selectedWordIds.size > 0 ? `${selectedWordIds.size}語を削除` : '削除'}
+                </button>
+              </>
+            ) : words.length === 0 ? (
+              <>
+                <span
+                  aria-disabled="true"
+                  className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)] opacity-40 cursor-not-allowed"
+                  title="フラッシュカード (単語がありません)"
+                >
+                  <Icon name="style" size={20} />
+                </span>
+                <span
+                  aria-disabled="true"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-muted)] font-semibold text-sm opacity-50 cursor-not-allowed"
+                  title="クイズ (単語がありません)"
+                >
+                  <Icon name="help" size={18} />
+                  クイズ
+                </span>
+                <button
+                  onClick={() => setShowAddMethodSheet(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
+                >
+                  <Icon name="add" size={18} />
+                  単語追加
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href={`/flashcard/${project.id}?from=${returnPath}`}
+                  className="w-12 h-12 rounded-xl border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface-secondary)] transition-colors"
+                  title="フラッシュカード"
+                >
+                  <Icon name="style" size={20} />
+                </Link>
+                <Link
+                  href={canUseAiFeatures ? `/quiz/${project.id}?from=${returnPath}` : `/quiz2/${project.id}?from=${returnPath}`}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] font-semibold text-sm"
+                >
+                  <Icon name="help" size={18} />
+                  クイズ
+                </Link>
+                <button
+                  onClick={() => setShowAddMethodSheet(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm"
+                >
+                  <Icon name="add" size={18} />
+                  単語追加
+                </button>
+              </>
+            )}
           </div>
-        )}
+        </div>
 
       <ManualWordInputModal
         isOpen={showManualWordModal}

@@ -792,6 +792,20 @@ body {
   font-weight: 700;
 }
 
+.rich-text-block .merken-highlighted-word {
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  color: var(--color-primary);
+  border-radius: 0.25rem;
+  padding: 0 0.15rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.12s ease;
+}
+
+.rich-text-block .merken-highlighted-word:hover {
+  background: color-mix(in srgb, var(--color-primary) 32%, transparent);
+}
+
 /* ===== Circular Progress ===== */
 
 .circular-progress {
