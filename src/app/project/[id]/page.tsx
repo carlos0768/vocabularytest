@@ -1302,7 +1302,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        <main className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
+        <main className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2">
           {/* Title + description (Notion-style, inline-editable) */}
           <section className="mb-3">
             <div className="flex items-center gap-2">
@@ -1345,7 +1345,7 @@ export default function ProjectDetailPage() {
           </section>
 
           {/* 3-column stats card - iOS style */}
-          <section>
+          <section className="mt-5">
             <div className="card p-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
@@ -1380,7 +1380,7 @@ export default function ProjectDetailPage() {
                 keep appending blocks down toward the word list. No inserter
                 before the first block (it would be flush against the stats
                 card widget). */}
-          <section className="space-y-1">
+          <section className="mt-5 space-y-1">
             {blocksAbove.length === 0 ? (
               <div className="my-2">
                 <BlockInserter
@@ -1411,7 +1411,7 @@ export default function ProjectDetailPage() {
           </section>
 
           {/* Word list table - iOS style */}
-          <section style={{ marginTop: '0.625rem' }}>
+          <section className="mt-2.5">
             {/* Header row: title + toolbar */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
@@ -1728,7 +1728,7 @@ export default function ProjectDetailPage() {
               inserter remain visible. When empty, a single page-bottom
               inserter is rendered with extra top margin so it is not flush
               against the word list. */}
-          <section className="space-y-1">
+          <section className="mt-5 space-y-1">
             {blocksBelow.length === 0 ? (
               <div className="mt-8">
                 <BlockInserter
