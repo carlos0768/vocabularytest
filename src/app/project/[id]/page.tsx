@@ -1411,7 +1411,7 @@ export default function ProjectDetailPage() {
           </section>
 
           {/* Word list table - iOS style */}
-          <section>
+          <section style={{ marginTop: '0.625rem' }}>
             {/* Header row: title + toolbar */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-[var(--color-foreground)]">単語一覧 <span className="text-sm font-normal text-[var(--color-muted)]">{stats.total}</span></h2>
