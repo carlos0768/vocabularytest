@@ -1728,7 +1728,7 @@ export default function ProjectDetailPage() {
               inserter remain visible. When empty, a single page-bottom
               inserter is rendered with extra top margin so it is not flush
               against the word list. */}
-          <section className="mt-5 space-y-1">
+          <section className="mt-2.5 space-y-1">
             {blocksBelow.length === 0 ? (
               <div className="mt-8">
                 <BlockInserter
