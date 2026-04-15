@@ -1263,7 +1263,7 @@ export default function ProjectDetailPage() {
     <>
       <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-[calc(20vh+5rem)]" style={contentVisible ? undefined : { visibility: 'hidden' }}>
         <div
-          className="project-detail-header-safe-top z-[50] sticky top-0"
+          className="project-detail-header-safe-top z-[50] sticky top-0 min-[1360px]:-mx-[200px] min-[1360px]:px-[200px] min-[1600px]:-mx-[208px] min-[1600px]:px-[208px]"
           style={{ background: headerBackground }}
         >
           <div
