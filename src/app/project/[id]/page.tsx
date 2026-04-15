@@ -2048,6 +2048,13 @@ export default function ProjectDetailPage() {
           <WordDetailView
             key={openWordId}
             wordId={openWordId}
+            // Pass the already-loaded row from the parent list state so the
+            // modal can render instantly AND survive repository-backend
+            // mismatches (e.g. manually added words written via one repo but
+            // read by another). Without this, the async getWord in the modal
+            // could return undefined for a word that actually exists, causing
+            // "単語が見つかりません" to flash.
+            initialWord={words.find((w) => w.id === openWordId) ?? null}
             onClose={handleCloseWordModal}
             variant="modal"
             onWordUpdated={handleWordUpdatedFromModal}
