@@ -794,6 +794,7 @@ export default function ProjectDetailPage() {
     let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
     let enrichedExampleSentence = userExample;
     let enrichedExampleSentenceJa = '';
+    let enrichFailureReason: string | null = null;
 
     try {
       const enrichResponse = await fetch('/api/words/enrich-manual', {
@@ -817,6 +818,7 @@ export default function ProjectDetailPage() {
             exampleSentence?: string;
             exampleSentenceJa?: string;
           };
+          error?: string;
         };
         if (data.success && data.enriched) {
           enrichedPronunciation = data.enriched.pronunciation ?? '';
@@ -827,12 +829,17 @@ export default function ProjectDetailPage() {
             enrichedExampleSentence = data.enriched.exampleSentence;
           }
           enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+        } else {
+          enrichFailureReason = data.error ?? 'enrich response missing enriched payload';
+          console.warn('[manual-word] enrich returned ok but no data:', data);
         }
       } else {
-        // 補完失敗しても単語追加自体は継続する
-        console.warn('[manual-word] enrich failed:', enrichResponse.status);
+        const body = await enrichResponse.text().catch(() => '');
+        enrichFailureReason = `HTTP ${enrichResponse.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+        console.warn('[manual-word] enrich failed:', enrichResponse.status, body);
       }
     } catch (enrichError) {
+      enrichFailureReason = enrichError instanceof Error ? enrichError.message : String(enrichError);
       console.warn('[manual-word] enrich error:', enrichError);
     }
 
@@ -853,7 +860,14 @@ export default function ProjectDetailPage() {
       ]);
 
       setWords((prev) => [...created, ...prev]);
-      showToast({ message: '単語を追加しました', type: 'success' });
+      if (enrichFailureReason) {
+        showToast({
+          message: `単語を追加しました (AI補完失敗: ${enrichFailureReason})`,
+          type: 'error',
+        });
+      } else {
+        showToast({ message: '単語を追加しました', type: 'success' });
+      }
       setManualWordEnglish('');
       setManualWordJapanese('');
       setManualWordPartOfSpeech('');
