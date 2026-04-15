@@ -60,6 +60,16 @@ export interface WordDetailViewProps {
   variant?: 'page' | 'modal';
   /** Called after any successful write (favorite toggle, vocab type cycle, save edit). */
   onWordUpdated?: (word: Word) => void;
+  /**
+   * Optional pre-known word object. When opened from the project list we already
+   * have the full word in the parent's state (including freshly manually added
+   * words that are not yet reflected in the home-cache snapshot and may not
+   * live in the same repository backend the modal reads from). Passing it here
+   * lets the modal render instantly with the correct data AND prevents the
+   * async repository reload from clobbering the UI with a "word not found"
+   * state when the repositories disagree about where the word is stored.
+   */
+  initialWord?: Word | null;
 }
 
 export function WordDetailView({
@@ -67,6 +77,7 @@ export function WordDetailView({
   onClose,
   variant = 'page',
   onWordUpdated,
+  initialWord: initialWordFromProps,
 }: WordDetailViewProps) {
   const isModal = variant === 'modal';
 
@@ -75,10 +86,23 @@ export function WordDetailView({
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
-  // Seed initial word from the in-memory list cache (when opened from project page)
-  // so the modal renders immediately without a spinner flash.
-  const initialWord = useMemo(() => findCachedWord(wordId), [wordId]);
+  // Seed initial word from the explicit prop first (passed by the project
+  // page with the word already in its state), then fall back to the global
+  // in-memory list cache so direct-link opens from /word/[id] still get an
+  // instant render when possible.
+  const initialWord = useMemo(
+    () => initialWordFromProps ?? findCachedWord(wordId),
+    [wordId, initialWordFromProps],
+  );
   const [word, setWord] = useState<Word | null>(initialWord);
+  // Keep the latest known word accessible to async effects without having
+  // to depend on the `word` state (which would retrigger the load effect on
+  // every update). This lets the repository-reload effect fall back to the
+  // most recent word we actually showed when the lookup misses.
+  const latestWordRef = useRef<Word | null>(initialWord);
+  useEffect(() => {
+    latestWordRef.current = word;
+  }, [word]);
   const [projectCustomColumns, setProjectCustomColumns] = useState<CustomColumn[]>([]);
   const [loading, setLoading] = useState(initialWord === null);
 
@@ -122,9 +146,18 @@ export function WordDetailView({
     let cancelled = false;
     (async () => {
       try {
-        const w = await repository.getWord(wordId);
+        const fetched = await repository.getWord(wordId);
         if (cancelled) return;
-        setWord(w ?? null);
+
+        // If the repository lookup misses but we already have a word we
+        // previously showed (from the initialWord prop or an earlier
+        // successful load), keep showing it. Overwriting with null here
+        // is what triggered "単語が見つかりません" for manually added
+        // words when the parent wrote through a different repository
+        // backend than the modal reads from (e.g. remote-only vs. local
+        // IndexedDB).
+        const w: Word | null = fetched ?? latestWordRef.current ?? null;
+        setWord(w);
 
         // Load project-level custom columns. The word's own customSections hold
         // the per-word values; we synthesize placeholder sections for any
