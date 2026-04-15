@@ -268,30 +268,58 @@ export function EditProjectNameModal({
   );
 }
 
+const PART_OF_SPEECH_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: '(自動で判定)' },
+  { value: 'noun', label: '名詞 (noun)' },
+  { value: 'verb', label: '動詞 (verb)' },
+  { value: 'adjective', label: '形容詞 (adjective)' },
+  { value: 'adverb', label: '副詞 (adverb)' },
+  { value: 'idiom', label: '熟語 (idiom)' },
+  { value: 'phrasal_verb', label: '句動詞 (phrasal verb)' },
+  { value: 'preposition', label: '前置詞 (preposition)' },
+  { value: 'conjunction', label: '接続詞 (conjunction)' },
+  { value: 'pronoun', label: '代名詞 (pronoun)' },
+  { value: 'interjection', label: '感動詞 (interjection)' },
+  { value: 'other', label: 'その他 (other)' },
+];
+
 export function ManualWordInputModal({
   isOpen,
   onClose,
   onConfirm,
   isLoading,
+  loadingMessage,
   english,
   setEnglish,
   japanese,
   setJapanese,
+  partOfSpeech,
+  setPartOfSpeech,
+  exampleSentence,
+  setExampleSentence,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   isLoading: boolean;
+  loadingMessage?: string;
   english: string;
   setEnglish: (value: string) => void;
   japanese: string;
   setJapanese: (value: string) => void;
+  partOfSpeech: string;
+  setPartOfSpeech: (value: string) => void;
+  exampleSentence: string;
+  setExampleSentence: (value: string) => void;
 }) {
   const englishInputRef = useRef<HTMLInputElement>(null);
+  const [showOptional, setShowOptional] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => englishInputRef.current?.focus(), 100);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowOptional(false);
     }
   }, [isOpen]);
 
@@ -306,10 +334,13 @@ export function ManualWordInputModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="card p-6 w-full max-w-sm animate-fade-in-up">
-        <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
+      <div className="card p-6 w-full max-w-sm animate-fade-in-up max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-bold mb-1 text-center text-[var(--color-foreground)]">
           単語を手で入力
         </h2>
+        <p className="text-xs text-center text-[var(--color-muted)] mb-4">
+          品詞・例文・発音記号はAIが自動で補完します
+        </p>
         <form onSubmit={handleSubmit}>
           <div className="space-y-3">
             <div>
@@ -341,6 +372,52 @@ export function ManualWordInputModal({
                 maxLength={100}
               />
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowOptional((v) => !v)}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline py-1 disabled:opacity-60"
+            >
+              <Icon name={showOptional ? 'expand_less' : 'expand_more'} size={16} />
+              {showOptional ? '詳細を閉じる' : '詳細を入力 (任意)'}
+            </button>
+
+            {showOptional && (
+              <div className="space-y-3 animate-fade-in-up">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                    品詞 <span className="text-[var(--color-muted)] font-normal">(任意・未入力なら自動補完)</span>
+                  </label>
+                  <select
+                    value={partOfSpeech}
+                    onChange={(e) => setPartOfSpeech(e.target.value)}
+                    disabled={isLoading}
+                    className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                  >
+                    {PART_OF_SPEECH_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                    例文 <span className="text-[var(--color-muted)] font-normal">(任意・未入力なら自動補完)</span>
+                  </label>
+                  <textarea
+                    value={exampleSentence}
+                    onChange={(e) => setExampleSentence(e.target.value)}
+                    placeholder="例: She has a beautiful voice."
+                    rows={2}
+                    className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-sm bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors resize-none"
+                    disabled={isLoading}
+                    maxLength={500}
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 mt-4">
             <Button
@@ -357,7 +434,7 @@ export function ManualWordInputModal({
               disabled={!english.trim() || !japanese.trim() || isLoading}
               className="flex-1"
             >
-              {isLoading ? '保存中...' : '保存'}
+              {isLoading ? (loadingMessage ?? '保存中...') : '保存'}
             </Button>
           </div>
         </form>
