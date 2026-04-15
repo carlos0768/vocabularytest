@@ -1380,7 +1380,7 @@ export default function ProjectDetailPage() {
                 keep appending blocks down toward the word list. No inserter
                 before the first block (it would be flush against the stats
                 card widget). */}
-          <section className="mt-5 space-y-1">
+          <section className="mt-2.5 space-y-1">
             {blocksAbove.length === 0 ? (
               <div className="my-2">
                 <BlockInserter
