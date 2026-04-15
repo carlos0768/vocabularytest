@@ -39,7 +39,10 @@ export default function WordListPage() {
   const [showManualWordModal, setShowManualWordModal] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
+  const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
+  const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
+  const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
@@ -179,7 +182,9 @@ export default function WordListPage() {
   };
 
   const handleSaveManualWord = async () => {
-    if (!manualWordEnglish.trim() || !manualWordJapanese.trim() || !project) return;
+    const english = manualWordEnglish.trim();
+    const japanese = manualWordJapanese.trim();
+    if (!english || !japanese || !project) return;
 
     const { canAdd, wouldExceed } = canAddWords(1);
     if (!canAdd || wouldExceed) {
@@ -187,28 +192,102 @@ export default function WordListPage() {
       return;
     }
 
+    const userPos = manualWordPartOfSpeech.trim();
+    const userExample = manualWordExampleSentence.trim();
+
     setManualWordSaving(true);
+    setManualWordSavingMessage('情報を生成中...');
+
+    let enrichedPronunciation = '';
+    let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
+    let enrichedExampleSentence = userExample;
+    let enrichedExampleSentenceJa = '';
+    let enrichFailureReason: string | null = null;
+
+    try {
+      const enrichResponse = await fetch('/api/words/enrich-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          english,
+          japanese,
+          ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
+          ...(userExample ? { exampleSentence: userExample } : {}),
+        }),
+      });
+
+      if (enrichResponse.ok) {
+        const data = (await enrichResponse.json()) as {
+          success?: boolean;
+          enriched?: {
+            japanese?: string;
+            pronunciation?: string;
+            partOfSpeechTags?: string[];
+            exampleSentence?: string;
+            exampleSentenceJa?: string;
+          };
+          error?: string;
+        };
+        if (data.success && data.enriched) {
+          enrichedPronunciation = data.enriched.pronunciation ?? '';
+          if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
+            enrichedPartOfSpeechTags = data.enriched.partOfSpeechTags;
+          }
+          if (!enrichedExampleSentence && data.enriched.exampleSentence) {
+            enrichedExampleSentence = data.enriched.exampleSentence;
+          }
+          enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+        } else {
+          enrichFailureReason = data.error ?? 'enrich response missing enriched payload';
+          console.warn('[manual-word] enrich returned ok but no data:', data);
+        }
+      } else {
+        const body = await enrichResponse.text().catch(() => '');
+        enrichFailureReason = `HTTP ${enrichResponse.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+        console.warn('[manual-word] enrich failed:', enrichResponse.status, body);
+      }
+    } catch (enrichError) {
+      enrichFailureReason = enrichError instanceof Error ? enrichError.message : String(enrichError);
+      console.warn('[manual-word] enrich error:', enrichError);
+    }
+
+    setManualWordSavingMessage('保存中...');
+
     try {
       const created = await repository.createWords([{
         projectId,
-        english: manualWordEnglish.trim(),
-        japanese: manualWordJapanese.trim(),
+        english,
+        japanese,
         distractors: ['選択肢1', '選択肢2', '選択肢3'],
+        ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+        ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+        ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
+        ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
       }]);
       if (created && created.length > 0) {
         setWords(prev => [...created, ...prev]);
         invalidateHomeCache();
         refreshWordCount();
-        showToast({ message: '単語を追加しました', type: 'success' });
+        if (enrichFailureReason) {
+          showToast({
+            message: `単語を追加しました (AI補完失敗: ${enrichFailureReason})`,
+            type: 'error',
+          });
+        } else {
+          showToast({ message: '単語を追加しました', type: 'success' });
+        }
       }
       setManualWordEnglish('');
       setManualWordJapanese('');
+      setManualWordPartOfSpeech('');
+      setManualWordExampleSentence('');
       setShowManualWordModal(false);
     } catch (error) {
       console.error('Failed to save word:', error);
       showToast({ message: '単語の追加に失敗しました', type: 'error' });
     } finally {
       setManualWordSaving(false);
+      setManualWordSavingMessage(undefined);
     }
   };
 
@@ -273,13 +352,20 @@ export default function WordListPage() {
           setShowManualWordModal(false);
           setManualWordEnglish('');
           setManualWordJapanese('');
+          setManualWordPartOfSpeech('');
+          setManualWordExampleSentence('');
         }}
         onConfirm={handleSaveManualWord}
         isLoading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
         english={manualWordEnglish}
         setEnglish={setManualWordEnglish}
         japanese={manualWordJapanese}
         setJapanese={setManualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        setPartOfSpeech={setManualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        setExampleSentence={setManualWordExampleSentence}
       />
 
       <DeleteConfirmModal
