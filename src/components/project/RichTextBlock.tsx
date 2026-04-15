@@ -134,7 +134,7 @@ export function RichTextBlock({
           contentEditable
           suppressContentEditableWarning
           data-placeholder="本文を入力..."
-          className="rich-text-block min-h-8 text-[var(--color-foreground)] outline-none"
+          className="rich-text-block text-[var(--color-foreground)] outline-none"
           onBlur={handleBlur}
         />
       ) : (
@@ -143,7 +143,7 @@ export function RichTextBlock({
           aria-label="リッチテキストブロック"
           tabIndex={0}
           data-placeholder="本文を入力..."
-          className="rich-text-block min-h-8 cursor-text text-[var(--color-foreground)] outline-none"
+          className="rich-text-block cursor-text text-[var(--color-foreground)] outline-none"
           onMouseDown={handleViewMouseDown}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

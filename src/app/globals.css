@@ -746,6 +746,14 @@ body {
   line-height: 1.5;
 }
 
+.rich-text-block > :first-child {
+  margin-top: 0;
+}
+
+.rich-text-block > :last-child {
+  margin-bottom: 0;
+}
+
 .rich-text-block:empty::before {
   content: attr(data-placeholder);
   color: var(--color-muted);
