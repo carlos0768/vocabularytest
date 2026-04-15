@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import {
+  flushAllPendingStatusWrites,
+  scheduleWordStatusWrite,
+} from '@/lib/db/debounced-status-write';
 import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, Icon } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
@@ -42,6 +46,19 @@ export default function WordListPage() {
   const [manualWordSaving, setManualWordSaving] = useState(false);
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+
+  // Flush any debounced checkbox status writes before the tab unloads or
+  // the user navigates away.
+  useEffect(() => {
+    const flush = () => { flushAllPendingStatusWrites(); };
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+      flush();
+    };
+  }, []);
 
   // Load project and words
   useEffect(() => {
@@ -165,17 +182,23 @@ export default function WordListPage() {
   };
 
   const handleStatusChange = async (wordId: string, newStatus: import('@/types').WordStatus) => {
+    const current = words.find(w => w.id === wordId);
+    if (!current) return;
+    const currentStatus = current.status;
     setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: newStatus } : w));
-    try {
-      await repository.updateWord(wordId, { status: newStatus });
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      setWords(prev => prev.map(w => {
-        if (w.id !== wordId) return w;
-        const prev2: import('@/types').WordStatus = newStatus === 'new' ? 'mastered' : newStatus === 'review' ? 'new' : 'review';
-        return { ...w, status: prev2 };
-      }));
-    }
+    scheduleWordStatusWrite({
+      wordId,
+      currentStatus,
+      newStatus,
+      writer: async (finalStatus, originalStatus) => {
+        try {
+          await repository.updateWord(wordId, { status: finalStatus });
+        } catch (error) {
+          console.error('Failed to update status:', error);
+          setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: originalStatus } : w));
+        }
+      },
+    });
   };
 
   const handleSaveManualWord = async () => {

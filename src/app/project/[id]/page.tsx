@@ -22,6 +22,10 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import {
+  flushAllPendingStatusWrites,
+  scheduleWordStatusWrite,
+} from '@/lib/db/debounced-status-write';
 import { getGuestUserId } from '@/lib/utils';
 import { markProjectVisited } from '@/lib/project-visit';
 import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
@@ -258,6 +262,20 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     setWordsLoaded(false);
   }, [projectId]);
+
+  // Flush any debounced checkbox status writes before the tab unloads or
+  // the user navigates away, so a last tap within the debounce window
+  // is not lost on page exit.
+  useEffect(() => {
+    const flush = () => { flushAllPendingStatusWrites(); };
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+      flush();
+    };
+  }, []);
 
   // Phase 1: Local preload after auth resolves to avoid cross-account leakage
   useEffect(() => {
@@ -758,13 +776,21 @@ export default function ProjectDetailPage() {
   const handleCycleStatus = async (wordId: string, newStatus: WordStatus) => {
     const word = words.find((w) => w.id === wordId);
     if (!word) return;
+    const currentStatus = word.status;
     setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: newStatus } : w)));
-    try {
-      await mutationRepository.updateWord(wordId, { status: newStatus });
-    } catch {
-      setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: word.status } : w)));
-      showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });
-    }
+    scheduleWordStatusWrite({
+      wordId,
+      currentStatus,
+      newStatus,
+      writer: async (finalStatus, originalStatus) => {
+        try {
+          await mutationRepository.updateWord(wordId, { status: finalStatus });
+        } catch {
+          setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: originalStatus } : w)));
+          showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });
+        }
+      },
+    });
   };
 
   const handleSaveManualWord = async () => {
