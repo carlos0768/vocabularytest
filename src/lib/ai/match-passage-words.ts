@@ -1,5 +1,5 @@
 /**
- * Passage → Word matching (AI-assisted).
+ * Passage → Word matching (AI-assisted) — shared module.
  *
  * Given an English passage and a vocabulary list, ask Gemini to identify
  * where each target word (or idiom / phrasal verb / templatic expression)
@@ -12,14 +12,17 @@
  *   - "a sudden surge in A" ↔ "sudden surge in electricity" (partial template)
  *
  * The rest of the pipeline (rendering highlight spans, opening the word
- * modal on click) is unchanged — this module only returns a list of
- * `{ wordId, matchedText }` tuples that the client overlays on the
- * existing exact-match highlights.
+ * modal on click) is unchanged — this module only provides the types,
+ * the LLM prompt, the response schema, candidate filtering, and the pure
+ * range-computation helper.
+ *
+ * **Important:** This file is imported by both server (API route) and
+ * client (`RichTextBlock`) code, so it must NOT pull in any Node-only
+ * dependency. The actual network call to Gemini lives in
+ * `match-passage-words.server.ts`, which imports the AI provider stack.
  */
 
 import { z } from 'zod';
-import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
-import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 
 // ---------- Public types ----------
@@ -218,77 +221,12 @@ export function sanitizeMatches(
   return { matches: cleaned };
 }
 
-// ---------- Core entry point ----------
+// ---------- Limits ----------
 
 /** Hard cap to keep a single call bounded. */
 export const MAX_CANDIDATES_PER_CALL = 120;
 /** Hard cap on passage length (chars) to avoid runaway costs. */
 export const MAX_TEXT_LENGTH = 8000;
-
-type GenerateTextFn = (systemPrompt: string, userPrompt: string) => Promise<
-  | { success: true; content: string }
-  | { success: false; error: string }
->;
-
-export interface MatchPassageWordsDeps {
-  /**
-   * Dependency-injected text generator. Defaults to the configured Gemini
-   * provider via `AI_CONFIG.defaults.gemini`. Tests override this to return
-   * canned responses without hitting the network.
-   */
-  generateText?: GenerateTextFn;
-}
-
-/**
- * Find AI-assisted matches for a vocabulary list in a passage.
- *
- * Returns an empty result (no error) when there is nothing to match, so
- * callers can always render the response directly.
- */
-export async function matchPassageWords(
-  input: MatchPassageWordsInput,
-  deps: MatchPassageWordsDeps = {},
-): Promise<MatchPassageWordsResult> {
-  const text = input.text?.trim() ?? '';
-  if (!text) return { matches: [] };
-  if (text.length > MAX_TEXT_LENGTH) {
-    // Guard against pathological inputs — never crash, just skip.
-    return { matches: [] };
-  }
-
-  const eligible = filterCandidatesForAi(input.candidates).slice(
-    0,
-    MAX_CANDIDATES_PER_CALL,
-  );
-  if (eligible.length === 0) return { matches: [] };
-
-  const userPrompt = buildPassageMatchUserPrompt(text, eligible);
-
-  const runGenerate: GenerateTextFn =
-    deps.generateText ??
-    (async (systemPrompt, user) => {
-      const config = AI_CONFIG.defaults.gemini;
-      const provider = getProviderFromConfig(config, getAPIKeys());
-      return provider.generateText(`${systemPrompt}\n\n${user}`, {
-        ...config,
-        temperature: 0,
-        maxOutputTokens: 2048,
-        responseFormat: 'json',
-      });
-    });
-
-  const aiResponse = await runGenerate(
-    PASSAGE_MATCH_SYSTEM_PROMPT,
-    userPrompt,
-  );
-  if (!aiResponse.success) {
-    throw new Error(`Passage match generation failed: ${aiResponse.error}`);
-  }
-
-  const parsed = parsePassageMatchResponse(aiResponse.content);
-  const ids = new Set(eligible.map((c) => c.id));
-  return sanitizeMatches(parsed, text, ids);
-}
 
 // ---------- Client-side overlay helper (pure, DOM-free) ----------
 

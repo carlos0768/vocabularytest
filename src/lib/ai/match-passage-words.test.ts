@@ -5,12 +5,12 @@ import {
   buildPassageMatchUserPrompt,
   computeAiHighlightRanges,
   filterCandidatesForAi,
-  matchPassageWords,
   parsePassageMatchResponse,
   sanitizeMatches,
   shouldSendToAi,
   type PassageMatchCandidate,
 } from './match-passage-words';
+import { matchPassageWords } from './match-passage-words.server';
 
 test('shouldSendToAi: multi-word phrases always use AI matching', () => {
   assert.equal(shouldSendToAi({ english: 'any other ~ than A' }), true);

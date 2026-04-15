@@ -6,8 +6,8 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import {
   MAX_CANDIDATES_PER_CALL,
   MAX_TEXT_LENGTH,
-  matchPassageWords,
 } from '@/lib/ai/match-passage-words';
+import { matchPassageWords } from '@/lib/ai/match-passage-words.server';
 import {
   checkAndIncrementFeatureUsage,
   isAiUsageLimitsEnabled,
