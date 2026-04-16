@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { AI_CONFIG } from '@/lib/ai/config';
-import { getProviderFromConfig } from '@/lib/ai/providers';
+import { getProviderFromConfig, getProvider, isCloudRunConfigured } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 
@@ -119,9 +119,15 @@ export async function POST(request: NextRequest) {
       responseFormat: 'json' as const,
     };
 
+    // GOOGLE_AI_API_KEY があれば直接 Gemini API を叩く (Cloud Run バイパス)
+    // 直接 API のほうが ~300-500ms 速い
     let provider;
     try {
-      provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+      if (geminiApiKey && isCloudRunConfigured()) {
+        provider = getProvider('gemini', geminiApiKey);
+      } else {
+        provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+      }
     } catch {
       return NextResponse.json(
         { success: false, error: 'AIプロバイダーの初期化に失敗しました' },
