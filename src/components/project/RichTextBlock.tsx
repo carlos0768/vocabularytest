@@ -127,6 +127,9 @@ export function RichTextBlock({
     setHtml(nextHtml);
     setMode('view');
     onChange?.(nextHtml);
+    // Clear cached AI matches so the background effect re-runs and
+    // refreshes highlights for the updated passage content.
+    setAiMatches([]);
   };
 
   // Stable list of candidates that are actually worth sending to the LLM.
@@ -171,6 +174,13 @@ export function RichTextBlock({
       setAiMatches((prev) => (prev.length === 0 ? prev : []));
       return;
     }
+    // Skip the API call when the cache is already populated.
+    // The existing matches were generated for this same passage, so a fresh
+    // AI call would only risk non-deterministic degradation of the highlights.
+    // The cache is intentionally cleared in handleBlur so that edits to the
+    // passage do trigger a fresh fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (aiMatches.length > 0) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void (async () => {
