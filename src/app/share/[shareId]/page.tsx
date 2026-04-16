@@ -11,8 +11,9 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { getRepository } from '@/lib/db';
 import { createBrowserClient } from '@/lib/supabase';
 import { getProjectColor } from '@/components/project/ProjectCard';
+import { RichTextBlock } from '@/components/project/RichTextBlock';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import type { Project, Word } from '@/types';
+import type { Project, ProjectBlock, RichTextBlockData, Word } from '@/types';
 
 export default function SharedProjectPage() {
   const router = useRouter();
@@ -198,6 +199,28 @@ export default function SharedProjectPage() {
     return [...new Set(all.map((t) => t.trim()).filter(Boolean))].sort();
   }, [words]);
 
+  // Rich text blocks from the shared project (sorted by position)
+  const richTextBlocks = useMemo<ProjectBlock[]>(() => {
+    const arr = project?.blocks ?? [];
+    return [...arr]
+      .filter((b): b is ProjectBlock & { data: RichTextBlockData } =>
+        b.type === 'richText' && !!(b.data as RichTextBlockData)?.html,
+      )
+      .sort((a, b) => a.position - b.position);
+  }, [project?.blocks]);
+
+  // Map of lowercased English headword → word id for highlighting
+  // words in rich text blocks.
+  const wordHighlightMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of words) {
+      const key = w.english?.toLowerCase().trim();
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, w.id);
+    }
+    return map;
+  }, [words]);
+
   // Header color — computed before early returns so useEffect hook order is stable
   const HEADER_DARKEN: Record<string, string> = {
     '#ef4444': '#b91c1c',
@@ -352,6 +375,21 @@ export default function SharedProjectPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
+          {/* Rich text blocks (本文 + マーキング) */}
+          {richTextBlocks.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-base font-bold text-[var(--color-foreground)]">本文</h2>
+              {richTextBlocks.map((block) => (
+                <RichTextBlock
+                  key={block.id}
+                  block={block}
+                  readOnly
+                  wordHighlightMap={wordHighlightMap}
+                />
+              ))}
+            </section>
+          )}
+
           {/* Word list table */}
           <section>
             {/* Header row: title + toolbar */}

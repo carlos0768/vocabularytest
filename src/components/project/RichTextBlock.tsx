@@ -12,6 +12,9 @@ import type { CachedPassageMatch, ProjectBlock, RichTextBlockData } from '@/type
 interface RichTextBlockProps {
   block: ProjectBlock;
   autoFocus?: boolean;
+  /** When true, the block is displayed in view-only mode with no
+   *  edit/delete buttons. `onChange` and `onDelete` become optional. */
+  readOnly?: boolean;
   /** Map of lowercased English headword → word id. Used to highlight
       words from the current project's word list when the block is
       in view mode. */
@@ -24,8 +27,8 @@ interface RichTextBlockProps {
    * empty after filtering pure nouns/adjectives), no AI call is made.
    */
   aiMatchCandidates?: readonly PassageMatchCandidate[];
-  onChange: (html: string) => void;
-  onDelete: () => void;
+  onChange?: (html: string) => void;
+  onDelete?: () => void;
   /** Callback fired when the user clicks a highlighted word. */
   onOpenWord?: (wordId: string) => void;
   /** Persist updated AI matches to the block data so they survive reload. */
@@ -44,6 +47,7 @@ interface RichTextBlockProps {
 export function RichTextBlock({
   block,
   autoFocus,
+  readOnly,
   wordHighlightMap,
   aiMatchCandidates,
   onChange,
@@ -52,7 +56,7 @@ export function RichTextBlock({
   onAiMatchesChange,
 }: RichTextBlockProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<'view' | 'edit'>(autoFocus ? 'edit' : 'view');
+  const [mode, setMode] = useState<'view' | 'edit'>(autoFocus && !readOnly ? 'edit' : 'view');
   // We mirror the canonical HTML in local state so view mode updates
   // immediately on blur without waiting for the parent's prop round-trip.
   const [html, setHtml] = useState<string>((block.data as RichTextBlockData)?.html ?? '');
@@ -121,7 +125,7 @@ export function RichTextBlock({
     const nextHtml = sanitizeRichTextHtml(editorRef.current?.innerHTML ?? '');
     setHtml(nextHtml);
     setMode('view');
-    onChange(nextHtml);
+    onChange?.(nextHtml);
   };
 
   // Stable list of candidates that are actually worth sending to the LLM.
@@ -224,7 +228,7 @@ export function RichTextBlock({
     <div className="group relative">
       {/* Rounded frame container */}
       <div className="relative rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        {mode === 'edit' ? (
+        {mode === 'edit' && !readOnly ? (
           <>
             {/* Inline toolbar in edit mode */}
             <div className="mb-3 flex items-center justify-between">
@@ -246,7 +250,7 @@ export function RichTextBlock({
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onDelete();
+                  onDelete?.();
                 }}
                 aria-label="ブロックを削除"
                 className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
@@ -266,27 +270,29 @@ export function RichTextBlock({
         ) : (
           <>
             {/* Floating action buttons in view mode — no vertical space consumed */}
-            <div className="absolute top-3 right-3 flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMode('edit')}
-                aria-label="編集"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
-              >
-                <Icon name="edit" size={16} />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onDelete();
-                }}
-                aria-label="ブロックを削除"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
-              >
-                <Icon name="close" size={16} />
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="absolute top-3 right-3 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMode('edit')}
+                  aria-label="編集"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+                >
+                  <Icon name="edit" size={16} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onDelete?.();
+                  }}
+                  aria-label="ブロックを削除"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+                >
+                  <Icon name="close" size={16} />
+                </button>
+              </div>
+            )}
             <div
               data-placeholder="本文を入力..."
               className="rich-text-block text-[var(--color-foreground)]"
