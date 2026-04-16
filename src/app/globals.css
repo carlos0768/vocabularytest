@@ -105,11 +105,17 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  background-color: var(--color-background);
+  overscroll-behavior-y: none;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-body);
   min-height: 100dvh;
+  overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   padding-top: constant(safe-area-inset-top);
