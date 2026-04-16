@@ -1004,6 +1004,22 @@ export default function ProjectDetailPage() {
     return map;
   }, [words]);
 
+  // Compact candidate list passed to RichTextBlock for AI-assisted passage
+  // matching (issue #91). RichTextBlock filters out pure nouns/adjectives
+  // before sending to the LLM, so we ship the raw POS tags here and let it
+  // decide which entries are worth a network round-trip.
+  const passageMatchCandidates = useMemo(
+    () =>
+      words
+        .filter((w) => !!w.english?.trim())
+        .map((w) => ({
+          id: w.id,
+          english: w.english,
+          partOfSpeechTags: w.partOfSpeechTags ?? undefined,
+        })),
+    [words],
+  );
+
   const persistBlocks = useCallback(
     async (nextBlocks: ProjectBlock[]) => {
       if (!project) return;
@@ -1067,6 +1083,19 @@ export default function ProjectDetailPage() {
       if (!project) return;
       const next = sortedBlocks.map((b) =>
         b.id === blockId ? { ...b, data: { ...b.data, html } as RichTextBlockData } : b,
+      );
+      void persistBlocks(next);
+    },
+    [project, sortedBlocks, persistBlocks],
+  );
+
+  const handleUpdateBlockAiMatches = useCallback(
+    (blockId: string, cachedAiMatches: Array<{ id: string; matchedText: string }>) => {
+      if (!project) return;
+      const next = sortedBlocks.map((b) =>
+        b.id === blockId
+          ? { ...b, data: { ...b.data, cachedAiMatches } as RichTextBlockData }
+          : b,
       );
       void persistBlocks(next);
     },
@@ -1528,9 +1557,11 @@ export default function ProjectDetailPage() {
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
                       wordHighlightMap={wordHighlightMap}
+                      aiMatchCandidates={passageMatchCandidates}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
                       onOpenWord={handleOpenWordModal}
+                      onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
                     />
                   )}
                   {idx < blocksAbove.length - 1 && (
@@ -1905,9 +1936,11 @@ export default function ProjectDetailPage() {
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
                       wordHighlightMap={wordHighlightMap}
+                      aiMatchCandidates={passageMatchCandidates}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
                       onOpenWord={handleOpenWordModal}
+                      onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
                     />
                   )}
                   <BlockInserter

@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
-import type { ProjectBlock, RichTextBlockData } from '@/types';
+import {
+  filterCandidatesForAi,
+  type PassageMatchCandidate,
+  type PassageWordMatch,
+} from '@/lib/ai/match-passage-words';
+import type { CachedPassageMatch, ProjectBlock, RichTextBlockData } from '@/types';
 
 interface RichTextBlockProps {
   block: ProjectBlock;
@@ -11,10 +16,20 @@ interface RichTextBlockProps {
       words from the current project's word list when the block is
       in view mode. */
   wordHighlightMap?: Map<string, string>;
+  /**
+   * Vocabulary list passed to the AI passage-matching API so that
+   * inflected verbs, idioms, and templatic expressions like
+   * "any other ~ than A" can be highlighted in addition to the exact
+   * regex matches built from `wordHighlightMap`. When omitted (or
+   * empty after filtering pure nouns/adjectives), no AI call is made.
+   */
+  aiMatchCandidates?: readonly PassageMatchCandidate[];
   onChange: (html: string) => void;
   onDelete: () => void;
   /** Callback fired when the user clicks a highlighted word. */
   onOpenWord?: (wordId: string) => void;
+  /** Persist updated AI matches to the block data so they survive reload. */
+  onAiMatchesChange?: (matches: CachedPassageMatch[]) => void;
 }
 
 /**
@@ -30,15 +45,24 @@ export function RichTextBlock({
   block,
   autoFocus,
   wordHighlightMap,
+  aiMatchCandidates,
   onChange,
   onDelete,
   onOpenWord,
+  onAiMatchesChange,
 }: RichTextBlockProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<'view' | 'edit'>(autoFocus ? 'edit' : 'view');
   // We mirror the canonical HTML in local state so view mode updates
   // immediately on blur without waiting for the parent's prop round-trip.
   const [html, setHtml] = useState<string>((block.data as RichTextBlockData)?.html ?? '');
+  // AI-detected matches for the current `html`. Initialised from the
+  // cached value persisted in the block data so highlights appear
+  // instantly on page load. The background effect refreshes them and
+  // calls `onAiMatchesChange` when the result differs.
+  const [aiMatches, setAiMatches] = useState<PassageWordMatch[]>(
+    () => (block.data as RichTextBlockData)?.cachedAiMatches ?? [],
+  );
 
   // When the block prop changes from the parent (e.g. due to a remote
   // sync), refresh the local mirror unless we are actively editing.
@@ -49,6 +73,24 @@ export function RichTextBlock({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [block.id, (block.data as RichTextBlockData)?.html]);
+
+  // Restore cached AI matches when block data arrives after mount.
+  // The useState initialiser above fires only once; if the block was
+  // still loading at that point, cachedAiMatches would have been [].
+  // This effect catches the late-arriving data and seeds the state so
+  // highlights show up instantly without waiting for the API refresh.
+  const cachedRef = useRef(aiMatches);
+  useEffect(() => {
+    const cached = (block.data as RichTextBlockData)?.cachedAiMatches;
+    if (!cached || cached.length === 0) return;
+    // Only restore if we currently have nothing (avoid overwriting
+    // a fresh API response with stale cache).
+    if (cachedRef.current.length === 0) {
+      cachedRef.current = cached;
+      setAiMatches(cached);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block.id, (block.data as RichTextBlockData)?.cachedAiMatches]);
 
   // On entering edit mode, seed the editable div with current HTML and
   // focus it. Caret is moved to the end for a natural typing experience.
@@ -82,10 +124,101 @@ export function RichTextBlock({
     onChange(nextHtml);
   };
 
-  const highlightedHtml = useMemo(
-    () => (wordHighlightMap && wordHighlightMap.size > 0 ? highlightWordsInHtml(html, wordHighlightMap) : html),
-    [html, wordHighlightMap],
+  // Stable list of candidates that are actually worth sending to the LLM.
+  // Re-derived only when the upstream candidate list reference changes so
+  // the fetch effect below doesn't fire on every re-render.
+  const eligibleAiCandidates = useMemo(
+    () => filterCandidatesForAi(aiMatchCandidates ? [...aiMatchCandidates] : []),
+    [aiMatchCandidates],
   );
+
+  // Hash the eligible candidates to a small string so the fetch effect can
+  // depend on it without needing deep-equal comparison.
+  const aiCandidatesKey = useMemo(
+    () => eligibleAiCandidates.map((c) => `${c.id}:${c.english}`).join('|'),
+    [eligibleAiCandidates],
+  );
+
+  // Plain text fingerprint of the passage, used to decide whether to fetch
+  // (and to short-circuit when there is nothing meaningful to analyze).
+  const passagePlainText = useMemo(() => extractPlainText(html), [html]);
+
+  // Fetch AI passage matches whenever the *view-mode* HTML or candidate
+  // list changes. Debounced to avoid thrashing the API while the user
+  // is editing (we only re-render the highlights in view mode anyway).
+  // On the first render the cached value from block data is already in
+  // state, so the user sees highlights instantly; this effect only fires
+  // to refresh stale caches in the background.
+  const onAiMatchesChangeRef = useRef(onAiMatchesChange);
+  onAiMatchesChangeRef.current = onAiMatchesChange;
+  useEffect(() => {
+    if (mode === 'edit') return;
+    if (eligibleAiCandidates.length === 0) {
+      // Only clear if we actually had matches (avoid needless re-renders).
+      setAiMatches((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    if (passagePlainText.length < 8) {
+      setAiMatches((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch('/api/passage-word-matches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            signal: controller.signal,
+            body: JSON.stringify({
+              text: passagePlainText,
+              candidates: eligibleAiCandidates.map((c) => ({
+                id: c.id,
+                english: c.english,
+                ...(c.partOfSpeechTags ? { partOfSpeechTags: c.partOfSpeechTags } : {}),
+              })),
+            }),
+          });
+          if (!res.ok) {
+            // Soft-fail: keep cached/exact-match highlights.
+            return;
+          }
+          const json = (await res.json()) as {
+            success?: boolean;
+            matches?: PassageWordMatch[];
+          };
+          if (!controller.signal.aborted && json.success && Array.isArray(json.matches)) {
+            setAiMatches((prev) => {
+              const next = json.matches!;
+              // Skip state update + persist when the result is identical.
+              if (areSameMatches(prev, next)) return prev;
+              // Persist the fresh result so subsequent reloads are instant.
+              onAiMatchesChangeRef.current?.(next);
+              return next;
+            });
+          }
+        } catch (error) {
+          if ((error as Error)?.name !== 'AbortError') {
+            console.warn('[RichTextBlock] AI passage match failed', error);
+          }
+          // On error keep whatever cached matches we already have.
+        }
+      })();
+    }, 600);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, passagePlainText, aiCandidatesKey]);
+
+  const highlightedHtml = useMemo(() => {
+    const hasExact = !!(wordHighlightMap && wordHighlightMap.size > 0);
+    const hasAi = aiMatches.length > 0;
+    if (!hasExact && !hasAi) return html;
+    return highlightWordsInHtml(html, wordHighlightMap ?? new Map(), aiMatches);
+  }, [html, wordHighlightMap, aiMatches]);
 
   const handleViewMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
@@ -253,6 +386,18 @@ export function sanitizeRichTextHtml(html: string): string {
   return template.innerHTML;
 }
 
+/** Shallow comparison of two match arrays to avoid needless persists. */
+function areSameMatches(
+  a: readonly PassageWordMatch[],
+  b: readonly PassageWordMatch[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].matchedText !== b[i].matchedText) return false;
+  }
+  return true;
+}
+
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -267,20 +412,119 @@ function escapeHtml(str: string): string {
 }
 
 /**
- * Walk an HTML string and wrap any plain-text occurrence of a known word
- * in `<span class="merken-highlighted-word" data-merken-word-id="...">`.
- * Matching is case-insensitive and respects word boundaries. Longer words
- * are matched first so "ice cream" wins over "ice".
+ * Extract plain visible text from an HTML fragment for AI passage analysis.
+ * Returns an empty string in non-browser environments. Whitespace inside
+ * the source HTML is preserved so that LLM-returned `matchedText` strings
+ * (which must be exact substrings of this same text) line up at runtime.
+ */
+export function extractPlainText(html: string): string {
+  if (typeof window === 'undefined') return '';
+  if (!html) return '';
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  return (template.content.textContent ?? '').trim();
+}
+
+/**
+ * Walk an HTML string and wrap occurrences of known words in
+ * `<span class="merken-highlighted-word" data-merken-word-id="...">`.
+ *
+ * Two complementary passes:
+ *
+ * 1. **AI matches** (issue #91): exact substrings provided by the
+ *    `/api/passage-word-matches` endpoint are wrapped first. Each entry
+ *    in `aiMatches` represents one occurrence; entries with the same
+ *    `matchedText` are consumed in order so duplicates land on distinct
+ *    occurrences. This pass handles inflected verbs ("running" for "run")
+ *    and templatic idioms ("any other language than english" for
+ *    "any other ~ than A").
+ *
+ * 2. **Exact regex matches**: case-insensitive word-boundary matching
+ *    against `wordMap` keys. Longer keys are tried first so "ice cream"
+ *    wins over "ice". The walker skips text already wrapped by pass 1
+ *    (it never recurses into existing highlight spans).
  */
 export function highlightWordsInHtml(
   html: string,
   wordMap: Map<string, string>,
+  aiMatches: readonly PassageWordMatch[] = [],
 ): string {
-  if (typeof window === 'undefined' || wordMap.size === 0) return html;
+  if (typeof window === 'undefined') return html;
+  if (wordMap.size === 0 && aiMatches.length === 0) return html;
+
+  const template = document.createElement('template');
+  template.innerHTML = html;
+
+  // ---------- Pass 1: AI matches ----------
+  if (aiMatches.length > 0) {
+    // Sort by length descending so longer template matches win when the
+    // model returns overlapping spans (e.g. "a sudden surge in electricity"
+    // vs "sudden surge").
+    const remaining: Array<{ id: string; matchedText: string }> = [...aiMatches]
+      .filter((m) => !!m.matchedText)
+      .sort((a, b) => b.matchedText.length - a.matchedText.length)
+      .map((m) => ({ id: m.id, matchedText: m.matchedText }));
+
+    const walkAi = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (remaining.length === 0) return;
+        const text = node.textContent ?? '';
+        if (!text) return;
+        const ranges: Array<{ start: number; end: number; wordId: string }> = [];
+        for (let i = 0; i < remaining.length; i++) {
+          const entry = remaining[i];
+          const idx = text.indexOf(entry.matchedText);
+          if (idx === -1) continue;
+          const end = idx + entry.matchedText.length;
+          if (
+            ranges.some((r) => idx < r.end && end > r.start)
+          ) {
+            // Conflicts with a previously-claimed range in this node; skip.
+            continue;
+          }
+          ranges.push({ start: idx, end, wordId: entry.id });
+          remaining.splice(i, 1);
+          i--;
+        }
+        if (ranges.length === 0) return;
+        ranges.sort((a, b) => a.start - b.start);
+        const frag = document.createDocumentFragment();
+        let cursor = 0;
+        for (const r of ranges) {
+          if (r.start > cursor) {
+            frag.appendChild(document.createTextNode(text.slice(cursor, r.start)));
+          }
+          const span = document.createElement('span');
+          span.className = 'merken-highlighted-word';
+          span.setAttribute('data-merken-word-id', r.wordId);
+          span.textContent = text.slice(r.start, r.end);
+          frag.appendChild(span);
+          cursor = r.end;
+        }
+        if (cursor < text.length) {
+          frag.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+        node.parentNode?.replaceChild(frag, node);
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+        if (el.classList?.contains('merken-highlighted-word')) return;
+        for (const child of Array.from(el.childNodes)) {
+          walkAi(child);
+        }
+      }
+    };
+
+    for (const child of Array.from(template.content.childNodes)) {
+      walkAi(child);
+    }
+  }
+
+  // ---------- Pass 2: exact regex matches ----------
   const keys = [...wordMap.keys()]
     .filter((k) => k.length > 0)
     .sort((a, b) => b.length - a.length);
-  if (keys.length === 0) return html;
+  if (keys.length === 0) return template.innerHTML;
   // \b is a word boundary (transition between [A-Za-z0-9_] and anything
   // else). Combined with the `i` flag, this matches "hello" inside "Hello"
   // even when the word in the project list is lowercased and the text
@@ -291,10 +535,7 @@ export function highlightWordsInHtml(
     'gi',
   );
 
-  const template = document.createElement('template');
-  template.innerHTML = html;
-
-  const walk = (node: Node) => {
+  const walkExact = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent ?? '';
       if (!text) return;
@@ -336,13 +577,13 @@ export function highlightWordsInHtml(
       if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
       if (el.classList?.contains('merken-highlighted-word')) return;
       for (const child of Array.from(el.childNodes)) {
-        walk(child);
+        walkExact(child);
       }
     }
   };
 
   for (const child of Array.from(template.content.childNodes)) {
-    walk(child);
+    walkExact(child);
   }
 
   // escapeHtml is referenced elsewhere for safety nets but not directly

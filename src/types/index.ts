@@ -13,6 +13,7 @@ export type {
   ProjectBlockType,
   ProjectBlockData,
   RichTextBlockData,
+  CachedPassageMatch,
   WordListBlockData,
   DatabaseBlockData,
   RelatedWord,
