@@ -697,7 +697,7 @@ function WordCard({
         <p className="font-medium text-[var(--color-foreground)]">{word.english}</p>
         <p className="text-sm text-[var(--color-muted)]">{word.japanese}</p>
       </div>
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex gap-1">
         <button onClick={onEdit} className="p-1.5 rounded-md active:bg-[var(--color-surface-secondary)]">
           <Icon name="edit" size={16} className="text-[var(--color-muted)]" />
         </button>
