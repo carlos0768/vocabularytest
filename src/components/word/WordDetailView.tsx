@@ -583,12 +583,12 @@ export function WordDetailView({
                           onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
                           placeholder="セクション名"
                           readOnly={isProjectColumn}
-                          className="flex-1 text-sm font-bold text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
+                          className="flex-1 min-w-0 text-sm font-bold text-[var(--color-foreground)] bg-transparent outline-none placeholder:text-[var(--color-muted)]"
                         />
                         {!isProjectColumn && (
                           <button
                             onClick={() => handleRemoveSection(section.id)}
-                            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
+                            className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center hover:bg-[var(--color-surface-secondary)]"
                             aria-label="セクションを削除"
                           >
                             <Icon name="close" size={16} className="text-[var(--color-muted)]" />
