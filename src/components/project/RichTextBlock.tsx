@@ -221,31 +221,52 @@ export function RichTextBlock({
   }, [html, wordHighlightMap, aiMatches]);
 
   return (
-    <div className="group relative lg:pl-7">
+    <div className="group relative">
       {/* Rounded frame container */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        {/* Toolbar row: formatting tools (edit mode) or edit button (view mode) */}
-        <div className="mb-3 flex items-center justify-between">
-          {mode === 'edit' ? (
-            <div className="flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
-              <ToolbarButton label="見出し" onClick={() => exec('formatBlock', '<h2>')}>
-                <Icon name="title" size={16} />
-              </ToolbarButton>
-              <ToolbarButton label="本文" onClick={() => exec('formatBlock', '<p>')}>
-                <Icon name="notes" size={16} />
-              </ToolbarButton>
-              <ToolbarButton label="リスト" onClick={() => exec('insertUnorderedList')}>
-                <Icon name="format_list_bulleted" size={16} />
-              </ToolbarButton>
-              <ToolbarButton label="太字" onClick={() => exec('bold')}>
-                <Icon name="format_bold" size={16} />
-              </ToolbarButton>
+      <div className="relative rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        {mode === 'edit' ? (
+          <>
+            {/* Inline toolbar in edit mode */}
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-1">
+                <ToolbarButton label="見出し" onClick={() => exec('formatBlock', '<h2>')}>
+                  <Icon name="title" size={16} />
+                </ToolbarButton>
+                <ToolbarButton label="本文" onClick={() => exec('formatBlock', '<p>')}>
+                  <Icon name="notes" size={16} />
+                </ToolbarButton>
+                <ToolbarButton label="リスト" onClick={() => exec('insertUnorderedList')}>
+                  <Icon name="format_list_bulleted" size={16} />
+                </ToolbarButton>
+                <ToolbarButton label="太字" onClick={() => exec('bold')}>
+                  <Icon name="format_bold" size={16} />
+                </ToolbarButton>
+              </div>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onDelete();
+                }}
+                aria-label="ブロックを削除"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+              >
+                <Icon name="close" size={16} />
+              </button>
             </div>
-          ) : (
-            <div /> /* spacer */
-          )}
-          <div className="flex items-center gap-1">
-            {mode === 'view' && (
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              data-placeholder="本文を入力..."
+              className="rich-text-block text-[var(--color-foreground)] outline-none"
+              onBlur={handleBlur}
+            />
+          </>
+        ) : (
+          <>
+            {/* Floating action buttons in view mode — no vertical space consumed */}
+            <div className="absolute top-3 right-3 flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setMode('edit')}
@@ -254,46 +275,34 @@ export function RichTextBlock({
               >
                 <Icon name="edit" size={16} />
               </button>
-            )}
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onDelete();
-              }}
-              aria-label="ブロックを削除"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
-            >
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        </div>
-
-        {mode === 'edit' ? (
-          <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            data-placeholder="本文を入力..."
-            className="rich-text-block text-[var(--color-foreground)] outline-none"
-            onBlur={handleBlur}
-          />
-        ) : (
-          <div
-            data-placeholder="本文を入力..."
-            className="rich-text-block text-[var(--color-foreground)]"
-            onClick={(e) => {
-              const target = e.target as HTMLElement | null;
-              if (target) {
-                const span = target.closest('[data-merken-word-id]');
-                if (span) {
-                  const wid = span.getAttribute('data-merken-word-id');
-                  if (wid && onOpenWord) onOpenWord(wid);
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onDelete();
+                }}
+                aria-label="ブロックを削除"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+            <div
+              data-placeholder="本文を入力..."
+              className="rich-text-block text-[var(--color-foreground)]"
+              onClick={(e) => {
+                const target = e.target as HTMLElement | null;
+                if (target) {
+                  const span = target.closest('[data-merken-word-id]');
+                  if (span) {
+                    const wid = span.getAttribute('data-merken-word-id');
+                    if (wid && onOpenWord) onOpenWord(wid);
+                  }
                 }
-              }
-            }}
-            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-          />
+              }}
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            />
+          </>
         )}
       </div>
     </div>
