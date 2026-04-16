@@ -207,7 +207,10 @@ export default function HomePage() {
   const [showManualWordModal, setShowManualWordModal] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
+  const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
+  const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
+  const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
   const notifiedJobIdsRef = useRef<Set<string>>(new Set());
   const autoAcknowledgingJobIdsRef = useRef<Set<string>>(new Set());
   const syncedPushUserIdRef = useRef<string | null>(null);
@@ -895,40 +898,113 @@ export default function HomePage() {
       return;
     }
 
-    if (!manualWordEnglish.trim() || !manualWordJapanese.trim()) {
+    const english = manualWordEnglish.trim();
+    const japanese = manualWordJapanese.trim();
+    if (!english || !japanese) {
       showToast({ message: '英単語と日本語訳を入力してください', type: 'error' });
       return;
     }
 
-    setManualWordSaving(true);
-    try {
-      await repository.createWords([
-        {
-          projectId: currentProject.id,
-          english: manualWordEnglish.trim(),
-          japanese: manualWordJapanese.trim(),
-          distractors: [],
-          exampleSentence: '',
-          exampleSentenceJa: '',
-        },
-      ]);
+    const userPos = manualWordPartOfSpeech.trim();
+    const userExample = manualWordExampleSentence.trim();
 
-      showToast({ message: '単語を追加しました', type: 'success' });
-      setManualWordEnglish('');
-      setManualWordJapanese('');
-      setShowManualWordModal(false);
-      // Invalidate cache so loadWords fetches fresh data
-      if (currentProject) {
-        invalidateHomeCache();
+    setManualWordSaving(true);
+    setManualWordSavingMessage('情報を生成中...');
+
+    // AIで未入力フィールド (品詞・例文・発音記号) を補完
+    let enrichedPronunciation = '';
+    let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
+    let enrichedExampleSentence = userExample;
+    let enrichedExampleSentenceJa = '';
+
+    try {
+      const enrichResponse = await fetch('/api/words/enrich-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          english,
+          japanese,
+          ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
+          ...(userExample ? { exampleSentence: userExample } : {}),
+        }),
+      });
+
+      if (enrichResponse.ok) {
+        const data = (await enrichResponse.json()) as {
+          success?: boolean;
+          enriched?: {
+            japanese?: string;
+            pronunciation?: string;
+            partOfSpeechTags?: string[];
+            exampleSentence?: string;
+            exampleSentenceJa?: string;
+          };
+        };
+        if (data.success && data.enriched) {
+          enrichedPronunciation = data.enriched.pronunciation ?? '';
+          if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
+            enrichedPartOfSpeechTags = data.enriched.partOfSpeechTags;
+          }
+          if (!enrichedExampleSentence && data.enriched.exampleSentence) {
+            enrichedExampleSentence = data.enriched.exampleSentence;
+          }
+          enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+        }
+      } else {
+        console.warn('[manual-word] enrich failed:', enrichResponse.status);
       }
+    } catch (enrichError) {
+      console.warn('[manual-word] enrich error:', enrichError);
+    }
+
+    // enrich 結果が返った時点で即座に UI に反映し、モーダルを閉じる
+    const optimisticWord: Word = {
+      id: crypto.randomUUID(),
+      projectId: currentProject.id,
+      english,
+      japanese,
+      distractors: [],
+      pronunciation: enrichedPronunciation || undefined,
+      partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
+      exampleSentence: enrichedExampleSentence || undefined,
+      exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+      isFavorite: false,
+    };
+
+    showToast({ message: '単語を追加しました', type: 'success' });
+    setManualWordEnglish('');
+    setManualWordJapanese('');
+    setManualWordPartOfSpeech('');
+    setManualWordExampleSentence('');
+    setShowManualWordModal(false);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+    refreshWordCount();
+
+    // バックグラウンドで DB に永続化
+    repository.createWords([
+      {
+        projectId: currentProject.id,
+        english,
+        japanese,
+        distractors: [],
+        exampleSentence: enrichedExampleSentence,
+        exampleSentenceJa: enrichedExampleSentenceJa,
+        ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+        ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+      },
+    ]).then(() => {
+      invalidateHomeCache();
       loadWords();
-      refreshWordCount();
-    } catch (error) {
+    }).catch((error) => {
       console.error('Failed to save manual word:', error);
       showToast({ message: '単語の保存に失敗しました', type: 'error' });
-    } finally {
-      setManualWordSaving(false);
-    }
+    });
   };
 
   // Share handler (Pro only)
@@ -1867,13 +1943,24 @@ export default function HomePage() {
 
       <ManualWordInputModal
         isOpen={showManualWordModal}
-        onClose={() => { setShowManualWordModal(false); setManualWordEnglish(''); setManualWordJapanese(''); }}
+        onClose={() => {
+          setShowManualWordModal(false);
+          setManualWordEnglish('');
+          setManualWordJapanese('');
+          setManualWordPartOfSpeech('');
+          setManualWordExampleSentence('');
+        }}
         onConfirm={handleSaveManualWord}
         isLoading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
         english={manualWordEnglish}
         setEnglish={setManualWordEnglish}
         japanese={manualWordJapanese}
         setJapanese={setManualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        setPartOfSpeech={setManualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        setExampleSentence={setManualWordExampleSentence}
       />
 
       <DeleteConfirmModal

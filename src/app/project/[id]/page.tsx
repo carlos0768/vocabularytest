@@ -179,7 +179,10 @@ export default function ProjectDetailPage() {
   const [showManualWordModal, setShowManualWordModal] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
+  const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
+  const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
+  const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
 
   const [showAddColumnSheet, setShowAddColumnSheet] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
@@ -231,6 +234,7 @@ export default function ProjectDetailPage() {
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
+  const [columnMenuOpen, setColumnMenuOpen] = useState<string | null>(null);
 
   // Select mode
   const [selectMode, setSelectMode] = useState(false);
@@ -802,33 +806,114 @@ export default function ProjectDetailPage() {
       return;
     }
 
-    if (!manualWordEnglish.trim() || !manualWordJapanese.trim()) return;
+    const english = manualWordEnglish.trim();
+    const japanese = manualWordJapanese.trim();
+    if (!english || !japanese) return;
+
+    const userPos = manualWordPartOfSpeech.trim();
+    const userExample = manualWordExampleSentence.trim();
 
     setManualWordSaving(true);
+    setManualWordSavingMessage('情報を生成中...');
+
+    // 1) AIで未入力フィールド (品詞・例文・発音記号) を補完
+    let enrichedPronunciation = '';
+    let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
+    let enrichedExampleSentence = userExample;
+    let enrichedExampleSentenceJa = '';
+
     try {
-      const created = await mutationRepository.createWords([
-        {
-          projectId: project.id,
-          english: manualWordEnglish.trim(),
-          japanese: manualWordJapanese.trim(),
-          distractors: ['選択肢1', '選択肢2', '選択肢3'],
-        },
-      ]);
+      const enrichResponse = await fetch('/api/words/enrich-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          english,
+          japanese,
+          ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
+          ...(userExample ? { exampleSentence: userExample } : {}),
+        }),
+      });
 
-      setWords((prev) => [...created, ...prev]);
-      showToast({ message: '単語を追加しました', type: 'success' });
-      setManualWordEnglish('');
-      setManualWordJapanese('');
-      setShowManualWordModal(false);
-      invalidateHomeCache();
-      refreshWordCount();
-
-    } catch (error) {
-      console.error('Failed to add word:', error);
-      showToast({ message: '単語の追加に失敗しました', type: 'error' });
-    } finally {
-      setManualWordSaving(false);
+      if (enrichResponse.ok) {
+        const data = (await enrichResponse.json()) as {
+          success?: boolean;
+          enriched?: {
+            pronunciation?: string;
+            partOfSpeechTags?: string[];
+            exampleSentence?: string;
+            exampleSentenceJa?: string;
+          };
+        };
+        if (data.success && data.enriched) {
+          enrichedPronunciation = data.enriched.pronunciation ?? '';
+          if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
+            enrichedPartOfSpeechTags = data.enriched.partOfSpeechTags;
+          }
+          if (!enrichedExampleSentence && data.enriched.exampleSentence) {
+            enrichedExampleSentence = data.enriched.exampleSentence;
+          }
+          enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+        }
+      }
+    } catch (enrichError) {
+      console.warn('[manual-word] enrich error:', enrichError);
     }
+
+    // 2) enrich 結果が返った時点で即座に UI に反映し、モーダルを閉じる
+    const optimisticWord: Word = {
+      id: crypto.randomUUID(),
+      projectId: project.id,
+      english,
+      japanese,
+      distractors: ['選択肢1', '選択肢2', '選択肢3'],
+      pronunciation: enrichedPronunciation || undefined,
+      partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
+      exampleSentence: enrichedExampleSentence || undefined,
+      exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+      isFavorite: false,
+    };
+
+    setWords((prev) => [optimisticWord, ...prev]);
+    showToast({ message: '単語を追加しました', type: 'success' });
+    setManualWordEnglish('');
+    setManualWordJapanese('');
+    setManualWordPartOfSpeech('');
+    setManualWordExampleSentence('');
+    setShowManualWordModal(false);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+    refreshWordCount();
+
+    // 3) バックグラウンドで DB に永続化
+    mutationRepository.createWords([
+      {
+        projectId: project.id,
+        english,
+        japanese,
+        distractors: ['選択肢1', '選択肢2', '選択肢3'],
+        ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+        ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+        ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
+        ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
+      },
+    ]).then((created) => {
+      // 永続化成功: optimistic ID を実際の ID に差し替え
+      if (created.length > 0) {
+        setWords((prev) => prev.map((w) => w.id === optimisticWord.id ? created[0]! : w));
+      }
+      invalidateHomeCache();
+    }).catch((error) => {
+      console.error('Failed to save word:', error);
+      // 永続化失敗: optimistic word を除去
+      setWords((prev) => prev.filter((w) => w.id !== optimisticWord.id));
+      showToast({ message: '単語の保存に失敗しました', type: 'error' });
+      refreshWordCount();
+    });
   };
 
   const handleOpenAddColumnSheet = () => {
@@ -860,6 +945,28 @@ export default function ProjectDetailPage() {
     } finally {
       setAddColumnSaving(false);
     }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (!project) return;
+    const nextColumns = (project.customColumns ?? []).filter((c) => c.id !== columnId);
+    try {
+      await mutationRepository.updateProject(project.id, { customColumns: nextColumns });
+      setProject((prev) => (prev ? { ...prev, customColumns: nextColumns } : prev));
+      showToast({ message: '列を削除しました', type: 'success' });
+    } catch {
+      showToast({ message: '列の削除に失敗しました', type: 'error' });
+    }
+  };
+
+  const handleSortByColumn = (columnId: string) => {
+    setWords((prev) =>
+      [...prev].sort((a, b) => {
+        const aVal = a.customSections?.find((s) => s.id === columnId)?.content ?? '';
+        const bVal = b.customSections?.find((s) => s.id === columnId)?.content ?? '';
+        return aVal.localeCompare(bVal, 'ja');
+      })
+    );
   };
 
   // ============ Project blocks (Notion-like) ============
@@ -896,6 +1003,22 @@ export default function ProjectDetailPage() {
     }
     return map;
   }, [words]);
+
+  // Compact candidate list passed to RichTextBlock for AI-assisted passage
+  // matching (issue #91). RichTextBlock filters out pure nouns/adjectives
+  // before sending to the LLM, so we ship the raw POS tags here and let it
+  // decide which entries are worth a network round-trip.
+  const passageMatchCandidates = useMemo(
+    () =>
+      words
+        .filter((w) => !!w.english?.trim())
+        .map((w) => ({
+          id: w.id,
+          english: w.english,
+          partOfSpeechTags: w.partOfSpeechTags ?? undefined,
+        })),
+    [words],
+  );
 
   const persistBlocks = useCallback(
     async (nextBlocks: ProjectBlock[]) => {
@@ -960,6 +1083,19 @@ export default function ProjectDetailPage() {
       if (!project) return;
       const next = sortedBlocks.map((b) =>
         b.id === blockId ? { ...b, data: { ...b.data, html } as RichTextBlockData } : b,
+      );
+      void persistBlocks(next);
+    },
+    [project, sortedBlocks, persistBlocks],
+  );
+
+  const handleUpdateBlockAiMatches = useCallback(
+    (blockId: string, cachedAiMatches: Array<{ id: string; matchedText: string }>) => {
+      if (!project) return;
+      const next = sortedBlocks.map((b) =>
+        b.id === blockId
+          ? { ...b, data: { ...b.data, cachedAiMatches } as RichTextBlockData }
+          : b,
       );
       void persistBlocks(next);
     },
@@ -1532,10 +1668,10 @@ export default function ProjectDetailPage() {
             ) : (
               <div
                 ref={wordTableScrollRef}
-                className="overflow-x-auto overflow-y-hidden"
+                className="overflow-x-hidden md:overflow-x-auto overflow-y-hidden"
                 style={{ scrollbarWidth: 'thin' }}
               >
-                <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
+                <table className="border-collapse w-full md:w-max md:min-w-full">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-sm text-[var(--color-muted)]">
                       {selectMode && (
@@ -1554,17 +1690,46 @@ export default function ProjectDetailPage() {
                       <th className="w-5 py-1" />
                       <th className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)]">単語</th>
                       <th className="w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">A/P</th>
-                      <th className="w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">品詞</th>
-                      <th className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap">訳</th>
+                      <th className="hidden md:table-cell w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">品詞</th>
+                      <th className="hidden md:table-cell px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap">訳</th>
                       {(project?.customColumns ?? []).map((col) => (
                         <th
                           key={col.id}
-                          className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap"
+                          className="hidden md:table-cell px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap relative"
                         >
-                          {col.title}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setColumnMenuOpen((prev) => prev === col.id ? null : col.id); }}
+                            className="hover:text-[var(--color-primary)] transition-colors"
+                          >
+                            {col.title}
+                          </button>
+                          {columnMenuOpen === col.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setColumnMenuOpen(null)} />
+                              <div className="absolute left-0 top-full mt-1 z-20 bg-[var(--color-surface)] rounded-xl shadow-card border border-[var(--color-border)] py-1 min-w-[140px]">
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)] transition-colors"
+                                  onClick={(e) => { e.stopPropagation(); setColumnMenuOpen(null); handleSortByColumn(col.id); }}
+                                >
+                                  <Icon name="swap_vert" size={16} />
+                                  ソート
+                                </button>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-colors"
+                                  onClick={(e) => { e.stopPropagation(); setColumnMenuOpen(null); void handleDeleteColumn(col.id); }}
+                                >
+                                  <Icon name="delete" size={16} />
+                                  削除
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </th>
                       ))}
-                      <th className="px-2 py-1 text-left">
+                      <th className="hidden md:table-cell px-2 py-1 text-left">
                         <button
                           type="button"
                           onClick={handleOpenAddColumnSheet}
@@ -1646,10 +1811,10 @@ export default function ProjectDetailPage() {
                             />
                           </span>
                         </td>
-                        <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
+                        <td className="hidden md:table-cell w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
+                        <td className="hidden md:table-cell px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
                           {word.japanese}
                         </td>
                         {(project?.customColumns ?? []).map((col) => {
@@ -1662,7 +1827,7 @@ export default function ProjectDetailPage() {
                             return (
                               <td
                                 key={col.id}
-                                className="px-2 py-1 max-w-[200px]"
+                                className="hidden md:table-cell px-2 py-1 max-w-[200px]"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <input
@@ -1690,7 +1855,7 @@ export default function ProjectDetailPage() {
                           return (
                             <td
                               key={col.id}
-                              className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis cursor-text hover:bg-[var(--color-surface-secondary)]"
+                              className="hidden md:table-cell px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis cursor-text hover:bg-[var(--color-surface-secondary)]"
                               title={display || rawValue}
                               onClick={(e) => {
                                 if (selectMode) return;
@@ -1702,7 +1867,7 @@ export default function ProjectDetailPage() {
                             </td>
                           );
                         })}
-                        <td className="w-10 px-1 py-2.5" />
+                        <td className="hidden md:table-cell w-10 px-1 py-2.5" />
                       </tr>
                     ))}
                   </tbody>
@@ -1732,9 +1897,11 @@ export default function ProjectDetailPage() {
                       block={block}
                       autoFocus={newlyAddedBlockId === block.id}
                       wordHighlightMap={wordHighlightMap}
+                      aiMatchCandidates={passageMatchCandidates}
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
                       onOpenWord={handleOpenWordModal}
+                      onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
                     />
                   )}
                   <BlockInserter
@@ -1827,13 +1994,20 @@ export default function ProjectDetailPage() {
           setShowManualWordModal(false);
           setManualWordEnglish('');
           setManualWordJapanese('');
+          setManualWordPartOfSpeech('');
+          setManualWordExampleSentence('');
         }}
         onConfirm={handleSaveManualWord}
         isLoading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
         english={manualWordEnglish}
         setEnglish={setManualWordEnglish}
         japanese={manualWordJapanese}
         setJapanese={setManualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        setPartOfSpeech={setManualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        setExampleSentence={setManualWordExampleSentence}
       />
 
       <DeleteConfirmModal
@@ -2047,6 +2221,7 @@ export default function ProjectDetailPage() {
             onClose={handleCloseWordModal}
             variant="modal"
             onWordUpdated={handleWordUpdatedFromModal}
+            onDelete={(wId) => { handleCloseWordModal(); handleDeleteWord(wId); }}
           />
         )}
       </Modal>

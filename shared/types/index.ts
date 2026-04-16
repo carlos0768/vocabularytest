@@ -74,8 +74,21 @@ export interface CustomColumn {
 
 export type ProjectBlockType = 'richText' | 'wordList' | 'database';
 
+/** Serialised AI passage-word match stored alongside the rich text block. */
+export interface CachedPassageMatch {
+  id: string;
+  matchedText: string;
+}
+
 export interface RichTextBlockData {
   html: string;
+  /**
+   * Cached results from `/api/passage-word-matches`. Stored so highlights
+   * appear instantly on page load instead of waiting for a fresh AI call.
+   * The component still refreshes in the background and overwrites when
+   * the passage or word list changes.
+   */
+  cachedAiMatches?: CachedPassageMatch[];
 }
 
 /** Reserved for future per-block config (filters, view mode, etc.). */

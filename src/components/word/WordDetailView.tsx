@@ -60,6 +60,8 @@ export interface WordDetailViewProps {
   variant?: 'page' | 'modal';
   /** Called after any successful write (favorite toggle, vocab type cycle, save edit). */
   onWordUpdated?: (word: Word) => void;
+  /** Called when the user taps the delete button. */
+  onDelete?: (wordId: string) => void;
   /**
    * Optional pre-known word object. When opened from the project list we already
    * have the full word in the parent's state (including freshly manually added
@@ -77,6 +79,7 @@ export function WordDetailView({
   onClose,
   variant = 'page',
   onWordUpdated,
+  onDelete,
   initialWord: initialWordFromProps,
 }: WordDetailViewProps) {
   const isModal = variant === 'modal';
@@ -421,13 +424,24 @@ export function WordDetailView({
             {saving ? '保存中...' : '完了'}
           </button>
         ) : (
-          <button
-            onClick={handleStartEditing}
-            className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
-            aria-label="編集"
-          >
-            <Icon name="edit" size={18} className="text-[var(--color-foreground)]" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onDelete && (
+              <button
+                onClick={() => onDelete(wordId)}
+                className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+                aria-label="削除"
+              >
+                <Icon name="delete" size={18} className="text-[var(--color-muted)]" />
+              </button>
+            )}
+            <button
+              onClick={handleStartEditing}
+              className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+              aria-label="編集"
+            >
+              <Icon name="edit" size={18} className="text-[var(--color-foreground)]" />
+            </button>
+          </div>
         )}
       </header>
 
