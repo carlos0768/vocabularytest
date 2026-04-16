@@ -149,9 +149,17 @@ export default function SearchPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="英語・日本語で検索..."
-            className="w-full pl-12 pr-4 py-3 bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-2xl text-base focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+            className="w-full pl-12 pr-10 py-3 bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-2xl text-base focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             autoFocus
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--color-primary-light)] rounded-full"
+            >
+              <Icon name="close" size={18} className="text-[var(--color-muted)]" />
+            </button>
+          )}
         </div>
 
         {/* Results */}

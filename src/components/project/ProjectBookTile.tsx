@@ -50,7 +50,7 @@ export function ProjectBookTile({
       {(onDelete || onToggleFavorite || (extraMenuItems && extraMenuItems.length > 0)) && (
         <div className="absolute top-1.5 right-1.5 z-10">
           <button
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-[var(--color-muted)] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity hover:bg-white hover:text-[var(--color-foreground)]"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-[var(--color-muted)] transition-opacity hover:bg-white hover:text-[var(--color-foreground)]"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
