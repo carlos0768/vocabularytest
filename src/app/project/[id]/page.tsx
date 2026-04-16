@@ -2156,7 +2156,7 @@ export default function ProjectDetailPage() {
         <div className="fixed inset-0 z-50 lg:flex lg:items-center lg:justify-center lg:pl-[280px]" onClick={() => setShowAddMethodSheet(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px] lg:static lg:left-auto lg:right-auto lg:bottom-auto lg:ml-0 lg:max-w-md lg:rounded-2xl lg:shadow-2xl lg:border lg:border-[var(--color-border)]"
+            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px] lg:relative lg:left-auto lg:right-auto lg:bottom-auto lg:ml-0 lg:max-w-md lg:rounded-2xl lg:shadow-2xl lg:border lg:border-[var(--color-border)]"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
           >
@@ -2203,7 +2203,7 @@ export default function ProjectDetailPage() {
         <div className="fixed inset-0 z-50 lg:flex lg:items-center lg:justify-center lg:pl-[280px]" onClick={() => !addColumnSaving && setShowAddColumnSheet(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px] lg:static lg:left-auto lg:right-auto lg:bottom-auto lg:ml-0 lg:max-w-md lg:rounded-2xl lg:shadow-2xl lg:border lg:border-[var(--color-border)]"
+            className="absolute bottom-0 left-0 right-0 bg-[var(--color-surface)] rounded-t-2xl p-5 lg:ml-[280px] lg:relative lg:left-auto lg:right-auto lg:bottom-auto lg:ml-0 lg:max-w-md lg:rounded-2xl lg:shadow-2xl lg:border lg:border-[var(--color-border)]"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
