@@ -333,111 +333,136 @@ export function ManualWordInputModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="card p-6 w-full max-w-sm animate-fade-in-up max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold mb-1 text-center text-[var(--color-foreground)]">
-          単語を手で入力
-        </h2>
-        <p className="text-xs text-center text-[var(--color-muted)] mb-4">
-          品詞・例文・発音記号はAIが自動で補完します
-        </p>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
-                英単語
-              </label>
-              <input
-                ref={englishInputRef}
-                type="text"
-                value={english}
-                onChange={(e) => setEnglish(e.target.value)}
-                placeholder="例: beautiful"
-                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
-                disabled={isLoading}
-                maxLength={50}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
-                日本語訳
-              </label>
-              <input
-                type="text"
-                value={japanese}
-                onChange={(e) => setJapanese(e.target.value)}
-                placeholder="例: 美しい"
-                className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
-                disabled={isLoading}
-                maxLength={100}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowOptional((v) => !v)}
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline py-1 disabled:opacity-60"
-            >
-              <Icon name={showOptional ? 'expand_less' : 'expand_more'} size={16} />
-              {showOptional ? '詳細を閉じる' : '詳細を入力 (任意)'}
-            </button>
-
-            {showOptional && (
-              <div className="space-y-3 animate-fade-in-up">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
-                    品詞 <span className="text-[var(--color-muted)] font-normal">(任意・未入力なら自動補完)</span>
-                  </label>
-                  <select
-                    value={partOfSpeech}
-                    onChange={(e) => setPartOfSpeech(e.target.value)}
-                    disabled={isLoading}
-                    className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
-                  >
-                    {PART_OF_SPEECH_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
-                    例文 <span className="text-[var(--color-muted)] font-normal">(任意・未入力なら自動補完)</span>
-                  </label>
-                  <textarea
-                    value={exampleSentence}
-                    onChange={(e) => setExampleSentence(e.target.value)}
-                    placeholder="例: She has a beautiful voice."
-                    rows={2}
-                    className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-sm bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors resize-none"
-                    disabled={isLoading}
-                    maxLength={500}
-                  />
-                </div>
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:justify-center sm:items-center bg-black/50 p-0 sm:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={onClose}
+        disabled={isLoading}
+      />
+      <div
+        className="relative w-full max-w-lg bg-[var(--color-background)] rounded-t-3xl sm:rounded-3xl shadow-xl max-h-[min(90vh,640px)] flex flex-col animate-fade-in-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="pt-2.5 pb-1 flex justify-center">
+          <span className="h-1 w-10 rounded-full bg-[var(--color-border)]" />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b border-[var(--color-border-light)]">
+          <span className="w-10" />
+          <h2 className="text-base font-bold text-[var(--color-foreground)]">単語を手で入力</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading}
+            className="w-10 h-10 rounded-full bg-[var(--color-surface-secondary)] flex items-center justify-center text-[var(--color-foreground)] disabled:opacity-40"
+            aria-label="閉じる"
+          >
+            <Icon name="close" size={20} />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-5">
+          <p className="text-xs text-center text-[var(--color-muted)] mb-4">
+            品詞・例文・発音記号はAIが自動で補完します
+          </p>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                  英単語
+                </label>
+                <input
+                  ref={englishInputRef}
+                  type="text"
+                  value={english}
+                  onChange={(e) => setEnglish(e.target.value)}
+                  placeholder="例: beautiful"
+                  className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                  disabled={isLoading}
+                  maxLength={50}
+                />
               </div>
-            )}
-          </div>
-          <div className="flex gap-3 mt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={isLoading}
-              className="flex-1"
-            >
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              disabled={!english.trim() || !japanese.trim() || isLoading}
-              className="flex-1"
-            >
-              {isLoading ? (loadingMessage ?? '保存中...') : '保存'}
-            </Button>
-          </div>
-        </form>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                  日本語訳
+                </label>
+                <input
+                  type="text"
+                  value={japanese}
+                  onChange={(e) => setJapanese(e.target.value)}
+                  placeholder="例: 美しい"
+                  className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                  disabled={isLoading}
+                  maxLength={100}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowOptional((v) => !v)}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline py-1 disabled:opacity-60"
+              >
+                <Icon name={showOptional ? 'expand_less' : 'expand_more'} size={16} />
+                {showOptional ? '詳細を閉じる' : '詳細を入力 (任意)'}
+              </button>
+
+              {showOptional && (
+                <div className="space-y-3 animate-fade-in-up">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                      品詞 <span className="text-[var(--color-muted)] font-normal">(任意・未入力なら自動補完)</span>
+                    </label>
+                    <select
+                      value={partOfSpeech}
+                      onChange={(e) => setPartOfSpeech(e.target.value)}
+                      disabled={isLoading}
+                      className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                    >
+                      {PART_OF_SPEECH_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
+                      例文 <span className="text-[var(--color-muted)] font-normal">(任意・未入力なら自動補完)</span>
+                    </label>
+                    <textarea
+                      value={exampleSentence}
+                      onChange={(e) => setExampleSentence(e.target.value)}
+                      placeholder="例: She has a beautiful voice."
+                      rows={2}
+                      className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-sm bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors resize-none"
+                      disabled={isLoading}
+                      maxLength={500}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 mt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={isLoading}
+                className="flex-1"
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="submit"
+                disabled={!english.trim() || !japanese.trim() || isLoading}
+                className="flex-1"
+              >
+                {isLoading ? (loadingMessage ?? '保存中...') : '保存'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
