@@ -1569,10 +1569,10 @@ export default function ProjectDetailPage() {
             ) : (
               <div
                 ref={wordTableScrollRef}
-                className="overflow-x-auto overflow-y-hidden"
+                className="overflow-x-hidden md:overflow-x-auto overflow-y-hidden"
                 style={{ scrollbarWidth: 'thin' }}
               >
-                <table className="border-collapse" style={{ width: 'max-content', minWidth: '100%' }}>
+                <table className="border-collapse w-full md:w-max md:min-w-full">
                   <thead>
                     <tr className="border-b border-[var(--color-border)] text-sm text-[var(--color-muted)]">
                       {selectMode && (
@@ -1591,8 +1591,8 @@ export default function ProjectDetailPage() {
                       <th className="w-5 py-1" />
                       <th className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)]">単語</th>
                       <th className="w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">A/P</th>
-                      <th className="w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">品詞</th>
-                      <th className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap">訳</th>
+                      <th className="hidden md:table-cell w-10 px-1 py-1 text-center font-semibold text-[var(--color-foreground)]">品詞</th>
+                      <th className="hidden md:table-cell px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap">訳</th>
                       {(project?.customColumns ?? []).map((col) => (
                         <th
                           key={col.id}
@@ -1683,10 +1683,10 @@ export default function ProjectDetailPage() {
                             />
                           </span>
                         </td>
-                        <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
+                        <td className="hidden md:table-cell w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
                           {posLabel(word.partOfSpeechTags) || '—'}
                         </td>
-                        <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
+                        <td className="hidden md:table-cell px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>
                           {word.japanese}
                         </td>
                         {(project?.customColumns ?? []).map((col) => {
