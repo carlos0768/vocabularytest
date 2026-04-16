@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { parseJsonWithSchema } from '@/lib/api/validation';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { lookupLexiconEntriesByKeys } from '@/lib/lexicon/master-first-scan';
-import { normalizeHeadword, resolvePrimaryLexiconPos } from '../../../../../shared/lexicon';
 
 /**
  * POST /api/words/enrich-manual
  *
- * 手動単語追加時に、未入力の補助フィールドをAIで素早く補完するエンドポイント。
- *
- * 高速化のため lexicon_entries マスターテーブルを先に参照し、
- * キャッシュヒットしたフィールドは AI に聞かない。
- * AI 呼び出しは残った needs のみを対象にし、プロンプトを最小化する。
+ * 手動単語追加時に、未入力の補助フィールドをAIで素早く補完する。
+ * 認証チェックと AI 呼び出しを並列化してレイテンシを最小化する。
  */
 
 const requestSchema = z.object({
@@ -35,65 +29,43 @@ const partOfSpeechTagsSchema = z.preprocess((value) => {
 }, z.array(z.string()).default([]));
 
 const aiResponseSchema = z.object({
-  japanese: z.string().optional().default(''),
   pronunciation: z.string().optional().default(''),
   partOfSpeechTags: partOfSpeechTagsSchema,
   exampleSentence: z.string().optional().default(''),
   exampleSentenceJa: z.string().optional().default(''),
 });
 
-// ---- プロンプト (圧縮版) ----
-
-const SYSTEM_PROMPT = `英単語の情報をJSON形式で返せ。pronunciation="/IPA/"形式。partOfSpeechTags=noun/verb/adjective/adverb/idiom/phrasal_verb/preposition/conjunction/other から1つ。exampleSentence=10〜15語の英文。exampleSentenceJa=その日本語訳。japanese=主な日本語訳。指示されたフィールドのみ生成。`;
+const SYSTEM_PROMPT = `英単語の補助情報をJSON形式で返せ。
+pronunciation: IPA発音記号を"/.../"形式で返す
+partOfSpeechTags: [noun/verb/adjective/adverb/idiom/phrasal_verb/other]から1つ
+exampleSentence: 10〜15語の実用的な英文(中高レベル)
+exampleSentenceJa: exampleSentenceの日本語訳
+指示されたフィールドのみ生成せよ。`;
 
 const ENRICH_TIMEOUT_MS = 8000;
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<T>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('AI enrichment timeout')), ms);
-  });
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-}
-
-interface EnrichNeeds {
-  japanese: boolean;
-  pronunciation: boolean;
-  partOfSpeechTags: boolean;
-  exampleSentence: boolean;
-}
-
-function anyNeedsRemaining(needs: EnrichNeeds): boolean {
-  return needs.japanese || needs.pronunciation || needs.partOfSpeechTags || needs.exampleSentence;
-}
-
-function buildPrompt(english: string, japanese: string, needs: EnrichNeeds): string {
-  const parts: string[] = [`"${english}"${japanese ? ` (${japanese})` : ''}`];
-
-  const fields: string[] = [];
-  if (needs.pronunciation) fields.push('pronunciation');
-  if (needs.partOfSpeechTags) fields.push('partOfSpeechTags');
-  if (needs.exampleSentence) fields.push('exampleSentence,exampleSentenceJa');
-  if (needs.japanese) fields.push('japanese');
-
-  parts.push(`生成: ${fields.join(', ')}`);
-  return parts.join('\n');
+function buildPrompt(english: string, japanese: string): string {
+  return `"${english}"${japanese ? ` (${japanese})` : ''}\n生成: pronunciation, partOfSpeechTags, exampleSentence, exampleSentenceJa`;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. 認証
+    // リクエスト body を先に読み取り (auth と並列化するため clone)
+    const clonedRequest = request.clone();
+
+    // 1. 認証 + リクエストパースを並列で開始
     const supabase = await createRouteHandlerClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const { data: { user }, error: authError } = bearerToken
-      ? await supabase.auth.getUser(bearerToken)
-      : await supabase.auth.getUser();
 
+    const [authResult, bodyResult] = await Promise.all([
+      bearerToken
+        ? supabase.auth.getUser(bearerToken)
+        : supabase.auth.getUser(),
+      clonedRequest.json().catch(() => null),
+    ]);
+
+    const { data: { user }, error: authError } = authResult;
     if (authError || !user) {
       return NextResponse.json(
         { success: false, error: '認証が必要です。ログインしてください。' },
@@ -101,36 +73,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. リクエストのパース
-    const parsed = await parseJsonWithSchema(request, requestSchema, {
-      parseMessage: 'リクエストの解析に失敗しました',
-      invalidMessage: '無効なリクエスト形式です',
-    });
-    if (!parsed.ok) {
-      return parsed.response;
+    const parsed = requestSchema.safeParse(bodyResult);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: '無効なリクエスト形式です' },
+        { status: 400 }
+      );
     }
 
     const input = parsed.data;
     const englishTrimmed = input.english.trim();
-    let filledJapanese = input.japanese?.trim() ?? '';
-    let filledPronunciation = input.pronunciation?.trim() ?? '';
-    let filledExample = input.exampleSentence?.trim() ?? '';
-    let filledExampleJa = input.exampleSentenceJa?.trim() ?? '';
-    let filledPosTags = normalizePartOfSpeechTags(input.partOfSpeechTags ?? []);
+    const filledJapanese = input.japanese?.trim() ?? '';
+    const filledPronunciation = input.pronunciation?.trim() ?? '';
+    const filledExample = input.exampleSentence?.trim() ?? '';
+    const filledExampleJa = input.exampleSentenceJa?.trim() ?? '';
+    const filledPosTags = normalizePartOfSpeechTags(input.partOfSpeechTags ?? []);
 
-    const needs: EnrichNeeds = {
-      japanese: filledJapanese.length === 0,
-      pronunciation: filledPronunciation.length === 0,
-      partOfSpeechTags: filledPosTags.length === 0,
-      exampleSentence: filledExample.length === 0 || filledExampleJa.length === 0,
-    };
+    const needsPronunciation = filledPronunciation.length === 0;
+    const needsPos = filledPosTags.length === 0;
+    const needsExample = filledExample.length === 0 || filledExampleJa.length === 0;
 
     // 全フィールド入力済み → AI 不要
-    if (!anyNeedsRemaining(needs)) {
+    if (!needsPronunciation && !needsPos && !needsExample) {
       return NextResponse.json({
         success: true,
         enriched: {
-          japanese: filledJapanese,
           pronunciation: filledPronunciation,
           partOfSpeechTags: filledPosTags,
           exampleSentence: filledExample,
@@ -140,80 +107,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 3. lexicon マスターテーブルで事前キャッシュヒット
-    const generatedFields: string[] = [];
-    let lexiconHit = false;
-
-    try {
-      const posForLookup = filledPosTags.length > 0
-        ? resolvePrimaryLexiconPos(filledPosTags)
-        : 'other';
-      const normalizedHw = normalizeHeadword(englishTrimmed);
-
-      // POS が不明な場合は複数の主要品詞で検索してヒットを狙う
-      const lookupKeys = filledPosTags.length > 0
-        ? [{ normalizedHeadword: normalizedHw, pos: posForLookup }]
-        : ['noun', 'verb', 'adjective', 'adverb', 'other'].map((pos) => ({
-            normalizedHeadword: normalizedHw,
-            pos: pos as import('../../../../../shared/lexicon').LexiconPos,
-          }));
-
-      const entries = await lookupLexiconEntriesByKeys(lookupKeys);
-      if (entries.length > 0) {
-        // 最もデータが豊富なエントリを選ぶ
-        const best = entries.reduce((a, b) => {
-          const scoreA = (a.translationJa ? 1 : 0) + (a.exampleSentence ? 1 : 0) + (a.pos ? 1 : 0);
-          const scoreB = (b.translationJa ? 1 : 0) + (b.exampleSentence ? 1 : 0) + (b.pos ? 1 : 0);
-          return scoreB > scoreA ? b : a;
-        });
-
-        if (needs.partOfSpeechTags && best.pos) {
-          filledPosTags = normalizePartOfSpeechTags([best.pos]);
-          if (filledPosTags.length > 0) {
-            needs.partOfSpeechTags = false;
-            generatedFields.push('partOfSpeechTags');
-            lexiconHit = true;
-          }
-        }
-        if (needs.japanese && best.translationJa) {
-          filledJapanese = best.translationJa;
-          needs.japanese = false;
-          generatedFields.push('japanese');
-          lexiconHit = true;
-        }
-        if (needs.exampleSentence && best.exampleSentence && best.exampleSentenceJa) {
-          filledExample = best.exampleSentence;
-          filledExampleJa = best.exampleSentenceJa;
-          needs.exampleSentence = false;
-          generatedFields.push('exampleSentence');
-          lexiconHit = true;
-        }
-      }
-    } catch (lexiconError) {
-      // lexicon lookup 失敗は無視して AI にフォールバック
-      console.warn('[enrich-manual] lexicon lookup failed:', lexiconError);
-    }
-
-    // lexicon で全て埋まった → AI 不要 (pronunciation 以外)
-    if (!anyNeedsRemaining(needs)) {
-      console.log('[enrich-manual] All fields from lexicon', { english: englishTrimmed });
-      return NextResponse.json({
-        success: true,
-        enriched: {
-          japanese: filledJapanese,
-          pronunciation: filledPronunciation,
-          partOfSpeechTags: filledPosTags,
-          exampleSentence: filledExample,
-          exampleSentenceJa: filledExampleJa,
-        },
-        generatedFields,
-      });
-    }
-
-    // 4. AI 呼び出し (残りの needs のみ)
+    // 2. AI 呼び出し
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
-    const apiKeys = { gemini: geminiApiKey, openai: openaiApiKey };
 
     const config = {
       ...AI_CONFIG.defaults.gemini,
@@ -224,26 +120,30 @@ export async function POST(request: NextRequest) {
 
     let provider;
     try {
-      provider = getProviderFromConfig(config, apiKeys);
-    } catch (providerError) {
-      console.error('[enrich-manual] Provider init failed:', providerError);
+      provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+    } catch {
       return NextResponse.json(
         { success: false, error: 'AIプロバイダーの初期化に失敗しました' },
         { status: 500 }
       );
     }
 
-    const prompt = buildPrompt(englishTrimmed, filledJapanese, needs);
+    const prompt = buildPrompt(englishTrimmed, filledJapanese);
 
     const aiStart = Date.now();
     let aiResponse;
     try {
-      aiResponse = await withTimeout(
-        provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config),
-        ENRICH_TIMEOUT_MS,
-      );
-    } catch (aiError) {
-      console.error('[enrich-manual] AI call failed:', aiError);
+      const aiPromise = provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config);
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('timeout')), ENRICH_TIMEOUT_MS);
+      });
+      try {
+        aiResponse = await Promise.race([aiPromise, timeoutPromise]);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    } catch {
       return NextResponse.json(
         { success: false, error: 'AIによる補完に失敗しました' },
         { status: 500 }
@@ -252,63 +152,52 @@ export async function POST(request: NextRequest) {
     const aiElapsedMs = Date.now() - aiStart;
 
     if (!aiResponse.success) {
-      console.error('[enrich-manual] AI generation failed:', aiResponse.error);
       return NextResponse.json(
         { success: false, error: 'AIによる補完に失敗しました' },
         { status: 500 }
       );
     }
 
-    // 5. レスポンスのパース
+    // 3. レスポンスのパース
     let parsedAi: z.infer<typeof aiResponseSchema>;
     try {
       parsedAi = aiResponseSchema.parse(parseJsonResponse(aiResponse.content));
-    } catch (parseError) {
-      console.error('[enrich-manual] Failed to parse AI response:', parseError, aiResponse.content);
+    } catch {
+      console.error('[enrich-manual] Parse failed:', aiResponse.content);
       return NextResponse.json(
         { success: false, error: 'AIレスポンスの解析に失敗しました' },
         { status: 500 }
       );
     }
 
-    // 6. AI 結果で残りを埋める
-    if (needs.japanese) {
-      const val = (parsedAi.japanese || '').trim();
-      if (val) { filledJapanese = val; generatedFields.push('japanese'); }
-    }
-    if (needs.pronunciation) {
-      const val = (parsedAi.pronunciation || '').trim();
-      if (val) { filledPronunciation = val; generatedFields.push('pronunciation'); }
-    }
-    if (needs.partOfSpeechTags) {
-      const tags = normalizePartOfSpeechTags(parsedAi.partOfSpeechTags);
-      if (tags.length > 0) { filledPosTags = tags; generatedFields.push('partOfSpeechTags'); }
-    }
-    if (needs.exampleSentence) {
-      const ex = (parsedAi.exampleSentence || '').trim();
-      const exJa = (parsedAi.exampleSentenceJa || '').trim();
-      if (ex && exJa) {
-        filledExample = ex;
-        filledExampleJa = exJa;
-        generatedFields.push('exampleSentence');
-      }
-    }
+    // 4. ユーザ入力を優先し、不足分のみ埋める
+    const generatedFields: string[] = [];
+
+    const finalPronunciation = needsPronunciation
+      ? (parsedAi.pronunciation || '').trim() : filledPronunciation;
+    if (needsPronunciation && finalPronunciation) generatedFields.push('pronunciation');
+
+    const finalPosTags = needsPos
+      ? normalizePartOfSpeechTags(parsedAi.partOfSpeechTags) : filledPosTags;
+    if (needsPos && finalPosTags.length > 0) generatedFields.push('partOfSpeechTags');
+
+    const finalExample = filledExample || (parsedAi.exampleSentence || '').trim();
+    const finalExampleJa = filledExampleJa || (parsedAi.exampleSentenceJa || '').trim();
+    if (needsExample && finalExample && finalExampleJa) generatedFields.push('exampleSentence');
 
     console.log('[enrich-manual] Completed', {
       english: englishTrimmed,
       aiElapsedMs,
-      lexiconHit,
       generatedFields,
     });
 
     return NextResponse.json({
       success: true,
       enriched: {
-        japanese: filledJapanese,
-        pronunciation: filledPronunciation,
-        partOfSpeechTags: filledPosTags,
-        exampleSentence: filledExample,
-        exampleSentenceJa: filledExampleJa,
+        pronunciation: finalPronunciation,
+        partOfSpeechTags: finalPosTags,
+        exampleSentence: finalExample,
+        exampleSentenceJa: finalExampleJa,
       },
       generatedFields,
     });
