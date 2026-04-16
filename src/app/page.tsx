@@ -957,41 +957,54 @@ export default function HomePage() {
       console.warn('[manual-word] enrich error:', enrichError);
     }
 
-    setManualWordSavingMessage('保存中...');
+    // enrich 結果が返った時点で即座に UI に反映し、モーダルを閉じる
+    const optimisticWord: Word = {
+      id: crypto.randomUUID(),
+      projectId: currentProject.id,
+      english,
+      japanese,
+      distractors: [],
+      pronunciation: enrichedPronunciation || undefined,
+      partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
+      exampleSentence: enrichedExampleSentence || undefined,
+      exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+      isFavorite: false,
+    };
 
-    try {
-      await repository.createWords([
-        {
-          projectId: currentProject.id,
-          english,
-          japanese,
-          distractors: [],
-          exampleSentence: enrichedExampleSentence,
-          exampleSentenceJa: enrichedExampleSentenceJa,
-          ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
-          ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
-        },
-      ]);
+    showToast({ message: '単語を追加しました', type: 'success' });
+    setManualWordEnglish('');
+    setManualWordJapanese('');
+    setManualWordPartOfSpeech('');
+    setManualWordExampleSentence('');
+    setShowManualWordModal(false);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+    refreshWordCount();
 
-      showToast({ message: '単語を追加しました', type: 'success' });
-      setManualWordEnglish('');
-      setManualWordJapanese('');
-      setManualWordPartOfSpeech('');
-      setManualWordExampleSentence('');
-      setShowManualWordModal(false);
-      // Invalidate cache so loadWords fetches fresh data
-      if (currentProject) {
-        invalidateHomeCache();
-      }
+    // バックグラウンドで DB に永続化
+    repository.createWords([
+      {
+        projectId: currentProject.id,
+        english,
+        japanese,
+        distractors: [],
+        exampleSentence: enrichedExampleSentence,
+        exampleSentenceJa: enrichedExampleSentenceJa,
+        ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+        ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+      },
+    ]).then(() => {
+      invalidateHomeCache();
       loadWords();
-      refreshWordCount();
-    } catch (error) {
+    }).catch((error) => {
       console.error('Failed to save manual word:', error);
       showToast({ message: '単語の保存に失敗しました', type: 'error' });
-    } finally {
-      setManualWordSaving(false);
-      setManualWordSavingMessage(undefined);
-    }
+    });
   };
 
   // Share handler (Pro only)

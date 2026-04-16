@@ -794,7 +794,6 @@ export default function ProjectDetailPage() {
     let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
     let enrichedExampleSentence = userExample;
     let enrichedExampleSentenceJa = '';
-    let enrichFailureReason: string | null = null;
 
     try {
       const enrichResponse = await fetch('/api/words/enrich-manual', {
@@ -812,13 +811,11 @@ export default function ProjectDetailPage() {
         const data = (await enrichResponse.json()) as {
           success?: boolean;
           enriched?: {
-            japanese?: string;
             pronunciation?: string;
             partOfSpeechTags?: string[];
             exampleSentence?: string;
             exampleSentenceJa?: string;
           };
-          error?: string;
         };
         if (data.success && data.enriched) {
           enrichedPronunciation = data.enriched.pronunciation ?? '';
@@ -829,60 +826,67 @@ export default function ProjectDetailPage() {
             enrichedExampleSentence = data.enriched.exampleSentence;
           }
           enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
-        } else {
-          enrichFailureReason = data.error ?? 'enrich response missing enriched payload';
-          console.warn('[manual-word] enrich returned ok but no data:', data);
         }
-      } else {
-        const body = await enrichResponse.text().catch(() => '');
-        enrichFailureReason = `HTTP ${enrichResponse.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
-        console.warn('[manual-word] enrich failed:', enrichResponse.status, body);
       }
     } catch (enrichError) {
-      enrichFailureReason = enrichError instanceof Error ? enrichError.message : String(enrichError);
       console.warn('[manual-word] enrich error:', enrichError);
     }
 
-    setManualWordSavingMessage('保存中...');
+    // 2) enrich 結果が返った時点で即座に UI に反映し、モーダルを閉じる
+    const optimisticWord: Word = {
+      id: crypto.randomUUID(),
+      projectId: project.id,
+      english,
+      japanese,
+      distractors: ['選択肢1', '選択肢2', '選択肢3'],
+      pronunciation: enrichedPronunciation || undefined,
+      partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
+      exampleSentence: enrichedExampleSentence || undefined,
+      exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+      isFavorite: false,
+    };
 
-    try {
-      const created = await mutationRepository.createWords([
-        {
-          projectId: project.id,
-          english,
-          japanese,
-          distractors: ['選択肢1', '選択肢2', '選択肢3'],
-          ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
-          ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
-          ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
-          ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
-        },
-      ]);
+    setWords((prev) => [optimisticWord, ...prev]);
+    showToast({ message: '単語を追加しました', type: 'success' });
+    setManualWordEnglish('');
+    setManualWordJapanese('');
+    setManualWordPartOfSpeech('');
+    setManualWordExampleSentence('');
+    setShowManualWordModal(false);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+    refreshWordCount();
 
-      setWords((prev) => [...created, ...prev]);
-      if (enrichFailureReason) {
-        showToast({
-          message: `単語を追加しました (AI補完失敗: ${enrichFailureReason})`,
-          type: 'error',
-        });
-      } else {
-        showToast({ message: '単語を追加しました', type: 'success' });
+    // 3) バックグラウンドで DB に永続化
+    mutationRepository.createWords([
+      {
+        projectId: project.id,
+        english,
+        japanese,
+        distractors: ['選択肢1', '選択肢2', '選択肢3'],
+        ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+        ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+        ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
+        ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
+      },
+    ]).then((created) => {
+      // 永続化成功: optimistic ID を実際の ID に差し替え
+      if (created.length > 0) {
+        setWords((prev) => prev.map((w) => w.id === optimisticWord.id ? created[0]! : w));
       }
-      setManualWordEnglish('');
-      setManualWordJapanese('');
-      setManualWordPartOfSpeech('');
-      setManualWordExampleSentence('');
-      setShowManualWordModal(false);
       invalidateHomeCache();
+    }).catch((error) => {
+      console.error('Failed to save word:', error);
+      // 永続化失敗: optimistic word を除去
+      setWords((prev) => prev.filter((w) => w.id !== optimisticWord.id));
+      showToast({ message: '単語の保存に失敗しました', type: 'error' });
       refreshWordCount();
-
-    } catch (error) {
-      console.error('Failed to add word:', error);
-      showToast({ message: '単語の追加に失敗しました', type: 'error' });
-    } finally {
-      setManualWordSaving(false);
-      setManualWordSavingMessage(undefined);
-    }
+    });
   };
 
   const handleOpenAddColumnSheet = () => {
