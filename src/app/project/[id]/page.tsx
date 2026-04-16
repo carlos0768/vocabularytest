@@ -1361,6 +1361,14 @@ export default function ProjectDetailPage() {
               )}
               <button
                 type="button"
+                onClick={() => setDeleteProjectModalOpen(true)}
+                className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-error)]/10 transition-colors"
+                aria-label="単語帳を削除"
+              >
+                <Icon name="delete" size={18} />
+              </button>
+              <button
+                type="button"
                 onClick={beginTitleEdit}
                 className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
                 aria-label="単語帳名を編集"
