@@ -522,8 +522,8 @@ export default function SharedProjectPage() {
                             </span>
                           </td>
                         )}
-                        <td className="px-2 py-2.5 max-w-0">
-                          <span className="inline-flex items-center gap-1 min-w-0">
+                        <td className="px-2 py-2.5 max-w-0 overflow-hidden">
+                          <span className="flex items-center gap-1 min-w-0">
                             <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{word.english}</span>
                           </span>
                         </td>
