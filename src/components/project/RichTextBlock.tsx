@@ -57,6 +57,7 @@ export function RichTextBlock({
 }: RichTextBlockProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<'view' | 'edit'>(autoFocus && !readOnly ? 'edit' : 'view');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   // We mirror the canonical HTML in local state so view mode updates
   // immediately on blur without waiting for the parent's prop round-trip.
   const [html, setHtml] = useState<string>((block.data as RichTextBlockData)?.html ?? '');
@@ -226,8 +227,7 @@ export function RichTextBlock({
 
   return (
     <div className="group relative">
-      {/* Rounded frame container */}
-      <div className="relative rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <div className="relative p-4">
         {mode === 'edit' && !readOnly ? (
           <>
             {/* Inline toolbar in edit mode */}
@@ -250,12 +250,12 @@ export function RichTextBlock({
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onDelete?.();
+                  setConfirmDelete(true);
                 }}
                 aria-label="ブロックを削除"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-error)]"
               >
-                <Icon name="close" size={16} />
+                <Icon name="delete" size={16} />
               </button>
             </div>
             <div
@@ -271,7 +271,7 @@ export function RichTextBlock({
           <>
             {/* Floating action buttons in view mode — no vertical space consumed */}
             {!readOnly && (
-              <div className="absolute top-3 right-3 flex items-center gap-1">
+              <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   type="button"
                   onClick={() => setMode('edit')}
@@ -284,12 +284,12 @@ export function RichTextBlock({
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    onDelete?.();
+                    setConfirmDelete(true);
                   }}
                   aria-label="ブロックを削除"
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-error)]"
                 >
-                  <Icon name="close" size={16} />
+                  <Icon name="delete" size={16} />
                 </button>
               </div>
             )}
@@ -311,6 +311,43 @@ export function RichTextBlock({
           </>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={() => setConfirmDelete(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="relative w-full max-w-sm bg-[var(--color-surface)] rounded-2xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-error)]/12 flex items-center justify-center shrink-0">
+                <Icon name="delete" size={20} className="text-[var(--color-error)]" />
+              </div>
+              <div>
+                <p className="font-bold text-[var(--color-foreground)]">文章を削除しますか？</p>
+                <p className="text-sm text-[var(--color-muted)]">この操作は取り消せません</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)]"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConfirmDelete(false); onDelete?.(); }}
+                className="flex-1 py-2.5 rounded-xl bg-[var(--color-error)] text-white text-sm font-semibold"
+              >
+                削除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

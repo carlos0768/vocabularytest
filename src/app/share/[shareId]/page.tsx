@@ -108,6 +108,7 @@ export default function SharedProjectPage() {
         title: project.title,
         userId: user.id,
         importedFromShareId: shareId,
+        ...(project.blocks && project.blocks.length > 0 ? { blocks: project.blocks } : {}),
       });
 
       await repo.createWords(
@@ -199,8 +200,11 @@ export default function SharedProjectPage() {
     return [...new Set(all.map((t) => t.trim()).filter(Boolean))].sort();
   }, [words]);
 
-  // Rich text blocks from the shared project (sorted by position)
-  const richTextBlocks = useMemo<ProjectBlock[]>(() => {
+  // Convention: blocks with position < WORDLIST_PIVOT render above the word
+  // list; blocks with position >= WORDLIST_PIVOT render below (same as project detail page).
+  const WORDLIST_PIVOT = 1000;
+
+  const richTextBlocksSorted = useMemo<ProjectBlock[]>(() => {
     const arr = project?.blocks ?? [];
     return [...arr]
       .filter((b): b is ProjectBlock & { data: RichTextBlockData } =>
@@ -208,6 +212,15 @@ export default function SharedProjectPage() {
       )
       .sort((a, b) => a.position - b.position);
   }, [project?.blocks]);
+
+  const blocksAbove = useMemo(
+    () => richTextBlocksSorted.filter((b) => b.position < WORDLIST_PIVOT),
+    [richTextBlocksSorted],
+  );
+  const blocksBelow = useMemo(
+    () => richTextBlocksSorted.filter((b) => b.position >= WORDLIST_PIVOT),
+    [richTextBlocksSorted],
+  );
 
   // Map of lowercased English headword → word id for highlighting
   // words in rich text blocks.
@@ -375,11 +388,10 @@ export default function SharedProjectPage() {
         </div>
 
         <main className="max-w-lg lg:max-w-2xl mx-auto px-5 pt-4 lg:px-6 lg:-mt-2 space-y-5">
-          {/* Rich text blocks (本文 + マーキング) */}
-          {richTextBlocks.length > 0 && (
+          {/* Rich text blocks above word list */}
+          {blocksAbove.length > 0 && (
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[var(--color-foreground)]">本文</h2>
-              {richTextBlocks.map((block) => (
+              {blocksAbove.map((block) => (
                 <RichTextBlock
                   key={block.id}
                   block={block}
@@ -589,6 +601,20 @@ export default function SharedProjectPage() {
               </div>
             )}
           </section>
+
+          {/* Rich text blocks below word list */}
+          {blocksBelow.length > 0 && (
+            <section className="space-y-2">
+              {blocksBelow.map((block) => (
+                <RichTextBlock
+                  key={block.id}
+                  block={block}
+                  readOnly
+                  wordHighlightMap={wordHighlightMap}
+                />
+              ))}
+            </section>
+          )}
         </main>
 
         {/* Bottom action bar */}
