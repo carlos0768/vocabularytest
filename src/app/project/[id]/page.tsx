@@ -32,6 +32,8 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
+import { createBrowserClient } from '@/lib/supabase';
+import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 import type { CustomColumn, CustomColumnType, LexiconEntry, Project, ProjectBlock, ProjectBlockType, ProjectShareScope, RichTextBlockData, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
@@ -466,6 +468,102 @@ export default function ProjectDetailPage() {
     scanGalleryInputRef.current?.click();
   };
 
+  // Async background scan for Pro users: upload images to Storage, create scan job, stay on page
+  const handleBackgroundScan = async (scanFiles: File[]) => {
+    if (!project) return;
+
+    if (scanFiles.length > 20) {
+      showToast({ message: '画像は20枚以下にしてください', type: 'error', duration: 4000 });
+      return;
+    }
+
+    setProcessing(true);
+    setProcessingSteps([
+      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
+      { id: 'create-job', label: 'バックグラウンド処理を開始...', status: 'pending' },
+    ]);
+
+    try {
+      const supabase = createBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      if (!session?.access_token || !authUser) {
+        throw new Error('認証が必要です');
+      }
+
+      void ensureWebPushSubscription({ accessToken: session.access_token, requestPermission: true });
+
+      const extractionProfile: ImageProcessingProfile = 'default';
+      const uploadedPaths: string[] = [];
+
+      for (let i = 0; i < scanFiles.length; i++) {
+        const processed = await processImageFile(scanFiles[i], extractionProfile);
+        const contentType = processed.type || 'image/jpeg';
+        const ext = '.jpg';
+        const randomSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2);
+        const imagePath = `${authUser.id}/${Date.now()}-${i}-${randomSuffix}${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('scan-images')
+          .upload(imagePath, processed, { contentType, upsert: false });
+
+        if (uploadError) {
+          if (uploadedPaths.length > 0) {
+            await supabase.storage.from('scan-images').remove(uploadedPaths);
+          }
+          throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
+        }
+        uploadedPaths.push(imagePath);
+      }
+
+      setProcessingSteps([
+        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
+        { id: 'create-job', label: 'バックグラウンド処理を開始...', status: 'active' },
+      ]);
+
+      const response = await fetch('/api/scan-jobs/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          imagePaths: uploadedPaths,
+          projectTitle: project.title,
+          scanMode: selectedScanMode,
+          eikenLevel: selectedScanMode === 'eiken' ? selectedEikenLevel : null,
+          aiEnabled: aiEnabled ?? null,
+          targetProjectId: project.id,
+        }),
+      });
+
+      if (!response.ok) {
+        await supabase.storage.from('scan-images').remove(uploadedPaths);
+        const error = await response.json();
+        throw new Error(error.error || 'ジョブの作成に失敗しました');
+      }
+
+      setProcessing(false);
+      setProcessingSteps([]);
+
+      showToast({
+        message: `${scanFiles.length > 1 ? `${scanFiles.length}枚の画像の` : ''}スキャンを開始しました。完了すると通知されます`,
+        type: 'success',
+        duration: 4000,
+      });
+    } catch (error) {
+      console.error('Background scan error:', error);
+      setProcessingSteps(prev => prev.map(s =>
+        s.status === 'active' || s.status === 'pending'
+          ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
+          : s
+      ));
+    }
+  };
+
   const handleScanFiles = async (files: File[]) => {
     setShowScanModeModal(false);
     if (!files.length || !project) return;
@@ -483,6 +581,13 @@ export default function ProjectDetailPage() {
       }
     }
 
+    // Pro users: use async background processing (no confirm page)
+    if (isPro) {
+      handleBackgroundScan(scanFiles);
+      return;
+    }
+
+    // Free users: synchronous flow with confirm page
     sessionStorage.setItem('scanvocab_existing_project_id', project.id);
     sessionStorage.removeItem('scanvocab_project_name');
     sessionStorage.removeItem('scanvocab_source_labels');
