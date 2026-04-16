@@ -112,7 +112,8 @@ export async function POST(request: NextRequest) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
     const config = {
-      ...AI_CONFIG.defaults.gemini,
+      provider: AI_CONFIG.defaults.gemini.provider,
+      model: 'gemini-2.0-flash',
       temperature: 0.3,
       maxOutputTokens: 256,
       responseFormat: 'json' as const,
