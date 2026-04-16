@@ -231,6 +231,7 @@ export default function ProjectDetailPage() {
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
+  const [columnMenuOpen, setColumnMenuOpen] = useState<string | null>(null);
 
   // Select mode
   const [selectMode, setSelectMode] = useState(false);
@@ -860,6 +861,28 @@ export default function ProjectDetailPage() {
     } finally {
       setAddColumnSaving(false);
     }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (!project) return;
+    const nextColumns = (project.customColumns ?? []).filter((c) => c.id !== columnId);
+    try {
+      await mutationRepository.updateProject(project.id, { customColumns: nextColumns });
+      setProject((prev) => (prev ? { ...prev, customColumns: nextColumns } : prev));
+      showToast({ message: '列を削除しました', type: 'success' });
+    } catch {
+      showToast({ message: '列の削除に失敗しました', type: 'error' });
+    }
+  };
+
+  const handleSortByColumn = (columnId: string) => {
+    setWords((prev) =>
+      [...prev].sort((a, b) => {
+        const aVal = a.customSections?.find((s) => s.id === columnId)?.content ?? '';
+        const bVal = b.customSections?.find((s) => s.id === columnId)?.content ?? '';
+        return aVal.localeCompare(bVal, 'ja');
+      })
+    );
   };
 
   // ============ Project blocks (Notion-like) ============
@@ -1604,9 +1627,38 @@ export default function ProjectDetailPage() {
                       {(project?.customColumns ?? []).map((col) => (
                         <th
                           key={col.id}
-                          className="hidden md:table-cell px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap"
+                          className="hidden md:table-cell px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap relative"
                         >
-                          {col.title}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setColumnMenuOpen((prev) => prev === col.id ? null : col.id); }}
+                            className="hover:text-[var(--color-primary)] transition-colors"
+                          >
+                            {col.title}
+                          </button>
+                          {columnMenuOpen === col.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setColumnMenuOpen(null)} />
+                              <div className="absolute left-0 top-full mt-1 z-20 bg-[var(--color-surface)] rounded-xl shadow-card border border-[var(--color-border)] py-1 min-w-[140px]">
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)] transition-colors"
+                                  onClick={(e) => { e.stopPropagation(); setColumnMenuOpen(null); handleSortByColumn(col.id); }}
+                                >
+                                  <Icon name="swap_vert" size={16} />
+                                  ソート
+                                </button>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-colors"
+                                  onClick={(e) => { e.stopPropagation(); setColumnMenuOpen(null); void handleDeleteColumn(col.id); }}
+                                >
+                                  <Icon name="delete" size={16} />
+                                  削除
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </th>
                       ))}
                       <th className="hidden md:table-cell px-2 py-1 text-left">
