@@ -159,8 +159,12 @@ export function RichTextBlock({
   useEffect(() => {
     if (mode === 'edit') return;
     if (eligibleAiCandidates.length === 0) {
-      // Only clear if we actually had matches (avoid needless re-renders).
-      setAiMatches((prev) => (prev.length === 0 ? prev : []));
+      // readOnly blocks (shared-page preview): preserve cached AI matches so the
+      // viewer sees the same highlights as the original project owner.
+      // Editable blocks with no eligible candidates: clear stale matches.
+      if (!readOnly) {
+        setAiMatches((prev) => (prev.length === 0 ? prev : []));
+      }
       return;
     }
     if (passagePlainText.length < 8) {
@@ -198,6 +202,15 @@ export function RichTextBlock({
               const next = json.matches!;
               // Skip state update + persist when the result is identical.
               if (areSameMatches(prev, next)) return prev;
+              // Never silently downgrade: if the API returns fewer highlights
+              // than what is currently cached AND every cached matchedText is
+              // still a valid substring of the passage (i.e. the passage has
+              // not changed), keep the existing cache. This prevents
+              // non-deterministic AI from erasing highlights after import.
+              if (next.length < prev.length) {
+                const allPrevValid = prev.every((m) => passagePlainText.includes(m.matchedText));
+                if (allPrevValid) return prev;
+              }
               // Persist the fresh result so subsequent reloads are instant.
               onAiMatchesChangeRef.current?.(next);
               return next;
