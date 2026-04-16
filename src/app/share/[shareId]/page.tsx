@@ -104,14 +104,16 @@ export default function SharedProjectPage() {
     try {
       const repo = getRepository(subscriptionStatus, wasPro);
 
+      // Create project without blocks first — blocks need cachedAiMatches remapped
+      // to the new word IDs before being saved (see below).
       const newProject = await repo.createProject({
         title: project.title,
         userId: user.id,
         importedFromShareId: shareId,
-        ...(project.blocks && project.blocks.length > 0 ? { blocks: project.blocks } : {}),
       });
 
-      await repo.createWords(
+      // Create words and capture the returned records so we can remap IDs.
+      const createdWords = await repo.createWords(
         targetWords.map((w) => ({
           projectId: newProject.id,
           english: w.english,
@@ -124,6 +126,37 @@ export default function SharedProjectPage() {
           vocabularyType: w.vocabularyType ?? undefined,
         })),
       );
+
+      // Copy blocks and remap cachedAiMatches from old word IDs → new word IDs.
+      // Without this, the RichTextBlock background AI refresh would always see
+      // mismatched IDs and replace the cache, potentially with fewer matches.
+      if (project.blocks && project.blocks.length > 0) {
+        const oldIdToEnglish = new Map<string, string>(
+          targetWords.map((w) => [w.id, w.english.toLowerCase().trim()])
+        );
+        const englishToNewId = new Map<string, string>();
+        for (const w of createdWords) {
+          const key = w.english.toLowerCase().trim();
+          if (!englishToNewId.has(key)) englishToNewId.set(key, w.id);
+        }
+
+        const remappedBlocks = project.blocks.map((block) => {
+          const data = block.data as RichTextBlockData;
+          if (!data?.cachedAiMatches || data.cachedAiMatches.length === 0) return block;
+          const remappedMatches = (data.cachedAiMatches as Array<{ id: string; matchedText: string }>)
+            .map((m) => {
+              const english = oldIdToEnglish.get(m.id);
+              if (!english) return null;
+              const newId = englishToNewId.get(english);
+              if (!newId) return null;
+              return { id: newId, matchedText: m.matchedText };
+            })
+            .filter((m): m is { id: string; matchedText: string } => m !== null);
+          return { ...block, data: { ...data, cachedAiMatches: remappedMatches } as RichTextBlockData };
+        });
+
+        await repo.updateProject(newProject.id, { blocks: remappedBlocks });
+      }
 
       setImportedProjectId(newProject.id);
       setSelectMode(false);
