@@ -146,12 +146,12 @@ export default function SharedProjectPage() {
           const remappedMatches = (data.cachedAiMatches as Array<{ id: string; matchedText: string }>)
             .map((m) => {
               const english = oldIdToEnglish.get(m.id);
-              if (!english) return null;
-              const newId = englishToNewId.get(english);
-              if (!newId) return null;
-              return { id: newId, matchedText: m.matchedText };
-            })
-            .filter((m): m is { id: string; matchedText: string } => m !== null);
+              const newId = english ? englishToNewId.get(english) : undefined;
+              // Fall back to the original id — the visual highlight is driven by
+              // matchedText (not id), so the span still appears. Clicking an
+              // unresolved id silently does nothing, which is acceptable.
+              return { id: newId ?? m.id, matchedText: m.matchedText };
+            });
           return { ...block, data: { ...data, cachedAiMatches: remappedMatches } as RichTextBlockData };
         });
 
