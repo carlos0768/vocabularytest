@@ -74,6 +74,24 @@ export function RichTextBlock({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [block.id, (block.data as RichTextBlockData)?.html]);
 
+  // Restore cached AI matches when block data arrives after mount.
+  // The useState initialiser above fires only once; if the block was
+  // still loading at that point, cachedAiMatches would have been [].
+  // This effect catches the late-arriving data and seeds the state so
+  // highlights show up instantly without waiting for the API refresh.
+  const cachedRef = useRef(aiMatches);
+  useEffect(() => {
+    const cached = (block.data as RichTextBlockData)?.cachedAiMatches;
+    if (!cached || cached.length === 0) return;
+    // Only restore if we currently have nothing (avoid overwriting
+    // a fresh API response with stale cache).
+    if (cachedRef.current.length === 0) {
+      cachedRef.current = cached;
+      setAiMatches(cached);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block.id, (block.data as RichTextBlockData)?.cachedAiMatches]);
+
   // On entering edit mode, seed the editable div with current HTML and
   // focus it. Caret is moved to the end for a natural typing experience.
   useEffect(() => {
