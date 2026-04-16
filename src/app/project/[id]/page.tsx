@@ -1596,12 +1596,12 @@ export default function ProjectDetailPage() {
                       {(project?.customColumns ?? []).map((col) => (
                         <th
                           key={col.id}
-                          className="px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap"
+                          className="hidden md:table-cell px-2 py-1 text-left font-semibold text-[var(--color-foreground)] whitespace-nowrap"
                         >
                           {col.title}
                         </th>
                       ))}
-                      <th className="px-2 py-1 text-left">
+                      <th className="hidden md:table-cell px-2 py-1 text-left">
                         <button
                           type="button"
                           onClick={handleOpenAddColumnSheet}
@@ -1699,7 +1699,7 @@ export default function ProjectDetailPage() {
                             return (
                               <td
                                 key={col.id}
-                                className="px-2 py-1 max-w-[200px]"
+                                className="hidden md:table-cell px-2 py-1 max-w-[200px]"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <input
@@ -1727,7 +1727,7 @@ export default function ProjectDetailPage() {
                           return (
                             <td
                               key={col.id}
-                              className="px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis cursor-text hover:bg-[var(--color-surface-secondary)]"
+                              className="hidden md:table-cell px-2 py-2.5 text-xs text-[var(--color-muted)] whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis cursor-text hover:bg-[var(--color-surface-secondary)]"
                               title={display || rawValue}
                               onClick={(e) => {
                                 if (selectMode) return;
@@ -1739,7 +1739,7 @@ export default function ProjectDetailPage() {
                             </td>
                           );
                         })}
-                        <td className="w-10 px-1 py-2.5" />
+                        <td className="hidden md:table-cell w-10 px-1 py-2.5" />
                       </tr>
                     ))}
                   </tbody>
