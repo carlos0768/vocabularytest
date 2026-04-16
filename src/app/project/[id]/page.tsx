@@ -956,6 +956,19 @@ export default function ProjectDetailPage() {
     [project, sortedBlocks, persistBlocks],
   );
 
+  const handleUpdateBlockAiMatches = useCallback(
+    (blockId: string, cachedAiMatches: Array<{ id: string; matchedText: string }>) => {
+      if (!project) return;
+      const next = sortedBlocks.map((b) =>
+        b.id === blockId
+          ? { ...b, data: { ...b.data, cachedAiMatches } as RichTextBlockData }
+          : b,
+      );
+      void persistBlocks(next);
+    },
+    [project, sortedBlocks, persistBlocks],
+  );
+
   const handleDeleteBlock = useCallback(
     (blockId: string) => {
       if (!project) return;
@@ -1415,6 +1428,7 @@ export default function ProjectDetailPage() {
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
                       onOpenWord={handleOpenWordModal}
+                      onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
                     />
                   )}
                   {idx < blocksAbove.length - 1 && (
@@ -1764,6 +1778,7 @@ export default function ProjectDetailPage() {
                       onChange={(html) => handleUpdateBlockHtml(block.id, html)}
                       onDelete={() => handleDeleteBlock(block.id)}
                       onOpenWord={handleOpenWordModal}
+                      onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
                     />
                   )}
                   <BlockInserter

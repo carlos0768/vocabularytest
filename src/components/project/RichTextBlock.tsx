@@ -7,7 +7,7 @@ import {
   type PassageMatchCandidate,
   type PassageWordMatch,
 } from '@/lib/ai/match-passage-words';
-import type { ProjectBlock, RichTextBlockData } from '@/types';
+import type { CachedPassageMatch, ProjectBlock, RichTextBlockData } from '@/types';
 
 interface RichTextBlockProps {
   block: ProjectBlock;
@@ -28,6 +28,8 @@ interface RichTextBlockProps {
   onDelete: () => void;
   /** Callback fired when the user clicks a highlighted word. */
   onOpenWord?: (wordId: string) => void;
+  /** Persist updated AI matches to the block data so they survive reload. */
+  onAiMatchesChange?: (matches: CachedPassageMatch[]) => void;
 }
 
 /**
@@ -47,16 +49,20 @@ export function RichTextBlock({
   onChange,
   onDelete,
   onOpenWord,
+  onAiMatchesChange,
 }: RichTextBlockProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<'view' | 'edit'>(autoFocus ? 'edit' : 'view');
   // We mirror the canonical HTML in local state so view mode updates
   // immediately on blur without waiting for the parent's prop round-trip.
   const [html, setHtml] = useState<string>((block.data as RichTextBlockData)?.html ?? '');
-  // AI-detected matches for the current `html`. Empty until the
-  // /api/passage-word-matches request resolves, and reset whenever the
-  // passage or candidate list changes so we never display stale spans.
-  const [aiMatches, setAiMatches] = useState<PassageWordMatch[]>([]);
+  // AI-detected matches for the current `html`. Initialised from the
+  // cached value persisted in the block data so highlights appear
+  // instantly on page load. The background effect refreshes them and
+  // calls `onAiMatchesChange` when the result differs.
+  const [aiMatches, setAiMatches] = useState<PassageWordMatch[]>(
+    () => (block.data as RichTextBlockData)?.cachedAiMatches ?? [],
+  );
 
   // When the block prop changes from the parent (e.g. due to a remote
   // sync), refresh the local mirror unless we are actively editing.
@@ -122,14 +128,20 @@ export function RichTextBlock({
   // Fetch AI passage matches whenever the *view-mode* HTML or candidate
   // list changes. Debounced to avoid thrashing the API while the user
   // is editing (we only re-render the highlights in view mode anyway).
+  // On the first render the cached value from block data is already in
+  // state, so the user sees highlights instantly; this effect only fires
+  // to refresh stale caches in the background.
+  const onAiMatchesChangeRef = useRef(onAiMatchesChange);
+  onAiMatchesChangeRef.current = onAiMatchesChange;
   useEffect(() => {
     if (mode === 'edit') return;
     if (eligibleAiCandidates.length === 0) {
-      setAiMatches([]);
+      // Only clear if we actually had matches (avoid needless re-renders).
+      setAiMatches((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     if (passagePlainText.length < 8) {
-      setAiMatches([]);
+      setAiMatches((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     const controller = new AbortController();
@@ -151,8 +163,7 @@ export function RichTextBlock({
             }),
           });
           if (!res.ok) {
-            // Soft-fail: keep exact-match highlights, drop AI overlay.
-            setAiMatches([]);
+            // Soft-fail: keep cached/exact-match highlights.
             return;
           }
           const json = (await res.json()) as {
@@ -160,13 +171,20 @@ export function RichTextBlock({
             matches?: PassageWordMatch[];
           };
           if (!controller.signal.aborted && json.success && Array.isArray(json.matches)) {
-            setAiMatches(json.matches);
+            setAiMatches((prev) => {
+              const next = json.matches!;
+              // Skip state update + persist when the result is identical.
+              if (areSameMatches(prev, next)) return prev;
+              // Persist the fresh result so subsequent reloads are instant.
+              onAiMatchesChangeRef.current?.(next);
+              return next;
+            });
           }
         } catch (error) {
           if ((error as Error)?.name !== 'AbortError') {
             console.warn('[RichTextBlock] AI passage match failed', error);
           }
-          if (!controller.signal.aborted) setAiMatches([]);
+          // On error keep whatever cached matches we already have.
         }
       })();
     }, 600);
@@ -348,6 +366,18 @@ export function sanitizeRichTextHtml(html: string): string {
 
   walk(template.content);
   return template.innerHTML;
+}
+
+/** Shallow comparison of two match arrays to avoid needless persists. */
+function areSameMatches(
+  a: readonly PassageWordMatch[],
+  b: readonly PassageWordMatch[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].matchedText !== b[i].matchedText) return false;
+  }
+  return true;
 }
 
 function escapeRegExp(str: string): string {
