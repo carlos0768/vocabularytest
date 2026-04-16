@@ -180,6 +180,16 @@ export function RichTextBlock({
   const highlightedHtml = useMemo(() => {
     const hasExact = !!(wordHighlightMap && wordHighlightMap.size > 0);
     const hasAi = aiMatches.length > 0;
+    if (process.env.NODE_ENV === 'development' || typeof window !== 'undefined') {
+      console.debug('[RichTextBlock] highlight memo:', {
+        htmlLen: html.length,
+        wordMapSize: wordHighlightMap?.size ?? 0,
+        aiMatchCount: aiMatches.length,
+        hasExact,
+        hasAi,
+        firstWords: wordHighlightMap ? [...wordHighlightMap.keys()].slice(0, 3) : [],
+      });
+    }
     if (!hasExact && !hasAi) return html;
     return highlightWordsInHtml(html, wordHighlightMap ?? new Map(), aiMatches);
   }, [html, wordHighlightMap, aiMatches]);
