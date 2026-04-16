@@ -6,20 +6,17 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { lookupLexiconEntriesByKeys } from '@/lib/lexicon/master-first-scan';
+import { normalizeHeadword, resolvePrimaryLexiconPos } from '../../../../../shared/lexicon';
 
 /**
  * POST /api/words/enrich-manual
  *
  * 手動単語追加時に、未入力の補助フィールドをAIで素早く補完するエンドポイント。
- * 補完対象:
- *   - japanese (日本語訳)
- *   - pronunciation (IPA発音記号)
- *   - partOfSpeechTags (品詞タグ)
- *   - exampleSentence / exampleSentenceJa (例文と訳)
  *
- * ユーザがすでに入力した項目はそのまま返し、欠けているフィールドだけを1回の
- * Gemini 2.5 Flash 呼び出しで生成する (目標: 1〜2秒)。DB書き込みは行わず、
- * 呼び出し側 (手動追加フォーム) が結果を取得して /api/words/create で保存する。
+ * 高速化のため lexicon_entries マスターテーブルを先に参照し、
+ * キャッシュヒットしたフィールドは AI に聞かない。
+ * AI 呼び出しは残った needs のみを対象にし、プロンプトを最小化する。
  */
 
 const requestSchema = z.object({
@@ -31,7 +28,6 @@ const requestSchema = z.object({
   partOfSpeechTags: z.array(z.string().trim().min(1).max(32)).max(10).optional(),
 }).strict();
 
-// 品詞タグは単一カテゴリに絞る (既存の generate-examples と同じ分類)
 const partOfSpeechTagsSchema = z.preprocess((value) => {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value;
@@ -46,16 +42,9 @@ const aiResponseSchema = z.object({
   exampleSentenceJa: z.string().optional().default(''),
 });
 
-const SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語・フレーズに対して、学習者向けの情報を生成してください。
+// ---- プロンプト (圧縮版) ----
 
-【ルール】
-1. pronunciation は IPA (国際音声記号) 形式の発音記号を "/ /" で囲んで返す (例: "/bjuːˈtɪfəl/")
-2. partOfSpeechTags は以下から1つだけ選ぶ: noun, verb, adjective, adverb, idiom, phrasal_verb, preposition, conjunction, pronoun, determiner, interjection, auxiliary, other
-3. exampleSentence は 10〜20 語程度の実用的で分かりやすい英文 (中学〜高校レベル)
-4. exampleSentenceJa は exampleSentence の自然な日本語訳
-5. japanese は単語の主な日本語訳 (最大30文字程度)
-6. リクエストで既に値が渡されたフィールドがある場合は、そのフィールドを空文字で返すこと (再生成しない)
-7. 必ず純粋なJSONのみで返答する`;
+const SYSTEM_PROMPT = `英単語の情報をJSON形式で返せ。pronunciation="/IPA/"形式。partOfSpeechTags=noun/verb/adjective/adverb/idiom/phrasal_verb/preposition/conjunction/other から1つ。exampleSentence=10〜15語の英文。exampleSentenceJa=その日本語訳。japanese=主な日本語訳。指示されたフィールドのみ生成。`;
 
 const ENRICH_TIMEOUT_MS = 8000;
 
@@ -69,6 +58,30 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
+}
+
+interface EnrichNeeds {
+  japanese: boolean;
+  pronunciation: boolean;
+  partOfSpeechTags: boolean;
+  exampleSentence: boolean;
+}
+
+function anyNeedsRemaining(needs: EnrichNeeds): boolean {
+  return needs.japanese || needs.pronunciation || needs.partOfSpeechTags || needs.exampleSentence;
+}
+
+function buildPrompt(english: string, japanese: string, needs: EnrichNeeds): string {
+  const parts: string[] = [`"${english}"${japanese ? ` (${japanese})` : ''}`];
+
+  const fields: string[] = [];
+  if (needs.pronunciation) fields.push('pronunciation');
+  if (needs.partOfSpeechTags) fields.push('partOfSpeechTags');
+  if (needs.exampleSentence) fields.push('exampleSentence,exampleSentenceJa');
+  if (needs.japanese) fields.push('japanese');
+
+  parts.push(`生成: ${fields.join(', ')}`);
+  return parts.join('\n');
 }
 
 export async function POST(request: NextRequest) {
@@ -99,44 +112,113 @@ export async function POST(request: NextRequest) {
 
     const input = parsed.data;
     const englishTrimmed = input.english.trim();
-    const providedJapanese = input.japanese?.trim() ?? '';
-    const providedPronunciation = input.pronunciation?.trim() ?? '';
-    const providedExample = input.exampleSentence?.trim() ?? '';
-    const providedExampleJa = input.exampleSentenceJa?.trim() ?? '';
-    const providedPosTags = normalizePartOfSpeechTags(input.partOfSpeechTags ?? []);
+    let filledJapanese = input.japanese?.trim() ?? '';
+    let filledPronunciation = input.pronunciation?.trim() ?? '';
+    let filledExample = input.exampleSentence?.trim() ?? '';
+    let filledExampleJa = input.exampleSentenceJa?.trim() ?? '';
+    let filledPosTags = normalizePartOfSpeechTags(input.partOfSpeechTags ?? []);
 
-    const needs = {
-      japanese: providedJapanese.length === 0,
-      pronunciation: providedPronunciation.length === 0,
-      partOfSpeechTags: providedPosTags.length === 0,
-      exampleSentence: providedExample.length === 0 || providedExampleJa.length === 0,
+    const needs: EnrichNeeds = {
+      japanese: filledJapanese.length === 0,
+      pronunciation: filledPronunciation.length === 0,
+      partOfSpeechTags: filledPosTags.length === 0,
+      exampleSentence: filledExample.length === 0 || filledExampleJa.length === 0,
     };
 
-    // 全フィールド入力済みの場合は AI 呼び出しをスキップして即返却
-    if (!needs.japanese && !needs.pronunciation && !needs.partOfSpeechTags && !needs.exampleSentence) {
+    // 全フィールド入力済み → AI 不要
+    if (!anyNeedsRemaining(needs)) {
       return NextResponse.json({
         success: true,
         enriched: {
-          japanese: providedJapanese,
-          pronunciation: providedPronunciation,
-          partOfSpeechTags: providedPosTags,
-          exampleSentence: providedExample,
-          exampleSentenceJa: providedExampleJa,
+          japanese: filledJapanese,
+          pronunciation: filledPronunciation,
+          partOfSpeechTags: filledPosTags,
+          exampleSentence: filledExample,
+          exampleSentenceJa: filledExampleJa,
         },
         generatedFields: [],
       });
     }
 
-    // 3. AI 呼び出し設定
+    // 3. lexicon マスターテーブルで事前キャッシュヒット
+    const generatedFields: string[] = [];
+    let lexiconHit = false;
+
+    try {
+      const posForLookup = filledPosTags.length > 0
+        ? resolvePrimaryLexiconPos(filledPosTags)
+        : 'other';
+      const normalizedHw = normalizeHeadword(englishTrimmed);
+
+      // POS が不明な場合は複数の主要品詞で検索してヒットを狙う
+      const lookupKeys = filledPosTags.length > 0
+        ? [{ normalizedHeadword: normalizedHw, pos: posForLookup }]
+        : ['noun', 'verb', 'adjective', 'adverb', 'other'].map((pos) => ({
+            normalizedHeadword: normalizedHw,
+            pos: pos as import('../../../../../shared/lexicon').LexiconPos,
+          }));
+
+      const entries = await lookupLexiconEntriesByKeys(lookupKeys);
+      if (entries.length > 0) {
+        // 最もデータが豊富なエントリを選ぶ
+        const best = entries.reduce((a, b) => {
+          const scoreA = (a.translationJa ? 1 : 0) + (a.exampleSentence ? 1 : 0) + (a.pos ? 1 : 0);
+          const scoreB = (b.translationJa ? 1 : 0) + (b.exampleSentence ? 1 : 0) + (b.pos ? 1 : 0);
+          return scoreB > scoreA ? b : a;
+        });
+
+        if (needs.partOfSpeechTags && best.pos) {
+          filledPosTags = normalizePartOfSpeechTags([best.pos]);
+          if (filledPosTags.length > 0) {
+            needs.partOfSpeechTags = false;
+            generatedFields.push('partOfSpeechTags');
+            lexiconHit = true;
+          }
+        }
+        if (needs.japanese && best.translationJa) {
+          filledJapanese = best.translationJa;
+          needs.japanese = false;
+          generatedFields.push('japanese');
+          lexiconHit = true;
+        }
+        if (needs.exampleSentence && best.exampleSentence && best.exampleSentenceJa) {
+          filledExample = best.exampleSentence;
+          filledExampleJa = best.exampleSentenceJa;
+          needs.exampleSentence = false;
+          generatedFields.push('exampleSentence');
+          lexiconHit = true;
+        }
+      }
+    } catch (lexiconError) {
+      // lexicon lookup 失敗は無視して AI にフォールバック
+      console.warn('[enrich-manual] lexicon lookup failed:', lexiconError);
+    }
+
+    // lexicon で全て埋まった → AI 不要 (pronunciation 以外)
+    if (!anyNeedsRemaining(needs)) {
+      console.log('[enrich-manual] All fields from lexicon', { english: englishTrimmed });
+      return NextResponse.json({
+        success: true,
+        enriched: {
+          japanese: filledJapanese,
+          pronunciation: filledPronunciation,
+          partOfSpeechTags: filledPosTags,
+          exampleSentence: filledExample,
+          exampleSentenceJa: filledExampleJa,
+        },
+        generatedFields,
+      });
+    }
+
+    // 4. AI 呼び出し (残りの needs のみ)
     const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
     const apiKeys = { gemini: geminiApiKey, openai: openaiApiKey };
 
-    // 高速な gemini-2.5-flash を使用 (1〜2 秒の目標を達成するため)
     const config = {
       ...AI_CONFIG.defaults.gemini,
       temperature: 0.3,
-      maxOutputTokens: 512,
+      maxOutputTokens: 256,
       responseFormat: 'json' as const,
     };
 
@@ -151,36 +233,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const neededFieldsJa: string[] = [];
-    if (needs.japanese) neededFieldsJa.push('japanese (日本語訳)');
-    if (needs.pronunciation) neededFieldsJa.push('pronunciation (IPA発音記号)');
-    if (needs.partOfSpeechTags) neededFieldsJa.push('partOfSpeechTags (品詞)');
-    if (needs.exampleSentence) neededFieldsJa.push('exampleSentence + exampleSentenceJa (例文とその訳)');
-
-    const userPrompt = [
-      `英単語: "${englishTrimmed}"`,
-      providedJapanese ? `既存の日本語訳: "${providedJapanese}"` : null,
-      providedPosTags.length > 0 ? `既存の品詞: ${providedPosTags.join(', ')}` : null,
-      providedExample ? `既存の例文: "${providedExample}"` : null,
-      providedPronunciation ? `既存の発音記号: "${providedPronunciation}"` : null,
-      '',
-      `生成するべきフィールド: ${neededFieldsJa.join(', ')}`,
-      '',
-      '【出力形式】',
-      '{',
-      '  "japanese": "日本語訳(生成対象の場合のみ)",',
-      '  "pronunciation": "/IPA/(生成対象の場合のみ)",',
-      '  "partOfSpeechTags": ["noun"],',
-      '  "exampleSentence": "English example sentence.",',
-      '  "exampleSentenceJa": "例文の日本語訳。"',
-      '}',
-    ].filter((line) => line !== null).join('\n');
+    const prompt = buildPrompt(englishTrimmed, filledJapanese, needs);
 
     const aiStart = Date.now();
     let aiResponse;
     try {
       aiResponse = await withTimeout(
-        provider.generateText(`${SYSTEM_PROMPT}\n\n${userPrompt}`, config),
+        provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config),
         ENRICH_TIMEOUT_MS,
       );
     } catch (aiError) {
@@ -200,7 +259,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. レスポンスのパース
+    // 5. レスポンスのパース
     let parsedAi: z.infer<typeof aiResponseSchema>;
     try {
       parsedAi = aiResponseSchema.parse(parseJsonResponse(aiResponse.content));
@@ -212,44 +271,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. ユーザ入力を優先し、不足分のみを埋める
-    const generatedFields: string[] = [];
-
-    const finalJapanese = needs.japanese
-      ? (parsedAi.japanese || '').trim()
-      : providedJapanese;
-    if (needs.japanese && finalJapanese) generatedFields.push('japanese');
-
-    const finalPronunciation = needs.pronunciation
-      ? (parsedAi.pronunciation || '').trim()
-      : providedPronunciation;
-    if (needs.pronunciation && finalPronunciation) generatedFields.push('pronunciation');
-
-    const finalPosTags = needs.partOfSpeechTags
-      ? normalizePartOfSpeechTags(parsedAi.partOfSpeechTags)
-      : providedPosTags;
-    if (needs.partOfSpeechTags && finalPosTags.length > 0) generatedFields.push('partOfSpeechTags');
-
-    const finalExample = providedExample || (parsedAi.exampleSentence || '').trim();
-    const finalExampleJa = providedExampleJa || (parsedAi.exampleSentenceJa || '').trim();
-    if (needs.exampleSentence && finalExample && finalExampleJa) {
-      generatedFields.push('exampleSentence');
+    // 6. AI 結果で残りを埋める
+    if (needs.japanese) {
+      const val = (parsedAi.japanese || '').trim();
+      if (val) { filledJapanese = val; generatedFields.push('japanese'); }
+    }
+    if (needs.pronunciation) {
+      const val = (parsedAi.pronunciation || '').trim();
+      if (val) { filledPronunciation = val; generatedFields.push('pronunciation'); }
+    }
+    if (needs.partOfSpeechTags) {
+      const tags = normalizePartOfSpeechTags(parsedAi.partOfSpeechTags);
+      if (tags.length > 0) { filledPosTags = tags; generatedFields.push('partOfSpeechTags'); }
+    }
+    if (needs.exampleSentence) {
+      const ex = (parsedAi.exampleSentence || '').trim();
+      const exJa = (parsedAi.exampleSentenceJa || '').trim();
+      if (ex && exJa) {
+        filledExample = ex;
+        filledExampleJa = exJa;
+        generatedFields.push('exampleSentence');
+      }
     }
 
     console.log('[enrich-manual] Completed', {
       english: englishTrimmed,
       aiElapsedMs,
+      lexiconHit,
       generatedFields,
     });
 
     return NextResponse.json({
       success: true,
       enriched: {
-        japanese: finalJapanese,
-        pronunciation: finalPronunciation,
-        partOfSpeechTags: finalPosTags,
-        exampleSentence: finalExample,
-        exampleSentenceJa: finalExampleJa,
+        japanese: filledJapanese,
+        pronunciation: filledPronunciation,
+        partOfSpeechTags: filledPosTags,
+        exampleSentence: filledExample,
+        exampleSentenceJa: filledExampleJa,
       },
       generatedFields,
     });
