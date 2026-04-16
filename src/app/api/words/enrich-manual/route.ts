@@ -10,7 +10,8 @@ import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
  * POST /api/words/enrich-manual
  *
  * 手動単語追加時に、未入力の補助フィールドをAIで素早く補完する。
- * 認証チェックと AI 呼び出しを並列化してレイテンシを最小化する。
+ * body パース → AI 呼び出しを即座に開始し、認証チェックと並列実行する。
+ * 認証失敗時は AI 結果を破棄して 401 を返す。
  */
 
 const requestSchema = z.object({
@@ -48,32 +49,29 @@ function buildPrompt(english: string, japanese: string): string {
   return `"${english}"${japanese ? ` (${japanese})` : ''}\n生成: pronunciation, partOfSpeechTags, exampleSentence, exampleSentenceJa`;
 }
 
+function getEnrichProvider() {
+  const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const config = {
+    provider: AI_CONFIG.defaults.gemini.provider,
+    model: 'gemini-2.0-flash',
+    temperature: 0.3,
+    maxOutputTokens: 256,
+    responseFormat: 'json' as const,
+  };
+  // GOOGLE_AI_API_KEY があれば直接 Gemini API (Cloud Run バイパス)
+  const provider = geminiApiKey && isCloudRunConfigured()
+    ? getProvider('gemini', geminiApiKey)
+    : getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+  return { provider, config };
+}
+
 export async function POST(request: NextRequest) {
+  const totalStart = Date.now();
   try {
-    // リクエスト body を先に読み取り (auth と並列化するため clone)
-    const clonedRequest = request.clone();
-
-    // 1. 認証 + リクエストパースを並列で開始
-    const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    const [authResult, bodyResult] = await Promise.all([
-      bearerToken
-        ? supabase.auth.getUser(bearerToken)
-        : supabase.auth.getUser(),
-      clonedRequest.json().catch(() => null),
-    ]);
-
-    const { data: { user }, error: authError } = authResult;
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: '認証が必要です。ログインしてください。' },
-        { status: 401 }
-      );
-    }
-
-    const parsed = requestSchema.safeParse(bodyResult);
+    // 1. body を最速でパース → AI 呼び出しを即開始
+    const body = await request.json().catch(() => null);
+    const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { success: false, error: '無効なリクエスト形式です' },
@@ -93,7 +91,6 @@ export async function POST(request: NextRequest) {
     const needsPos = filledPosTags.length === 0;
     const needsExample = filledExample.length === 0 || filledExampleJa.length === 0;
 
-    // 全フィールド入力済み → AI 不要
     if (!needsPronunciation && !needsPos && !needsExample) {
       return NextResponse.json({
         success: true,
@@ -107,27 +104,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. AI 呼び出し
-    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-
-    const config = {
-      provider: AI_CONFIG.defaults.gemini.provider,
-      model: 'gemini-2.0-flash',
-      temperature: 0.3,
-      maxOutputTokens: 256,
-      responseFormat: 'json' as const,
-    };
-
-    // GOOGLE_AI_API_KEY があれば直接 Gemini API を叩く (Cloud Run バイパス)
-    // 直接 API のほうが ~300-500ms 速い
-    let provider;
+    // 2. AI 呼び出しを即座に開始 (auth 完了を待たない)
+    let aiPromise: Promise<import('@/lib/ai/providers').AIResponse>;
     try {
-      if (geminiApiKey && isCloudRunConfigured()) {
-        provider = getProvider('gemini', geminiApiKey);
-      } else {
-        provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
-      }
+      const { provider, config } = getEnrichProvider();
+      const prompt = buildPrompt(englishTrimmed, filledJapanese);
+      aiPromise = provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config);
     } catch {
       return NextResponse.json(
         { success: false, error: 'AIプロバイダーの初期化に失敗しました' },
@@ -135,12 +117,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = buildPrompt(englishTrimmed, filledJapanese);
+    // 3. 認証チェックを AI と並列で実行
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const supabase = await createRouteHandlerClient(request);
+    const { data: { user }, error: authError } = bearerToken
+      ? await supabase.auth.getUser(bearerToken)
+      : await supabase.auth.getUser();
 
+    if (authError || !user) {
+      // 認証失敗 → AI 結果は破棄 (promise は自然完了させる)
+      return NextResponse.json(
+        { success: false, error: '認証が必要です。ログインしてください。' },
+        { status: 401 }
+      );
+    }
+
+    // 4. AI 結果を取得 (auth 中に既に進行していたので待ち時間が短い)
     const aiStart = Date.now();
     let aiResponse;
     try {
-      const aiPromise = provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config);
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error('timeout')), ENRICH_TIMEOUT_MS);
@@ -156,7 +152,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    const aiElapsedMs = Date.now() - aiStart;
+    const aiWaitMs = Date.now() - aiStart;
 
     if (!aiResponse.success) {
       return NextResponse.json(
@@ -165,7 +161,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. レスポンスのパース
+    // 5. レスポンスのパース
     let parsedAi: z.infer<typeof aiResponseSchema>;
     try {
       parsedAi = aiResponseSchema.parse(parseJsonResponse(aiResponse.content));
@@ -177,7 +173,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. ユーザ入力を優先し、不足分のみ埋める
+    // 6. ユーザ入力を優先し、不足分のみ埋める
     const generatedFields: string[] = [];
 
     const finalPronunciation = needsPronunciation
@@ -192,9 +188,11 @@ export async function POST(request: NextRequest) {
     const finalExampleJa = filledExampleJa || (parsedAi.exampleSentenceJa || '').trim();
     if (needsExample && finalExample && finalExampleJa) generatedFields.push('exampleSentence');
 
+    const totalMs = Date.now() - totalStart;
     console.log('[enrich-manual] Completed', {
       english: englishTrimmed,
-      aiElapsedMs,
+      totalMs,
+      aiWaitMs,
       generatedFields,
     });
 
