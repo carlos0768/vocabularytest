@@ -1399,43 +1399,6 @@ export default function ProjectDetailPage() {
             </div>
           </section>
 
-          {/* User blocks rendered directly above the word list (Notion-like).
-              - Empty: a single inserter with vertical margin to separate from
-                surrounding widgets (stats card above, word list below).
-              - Non-empty: each block followed by an inserter so the user can
-                keep appending blocks down toward the word list. No inserter
-                before the first block (it would be flush against the stats
-                card widget). */}
-          <section className="mt-2.5 space-y-1">
-            {blocksAbove.length === 0 ? (
-              <div className="my-2">
-                <BlockInserter
-                  onInsert={(type) => handleInsertBlock(type, 'above', -1)}
-                />
-              </div>
-            ) : (
-              blocksAbove.map((block, idx) => (
-                <div key={block.id}>
-                  {block.type === 'richText' && (
-                    <RichTextBlock
-                      block={block}
-                      autoFocus={newlyAddedBlockId === block.id}
-                      wordHighlightMap={wordHighlightMap}
-                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
-                      onDelete={() => handleDeleteBlock(block.id)}
-                      onOpenWord={handleOpenWordModal}
-                    />
-                  )}
-                  {idx < blocksAbove.length - 1 && (
-                    <BlockInserter
-                      onInsert={(type) => handleInsertBlock(type, 'above', idx)}
-                    />
-                  )}
-                </div>
-              ))
-            )}
-          </section>
-
           {/* Word list table - iOS style */}
           <section className="mt-2.5">
             {/* Header row: title + toolbar */}
