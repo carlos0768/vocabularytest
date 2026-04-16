@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import {
+  flushAllPendingStatusWrites,
+  scheduleWordStatusWrite,
+} from '@/lib/db/debounced-status-write';
 import { useParams, useRouter } from 'next/navigation';
 import { DeleteConfirmModal, Icon } from '@/components/ui';
 import { WordLimitModal } from '@/components/limits';
@@ -39,9 +43,25 @@ export default function WordListPage() {
   const [showManualWordModal, setShowManualWordModal] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
+  const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
+  const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
+  const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+
+  // Flush any debounced checkbox status writes before the tab unloads or
+  // the user navigates away.
+  useEffect(() => {
+    const flush = () => { flushAllPendingStatusWrites(); };
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+      flush();
+    };
+  }, []);
 
   // Load project and words
   useEffect(() => {
@@ -165,21 +185,29 @@ export default function WordListPage() {
   };
 
   const handleStatusChange = async (wordId: string, newStatus: import('@/types').WordStatus) => {
+    const current = words.find(w => w.id === wordId);
+    if (!current) return;
+    const currentStatus = current.status;
     setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: newStatus } : w));
-    try {
-      await repository.updateWord(wordId, { status: newStatus });
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      setWords(prev => prev.map(w => {
-        if (w.id !== wordId) return w;
-        const prev2: import('@/types').WordStatus = newStatus === 'new' ? 'mastered' : newStatus === 'review' ? 'new' : 'review';
-        return { ...w, status: prev2 };
-      }));
-    }
+    scheduleWordStatusWrite({
+      wordId,
+      currentStatus,
+      newStatus,
+      writer: async (finalStatus, originalStatus) => {
+        try {
+          await repository.updateWord(wordId, { status: finalStatus });
+        } catch (error) {
+          console.error('Failed to update status:', error);
+          setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: originalStatus } : w));
+        }
+      },
+    });
   };
 
   const handleSaveManualWord = async () => {
-    if (!manualWordEnglish.trim() || !manualWordJapanese.trim() || !project) return;
+    const english = manualWordEnglish.trim();
+    const japanese = manualWordJapanese.trim();
+    if (!english || !japanese || !project) return;
 
     const { canAdd, wouldExceed } = canAddWords(1);
     if (!canAdd || wouldExceed) {
@@ -187,29 +215,105 @@ export default function WordListPage() {
       return;
     }
 
+    const userPos = manualWordPartOfSpeech.trim();
+    const userExample = manualWordExampleSentence.trim();
+
     setManualWordSaving(true);
+    setManualWordSavingMessage('情報を生成中...');
+
+    let enrichedPronunciation = '';
+    let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
+    let enrichedExampleSentence = userExample;
+    let enrichedExampleSentenceJa = '';
+
     try {
-      const created = await repository.createWords([{
-        projectId,
-        english: manualWordEnglish.trim(),
-        japanese: manualWordJapanese.trim(),
-        distractors: ['選択肢1', '選択肢2', '選択肢3'],
-      }]);
-      if (created && created.length > 0) {
-        setWords(prev => [...created, ...prev]);
-        invalidateHomeCache();
-        refreshWordCount();
-        showToast({ message: '単語を追加しました', type: 'success' });
+      const enrichResponse = await fetch('/api/words/enrich-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          english,
+          japanese,
+          ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
+          ...(userExample ? { exampleSentence: userExample } : {}),
+        }),
+      });
+
+      if (enrichResponse.ok) {
+        const data = (await enrichResponse.json()) as {
+          success?: boolean;
+          enriched?: {
+            pronunciation?: string;
+            partOfSpeechTags?: string[];
+            exampleSentence?: string;
+            exampleSentenceJa?: string;
+          };
+        };
+        if (data.success && data.enriched) {
+          enrichedPronunciation = data.enriched.pronunciation ?? '';
+          if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
+            enrichedPartOfSpeechTags = data.enriched.partOfSpeechTags;
+          }
+          if (!enrichedExampleSentence && data.enriched.exampleSentence) {
+            enrichedExampleSentence = data.enriched.exampleSentence;
+          }
+          enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+        }
       }
-      setManualWordEnglish('');
-      setManualWordJapanese('');
-      setShowManualWordModal(false);
-    } catch (error) {
-      console.error('Failed to save word:', error);
-      showToast({ message: '単語の追加に失敗しました', type: 'error' });
-    } finally {
-      setManualWordSaving(false);
+    } catch (enrichError) {
+      console.warn('[manual-word] enrich error:', enrichError);
     }
+
+    // enrich 結果が返った時点で即座に UI に反映し、モーダルを閉じる
+    const optimisticWord: Word = {
+      id: crypto.randomUUID(),
+      projectId,
+      english,
+      japanese,
+      distractors: ['選択肢1', '選択肢2', '選択肢3'],
+      pronunciation: enrichedPronunciation || undefined,
+      partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
+      exampleSentence: enrichedExampleSentence || undefined,
+      exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+      isFavorite: false,
+    };
+
+    setWords(prev => [optimisticWord, ...prev]);
+    showToast({ message: '単語を追加しました', type: 'success' });
+    setManualWordEnglish('');
+    setManualWordJapanese('');
+    setManualWordPartOfSpeech('');
+    setManualWordExampleSentence('');
+    setShowManualWordModal(false);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+    refreshWordCount();
+
+    // バックグラウンドで DB に永続化
+    repository.createWords([{
+      projectId,
+      english,
+      japanese,
+      distractors: ['選択肢1', '選択肢2', '選択肢3'],
+      ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+      ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+      ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
+      ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
+    }]).then((created) => {
+      if (created && created.length > 0) {
+        setWords(prev => prev.map(w => w.id === optimisticWord.id ? created[0]! : w));
+      }
+      invalidateHomeCache();
+    }).catch((error) => {
+      console.error('Failed to save word:', error);
+      setWords(prev => prev.filter(w => w.id !== optimisticWord.id));
+      showToast({ message: '単語の保存に失敗しました', type: 'error' });
+      refreshWordCount();
+    });
   };
 
   if (loading || authLoading) {
@@ -273,13 +377,20 @@ export default function WordListPage() {
           setShowManualWordModal(false);
           setManualWordEnglish('');
           setManualWordJapanese('');
+          setManualWordPartOfSpeech('');
+          setManualWordExampleSentence('');
         }}
         onConfirm={handleSaveManualWord}
         isLoading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
         english={manualWordEnglish}
         setEnglish={setManualWordEnglish}
         japanese={manualWordJapanese}
         setJapanese={setManualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        setPartOfSpeech={setManualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        setExampleSentence={setManualWordExampleSentence}
       />
 
       <DeleteConfirmModal
