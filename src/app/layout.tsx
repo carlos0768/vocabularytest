@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Lexend, Noto_Sans_JP } from 'next/font/google';
+import { Inter_Tight, Lexend, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
@@ -19,6 +19,13 @@ const notoSansJP = Noto_Sans_JP({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '700'],
+});
+
+const interTight = Inter_Tight({
+  variable: '--font-inter-tight',
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
 });
 
 
@@ -118,7 +125,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
+        className={`${lexend.variable} ${notoSansJP.variable} ${interTight.variable} antialiased`}
       >
         <ThemeProvider>
           <ToastProvider>

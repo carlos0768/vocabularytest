@@ -313,20 +313,20 @@ export function NotebookWordbookPage({
           {
             icon: 'style',
             label: 'フラッシュカード',
-            sub: `${detail.stats.totalWords}語`,
+            sub: `${detail.stats.masteredWords} / ${detail.stats.totalWords} 語`,
             badge: '今日',
             href: `/flashcard/${detail.project.id}`,
           },
           {
             icon: 'quiz',
             label: '4択クイズ',
-            sub: `${detail.stats.masteredWords}語習得`,
+            sub: `${detail.stats.reviewWords + detail.stats.newWords} 語`,
             href: `/quiz/${detail.project.id}`,
           },
           {
             icon: 'add_circle_outline',
             label: '単語を追加',
-            sub: 'スキャン / 手動',
+            sub: '撮影 / 手動 / 生成',
             onClick: () => setShowAddSheet(true),
           },
         ]}
@@ -338,121 +338,135 @@ export function NotebookWordbookPage({
             active: searchOpen,
           },
           {
-            icon: exampleLoading ? 'progress_activity' : 'auto_awesome',
-            label: '例文生成',
+            icon: exampleLoading ? 'progress_activity' : 'more_horiz',
+            label: 'その他',
             onClick: handleGenerateExamples,
           },
         ]}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-full bg-[var(--color-foreground)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white">
-            {detail.stats.totalWords} 語
-          </div>
-          <div className="text-[11px] text-[var(--color-muted)]">
-            例文あり {detail.stats.exampleCount} 語 / 未生成 {missingExamplesCount} 語
-          </div>
-        </div>
-
         {searchOpen && (
           <NotebookCard>
             <label className="relative block">
-              <Icon name="search" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+              <Icon name="search" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--notebook-muted)]" />
               <input
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="単語または意味で検索"
-                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-sm text-[var(--color-foreground)] outline-none transition focus:border-[var(--color-foreground)]"
+                className="notebook-sans w-full rounded-[4px] border border-[var(--notebook-rule)] bg-white py-3 pl-10 pr-4 text-sm text-[var(--notebook-ink)] outline-none transition focus:border-[var(--notebook-ink)]"
               />
             </label>
           </NotebookCard>
         )}
 
-        <NotebookCard
-          title="単語一覧"
-          subtitle={`${filteredWords.length}件を表示`}
-          right={
-            <button
-              type="button"
-              onClick={handleGenerateExamples}
-              disabled={exampleLoading}
-              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-muted)] transition hover:border-[var(--color-foreground)] hover:text-[var(--color-foreground)] disabled:opacity-50"
-            >
-              {exampleLoading ? '生成中...' : '例文を生成'}
-            </button>
-          }
-        >
-          <div className="mb-2 flex items-center gap-3 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-            <div className="w-[110px]">単語</div>
-            <div className="w-7 text-center">区分</div>
-            <div className="w-14">品詞</div>
+        <div className="flex items-center gap-2 notebook-sans">
+          <div className="notebook-chip">{detail.stats.totalWords} 語</div>
+          <div className="text-[11px] text-[var(--notebook-muted)]">
+            例文あり {detail.stats.exampleCount} 語 / 未生成 {missingExamplesCount} 語
+          </div>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={handleGenerateExamples}
+            disabled={exampleLoading}
+            className="notebook-press rounded-[4px] border border-[var(--notebook-rule)] px-2.5 py-1 text-[11px] font-semibold text-[var(--notebook-muted)] disabled:opacity-50"
+          >
+            {exampleLoading ? '生成中...' : '例文を生成'}
+          </button>
+        </div>
+
+        <section className="notebook-sans">
+          <div className="mb-1 flex items-center gap-3 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+            <div className="w-[96px]">単語</div>
+            <div className="w-6 text-center">区分</div>
+            <div className="w-9">品詞</div>
             <div className="flex-1">意味</div>
           </div>
 
-          <div className="divide-y divide-[var(--color-border)]">
-            {filteredWords.map((word) => {
-              const badge = getVocabularyBadge(word.vocabularyType);
-              const isOpen = openWordId === word.id;
+          <div className="border-t border-[var(--notebook-rule)]">
+            {filteredWords.length === 0 ? (
+              <div className="py-6 text-center text-sm text-[var(--notebook-muted)]">
+                該当する単語がありません。
+              </div>
+            ) : (
+              filteredWords.map((word, index) => {
+                const badge = getVocabularyBadge(word.vocabularyType);
+                const isOpen = openWordId === word.id;
 
-              return (
-                <div key={word.id} className="py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setOpenWordId(isOpen ? null : word.id)}
-                    className="flex w-full items-center gap-3 text-left"
-                  >
-                    <div className="w-[110px] text-[15px] font-semibold tracking-tight text-[var(--color-foreground)]">
-                      {word.english}
-                    </div>
-                    <div className={cn('flex h-7 w-7 items-center justify-center rounded-[4px] text-[10px] font-bold', badge.className)}>
-                      {badge.label}
-                    </div>
-                    <div className="w-14 text-[11px] uppercase tracking-[0.08em] text-[var(--color-muted)]">
-                      {formatPos(word)}
-                    </div>
-                    <div className="flex-1 truncate text-[13px] text-[var(--color-foreground)]">{word.japanese}</div>
-                    <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={18} className="text-[var(--color-muted)]" />
-                  </button>
+                return (
+                  <div key={word.id} className={cn('border-b border-[var(--notebook-rule)] py-2.5', index === 0 && 'animate-fade-in-up')}>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setOpenWordId(isOpen ? null : word.id)}
+                        className="notebook-press w-[96px] text-left text-[15px] font-medium tracking-tight text-[var(--notebook-ink)]"
+                      >
+                        {word.english}
+                      </button>
 
-                  {isOpen && (
-                    <div className="pl-5 pt-3">
-                      <div className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3">
-                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                          例文
-                        </div>
-                        <div className="text-[14px] leading-relaxed text-[var(--color-foreground)]">
-                          {word.exampleSentence?.trim() || 'まだ例文はありません。上の「例文を生成」から不足分を作れます。'}
-                        </div>
-                        {word.exampleSentenceJa?.trim() && (
-                          <div className="mt-2 text-[12px] leading-relaxed text-[var(--color-muted)]">
-                            {word.exampleSentenceJa}
-                          </div>
-                        )}
+                      <div className={cn('flex h-6 w-6 items-center justify-center text-[10px] font-bold', badge.className)} style={{ borderRadius: 2 }}>
+                        {badge.label}
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </NotebookCard>
 
-        <NotebookCard title="熟語" subtitle="複数語で構成される項目">
+                      <div className="w-9 text-[10px] uppercase tracking-[0.08em] text-[var(--notebook-muted)]">
+                        {formatPos(word)}
+                      </div>
+
+                      <div className="flex-1 truncate text-[13px] text-[var(--notebook-ink)]">
+                        {word.japanese}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setOpenWordId(isOpen ? null : word.id)}
+                        className="notebook-press -mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[var(--notebook-muted)] hover:bg-black/5"
+                        aria-label={isOpen ? '閉じる' : '例文を開く'}
+                      >
+                        <Icon name="more_vert" size={16} />
+                      </button>
+                    </div>
+
+                    {isOpen && (
+                      <div className="animate-fade-in-up pl-8 pr-2 pt-3">
+                        <div className="notebook-soft-card p-3">
+                          <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+                            例文
+                          </div>
+                          <div className="text-[13.5px] leading-relaxed text-[var(--notebook-ink)]">
+                            {word.exampleSentence?.trim() || 'まだ例文はありません。例文を生成から不足分を作れます。'}
+                          </div>
+                          {word.exampleSentenceJa?.trim() && (
+                            <div className="mt-2 text-[12px] leading-relaxed text-[var(--notebook-muted)]">
+                              {word.exampleSentenceJa}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="notebook-sans">
+          <div className="mb-2 mt-4 flex items-center gap-2">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">熟語</div>
+            <div className="h-px flex-1 bg-[var(--notebook-rule)]" />
+          </div>
           {detail.idioms.length === 0 ? (
-            <div className="text-sm text-[var(--color-muted)]">この単語帳には熟語項目がまだありません。</div>
+            <div className="text-sm text-[var(--notebook-muted)]">この単語帳には熟語項目がまだありません。</div>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-wrap gap-1.5">
               {detail.idioms.map((idiom) => (
-                <span
-                  key={idiom}
-                  className="rounded-full bg-rose-100 px-3 py-1 text-[12px] font-medium text-rose-700"
-                >
+                <span key={idiom} className="notebook-highlight notebook-highlight-idiom text-[12px] text-[#9d1a5b]">
                   {idiom}
                 </span>
               ))}
             </div>
           )}
-        </NotebookCard>
+        </section>
       </NotebookChrome>
 
       {showAddSheet && (

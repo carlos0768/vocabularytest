@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { NotebookAuthRequiredState, NotebookChrome, NotebookCard, NotebookErrorState, NotebookLoadingState } from '@/components/notebook';
+import { NotebookAuthRequiredState, NotebookChrome, NotebookErrorState, NotebookLoadingState } from '@/components/notebook';
 import { Icon, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollectionItems } from '@/hooks/use-collection-items';
 import { useStructureDocument } from '@/hooks/use-structure-documents';
 import type { StructureNode } from '@/types';
+import { cn } from '@/lib/utils';
 
 function StructureTreeNode({
   node,
@@ -16,40 +17,42 @@ function StructureTreeNode({
   node: StructureNode;
   depth?: number;
 }) {
-  const [open, setOpen] = useState(depth === 0);
   const hasChildren = node.children.length > 0;
+  const defaultOpen = node.collapsible ? depth === 0 : true;
+  const [open, setOpen] = useState(defaultOpen);
+
+  if (!hasChildren) {
+    const content = node.text?.trim() || node.label.trim();
+    return (
+      <span className="inline text-[16px] leading-[1.95] text-[var(--notebook-ink)]">
+        {content}
+        {' '}
+      </span>
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      <div className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-[12px] font-bold text-[var(--color-foreground)]">{node.label}</div>
-            <div className="mt-1 text-[13px] leading-relaxed text-[var(--color-foreground)]">
-              {node.text || 'このまとまりの本文がありません。'}
-            </div>
-          </div>
-          {hasChildren && (
-            <button
-              type="button"
-              onClick={() => setOpen((current) => !current)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)] transition hover:bg-black/5 hover:text-[var(--color-foreground)]"
-              aria-label={open ? '閉じる' : '開く'}
-            >
-              <Icon name={open ? 'expand_less' : 'expand_more'} size={18} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {hasChildren && open && (
-        <div className="space-y-2 border-l border-[var(--color-border)] pl-4">
-          {node.children.map((child) => (
-            <StructureTreeNode key={child.id} node={child} depth={depth + 1} />
-          ))}
-        </div>
+    <span className="inline">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="notebook-press inline-flex items-center gap-1.5 rounded-[3px] border border-[var(--notebook-ink)] px-2 py-[2px] align-baseline text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--notebook-ink)] notebook-sans"
+      >
+        <Icon name={open ? 'expand_more' : 'chevron_right'} size={14} />
+        <span>{node.label}</span>
+        {!open && <span className="text-[var(--notebook-muted)]">…</span>}
+      </button>
+      {open && (
+        <span className="animate-fade-in inline">
+          <span className="mx-[1px] rounded-[2px] bg-[var(--notebook-warm)] px-1.5 py-[1px]">
+            {node.children.map((child) => (
+              <StructureTreeNode key={child.id} node={child} depth={depth + 1} />
+            ))}
+          </span>
+        </span>
       )}
-    </div>
+      {' '}
+    </span>
   );
 }
 
@@ -125,67 +128,77 @@ export function NotebookStructurePage({
         },
       ]}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="rounded-full bg-[var(--color-foreground)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white">
-          {document.analysisSummary.detectedPatterns.length} 種の構文
+      <section className="notebook-sans">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+          <span>英文</span>
+          <span className="h-px flex-1 bg-[var(--notebook-rule)]" />
+          <span>句をタップで折りたたみ</span>
         </div>
-        {document.lastAnalyzedAt && (
-          <div className="text-[11px] text-[var(--color-muted)]">最終解析 {new Date(document.lastAnalyzedAt).toLocaleString('ja-JP')}</div>
-        )}
-      </div>
 
-      <NotebookCard title="英文" subtitle="まとまりを見ながら読めます">
-        <p className="text-[16px] leading-[1.9] text-[var(--color-foreground)]">{document.normalizedText}</p>
-      </NotebookCard>
+        <div className="rounded-[4px] border border-[var(--notebook-rule)] bg-white p-4">
+          {document.parseTree.length === 0 ? (
+            <p className="text-[16px] leading-[1.95] text-[var(--notebook-ink)]">{document.normalizedText}</p>
+          ) : (
+            <div className="text-[16px] leading-[1.95] text-[var(--notebook-ink)]">
+              {document.parseTree.map((node) => (
+                <StructureTreeNode key={node.id} node={node} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      <NotebookCard title="構造ブロック" subtitle="タップで展開 / 折りたたみ">
-        {document.parseTree.length === 0 ? (
-          <div className="text-sm text-[var(--color-muted)]">構造ブロックはまだ生成されていません。</div>
-        ) : (
-          <div className="space-y-3">
-            {document.parseTree.map((node) => (
-              <StructureTreeNode key={node.id} node={node} />
-            ))}
-          </div>
-        )}
-      </NotebookCard>
-
-      <NotebookCard title="解説" subtitle={document.analysisSummary.overview}>
+      <section className="notebook-sans">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+          解説
+        </div>
         {document.analysisSummary.notes.length === 0 ? (
-          <div className="text-sm leading-relaxed text-[var(--color-muted)]">{document.analysisSummary.overview}</div>
+          <div className="text-sm leading-relaxed text-[var(--notebook-muted)]">{document.analysisSummary.overview}</div>
         ) : (
           <div className="space-y-2">
-            {document.analysisSummary.notes.map((note) => (
-              <div key={`${note.label}-${note.body}`} className="flex gap-3 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3">
-                <div className="w-14 shrink-0 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-muted)]">
+            {document.analysisSummary.notes.map((note, index) => (
+              <div
+                key={`${note.label}-${note.body}`}
+                className={cn(
+                  'animate-fade-in-up flex gap-3 rounded-[4px] border border-[var(--notebook-rule)] p-3',
+                  index % 2 === 0 ? 'bg-[var(--notebook-cream)]' : 'bg-white',
+                )}
+              >
+                <div className="w-10 shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-ink)]">
                   {note.shortLabel || note.label}
                 </div>
-                <div className="min-w-0 flex-1">
-                  {!note.shortLabel && <div className="text-[13px] font-semibold text-[var(--color-foreground)]">{note.label}</div>}
-                  <div className="text-[13px] leading-relaxed text-[var(--color-foreground)]">{note.body}</div>
+                <div className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-[var(--notebook-ink)]">
+                  {note.body}
                 </div>
               </div>
             ))}
           </div>
         )}
-      </NotebookCard>
+      </section>
 
-      <NotebookCard title="この英文に登場する単語" subtitle="重要語句">
+      <section className="notebook-sans">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+          <span>この英文に登場する単語</span>
+          <span className="h-px flex-1 bg-[var(--notebook-rule)]" />
+        </div>
         {document.mentionedTerms.length === 0 ? (
-          <div className="text-sm text-[var(--color-muted)]">重要語句はまだ抽出されていません。</div>
+          <div className="text-sm text-[var(--notebook-muted)]">重要語句はまだ抽出されていません。</div>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {document.mentionedTerms.map((term) => (
               <span
                 key={term}
-                className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-700"
+                className={cn(
+                  'notebook-highlight text-[12.5px] text-[var(--notebook-ink)]',
+                  /\s/.test(term) && 'notebook-highlight-idiom text-[#9d1a5b]',
+                )}
               >
                 {term}
               </span>
             ))}
           </div>
         )}
-      </NotebookCard>
+      </section>
     </NotebookChrome>
   );
 }

@@ -1,17 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CollectionItemSummary, LearningAssetKind } from '@/types';
 import { Icon } from '@/components/ui';
-import {
-  NOTEBOOK_KIND_ORDER,
-  findNotebookItemByKind,
-  getNotebookAssetHref,
-  getNotebookCreateHref,
-  getNotebookKindLabel,
-} from '@/lib/notebook';
+import { getNotebookCreateHref } from '@/lib/notebook';
 import { cn } from '@/lib/utils';
 
 type NotebookHeaderAction = {
@@ -62,82 +56,80 @@ function NotebookComposerModal({
 }) {
   const router = useRouter();
 
-  const items = useMemo(
-    () => [
-      {
-        kind: 'vocabulary_project' as const,
-        icon: 'menu_book',
-        title: '単語帳',
-        sub: 'スキャン・手動・自動生成',
-        blurb: '写真から単語を抽出し、単語帳として整理します。',
-      },
-      {
-        kind: 'structure_document' as const,
-        icon: 'account_tree',
-        title: '構造解析',
-        sub: '準1級レベルの構文を抽出',
-        blurb: '句ごとのまとまりを折りたたみながら読めます。',
-      },
-      {
-        kind: 'correction_document' as const,
-        icon: 'spellcheck',
-        title: '添削',
-        sub: '誤用を洗い出して復習へ',
-        blurb: '指摘、修正文、復習カードを一気通貫で保存します。',
-      },
-    ],
-    [],
-  );
-
   if (!open) return null;
 
+  const modes = [
+    {
+      kind: 'vocabulary_project' as const,
+      icon: 'menu_book',
+      title: '単語帳',
+      sub: 'スキャン・手動・自動生成',
+      blurb: '写真から単語を抽出、手動で追加、または既出語から例文を生成。',
+    },
+    {
+      kind: 'structure_document' as const,
+      icon: 'account_tree',
+      title: '構造解析',
+      sub: '準1級レベルの構文を抽出',
+      blurb: '句ごとに折りたたみ。どこが一括りか、一目でわかる。',
+    },
+    {
+      kind: 'correction_document' as const,
+      icon: 'spellcheck',
+      title: '添削',
+      sub: '誤用を洗い出し、文法化',
+      blurb: '間違いはすべて指摘。語法ごとにカード化して復習へ。',
+    },
+  ];
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 p-3" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/35 px-3 pb-3 backdrop-blur-sm notebook-sans"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-xl rounded-[28px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl"
+        className="w-full max-w-[420px] rounded-[4px] border border-[var(--notebook-rule)] bg-white p-5 shadow-[0_24px_40px_-20px_rgba(0,0,0,0.4)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--color-muted)]">新規作成</p>
-            <h2 className="mt-1 text-[22px] font-extrabold tracking-tight text-[var(--color-foreground)]">
+            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--notebook-muted)]">新規作成</div>
+            <div className="mt-1 text-[20px] font-extrabold tracking-tight text-[var(--notebook-ink)]">
               何を作りますか？
-            </h2>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-muted)] transition hover:bg-black/5 hover:text-[var(--color-foreground)]"
+            className="notebook-press flex h-9 w-9 items-center justify-center rounded-full text-[var(--notebook-ink)] hover:bg-black/5"
             aria-label="閉じる"
           >
             <Icon name="close" size={18} />
           </button>
         </div>
 
-        <div className="grid gap-3">
-          {items.map((item) => (
+        <div className="grid gap-2.5">
+          {modes.map((mode) => (
             <button
-              key={item.kind}
+              key={mode.kind}
               type="button"
               onClick={() => {
                 onClose();
-                router.push(getNotebookCreateHref(collectionId, item.kind));
+                router.push(getNotebookCreateHref(collectionId, mode.kind));
               }}
-              className="flex items-start gap-4 rounded-[24px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-4 text-left transition hover:border-[var(--color-foreground)]"
+              className="notebook-press flex items-start gap-4 rounded-[4px] border border-[var(--notebook-rule)] bg-white p-4 text-left hover:border-[var(--notebook-ink)]"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-foreground)] text-white">
-                <Icon name={item.icon} size={22} />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] bg-[var(--notebook-ink)] text-white">
+                <Icon name={mode.icon} size={22} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="text-[16px] font-bold tracking-tight text-[var(--color-foreground)]">{item.title}</div>
-                  <div className="text-right text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                    {item.sub}
-                  </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <div className="text-[16px] font-bold tracking-tight text-[var(--notebook-ink)]">{mode.title}</div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--notebook-muted)]">{mode.sub}</div>
                 </div>
-                <div className="mt-1 text-[12px] leading-relaxed text-[var(--color-muted)]">{item.blurb}</div>
+                <div className="mt-1 text-[11.5px] leading-relaxed text-[var(--notebook-muted)]">{mode.blurb}</div>
               </div>
-              <Icon name="arrow_forward" size={18} className="mt-1 text-[var(--color-muted)]" />
+              <Icon name="arrow_forward" size={18} className="mt-1 text-[var(--notebook-muted)]" />
             </button>
           ))}
         </div>
@@ -146,57 +138,17 @@ function NotebookComposerModal({
   );
 }
 
-function NotebookKindSwitch({
-  collectionId,
-  currentKind,
-  items,
-}: {
-  collectionId: string;
-  currentKind?: LearningAssetKind;
-  items: CollectionItemSummary[];
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {NOTEBOOK_KIND_ORDER.map((kind) => {
-        const item = findNotebookItemByKind(items, kind);
-        const href = item
-          ? getNotebookAssetHref(collectionId, item)
-          : getNotebookCreateHref(collectionId, kind);
-        const active = currentKind === kind;
-
-        return (
-          <Link
-            key={kind}
-            href={href}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-[4px] border px-3 py-2 text-[11px] font-semibold tracking-[0.12em] uppercase transition',
-              active
-                ? 'border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white'
-                : 'border-[var(--color-border)] bg-transparent text-[var(--color-muted)] hover:border-[var(--color-foreground)] hover:text-[var(--color-foreground)]',
-            )}
-          >
-            {getNotebookKindLabel(kind)}
-            {!item && <Icon name="add" size={14} />}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 function NotebookBottomTabs() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur">
-      <div className="mx-auto grid max-w-xl grid-cols-4 px-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-2">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--notebook-rule)] bg-white/95 px-3 pt-2 backdrop-blur notebook-sans">
+      <div className="mx-auto grid max-w-[420px] grid-cols-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
         {APP_TABS.map((item) => (
           <Link
             key={item.id}
             href={item.href}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold transition',
-              item.id === 'notes'
-                ? 'text-[var(--color-foreground)]'
-                : 'text-[var(--color-muted)] hover:bg-black/5 hover:text-[var(--color-foreground)]',
+              'notebook-press flex flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold',
+              item.id === 'notes' ? 'text-[var(--notebook-ink)]' : 'text-[var(--notebook-muted)]',
             )}
           >
             <Icon name={item.icon} size={22} filled={item.id === 'notes'} />
@@ -208,10 +160,51 @@ function NotebookBottomTabs() {
   );
 }
 
+function NotebookActionStrip({ items }: { items: NotebookActionStripItem[] }) {
+  return (
+    <div className="mt-1 mb-3 grid grid-cols-3 gap-2 px-5 notebook-sans">
+      {items.map((item) => {
+        const content = (
+          <>
+            <div className="flex h-11 w-11 items-center justify-center rounded-[2px] bg-[var(--notebook-ink)] text-white">
+              <Icon name={item.icon} size={18} />
+            </div>
+            <div>
+              <div className="text-[12px] font-semibold leading-tight text-[var(--notebook-ink)]">{item.label}</div>
+              {item.sub && <div className="mt-0.5 text-[9.5px] text-[var(--notebook-muted)]">{item.sub}</div>}
+            </div>
+            {item.badge && (
+              <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+                {item.badge}
+              </span>
+            )}
+          </>
+        );
+
+        const className = 'notebook-press relative flex min-h-[76px] flex-col items-start justify-between rounded-[4px] border border-[var(--notebook-rule)] bg-white p-3 text-left hover:border-[var(--notebook-ink)]';
+
+        if (item.href) {
+          return (
+            <Link key={`${item.icon}-${item.label}`} href={item.href} className={className}>
+              {content}
+            </Link>
+          );
+        }
+
+        return (
+          <button key={`${item.icon}-${item.label}`} type="button" onClick={item.onClick} className={className}>
+            {content}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function NotebookChrome({
   collectionId,
-  currentKind,
-  items,
+  currentKind: _currentKind,
+  items: _items,
   title,
   subtitle,
   crumbLabel,
@@ -224,50 +217,36 @@ export function NotebookChrome({
 
   return (
     <>
-      <div className="min-h-screen bg-[var(--color-background)] pb-36">
-        <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-background)]/95 backdrop-blur">
-          <div className="mx-auto max-w-xl px-4 pb-4 pt-3">
-            <div className="flex items-center justify-between gap-3">
+      <div className="flex min-h-screen flex-col bg-white pb-28">
+        <header className="sticky top-0 z-30 border-b border-[var(--notebook-rule)] bg-white/95 backdrop-blur">
+          <div className="mx-auto max-w-[420px] px-4 pb-3 pt-2">
+            <div className="flex items-center justify-between">
               <Link
                 href={backHref}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-foreground)] transition hover:bg-black/5"
+                className="notebook-press flex h-9 w-9 items-center justify-center rounded-full text-[var(--notebook-ink)] hover:bg-black/5"
                 aria-label="戻る"
               >
                 <Icon name="arrow_back_ios_new" size={16} />
               </Link>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 {headerActions.map((action) => {
+                  const className = cn(
+                    'notebook-press flex h-9 w-9 items-center justify-center rounded-full',
+                    action.active
+                      ? 'bg-[var(--notebook-ink)] text-white'
+                      : 'text-[var(--notebook-ink)] hover:bg-black/5',
+                  );
+
                   if (action.href) {
                     return (
-                      <Link
-                        key={`${action.icon}-${action.label}`}
-                        href={action.href}
-                        className={cn(
-                          'flex h-10 w-10 items-center justify-center rounded-full transition',
-                          action.active
-                            ? 'bg-[var(--color-foreground)] text-white'
-                            : 'text-[var(--color-muted)] hover:bg-black/5 hover:text-[var(--color-foreground)]',
-                        )}
-                        aria-label={action.label}
-                      >
+                      <Link key={`${action.icon}-${action.label}`} href={action.href} className={className} aria-label={action.label}>
                         <Icon name={action.icon} size={18} />
                       </Link>
                     );
                   }
 
                   return (
-                    <button
-                      key={`${action.icon}-${action.label}`}
-                      type="button"
-                      onClick={action.onClick}
-                      className={cn(
-                        'flex h-10 w-10 items-center justify-center rounded-full transition',
-                        action.active
-                          ? 'bg-[var(--color-foreground)] text-white'
-                          : 'text-[var(--color-muted)] hover:bg-black/5 hover:text-[var(--color-foreground)]',
-                      )}
-                      aria-label={action.label}
-                    >
+                    <button key={`${action.icon}-${action.label}`} type="button" onClick={action.onClick} className={className} aria-label={action.label}>
                       <Icon name={action.icon} size={18} />
                     </button>
                   );
@@ -275,76 +254,28 @@ export function NotebookChrome({
               </div>
             </div>
 
-            <div className="mt-3">
-              {subtitle && (
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">
-                  {subtitle}
-                </div>
-              )}
-              <h1 className="mt-1 text-[24px] font-extrabold tracking-tight text-[var(--color-foreground)]">{title}</h1>
+            <div className="mt-2 px-1">
+              {subtitle && <div className="notebook-top-sub">{subtitle}</div>}
+              <h1 className="notebook-title mt-1">{title}</h1>
             </div>
 
-            <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+            <div className="notebook-crumb mt-3 flex items-center gap-1.5 px-1">
               <Icon name="folder_open" size={12} />
-              <span>ノート</span>
-              <span>/</span>
               <span>{crumbLabel ?? title}</span>
-            </div>
-
-            <div className="mt-4">
-              <NotebookKindSwitch collectionId={collectionId} currentKind={currentKind} items={items} />
             </div>
           </div>
         </header>
 
-        <main className="mx-auto max-w-xl space-y-5 px-4 py-5">
-          {actionStripItems && actionStripItems.length > 0 && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {actionStripItems.map((item) => {
-                const content = (
-                  <>
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[4px] bg-[var(--color-foreground)] text-white">
-                      <Icon name={item.icon} size={20} />
-                    </div>
-                    <div>
-                      <div className="text-[12px] font-semibold text-[var(--color-foreground)]">{item.label}</div>
-                      {item.sub && <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">{item.sub}</div>}
-                    </div>
-                    {item.badge && (
-                      <div className="absolute right-3 top-3 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                        {item.badge}
-                      </div>
-                    )}
-                  </>
-                );
-
-                const classes = 'relative flex min-h-[84px] flex-col justify-between rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3 text-left transition hover:border-[var(--color-foreground)]';
-
-                if (item.href) {
-                  return (
-                    <Link key={`${item.icon}-${item.label}`} href={item.href} className={classes}>
-                      {content}
-                    </Link>
-                  );
-                }
-
-                return (
-                  <button key={`${item.icon}-${item.label}`} type="button" onClick={item.onClick} className={classes}>
-                    {content}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {children}
+        <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col">
+          {actionStripItems && actionStripItems.length > 0 && <NotebookActionStrip items={actionStripItems} />}
+          <div className="notebook-screenpad space-y-5">{children}</div>
         </main>
 
         <button
           type="button"
           onClick={() => setComposerOpen(true)}
-          className="fixed bottom-24 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-foreground)] text-white shadow-[0_16px_32px_rgba(0,0,0,0.24)] transition hover:opacity-90"
-          aria-label="新規作成"
+          className="notebook-press fixed right-5 bottom-24 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--notebook-ink)] text-white shadow-[0_12px_26px_-8px_rgba(0,0,0,0.45)]"
+          aria-label="追加"
         >
           <Icon name="add" size={26} />
         </button>
@@ -368,12 +299,12 @@ export function NotebookCard({
   right?: ReactNode;
 }) {
   return (
-    <section className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <section className="rounded-[4px] border border-[var(--notebook-rule)] bg-white notebook-sans">
       {(title || subtitle || right) && (
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
-          <div>
-            {title && <div className="text-[13px] font-bold text-[var(--color-foreground)]">{title}</div>}
-            {subtitle && <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">{subtitle}</div>}
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--notebook-rule)] px-4 py-3">
+          <div className="min-w-0 flex-1">
+            {title && <div className="text-[13px] font-bold text-[var(--notebook-ink)]">{title}</div>}
+            {subtitle && <div className="mt-0.5 text-[11px] leading-relaxed text-[var(--notebook-muted)]">{subtitle}</div>}
           </div>
           {right}
         </div>
