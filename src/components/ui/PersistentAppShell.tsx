@@ -22,6 +22,7 @@ function isNotebookPath(pathname: string): boolean {
 }
 
 function shouldHideShell(pathname: string): boolean {
+  if (isNotebookPath(pathname)) return true;
   return NO_SHELL_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
 
