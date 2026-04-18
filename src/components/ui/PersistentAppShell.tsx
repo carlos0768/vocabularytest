@@ -17,12 +17,17 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/subscription', '/collections/new', '/word/',
 ];
 
+function isNotebookPath(pathname: string): boolean {
+  return /^\/collections\/[^/]+\/notes(?:\/|$)/.test(pathname);
+}
+
 function shouldHideShell(pathname: string): boolean {
   return NO_SHELL_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
 
 function shouldHideBottomNav(pathname: string): boolean {
   if (pathname === '/subscription') return true;
+  if (isNotebookPath(pathname)) return true;
   return HIDE_BOTTOM_NAV_PATHS.some(p => pathname.startsWith(p));
 }
 

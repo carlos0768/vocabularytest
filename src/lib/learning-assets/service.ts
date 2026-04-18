@@ -221,6 +221,64 @@ async function fetchOwnedProject(admin: SupabaseClient, userId: string, projectI
   return mapProjectFromRow(data as ProjectRow);
 }
 
+async function ensureVocabularyAssetsForLegacyProjects(
+  admin: SupabaseClient,
+  userId: string,
+  projectIds: string[],
+): Promise<void> {
+  if (projectIds.length === 0) return;
+
+  const { data: existingAssets, error: existingAssetsError } = await admin
+    .from('learning_assets')
+    .select('legacy_project_id')
+    .eq('user_id', userId)
+    .eq('kind', 'vocabulary_project')
+    .in('legacy_project_id', projectIds);
+
+  if (existingAssetsError) {
+    throw new Error(`legacy_learning_assets_check_failed:${existingAssetsError.message}`);
+  }
+
+  const existingProjectIds = new Set(
+    (existingAssets ?? [])
+      .map((row) => (typeof row.legacy_project_id === 'string' ? row.legacy_project_id : null))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  const missingProjectIds = projectIds.filter((projectId) => !existingProjectIds.has(projectId));
+  if (missingProjectIds.length === 0) return;
+
+  const { data: projects, error: projectsError } = await admin
+    .from('projects')
+    .select('id, user_id, title, created_at')
+    .eq('user_id', userId)
+    .in('id', missingProjectIds);
+
+  if (projectsError) {
+    throw new Error(`legacy_projects_lookup_failed:${projectsError.message}`);
+  }
+
+  const payload = (projects ?? []).map((project) => ({
+    user_id: project.user_id as string,
+    kind: 'vocabulary_project',
+    title: project.title as string,
+    status: 'ready',
+    legacy_project_id: project.id as string,
+    created_at: project.created_at as string,
+    updated_at: project.created_at as string,
+  }));
+
+  if (payload.length === 0) return;
+
+  const { error: upsertError } = await admin
+    .from('learning_assets')
+    .upsert(payload, { onConflict: 'legacy_project_id' });
+
+  if (upsertError) {
+    throw new Error(`legacy_learning_assets_backfill_failed:${upsertError.message}`);
+  }
+}
+
 async function fetchProjectWords(admin: SupabaseClient, projectId: string): Promise<Word[]> {
   const { data, error } = await admin
     .from('words')
@@ -280,6 +338,8 @@ export async function listCollectionItemsForUser(
   const collectionItems = (itemRows ?? []) as CollectionItemRow[];
   const legacyProjectIds = ((legacyRows ?? []) as Array<{ project_id: string; sort_order: number; added_at: string; collection_id: string }>)
     .map((row) => row.project_id);
+
+  await ensureVocabularyAssetsForLegacyProjects(admin, userId, legacyProjectIds);
 
   const assetIds = collectionItems.map((row) => row.asset_id);
   const { data: directAssets, error: directAssetError } = assetIds.length === 0
