@@ -270,6 +270,16 @@ export interface WordRepository {
   updateWord(id: string, updates: Partial<Word>): Promise<void>;
   deleteWord(id: string): Promise<void>;
   deleteWordsByProject(projectId: string): Promise<void>;
+
+  // Grammar entries (Phase 1: per-project grammar list)
+  createGrammarEntries(
+    entries: Omit<GrammarEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+  ): Promise<GrammarEntry[]>;
+  getGrammarEntries(projectId: string): Promise<GrammarEntry[]>;
+  getGrammarEntry(id: string): Promise<GrammarEntry | undefined>;
+  updateGrammarEntry(id: string, updates: Partial<GrammarEntry>): Promise<void>;
+  deleteGrammarEntry(id: string): Promise<void>;
+  deleteGrammarEntriesByProject(projectId: string): Promise<void>;
 }
 
 // ============ App State Types ============

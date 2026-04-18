@@ -2,7 +2,7 @@
 // Combines local (IndexedDB) and remote (Supabase) storage for Pro users
 // Reads from local (fast), writes to both local + sync queue
 
-import type { Word, Project, WordRepository } from '@/types';
+import type { Word, Project, WordRepository, GrammarEntry } from '@/types';
 import { localRepository } from './local-repository';
 import { remoteRepository } from './remote-repository';
 import { syncQueue } from './sync-queue';
@@ -118,6 +118,13 @@ export class HybridWordRepository implements WordRepository {
           if (localWords.length > 0) {
             await remoteRepository.createWordsWithIds(localWords as Word[]);
           }
+          const localGrammar = await db.grammarEntries
+            .where('projectId')
+            .equals(project.id)
+            .toArray();
+          if (localGrammar.length > 0) {
+            await remoteRepository.createGrammarEntriesWithIds(localGrammar);
+          }
           console.log('[HybridRepo] Pushed local-only project to remote:', project.id);
         } catch (err) {
           console.error('[HybridRepo] Failed to push local-only project:', project.id, err);
@@ -154,6 +161,7 @@ export class HybridWordRepository implements WordRepository {
 
       if (wordsProjectIdsToReplace.length > 0) {
         await db.words.where('projectId').anyOf(wordsProjectIdsToReplace).delete();
+        await db.grammarEntries.where('projectId').anyOf(wordsProjectIdsToReplace).delete();
       }
 
       await db.lexiconEntries.clear();
@@ -163,6 +171,15 @@ export class HybridWordRepository implements WordRepository {
         const remoteWords = mergedProjectIds.flatMap((projectId) => remoteWordsByProject[projectId] ?? []);
         if (remoteWords.length > 0) {
           await db.words.bulkPut(remoteWords);
+        }
+
+        const remoteGrammarByProject =
+          await remoteRepository.getAllGrammarEntriesByProjectIds(mergedProjectIds);
+        const remoteGrammar = mergedProjectIds.flatMap(
+          (projectId) => remoteGrammarByProject[projectId] ?? [],
+        );
+        if (remoteGrammar.length > 0) {
+          await db.grammarEntries.bulkPut(remoteGrammar);
         }
 
         const lexiconEntryIds = [...new Set(remoteWords.map((word) => word.lexiconEntryId).filter(Boolean))] as string[];
@@ -211,10 +228,11 @@ export class HybridWordRepository implements WordRepository {
         .map(p => p.id)
         .filter(id => !remoteProjectIdSet.has(id));
 
-      // 3. Remove deleted projects + their words from local
+      // 3. Remove deleted projects + their words + grammar from local
       if (deletedProjectIds.length > 0) {
         await db.projects.bulkDelete(deletedProjectIds);
         await db.words.where('projectId').anyOf(deletedProjectIds).delete();
+        await db.grammarEntries.where('projectId').anyOf(deletedProjectIds).delete();
         console.log('[HybridRepo] Delta: removed', deletedProjectIds.length, 'deleted projects');
       }
 
@@ -256,12 +274,43 @@ export class HybridWordRepository implements WordRepository {
         }
       }
 
-      // 9. Update sync metadata
+      // 9. Grammar entries: delta + deletion detection (same pattern as words)
+      const [updatedGrammar, remoteGrammarIds] = await Promise.all([
+        remoteRepository.getGrammarEntriesUpdatedSince(activeProjectIds, since),
+        remoteRepository.getGrammarEntryIdsByProjectIds(activeProjectIds),
+      ]);
+
+      const remoteGrammarIdSet = new Set(remoteGrammarIds);
+      const localGrammarIds = (await db.grammarEntries
+        .where('projectId')
+        .anyOf(activeProjectIds)
+        .primaryKeys()) as string[];
+      const deletedGrammarIds = localGrammarIds.filter((id) => !remoteGrammarIdSet.has(id));
+
+      if (deletedGrammarIds.length > 0) {
+        await db.grammarEntries.bulkDelete(deletedGrammarIds);
+        console.log('[HybridRepo] Delta: removed', deletedGrammarIds.length, 'grammar entries');
+      }
+
+      if (updatedGrammar.length > 0) {
+        await db.grammarEntries.bulkPut(updatedGrammar);
+        console.log('[HybridRepo] Delta: upserted', updatedGrammar.length, 'grammar entries');
+      }
+
+      // 10. Update sync metadata
       this.setLastSync(Date.now());
       this.setSyncedUserId(userId);
 
-      const totalChanges = updatedProjects.length + updatedWords.length + deletedProjectIds.length + deletedWordIds.length;
-      console.log(`[HybridRepo] Delta sync complete: ${totalChanges} changes (${updatedProjects.length}P↑ ${updatedWords.length}W↑ ${deletedProjectIds.length}P↓ ${deletedWordIds.length}W↓)`);
+      const totalChanges =
+        updatedProjects.length +
+        updatedWords.length +
+        deletedProjectIds.length +
+        deletedWordIds.length +
+        updatedGrammar.length +
+        deletedGrammarIds.length;
+      console.log(
+        `[HybridRepo] Delta sync complete: ${totalChanges} changes (${updatedProjects.length}P↑ ${updatedWords.length}W↑ ${updatedGrammar.length}G↑ ${deletedProjectIds.length}P↓ ${deletedWordIds.length}W↓ ${deletedGrammarIds.length}G↓)`,
+      );
     } catch (error) {
       console.error('[HybridRepo] Delta sync failed, falling back to full sync:', error);
       // If delta sync fails, fall back to full sync
@@ -490,6 +539,112 @@ export class HybridWordRepository implements WordRepository {
       } catch (error) {
         console.error('[HybridRepo] Remote delete words failed:', error);
         // Don't queue this - project deletion will cascade
+      }
+    }
+  }
+
+  // ============ Grammar Entries ============
+
+  async createGrammarEntries(
+    entries: Omit<GrammarEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+  ): Promise<GrammarEntry[]> {
+    const created = await localRepository.createGrammarEntries(entries);
+
+    if (isOnline()) {
+      try {
+        await remoteRepository.createGrammarEntriesWithIds(created);
+      } catch (error) {
+        console.error('[HybridRepo] Remote create grammar failed, queuing:', error);
+        for (const entry of created) {
+          await syncQueue.add({
+            operation: 'create',
+            table: 'grammarEntries',
+            entityId: entry.id,
+            data: entry,
+          });
+        }
+      }
+    } else {
+      for (const entry of created) {
+        await syncQueue.add({
+          operation: 'create',
+          table: 'grammarEntries',
+          entityId: entry.id,
+          data: entry,
+        });
+      }
+    }
+
+    return created;
+  }
+
+  async getGrammarEntries(projectId: string): Promise<GrammarEntry[]> {
+    return localRepository.getGrammarEntries(projectId);
+  }
+
+  async getGrammarEntry(id: string): Promise<GrammarEntry | undefined> {
+    return localRepository.getGrammarEntry(id);
+  }
+
+  async updateGrammarEntry(id: string, updates: Partial<GrammarEntry>): Promise<void> {
+    await localRepository.updateGrammarEntry(id, updates);
+
+    if (isOnline()) {
+      try {
+        await remoteRepository.updateGrammarEntry(id, updates);
+      } catch (error) {
+        console.error('[HybridRepo] Remote update grammar failed, queuing:', error);
+        await syncQueue.add({
+          operation: 'update',
+          table: 'grammarEntries',
+          entityId: id,
+          data: { id, updates },
+        });
+      }
+    } else {
+      await syncQueue.add({
+        operation: 'update',
+        table: 'grammarEntries',
+        entityId: id,
+        data: { id, updates },
+      });
+    }
+  }
+
+  async deleteGrammarEntry(id: string): Promise<void> {
+    await localRepository.deleteGrammarEntry(id);
+
+    if (isOnline()) {
+      try {
+        await remoteRepository.deleteGrammarEntry(id);
+      } catch (error) {
+        console.error('[HybridRepo] Remote delete grammar failed, queuing:', error);
+        await syncQueue.add({
+          operation: 'delete',
+          table: 'grammarEntries',
+          entityId: id,
+          data: { id },
+        });
+      }
+    } else {
+      await syncQueue.add({
+        operation: 'delete',
+        table: 'grammarEntries',
+        entityId: id,
+        data: { id },
+      });
+    }
+  }
+
+  async deleteGrammarEntriesByProject(projectId: string): Promise<void> {
+    await localRepository.deleteGrammarEntriesByProject(projectId);
+
+    if (isOnline()) {
+      try {
+        await remoteRepository.deleteGrammarEntriesByProject(projectId);
+      } catch (error) {
+        console.error('[HybridRepo] Remote delete grammar by project failed:', error);
+        // Don't queue — project deletion cascades on Supabase.
       }
     }
   }

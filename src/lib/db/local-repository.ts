@@ -1,6 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './dexie';
-import type { LexiconEntry, Project, Word, WordRepository, Collection, CollectionProject } from '@/types';
+import type {
+  LexiconEntry,
+  Project,
+  Word,
+  WordRepository,
+  Collection,
+  CollectionProject,
+  GrammarEntry,
+} from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 
@@ -62,8 +70,9 @@ export class LocalWordRepository implements WordRepository {
 
   async deleteProject(id: string): Promise<void> {
     const db = getDb();
-    // Delete all words in the project first
+    // Delete all dependent rows first (Supabase uses CASCADE; IndexedDB must be explicit).
     await this.deleteWordsByProject(id);
+    await this.deleteGrammarEntriesByProject(id);
     await db.projects.delete(id);
   }
 
@@ -144,6 +153,54 @@ export class LocalWordRepository implements WordRepository {
     await db.words.where('projectId').equals(projectId).delete();
   }
 
+  // ============ Grammar Entries ============
+
+  async createGrammarEntries(
+    entries: Omit<GrammarEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+  ): Promise<GrammarEntry[]> {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const newEntries: GrammarEntry[] = entries.map((entry) => ({
+      ...entry,
+      id: uuidv4(),
+      createdAt: now,
+      updatedAt: now,
+    }));
+    if (newEntries.length > 0) {
+      await db.grammarEntries.bulkAdd(newEntries);
+    }
+    return newEntries;
+  }
+
+  async getGrammarEntries(projectId: string): Promise<GrammarEntry[]> {
+    const db = getDb();
+    const entries = await db.grammarEntries.where('projectId').equals(projectId).toArray();
+    return entries.sort((a, b) => a.position - b.position);
+  }
+
+  async getGrammarEntry(id: string): Promise<GrammarEntry | undefined> {
+    const db = getDb();
+    return db.grammarEntries.get(id);
+  }
+
+  async updateGrammarEntry(id: string, updates: Partial<GrammarEntry>): Promise<void> {
+    const db = getDb();
+    await db.grammarEntries.update(id, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  async deleteGrammarEntry(id: string): Promise<void> {
+    const db = getDb();
+    await db.grammarEntries.delete(id);
+  }
+
+  async deleteGrammarEntriesByProject(projectId: string): Promise<void> {
+    const db = getDb();
+    await db.grammarEntries.where('projectId').equals(projectId).delete();
+  }
+
   // ============ Bulk Operations for Sync ============
 
   async getAllProjectsForSync(): Promise<Project[]> {
@@ -168,6 +225,7 @@ export class LocalWordRepository implements WordRepository {
     await db.projects.clear();
     await db.words.clear();
     await db.lexiconEntries.clear();
+    await db.grammarEntries.clear();
   }
 
   async cacheLexiconEntries(entries: LexiconEntry[]): Promise<void> {
