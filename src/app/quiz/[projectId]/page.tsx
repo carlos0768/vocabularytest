@@ -179,6 +179,20 @@ export default function QuizPage() {
     }
   }, [isComplete, clearQuizState]);
 
+  useEffect(() => {
+    if (!isComplete || results.total <= 0) return;
+    try {
+      localStorage.setItem(`quiz_last_accuracy_${projectId}`, JSON.stringify({
+        percentage: Math.round((results.correct / results.total) * 100),
+        total: results.total,
+        correct: results.correct,
+        savedAt: Date.now(),
+      }));
+    } catch {
+      // Ignore local persistence failures.
+    }
+  }, [isComplete, projectId, results.correct, results.total]);
+
   const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
     const selected = sortWordsByPriority(words).slice(0, count);
 

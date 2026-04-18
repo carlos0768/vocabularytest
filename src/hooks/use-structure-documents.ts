@@ -13,6 +13,7 @@ type StructureDocumentResponse = {
 type CreateStructureDocumentInput = {
   title: string;
   collectionId?: string;
+  wordbookAssetId?: string;
   text: string;
   sourceType: StructureSourceType;
 };

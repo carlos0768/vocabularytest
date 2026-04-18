@@ -47,8 +47,16 @@ export function getNotebookAssetHref(collectionId: string, item: CollectionItemS
   return `/collections/${collectionId}/notes/${getNotebookKindSegment(item.asset.kind)}/${item.assetId}`;
 }
 
-export function getNotebookCreateHref(collectionId: string, kind: LearningAssetKind): string {
-  return `/collections/${collectionId}/notes/new?kind=${getNotebookKindSegment(kind)}`;
+export function getNotebookCreateHref(
+  collectionId: string,
+  kind: LearningAssetKind,
+  options?: { wordbookAssetId?: string },
+): string {
+  const params = new URLSearchParams({ kind: getNotebookKindSegment(kind) });
+  if (options?.wordbookAssetId) {
+    params.set('wordbookAssetId', options.wordbookAssetId);
+  }
+  return `/collections/${collectionId}/notes/new?${params.toString()}`;
 }
 
 export function findNotebookItemByKind(
@@ -56,4 +64,23 @@ export function findNotebookItemByKind(
   kind: LearningAssetKind,
 ): CollectionItemSummary | undefined {
   return items.find((item) => item.asset.kind === kind);
+}
+
+export function getStandaloneWordbookHref(projectId: string): string {
+  return `/project/${projectId}`;
+}
+
+export function getStandaloneStructureHref(assetId: string): string {
+  return `/structure/${assetId}`;
+}
+
+export function getStandaloneCorrectionHref(assetId: string): string {
+  return `/correction/${assetId}`;
+}
+
+export function getProjectNotebookCreateHref(
+  projectId: string,
+  kind: Exclude<LearningAssetKind, 'vocabulary_project'>,
+): string {
+  return `/project/${projectId}/new?kind=${getNotebookKindSegment(kind)}`;
 }

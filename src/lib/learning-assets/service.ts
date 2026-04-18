@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildVocabularyAssetDetail,
   mapCollectionItemSummary,
+  mapCollectionNotebookBindingFromRow,
   mapCorrectionDocumentFromRow,
   mapCorrectionFindingFromRow,
   mapCorrectionReviewItemFromRow,
@@ -12,6 +13,7 @@ import {
   mapVocabularyProjectPreviewFromRow,
   mapWordFromRow,
   type CollectionItemRow,
+  type CollectionNotebookBindingRow,
   type CorrectionDocumentRow,
   type CorrectionFindingRow,
   type CorrectionReviewItemRow,
@@ -23,6 +25,7 @@ import {
 } from '../../../shared/db';
 import type {
   CollectionItemSummary,
+  CollectionNotebookBinding,
   CorrectionDocument,
   CorrectionFinding,
   CorrectionReviewItem,
@@ -68,6 +71,7 @@ type CreateStructureInput = {
   text: string;
   sourceType: StructureSourceType;
   collectionId?: string;
+  wordbookAssetId?: string;
 };
 
 type CreateVocabularyInput = {
@@ -81,6 +85,19 @@ type CreateCorrectionInput = {
   text: string;
   sourceType: StructureSourceType;
   collectionId?: string;
+  wordbookAssetId?: string;
+};
+
+type CreateNotebookBindingInput = {
+  wordbookAssetId: string;
+  structureAssetId?: string;
+  correctionAssetId?: string;
+};
+
+type UpdateNotebookBindingInput = {
+  wordbookAssetId?: string;
+  structureAssetId?: string | null;
+  correctionAssetId?: string | null;
 };
 
 type ReviewFilters = {
@@ -126,6 +143,101 @@ async function requireOwnedAsset(
   return mapLearningAssetFromRow(data as LearningAssetRow);
 }
 
+async function requireOwnedVocabularyAssetByIdentifier(
+  admin: SupabaseClient,
+  userId: string,
+  identifier: string,
+): Promise<LearningAssetSummary> {
+  try {
+    return await requireOwnedAsset(admin, userId, identifier, 'vocabulary_project');
+  } catch (error) {
+    const code = error instanceof Error ? error.message.split(':', 1)[0] : '';
+    if (code !== 'asset_not_found') {
+      throw error;
+    }
+  }
+
+  const { data, error } = await admin
+    .from('learning_assets')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('kind', 'vocabulary_project')
+    .eq('legacy_project_id', identifier)
+    .maybeSingle();
+
+  if (error) throw new Error(`asset_lookup_failed:${error.message}`);
+  if (!data) throw new Error('asset_not_found');
+  return mapLearningAssetFromRow(data as LearningAssetRow);
+}
+
+async function requireOwnedAssetByKind(
+  admin: SupabaseClient,
+  userId: string,
+  assetId: string | undefined,
+  kind: LearningAssetSummary['kind'],
+): Promise<LearningAssetSummary | null> {
+  if (!assetId) return null;
+  return requireOwnedAsset(admin, userId, assetId, kind);
+}
+
+async function fetchCollectionNotebookBinding(
+  admin: SupabaseClient,
+  userId: string,
+  collectionId: string,
+  args: { wordbookAssetId?: string; assetId?: string },
+): Promise<CollectionNotebookBinding | null> {
+  await requireOwnedCollection(admin, userId, collectionId);
+
+  let query = admin
+    .from('collection_notebook_bindings')
+    .select('*')
+    .eq('collection_id', collectionId);
+
+  if (args.wordbookAssetId) {
+    query = query.eq('wordbook_asset_id', args.wordbookAssetId);
+  } else if (args.assetId) {
+    query = query.or(
+      `wordbook_asset_id.eq.${args.assetId},structure_asset_id.eq.${args.assetId},correction_asset_id.eq.${args.assetId}`,
+    );
+  } else {
+    throw new Error('notebook_binding_lookup_missing_key');
+  }
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw new Error(`notebook_binding_lookup_failed:${error.message}`);
+  if (!data) return null;
+  return mapCollectionNotebookBindingFromRow(data as CollectionNotebookBindingRow);
+}
+
+async function upsertCollectionNotebookBindingInternal(
+  admin: SupabaseClient,
+  userId: string,
+  collectionId: string,
+  input: CreateNotebookBindingInput,
+): Promise<CollectionNotebookBinding> {
+  await requireOwnedCollection(admin, userId, collectionId);
+  await requireOwnedAsset(admin, userId, input.wordbookAssetId, 'vocabulary_project');
+  await requireOwnedAssetByKind(admin, userId, input.structureAssetId, 'structure_document');
+  await requireOwnedAssetByKind(admin, userId, input.correctionAssetId, 'correction_document');
+  const existing = await fetchCollectionNotebookBinding(admin, userId, collectionId, {
+    wordbookAssetId: input.wordbookAssetId,
+  });
+
+  const { data, error } = await admin
+    .from('collection_notebook_bindings')
+    .upsert({
+      collection_id: collectionId,
+      wordbook_asset_id: input.wordbookAssetId,
+      structure_asset_id: input.structureAssetId ?? existing?.structureAssetId ?? null,
+      correction_asset_id: input.correctionAssetId ?? existing?.correctionAssetId ?? null,
+    }, { onConflict: 'collection_id,wordbook_asset_id' })
+    .select('*')
+    .single();
+
+  if (error) throw new Error(`notebook_binding_upsert_failed:${error.message}`);
+  return mapCollectionNotebookBindingFromRow(data as CollectionNotebookBindingRow);
+}
+
 async function getNextCollectionSortOrder(admin: SupabaseClient, collectionId: string): Promise<number> {
   const { data, error } = await admin
     .from('collection_items')
@@ -157,6 +269,52 @@ async function addAssetToCollectionInternal(
     }, { onConflict: 'collection_id,asset_id' });
 
   if (error) throw new Error(`collection_items_upsert_failed:${error.message}`);
+}
+
+async function updateCollectionNotebookBindingInternal(
+  admin: SupabaseClient,
+  userId: string,
+  collectionId: string,
+  bindingId: string,
+  input: UpdateNotebookBindingInput,
+): Promise<CollectionNotebookBinding> {
+  await requireOwnedCollection(admin, userId, collectionId);
+
+  const { data: existingRow, error: existingError } = await admin
+    .from('collection_notebook_bindings')
+    .select('*')
+    .eq('id', bindingId)
+    .eq('collection_id', collectionId)
+    .maybeSingle();
+
+  if (existingError) throw new Error(`notebook_binding_lookup_failed:${existingError.message}`);
+  if (!existingRow) throw new Error('notebook_binding_not_found');
+
+  const nextWordbookAssetId = input.wordbookAssetId ?? existingRow.wordbook_asset_id;
+  await requireOwnedAsset(admin, userId, nextWordbookAssetId, 'vocabulary_project');
+  await requireOwnedAssetByKind(admin, userId, input.structureAssetId ?? undefined, 'structure_document');
+  await requireOwnedAssetByKind(admin, userId, input.correctionAssetId ?? undefined, 'correction_document');
+
+  const payload: Record<string, string | null> = {
+    wordbook_asset_id: nextWordbookAssetId,
+  };
+  if ('structureAssetId' in input) {
+    payload.structure_asset_id = input.structureAssetId ?? null;
+  }
+  if ('correctionAssetId' in input) {
+    payload.correction_asset_id = input.correctionAssetId ?? null;
+  }
+
+  const { data, error } = await admin
+    .from('collection_notebook_bindings')
+    .update(payload)
+    .eq('id', bindingId)
+    .eq('collection_id', collectionId)
+    .select('*')
+    .single();
+
+  if (error) throw new Error(`notebook_binding_update_failed:${error.message}`);
+  return mapCollectionNotebookBindingFromRow(data as CollectionNotebookBindingRow);
 }
 
 async function fetchStructureDocument(admin: SupabaseClient, assetId: string): Promise<StructureDocument> {
@@ -425,13 +583,44 @@ export async function addAssetToCollectionForUser(
   await addAssetToCollectionInternal(admin, userId, collectionId, assetId);
 }
 
+export async function getCollectionNotebookBindingForUser(
+  userId: string,
+  collectionId: string,
+  args: { wordbookAssetId?: string; assetId?: string },
+  deps?: AdminDeps,
+): Promise<CollectionNotebookBinding | null> {
+  const admin = getAdminClient(deps);
+  return fetchCollectionNotebookBinding(admin, userId, collectionId, args);
+}
+
+export async function createCollectionNotebookBindingForUser(
+  userId: string,
+  collectionId: string,
+  input: CreateNotebookBindingInput,
+  deps?: AdminDeps,
+): Promise<CollectionNotebookBinding> {
+  const admin = getAdminClient(deps);
+  return upsertCollectionNotebookBindingInternal(admin, userId, collectionId, input);
+}
+
+export async function updateCollectionNotebookBindingForUser(
+  userId: string,
+  collectionId: string,
+  bindingId: string,
+  input: UpdateNotebookBindingInput,
+  deps?: AdminDeps,
+): Promise<CollectionNotebookBinding> {
+  const admin = getAdminClient(deps);
+  return updateCollectionNotebookBindingInternal(admin, userId, collectionId, bindingId, input);
+}
+
 export async function getVocabularyAssetForUser(
   userId: string,
-  assetId: string,
+  identifier: string,
   deps?: AdminDeps,
 ): Promise<VocabularyAssetResult> {
   const admin = getAdminClient(deps);
-  const asset = await requireOwnedAsset(admin, userId, assetId, 'vocabulary_project');
+  const asset = await requireOwnedVocabularyAssetByIdentifier(admin, userId, identifier);
 
   if (!asset.legacyProjectId) {
     throw new Error('vocabulary_asset_project_missing');
@@ -495,6 +684,9 @@ export async function createStructureDocumentForUser(
   deps?: AdminDeps,
 ): Promise<StructureDocumentResult> {
   const admin = getAdminClient(deps);
+  if (input.wordbookAssetId && !input.collectionId) {
+    throw new Error('notebook_binding_requires_collection');
+  }
   const analysis = await analyzeStructureText(input.text);
 
   const { data: assetRow, error: assetError } = await admin
@@ -532,6 +724,12 @@ export async function createStructureDocumentForUser(
   if (documentError) throw new Error(`structure_document_insert_failed:${documentError.message}`);
   if (input.collectionId) {
     await addAssetToCollectionInternal(admin, userId, input.collectionId, asset.id);
+    if (input.wordbookAssetId) {
+      await upsertCollectionNotebookBindingInternal(admin, userId, input.collectionId, {
+        wordbookAssetId: input.wordbookAssetId,
+        structureAssetId: asset.id,
+      });
+    }
   }
 
   return {
@@ -598,6 +796,9 @@ export async function createCorrectionDocumentForUser(
   deps?: AdminDeps,
 ): Promise<CorrectionDocumentResult> {
   const admin = getAdminClient(deps);
+  if (input.wordbookAssetId && !input.collectionId) {
+    throw new Error('notebook_binding_requires_collection');
+  }
   const analysis = await analyzeCorrectionText(input.text);
 
   const { data: assetRow, error: assetError } = await admin
@@ -688,6 +889,12 @@ export async function createCorrectionDocumentForUser(
 
   if (input.collectionId) {
     await addAssetToCollectionInternal(admin, userId, input.collectionId, asset.id);
+    if (input.wordbookAssetId) {
+      await upsertCollectionNotebookBindingInternal(admin, userId, input.collectionId, {
+        wordbookAssetId: input.wordbookAssetId,
+        correctionAssetId: asset.id,
+      });
+    }
   }
 
   return {

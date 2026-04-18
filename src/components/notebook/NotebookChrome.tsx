@@ -14,6 +14,7 @@ type NotebookHeaderAction = {
   onClick?: () => void;
   href?: string;
   active?: boolean;
+  outlined?: boolean;
 };
 
 type NotebookActionStripItem = {
@@ -35,15 +36,9 @@ type NotebookChromeProps = {
   actionStripItems?: NotebookActionStripItem[];
   headerActions?: NotebookHeaderAction[];
   backHref?: string;
+  showFab?: boolean;
   children: ReactNode;
 };
-
-const APP_TABS = [
-  { id: 'home', icon: 'home', label: 'ホーム', href: '/' },
-  { id: 'notes', icon: 'menu_book', label: 'ノート', href: '/collections' },
-  { id: 'stats', icon: 'bar_chart', label: '進歩', href: '/stats' },
-  { id: 'me', icon: 'person', label: '自分', href: '/settings' },
-] as const;
 
 function NotebookComposerModal({
   collectionId,
@@ -138,50 +133,26 @@ function NotebookComposerModal({
   );
 }
 
-function NotebookBottomTabs() {
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--notebook-rule)] bg-white/95 px-3 pt-2 backdrop-blur notebook-sans">
-      <div className="mx-auto grid max-w-[420px] grid-cols-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-        {APP_TABS.map((item) => (
-          <Link
-            key={item.id}
-            href={item.href}
-            className={cn(
-              'notebook-press flex flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold',
-              item.id === 'notes' ? 'text-[var(--notebook-ink)]' : 'text-[var(--notebook-muted)]',
-            )}
-          >
-            <Icon name={item.icon} size={22} filled={item.id === 'notes'} />
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
 function NotebookActionStrip({ items }: { items: NotebookActionStripItem[] }) {
   return (
-    <div className="mt-1 mb-3 grid grid-cols-3 gap-2 px-5 notebook-sans">
+    <div className="mt-2 mb-3 grid grid-cols-3 gap-2 px-4 notebook-sans">
       {items.map((item) => {
         const content = (
           <>
-            <div className="flex h-11 w-11 items-center justify-center rounded-[2px] bg-[var(--notebook-ink)] text-white">
-              <Icon name={item.icon} size={18} />
-            </div>
-            <div>
-              <div className="text-[12px] font-semibold leading-tight text-[var(--notebook-ink)]">{item.label}</div>
-              {item.sub && <div className="mt-0.5 text-[9.5px] text-[var(--notebook-muted)]">{item.sub}</div>}
+            <Icon name={item.icon} size={22} className="text-[var(--notebook-ink)]" />
+            <div className="pt-1">
+              <div className="text-[14px] font-bold leading-[1.12] tracking-tight text-[var(--notebook-ink)]">{item.label}</div>
+              {item.sub && <div className="mt-2 text-[11px] font-medium text-[var(--notebook-muted)]">{item.sub}</div>}
             </div>
             {item.badge && (
-              <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
+              <span className="absolute top-3 right-3 text-[11px] font-bold text-[#c58743]">
                 {item.badge}
               </span>
             )}
           </>
         );
 
-        const className = 'notebook-press relative flex min-h-[76px] flex-col items-start justify-between rounded-[4px] border border-[var(--notebook-rule)] bg-white p-3 text-left hover:border-[var(--notebook-ink)]';
+        const className = 'notebook-press relative flex min-h-[124px] flex-col items-start rounded-[2px] border border-[#ddd2c3] bg-white p-3 text-left';
 
         if (item.href) {
           return (
@@ -211,6 +182,7 @@ export function NotebookChrome({
   actionStripItems,
   headerActions = [],
   backHref = `/collections/${collectionId}`,
+  showFab = true,
   children,
 }: NotebookChromeProps) {
   const [composerOpen, setComposerOpen] = useState(false);
@@ -219,11 +191,11 @@ export function NotebookChrome({
     <>
       <div className="flex min-h-screen flex-col bg-white pb-28">
         <header className="sticky top-0 z-30 border-b border-[var(--notebook-rule)] bg-white/95 backdrop-blur">
-          <div className="mx-auto max-w-[420px] px-4 pb-3 pt-2">
+          <div className="mx-auto max-w-[420px] px-4 pb-3 pt-5">
             <div className="flex items-center justify-between">
               <Link
                 href={backHref}
-                className="notebook-press flex h-9 w-9 items-center justify-center rounded-full text-[var(--notebook-ink)] hover:bg-black/5"
+                className="notebook-press flex h-9 w-9 items-center justify-center rounded-full text-[var(--notebook-ink)]"
                 aria-label="戻る"
               >
                 <Icon name="arrow_back_ios_new" size={16} />
@@ -231,10 +203,9 @@ export function NotebookChrome({
               <div className="flex items-center gap-0.5">
                 {headerActions.map((action) => {
                   const className = cn(
-                    'notebook-press flex h-9 w-9 items-center justify-center rounded-full',
-                    action.active
-                      ? 'bg-[var(--notebook-ink)] text-white'
-                      : 'text-[var(--notebook-ink)] hover:bg-black/5',
+                    'notebook-press flex h-9 w-9 items-center justify-center rounded-full text-[var(--notebook-ink)]',
+                    action.outlined && 'border-[3px] border-[#1662d9]',
+                    action.active && !action.outlined && 'bg-[var(--notebook-ink)] text-white',
                   );
 
                   if (action.href) {
@@ -254,7 +225,7 @@ export function NotebookChrome({
               </div>
             </div>
 
-            <div className="mt-2 px-1">
+            <div className="mt-5 px-1">
               {subtitle && <div className="notebook-top-sub">{subtitle}</div>}
               <h1 className="notebook-title mt-1">{title}</h1>
             </div>
@@ -271,18 +242,19 @@ export function NotebookChrome({
           <div className="notebook-screenpad space-y-5">{children}</div>
         </main>
 
-        <button
-          type="button"
-          onClick={() => setComposerOpen(true)}
-          className="notebook-press fixed right-5 bottom-24 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--notebook-ink)] text-white shadow-[0_12px_26px_-8px_rgba(0,0,0,0.45)]"
-          aria-label="追加"
-        >
-          <Icon name="add" size={26} />
-        </button>
+        {showFab && (
+          <button
+            type="button"
+            onClick={() => setComposerOpen(true)}
+            className="notebook-press fixed right-5 bottom-5 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--notebook-ink)] text-white shadow-[0_12px_26px_-8px_rgba(0,0,0,0.45)]"
+            aria-label="追加"
+          >
+            <Icon name="add" size={30} />
+          </button>
+        )}
       </div>
 
-      <NotebookBottomTabs />
-      <NotebookComposerModal collectionId={collectionId} open={composerOpen} onClose={() => setComposerOpen(false)} />
+      {showFab && <NotebookComposerModal collectionId={collectionId} open={composerOpen} onClose={() => setComposerOpen(false)} />}
     </>
   );
 }

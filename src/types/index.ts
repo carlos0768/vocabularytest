@@ -52,6 +52,7 @@ export type {
   LearningAssetSummary,
   VocabularyProjectPreview,
   CollectionItemSummary,
+  CollectionNotebookBinding,
   StructureSourceType,
   StructureNode,
   StructureAnalysisNote,

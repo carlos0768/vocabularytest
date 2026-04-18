@@ -1,17 +1,36 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { ScanModeModal } from '@/components/home/ScanModeModal';
-import { NotebookAuthRequiredState, NotebookChrome, NotebookCard, NotebookErrorState, NotebookLoadingState } from '@/components/notebook';
-import { Icon, useToast } from '@/components/ui';
+import { MerkenPlusModal, type MerkenNotebookScreenId } from '@/components/notebook/MerkenPlusModal';
+import {
+  BottomTabs,
+  Fab,
+  FolderCrumb,
+  HeaderStrip,
+  MerkenIcon,
+  StatusBar,
+  TopNav,
+} from '@/components/notebook/merken-primitives';
+import {
+  NotebookAuthRequiredState,
+  NotebookErrorState,
+  NotebookLoadingState,
+} from '@/components/notebook/NotebookPageState';
 import { useAuth } from '@/hooks/use-auth';
 import { requestJson } from '@/hooks/api-client';
 import { useCollectionItems } from '@/hooks/use-collection-items';
+import { useNotebookBinding } from '@/hooks/use-notebook-binding';
 import { useVocabularyAsset } from '@/hooks/use-vocabulary-assets';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
+import {
+  getNotebookCreateHref,
+  getProjectNotebookCreateHref,
+  getStandaloneWordbookHref,
+} from '@/lib/notebook';
 import { cn } from '@/lib/utils';
 
 type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom';
@@ -47,14 +66,20 @@ type GenerateExamplesResponse = {
   message: string;
 };
 
+type FlashcardProgress = {
+  wordIds: string[];
+  currentIndex: number;
+  savedAt: number;
+};
+
 function getVocabularyBadge(value: 'active' | 'passive' | null | undefined) {
   return value === 'active'
-    ? { label: 'A', className: 'bg-emerald-100 text-emerald-700' }
-    : { label: 'P', className: 'bg-amber-100 text-amber-700' };
+    ? { label: 'A', className: 'bg-moss/15 text-[#3b4632]' }
+    : { label: 'P', className: 'bg-ochre/20 text-[#805724]' };
 }
 
 function formatPos(word: { partOfSpeechTags?: string[] }) {
-  return word.partOfSpeechTags?.[0] ?? '—';
+  return (word.partOfSpeechTags?.[0] ?? '—').toUpperCase();
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -73,23 +98,81 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+function getSavedQuizAccuracy(projectId: string): number | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  try {
+    const raw = window.localStorage.getItem(`quiz_last_accuracy_${projectId}`);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { percentage?: unknown };
+    return typeof parsed.percentage === 'number' ? parsed.percentage : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function getSavedFlashcardProgress(projectId: string): FlashcardProgress | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  try {
+    const raw = window.localStorage.getItem(`flashcard_progress_${projectId}`);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as FlashcardProgress;
+    if (!Array.isArray(parsed.wordIds) || typeof parsed.currentIndex !== 'number') return undefined;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function fallbackExampleSentence(word: string) {
+  return `She continued to ${word} through every setback the project threw her way.`;
+}
+
+function resolveBottomTabHref(id: 'home' | 'notes' | 'stats' | 'me', collectionId?: string) {
+  switch (id) {
+    case 'home':
+      return '/';
+    case 'stats':
+      return '/stats';
+    case 'me':
+      return '/settings';
+    case 'notes':
+    default:
+      return collectionId ? `/collections/${collectionId}/notes` : '/projects';
+  }
+}
+
 export function NotebookWordbookPage({
   collectionId,
   assetId,
 }: {
-  collectionId: string;
+  collectionId?: string;
   assetId: string;
 }) {
   const router = useRouter();
   const { user, isPro, loading: authLoading } = useAuth();
-  const { showToast } = useToast();
-  const { items, loading: itemsLoading, error: itemsError } = useCollectionItems(collectionId);
-  const { detail, loading, error, refresh } = useVocabularyAsset(assetId);
+  const {
+    items,
+    loading: itemsLoading,
+    error: itemsError,
+  } = useCollectionItems(collectionId);
+  const {
+    detail,
+    loading,
+    error,
+    refresh,
+  } = useVocabularyAsset(assetId);
+  const { binding } = useNotebookBinding(collectionId, {
+    assetId: collectionId && detail ? detail.asset.id : null,
+  });
 
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [openWordId, setOpenWordId] = useState<string | null>(null);
+  const [showPlusModal, setShowPlusModal] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [showScanModeModal, setShowScanModeModal] = useState(false);
   const [selectedScanMode, setSelectedScanMode] = useState<ExtractMode>('all');
   const [selectedEikenLevel, setSelectedEikenLevel] = useState<EikenLevel>(null);
@@ -99,7 +182,16 @@ export function NotebookWordbookPage({
   const [manualWordSaving, setManualWordSaving] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [exampleLoading, setExampleLoading] = useState(false);
+  const [lastQuizAccuracy, setLastQuizAccuracy] = useState<number | undefined>(undefined);
+  const [flashcardReviewedCount, setFlashcardReviewedCount] = useState<number | undefined>(undefined);
   const scanFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!detail) return;
+    setLastQuizAccuracy(getSavedQuizAccuracy(detail.project.id));
+    const savedProgress = getSavedFlashcardProgress(detail.project.id);
+    setFlashcardReviewedCount(savedProgress?.currentIndex);
+  }, [detail]);
 
   const filteredWords = useMemo(() => {
     if (!detail) return [];
@@ -117,6 +209,52 @@ export function NotebookWordbookPage({
     ? detail.words.filter((word) => !word.exampleSentence?.trim()).length
     : 0;
 
+  const reviewedCount = detail
+    ? Math.min(
+      detail.stats.totalWords,
+      flashcardReviewedCount
+      ?? detail.flashcardProgress?.reviewed
+      ?? detail.stats.reviewWords + detail.stats.masteredWords,
+    )
+    : 0;
+
+  const wordbookAssetId = detail?.asset.id;
+
+  const resolveScreenHref = (screen: MerkenNotebookScreenId) => {
+    if (!detail) return '/collections';
+
+    if (!collectionId) {
+      if (screen === 'wordbook') {
+        return getStandaloneWordbookHref(detail.project.id);
+      }
+      if (screen === 'structure') {
+        return getProjectNotebookCreateHref(detail.project.id, 'structure_document');
+      }
+      return getProjectNotebookCreateHref(detail.project.id, 'correction_document');
+    }
+
+    const boundWordbookAssetId = binding?.wordbookAssetId ?? wordbookAssetId;
+    if (screen === 'wordbook') {
+      return boundWordbookAssetId
+        ? `/collections/${collectionId}/notes/wordbook/${boundWordbookAssetId}`
+        : getNotebookCreateHref(collectionId, 'vocabulary_project');
+    }
+
+    if (screen === 'structure') {
+      return binding?.structureAssetId
+        ? `/collections/${collectionId}/notes/structure/${binding.structureAssetId}`
+        : getNotebookCreateHref(collectionId, 'structure_document', {
+          wordbookAssetId: boundWordbookAssetId,
+        });
+    }
+
+    return binding?.correctionAssetId
+      ? `/collections/${collectionId}/notes/correction/${binding.correctionAssetId}`
+      : getNotebookCreateHref(collectionId, 'correction_document', {
+        wordbookAssetId: boundWordbookAssetId,
+      });
+  };
+
   const handleGenerateExamples = async () => {
     if (!detail || exampleLoading) return;
 
@@ -129,16 +267,10 @@ export function NotebookWordbookPage({
         },
         body: JSON.stringify({ projectId: detail.project.id }),
       });
-      showToast({
-        message: payload.message || `${payload.generated}件の例文を生成しました`,
-        type: 'success',
-      });
+      window.alert(payload.message || `${payload.generated}件の例文を生成しました`);
       await refresh();
     } catch (requestError) {
-      showToast({
-        message: requestError instanceof Error ? requestError.message : '例文生成に失敗しました。',
-        type: 'error',
-      });
+      window.alert(requestError instanceof Error ? requestError.message : '例文生成に失敗しました。');
     } finally {
       setExampleLoading(false);
     }
@@ -168,13 +300,9 @@ export function NotebookWordbookPage({
       setManualWordEnglish('');
       setManualWordJapanese('');
       setShowManualWordModal(false);
-      showToast({ message: '単語を追加しました', type: 'success' });
       await refresh();
     } catch (requestError) {
-      showToast({
-        message: requestError instanceof Error ? requestError.message : '単語の追加に失敗しました。',
-        type: 'error',
-      });
+      window.alert(requestError instanceof Error ? requestError.message : '単語の追加に失敗しました。');
     } finally {
       setManualWordSaving(false);
     }
@@ -235,7 +363,7 @@ export function NotebookWordbookPage({
       );
 
       if (uniqueWords.length === 0) {
-        showToast({ message: '追加できる単語が見つかりませんでした', type: 'error' });
+        window.alert('追加できる単語が見つかりませんでした');
         return;
       }
 
@@ -260,19 +388,15 @@ export function NotebookWordbookPage({
         }),
       });
 
-      showToast({ message: `${uniqueWords.length}語を追加しました`, type: 'success' });
       await refresh();
     } catch (requestError) {
-      showToast({
-        message: requestError instanceof Error ? requestError.message : 'スキャン追加に失敗しました。',
-        type: 'error',
-      });
+      window.alert(requestError instanceof Error ? requestError.message : 'スキャン追加に失敗しました。');
     } finally {
       setScanLoading(false);
     }
   };
 
-  if (authLoading || loading || itemsLoading) {
+  if (authLoading || loading || (collectionId && itemsLoading)) {
     return <NotebookLoadingState />;
   }
 
@@ -288,10 +412,10 @@ export function NotebookWordbookPage({
           message={error || itemsError || '指定した単語帳アセットが見つかりません。'}
           action={
             <Link
-              href={`/collections/${collectionId}/notes`}
+              href={collectionId ? `/collections/${collectionId}/notes` : '/projects'}
               className="inline-flex items-center justify-center rounded-xl bg-[var(--color-foreground)] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
             >
-              ノート一覧へ戻る
+              戻る
             </Link>
           }
         />
@@ -301,173 +425,234 @@ export function NotebookWordbookPage({
 
   return (
     <>
-      <NotebookChrome
-        collectionId={collectionId}
-        currentKind="vocabulary_project"
-        items={items}
-        title={detail.project.title}
-        subtitle="ノート · 単語"
-        crumbLabel="単語帳"
-        backHref={`/collections/${collectionId}/notes`}
-        actionStripItems={[
-          {
-            icon: 'style',
-            label: 'フラッシュカード',
-            sub: `${detail.stats.masteredWords} / ${detail.stats.totalWords} 語`,
-            badge: '今日',
-            href: `/flashcard/${detail.project.id}`,
-          },
-          {
-            icon: 'quiz',
-            label: '4択クイズ',
-            sub: `${detail.stats.reviewWords + detail.stats.newWords} 語`,
-            href: `/quiz/${detail.project.id}`,
-          },
-          {
-            icon: 'add_circle_outline',
-            label: '単語を追加',
-            sub: '撮影 / 手動 / 生成',
-            onClick: () => setShowAddSheet(true),
-          },
-        ]}
-        headerActions={[
-          {
-            icon: 'search',
-            label: '検索',
-            onClick: () => setSearchOpen((current) => !current),
-            active: searchOpen,
-          },
-          {
-            icon: exampleLoading ? 'progress_activity' : 'more_horiz',
-            label: 'その他',
-            onClick: handleGenerateExamples,
-          },
-        ]}
-      >
-        {searchOpen && (
-          <NotebookCard>
-            <label className="relative block">
-              <Icon name="search" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--notebook-muted)]" />
-              <input
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="単語または意味で検索"
-                className="notebook-sans w-full rounded-[4px] border border-[var(--notebook-rule)] bg-white py-3 pl-10 pr-4 text-sm text-[var(--notebook-ink)] outline-none transition focus:border-[var(--notebook-ink)]"
-              />
-            </label>
-          </NotebookCard>
-        )}
+      <div className="flex min-h-screen flex-col bg-white">
+        <div className="mx-auto flex h-screen w-full max-w-[420px] flex-col overflow-hidden bg-white relative">
+          <StatusBar />
 
-        <div className="flex items-center gap-2 notebook-sans">
-          <div className="notebook-chip">{detail.stats.totalWords} 語</div>
-          <div className="text-[11px] text-[var(--notebook-muted)]">
-            例文あり {detail.stats.exampleCount} 語 / 未生成 {missingExamplesCount} 語
-          </div>
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={handleGenerateExamples}
-            disabled={exampleLoading}
-            className="notebook-press rounded-[4px] border border-[var(--notebook-rule)] px-2.5 py-1 text-[11px] font-semibold text-[var(--notebook-muted)] disabled:opacity-50"
-          >
-            {exampleLoading ? '生成中...' : '例文を生成'}
-          </button>
-        </div>
-
-        <section className="notebook-sans">
-          <div className="mb-1 flex items-center gap-3 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
-            <div className="w-[96px]">単語</div>
-            <div className="w-6 text-center">区分</div>
-            <div className="w-9">品詞</div>
-            <div className="flex-1">意味</div>
-          </div>
-
-          <div className="border-t border-[var(--notebook-rule)]">
-            {filteredWords.length === 0 ? (
-              <div className="py-6 text-center text-sm text-[var(--notebook-muted)]">
-                該当する単語がありません。
-              </div>
-            ) : (
-              filteredWords.map((word, index) => {
-                const badge = getVocabularyBadge(word.vocabularyType);
-                const isOpen = openWordId === word.id;
-
-                return (
-                  <div key={word.id} className={cn('border-b border-[var(--notebook-rule)] py-2.5', index === 0 && 'animate-fade-in-up')}>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setOpenWordId(isOpen ? null : word.id)}
-                        className="notebook-press w-[96px] text-left text-[15px] font-medium tracking-tight text-[var(--notebook-ink)]"
-                      >
-                        {word.english}
-                      </button>
-
-                      <div className={cn('flex h-6 w-6 items-center justify-center text-[10px] font-bold', badge.className)} style={{ borderRadius: 2 }}>
-                        {badge.label}
-                      </div>
-
-                      <div className="w-9 text-[10px] uppercase tracking-[0.08em] text-[var(--notebook-muted)]">
-                        {formatPos(word)}
-                      </div>
-
-                      <div className="flex-1 truncate text-[13px] text-[var(--notebook-ink)]">
-                        {word.japanese}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setOpenWordId(isOpen ? null : word.id)}
-                        className="notebook-press -mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[var(--notebook-muted)] hover:bg-black/5"
-                        aria-label={isOpen ? '閉じる' : '例文を開く'}
-                      >
-                        <Icon name="more_vert" size={16} />
-                      </button>
-                    </div>
-
-                    {isOpen && (
-                      <div className="animate-fade-in-up pl-8 pr-2 pt-3">
-                        <div className="notebook-soft-card p-3">
-                          <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">
-                            例文
-                          </div>
-                          <div className="text-[13.5px] leading-relaxed text-[var(--notebook-ink)]">
-                            {word.exampleSentence?.trim() || 'まだ例文はありません。例文を生成から不足分を作れます。'}
-                          </div>
-                          {word.exampleSentenceJa?.trim() && (
-                            <div className="mt-2 text-[12px] leading-relaxed text-[var(--notebook-muted)]">
-                              {word.exampleSentenceJa}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+          <div className="relative">
+            <TopNav
+              variant="swiss"
+              onBack={() => router.push(collectionId ? `/collections/${collectionId}/notes` : '/projects')}
+              sub="ノート · 単語"
+              title={detail.project.title}
+              trailing={(
+                <>
+                  <button
+                    className="press flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5"
+                    onClick={() => setSearchOpen((current) => !current)}
+                  >
+                    <MerkenIcon name="search" size={18} />
+                  </button>
+                  <button
+                    className={cn(
+                      'press flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5',
+                      showMenu && 'border-[3px] border-[#1662d9]',
                     )}
-                  </div>
-                );
-              })
+                    onClick={() => setShowMenu((current) => !current)}
+                  >
+                    <MerkenIcon name="more_horiz" size={18} />
+                  </button>
+                </>
+              )}
+            />
+
+            {showMenu && (
+              <div className="absolute right-4 top-16 z-40 w-44 border border-bd bg-white p-1 shadow-[0_14px_24px_-12px_rgba(0,0,0,0.3)]" style={{ borderRadius: 4 }}>
+                <button
+                  className="press flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-semibold hover:bg-black/5"
+                  onClick={() => {
+                    setShowMenu(false);
+                    void handleGenerateExamples();
+                  }}
+                >
+                  <MerkenIcon name={exampleLoading ? 'progress_activity' : 'auto_awesome'} size={16} />
+                  例文を生成
+                </button>
+                <button
+                  className="press flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-semibold hover:bg-black/5"
+                  onClick={() => {
+                    setShowMenu(false);
+                    router.push(`/project/${detail.project.id}/manage`);
+                  }}
+                >
+                  <MerkenIcon name="settings" size={16} />
+                  管理を開く
+                </button>
+              </div>
             )}
           </div>
-        </section>
 
-        <section className="notebook-sans">
-          <div className="mb-2 mt-4 flex items-center gap-2">
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--notebook-muted)]">熟語</div>
-            <div className="h-px flex-1 bg-[var(--notebook-rule)]" />
-          </div>
-          {detail.idioms.length === 0 ? (
-            <div className="text-sm text-[var(--notebook-muted)]">この単語帳には熟語項目がまだありません。</div>
-          ) : (
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              {detail.idioms.map((idiom) => (
-                <span key={idiom} className="notebook-highlight notebook-highlight-idiom text-[12px] text-[#9d1a5b]">
-                  {idiom}
-                </span>
-              ))}
+          <FolderCrumb
+            variant="swiss"
+            path={collectionId ? ['フォルダ', '単語帳'] : ['ノート', '単語帳']}
+          />
+
+          {searchOpen && (
+            <div className="px-5 pt-3">
+              <label className="relative block">
+                <MerkenIcon
+                  name="search"
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="単語または意味で検索"
+                  className="w-full border border-bd bg-white py-3 pl-10 pr-4 text-sm outline-none"
+                  style={{ borderRadius: 2 }}
+                />
+              </label>
             </div>
           )}
-        </section>
-      </NotebookChrome>
+
+          <HeaderStrip
+            variant="swiss"
+            items={[
+              {
+                icon: 'style',
+                label: 'フラッシュカード',
+                sub: `${reviewedCount} / ${detail.stats.totalWords} 語`,
+                badge: '今日',
+                onClick: () => router.push(`/flashcard/${detail.project.id}?from=${encodeURIComponent(window.location.pathname)}`),
+              },
+              {
+                icon: 'quiz',
+                label: '4択クイズ',
+                sub: lastQuizAccuracy !== undefined ? `前回 ${lastQuizAccuracy}%` : '前回 --',
+                onClick: () => router.push(`/quiz/${detail.project.id}?from=${encodeURIComponent(window.location.pathname)}`),
+              },
+              {
+                icon: 'add_circle_outline',
+                label: '単語を追加',
+                sub: '撮影 / 手動 / 生成',
+                onClick: () => setShowAddSheet(true),
+              },
+            ]}
+          />
+
+          <div className="screenpad no-sb pb-[120px]">
+            <div
+              className="mb-1 flex items-center gap-3 px-1 text-[10px] text-muted uppercase tracking-[.14em] font-semibold"
+              style={{ fontFamily: '"Inter Tight"' }}
+            >
+              <div className="w-[96px]">単語</div>
+              <div className="w-6 text-center">区分</div>
+              <div className="w-9">品詞</div>
+              <div className="flex-1">意味</div>
+            </div>
+
+            <div className="border-t border-bd">
+              {filteredWords.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted">該当する単語がありません。</div>
+              ) : (
+                filteredWords.map((word, index) => {
+                  const isOpen = openWordId === word.id;
+                  const badge = getVocabularyBadge(word.vocabularyType);
+
+                  return (
+                    <div key={word.id}>
+                      <div
+                        className={cn('a-fadeup flex items-center gap-3 border-b border-bd py-2.5')}
+                        style={{ animationDelay: `${index * 40}ms` }}
+                      >
+                        <button
+                          onClick={() => setOpenWordId(isOpen ? null : word.id)}
+                          className="press w-[96px] text-left font-sans text-[15px] font-medium tracking-tight"
+                        >
+                          {word.english}
+                        </button>
+
+                        <div
+                          className={cn('flex h-6 w-6 items-center justify-center text-[10px] font-bold', badge.className)}
+                          style={{ borderRadius: 2, fontFamily: '"Inter Tight"' }}
+                        >
+                          {badge.label}
+                        </div>
+
+                        <div
+                          className="w-9 text-[10px] uppercase tracking-wider text-muted"
+                          style={{ fontFamily: '"Inter Tight"' }}
+                        >
+                          {formatPos(word)}
+                        </div>
+
+                        <div className="flex-1 truncate text-[13px] text-ink2">{word.japanese}</div>
+
+                        <button
+                          className="press -mr-1 flex h-7 w-7 items-center justify-center rounded-full hover:bg-black/5"
+                          onClick={() => setOpenWordId(isOpen ? null : word.id)}
+                        >
+                          <MerkenIcon name="more_vert" size={16} className="text-muted" />
+                        </button>
+                      </div>
+
+                      {isOpen && (
+                        <div className="a-fadeup pl-8 pr-2 py-3" style={{ animationDuration: '380ms' }}>
+                          <div className="border border-bd bg-[#f7f7f4] p-3" style={{ borderRadius: 3 }}>
+                            <div
+                              className="mb-1 text-[10px] uppercase tracking-[.14em] text-muted font-bold"
+                              style={{ fontFamily: '"Inter Tight"' }}
+                            >
+                              例文
+                            </div>
+                            <div className="text-[13.5px] leading-relaxed">
+                              {word.exampleSentence?.trim() ? (
+                                word.exampleSentence
+                              ) : (
+                                <>
+                                  She continued to <span className="hl">{word.english}</span> through every setback the
+                                  project threw her way.
+                                </>
+                              )}
+                            </div>
+                            {word.exampleSentenceJa?.trim() && (
+                              <div className="mt-2 text-[12px] leading-relaxed text-muted">{word.exampleSentenceJa}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+
+              <div className="mb-2 mt-4 flex items-center gap-2">
+                <div className="text-[10px] text-muted" style={{ fontFamily: '"Inter Tight"', fontWeight: 700, letterSpacing: '.14em' }}>
+                  熟語
+                </div>
+                <div className="h-px flex-1 bg-rule" />
+              </div>
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {detail.idioms.length === 0 ? (
+                  <span className="text-[12px] text-muted">熟語はまだありません。</span>
+                ) : (
+                  detail.idioms.map((idiom) => (
+                    <span key={idiom} className="text-[12px] px-2.5 py-1 bg-[#ec489915] text-[#9d1a5b]" style={{ borderRadius: 2, fontFamily: '"Inter Tight"' }}>
+                      {idiom}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Fab onClick={() => setShowPlusModal(true)} />
+          <BottomTabs
+            active="notes"
+            variant="swiss"
+            onSelect={(id) => router.push(resolveBottomTabHref(id, collectionId))}
+          />
+
+          <MerkenPlusModal
+            open={showPlusModal}
+            onClose={() => setShowPlusModal(false)}
+            onPick={(screen) => router.push(resolveScreenHref(screen))}
+            variant="swiss"
+          />
+        </div>
+      </div>
 
       {showAddSheet && (
         <div className="fixed inset-0 z-[70]" onClick={() => setShowAddSheet(false)}>
@@ -486,7 +671,7 @@ export function NotebookWordbookPage({
                   onClick={() => setShowScanModeModal(true)}
                   className="flex w-full items-center gap-3 rounded-xl bg-[var(--color-surface-secondary)] px-4 py-3.5 text-left text-sm font-semibold text-[var(--color-foreground)] transition hover:opacity-80"
                 >
-                  <Icon name="photo_camera" size={20} />
+                  <MerkenIcon name="photo_camera" size={20} />
                   スキャンで追加
                 </button>
                 <button
@@ -497,8 +682,19 @@ export function NotebookWordbookPage({
                   }}
                   className="flex w-full items-center gap-3 rounded-xl bg-[var(--color-surface-secondary)] px-4 py-3.5 text-left text-sm font-semibold text-[var(--color-foreground)] transition hover:opacity-80"
                 >
-                  <Icon name="edit" size={20} />
+                  <MerkenIcon name="edit" size={20} />
                   手動で追加
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddSheet(false);
+                    void handleGenerateExamples();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl bg-[var(--color-surface-secondary)] px-4 py-3.5 text-left text-sm font-semibold text-[var(--color-foreground)] transition hover:opacity-80"
+                >
+                  <MerkenIcon name="auto_awesome" size={20} />
+                  例文を生成
                 </button>
               </div>
               <button
@@ -550,7 +746,7 @@ export function NotebookWordbookPage({
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-[28px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center shadow-2xl">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
-              <Icon name="progress_activity" size={28} className="animate-spin text-[var(--color-foreground)]" />
+              <MerkenIcon name="progress_activity" size={28} className="animate-spin text-[var(--color-foreground)]" />
             </div>
             <h2 className="mt-4 text-lg font-bold text-[var(--color-foreground)]">スキャン中...</h2>
             <p className="mt-2 text-sm text-[var(--color-muted)]">OCR と単語追加を順番に処理しています。</p>

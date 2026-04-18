@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { NotebookAuthRequiredState, NotebookChrome, NotebookCard, NotebookErrorState, NotebookLoadingState } from '@/components/notebook';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -18,8 +20,25 @@ export function NotebookNotesHomePage({
 }: {
   collectionId: string;
 }) {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { items, loading, error } = useCollectionItems(collectionId);
+
+  useEffect(() => {
+    if (authLoading || loading || error || !user) return;
+
+    const preferredItem =
+      findNotebookItemByKind(items, 'vocabulary_project') ??
+      findNotebookItemByKind(items, 'structure_document') ??
+      findNotebookItemByKind(items, 'correction_document');
+
+    if (preferredItem) {
+      router.replace(getNotebookAssetHref(collectionId, preferredItem));
+      return;
+    }
+
+    router.replace(getNotebookCreateHref(collectionId, 'vocabulary_project'));
+  }, [authLoading, collectionId, error, items, loading, router, user]);
 
   if (authLoading || loading) {
     return <NotebookLoadingState />;

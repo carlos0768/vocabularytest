@@ -17,6 +17,7 @@ import type {
   VocabularyAssetDetail,
   VocabularyProjectPreview,
   CollectionItemSummary,
+  CollectionNotebookBinding,
   LearningAssetKind,
   Project,
   Word,
@@ -60,6 +61,16 @@ export interface CollectionItemRow {
   asset_id: string;
   sort_order: number;
   added_at: string;
+}
+
+export interface CollectionNotebookBindingRow {
+  id: string;
+  collection_id: string;
+  wordbook_asset_id: string;
+  structure_asset_id?: string | null;
+  correction_asset_id?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface VocabularyProjectPreviewRow {
@@ -327,6 +338,20 @@ export function mapCollectionItemSummary(
   };
 }
 
+export function mapCollectionNotebookBindingFromRow(
+  row: CollectionNotebookBindingRow,
+): CollectionNotebookBinding {
+  return {
+    id: row.id,
+    collectionId: row.collection_id,
+    wordbookAssetId: row.wordbook_asset_id,
+    structureAssetId: row.structure_asset_id ?? undefined,
+    correctionAssetId: row.correction_asset_id ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function mapStructureDocumentFromRow(row: StructureDocumentRow): StructureDocument {
   const summaryRecord = parseStructureSummaryRecord(row.analysis_summary_json);
   return {
@@ -394,12 +419,17 @@ export function buildVocabularyAssetDetail(
   words: Word[],
   idioms: string[],
 ): VocabularyAssetDetail {
+  const stats = buildVocabularyAssetStats(words);
   return {
     asset,
     project,
     words,
-    stats: buildVocabularyAssetStats(words),
+    stats,
     idioms,
+    flashcardProgress: {
+      reviewed: stats.reviewWords + stats.masteredWords,
+      total: stats.totalWords,
+    },
   };
 }
 

@@ -18,7 +18,11 @@ const HIDE_BOTTOM_NAV_PATHS = [
 ];
 
 function isNotebookPath(pathname: string): boolean {
-  return /^\/collections\/[^/]+\/notes(?:\/|$)/.test(pathname);
+  return /^\/collections\/[^/]+\/notes(?:\/|$)/.test(pathname)
+    || /^\/project\/[^/]+$/.test(pathname)
+    || /^\/project\/[^/]+\/new(?:\/|$)/.test(pathname)
+    || /^\/structure\/[^/]+(?:\/|$)/.test(pathname)
+    || /^\/correction\/[^/]+(?:\/|$)/.test(pathname);
 }
 
 function shouldHideShell(pathname: string): boolean {

@@ -7,13 +7,15 @@ const authPaths = ['/login', '/signup'];
 
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isHomePath = pathname === '/';
 
-  // Fast path: skip Supabase auth check entirely for paths that don't need it
+  // Fast path: skip Supabase auth check entirely for routes that do not depend on auth state
   const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path));
   const isAuthPath = authPaths.some((path) => pathname.startsWith(path));
+  const shouldCheckSession = isProtectedPath || isAuthPath || isHomePath;
 
-  if (!isProtectedPath && !isAuthPath) {
-    // Home page and other non-auth paths: no need for server-side auth check
+  if (!shouldCheckSession) {
+    // Public routes that do not branch on auth can bypass the session lookup.
     return NextResponse.next({ request });
   }
 
@@ -64,6 +66,12 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (isHomePath && !session) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/lp';
     return NextResponse.redirect(url);
   }
 

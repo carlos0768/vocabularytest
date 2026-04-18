@@ -45,8 +45,10 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export function NotebookCreatePage({
   collectionId,
+  projectId,
 }: {
-  collectionId: string;
+  collectionId?: string;
+  projectId?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +62,7 @@ export function NotebookCreatePage({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedKind = getNotebookKindFromSegment(searchParams.get('kind'));
+  const wordbookAssetId = searchParams.get('wordbookAssetId') ?? undefined;
   const [wordbookModalOpen, setWordbookModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [sourceType, setSourceType] = useState<StructureSourceType>('paste');
@@ -67,13 +70,17 @@ export function NotebookCreatePage({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setWordbookModalOpen(selectedKind === 'vocabulary_project');
-  }, [selectedKind]);
+    setWordbookModalOpen(Boolean(collectionId) && selectedKind === 'vocabulary_project');
+  }, [collectionId, selectedKind]);
 
   const isBusy = vocabularyLoading || structureLoading || correctionLoading || ocrLoading || submitting;
   const pageTitle = selectedKind ? `${getNotebookKindLabel(selectedKind)}を作成` : 'ノートを作成';
 
   const handleWordbookCreate = async (name: string, iconImage?: string) => {
+    if (!collectionId) {
+      showToast({ message: '単語帳の新規作成はフォルダ配下で行ってください。', type: 'error' });
+      return;
+    }
     try {
       const result = await createVocabularyAsset({
         title: name,
@@ -144,6 +151,7 @@ export function NotebookCreatePage({
       const payload = {
         title,
         collectionId,
+        wordbookAssetId: collectionId ? wordbookAssetId : undefined,
         text,
         sourceType,
       };
@@ -156,13 +164,19 @@ export function NotebookCreatePage({
         message: `${getNotebookKindLabel(selectedKind)}を作成しました`,
         type: 'success',
       });
-      router.replace(getNotebookAssetHref(collectionId, {
-        collectionId,
-        assetId: result.asset.id,
-        sortOrder: items.length,
-        addedAt: result.asset.createdAt,
-        asset: result.asset,
-      }));
+      if (collectionId) {
+        router.replace(getNotebookAssetHref(collectionId, {
+          collectionId,
+          assetId: result.asset.id,
+          sortOrder: items.length,
+          addedAt: result.asset.createdAt,
+          asset: result.asset,
+        }));
+      } else if (selectedKind === 'structure_document') {
+        router.replace(`/structure/${result.asset.id}`);
+      } else {
+        router.replace(`/correction/${result.asset.id}`);
+      }
     } catch (requestError) {
       showToast({
         message: requestError instanceof Error ? requestError.message : '作成に失敗しました。',
@@ -197,7 +211,7 @@ export function NotebookCreatePage({
     [],
   );
 
-  if (authLoading || itemsLoading) {
+  if (authLoading || (collectionId && itemsLoading)) {
     return <NotebookLoadingState />;
   }
 
@@ -205,7 +219,7 @@ export function NotebookCreatePage({
     return <NotebookAuthRequiredState />;
   }
 
-  if (itemsError) {
+  if (collectionId && itemsError) {
     return (
       <div className="mx-auto max-w-xl px-4 py-6">
         <NotebookErrorState
@@ -227,13 +241,14 @@ export function NotebookCreatePage({
   return (
     <>
       <NotebookChrome
-        collectionId={collectionId}
+        collectionId={collectionId ?? 'standalone'}
         items={items}
         title={pageTitle}
         subtitle="ノート · 新規作成"
         crumbLabel="新規作成"
         currentKind={selectedKind ?? undefined}
-        backHref={`/collections/${collectionId}/notes`}
+        backHref={collectionId ? `/collections/${collectionId}/notes` : projectId ? `/project/${projectId}` : '/projects'}
+        showFab={false}
       >
         {!selectedKind ? (
           <NotebookCard title="種類を選択" subtitle="作りたい面を選んでください">
@@ -241,7 +256,13 @@ export function NotebookCreatePage({
               {modeCards.map((card) => (
                 <Link
                   key={card.kind}
-                  href={getNotebookCreateHref(collectionId, card.kind)}
+                  href={
+                    collectionId
+                      ? getNotebookCreateHref(collectionId, card.kind)
+                      : card.kind === 'vocabulary_project'
+                        ? (projectId ? `/project/${projectId}` : '/projects')
+                        : `/project/${projectId}/new?kind=${card.kind === 'structure_document' ? 'structure' : 'correction'}`
+                  }
                   className="flex items-start gap-4 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-4 transition hover:border-[var(--color-foreground)]"
                 >
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-foreground)] text-white">
@@ -259,7 +280,9 @@ export function NotebookCreatePage({
         ) : selectedKind === 'vocabulary_project' ? (
           <NotebookCard title="単語帳を作成中" subtitle="モーダルで名前とアイコンを入力してください">
             <div className="text-sm leading-relaxed text-[var(--color-muted)]">
-              単語帳名とアイコンを設定すると、collection 配下に wordbook を作成します。
+              {collectionId
+                ? '単語帳名とアイコンを設定すると、collection 配下に wordbook を作成します。'
+                : '単語帳の standalone 作成はこの画面では行いません。'}
             </div>
           </NotebookCard>
         ) : (

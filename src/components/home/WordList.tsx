@@ -216,8 +216,10 @@ function WordItem({
         <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
       <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="min-w-0 flex-1 overflow-x-auto">
+            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
+          </div>
           {word.isFavorite && (
             <Icon
               name="flag"

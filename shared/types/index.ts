@@ -434,6 +434,16 @@ export interface CollectionItemSummary {
   project?: VocabularyProjectPreview;
 }
 
+export interface CollectionNotebookBinding {
+  id: string;
+  collectionId: string;
+  wordbookAssetId: string;
+  structureAssetId?: string;
+  correctionAssetId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StructureNode {
   id: string;
   label: string;
@@ -534,6 +544,11 @@ export interface VocabularyAssetDetail {
   words: Word[];
   stats: VocabularyAssetStats;
   idioms: string[];
+  lastQuizAccuracy?: number;
+  flashcardProgress?: {
+    reviewed: number;
+    total: number;
+  };
 }
 
 export interface CorrectionReviewPayload {

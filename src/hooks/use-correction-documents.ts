@@ -21,6 +21,7 @@ type CorrectionDocumentResponse = {
 type CreateCorrectionDocumentInput = {
   title: string;
   collectionId?: string;
+  wordbookAssetId?: string;
   text: string;
   sourceType: StructureSourceType;
 };

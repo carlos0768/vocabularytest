@@ -7,6 +7,7 @@ import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
 const requestSchema = z.object({
   title: z.string().trim().min(1).max(160),
   collectionId: z.string().uuid().optional(),
+  wordbookAssetId: z.string().uuid().optional(),
   text: z.string().trim().min(1).max(20_000),
   sourceType: z.enum(['paste', 'scan']),
 }).strict();
@@ -20,6 +21,12 @@ function mapStructureError(error: unknown): { status: number; message: string } 
   const code = error instanceof Error ? error.message.split(':', 1)[0] : '';
   if (code === 'collection_not_found') {
     return { status: 404, message: 'フォルダが見つかりません。' };
+  }
+  if (code === 'asset_not_found') {
+    return { status: 404, message: '関連付け対象の単語帳が見つかりません。' };
+  }
+  if (code === 'notebook_binding_requires_collection') {
+    return { status: 400, message: '関連付けにはフォルダ指定が必要です。' };
   }
   return { status: 500, message: '構造解析ドキュメントの作成に失敗しました。' };
 }

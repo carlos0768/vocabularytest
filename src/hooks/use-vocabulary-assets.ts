@@ -37,6 +37,7 @@ function buildLocalIdioms(words: Word[]) {
 }
 
 function buildLocalVocabularyAssetDetail(project: Project, words: Word[]): VocabularyAssetResponse {
+  const stats = buildLocalVocabularyStats(words);
   return {
     success: true,
     asset: {
@@ -51,8 +52,12 @@ function buildLocalVocabularyAssetDetail(project: Project, words: Word[]): Vocab
     },
     project,
     words,
-    stats: buildLocalVocabularyStats(words),
+    stats,
     idioms: buildLocalIdioms(words),
+    flashcardProgress: {
+      reviewed: stats.reviewWords + stats.masteredWords,
+      total: stats.totalWords,
+    },
   };
 }
 
@@ -85,6 +90,8 @@ export function useVocabularyAsset(assetId?: string | null) {
           words: payload.words,
           stats: payload.stats,
           idioms: payload.idioms ?? [],
+          lastQuizAccuracy: payload.lastQuizAccuracy,
+          flashcardProgress: payload.flashcardProgress,
         });
         return payload;
       }
@@ -96,6 +103,8 @@ export function useVocabularyAsset(assetId?: string | null) {
         words: payload.words,
         stats: payload.stats,
         idioms: payload.idioms ?? [],
+        lastQuizAccuracy: payload.lastQuizAccuracy,
+        flashcardProgress: payload.flashcardProgress,
       });
       return payload;
     } catch (requestError) {
