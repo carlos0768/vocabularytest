@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { VocabularyAssetDetail } from '@/types';
+import { useAuth } from './use-auth';
 import { requestJson } from './api-client';
+import { localRepository } from '@/lib/db/local-repository';
+import type { Project, Word } from '@/types';
 
 type VocabularyAssetResponse = {
   success: boolean;
@@ -14,7 +17,47 @@ type CreateVocabularyAssetInput = {
   iconImage?: string;
 };
 
+function buildLocalVocabularyStats(words: Word[]) {
+  return {
+    totalWords: words.length,
+    newWords: words.filter((word) => word.status === 'new').length,
+    reviewWords: words.filter((word) => word.status === 'review').length,
+    masteredWords: words.filter((word) => word.status === 'mastered').length,
+    activeWords: words.filter((word) => word.vocabularyType === 'active').length,
+    passiveWords: words.filter((word) => word.vocabularyType === 'passive').length,
+    exampleCount: words.filter((word) => Boolean(word.exampleSentence?.trim())).length,
+  };
+}
+
+function buildLocalIdioms(words: Word[]) {
+  return words
+    .map((word) => word.english.trim())
+    .filter((english) => /\s/.test(english))
+    .filter((english, index, list) => list.indexOf(english) === index);
+}
+
+function buildLocalVocabularyAssetDetail(project: Project, words: Word[]): VocabularyAssetResponse {
+  return {
+    success: true,
+    asset: {
+      id: project.id,
+      userId: project.userId,
+      kind: 'vocabulary_project',
+      title: project.title,
+      status: 'ready',
+      legacyProjectId: project.id,
+      createdAt: project.createdAt,
+      updatedAt: project.createdAt,
+    },
+    project,
+    words,
+    stats: buildLocalVocabularyStats(words),
+    idioms: buildLocalIdioms(words),
+  };
+}
+
 export function useVocabularyAsset(assetId?: string | null) {
+  const { isPro, user } = useAuth();
   const [detail, setDetail] = useState<VocabularyAssetDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +71,24 @@ export function useVocabularyAsset(assetId?: string | null) {
     try {
       setLoading(true);
       setError(null);
+
+      if (!isPro && user) {
+        const project = await localRepository.getProject(assetId);
+        if (!project) {
+          throw new Error('単語帳が見つかりません。');
+        }
+        const words = await localRepository.getWords(project.id);
+        const payload = buildLocalVocabularyAssetDetail(project, words);
+        setDetail({
+          asset: payload.asset,
+          project: payload.project,
+          words: payload.words,
+          stats: payload.stats,
+          idioms: payload.idioms ?? [],
+        });
+        return payload;
+      }
+
       const payload = await requestJson<VocabularyAssetResponse>(`/api/vocabulary-assets/${assetId}`);
       setDetail({
         asset: payload.asset,
@@ -43,7 +104,7 @@ export function useVocabularyAsset(assetId?: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [assetId]);
+  }, [assetId, isPro, user]);
 
   useEffect(() => {
     void refresh();
@@ -58,6 +119,7 @@ export function useVocabularyAsset(assetId?: string | null) {
 }
 
 export function useCreateVocabularyAsset() {
+  const { isPro, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +127,18 @@ export function useCreateVocabularyAsset() {
     try {
       setLoading(true);
       setError(null);
+
+      if (!isPro && user) {
+        const project = await localRepository.createProject({
+          userId: user.id,
+          title: input.title,
+          iconImage: input.iconImage,
+          sourceLabels: [],
+        });
+        await localRepository.addProjectsToCollection(input.collectionId, [project.id]);
+        return buildLocalVocabularyAssetDetail(project, []);
+      }
+
       return await requestJson<VocabularyAssetResponse>('/api/vocabulary-assets', {
         method: 'POST',
         headers: {
@@ -78,7 +152,7 @@ export function useCreateVocabularyAsset() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isPro, user]);
 
   return {
     create,
