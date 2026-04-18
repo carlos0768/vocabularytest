@@ -37,7 +37,7 @@ export function NotebookNotesHomePage({
           message={error}
           action={
             <Link
-              href={`/collections/${collectionId}`}
+              href={`/collections/${collectionId}/manage`}
               className="inline-flex items-center justify-center rounded-xl bg-[var(--color-foreground)] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
             >
               collection へ戻る

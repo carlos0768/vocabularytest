@@ -1,12 +1,13 @@
 import { NotebookCorrectionPage } from '@/components/notebook';
 
-export default function CollectionCorrectionNotePage({
+export default async function CollectionCorrectionNotePage({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string;
     assetId: string;
-  };
+  }>;
 }) {
-  return <NotebookCorrectionPage collectionId={params.id} assetId={params.assetId} />;
+  const { id, assetId } = await params;
+  return <NotebookCorrectionPage collectionId={id} assetId={assetId} />;
 }

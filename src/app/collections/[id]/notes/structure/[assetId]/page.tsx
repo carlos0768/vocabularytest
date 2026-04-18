@@ -1,12 +1,13 @@
 import { NotebookStructurePage } from '@/components/notebook';
 
-export default function CollectionStructureNotePage({
+export default async function CollectionStructureNotePage({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string;
     assetId: string;
-  };
+  }>;
 }) {
-  return <NotebookStructurePage collectionId={params.id} assetId={params.assetId} />;
+  const { id, assetId } = await params;
+  return <NotebookStructurePage collectionId={id} assetId={assetId} />;
 }

@@ -1,11 +1,12 @@
 import { NotebookCreatePage } from '@/components/notebook';
 
-export default function CollectionNotesCreatePage({
+export default async function CollectionNotesCreatePage({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }) {
-  return <NotebookCreatePage collectionId={params.id} />;
+  const { id } = await params;
+  return <NotebookCreatePage collectionId={id} />;
 }

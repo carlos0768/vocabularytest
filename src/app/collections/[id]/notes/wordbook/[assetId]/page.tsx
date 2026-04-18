@@ -1,12 +1,13 @@
 import { NotebookWordbookPage } from '@/components/notebook';
 
-export default function CollectionWordbookNotePage({
+export default async function CollectionWordbookNotePage({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string;
     assetId: string;
-  };
+  }>;
 }) {
-  return <NotebookWordbookPage collectionId={params.id} assetId={params.assetId} />;
+  const { id, assetId } = await params;
+  return <NotebookWordbookPage collectionId={id} assetId={assetId} />;
 }

@@ -1,11 +1,12 @@
 import { NotebookNotesHomePage } from '@/components/notebook';
 
-export default function CollectionNotesPage({
+export default async function CollectionNotesPage({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }) {
-  return <NotebookNotesHomePage collectionId={params.id} />;
+  const { id } = await params;
+  return <NotebookNotesHomePage collectionId={id} />;
 }
