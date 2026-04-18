@@ -70,7 +70,7 @@ export default function NewCollectionPage() {
       }
 
       showToast({ message: '本棚を作成しました', type: 'success' });
-      router.replace(`/collections/${collection.id}`);
+      router.replace(`/collections/${collection.id}/notes`);
     } catch (e) {
       console.error('Failed to create collection:', e);
       showToast({ message: '作成に失敗しました', type: 'error' });

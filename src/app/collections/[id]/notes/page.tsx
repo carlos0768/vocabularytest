@@ -4,8 +4,8 @@ export default function CollectionNotesPage({
   params,
 }: {
   params: {
-    collectionId: string;
+    id: string;
   };
 }) {
-  return <NotebookNotesHomePage collectionId={params.collectionId} />;
+  return <NotebookNotesHomePage collectionId={params.id} />;
 }

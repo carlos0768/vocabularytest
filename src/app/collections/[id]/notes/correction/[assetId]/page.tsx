@@ -4,9 +4,9 @@ export default function CollectionCorrectionNotePage({
   params,
 }: {
   params: {
-    collectionId: string;
+    id: string;
     assetId: string;
   };
 }) {
-  return <NotebookCorrectionPage collectionId={params.collectionId} assetId={params.assetId} />;
+  return <NotebookCorrectionPage collectionId={params.id} assetId={params.assetId} />;
 }

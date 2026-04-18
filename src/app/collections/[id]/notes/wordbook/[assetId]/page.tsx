@@ -4,9 +4,9 @@ export default function CollectionWordbookNotePage({
   params,
 }: {
   params: {
-    collectionId: string;
+    id: string;
     assetId: string;
   };
 }) {
-  return <NotebookWordbookPage collectionId={params.collectionId} assetId={params.assetId} />;
+  return <NotebookWordbookPage collectionId={params.id} assetId={params.assetId} />;
 }
