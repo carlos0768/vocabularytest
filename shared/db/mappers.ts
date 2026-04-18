@@ -14,6 +14,9 @@ import type {
   CollectionProject,
   RelatedWord,
   UsagePattern,
+  GrammarEntry,
+  GrammarEntryBody,
+  CachedPassageMatch,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
 import {
@@ -69,7 +72,10 @@ function normalizeProjectBlocks(raw: unknown): ProjectBlock[] | undefined {
     const record = entry as { id?: unknown; type?: unknown; position?: unknown; data?: unknown };
     if (typeof record.id !== 'string') continue;
     const type: ProjectBlockType | null =
-      record.type === 'richText' || record.type === 'wordList' || record.type === 'database'
+      record.type === 'richText' ||
+      record.type === 'wordList' ||
+      record.type === 'database' ||
+      record.type === 'grammarList'
         ? record.type
         : null;
     if (!type) continue;
@@ -603,4 +609,119 @@ export function mapCollectionProjectFromRow(row: CollectionProjectRow): Collecti
     sortOrder: row.sort_order,
     addedAt: row.added_at,
   };
+}
+
+// ============ Grammar Entry Mappers ============
+
+export interface GrammarEntryRow {
+  id: string;
+  project_id: string;
+  pattern: string;
+  meaning: string;
+  category?: string | null;
+  body?: unknown | null;
+  position?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function normalizeCachedAiMatches(value: unknown): CachedPassageMatch[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: CachedPassageMatch[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue;
+    const record = entry as { id?: unknown; matchedText?: unknown };
+    if (typeof record.id !== 'string' || typeof record.matchedText !== 'string') continue;
+    result.push({ id: record.id, matchedText: record.matchedText });
+  }
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeGrammarBody(raw: unknown): GrammarEntryBody {
+  const source =
+    raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : typeof raw === 'string'
+        ? (() => {
+            try {
+              const parsed = JSON.parse(raw);
+              return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                ? (parsed as Record<string, unknown>)
+                : {};
+            } catch {
+              return {};
+            }
+          })()
+        : {};
+  const html = typeof source.html === 'string' ? source.html : '';
+  const cachedAiMatches = normalizeCachedAiMatches(source.cachedAiMatches);
+  return cachedAiMatches ? { html, cachedAiMatches } : { html };
+}
+
+export function mapGrammarEntryFromRow(row: GrammarEntryRow): GrammarEntry {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    pattern: row.pattern,
+    meaning: row.meaning,
+    category: toNonEmptyString(row.category) ?? undefined,
+    body: normalizeGrammarBody(row.body),
+    position: typeof row.position === 'number' ? row.position : 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export type GrammarEntryInput = Omit<GrammarEntry, 'id' | 'createdAt' | 'updatedAt'>;
+
+export function mapGrammarEntryToInsert(entry: GrammarEntryInput): {
+  project_id: string;
+  pattern: string;
+  meaning: string;
+  category?: string | null;
+  body: GrammarEntryBody;
+  position: number;
+} {
+  return {
+    project_id: entry.projectId,
+    pattern: entry.pattern,
+    meaning: entry.meaning,
+    category: entry.category ?? null,
+    body: entry.body,
+    position: entry.position,
+  };
+}
+
+export function mapGrammarEntryToInsertWithId(entry: GrammarEntry): {
+  id: string;
+  project_id: string;
+  pattern: string;
+  meaning: string;
+  category?: string | null;
+  body: GrammarEntryBody;
+  position: number;
+  created_at: string;
+  updated_at: string;
+} {
+  return {
+    id: entry.id,
+    project_id: entry.projectId,
+    pattern: entry.pattern,
+    meaning: entry.meaning,
+    category: entry.category ?? null,
+    body: entry.body,
+    position: entry.position,
+    created_at: entry.createdAt,
+    updated_at: entry.updatedAt,
+  };
+}
+
+export function mapGrammarEntryUpdates(updates: Partial<GrammarEntry>): Record<string, unknown> {
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.pattern !== undefined) updateData.pattern = updates.pattern;
+  if (updates.meaning !== undefined) updateData.meaning = updates.meaning;
+  if (updates.category !== undefined) updateData.category = updates.category ?? null;
+  if (updates.body !== undefined) updateData.body = updates.body;
+  if (updates.position !== undefined) updateData.position = updates.position;
+  return updateData;
 }

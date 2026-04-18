@@ -72,7 +72,7 @@ export interface CustomColumn {
 
 // ============ Project Block Types (Notion-like) ============
 
-export type ProjectBlockType = 'richText' | 'wordList' | 'database';
+export type ProjectBlockType = 'richText' | 'wordList' | 'database' | 'grammarList';
 
 /** Serialised AI passage-word match stored alongside the rich text block. */
 export interface CachedPassageMatch {
@@ -97,16 +97,53 @@ export type WordListBlockData = Record<string, never>;
 /** Reserved for future nested database support. */
 export type DatabaseBlockData = Record<string, never>;
 
+/**
+ * Grammar list blocks are markers — the actual grammar rows live in the
+ * `grammar_entries` table keyed by project_id. This keeps grammar reusable
+ * across notes in Phase 2 (reference blocks).
+ */
+export type GrammarListBlockData = Record<string, never>;
+
 export type ProjectBlockData =
   | RichTextBlockData
   | WordListBlockData
-  | DatabaseBlockData;
+  | DatabaseBlockData
+  | GrammarListBlockData;
 
 export interface ProjectBlock {
   id: string;
   type: ProjectBlockType;
   position: number;
   data: ProjectBlockData;
+}
+
+// ============ Grammar Entry Types ============
+
+export type GrammarCategory =
+  | 'usage'
+  | 'tense'
+  | 'preposition'
+  | 'article'
+  | 'conjunction'
+  | 'modal'
+  | 'clause'
+  | 'other';
+
+export interface GrammarEntryBody {
+  html: string;
+  cachedAiMatches?: CachedPassageMatch[];
+}
+
+export interface GrammarEntry {
+  id: string;
+  projectId: string;
+  pattern: string;
+  meaning: string;
+  category?: string;
+  body: GrammarEntryBody;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Word {
