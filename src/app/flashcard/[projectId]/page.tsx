@@ -227,7 +227,7 @@ export default function FlashcardPage() {
           // Collection mode: load words from all projects in the collection
           wordsData = await loadCollectionWords(collectionId);
         } else if (projectId === 'all' && favoritesOnly) {
-          // 全単語帳横断でお気に入り単語を取得
+          // 全ノート横断でお気に入り単語を取得
           const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allProjectWords = await Promise.all(projects.map(p => repository.getWords(p.id)));

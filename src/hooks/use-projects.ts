@@ -35,7 +35,7 @@ export function useProjects() {
       const data = await repository.getProjects(userId);
       setProjects(data);
     } catch (e) {
-      setError('単語帳の読み込みに失敗しました');
+      setError('ノートの読み込みに失敗しました');
       console.error('Failed to load projects:', e);
     } finally {
       setLoading(false);
@@ -50,7 +50,7 @@ export function useProjects() {
         setProjects((prev) => [project, ...prev]);
         return project;
       } catch (e) {
-        setError('単語帳の作成に失敗しました');
+        setError('ノートの作成に失敗しました');
         console.error('Failed to create project:', e);
         return null;
       }
@@ -66,7 +66,7 @@ export function useProjects() {
         setProjects((prev) => prev.filter((p) => p.id !== id));
         return true;
       } catch (e) {
-        setError('単語帳の削除に失敗しました');
+        setError('ノートの削除に失敗しました');
         console.error('Failed to delete project:', e);
         return false;
       }
@@ -84,7 +84,7 @@ export function useProjects() {
         );
         return true;
       } catch (e) {
-        setError('単語帳の更新に失敗しました');
+        setError('ノートの更新に失敗しました');
         console.error('Failed to update project:', e);
         return false;
       }

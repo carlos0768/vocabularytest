@@ -51,7 +51,7 @@ export default function CollectionsPage() {
           <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
             <div className="flex-1">
               <h1 className="text-xl font-bold text-[var(--color-foreground)]">本棚</h1>
-              <p className="text-sm text-[var(--color-muted)]">単語帳をまとめて管理</p>
+              <p className="text-sm text-[var(--color-muted)]">ノートをまとめて管理</p>
             </div>
             <Link
               href="/collections/new"
@@ -76,7 +76,7 @@ export default function CollectionsPage() {
               </div>
               <h2 className="mt-4 text-lg font-bold">本棚がありません</h2>
               <p className="text-sm text-[var(--color-muted)] mt-2">
-                複数の単語帳をまとめて学期末試験や模試の対策に活用しましょう
+                複数のノートをまとめて学期末試験や模試の対策に活用しましょう
               </p>
               <Link
                 href="/collections/new"
@@ -110,7 +110,7 @@ export default function CollectionsPage() {
           onClose={() => setDeleteId(null)}
           onConfirm={handleConfirmDelete}
           title="本棚を削除"
-          message="この本棚を削除しますか？単語帳自体は削除されません。"
+          message="この本棚を削除しますか？ノート自体は削除されません。"
           isLoading={deleteLoading}
         />
       </div>

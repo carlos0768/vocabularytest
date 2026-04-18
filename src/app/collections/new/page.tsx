@@ -141,18 +141,18 @@ export default function NewCollectionPage() {
         {/* Project selection */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold text-[var(--color-foreground)]">含める単語帳</label>
+            <label className="text-sm font-semibold text-[var(--color-foreground)]">含めるノート</label>
             <span className="text-xs text-[var(--color-muted)]">{selectedIds.size}件選択</span>
           </div>
 
           {loadingProjects ? (
             <div className="flex items-center justify-center py-8 text-[var(--color-muted)]">
               <Icon name="progress_activity" size={20} className="animate-spin" />
-              <span className="ml-2">単語帳を読み込み中...</span>
+              <span className="ml-2">ノートを読み込み中...</span>
             </div>
           ) : projects.length === 0 ? (
             <div className="card p-4 text-center text-sm text-[var(--color-muted)]">
-              単語帳がありません。まずスキャンから単語帳を作成してください。
+              ノートがありません。まずスキャンからノートを作成してください。
             </div>
           ) : (
             <div className="space-y-2">

@@ -578,7 +578,7 @@ export default function HomePage() {
           existing.hasGrammarWarning = existing.hasGrammarWarning || hasGrammarWarning;
         } else {
           grouped.set(key, {
-            title: job.project_title || '単語帳',
+            title: job.project_title || 'ノート',
             wordCount,
             hasFailed: job.status === 'failed',
             hasGrammarWarning,
@@ -856,7 +856,7 @@ export default function HomePage() {
       }
       invalidateHomeCache();
       refreshWordCount();
-      showToast({ message: '単語帳を削除しました', type: 'success' });
+      showToast({ message: 'ノートを削除しました', type: 'success' });
     } catch (error) {
       console.error('Failed to delete project:', error);
       showToast({ message: '削除に失敗しました', type: 'error' });
@@ -881,7 +881,7 @@ export default function HomePage() {
       setProjects((prev) =>
         prev.map((p) => (p.id === editProjectId ? { ...p, title: newName.trim() } : p))
       );
-      showToast({ message: '単語帳の名前を変更しました', type: 'success' });
+      showToast({ message: 'ノートの名前を変更しました', type: 'success' });
     } catch (error) {
       console.error('Failed to update project name:', error);
       showToast({ message: '名前の変更に失敗しました', type: 'error' });
@@ -894,7 +894,7 @@ export default function HomePage() {
 
   const handleSaveManualWord = async () => {
     if (!currentProject) {
-      showToast({ message: 'まず単語帳を選択してください', type: 'error' });
+      showToast({ message: 'まずノートを選択してください', type: 'error' });
       return;
     }
 
@@ -1373,7 +1373,7 @@ export default function HomePage() {
       if (!isAddingToExisting) {
         setPendingGeneratingWordbook({
           id: `generating-${Date.now()}`,
-          title: projectName.trim() || '新しい単語帳',
+          title: projectName.trim() || '新しいノート',
           iconDataUrl: projectIcon,
         });
       }
@@ -1641,7 +1641,7 @@ export default function HomePage() {
 
           {pendingGeneratingWordbook && (
             <div className="max-w-lg mx-auto w-full px-4 pt-4">
-              <p className="text-xs font-semibold text-[var(--color-muted)] mb-2">マイ単語帳</p>
+              <p className="text-xs font-semibold text-[var(--color-muted)] mb-2">マイノート</p>
               <GeneratingProjectCard
                 title={pendingGeneratingWordbook.title}
                 iconDataUrl={pendingGeneratingWordbook.iconDataUrl}
@@ -1653,9 +1653,9 @@ export default function HomePage() {
             <div className="w-20 h-20 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mb-6">
               <Icon name="menu_book" size={40} className="text-[var(--color-primary)]" />
             </div>
-            <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">単語帳がありません</h2>
+            <h2 className="text-xl font-bold text-[var(--color-foreground)] mb-2">ノートがありません</h2>
             <p className="text-[var(--color-muted)] text-center mb-6">
-              ノートやプリントを撮影して<br />最初の単語帳を作りましょう
+              ノートやプリントを撮影して<br />最初のノートを作りましょう
             </p>
             {isAuthenticated && (
               <button
@@ -1852,7 +1852,7 @@ export default function HomePage() {
             {showSharedProjectsSection && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-[var(--color-foreground)]">共有単語帳</h2>
+                  <h2 className="text-lg font-bold text-[var(--color-foreground)]">共有ノート</h2>
                   <Link href="/projects" className="text-sm text-[var(--color-muted)] font-medium">管理</Link>
                 </div>
                 <div className="space-y-3">
@@ -1868,16 +1868,16 @@ export default function HomePage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[var(--color-foreground)]">マイ単語帳</h2>
+                <h2 className="text-lg font-bold text-[var(--color-foreground)]">マイノート</h2>
                 <Link href="/projects" className="text-sm text-[var(--color-muted)] font-medium">管理</Link>
               </div>
               {projects.length === 0 ? (
                 <div className="card p-6 text-center">
-                  <p className="text-sm text-[var(--color-muted)]">まだ単語帳がありません。スキャンから始めましょう。</p>
+                  <p className="text-sm text-[var(--color-muted)]">まだノートがありません。スキャンから始めましょう。</p>
                 </div>
               ) : homeMyProjects.length === 0 && !pendingGeneratingWordbook ? (
                 <div className="card p-6 text-center">
-                  <p className="text-sm text-[var(--color-muted)]">まだマイ単語帳がありません。スキャンや手入力で追加できます。</p>
+                  <p className="text-sm text-[var(--color-muted)]">まだマイノートがありません。スキャンや手入力で追加できます。</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1976,8 +1976,8 @@ export default function HomePage() {
         isOpen={deleteProjectModalOpen}
         onClose={() => { setDeleteProjectModalOpen(false); setDeleteProjectTargetId(null); }}
         onConfirm={handleConfirmDeleteProject}
-        title="単語帳を削除"
-        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        title="ノートを削除"
+        message="このノートとすべての単語が削除されます。この操作は取り消せません。"
         isLoading={deleteProjectLoading}
       />
 

@@ -79,7 +79,7 @@ const REWARDED_DOWNLOAD_AD_UNIT_PATH =
   process.env.NEXT_PUBLIC_GOOGLE_AD_MANAGER_REWARDED_DOWNLOAD_UNIT_PATH?.trim() ?? '';
 
 const DEFAULT_CONFIRM_MESSAGE =
-  '動画広告を最後まで視聴すると単語帳を追加できます。再生しますか？';
+  '動画広告を最後まで視聴するとノートを追加できます。再生しますか？';
 
 const GPT_READY_TIMEOUT_MS = 5000;
 

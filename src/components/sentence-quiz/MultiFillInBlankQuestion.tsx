@@ -181,7 +181,7 @@ export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: 
       {question.relatedWordIds.length > 0 && !isRevealed && (
         <div className="flex-shrink-0 mb-4 px-2">
           <p className="text-xs text-[var(--color-muted)] text-center">
-            他の単語帳で学習した単語も含まれています
+            他のノートで学習した単語も含まれています
           </p>
         </div>
       )}

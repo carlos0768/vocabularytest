@@ -1535,7 +1535,7 @@ export default function ProjectDetailPage() {
       await mutationRepository.deleteProject(project.id);
       invalidateHomeCache();
       refreshWordCount();
-      showToast({ message: '単語帳を削除しました', type: 'success' });
+      showToast({ message: 'ノートを削除しました', type: 'success' });
       startTransition(() => { router.push('/'); });
     } catch (error) {
       console.error('Failed to delete project:', error);
@@ -1641,10 +1641,10 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-        <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳が見つかりません</h1>
+        <h1 className="text-xl font-bold text-[var(--color-foreground)]">ノートが見つかりません</h1>
         <p className="text-sm text-[var(--color-muted)] mt-2">一覧から選び直してください。</p>
         <Link href="/projects" className="mt-4 px-4 py-2 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/20">
-          単語帳へ戻る
+          ノートへ戻る
         </Link>
       </div>
     );
@@ -1739,7 +1739,7 @@ export default function ProjectDetailPage() {
                 type="button"
                 onClick={beginTitleEdit}
                 className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
-                aria-label="単語帳名を編集"
+                aria-label="ノート名を編集"
               >
                 <Icon name="edit" size={18} />
               </button>
@@ -2282,8 +2282,8 @@ export default function ProjectDetailPage() {
         isOpen={deleteProjectModalOpen}
         onClose={() => setDeleteProjectModalOpen(false)}
         onConfirm={handleConfirmDeleteProject}
-        title="単語帳を削除"
-        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        title="ノートを削除"
+        message="このノートとすべての単語が削除されます。この操作は取り消せません。"
         isLoading={deleteProjectLoading}
       />
 

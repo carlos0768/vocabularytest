@@ -128,7 +128,7 @@ export function ProjectSelectionSheet({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--color-foreground)]">全単語帳の苦手単語</p>
+                    <p className="font-semibold text-[var(--color-foreground)]">全ノートの苦手単語</p>
                     <p className="text-sm text-[var(--color-muted)] mt-0.5">{favoriteWords.length}語の苦手な単語</p>
                   </div>
                   {showFavoritesOnly && (
@@ -160,7 +160,7 @@ export function ProjectSelectionSheet({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--color-foreground)]">全単語帳の単語</p>
+                    <p className="font-semibold text-[var(--color-foreground)]">全ノートの単語</p>
                     <p className="text-sm text-[var(--color-muted)] mt-0.5">{projects.length}冊 · {totalWords}語</p>
                   </div>
                   {showAllProjects && (
@@ -177,7 +177,7 @@ export function ProjectSelectionSheet({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Icon name="menu_book" size={20} className="text-[var(--color-primary)]" />
-                <h3 className="font-semibold text-[var(--color-foreground)]">単語帳一覧</h3>
+                <h3 className="font-semibold text-[var(--color-foreground)]">ノート一覧</h3>
               </div>
             </div>
 
@@ -192,7 +192,7 @@ export function ProjectSelectionSheet({
                 <Icon name="add" size={20} className="text-[var(--color-primary)]" />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-[var(--color-primary)]">新しい単語帳を作成</p>
+                <p className="font-semibold text-[var(--color-primary)]">新しいノートを作成</p>
                 <p className="text-sm text-[var(--color-primary)]/70">写真から単語を抽出</p>
               </div>
             </button>

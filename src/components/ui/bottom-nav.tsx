@@ -78,7 +78,7 @@ export function BottomNav() {
       router.push(`/project/${created.id}`);
     } catch (error) {
       console.error('Failed to create blank project:', error);
-      showToast({ message: '単語帳の作成に失敗しました', type: 'error' });
+      showToast({ message: 'ノートの作成に失敗しました', type: 'error' });
     } finally {
       setCreating(false);
     }
@@ -117,7 +117,7 @@ export function BottomNav() {
         type="button"
         onClick={() => setModalOpen(true)}
         className="fab lg:hidden active:scale-95 transition-transform"
-        aria-label="新規単語帳を作成"
+        aria-label="新規ノートを作成"
       >
         <Icon name="add" size={28} />
       </button>

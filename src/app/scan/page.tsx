@@ -219,7 +219,7 @@ function ScanPageContent() {
           'scanvocab_generating_wordbook',
           JSON.stringify({
             id: `generating-${Date.now()}`,
-            title: name.trim() || '新しい単語帳',
+            title: name.trim() || '新しいノート',
             iconDataUrl: iconImage || undefined,
             linkedJobId: createResult.jobId,
           }),
@@ -716,7 +716,7 @@ function ScanPageContent() {
                     title:
                       (typeof sessionStorage !== 'undefined' &&
                         sessionStorage.getItem('scanvocab_project_name')?.trim()) ||
-                      '新しい単語帳',
+                      '新しいノート',
                     iconDataUrl:
                       typeof sessionStorage !== 'undefined'
                         ? sessionStorage.getItem('scanvocab_project_icon') || undefined
@@ -745,7 +745,7 @@ function ScanPageContent() {
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="card p-6 w-full max-w-sm animate-fade-in-up">
               <h2 className="text-lg font-bold mb-4 text-[var(--color-foreground)]">
-                単語帳の名前
+                ノートの名前
               </h2>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-2">

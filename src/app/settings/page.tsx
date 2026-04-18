@@ -165,7 +165,7 @@ export default function SettingsPage() {
                 <Icon name="person" size={20} className="text-[var(--color-muted)]" />
                 <div className="flex-1">
                   <p className="font-medium text-[var(--color-foreground)]">ユーザー名</p>
-                  <p className="text-xs text-[var(--color-muted)]">共有した単語帳に表示される名前です。</p>
+                  <p className="text-xs text-[var(--color-muted)]">共有したノートに表示される名前です。</p>
                 </div>
               </div>
 

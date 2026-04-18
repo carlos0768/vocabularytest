@@ -63,7 +63,7 @@ export default function SharedProjectPage() {
         const projectData = await remoteRepository.getProjectByShareId(shareId);
 
         if (!projectData) {
-          setError('この単語帳は存在しないか、共有が解除されています');
+          setError('このノートは存在しないか、共有が解除されています');
           return;
         }
 
@@ -88,7 +88,7 @@ export default function SharedProjectPage() {
         }
       } catch (err) {
         console.error('Failed to load shared project:', err);
-        setError('単語帳の読み込みに失敗しました');
+        setError('ノートの読み込みに失敗しました');
       } finally {
         setLoading(false);
       }
@@ -312,7 +312,7 @@ export default function SharedProjectPage() {
         </div>
         <h1 className="text-xl font-bold text-[var(--color-foreground)] mb-2">Pro機能です</h1>
         <p className="text-[var(--color-muted)] text-center mb-6">
-          共有された単語帳を見るには<br />Proプランへのアップグレードが必要です
+          共有されたノートを見るには<br />Proプランへのアップグレードが必要です
         </p>
         <div className="flex flex-col gap-3">
           <Link href="/subscription" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold">
@@ -331,7 +331,7 @@ export default function SharedProjectPage() {
   if (error || !project) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-        <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳が見つかりません</h1>
+        <h1 className="text-xl font-bold text-[var(--color-foreground)]">ノートが見つかりません</h1>
         <p className="text-sm text-[var(--color-muted)] mt-2">{error || '一覧から選び直してください。'}</p>
         <Link href="/shared" className="mt-4 px-4 py-2 rounded-full bg-[var(--color-foreground)] text-white font-semibold">
           共有一覧へ戻る
@@ -356,7 +356,7 @@ export default function SharedProjectPage() {
               <div className="flex-1 text-center mx-3">
                 <p className="text-white font-bold text-sm truncate">{project.title}</p>
                 <p className="text-white/70 text-xs">
-                  {ownerUsername ? `${ownerUsername}さんの単語帳` : '共有された単語帳'} · {words.length}語
+                  {ownerUsername ? `${ownerUsername}さんのノート` : '共有されたノート'} · {words.length}語
                 </p>
               </div>
               <button
@@ -601,7 +601,7 @@ export default function SharedProjectPage() {
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--color-success)] text-white font-semibold text-sm"
                 >
                   <Icon name="check_circle" size={18} />
-                  追加済み — 単語帳を開く
+                  追加済み — ノートを開く
                 </button>
               ) : selectMode ? (
                 <div className="flex gap-2">
@@ -632,7 +632,7 @@ export default function SharedProjectPage() {
                   {importActionBusy ? (
                     <><Icon name="progress_activity" size={18} className="animate-spin" />{importProgressLabel}</>
                   ) : (
-                    <><Icon name="download" size={18} />単語帳として追加</>
+                    <><Icon name="download" size={18} />ノートとして追加</>
                   )}
                 </button>
               )}

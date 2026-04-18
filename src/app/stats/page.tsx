@@ -209,7 +209,7 @@ export default function StatsPage() {
               {/* Summary - iOS style list */}
               <div className="card">
                 <div className="flex justify-between items-center py-4 px-5 border-b border-[var(--color-border-light)]">
-                  <span className="text-sm text-[var(--color-muted)]">単語帳数</span>
+                  <span className="text-sm text-[var(--color-muted)]">ノート数</span>
                   <span className="font-bold text-[var(--color-foreground)]">{stats.totalProjects}</span>
                 </div>
                 <div className="flex justify-between items-center py-4 px-5 border-b border-[var(--color-border-light)]">

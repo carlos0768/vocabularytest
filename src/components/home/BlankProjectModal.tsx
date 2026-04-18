@@ -54,7 +54,7 @@ export function BlankProjectModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4 text-center text-lg font-bold text-[var(--color-foreground)]">
-          新しい単語帳
+          新しいノート
         </h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -78,7 +78,7 @@ export function BlankProjectModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="この単語帳の目的やメモ"
+              placeholder="このノートの目的やメモ"
               rows={3}
               maxLength={300}
               className="w-full resize-none rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-foreground)] transition-colors focus:border-[var(--color-primary)] focus:outline-none"

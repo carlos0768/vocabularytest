@@ -230,7 +230,7 @@ export default function CollectionDetailPage() {
         const project = memberProjects.find((p) => p.id === projectId);
         return project ? w.projectTitle !== project.title : true;
       }));
-      showToast({ message: '単語帳を除外しました', type: 'success' });
+      showToast({ message: 'ノートを除外しました', type: 'success' });
     }
   };
 
@@ -286,7 +286,7 @@ export default function CollectionDetailPage() {
     try {
       const ok = await addProjectsToCollection(collectionId, Array.from(addSelectedIds));
       if (ok) {
-        showToast({ message: '単語帳を追加しました', type: 'success' });
+        showToast({ message: 'ノートを追加しました', type: 'success' });
         setShowAddModal(false);
         loadData();
       }
@@ -404,15 +404,15 @@ export default function CollectionDetailPage() {
                 <div className="w-16 h-16 mx-auto bg-[var(--color-surface)] rounded-full flex items-center justify-center border-2 border-[var(--color-border)] mb-4">
                   <Icon name="auto_awesome" size={32} className="text-[var(--color-primary)]" />
                 </div>
-                <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-2">単語帳を追加して始めましょう</h3>
+                <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-2">ノートを追加して始めましょう</h3>
                 <p className="text-sm text-[var(--color-muted)] max-w-[260px] mx-auto">
-                  この本棚に単語帳を追加すると、まとめて学習と復習ができます
+                  この本棚にノートを追加すると、まとめて学習と復習ができます
                 </p>
                 <button
                   onClick={openAddModal}
                   className="mt-6 px-5 py-3 rounded-xl bg-[var(--color-primary)] text-white font-bold shadow-glow hover:opacity-90"
                 >
-                  単語帳を追加する
+                  ノートを追加する
                 </button>
               </div>
             )}
@@ -479,7 +479,7 @@ export default function CollectionDetailPage() {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--color-muted)]">所属する単語帳</h2>
+              <h2 className="text-sm font-semibold text-[var(--color-muted)]">所属するノート</h2>
               <button
                 onClick={openAddModal}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[var(--color-border)] text-xs font-semibold text-[var(--color-foreground)] hover:border-[var(--color-success)] transition-colors"
@@ -490,7 +490,7 @@ export default function CollectionDetailPage() {
             </div>
             {memberProjects.length === 0 ? (
               <div className="card p-5 text-sm text-[var(--color-muted)] text-center">
-                まだ単語帳が追加されていません
+                まだノートが追加されていません
               </div>
             ) : (
               <div className="space-y-3">
@@ -610,7 +610,7 @@ export default function CollectionDetailPage() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-[var(--color-foreground)]">{memberProjects.length}</p>
-                      <p className="text-xs text-[var(--color-muted)]">単語帳数</p>
+                      <p className="text-xs text-[var(--color-muted)]">ノート数</p>
                     </div>
                   </div>
                 </div>
@@ -625,7 +625,7 @@ export default function CollectionDetailPage() {
           onClose={() => setShowDeleteModal(false)}
           onConfirm={handleDelete}
           title="本棚を削除"
-          message="この本棚を削除しますか？単語帳自体は削除されません。"
+          message="この本棚を削除しますか？ノート自体は削除されません。"
           isLoading={deleteLoading}
         />
 
@@ -681,10 +681,10 @@ export default function CollectionDetailPage() {
               className="w-full max-w-lg max-h-[80vh] bg-[var(--color-surface)] rounded-t-2xl sm:rounded-2xl p-6 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-4">単語帳を追加</h3>
+              <h3 className="text-lg font-bold text-[var(--color-foreground)] mb-4">ノートを追加</h3>
               <div className="flex-1 overflow-y-auto space-y-2 mb-4">
                 {addableProjects.length === 0 ? (
-                  <p className="text-sm text-[var(--color-muted)] text-center py-4">追加できる単語帳がありません</p>
+                  <p className="text-sm text-[var(--color-muted)] text-center py-4">追加できるノートがありません</p>
                 ) : (
                   addableProjects.map((project) => {
                     const selected = addSelectedIds.has(project.id);

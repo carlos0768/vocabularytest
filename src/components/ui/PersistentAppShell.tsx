@@ -24,7 +24,7 @@ const DESKTOP_AD_PLACEMENTS = [
     matches: (pathname: string) => pathname === '/',
   },
   {
-    label: '単語帳',
+    label: 'ノート',
     matches: (pathname: string) =>
       pathname === '/projects' ||
       pathname.startsWith('/project/') ||
