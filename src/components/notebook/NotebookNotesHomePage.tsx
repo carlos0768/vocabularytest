@@ -55,6 +55,7 @@ export function NotebookNotesHomePage({
       title="ノート"
       subtitle="collection notebook"
       crumbLabel="一覧"
+      backHref="/collections"
     >
       <NotebookCard title="3つの面を切り替えて学習" subtitle="単語帳 / 構造解析 / 添削">
         <div className="grid gap-3">

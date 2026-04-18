@@ -116,6 +116,7 @@ export function NotebookStructurePage({
       title={asset.title}
       subtitle="ノート · 構造解析"
       crumbLabel="構造解析"
+      backHref={`/collections/${collectionId}/notes`}
       headerActions={[
         {
           icon: reanalyzing ? 'progress_activity' : 'autorenew',

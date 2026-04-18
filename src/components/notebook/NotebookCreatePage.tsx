@@ -233,6 +233,7 @@ export function NotebookCreatePage({
         subtitle="ノート · 新規作成"
         crumbLabel="新規作成"
         currentKind={selectedKind ?? undefined}
+        backHref={`/collections/${collectionId}/notes`}
       >
         {!selectedKind ? (
           <NotebookCard title="種類を選択" subtitle="作りたい面を選んでください">

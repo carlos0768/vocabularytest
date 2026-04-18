@@ -308,6 +308,7 @@ export function NotebookWordbookPage({
         title={detail.project.title}
         subtitle="ノート · 単語"
         crumbLabel="単語帳"
+        backHref={`/collections/${collectionId}/notes`}
         actionStripItems={[
           {
             icon: 'style',

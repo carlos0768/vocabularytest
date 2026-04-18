@@ -133,6 +133,7 @@ export function NotebookCorrectionPage({
       title={asset.title}
       subtitle="ノート · 添削"
       crumbLabel="添削"
+      backHref={`/collections/${collectionId}/notes`}
       headerActions={[
         {
           icon: 'compare_arrows',
