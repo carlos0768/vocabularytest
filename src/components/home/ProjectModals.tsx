@@ -103,7 +103,7 @@ export function ProjectNameModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up">
         <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
-          単語帳の名前
+          ノートの名前
         </h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -233,7 +233,7 @@ export function EditProjectNameModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
       <div className="card p-6 w-full max-w-sm animate-fade-in-up">
         <h2 className="text-lg font-bold mb-4 text-center text-[var(--color-foreground)]">
-          単語帳の名前を変更
+          ノートの名前を変更
         </h2>
         <form onSubmit={handleSubmit}>
           <input
@@ -241,7 +241,7 @@ export function EditProjectNameModal({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="単語帳の名前"
+            placeholder="ノートの名前"
             className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
             maxLength={50}
           />

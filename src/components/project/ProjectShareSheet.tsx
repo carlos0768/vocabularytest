@@ -41,13 +41,13 @@ export function ProjectShareSheet({
 
   const scopeSummary =
     shareScope === 'public'
-      ? '公開単語帳として共有ページに表示されます'
+      ? '公開ノートとして共有ページに表示されます'
       : '非公開のまま招待コードで参加できます';
 
   const scopeDescription =
     shareScope === 'public'
-      ? '共有タブの公開単語帳一覧からそのまま見つけられます。'
-      : '非公開の単語帳です。招待コードで参加してもらえます。';
+      ? '共有タブの公開ノート一覧からそのまま見つけられます。'
+      : '非公開のノートです。招待コードで参加してもらえます。';
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:justify-center sm:items-center bg-black/50 p-0 sm:p-4">
@@ -80,7 +80,7 @@ export function ProjectShareSheet({
           <div>
             <h3 className="text-base font-bold text-[var(--color-foreground)]">公開設定</h3>
             <p className="text-sm text-[var(--color-muted)] mt-2">
-              公開単語帳は共有ページの一覧からそのまま見られます。非公開は招待コードでの参加に限定されます。
+              公開ノートは共有ページの一覧からそのまま見られます。非公開は招待コードでの参加に限定されます。
             </p>
           </div>
 

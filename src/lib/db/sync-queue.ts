@@ -3,7 +3,7 @@
 
 import { getDb, type SyncQueueItem } from './dexie';
 import { remoteRepository } from './remote-repository';
-import type { Project, Word } from '@/types';
+import type { GrammarEntry, Project, Word } from '@/types';
 
 const MAX_RETRY_COUNT = 3;
 
@@ -84,6 +84,9 @@ export class SyncQueue {
       case 'words':
         await this.processWordOperation(operation, data);
         break;
+      case 'grammarEntries':
+        await this.processGrammarEntryOperation(operation, data);
+        break;
       default:
         throw new Error(`Unknown table: ${table}`);
     }
@@ -130,6 +133,29 @@ export class SyncQueue {
       case 'delete': {
         const { id } = data as { id: string };
         await remoteRepository.deleteWord(id);
+        break;
+      }
+    }
+  }
+
+  private async processGrammarEntryOperation(
+    operation: SyncQueueItem['operation'],
+    data: unknown
+  ): Promise<void> {
+    switch (operation) {
+      case 'create': {
+        const entry = data as GrammarEntry;
+        await remoteRepository.createGrammarEntriesWithIds([entry]);
+        break;
+      }
+      case 'update': {
+        const { id, updates } = data as { id: string; updates: Record<string, unknown> };
+        await remoteRepository.updateGrammarEntry(id, updates);
+        break;
+      }
+      case 'delete': {
+        const { id } = data as { id: string };
+        await remoteRepository.deleteGrammarEntry(id);
         break;
       }
     }

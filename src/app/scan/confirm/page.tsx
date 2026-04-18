@@ -383,7 +383,7 @@ export default function ConfirmPage() {
 
     // Only require project title for new projects
     if (!isAddingToExisting && !projectTitle.trim()) {
-      alert('単語帳名を入力してください');
+      alert('ノート名を入力してください');
       return;
     }
 
@@ -405,7 +405,7 @@ export default function ConfirmPage() {
       if (isAddingToExisting && existingProjectId) {
         const existingProject = await repository.getProject(existingProjectId);
         if (!existingProject || existingProject.userId !== userId) {
-          throw new Error('選択した単語帳へのアクセス権がありません');
+          throw new Error('選択したノートへのアクセス権がありません');
         }
         const mergedSourceLabels = mergeSourceLabels(existingProject.sourceLabels, initialData.sourceLabels);
         if (mergedSourceLabels.length !== existingProject.sourceLabels.length) {
@@ -564,7 +564,7 @@ export default function ConfirmPage() {
         {/* Project title input */}
         {!isAddingToExisting && (
           <div className="mb-5">
-            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">単語帳名</label>
+            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1.5">ノート名</label>
             <input
               type="text"
               value={projectTitle}
@@ -615,7 +615,7 @@ export default function ConfirmPage() {
             disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
             className="w-full py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50 transition-opacity"
           >
-            {saving ? '保存中...' : isAddingToExisting ? `${selectedCount}語を追加` : `単語帳として追加 (${selectedCount}語)`}
+            {saving ? '保存中...' : isAddingToExisting ? `${selectedCount}語を追加` : `ノートとして追加 (${selectedCount}語)`}
           </button>
           {!isPro && excessCount > 0 && (
             <p className="text-xs text-[var(--color-error)] text-center mt-2">{excessCount}語減らしてください</p>

@@ -23,7 +23,7 @@ export default function ProjectError({
         </div>
         <div>
           <h2 className="text-lg font-bold text-[var(--color-foreground)]">
-            単語帳の読み込みに失敗しました
+            ノートの読み込みに失敗しました
           </h2>
           <p className="text-sm text-[var(--color-muted)] mt-2">
             もう一度お試しいただくか、一覧に戻ってください。
@@ -40,7 +40,7 @@ export default function ProjectError({
             href="/projects"
             className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] font-semibold hover:bg-[var(--color-surface)] transition-colors inline-block"
           >
-            単語帳一覧へ
+            ノート一覧へ
           </a>
         </div>
       </div>

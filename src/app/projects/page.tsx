@@ -74,7 +74,7 @@ export default function ProjectsPage() {
       setProjects((prev) => prev.filter((p) => p.id !== deleteProjectTargetId));
       invalidateHomeCache();
       refreshWordCount();
-      showToast({ message: '単語帳を削除しました', type: 'success' });
+      showToast({ message: 'ノートを削除しました', type: 'success' });
     } catch (error) {
       console.error('Failed to delete project:', error);
       showToast({ message: '削除に失敗しました', type: 'error' });
@@ -229,8 +229,8 @@ export default function ProjectsPage() {
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
         <div className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>
-            <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
+            <h1 className="text-xl font-bold text-[var(--color-foreground)]">ノート</h1>
+            <p className="text-sm text-[var(--color-muted)]">学習を続けるノートを選択</p>
           </div>
         </div>
       </header>
@@ -243,7 +243,7 @@ export default function ProjectsPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="単語帳を検索"
+              placeholder="ノートを検索"
               className="w-full pl-10 pr-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)]"
             />
           </div>
@@ -279,8 +279,8 @@ export default function ProjectsPage() {
             <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center">
               <Icon name="star" size={24} className="text-[var(--color-primary)]" />
             </div>
-            <h2 className="mt-4 text-lg font-bold">まだ単語帳がありません</h2>
-            <p className="text-sm text-[var(--color-muted)] mt-2">スキャンから最初の単語帳を作成しましょう</p>
+            <h2 className="mt-4 text-lg font-bold">まだノートがありません</h2>
+            <p className="text-sm text-[var(--color-muted)] mt-2">スキャンから最初のノートを作成しましょう</p>
             <Link
               href="/scan"
               className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-full bg-primary text-white font-semibold"
@@ -311,7 +311,7 @@ export default function ProjectsPage() {
 
             <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
+                <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべてのノート</h2>
                 <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
               </div>
               <div className="space-y-3">
@@ -332,8 +332,8 @@ export default function ProjectsPage() {
         isOpen={deleteProjectModalOpen}
         onClose={() => { setDeleteProjectModalOpen(false); setDeleteProjectTargetId(null); }}
         onConfirm={handleConfirmDeleteProject}
-        title="単語帳を削除"
-        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        title="ノートを削除"
+        message="このノートとすべての単語が削除されます。この操作は取り消せません。"
         isLoading={deleteProjectLoading}
       />
     </div>

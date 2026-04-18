@@ -15,6 +15,7 @@ import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { RichTextBlock } from '@/components/project/RichTextBlock';
 import { BlockInserter } from '@/components/project/BlockInserter';
+import { GrammarListBlock } from '@/components/project/GrammarListBlock';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useToast } from '@/components/ui/toast';
@@ -34,7 +35,7 @@ import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLo
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { createBrowserClient } from '@/lib/supabase';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
-import type { CustomColumn, CustomColumnType, LexiconEntry, Project, ProjectBlock, ProjectBlockType, ProjectShareScope, RichTextBlockData, Word, WordStatus, SubscriptionStatus } from '@/types';
+import type { CustomColumn, CustomColumnType, GrammarEntry, GrammarEntryBody, LexiconEntry, Project, ProjectBlock, ProjectBlockType, ProjectShareScope, RichTextBlockData, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
@@ -156,6 +157,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [wordsLoaded, setWordsLoaded] = useState(false);
+  const [grammarEntries, setGrammarEntries] = useState<GrammarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeRepository, setActiveRepository] = useState<typeof defaultRepository>(defaultRepository);
 
@@ -420,6 +422,25 @@ export default function ProjectDetailPage() {
       }
     }
   }, [project?.id, user?.id]);
+
+  // Load grammar entries whenever the active repository changes. Reads from
+  // whichever backend the rest of the page is currently using (local, remote,
+  // hybrid, or readonly). Empty array on failure to avoid blocking the UI.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await activeRepository.getGrammarEntries(projectId);
+        if (!cancelled) setGrammarEntries(list);
+      } catch (error) {
+        console.error('Failed to load grammar entries:', error);
+        if (!cancelled) setGrammarEntries([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRepository, projectId]);
 
   // Convert vertical mouse-wheel to horizontal scroll on the word table,
   // so desktop users can reveal long translations without shift+wheel.
@@ -1142,12 +1163,20 @@ export default function ProjectDetailPage() {
   const handleInsertBlock = useCallback(
     (type: ProjectBlockType, location: 'above' | 'below', anchorIndex?: number) => {
       if (!project) return;
-      if (type !== 'richText') return; // database block is disabled in Phase 1
+      let data: ProjectBlock['data'];
+      if (type === 'richText') {
+        data = { html: '' } as RichTextBlockData;
+      } else if (type === 'grammarList') {
+        data = {};
+      } else {
+        // database / wordList blocks are not user-addable in Phase 1.
+        return;
+      }
       const newBlock: ProjectBlock = {
         id: crypto.randomUUID(),
         type,
         position: 0, // assigned below
-        data: { html: '' } as RichTextBlockData,
+        data,
       };
 
       const current = [...sortedBlocks];
@@ -1214,6 +1243,112 @@ export default function ProjectDetailPage() {
       void persistBlocks(next);
     },
     [project, sortedBlocks, persistBlocks],
+  );
+
+  // ============ Grammar entry handlers ============
+
+  const handleCreateGrammarEntry = useCallback(
+    async (entry: {
+      pattern: string;
+      meaning: string;
+      category?: string;
+      body: GrammarEntryBody;
+      position: number;
+    }) => {
+      if (!project) return;
+      try {
+        const [created] = await mutationRepository.createGrammarEntries([
+          { projectId: project.id, ...entry },
+        ]);
+        if (created) setGrammarEntries((prev) => [...prev, created]);
+      } catch (error) {
+        console.error('Failed to create grammar entry:', error);
+        showToast({ message: '文法エントリの作成に失敗しました', type: 'error' });
+      }
+    },
+    [project, mutationRepository, showToast],
+  );
+
+  const handleUpdateGrammarEntry = useCallback(
+    async (id: string, updates: Partial<GrammarEntry>) => {
+      const previous = grammarEntries.find((e) => e.id === id);
+      if (!previous) return;
+      setGrammarEntries((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+      );
+      try {
+        await mutationRepository.updateGrammarEntry(id, updates);
+      } catch (error) {
+        console.error('Failed to update grammar entry:', error);
+        showToast({ message: '文法エントリの更新に失敗しました', type: 'error' });
+        setGrammarEntries((prev) => prev.map((e) => (e.id === id ? previous : e)));
+      }
+    },
+    [grammarEntries, mutationRepository, showToast],
+  );
+
+  const handleDeleteGrammarEntry = useCallback(
+    async (id: string) => {
+      const previous = grammarEntries;
+      setGrammarEntries((prev) => prev.filter((e) => e.id !== id));
+      try {
+        await mutationRepository.deleteGrammarEntry(id);
+      } catch (error) {
+        console.error('Failed to delete grammar entry:', error);
+        showToast({ message: '文法エントリの削除に失敗しました', type: 'error' });
+        setGrammarEntries(previous);
+      }
+    },
+    [grammarEntries, mutationRepository, showToast],
+  );
+
+  // Renders a single project block by type. `wordList`/`database` blocks are
+  // not user-addable in Phase 1 and return null (the word list section is
+  // rendered inline between blocksAbove and blocksBelow).
+  const renderBlock = useCallback(
+    (block: ProjectBlock) => {
+      if (block.type === 'richText') {
+        return (
+          <RichTextBlock
+            block={block}
+            autoFocus={newlyAddedBlockId === block.id}
+            wordHighlightMap={wordHighlightMap}
+            aiMatchCandidates={passageMatchCandidates}
+            onChange={(html) => handleUpdateBlockHtml(block.id, html)}
+            onDelete={() => handleDeleteBlock(block.id)}
+            onOpenWord={handleOpenWordModal}
+            onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
+          />
+        );
+      }
+      if (block.type === 'grammarList') {
+        return (
+          <GrammarListBlock
+            entries={grammarEntries}
+            wordHighlightMap={wordHighlightMap}
+            aiMatchCandidates={passageMatchCandidates}
+            onCreate={handleCreateGrammarEntry}
+            onUpdate={handleUpdateGrammarEntry}
+            onDelete={handleDeleteGrammarEntry}
+            onOpenWord={handleOpenWordModal}
+          />
+        );
+      }
+      return null;
+    },
+    [
+      newlyAddedBlockId,
+      wordHighlightMap,
+      passageMatchCandidates,
+      grammarEntries,
+      handleUpdateBlockHtml,
+      handleDeleteBlock,
+      handleOpenWordModal,
+      handleUpdateBlockAiMatches,
+      handleCreateGrammarEntry,
+      handleUpdateGrammarEntry,
+      handleDeleteGrammarEntry,
+    ],
   );
 
   const handleStartCellEdit = (wordId: string, columnId: string, currentRawValue: string) => {
@@ -1400,7 +1535,7 @@ export default function ProjectDetailPage() {
       await mutationRepository.deleteProject(project.id);
       invalidateHomeCache();
       refreshWordCount();
-      showToast({ message: '単語帳を削除しました', type: 'success' });
+      showToast({ message: 'ノートを削除しました', type: 'success' });
       startTransition(() => { router.push('/'); });
     } catch (error) {
       console.error('Failed to delete project:', error);
@@ -1506,10 +1641,10 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-        <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳が見つかりません</h1>
+        <h1 className="text-xl font-bold text-[var(--color-foreground)]">ノートが見つかりません</h1>
         <p className="text-sm text-[var(--color-muted)] mt-2">一覧から選び直してください。</p>
         <Link href="/projects" className="mt-4 px-4 py-2 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/20">
-          単語帳へ戻る
+          ノートへ戻る
         </Link>
       </div>
     );
@@ -1604,7 +1739,7 @@ export default function ProjectDetailPage() {
                 type="button"
                 onClick={beginTitleEdit}
                 className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[var(--color-muted)] hover:bg-[var(--color-surface)] transition-colors"
-                aria-label="単語帳名を編集"
+                aria-label="ノート名を編集"
               >
                 <Icon name="edit" size={18} />
               </button>
@@ -1639,6 +1774,23 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           </section>
+
+          {/* Blocks above the word list. Insertions between blocks use the
+              invisible "gap" inserter (Notion-style click-to-write), while
+              the bottom inserter is visible so users can explicitly pick
+              between text and grammar list. */}
+          {blocksAbove.length > 0 && (
+            <section className="mt-4 space-y-1">
+              {blocksAbove.map((block, idx) => (
+                <div key={block.id}>
+                  {renderBlock(block)}
+                  <BlockInserter
+                    onInsert={(type) => handleInsertBlock(type, 'above', idx)}
+                  />
+                </div>
+              ))}
+            </section>
+          )}
 
           {/* Word list table - iOS style */}
           <section className="mt-2.5">
@@ -1984,31 +2136,21 @@ export default function ProjectDetailPage() {
           {/* User blocks rendered below the word list (Notion-like).
               The inserter directly below the word list (adjacent to a widget)
               is hidden. Between-block inserters and the final page-bottom
-              inserter remain visible. When empty, a single page-bottom
+              inserter remain visible. When empty, a visible "+ ブロックを追加"
               inserter is rendered with extra top margin so it is not flush
               against the word list. */}
           <section className="mt-2.5 space-y-1">
             {blocksBelow.length === 0 ? (
               <div className="mt-8">
                 <BlockInserter
+                  variant="visible"
                   onInsert={(type) => handleInsertBlock(type, 'below', -1)}
                 />
               </div>
             ) : (
               blocksBelow.map((block, idx) => (
                 <div key={block.id}>
-                  {block.type === 'richText' && (
-                    <RichTextBlock
-                      block={block}
-                      autoFocus={newlyAddedBlockId === block.id}
-                      wordHighlightMap={wordHighlightMap}
-                      aiMatchCandidates={passageMatchCandidates}
-                      onChange={(html) => handleUpdateBlockHtml(block.id, html)}
-                      onDelete={() => handleDeleteBlock(block.id)}
-                      onOpenWord={handleOpenWordModal}
-                      onAiMatchesChange={(m) => handleUpdateBlockAiMatches(block.id, m)}
-                    />
-                  )}
+                  {renderBlock(block)}
                   <BlockInserter
                     onInsert={(type) => handleInsertBlock(type, 'below', idx)}
                   />
@@ -2140,8 +2282,8 @@ export default function ProjectDetailPage() {
         isOpen={deleteProjectModalOpen}
         onClose={() => setDeleteProjectModalOpen(false)}
         onConfirm={handleConfirmDeleteProject}
-        title="単語帳を削除"
-        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        title="ノートを削除"
+        message="このノートとすべての単語が削除されます。この操作は取り消せません。"
         isLoading={deleteProjectLoading}
       />
 

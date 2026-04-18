@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   {
     href: '/projects',
     icon: 'folder',
-    label: '単語帳',
+    label: 'ノート',
     matchPaths: ['/projects', '/project'],
   },
   {

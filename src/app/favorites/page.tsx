@@ -170,7 +170,7 @@ export default function FavoritesPage() {
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] text-sm font-semibold border-2 border-[var(--color-warning)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
             >
               <Icon name="menu_book" size={16} />
-              単語帳を見る
+              ノートを見る
             </Link>
           </section>
         ) : (

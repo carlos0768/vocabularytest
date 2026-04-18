@@ -2,7 +2,7 @@
 // For downgraded Pro→Free users: reads from Supabase, blocks all writes.
 // This allows cancelled/past_due users to continue viewing their cloud data.
 
-import type { Word, Project, WordRepository } from '@/types';
+import type { Word, Project, WordRepository, GrammarEntry } from '@/types';
 import { remoteRepository } from './remote-repository';
 
 const READONLY_ERROR = 'このデータは読み取り専用です。編集するにはProプランに再登録してください。';
@@ -59,6 +59,34 @@ export class ReadonlyRemoteRepository implements WordRepository {
   }
 
   async deleteWordsByProject(_projectId: string): Promise<void> {
+    throw new Error(READONLY_ERROR);
+  }
+
+  // ============ Grammar Entries (read-only) ============
+
+  async createGrammarEntries(
+    _entries: Omit<GrammarEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+  ): Promise<GrammarEntry[]> {
+    throw new Error(READONLY_ERROR);
+  }
+
+  async getGrammarEntries(projectId: string): Promise<GrammarEntry[]> {
+    return remoteRepository.getGrammarEntries(projectId);
+  }
+
+  async getGrammarEntry(id: string): Promise<GrammarEntry | undefined> {
+    return remoteRepository.getGrammarEntry(id);
+  }
+
+  async updateGrammarEntry(_id: string, _updates: Partial<GrammarEntry>): Promise<void> {
+    throw new Error(READONLY_ERROR);
+  }
+
+  async deleteGrammarEntry(_id: string): Promise<void> {
+    throw new Error(READONLY_ERROR);
+  }
+
+  async deleteGrammarEntriesByProject(_projectId: string): Promise<void> {
     throw new Error(READONLY_ERROR);
   }
 }

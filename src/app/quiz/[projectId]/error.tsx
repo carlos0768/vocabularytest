@@ -26,7 +26,7 @@ export default function QuizError({
             クイズの読み込みに失敗しました
           </h2>
           <p className="text-sm text-[var(--color-muted)] mt-2">
-            もう一度お試しいただくか、単語帳に戻ってください。
+            もう一度お試しいただくか、ノートに戻ってください。
           </p>
         </div>
         <div className="flex flex-col gap-3">

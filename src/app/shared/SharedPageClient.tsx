@@ -112,7 +112,7 @@ export default function SharedPageClient({
       });
     } catch (error) {
       console.error('Failed to load more public projects:', error);
-      setPublicSectionError('公開単語帳を追加で読み込めませんでした。');
+      setPublicSectionError('公開ノートを追加で読み込めませんでした。');
     } finally {
       setLoadingMorePublic(false);
     }
@@ -128,14 +128,14 @@ export default function SharedPageClient({
 
       <main className="max-w-3xl mx-auto px-5 pb-8 space-y-8">
         <section className="space-y-4">
-          <SectionHeader title="共有単語帳" trailing={`${publicProjects.length}件表示`} />
+          <SectionHeader title="共有ノート" trailing={`${publicProjects.length}件表示`} />
 
           {publicProjects.length === 0 ? (
             <div className="card p-5 text-center">
               <Icon name="public" size={36} className="text-[var(--color-muted)] mx-auto mb-3" />
-              <p className="font-bold text-[var(--color-foreground)]">公開中の単語帳はまだありません</p>
+              <p className="font-bold text-[var(--color-foreground)]">公開中のノートはまだありません</p>
               <p className="text-sm text-[var(--color-muted)] mt-2">
-                公開設定された単語帳がここに表示されます。
+                公開設定されたノートがここに表示されます。
               </p>
             </div>
           ) : (
@@ -211,10 +211,10 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       ? '参加中'
       : '公開中';
   const ownerLabel = project.accessRole === 'owner'
-    ? 'あなたの単語帳'
+    ? 'あなたのノート'
     : project.ownerUsername
-      ? `${project.ownerUsername}さんの単語帳`
-      : '共有された単語帳';
+      ? `${project.ownerUsername}さんのノート`
+      : '共有されたノート';
 
   return (
     <Link

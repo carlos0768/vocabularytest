@@ -852,10 +852,10 @@ export default function QuizPage() {
             <div className="text-center max-w-sm">
               <p className="text-[var(--color-foreground)] font-semibold mb-2">この機能は現在OFFです</p>
               <p className="text-sm text-[var(--color-muted)] mb-6">
-                設定の「単語帳生成設定」でAI機能をONにすると4択クイズを使えます。
+                設定の「ノート生成設定」でAI機能をONにすると4択クイズを使えます。
               </p>
               <Button onClick={backToProject} className="w-full" size="lg">
-                単語帳に戻る
+                ノートに戻る
               </Button>
             </div>
           </main>

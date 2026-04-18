@@ -127,7 +127,7 @@ export default function FavoritesQuizPage() {
         let favoriteWords: Word[];
 
         if (projectId === 'all') {
-          // 全単語帳横断でお気に入り単語を取得
+          // 全ノート横断でお気に入り単語を取得
           const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));

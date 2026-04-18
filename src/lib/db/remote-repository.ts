@@ -1,7 +1,7 @@
 import { createBrowserClient } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, Word, WordRepository } from '@/types';
-import type { Collection, CollectionProject, LexiconEntry } from '@/types';
+import type { Collection, CollectionProject, LexiconEntry, GrammarEntry } from '@/types';
 import {
   hasMissingProjectSourceLabelsColumn,
   insertProjectWithSourceLabelsCompat,
@@ -19,11 +19,16 @@ import {
   mapCollectionToInsert,
   mapCollectionUpdates,
   mapCollectionProjectFromRow,
+  mapGrammarEntryFromRow,
+  mapGrammarEntryToInsert,
+  mapGrammarEntryToInsertWithId,
+  mapGrammarEntryUpdates,
   type ProjectRow,
   type WordRow,
   type WordInput,
   type CollectionRow,
   type CollectionProjectRow,
+  type GrammarEntryRow,
 } from '../../../shared/db';
 import { RESOLVED_WORD_SELECT_COLUMNS, SHARE_VIEW_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
 
@@ -395,6 +400,120 @@ export class RemoteWordRepository implements WordRepository {
 
     if (error) throw new Error(`Failed to get word IDs: ${error.message}`);
     return (data as { id: string }[]).map(r => r.id);
+  }
+
+  // ============ Grammar Entries ============
+
+  async createGrammarEntries(
+    entries: Omit<GrammarEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+  ): Promise<GrammarEntry[]> {
+    if (entries.length === 0) return [];
+    const rows = entries.map(mapGrammarEntryToInsert);
+    const { data, error } = await this.supabase
+      .from('grammar_entries')
+      .insert(rows)
+      .select('*');
+    if (error) throw new Error(`Failed to create grammar entries: ${error.message}`);
+    return (data as GrammarEntryRow[]).map(mapGrammarEntryFromRow);
+  }
+
+  async createGrammarEntriesWithIds(entries: GrammarEntry[]): Promise<void> {
+    if (entries.length === 0) return;
+    const rows = entries.map(mapGrammarEntryToInsertWithId);
+    const { error } = await this.supabase
+      .from('grammar_entries')
+      .upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+    if (error) throw new Error(`Failed to upsert grammar entries: ${error.message}`);
+  }
+
+  async getGrammarEntries(projectId: string): Promise<GrammarEntry[]> {
+    const { data, error } = await this.supabase
+      .from('grammar_entries')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('position', { ascending: true });
+    if (error) throw new Error(`Failed to get grammar entries: ${error.message}`);
+    return (data as GrammarEntryRow[]).map(mapGrammarEntryFromRow);
+  }
+
+  async getGrammarEntry(id: string): Promise<GrammarEntry | undefined> {
+    const { data, error } = await this.supabase
+      .from('grammar_entries')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw new Error(`Failed to get grammar entry: ${error.message}`);
+    }
+    return mapGrammarEntryFromRow(data as GrammarEntryRow);
+  }
+
+  async updateGrammarEntry(id: string, updates: Partial<GrammarEntry>): Promise<void> {
+    const { error } = await this.supabase
+      .from('grammar_entries')
+      .update(mapGrammarEntryUpdates(updates))
+      .eq('id', id);
+    if (error) throw new Error(`Failed to update grammar entry: ${error.message}`);
+  }
+
+  async deleteGrammarEntry(id: string): Promise<void> {
+    const { error } = await this.supabase.from('grammar_entries').delete().eq('id', id);
+    if (error) throw new Error(`Failed to delete grammar entry: ${error.message}`);
+  }
+
+  async deleteGrammarEntriesByProject(projectId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('grammar_entries')
+      .delete()
+      .eq('project_id', projectId);
+    if (error) throw new Error(`Failed to delete grammar entries: ${error.message}`);
+  }
+
+  /** Fetch grammar entries updated after a given timestamp (delta sync) */
+  async getGrammarEntriesUpdatedSince(
+    projectIds: string[],
+    since: string,
+  ): Promise<GrammarEntry[]> {
+    if (projectIds.length === 0) return [];
+    const { data, error } = await this.supabase
+      .from('grammar_entries')
+      .select('*')
+      .in('project_id', projectIds)
+      .gt('updated_at', since);
+    if (error) throw new Error(`Failed to get updated grammar entries: ${error.message}`);
+    return (data as GrammarEntryRow[]).map(mapGrammarEntryFromRow);
+  }
+
+  /** Fetch only grammar entry IDs for given projects (deletion detection) */
+  async getGrammarEntryIdsByProjectIds(projectIds: string[]): Promise<string[]> {
+    if (projectIds.length === 0) return [];
+    const { data, error } = await this.supabase
+      .from('grammar_entries')
+      .select('id')
+      .in('project_id', projectIds);
+    if (error) throw new Error(`Failed to get grammar entry IDs: ${error.message}`);
+    return (data as { id: string }[]).map((r) => r.id);
+  }
+
+  /** Bulk fetch grammar entries for multiple projects, grouped by projectId */
+  async getAllGrammarEntriesByProjectIds(
+    projectIds: string[],
+  ): Promise<Record<string, GrammarEntry[]>> {
+    if (projectIds.length === 0) return {};
+    const { data, error } = await this.supabase
+      .from('grammar_entries')
+      .select('*')
+      .in('project_id', projectIds)
+      .order('position', { ascending: true });
+    if (error) throw new Error(`Failed to get grammar entries: ${error.message}`);
+    const grouped: Record<string, GrammarEntry[]> = {};
+    for (const pid of projectIds) grouped[pid] = [];
+    for (const row of data as GrammarEntryRow[]) {
+      const entry = mapGrammarEntryFromRow(row);
+      if (grouped[entry.projectId]) grouped[entry.projectId].push(entry);
+    }
+    return grouped;
   }
 
   // ============ Share Methods ============

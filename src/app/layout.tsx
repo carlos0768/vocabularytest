@@ -26,10 +26,10 @@ const notoSansJP = Noto_Sans_JP({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.merken.jp'),
-  title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
+  title: 'MERKEN - 画像を撮るだけでノート登録｜カスタムノートアプリ',
   description:
-    '画像を撮るだけで英単語を自動抽出して単語帳に登録。マークした単語だけを単語帳に登録することも可能。自分だけのカスタム単語帳を作成し、4択クイズ・フラッシュカード・例文クイズで効率的に学習できます。',
-  keywords: ['画像を撮るだけで単語帳登録', 'マークした単語だけ単語帳に登録', 'カスタム単語帳', '英語学習', '単語帳アプリ', '英検対策'],
+    '画像を撮るだけで英単語を自動抽出してノートに登録。マークした単語だけをノートに登録することも可能。自分だけのカスタムノートを作成し、4択クイズ・フラッシュカード・例文クイズで効率的に学習できます。',
+  keywords: ['画像を撮るだけでノート登録', 'マークした単語だけノートに登録', 'カスタムノート', '英語学習', 'ノートアプリ', '英検対策'],
   category: 'education',
   manifest: '/manifest.json',
   icons: {
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
     title: 'MERKEN',
   },
   openGraph: {
-    title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
+    title: 'MERKEN - 画像を撮るだけでノート登録｜カスタムノートアプリ',
     description:
-      '画像を撮るだけで英単語を自動抽出して単語帳に登録。マークした単語だけを登録することも可能。自分だけのカスタム単語帳で効率的に学習。',
+      '画像を撮るだけで英単語を自動抽出してノートに登録。マークした単語だけを登録することも可能。自分だけのカスタムノートで効率的に学習。',
     siteName: 'MERKEN',
     url: 'https://www.merken.jp',
     images: [
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
         url: 'https://www.merken.jp/icon-512.png',
         width: 512,
         height: 512,
-        alt: 'MERKEN - 英語学習・単語帳アプリ',
+        alt: 'MERKEN - 英語学習・ノートアプリ',
       },
     ],
     locale: 'ja_JP',
@@ -60,9 +60,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'MERKEN - 画像を撮るだけで単語帳登録｜カスタム単語帳アプリ',
+    title: 'MERKEN - 画像を撮るだけでノート登録｜カスタムノートアプリ',
     description:
-      '画像を撮るだけで単語帳登録。マークした単語だけ登録も可能。カスタム単語帳でクイズ・フラッシュカード学習。',
+      '画像を撮るだけでノート登録。マークした単語だけ登録も可能。カスタムノートでクイズ・フラッシュカード学習。',
     images: ['https://www.merken.jp/icon-512.png'],
   },
 };
@@ -98,7 +98,7 @@ export default function RootLayout({
               '@type': 'WebApplication',
               name: 'MERKEN',
               url: 'https://www.merken.jp',
-              description: '英語教育向け単語学習アプリ。写真を撮るだけで英単語帳を自動作成し、クイズやフラッシュカードで学習できます。',
+              description: '英語教育向け単語学習アプリ。写真を撮るだけで英ノートを自動作成し、クイズやフラッシュカードで学習できます。',
               applicationCategory: 'EducationalApplication',
               operatingSystem: 'Web',
               inLanguage: ['ja', 'en'],
