@@ -7,6 +7,7 @@ import type {
   CustomSection,
   VocabularyType,
   LexiconEntry,
+  LexiconSense,
   Collection,
   CollectionProject,
   RelatedWord,
@@ -165,6 +166,21 @@ export interface LexiconEntryRow {
   updated_at?: string;
 }
 
+export interface LexiconSenseRow {
+  id: string;
+  lexicon_entry_id: string;
+  translation_ja: string;
+  normalized_translation_ja: string;
+  meaning_summary?: string | null;
+  usage_notes?: string | null;
+  example_sentence?: string | null;
+  example_sentence_ja?: string | null;
+  translation_source?: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 function toNonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
@@ -236,6 +252,23 @@ export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
     exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
     createdAt: row.created_at ?? new Date(0).toISOString(),
     updatedAt: row.updated_at ?? new Date(0).toISOString(),
+  };
+}
+
+export function mapLexiconSenseFromRow(row: LexiconSenseRow): LexiconSense {
+  return {
+    id: row.id,
+    lexiconEntryId: row.lexicon_entry_id,
+    translationJa: row.translation_ja,
+    normalizedTranslationJa: row.normalized_translation_ja,
+    meaningSummary: toNonEmptyString(row.meaning_summary) ?? undefined,
+    usageNotes: toNonEmptyString(row.usage_notes) ?? undefined,
+    exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
+    exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
+    translationSource: toNonEmptyString(row.translation_source) ?? undefined,
+    isPrimary: row.is_primary,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

@@ -398,3 +398,169 @@ export type EnhancedSentenceQuizQuestion =
   | FillInBlankQuestion
   | MultiFillInBlankQuestion
   | WordOrderQuestion;
+
+// ============ Learning Asset Types ============
+
+export type LearningAssetKind = 'vocabulary_project' | 'structure_document' | 'correction_document';
+export type LearningAssetStatus = 'draft' | 'ready' | 'error';
+export type StructureSourceType = 'paste' | 'scan';
+export type CorrectionFindingCategory = 'grammar' | 'idiom' | 'usage';
+
+export interface LearningAssetSummary {
+  id: string;
+  userId: string;
+  kind: LearningAssetKind;
+  title: string;
+  status: LearningAssetStatus;
+  legacyProjectId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VocabularyProjectPreview {
+  id: string;
+  title: string;
+  iconImage?: string;
+  sourceLabels: string[];
+  createdAt: string;
+}
+
+export interface CollectionItemSummary {
+  collectionId: string;
+  assetId: string;
+  sortOrder: number;
+  addedAt: string;
+  asset: LearningAssetSummary;
+  project?: VocabularyProjectPreview;
+}
+
+export interface StructureNode {
+  id: string;
+  label: string;
+  text: string;
+  start: number;
+  end: number;
+  children: StructureNode[];
+  collapsible: boolean;
+}
+
+export interface StructureAnalysisNote {
+  label: string;
+  body: string;
+  shortLabel?: string;
+}
+
+export interface StructureAnalysisSummary {
+  overview: string;
+  detectedPatterns: string[];
+  cefrTarget: 'pre1';
+  notes: StructureAnalysisNote[];
+}
+
+export interface StructureDocument {
+  assetId: string;
+  originalText: string;
+  normalizedText: string;
+  sourceType: StructureSourceType;
+  cefrTarget: 'pre1';
+  parseTree: StructureNode[];
+  analysisSummary: StructureAnalysisSummary;
+  mentionedTerms: string[];
+  lastAnalyzedAt?: string;
+  errorMessage?: string;
+}
+
+export interface CorrectionInlineAnnotation {
+  id: string;
+  start: number;
+  end: number;
+  label: string;
+  message: string;
+  severity: 'error' | 'warning';
+  suggestedText?: string;
+}
+
+export interface CorrectionSummary {
+  overview: string;
+  counts: {
+    grammar: number;
+    idiom: number;
+    usage: number;
+  };
+}
+
+export interface CorrectionDocument {
+  assetId: string;
+  originalText: string;
+  correctedText: string;
+  sourceType: StructureSourceType;
+  inlineAnnotations: CorrectionInlineAnnotation[];
+  summary: CorrectionSummary;
+  lastAnalyzedAt?: string;
+  errorMessage?: string;
+}
+
+export interface CorrectionFinding {
+  id: string;
+  assetId: string;
+  spanStart: number;
+  spanEnd: number;
+  category: CorrectionFindingCategory;
+  ruleNameJa: string;
+  ruleNameEn: string;
+  incorrectText: string;
+  suggestedText: string;
+  formalUsageJa: string;
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
+  learnerAdvice: string;
+  difficulty: 1 | 2 | 3;
+  sortOrder: number;
+}
+
+export interface VocabularyAssetStats {
+  totalWords: number;
+  newWords: number;
+  reviewWords: number;
+  masteredWords: number;
+  activeWords: number;
+  passiveWords: number;
+  exampleCount: number;
+}
+
+export interface VocabularyAssetDetail {
+  asset: LearningAssetSummary;
+  project: Project;
+  words: Word[];
+  stats: VocabularyAssetStats;
+  idioms: string[];
+}
+
+export interface CorrectionReviewPayload {
+  question: string;
+  choices: string[];
+  correctAnswer: string;
+  explanation: string;
+  ruleNameJa?: string;
+}
+
+export interface CorrectionReviewItem {
+  id: string;
+  findingId: string;
+  userId: string;
+  quizPayload: CorrectionReviewPayload;
+  status: WordStatus;
+  lastReviewedAt?: string;
+  nextReviewAt?: string;
+  easeFactor: number;
+  intervalDays: number;
+  repetition: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CorrectionReviewQueueItem {
+  asset: LearningAssetSummary;
+  finding: CorrectionFinding;
+  reviewItem: CorrectionReviewItem;
+}

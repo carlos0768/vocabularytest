@@ -418,6 +418,28 @@ export default function CollectionDetailPage() {
             )}
           </section>
 
+          <section>
+            <Link
+              href={`/collections/${collectionId}/notes`}
+              className="group flex items-start gap-4 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition hover:border-[var(--color-foreground)]"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-foreground)] text-white">
+                <Icon name="menu_book" size={22} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-bold tracking-tight text-[var(--color-foreground)]">Notebook を開く</div>
+                <div className="mt-1 text-sm leading-relaxed text-[var(--color-muted)]">
+                  単語帳・構造解析・添削を同じ collection 内で切り替えて学習します。
+                </div>
+              </div>
+              <Icon
+                name="arrow_forward_ios"
+                size={16}
+                className="mt-1 shrink-0 text-[var(--color-muted)] transition group-hover:text-[var(--color-foreground)]"
+              />
+            </Link>
+          </section>
+
           {allWords.length > 0 && (
             <section className="space-y-3">
               <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">その他の学習モード</h3>

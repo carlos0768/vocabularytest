@@ -9,6 +9,7 @@ import {
 } from '@/lib/supabase/project-source-labels-compat';
 import { normalizeLexiconTranslation } from '../../../shared/lexicon';
 import {
+  mapLearningAssetFromRow,
   mapProjectFromRow,
   mapProjectToInsert,
   mapProjectToInsertWithId,
@@ -19,6 +20,7 @@ import {
   mapCollectionToInsert,
   mapCollectionUpdates,
   mapCollectionProjectFromRow,
+  type LearningAssetRow,
   type ProjectRow,
   type WordRow,
   type WordInput,
@@ -54,6 +56,89 @@ export class RemoteWordRepository implements WordRepository {
     return headers;
   }
 
+  private async upsertVocabularyAssetForProject(project: Project): Promise<void> {
+    const { error } = await this.supabase
+      .from('learning_assets')
+      .upsert({
+        user_id: project.userId,
+        kind: 'vocabulary_project',
+        title: project.title,
+        status: 'ready',
+        legacy_project_id: project.id,
+        created_at: project.createdAt,
+        updated_at: project.createdAt,
+      }, { onConflict: 'legacy_project_id' });
+
+    if (error) throw new Error(`Failed to upsert learning asset: ${error.message}`);
+  }
+
+  private async ensureVocabularyAssetsForProjectIds(userId: string, projectIds: string[]): Promise<Map<string, string>> {
+    if (projectIds.length === 0) return new Map();
+
+    const assetMap = new Map<string, string>();
+    const { data: existingAssets, error: existingAssetsError } = await this.supabase
+      .from('learning_assets')
+      .select('*')
+      .eq('user_id', userId)
+      .in('legacy_project_id', projectIds);
+
+    if (existingAssetsError) {
+      throw new Error(`Failed to load learning assets: ${existingAssetsError.message}`);
+    }
+
+    for (const row of (existingAssets ?? []) as LearningAssetRow[]) {
+      const asset = mapLearningAssetFromRow(row);
+      if (asset.legacyProjectId) {
+        assetMap.set(asset.legacyProjectId, asset.id);
+      }
+    }
+
+    const missingProjectIds = projectIds.filter((projectId) => !assetMap.has(projectId));
+    if (missingProjectIds.length === 0) {
+      return assetMap;
+    }
+
+    const { data: projects, error: projectsError } = await this.supabase
+      .from('projects')
+      .select('id, user_id, title, created_at')
+      .eq('user_id', userId)
+      .in('id', missingProjectIds);
+
+    if (projectsError) {
+      throw new Error(`Failed to load projects for learning assets: ${projectsError.message}`);
+    }
+
+    const payload = (projects ?? []).map((project) => ({
+      user_id: project.user_id as string,
+      kind: 'vocabulary_project',
+      title: project.title as string,
+      status: 'ready',
+      legacy_project_id: project.id as string,
+      created_at: project.created_at as string,
+      updated_at: project.created_at as string,
+    }));
+
+    if (payload.length > 0) {
+      const { data: insertedAssets, error: insertedAssetsError } = await this.supabase
+        .from('learning_assets')
+        .upsert(payload, { onConflict: 'legacy_project_id' })
+        .select('*');
+
+      if (insertedAssetsError) {
+        throw new Error(`Failed to backfill learning assets: ${insertedAssetsError.message}`);
+      }
+
+      for (const row of (insertedAssets ?? []) as LearningAssetRow[]) {
+        const asset = mapLearningAssetFromRow(row);
+        if (asset.legacyProjectId) {
+          assetMap.set(asset.legacyProjectId, asset.id);
+        }
+      }
+    }
+
+    return assetMap;
+  }
+
   // ============ Projects ============
 
   async createProject(
@@ -69,7 +154,9 @@ export class RemoteWordRepository implements WordRepository {
       console.warn('[RemoteRepo] projects.source_labels compatibility fallback used on createProject');
     }
 
-    return mapProjectFromRow(data as ProjectRow);
+    const createdProject = mapProjectFromRow(data as ProjectRow);
+    await this.upsertVocabularyAssetForProject(createdProject);
+    return createdProject;
   }
 
   async getProjects(userId: string): Promise<Project[]> {
@@ -138,6 +225,15 @@ export class RemoteWordRepository implements WordRepository {
       if (error) throw new Error(`Failed to update project: ${error.message}`);
     }
 
+    if (updates.title !== undefined) {
+      const { error } = await this.supabase
+        .from('learning_assets')
+        .update({ title: updates.title })
+        .eq('legacy_project_id', id);
+
+      if (error) throw new Error(`Failed to update project asset: ${error.message}`);
+    }
+
     if (sourceLabels !== undefined) {
       const { error, usedLegacyColumns } = await updateProjectSourceLabelsCompat(
         this.supabase,
@@ -170,21 +266,23 @@ export class RemoteWordRepository implements WordRepository {
       .from('projects')
       .upsert(payload, { onConflict: 'id', ignoreDuplicates: true });
 
-    if (!error) return;
+    if (error) {
+      if (!hasMissingProjectSourceLabelsColumn(error)) {
+        throw new Error(`Failed to upsert project: ${error.message}`);
+      }
 
-    if (!hasMissingProjectSourceLabelsColumn(error)) {
-      throw new Error(`Failed to upsert project: ${error.message}`);
+      const legacyPayload = { ...payload };
+      delete (legacyPayload as { source_labels?: string[] }).source_labels;
+
+      const { error: legacyError } = await this.supabase
+        .from('projects')
+        .upsert(legacyPayload, { onConflict: 'id', ignoreDuplicates: true });
+
+      if (legacyError) throw new Error(`Failed to upsert project: ${legacyError.message}`);
+      console.warn('[RemoteRepo] projects.source_labels compatibility fallback used on createProjectWithId');
     }
 
-    const legacyPayload = { ...payload };
-    delete (legacyPayload as { source_labels?: string[] }).source_labels;
-
-    const { error: legacyError } = await this.supabase
-      .from('projects')
-      .upsert(legacyPayload, { onConflict: 'id', ignoreDuplicates: true });
-
-    if (legacyError) throw new Error(`Failed to upsert project: ${legacyError.message}`);
-    console.warn('[RemoteRepo] projects.source_labels compatibility fallback used on createProjectWithId');
+    await this.upsertVocabularyAssetForProject(project);
   }
 
   async createWordsWithIds(words: Word[]): Promise<void> {
@@ -587,6 +685,37 @@ export class RemoteWordRepository implements WordRepository {
       .upsert(rows, { onConflict: 'collection_id,project_id' });
 
     if (error) throw new Error(`Failed to add projects to collection: ${error.message}`);
+
+    const { data: collectionRow, error: collectionError } = await this.supabase
+      .from('collections')
+      .select('user_id')
+      .eq('id', collectionId)
+      .single();
+
+    if (collectionError) throw new Error(`Failed to load collection owner: ${collectionError.message}`);
+
+    const assetMap = await this.ensureVocabularyAssetsForProjectIds(collectionRow.user_id as string, projectIds);
+    const addedAt = new Date().toISOString();
+    const itemRows = rows
+      .map((row) => {
+        const assetId = assetMap.get(row.project_id);
+        if (!assetId) return null;
+        return {
+          collection_id: row.collection_id,
+          asset_id: assetId,
+          sort_order: row.sort_order,
+          added_at: addedAt,
+        };
+      })
+      .filter((row): row is { collection_id: string; asset_id: string; sort_order: number; added_at: string } => row !== null);
+
+    if (itemRows.length > 0) {
+      const { error: itemError } = await this.supabase
+        .from('collection_items')
+        .upsert(itemRows, { onConflict: 'collection_id,asset_id' });
+
+      if (itemError) throw new Error(`Failed to add collection items: ${itemError.message}`);
+    }
   }
 
   async removeProjectFromCollection(collectionId: string, projectId: string): Promise<void> {
@@ -597,6 +726,23 @@ export class RemoteWordRepository implements WordRepository {
       .eq('project_id', projectId);
 
     if (error) throw new Error(`Failed to remove project from collection: ${error.message}`);
+
+    const { data: assetRow, error: assetError } = await this.supabase
+      .from('learning_assets')
+      .select('id')
+      .eq('legacy_project_id', projectId)
+      .maybeSingle();
+
+    if (assetError) throw new Error(`Failed to resolve project asset: ${assetError.message}`);
+    if (!assetRow?.id) return;
+
+    const { error: itemError } = await this.supabase
+      .from('collection_items')
+      .delete()
+      .eq('collection_id', collectionId)
+      .eq('asset_id', assetRow.id as string);
+
+    if (itemError) throw new Error(`Failed to remove collection item: ${itemError.message}`);
   }
 
   async getCollectionPreviews(collectionIds: string[]): Promise<Record<string, { id: string; title: string; iconImage?: string }[]>> {

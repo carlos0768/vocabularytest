@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { z } from 'zod';
-import { getProvider } from '@/lib/ai/providers';
-import { AI_CONFIG } from '@/lib/ai/config';
+import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
-import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
+import {
+  generateExampleSentences,
+  saveExamplesToLexicon,
+  type ExampleSeedWord,
+  type GenerateExamplesResult,
+} from '@/lib/ai/generate-example-sentences';
+import { getAPIKeys } from '@/lib/ai/config';
 import {
   checkAndIncrementFeatureUsage,
   isAiUsageLimitsEnabled,
@@ -13,78 +17,128 @@ import {
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
 
-// リクエストスキーマ
-const requestSchema = z.object({
-  words: z.array(
-    z.object({
-      id: z.string().trim().min(1).max(80),
-      english: z.string().trim().min(1).max(200),
-      japanese: z.string().trim().min(1).max(300),
-    }).strict(),
-  ).min(1).max(30), // 最大30語まで
+const wordSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  english: z.string().trim().min(1).max(200),
+  japanese: z.string().trim().min(1).max(300),
 }).strict();
 
-// AIレスポンススキーマ
-const exampleResponseSchema = z.object({
-  examples: z.array(z.object({
-    wordId: z.string(),
-    partOfSpeechTags: z.array(z.string()).optional().default([]),
-    exampleSentence: z.string(),
-    exampleSentenceJa: z.string(),
-  })),
+const requestSchema = z.object({
+  words: z.array(wordSchema).min(1).max(30).optional(),
+  projectId: z.string().uuid().optional(),
+}).strict().superRefine((value, ctx) => {
+  const hasWords = Array.isArray(value.words);
+  const hasProjectId = typeof value.projectId === 'string';
+  if (hasWords === hasProjectId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'words か projectId のどちらか一方が必要です',
+      path: ['words'],
+    });
+  }
 });
 
-// 例文生成プロンプト
-const EXAMPLE_GENERATION_SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語リストに対して、それぞれの単語を使った自然な英語の例文を生成してください。
+type AuthResult = {
+  user: { id: string } | null;
+  supabase: Awaited<ReturnType<typeof createRouteHandlerClient>>;
+};
 
-【ルール】
-1. 各単語に対して1つの例文を生成
-2. 例文は10〜20語程度の実用的で分かりやすい文
-3. 中学〜高校レベルの難易度
-4. 例文の日本語訳も生成
-5. 熟語の場合は、その熟語全体を例文に含める
-6. 各単語の主分類を partOfSpeechTags として1つだけ返す
-7. partOfSpeechTags は noun, verb, adjective, adverb, idiom, phrasal_verb, preposition, conjunction, pronoun, determiner, interjection, auxiliary, other のいずれか1つだけにする
+type ExistingWordRow = {
+  id: string;
+  example_sentence?: string | null;
+  part_of_speech_tags?: unknown;
+  lexicon_entry_id?: string | null;
+};
 
-【出力形式】JSON
-{
-  "examples": [
-    {
-      "wordId": "単語ID",
-      "partOfSpeechTags": ["noun"],
-      "exampleSentence": "Example sentence using the word.",
-      "exampleSentenceJa": "その単語を使った例文の日本語訳。"
-    }
-  ]
-}`;
+type GenerateExamplesDeps = {
+  createClient?: typeof createRouteHandlerClient;
+  checkUsage?: typeof checkAndIncrementFeatureUsage;
+  generateExamples?: (
+    words: ExampleSeedWord[],
+    apiKeys: ReturnType<typeof getAPIKeys>,
+  ) => Promise<GenerateExamplesResult>;
+  saveLexiconExamples?: typeof saveExamplesToLexicon;
+  loadWordsByProjectId?: (
+    supabase: Awaited<ReturnType<typeof createRouteHandlerClient>>,
+    userId: string,
+    projectId: string,
+  ) => Promise<ExampleSeedWord[]>;
+};
 
-/**
- * POST /api/generate-examples
- *
- * 指定された単語に対して例文を生成するAPI
- *
- * - 認証済みユーザー: 既に例文がある単語はスキップ（DBチェック）、生成後DBに保存
- * - 認証要件は REQUIRE_AUTH_GENERATE_EXAMPLES で制御
- * - 常にexamplesフィールドでクライアントに生成結果を返す
- */
-export async function POST(request: NextRequest) {
+async function resolveAuth(
+  request: NextRequest,
+  createClient: typeof createRouteHandlerClient,
+): Promise<AuthResult> {
+  const supabase = await createClient(request);
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const { data: { user }, error: authError } = bearerToken
+    ? await supabase.auth.getUser(bearerToken)
+    : await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { user: null, supabase };
+  }
+
+  return { user: { id: user.id }, supabase };
+}
+
+async function defaultLoadWordsByProjectId(
+  supabase: Awaited<ReturnType<typeof createRouteHandlerClient>>,
+  userId: string,
+  projectId: string,
+): Promise<ExampleSeedWord[]> {
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (projectError) {
+    throw new Error(`project_lookup_failed:${projectError.message}`);
+  }
+  if (!project) {
+    throw new Error('project_not_found');
+  }
+
+  const { data: words, error: wordsError } = await supabase
+    .from('words')
+    .select('id, english, japanese')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true })
+    .limit(30);
+
+  if (wordsError) {
+    throw new Error(`project_words_lookup_failed:${wordsError.message}`);
+  }
+
+  return ((words ?? []) as Array<{ id: string; english: string; japanese: string }>).map((word) => ({
+    id: word.id,
+    english: word.english,
+    japanese: word.japanese,
+  }));
+}
+
+export async function handleGenerateExamplesPost(
+  request: NextRequest,
+  deps: GenerateExamplesDeps = {},
+) {
   try {
-    // ============================================
-    // 1. AUTHENTICATION CHECK
-    // ============================================
     const requireAuth = readBooleanEnv('REQUIRE_AUTH_GENERATE_EXAMPLES', true);
     const enableUsageLimits = isAiUsageLimitsEnabled();
-    const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const { data: { user }, error: authError } = bearerToken
-      ? await supabase.auth.getUser(bearerToken)
-      : await supabase.auth.getUser();
+    const createClient = deps.createClient ?? createRouteHandlerClient;
+    const checkUsage = deps.checkUsage ?? checkAndIncrementFeatureUsage;
+    const generateExamples = deps.generateExamples ?? generateExampleSentences;
+    const saveLexiconExamples = deps.saveLexiconExamples ?? saveExamplesToLexicon;
+    const loadWordsByProjectId = deps.loadWordsByProjectId ?? defaultLoadWordsByProjectId;
 
-    if (requireAuth && (authError || !user)) {
+    const { user, supabase } = await resolveAuth(request, createClient);
+
+    if (requireAuth && !user) {
       return NextResponse.json(
         { success: false, error: '認証が必要です。ログインしてください。' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -92,11 +146,11 @@ export async function POST(request: NextRequest) {
       if (!user) {
         return NextResponse.json(
           { success: false, error: '認証が必要です。ログインしてください。' },
-          { status: 401 }
+          { status: 401 },
         );
       }
 
-      const usage = await checkAndIncrementFeatureUsage({
+      const usage = await checkUsage({
         supabase,
         featureKey: 'generate_examples',
         freeDailyLimit: readNumberEnv('AI_LIMIT_EXAMPLES_FREE_DAILY', 15),
@@ -116,16 +170,11 @@ export async function POST(request: NextRequest) {
               requiresPro: usage.requires_pro,
             },
           },
-          { status: 429 }
+          { status: 429 },
         );
       }
     }
 
-    const isLoggedIn = !!user;
-
-    // ============================================
-    // 2. PARSE REQUEST BODY
-    // ============================================
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       parseMessage: 'リクエストの解析に失敗しました',
       invalidMessage: '無効なリクエスト形式です',
@@ -133,127 +182,75 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) {
       return NextResponse.json(
         { success: false, error: '無効なリクエスト形式です' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { words } = parsed.data;
-    const wordIds = words.map(w => w.id);
+    const requestWords = parsed.data.projectId
+      ? await loadWordsByProjectId(supabase, user?.id ?? '', parsed.data.projectId)
+      : parsed.data.words ?? [];
 
-    // ============================================
-    // 3. CHECK WHICH WORDS NEED EXAMPLES (DB check for logged-in users only)
-    // ============================================
-    let wordsNeedingExamples = words;
+    if (requestWords.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: '例文を生成できる単語がありません',
+        generated: 0,
+        failed: 0,
+        skipped: 0,
+        examples: [],
+      });
+    }
+
+    const isLoggedIn = Boolean(user);
+    const wordIds = requestWords.map((word) => word.id);
+    let wordsNeedingExamples = requestWords;
+    let existingWordRows: ExistingWordRow[] = [];
 
     if (isLoggedIn) {
-      const { data: existingWords } = await supabase
+      const { data: existingWords, error: existingWordsError } = await supabase
         .from('words')
-        .select('id, example_sentence, part_of_speech_tags')
+        .select('id, example_sentence, part_of_speech_tags, lexicon_entry_id')
         .in('id', wordIds);
 
+      if (existingWordsError) {
+        return NextResponse.json(
+          { success: false, error: '既存例文の確認に失敗しました' },
+          { status: 500 },
+        );
+      }
+
+      existingWordRows = (existingWords ?? []) as ExistingWordRow[];
       const wordsWithExamples = new Set(
-        (existingWords || [])
-          .filter(
-            (w) =>
-              w.example_sentence &&
-              w.example_sentence.trim().length > 0 &&
-              Array.isArray(w.part_of_speech_tags) &&
-              w.part_of_speech_tags.some((tag) => typeof tag === 'string' && tag.trim().length > 0)
+        existingWordRows
+          .filter((word) =>
+            word.example_sentence &&
+            word.example_sentence.trim().length > 0 &&
+            Array.isArray(word.part_of_speech_tags) &&
+            word.part_of_speech_tags.some((tag) => typeof tag === 'string' && tag.trim().length > 0),
           )
-          .map(w => w.id)
+          .map((word) => word.id),
       );
 
-      wordsNeedingExamples = words.filter(w => !wordsWithExamples.has(w.id));
+      wordsNeedingExamples = requestWords.filter((word) => !wordsWithExamples.has(word.id));
 
       if (wordsNeedingExamples.length === 0) {
         return NextResponse.json({
           success: true,
           message: '全ての単語に既に例文が設定されています',
           generated: 0,
-          skipped: words.length,
+          failed: 0,
+          skipped: requestWords.length,
           examples: [],
         });
       }
     }
 
-    // ============================================
-    // 4. GENERATE EXAMPLES WITH AI
-    // ============================================
-    const wordListText = wordsNeedingExamples.map(w =>
-      `- wordId: "${w.id}", english: "${w.english}", japanese: "${w.japanese}"`
-    ).join('\n');
+    const generated = await generateExamples(wordsNeedingExamples, getAPIKeys());
 
-    const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
-
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      return NextResponse.json(
-        { success: false, error: 'OpenAI APIキーが設定されていません' },
-        { status: 500 }
-      );
-    }
-    const config = AI_CONFIG.defaults.openai;
-    const provider = getProvider(config.provider, openaiApiKey);
-
-    let aiResponse;
-    try {
-      aiResponse = await provider.generateText(
-        `${EXAMPLE_GENERATION_SYSTEM_PROMPT}\n\n${userPrompt}`,
-        {
-          ...config,
-          responseFormat: 'json',
-        }
-      );
-    } catch (aiError) {
-      console.error('AI example generation error:', aiError);
-      return NextResponse.json(
-        { success: false, error: '例文の生成に失敗しました' },
-        { status: 500 }
-      );
-    }
-
-    if (!aiResponse.success) {
-      console.error('AI generation failed:', aiResponse.error);
-      return NextResponse.json(
-        { success: false, error: '例文の生成に失敗しました' },
-        { status: 500 }
-      );
-    }
-
-    // AIレスポンスをパース
-    let parsedResponse;
-    try {
-      let content = aiResponse.content;
-      if (content.startsWith('```json')) {
-        content = content.slice(7);
-      } else if (content.startsWith('```')) {
-        content = content.slice(3);
-      }
-      if (content.endsWith('```')) {
-        content = content.slice(0, -3);
-      }
-      content = content.trim();
-
-      const jsonContent = JSON.parse(content);
-      parsedResponse = exampleResponseSchema.parse(jsonContent);
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError, aiResponse.content);
-      return NextResponse.json(
-        { success: false, error: '例文の解析に失敗しました' },
-        { status: 500 }
-      );
-    }
-
-    // ============================================
-    // 5. SAVE TO DATABASE (logged-in users only)
-    // ============================================
     let successCount = 0;
-    let failureCount = 0;
-
+    let failureCount = generated.summary.failed;
     if (isLoggedIn) {
-      for (const example of parsedResponse.examples) {
-        if (!wordsNeedingExamples.find(w => w.id === example.wordId)) continue;
-
+      for (const example of generated.examples) {
         try {
           const { error: updateError } = await supabase
             .from('words')
@@ -265,68 +262,67 @@ export async function POST(request: NextRequest) {
             .eq('id', example.wordId);
 
           if (updateError) {
-            console.error(`Failed to update example for word ${example.wordId}:`, updateError);
+            console.error(`[generate-examples] Failed to persist ${example.wordId}:`, updateError);
             failureCount++;
-          } else {
-            successCount++;
+            continue;
           }
+
+          successCount++;
         } catch (error) {
-          console.error(`Failed to update example for word ${example.wordId}:`, error);
+          console.error(`[generate-examples] Failed to persist ${example.wordId}:`, error);
           failureCount++;
         }
       }
     } else {
-      successCount = parsedResponse.examples.length;
+      successCount = generated.examples.length;
     }
 
-    // ============================================
-    // 5.5 SAVE TO LEXICON MASTER (best-effort)
-    // ============================================
-    if (isLoggedIn) {
-      // Fetch lexicon_entry_id for the words we just generated examples for
-      const generatedWordIds = parsedResponse.examples.map(ex => ex.wordId);
-      const { data: wordsWithLexicon } = await supabase
-        .from('words')
-        .select('id, lexicon_entry_id')
-        .in('id', generatedWordIds)
-        .not('lexicon_entry_id', 'is', null);
+    if (isLoggedIn && generated.examples.length > 0) {
+      const generatedWordIds = generated.examples.map((example) => example.wordId);
+      const lexiconUpdates = existingWordRows
+        .filter((word) => generatedWordIds.includes(word.id) && typeof word.lexicon_entry_id === 'string')
+        .map((word) => {
+          const example = generated.examples.find((candidate) => candidate.wordId === word.id);
+          if (!example || !word.lexicon_entry_id) return null;
+          return {
+            lexiconEntryId: word.lexicon_entry_id,
+            exampleSentence: example.exampleSentence,
+            exampleSentenceJa: example.exampleSentenceJa,
+          };
+        })
+        .filter((value): value is NonNullable<typeof value> => value !== null);
 
-      if (wordsWithLexicon && wordsWithLexicon.length > 0) {
-        const lexiconUpdates = wordsWithLexicon
-          .map(w => {
-            const example = parsedResponse.examples.find(ex => ex.wordId === w.id);
-            if (!example || !w.lexicon_entry_id) return null;
-            return {
-              lexiconEntryId: w.lexicon_entry_id,
-              exampleSentence: example.exampleSentence,
-              exampleSentenceJa: example.exampleSentenceJa,
-            };
-          })
-          .filter((x): x is NonNullable<typeof x> => x !== null);
-
-        if (lexiconUpdates.length > 0) {
-          const lexResult = await saveExamplesToLexicon(lexiconUpdates);
-          console.log('[generate-examples] Lexicon master update:', lexResult);
-        }
+      if (lexiconUpdates.length > 0) {
+        await saveLexiconExamples(lexiconUpdates);
       }
     }
 
-    // ============================================
-    // 6. RETURN SUCCESS RESPONSE (always include examples)
-    // ============================================
     return NextResponse.json({
       success: true,
       message: `${successCount}件の例文を生成しました`,
       generated: successCount,
       failed: failureCount,
-      skipped: words.length - wordsNeedingExamples.length,
-      examples: parsedResponse.examples,
+      skipped: requestWords.length - wordsNeedingExamples.length,
+      examples: generated.examples,
+      errors: generated.errors,
     });
   } catch (error) {
+    const code = error instanceof Error ? error.message.split(':', 1)[0] : '';
+    if (code === 'project_not_found') {
+      return NextResponse.json(
+        { success: false, error: '指定した単語帳が見つかりません。' },
+        { status: 404 },
+      );
+    }
+
     console.error('Generate examples API error:', error);
     return NextResponse.json(
       { success: false, error: '予期しないエラーが発生しました' },
-      { status: 500 }
+      { status: 500 },
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleGenerateExamplesPost(request);
 }
