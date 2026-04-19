@@ -14,12 +14,12 @@ const NO_SHELL_PATHS = [
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
   '/quick-response/', '/sentence-quiz/', '/scan/confirm',
-  '/subscription', '/collections/new', '/word/',
+  '/subscription', '/collections/new', '/word/', '/wordbook/',
 ];
 
 function isNotebookPath(pathname: string): boolean {
   return /^\/collections\/[^/]+\/notes(?:\/|$)/.test(pathname)
-    || /^\/project\/[^/]+$/.test(pathname)
+    || /^\/wordbook\/[^/]+(?:\/|$)/.test(pathname)
     || /^\/project\/[^/]+\/new(?:\/|$)/.test(pathname)
     || /^\/structure\/[^/]+(?:\/|$)/.test(pathname)
     || /^\/correction\/[^/]+(?:\/|$)/.test(pathname);

@@ -77,23 +77,26 @@ export function useVocabularyAsset(assetId?: string | null) {
       setLoading(true);
       setError(null);
 
-      if (!isPro && user) {
+      if (!isPro) {
         const project = await localRepository.getProject(assetId);
-        if (!project) {
+        if (project) {
+          const words = await localRepository.getWords(project.id);
+          const payload = buildLocalVocabularyAssetDetail(project, words);
+          setDetail({
+            asset: payload.asset,
+            project: payload.project,
+            words: payload.words,
+            stats: payload.stats,
+            idioms: payload.idioms ?? [],
+            lastQuizAccuracy: payload.lastQuizAccuracy,
+            flashcardProgress: payload.flashcardProgress,
+          });
+          return payload;
+        }
+
+        if (!user) {
           throw new Error('単語帳が見つかりません。');
         }
-        const words = await localRepository.getWords(project.id);
-        const payload = buildLocalVocabularyAssetDetail(project, words);
-        setDetail({
-          asset: payload.asset,
-          project: payload.project,
-          words: payload.words,
-          stats: payload.stats,
-          idioms: payload.idioms ?? [],
-          lastQuizAccuracy: payload.lastQuizAccuracy,
-          flashcardProgress: payload.flashcardProgress,
-        });
-        return payload;
       }
 
       const payload = await requestJson<VocabularyAssetResponse>(`/api/vocabulary-assets/${assetId}`);

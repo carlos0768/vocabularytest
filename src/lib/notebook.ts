@@ -66,8 +66,8 @@ export function findNotebookItemByKind(
   return items.find((item) => item.asset.kind === kind);
 }
 
-export function getStandaloneWordbookHref(projectId: string): string {
-  return `/project/${projectId}`;
+export function getStandaloneWordbookHref(identifier: string): string {
+  return `/wordbook/${identifier}`;
 }
 
 export function getStandaloneStructureHref(assetId: string): string {

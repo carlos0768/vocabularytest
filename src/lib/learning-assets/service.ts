@@ -166,8 +166,23 @@ async function requireOwnedVocabularyAssetByIdentifier(
     .maybeSingle();
 
   if (error) throw new Error(`asset_lookup_failed:${error.message}`);
-  if (!data) throw new Error('asset_not_found');
-  return mapLearningAssetFromRow(data as LearningAssetRow);
+  if (data) {
+    return mapLearningAssetFromRow(data as LearningAssetRow);
+  }
+
+  await ensureVocabularyAssetsForLegacyProjects(admin, userId, [identifier]);
+
+  const { data: backfilledData, error: backfilledError } = await admin
+    .from('learning_assets')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('kind', 'vocabulary_project')
+    .eq('legacy_project_id', identifier)
+    .maybeSingle();
+
+  if (backfilledError) throw new Error(`asset_lookup_failed:${backfilledError.message}`);
+  if (!backfilledData) throw new Error('asset_not_found');
+  return mapLearningAssetFromRow(backfilledData as LearningAssetRow);
 }
 
 async function requireOwnedAssetByKind(

@@ -9,6 +9,9 @@ type VocabularyAssetGetDeps = {
 
 function mapVocabularyGetError(error: unknown): { status: number; message: string } {
   const code = error instanceof Error ? error.message.split(':', 1)[0] : '';
+  if (code === 'legacy_learning_assets_check_failed' || code === 'legacy_projects_lookup_failed' || code === 'legacy_learning_assets_backfill_failed') {
+    return { status: 500, message: '旧単語帳アセットの補完に失敗しました。' };
+  }
   if (
     code === 'asset_not_found' ||
     code === 'project_not_found' ||

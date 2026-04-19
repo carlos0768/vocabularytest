@@ -24,6 +24,7 @@ import {
   getNotebookCreateHref,
   getNotebookKindFromSegment,
   getNotebookKindLabel,
+  getStandaloneWordbookHref,
 } from '@/lib/notebook';
 import type { LearningAssetKind, StructureSourceType } from '@/types';
 
@@ -247,7 +248,7 @@ export function NotebookCreatePage({
         subtitle="ノート · 新規作成"
         crumbLabel="新規作成"
         currentKind={selectedKind ?? undefined}
-        backHref={collectionId ? `/collections/${collectionId}/notes` : projectId ? `/project/${projectId}` : '/projects'}
+        backHref={collectionId ? `/collections/${collectionId}/notes` : projectId ? getStandaloneWordbookHref(projectId) : '/projects'}
         showFab={false}
       >
         {!selectedKind ? (
@@ -260,7 +261,7 @@ export function NotebookCreatePage({
                     collectionId
                       ? getNotebookCreateHref(collectionId, card.kind)
                       : card.kind === 'vocabulary_project'
-                        ? (projectId ? `/project/${projectId}` : '/projects')
+                        ? (projectId ? getStandaloneWordbookHref(projectId) : '/projects')
                         : `/project/${projectId}/new?kind=${card.kind === 'structure_document' ? 'structure' : 'correction'}`
                   }
                   className="flex items-start gap-4 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-4 transition hover:border-[var(--color-foreground)]"
