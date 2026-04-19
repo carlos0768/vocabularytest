@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { ScanModeModal } from '@/components/home/ScanModeModal';
@@ -25,6 +25,7 @@ import { requestJson } from '@/hooks/api-client';
 import { useCollectionItems } from '@/hooks/use-collection-items';
 import { useNotebookBinding } from '@/hooks/use-notebook-binding';
 import { useVocabularyAsset } from '@/hooks/use-vocabulary-assets';
+import { localRepository } from '@/lib/db/local-repository';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import {
   getNotebookCreateHref,
@@ -220,6 +221,14 @@ export function NotebookWordbookPage({
 
   const wordbookAssetId = detail?.asset.id;
 
+  const handleStandaloneBack = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/projects');
+  }, [router]);
+
   const resolveScreenHref = (screen: MerkenNotebookScreenId) => {
     if (!detail) return '/collections';
 
@@ -258,6 +267,11 @@ export function NotebookWordbookPage({
   const handleGenerateExamples = async () => {
     if (!detail || exampleLoading) return;
 
+    if (!user) {
+      window.alert('例文生成はログイン後に利用できます。');
+      return;
+    }
+
     try {
       setExampleLoading(true);
       const payload = await requestJson<GenerateExamplesResponse>('/api/generate-examples', {
@@ -281,6 +295,22 @@ export function NotebookWordbookPage({
 
     try {
       setManualWordSaving(true);
+      if (!user) {
+        await localRepository.createWords([
+          {
+            projectId: detail.project.id,
+            english: manualWordEnglish,
+            japanese: manualWordJapanese,
+            distractors: [],
+          },
+        ]);
+        setManualWordEnglish('');
+        setManualWordJapanese('');
+        setShowManualWordModal(false);
+        await refresh();
+        return;
+      }
+
       await requestJson<CreateWordsResponse>('/api/words/create', {
         method: 'POST',
         headers: {
@@ -367,6 +397,25 @@ export function NotebookWordbookPage({
         return;
       }
 
+      if (!user) {
+        await localRepository.createWords(
+          uniqueWords.map((word) => ({
+            projectId: detail.project.id,
+            english: word.english,
+            japanese: word.japanese,
+            distractors: word.distractors ?? [],
+            vocabularyType: word.vocabularyType ?? null,
+            japaneseSource: word.japaneseSource,
+            lexiconEntryId: word.lexiconEntryId,
+            exampleSentence: word.exampleSentence,
+            exampleSentenceJa: word.exampleSentenceJa,
+            partOfSpeechTags: word.partOfSpeechTags,
+          })),
+        );
+        await refresh();
+        return;
+      }
+
       await requestJson<CreateWordsResponse>('/api/words/create', {
         method: 'POST',
         headers: {
@@ -400,7 +449,7 @@ export function NotebookWordbookPage({
     return <NotebookLoadingState />;
   }
 
-  if (!user) {
+  if (!user && collectionId) {
     return <NotebookAuthRequiredState />;
   }
 
@@ -411,12 +460,22 @@ export function NotebookWordbookPage({
           title="単語帳を開けませんでした"
           message={error || itemsError || '指定した単語帳アセットが見つかりません。'}
           action={
-            <Link
-              href={collectionId ? `/collections/${collectionId}/notes` : '/projects'}
-              className="inline-flex items-center justify-center rounded-xl bg-[var(--color-foreground)] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
-            >
-              戻る
-            </Link>
+            collectionId ? (
+              <Link
+                href={`/collections/${collectionId}/notes`}
+                className="inline-flex items-center justify-center rounded-xl bg-[var(--color-foreground)] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
+              >
+                戻る
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStandaloneBack}
+                className="inline-flex items-center justify-center rounded-xl bg-[var(--color-foreground)] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
+              >
+                戻る
+              </button>
+            )
           }
         />
       </div>
@@ -432,7 +491,13 @@ export function NotebookWordbookPage({
           <div className="relative">
             <TopNav
               variant="swiss"
-              onBack={() => router.push(collectionId ? `/collections/${collectionId}/notes` : '/projects')}
+              onBack={() => {
+                if (collectionId) {
+                  router.push(`/collections/${collectionId}/notes`);
+                  return;
+                }
+                handleStandaloneBack();
+              }}
               sub="ノート · 単語"
               title={detail.project.title}
               trailing={(
