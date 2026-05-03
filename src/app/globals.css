@@ -153,7 +153,7 @@
 
 html {
   background-color: var(--color-background);
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: contain;
 }
 
 body {

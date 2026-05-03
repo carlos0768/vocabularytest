@@ -361,7 +361,7 @@ export function ManualWordInputModal({
             <Icon name="close" size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-5">
+        <div className="overflow-y-auto overscroll-contain px-5 py-5">
           <p className="text-xs text-center text-[var(--color-muted)] mb-4">
             品詞・例文・発音記号はAIが自動で補完します
           </p>

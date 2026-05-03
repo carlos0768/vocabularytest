@@ -60,7 +60,7 @@ function BottomSheetShell({ open, onClose, title, children, footer }: BottomShee
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 py-5">{children}</div>
+        <div className="overflow-y-auto overscroll-contain px-5 py-5">{children}</div>
 
         {footer}
       </div>

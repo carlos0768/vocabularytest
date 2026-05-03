@@ -70,7 +70,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-5 py-2 space-y-8 overflow-y-auto">
+      <nav className="flex-1 px-5 py-2 space-y-8 overflow-y-auto overscroll-contain">
         {navGroups.map((group) => (
           <div key={group.label} className="space-y-2">
             <div className="px-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-muted)]">
