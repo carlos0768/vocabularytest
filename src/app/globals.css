@@ -161,7 +161,7 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-body);
   min-height: 100dvh;
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: contain;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   padding-top: constant(safe-area-inset-top);
