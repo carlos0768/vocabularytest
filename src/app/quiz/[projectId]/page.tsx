@@ -478,19 +478,6 @@ export default function QuizPage() {
     return () => { cancelled = true; };
   }, [questions.length, projectId, repository, reviewMode, collectionId]);
 
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const previousHtmlOverflow = html.style.overflow;
-    const previousBodyOverflow = body.style.overflow;
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    return () => {
-      html.style.overflow = previousHtmlOverflow;
-      body.style.overflow = previousBodyOverflow;
-    };
-  }, []);
-
   const currentQuestion = questions[currentIndex];
   const isActiveVocab = currentQuestion?.word.vocabularyType === 'active';
 
@@ -696,9 +683,9 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header: close + progress dots + flag */}
-      <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2.5 pt-2">
+      <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
           <Icon name="close" size={18} />
         </button>
@@ -743,19 +730,19 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1 ${isRevealed ? 'justify-end pb-[96px]' : 'pb-1.5'}`}>
-        <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+      <div className="flex flex-1 flex-col px-5 pt-2.5">
+        <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isActiveVocab ? 'タイプ入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
         <div className="relative">
           <div className="absolute inset-0 rounded-[18px] translate-x-[3px] translate-y-[4px] bg-[var(--solid-ink)]" />
-          <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-4 text-center">
-            <div className="mb-1.5 font-mono text-[10px] text-[var(--color-muted)]">
+          <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
+            <div className="mb-2 font-mono text-[11px] text-[var(--color-muted)]">
               {currentQuestion?.word.pronunciation || ''}
             </div>
-            <div className="line-clamp-2 font-display text-[30px] font-extrabold leading-[1.08] tracking-[-0.01em] text-[var(--solid-ink)]">
+            <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
               {isActiveVocab
                 ? currentQuestion?.word.japanese
                 : quizDirection === 'en-to-ja'
@@ -763,7 +750,7 @@ export default function QuizPage() {
                   : currentQuestion?.word.japanese}
             </div>
             {!isActiveVocab && (
-              <div className="mt-2 flex justify-center">
+              <div className="mt-2.5 flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -785,7 +772,7 @@ export default function QuizPage() {
 
         {/* Options or type-in */}
         {!isActiveVocab ? (
-          <div className="mt-3 flex min-h-0 flex-col gap-2">
+          <div className="mt-[18px] flex flex-col gap-2">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
                 key={i}
@@ -800,7 +787,7 @@ export default function QuizPage() {
             ))}
           </div>
         ) : (
-          <div className="mt-2.5 w-full space-y-2.5 overflow-hidden">
+          <div className="mt-[18px] w-full space-y-4">
             <TypeInQuizField
               answer={currentQuestion?.word.english ?? ''}
               value={typeInAnswer}
@@ -825,13 +812,13 @@ export default function QuizPage() {
 
         {/* Example sentence revealed */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="mt-2 shrink-0 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[9px_12px]">
-            <div className="mb-1 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-            <div className="line-clamp-2 text-[13px] font-medium leading-[1.45] text-[var(--solid-ink)]">
+          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+            <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
               {currentQuestion.word.exampleSentence}
             </div>
             {currentQuestion.word.exampleSentenceJa && (
-              <div className="mt-0.5 line-clamp-1 text-[11px] leading-[1.45] text-[var(--color-muted)]">{currentQuestion.word.exampleSentenceJa}</div>
+              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{currentQuestion.word.exampleSentenceJa}</div>
             )}
           </div>
         )}
@@ -839,10 +826,7 @@ export default function QuizPage() {
 
       {/* Bottom CTA — only shown after reveal */}
       {isRevealed && (
-        <div
-          className="fixed inset-x-0 bottom-0 z-40 bg-[var(--color-background)] px-5 pt-2 lg:left-[280px]"
-          style={{ paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 18px))' }}
-        >
+        <div className="bg-[var(--color-background)] px-5 pb-7 pt-4">
           <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
           </SolidButton>
