@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
@@ -27,11 +27,6 @@ const SVO_COLORS: Record<string, { bg: string; fg: string; bd?: string }> = {
   C: { bg: '#a8761f', fg: '#fff' },
   M: { bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--solid-ink)' },
 };
-
-function getResultId() {
-  if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get('id');
-}
 
 function Tag({ k }: { k: string }) {
   const c = SVO_COLORS[k] ?? SVO_COLORS.M;
@@ -84,14 +79,21 @@ function TreeNode({ node }: { node: ParserTreeNode }) {
 
 export default function ParserResultPage() {
   const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
+  const [resolvedId, setResolvedId] = useState(false);
   const [result, setResult] = useState<ParserResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const id = useMemo(getResultId, []);
 
   useEffect(() => {
+    setId(new URLSearchParams(window.location.search).get('id'));
+    setResolvedId(true);
+  }, []);
+
+  useEffect(() => {
+    if (!resolvedId) return;
     if (!id) {
       setLoading(false);
       return;
@@ -113,7 +115,7 @@ export default function ParserResultPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, resolvedId]);
 
   async function saveWords() {
     if (!result || saving) return;
@@ -139,7 +141,7 @@ export default function ParserResultPage() {
     }
   }
 
-  if (loading) {
+  if (!resolvedId || loading) {
     return <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-[84px] text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>;
   }
 

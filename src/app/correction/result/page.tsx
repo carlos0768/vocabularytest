@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import type { CorrectionResultPayload } from '@/lib/ai/correction-parser';
 
@@ -21,22 +21,23 @@ const TAG_COLORS: Record<string, string> = {
   自然さ: '#c8a02e',
 };
 
-function getResultId() {
-  if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get('id');
-}
-
 export default function CorrectionResultPage() {
   const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
+  const [resolvedId, setResolvedId] = useState(false);
   const [result, setResult] = useState<CorrectionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const id = useMemo(getResultId, []);
+  useEffect(() => {
+    setId(new URLSearchParams(window.location.search).get('id'));
+    setResolvedId(true);
+  }, []);
 
   useEffect(() => {
+    if (!resolvedId) return;
     if (!id) {
       setLoading(false);
       return;
@@ -58,7 +59,7 @@ export default function CorrectionResultPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, resolvedId]);
 
   async function saveWords(candidateIds?: string[]) {
     if (!result || saving) return;
@@ -84,7 +85,7 @@ export default function CorrectionResultPage() {
     }
   }
 
-  if (loading) {
+  if (!resolvedId || loading) {
     return <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-[84px] text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>;
   }
 
