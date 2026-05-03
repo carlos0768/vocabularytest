@@ -190,7 +190,7 @@ export default function ProjectPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)]">
-      <div className="flex items-center justify-between px-4 pt-[58px] lg:hidden" style={{ marginTop: 6 }}>
+      <div className="flex items-center justify-between px-4 pt-3 lg:hidden">
         <HeaderBtn onClick={() => router.back()} aria-label="戻る">
           <Icon name="chevron_left" size={16} />
         </HeaderBtn>

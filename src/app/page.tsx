@@ -160,7 +160,7 @@ export default function HomePage() {
   const visibleProjects = projects.slice(0, 3);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-[58px] font-[var(--font-body)] lg:pt-4">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:pt-4">
       <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
         <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN

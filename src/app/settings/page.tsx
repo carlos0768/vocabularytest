@@ -28,7 +28,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-[54px] font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       {/* Header */}
       <div className="px-[18px] pb-[14px] pt-1">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT</div>

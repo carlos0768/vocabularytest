@@ -136,7 +136,7 @@ export default function ProjectListPage() {
   }, [projects, query, sort]);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-[58px] font-[var(--font-body)] lg:pt-[54px]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       <div className="px-5 pb-3.5 pt-2.5">
         <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
           MY BOOKS

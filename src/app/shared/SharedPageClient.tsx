@@ -107,7 +107,7 @@ export default function SharedPageClient({
   const popularCount = publicProjects.filter((project) => (project.likeCount ?? 0) > 0).length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-[54px] font-[var(--font-body)]">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       <div className="px-[18px] pb-2 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           COMMUNITY
