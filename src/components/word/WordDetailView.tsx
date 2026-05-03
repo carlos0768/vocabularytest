@@ -420,7 +420,7 @@ export function WordDetailView({
 
   return (
     <div className={isModal ? 'bg-[var(--color-background)] pb-6 font-[var(--font-body)]' : 'min-h-screen bg-[var(--color-background)] pb-24 font-[var(--font-body)]'}>
-      <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-[clamp(18px,5vw,32px)] pb-4 pt-5">
+      <header className="mx-auto flex w-full max-w-xl items-center justify-between px-5 pb-4 pt-5 sm:px-7">
         <button
           onClick={onClose}
           className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
@@ -456,10 +456,10 @@ export function WordDetailView({
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-2xl px-[clamp(18px,5vw,32px)] pt-2">
-        <section className="pb-[clamp(24px,7vw,34px)]">
+      <main className="mx-auto w-full max-w-xl px-5 pt-2 sm:px-7">
+        <section className="pb-7">
           <div className="flex items-start justify-between gap-4">
-            <h1 className="min-w-0 flex-1 break-words font-display text-[clamp(2.45rem,11vw,4rem)] font-black leading-[1.02] tracking-normal text-[var(--solid-ink)]">
+            <h1 className="min-w-0 flex-1 break-words font-display text-[42px] font-black leading-[1.04] tracking-normal text-[var(--solid-ink)] sm:text-[46px]">
               {word.english}
             </h1>
             <span
@@ -470,10 +470,10 @@ export function WordDetailView({
             </span>
           </div>
 
-          <div className="mt-[clamp(24px,7vw,32px)] flex flex-wrap items-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center gap-3">
             <button
               onClick={handleSpeak}
-              className="inline-flex min-h-11 max-w-full items-center gap-3 rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-2.5 text-[clamp(1rem,4.2vw,1.25rem)] font-medium leading-none text-[var(--solid-ink)] sm:max-w-[58%]"
+              className="inline-flex min-h-11 max-w-full items-center gap-3 rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-2.5 text-[17px] font-medium leading-none text-[var(--solid-ink)] sm:max-w-[58%]"
               aria-label="発音を再生"
             >
               <span className="min-w-0 truncate font-mono">{word.pronunciation || '―'}</span>
@@ -511,7 +511,7 @@ export function WordDetailView({
 
         <SectionDivider />
 
-        <section className="py-[clamp(22px,6vw,30px)]">
+        <section className="py-6">
           <SectionHeading title="MEANING" />
           {isEditing ? (
             <div className="space-y-1">
@@ -519,12 +519,12 @@ export function WordDetailView({
                 type="text"
                 value={editJapanese}
                 onChange={(e) => setEditJapanese(e.target.value)}
-                className="w-full rounded-[14px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[clamp(1.05rem,4.8vw,1.35rem)] font-bold text-[var(--solid-ink)] outline-none"
+                className="w-full rounded-[14px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[18px] font-bold text-[var(--solid-ink)] outline-none"
               />
             </div>
           ) : (
-            <p className="mt-5 text-[clamp(1.35rem,5.8vw,1.85rem)] font-bold leading-[1.55] text-[var(--solid-ink)]">
-              {posDisplay && <span className="mr-3 text-[clamp(1.05rem,5vw,1.45rem)] text-[var(--color-ink-muted)]">({posDisplay})</span>}
+            <p className="mt-5 text-[22px] font-bold leading-[1.55] text-[var(--solid-ink)] sm:text-[24px]">
+              {posDisplay && <span className="mr-3 text-[18px] text-[var(--color-ink-muted)] sm:text-[20px]">({posDisplay})</span>}
               {word.japanese}
             </p>
           )}
@@ -532,7 +532,7 @@ export function WordDetailView({
 
         <SectionDivider />
 
-        <section className="py-[clamp(22px,6vw,30px)]">
+        <section className="py-6">
           <div className="mb-5 flex items-center justify-between">
             <SectionHeading title="EXAMPLE" />
             <span className="text-[15px] font-bold text-[var(--color-muted)]">例文</span>
@@ -544,20 +544,20 @@ export function WordDetailView({
                 onChange={(e) => setEditExampleSentence(e.target.value)}
                 placeholder="例文（英語）を入力..."
                 rows={2}
-                className="w-full resize-none rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-4 text-[clamp(1.1rem,5vw,1.45rem)] leading-relaxed text-[var(--solid-ink)] outline-none"
+                className="w-full resize-none rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-4 text-[18px] leading-relaxed text-[var(--solid-ink)] outline-none"
               />
               <textarea
                 value={editExampleSentenceJa}
                 onChange={(e) => setEditExampleSentenceJa(e.target.value)}
                 placeholder="例文の日本語訳を入力..."
                 rows={2}
-                className="w-full resize-none rounded-[18px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-4 text-[clamp(0.95rem,4.4vw,1.15rem)] leading-relaxed text-[var(--color-muted)] outline-none"
+                className="w-full resize-none rounded-[18px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-4 text-[15px] leading-relaxed text-[var(--color-muted)] outline-none"
               />
             </div>
           ) : word.exampleSentence ? (
-            <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white px-[clamp(18px,5vw,24px)] py-[clamp(18px,5vw,24px)] shadow-[4px_5px_0_var(--color-accent)]">
+            <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-5 shadow-[4px_5px_0_var(--color-accent)] sm:px-6 sm:py-6">
               <div className="flex items-start gap-4">
-                <p className="min-w-0 flex-1 text-[clamp(1.35rem,6vw,1.85rem)] font-medium leading-[1.55] text-[var(--solid-ink)]">
+                <p className="min-w-0 flex-1 text-[20px] font-medium leading-[1.6] text-[var(--solid-ink)] sm:text-[22px]">
                   {highlightWord(word.exampleSentence, word.english)}
                 </p>
                 <button onClick={() => {
@@ -566,12 +566,12 @@ export function WordDetailView({
                   u.lang = 'en-US';
                   u.rate = 0.85;
                   speechSynthesis.speak(u);
-                }} className="mt-1 inline-flex h-[clamp(44px,12vw,56px)] w-[clamp(44px,12vw,56px)] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[var(--color-border)] bg-white text-[var(--color-ink-muted)]" aria-label="例文を再生">
-                  <Icon name="volume_up" size={22} />
+                }} className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[var(--color-border)] bg-white text-[var(--color-ink-muted)] sm:h-12 sm:w-12" aria-label="例文を再生">
+                  <Icon name="volume_up" size={20} />
                 </button>
               </div>
               {word.exampleSentenceJa && (
-                <p className="mt-4 text-[clamp(1.1rem,5vw,1.5rem)] leading-[1.45] text-[var(--color-ink-muted)]">{word.exampleSentenceJa}</p>
+                <p className="mt-4 text-[16px] leading-[1.55] text-[var(--color-ink-muted)] sm:text-[17px]">{word.exampleSentenceJa}</p>
               )}
             </div>
           ) : (
@@ -584,11 +584,11 @@ export function WordDetailView({
         {relatedWords.length > 0 && (
           <>
             <SectionDivider />
-            <section className="py-[clamp(22px,6vw,30px)]">
+            <section className="py-6">
               <SectionHeading title="RELATED" />
               <div className="mt-5 flex flex-wrap gap-3">
                 {relatedWords.map((item, index) => (
-                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.5px] border-[var(--color-border)] bg-white px-[clamp(14px,4vw,20px)] py-2.5 text-[clamp(1.05rem,4.8vw,1.5rem)] font-bold leading-none text-[var(--solid-ink)]">
+                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.5px] border-[var(--color-border)] bg-white px-4 py-2.5 text-[17px] font-bold leading-none text-[var(--solid-ink)]">
                     {item.term}
                   </span>
                 ))}
@@ -600,13 +600,13 @@ export function WordDetailView({
         {usagePatterns.length > 0 && (
           <>
             <SectionDivider />
-            <section className="py-[clamp(22px,6vw,30px)]">
+            <section className="py-6">
               <SectionHeading title="USAGE" />
               <div className="mt-5 space-y-4">
                 {usagePatterns.map((pattern, index) => (
                   <div key={`${pattern.pattern}-${index}`} className="rounded-r-[12px] border-l-4 border-[var(--color-accent)] bg-[var(--color-surface-alt)] px-5 py-4">
-                    <div className="text-[clamp(1.15rem,5vw,1.55rem)] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
-                    <div className="mt-2 text-[clamp(1rem,4.5vw,1.35rem)] leading-snug text-[var(--color-ink-muted)]">{pattern.meaningJa}</div>
+                    <div className="text-[18px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
+                    <div className="mt-2 text-[16px] leading-snug text-[var(--color-ink-muted)]">{pattern.meaningJa}</div>
                   </div>
                 ))}
               </div>
@@ -701,9 +701,9 @@ export function WordDetailView({
               return (
                 <section key={section.id}>
                   <SectionDivider />
-                  <div className="py-[clamp(22px,6vw,30px)]">
+                  <div className="py-6">
                     <SectionHeading title={section.title} />
-                    <p className="mt-4 whitespace-pre-wrap text-[clamp(0.95rem,4.4vw,1.15rem)] leading-7 text-[var(--solid-ink)]">{display || '—'}</p>
+                    <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--solid-ink)]">{display || '—'}</p>
                   </div>
                 </section>
               );
@@ -721,7 +721,7 @@ function SectionDivider() {
 
 function SectionHeading({ title }: { title: string }) {
   return (
-    <h2 className="font-mono text-[clamp(0.8rem,3.5vw,0.95rem)] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
+    <h2 className="font-mono text-[13px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
       {title}
     </h2>
   );
