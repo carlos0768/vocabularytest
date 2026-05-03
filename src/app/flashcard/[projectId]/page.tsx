@@ -439,10 +439,7 @@ export default function FlashcardPage() {
   const total = words.length;
 
   return (
-    <div
-      className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)]"
-      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
-    >
+    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
       {/* Header */}
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
@@ -470,7 +467,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 py-1">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 pb-[78px] pt-1">
         {/* Ghost cards (stack) */}
         <div
           className="absolute inset-x-9 bottom-10 top-3.5 rounded-[18px] border-[1.25px] border-[var(--color-border)] bg-white opacity-50"
@@ -571,8 +568,8 @@ export default function FlashcardPage() {
 
       {/* Action row (DS style) */}
       <div
-        className="flex shrink-0 justify-center gap-3 px-5 pt-1.5"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-center gap-3 bg-[var(--color-background)] px-5 pt-2 lg:left-[280px]"
+        style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
       >
         <ActionChip icon="edit" label="編集" onClick={handleOpenEditModal} />
         <ActionChip

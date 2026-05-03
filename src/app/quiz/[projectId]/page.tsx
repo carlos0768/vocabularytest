@@ -696,10 +696,7 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div
-      className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)]"
-      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
-    >
+    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
       {/* Header: close + progress dots + flag */}
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
@@ -746,7 +743,7 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-1.5 pt-1">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1 ${isRevealed ? 'pb-[72px]' : 'pb-1.5'}`}>
         <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isActiveVocab ? 'タイプ入力' : '意味を選ぼう'}
         </div>
@@ -843,8 +840,8 @@ export default function QuizPage() {
       {/* Bottom CTA — only shown after reveal */}
       {isRevealed && (
         <div
-          className="shrink-0 bg-[var(--color-background)] px-5 pt-1.5"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          className="fixed inset-x-0 bottom-0 z-40 bg-[var(--color-background)] px-5 pt-2 lg:left-[280px]"
+          style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
         >
           <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
