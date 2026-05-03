@@ -1,33 +1,44 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Icon } from '@/components/ui';
-import { StudyModeCard, WordList } from '@/components/home';
-import { getRepository } from '@/lib/db';
+import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
-import type { Word, SubscriptionStatus } from '@/types';
+import type { SubscriptionStatus, Word } from '@/types';
 
-interface FavoriteWord extends Word {
+type FavoriteWord = Word & {
   projectTitle: string;
+};
+
+type SortKey = 'alpha' | 'status' | 'project';
+
+function StatusPill({ kind }: { kind: Word['status'] }) {
+  const config = {
+    new: { t: '未学習', bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
+    review: { t: '学習中', bg: 'rgba(19,127,236,0.1)', fg: '#137fec', bd: '#137fec' },
+    mastered: { t: '習得', bg: 'rgba(61,122,78,0.12)', fg: 'var(--color-success)', bd: 'var(--color-success)' },
+  }[kind];
+
+  return (
+    <span
+      className="whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-bold leading-none"
+      style={{ color: config.fg, background: config.bg, border: `1px solid ${config.bd}` }}
+    >
+      {config.t}
+    </span>
+  );
 }
 
-const tabs = [
-  { id: 'study', label: '学習', icon: 'school' },
-  { id: 'words', label: '単語', icon: 'menu_book' },
-  { id: 'stats', label: '統計', icon: 'insights' },
-] as const;
-
-type TabId = (typeof tabs)[number]['id'];
-
 export default function FavoritesPage() {
+  const router = useRouter();
   const { user, subscription, loading: authLoading, isPro } = useAuth();
-
   const [favorites, setFavorites] = useState<FavoriteWord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabId>('study');
-  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+  const [activeSort, setActiveSort] = useState<SortKey>('alpha');
+  const [error, setError] = useState<string | null>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -35,253 +46,229 @@ export default function FavoritesPage() {
 
   const loadFavorites = useCallback(async () => {
     if (authLoading) return;
+    setLoading(true);
+    setError(null);
 
     try {
       const userId = user ? user.id : getGuestUserId();
       const projects = await repository.getProjects(userId);
       const projectIds = projects.map((project) => project.id);
-      const projectTitleMap = new Map(projects.map((project) => [project.id, project.title]));
-
-      if (projectIds.length === 0) {
-        setFavorites([]);
-        setLoading(false);
-        return;
-      }
+      const titleByProjectId = new Map(projects.map((project) => [project.id, project.title]));
 
       const repoWithBulk = repository as typeof repository & {
         getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
         getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
       };
 
-      let wordsByProject: Record<string, Word[]>;
-
-      if (repoWithBulk.getAllWordsByProjectIds) {
+      let wordsByProject: Record<string, Word[]> = {};
+      if (projectIds.length > 0 && repoWithBulk.getAllWordsByProjectIds) {
         wordsByProject = await repoWithBulk.getAllWordsByProjectIds(projectIds);
-      } else if (repoWithBulk.getAllWordsByProject) {
+      } else if (projectIds.length > 0 && repoWithBulk.getAllWordsByProject) {
         wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
-      } else {
-        const wordsArrays = await Promise.all(projectIds.map((id) => repository.getWords(id)));
-        wordsByProject = Object.fromEntries(
-          projectIds.map((id, index) => [id, wordsArrays[index] ?? []])
-        );
+      } else if (projectIds.length > 0) {
+        const arrays = await Promise.all(projectIds.map((projectId) => repository.getWords(projectId)));
+        wordsByProject = Object.fromEntries(projectIds.map((projectId, index) => [projectId, arrays[index] ?? []]));
       }
 
-      const allFavorites = projectIds.flatMap((projectId) => {
-        const words = wordsByProject[projectId] ?? [];
-        const projectTitle = projectTitleMap.get(projectId) ?? '';
-        return words
-          .filter((w) => w.isFavorite)
-          .map((w) => ({
-            ...w,
-            projectTitle,
-          }));
-      });
+      const nextFavorites = projectIds.flatMap((projectId) =>
+        (wordsByProject[projectId] ?? [])
+          .filter((word) => word.isFavorite)
+          .map((word) => ({
+            ...word,
+            projectTitle: titleByProjectId.get(projectId) ?? '',
+          })),
+      );
 
-      setFavorites(allFavorites);
-    } catch (error) {
-      console.error('Failed to load favorites:', error);
+      setFavorites(nextFavorites);
+    } catch (loadError) {
+      console.error('Failed to load favorites:', loadError);
+      setError('お気に入りの読み込みに失敗しました');
+      setFavorites([]);
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user, repository]);
+  }, [authLoading, repository, user]);
 
   useEffect(() => {
-    loadFavorites();
+    void loadFavorites();
   }, [loadFavorites]);
 
-  const handleToggleFavorite = async (wordId: string) => {
-    const word = favorites.find((w) => w.id === wordId);
-    if (!word) return;
+  const sortedFavorites = useMemo(() => {
+    const statusOrder: Record<Word['status'], number> = { review: 0, new: 1, mastered: 2 };
+    return [...favorites].sort((a, b) => {
+      if (activeSort === 'status') return statusOrder[a.status] - statusOrder[b.status];
+      if (activeSort === 'project') return a.projectTitle.localeCompare(b.projectTitle, 'ja') || a.english.localeCompare(b.english);
+      return a.english.localeCompare(b.english);
+    });
+  }, [activeSort, favorites]);
 
-    await repository.updateWord(wordId, { isFavorite: false });
-    setFavorites((prev) => prev.filter((w) => w.id !== wordId));
-  };
-
-  const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
-    await repository.updateWord(wordId, { english, japanese });
-    setFavorites((prev) => prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w)));
-    setEditingWordId(null);
-  };
-
-  const handleDeleteWord = async (wordId: string) => {
-    // Just remove from favorites, don't delete the word
-    await handleToggleFavorite(wordId);
-  };
-
-  const stats = useMemo(() => {
-    const total = favorites.length;
-    const mastered = favorites.filter((w) => w.status === 'mastered').length;
-    const review = favorites.filter((w) => w.status === 'review').length;
-    const newWords = favorites.filter((w) => w.status === 'new').length;
-    return { total, mastered, review, newWords };
+  const counts = useMemo(() => {
+    const mastered = favorites.filter((word) => word.status === 'mastered').length;
+    const review = favorites.filter((word) => word.status === 'review').length;
+    const newCount = favorites.filter((word) => word.status === 'new').length;
+    return { mastered, review, newCount };
   }, [favorites]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-[var(--color-muted)]">
-        <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-primary)]" />
-        <span className="ml-2">読み込み中...</span>
-      </div>
-    );
-  }
+  const handleToggleFavorite = async (word: FavoriteWord) => {
+    setFavorites((prev) => prev.filter((item) => item.id !== word.id));
+    try {
+      await repository.updateWord(word.id, { isFavorite: false });
+    } catch (toggleError) {
+      console.error('Failed to remove favorite:', toggleError);
+      setFavorites((prev) => [...prev, word]);
+    }
+  };
 
   const returnPath = encodeURIComponent('/favorites');
 
-  // Get unique project IDs from favorites for quiz/flashcard links
-  const favoriteProjectIds = [...new Set(favorites.map(f => f.projectId))];
-  const firstProjectId = favoriteProjectIds.length > 0 ? favoriteProjectIds[0] : null;
-
   return (
-    <>
-    <div className="min-h-screen pb-28 lg:pb-6">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link
-              href="/"
-              className="p-2 -ml-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
-            >
-              <Icon name="arrow_back" size={20} />
-            </Link>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Icon name="flag" size={20} filled className="text-[var(--color-warning)]" />
-                <h1 className="text-lg font-bold text-[var(--color-foreground)] truncate">苦手単語</h1>
-              </div>
-              <p className="text-sm text-[var(--color-muted)]">{stats.total}語 / 習得 {stats.mastered}語</p>
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)] lg:pt-0">
+      <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:hidden">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]"
+        >
+          <Icon name="chevron_left" size={18} />
+        </button>
+        <div className="flex-1 text-base font-bold text-[var(--solid-ink)]">
+          お気に入り
+        </div>
+      </div>
+
+      <div className="px-[18px] pb-3.5 pt-1 lg:pt-4">
+        <div className="relative">
+          <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-2xl bg-[var(--color-accent)]" />
+          <div className="relative overflow-hidden rounded-2xl border-[1.25px] border-[var(--solid-ink)] bg-white p-4">
+            <div className="pointer-events-none absolute -right-3.5 -top-4 opacity-10 text-[var(--color-accent)]">
+              <Icon name="bookmark" size={120} filled />
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
+              <Icon name="bookmark" size={13} filled />
+              <span className="font-mono text-[10px] font-bold tracking-[0.08em]">FAVORITES</span>
+            </div>
+
+            <div className="mt-2.5 flex items-baseline gap-1.5">
+              <span className="font-display text-[38px] font-extrabold leading-none tabular-nums text-[var(--solid-ink)]">
+                {favorites.length}
+              </span>
+              <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
+            </div>
+
+            <div className="mt-3 flex h-1.5 overflow-hidden rounded-sm border border-[var(--color-border)]">
+              <div style={{ flex: counts.mastered, background: 'var(--color-success)' }} />
+              <div style={{ flex: counts.review, background: '#137fec' }} />
+              <div style={{ flex: counts.newCount, background: 'rgba(26,26,26,0.15)' }} />
+            </div>
+
+            <div className="mt-2 flex gap-3 font-mono text-[10px]">
+              <span className="font-bold text-[var(--color-success)]">● 習得 {counts.mastered}</span>
+              <span className="font-bold text-[#137fec]">● 学習中 {counts.review}</span>
+              <span className="font-bold text-[var(--color-muted)]">● 未学習 {counts.newCount}</span>
+            </div>
+
+            <div className="mt-3.5 flex gap-2">
+              <ActionLink href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'} icon="style" label="カード" accent />
+              <ActionLink href={isPro ? `/quiz/all/favorites?from=${returnPath}` : '/subscription'} icon="play_arrow" label="4択" />
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-lg lg:max-w-2xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-        {favorites.length === 0 ? (
-          <section className="card p-8 lg:p-10 text-center border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-alt,var(--color-surface))]">
-            <div className="w-16 h-16 mx-auto bg-[var(--color-surface)] rounded-full flex items-center justify-center border-2 border-[var(--color-border)] mb-4">
-              <Icon name="flag" size={30} className="text-[var(--color-warning)]" />
-            </div>
-            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-2">苦手単語はまだありません</h2>
-            <p className="text-sm text-[var(--color-muted)] mb-6 max-w-[280px] mx-auto">
-              クイズや単語一覧のフラグを使って、後で見直したい単語をまとめましょう。
-            </p>
-            <Link
-              href="/projects"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] text-sm font-semibold border-2 border-[var(--color-warning)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
-            >
-              <Icon name="menu_book" size={16} />
-              単語帳を見る
-            </Link>
-          </section>
+      <div className="flex gap-1.5 overflow-x-auto px-[14px] pb-2.5">
+        {([
+          { k: 'alpha', label: 'ABC順' },
+          { k: 'status', label: 'ステータス順' },
+          { k: 'project', label: '単語帳順' },
+        ] as const).map((c) => (
+          <button
+            key={c.k}
+            type="button"
+            onClick={() => setActiveSort(c.k)}
+            className="shrink-0 whitespace-nowrap rounded-full px-[11px] py-1.5 text-[11px] font-bold"
+            style={{
+              background: c.k === activeSort ? 'var(--solid-ink)' : '#fff',
+              color: c.k === activeSort ? '#fff' : 'var(--solid-ink)',
+              border: `1.25px solid ${c.k === activeSort ? 'var(--solid-ink)' : 'var(--color-border)'}`,
+            }}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {error && <p className="px-[14px] pb-2 text-xs font-bold text-[var(--color-error)]">{error}</p>}
+
+      <div className="flex flex-col gap-1.5 px-[14px] pb-[110px]">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
+            <Icon name="progress_activity" size={20} className="animate-spin" />
+            <span className="ml-2 text-sm">読み込み中...</span>
+          </div>
+        ) : sortedFavorites.length === 0 ? (
+          <div className="rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
+            お気に入り単語はまだありません
+          </div>
         ) : (
-          <>
-            {/* Tabs */}
-            <section className="space-y-3">
-              <h2 className="text-sm font-bold text-[var(--color-foreground)] px-1">表示モード</h2>
-              <div className="grid grid-cols-3 gap-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold border-2 border-b-4 transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-[var(--color-warning-light)] text-[var(--color-warning)] border-[var(--color-warning)]/30'
-                        : 'bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] active:border-b-2 active:mt-[2px]'
-                    }`}
-                  >
-                    <Icon name={tab.icon} size={16} />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* Study Tab */}
-            {activeTab === 'study' && firstProjectId && (
-              <section className="space-y-4">
-                <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">学習モード</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <StudyModeCard
-                    title="苦手クイズ"
-                    description="苦手な単語を復習"
-                    icon="menu_book"
-                    href={isPro ? `/quiz/all/favorites?from=${returnPath}` : '/subscription'}
-                    variant="primary"
-                    badge={!isPro ? 'Pro' : undefined}
-                    layout="vertical"
-                    styleMode="home"
-                  />
-                  <StudyModeCard
-                    title="苦手カード"
-                    description="スワイプで確認"
-                    icon="style"
-                    href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'}
-                    variant="blue"
-                    badge={!isPro ? 'Pro' : undefined}
-                    layout="vertical"
-                    styleMode="home"
-                  />
+          sortedFavorites.map((word) => (
+            <div
+              key={word.id}
+              className="flex items-center gap-2.5 rounded-[10px] border-[1.25px] bg-white px-3 py-[11px]"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <Link href={`/word/${word.id}?from=${returnPath}`} className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
+                    {word.english}
+                  </span>
+                  {word.partOfSpeechTags?.[0] && (
+                    <span className="font-mono text-[9px] text-[var(--color-muted)]">{word.partOfSpeechTags[0]}</span>
+                  )}
                 </div>
-              </section>
-            )}
-
-            {/* Words Tab */}
-            {activeTab === 'words' && (
-              <section className="space-y-3">
-                <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">単語一覧</h3>
-                <WordList
-                  words={favorites}
-                  editingWordId={editingWordId}
-                  onEditStart={(wordId) => setEditingWordId(wordId)}
-                  onEditCancel={() => setEditingWordId(null)}
-                  onSave={(wordId, english, japanese) => handleUpdateWord(wordId, english, japanese)}
-                  onDelete={(wordId) => handleDeleteWord(wordId)}
-                  onToggleFavorite={(wordId) => handleToggleFavorite(wordId)}
-                  showProjectName
-                />
-              </section>
-            )}
-
-            {/* Stats Tab */}
-            {activeTab === 'stats' && (
-              <section className="space-y-3">
-                <h3 className="text-sm font-bold text-[var(--color-foreground)] px-1">統計</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--color-warning-light)] flex items-center justify-center mb-3">
-                      <Icon name="flag" size={20} className="text-[var(--color-warning)]" />
-                    </div>
-                    <p className="text-xs text-[var(--color-muted)]">苦手単語</p>
-                    <p className="text-2xl font-bold text-[var(--color-warning)] mt-1">{stats.total}</p>
-                  </div>
-                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--color-success-light)] flex items-center justify-center mb-3">
-                      <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />
-                    </div>
-                    <p className="text-xs text-[var(--color-muted)]">習得済み</p>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)] mt-1">{stats.mastered}</p>
-                  </div>
-                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center mb-3">
-                      <Icon name="schedule" size={20} className="text-[var(--color-primary)]" />
-                    </div>
-                    <p className="text-xs text-[var(--color-muted)]">復習中</p>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)] mt-1">{stats.review}</p>
-                  </div>
-                  <div className="card p-4 lg:p-5 border-2 border-[var(--color-border)] border-b-4">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--color-surface-alt,var(--color-border-light))] flex items-center justify-center mb-3">
-                      <Icon name="fiber_new" size={20} className="text-[var(--color-muted)]" />
-                    </div>
-                    <p className="text-xs text-[var(--color-muted)]">未学習</p>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)] mt-1">{stats.newWords}</p>
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
+                <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
+                <div className="mt-[3px] truncate font-mono text-[9px] text-[var(--color-muted)]">{word.projectTitle}</div>
+              </Link>
+              <StatusPill kind={word.status} />
+              <button type="button" onClick={() => void handleToggleFavorite(word)} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りから外す">
+                <Icon name="bookmark" size={15} filled />
+              </button>
+            </div>
+          ))
         )}
-      </main>
+      </div>
     </div>
-    </>
+  );
+}
+
+function ActionLink({
+  href,
+  icon,
+  label,
+  accent,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  accent?: boolean;
+}) {
+  return (
+    <Link href={href} className="relative flex-1">
+      <span
+        className="absolute inset-0 rounded-[10px]"
+        style={{ transform: 'translate(2px, 2px)', background: accent ? 'var(--color-accent)' : 'var(--solid-ink)' }}
+      />
+      <span
+        className="relative flex items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] py-[11px] text-[13px] font-bold"
+        style={{
+          background: accent ? 'var(--color-accent)' : '#fff',
+          borderColor: accent ? 'var(--color-accent)' : 'var(--solid-ink)',
+          color: accent ? '#fff' : 'var(--solid-ink)',
+        }}
+      >
+        <Icon name={icon} size={14} filled={icon === 'play_arrow'} />
+        {label}
+      </span>
+    </Link>
   );
 }

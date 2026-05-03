@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createSwapy } from 'swapy';
 import { Icon } from '@/components/ui';
+import { SolidPanel } from '@/components/redesign/SolidPage';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
@@ -410,7 +411,7 @@ export function WordDetailView({
       <header className="px-5 pt-4 pb-2 flex items-center justify-between">
         <button
           onClick={onClose}
-          className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+          className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]"
           aria-label={isModal ? '閉じる' : '戻る'}
         >
           <Icon name={isModal ? 'close' : 'chevron_left'} size={isModal ? 20 : 24} className="text-[var(--color-foreground)]" />
@@ -419,7 +420,7 @@ export function WordDetailView({
           <button
             onClick={handleFinishEditing}
             disabled={saving}
-            className="px-4 py-2 rounded-full bg-[var(--color-foreground)] text-white text-sm font-semibold disabled:opacity-50"
+            className="solid-link-primary min-h-0 px-4 py-2 text-sm disabled:opacity-50"
           >
             {saving ? '保存中...' : '完了'}
           </button>
@@ -428,7 +429,7 @@ export function WordDetailView({
             {onDelete && (
               <button
                 onClick={() => onDelete(wordId)}
-                className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+                className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]"
                 aria-label="削除"
               >
                 <Icon name="delete" size={18} className="text-[var(--color-muted)]" />
@@ -436,7 +437,7 @@ export function WordDetailView({
             )}
             <button
               onClick={handleStartEditing}
-              className="w-10 h-10 rounded-full border border-[var(--color-border)] flex items-center justify-center"
+              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]"
               aria-label="編集"
             >
               <Icon name="edit" size={18} className="text-[var(--color-foreground)]" />
@@ -447,10 +448,10 @@ export function WordDetailView({
 
       <main className="max-w-lg mx-auto px-5 pt-4 space-y-6">
         {/* Word title + status */}
-        <div>
+        <SolidPanel className="p-5">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-[var(--color-foreground)]">{word.english}</h1>
-            <span className="px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] text-xs font-semibold text-[var(--color-muted)]">
+            <h1 className="font-display text-3xl font-black text-[var(--solid-ink)]">{word.english}</h1>
+            <span className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-1 text-xs font-black text-[var(--color-muted)]">
               {statusLabel}
             </span>
           </div>
@@ -458,7 +459,7 @@ export function WordDetailView({
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--color-muted)]">{word.pronunciation || '——'}</span>
-              <button onClick={handleSpeak} className="w-8 h-8 rounded-full bg-[var(--color-surface-secondary)] flex items-center justify-center" aria-label="発音を再生">
+              <button onClick={handleSpeak} className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)]" aria-label="発音を再生">
                 <Icon name="volume_up" size={16} className="text-[var(--color-foreground)]" />
               </button>
             </div>
@@ -481,7 +482,7 @@ export function WordDetailView({
               </button>
             </div>
           </div>
-        </div>
+        </SolidPanel>
 
         {/* Part of speech + Japanese */}
         <div className="border-t border-[var(--color-border-light)] pt-4">
@@ -492,7 +493,7 @@ export function WordDetailView({
                 type="text"
                 value={editJapanese}
                 onChange={(e) => setEditJapanese(e.target.value)}
-                className="w-full text-base text-[var(--color-foreground)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--color-foreground)]/20"
+                className="solid-input w-full px-3 py-2 text-base"
               />
             </div>
           ) : (
@@ -512,14 +513,14 @@ export function WordDetailView({
               onChange={(e) => setEditExampleSentence(e.target.value)}
               placeholder="例文（英語）を入力..."
               rows={2}
-              className="w-full text-base text-[var(--color-foreground)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-[var(--color-foreground)]/20 leading-relaxed"
+              className="solid-input w-full resize-none px-3 py-2 text-base leading-relaxed"
             />
             <textarea
               value={editExampleSentenceJa}
               onChange={(e) => setEditExampleSentenceJa(e.target.value)}
               placeholder="例文の日本語訳を入力..."
               rows={2}
-              className="w-full text-sm text-[var(--color-muted)] bg-[var(--color-surface-secondary)] rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-[var(--color-foreground)]/20 leading-relaxed"
+              className="solid-input w-full resize-none px-3 py-2 text-sm leading-relaxed text-[var(--color-muted)]"
             />
           </div>
         ) : word.exampleSentence ? (

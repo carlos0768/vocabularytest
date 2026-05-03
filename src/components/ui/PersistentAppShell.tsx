@@ -47,6 +47,22 @@ const DESKTOP_AD_PLACEMENTS = [
     label: '設定',
     matches: (pathname: string) => pathname === '/settings',
   },
+  {
+    label: '添削',
+    matches: (pathname: string) => pathname === '/correction' || pathname.startsWith('/correction/'),
+  },
+  {
+    label: '構造解析',
+    matches: (pathname: string) => pathname === '/parser' || pathname.startsWith('/parser/'),
+  },
+  {
+    label: 'コレクション',
+    matches: (pathname: string) => pathname === '/collections' || pathname.startsWith('/collections/'),
+  },
+  {
+    label: 'お気に入り',
+    matches: (pathname: string) => pathname === '/favorites' || pathname.startsWith('/favorites/'),
+  },
 ];
 
 function shouldHideShell(pathname: string): boolean {

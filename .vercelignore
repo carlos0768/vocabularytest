@@ -1,0 +1,36 @@
+# Local dependencies and build outputs
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Local repository/tooling state
+.git/
+.claude/
+.agents/
+.vercel/
+.cursor/
+.vscode/
+.idea/
+
+# Non-web workspaces and generated artifacts
+ios-native/
+mobile/
+cloud-run-scan/
+stitch/
+sample_image/
+appimages/
+uisu/
+research/
+design/
+articles/
+
+# Local marketing/video source material
+動画素材/
+
+# Local environment files
+.env
+.env.*
+!.env.example

@@ -54,7 +54,13 @@ export function useWordCount() {
 
     // Also sync when auth finishes and cache is already ready
     if (!authLoading && getHasLoaded()) {
-      setState(deriveState(getCachedTotalWords(), isPro, false));
+      const timer = window.setTimeout(() => {
+        setState(deriveState(getCachedTotalWords(), isPro, false));
+      }, 0);
+      return () => {
+        window.clearTimeout(timer);
+        unsubscribe();
+      };
     }
 
     return unsubscribe;

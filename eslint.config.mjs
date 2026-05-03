@@ -12,8 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "mobile/**",
+    "cloud-run-scan/dist/**",
+    "動画素材/**",
     ".claude/**",
   ]),
+  {
+    files: ["scripts/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

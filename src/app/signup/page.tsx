@@ -1,372 +1,196 @@
 'use client';
 
-import { useState, Suspense, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { Button } from '@/components/ui/button';
-import { OtpInput } from '@/components/ui/OtpInput';
-import { useAuth } from '@/hooks/use-auth';
+import { SolidPanel } from '@/components/redesign/SolidPage';
 
-type Step = 'form' | 'otp';
-
-function SignupForm() {
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/';
-  const router = useRouter();
-  const { signIn } = useAuth();
-
-  const [step, setStep] = useState<Step>('form');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // OTP state
-  const [otpCode, setOtpCode] = useState('');
-  const [resendCooldown, setResendCooldown] = useState(0);
-
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendCooldown]);
-
-  // Step 1: Send OTP
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (password.length < 8) {
-      setError('パスワードは8文字以上で入力してください');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('パスワードが一致しません');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        // 既存ユーザーの場合はそのままログイン
-        if (data.existing_user) {
-          const result = await signIn(email, password);
-          if (result.error) {
-            setError('このメールアドレスは既に登録されています。パスワードが正しくない場合はログインページからお試しください。');
-            setLoading(false);
-            return;
-          }
-          // ハードナビゲーションでcookieを確実にサーバーへ反映
-          window.location.href = redirect;
-          return;
-        }
-        setError(data.error || '認証コードの送信に失敗しました');
-        setLoading(false);
-        return;
-      }
-
-      setStep('otp');
-      setResendCooldown(60);
-    } catch {
-      setError('通信エラーが発生しました');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 2: Verify OTP and create account
-  const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) return;
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/signup-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otpCode, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        setError(data.error || 'アカウントの作成に失敗しました');
-        setLoading(false);
-        return;
-      }
-
-      // Registration + login successful - redirect
-      // ハードナビゲーションでcookieを確実にサーバーへ反映
-      window.location.href = redirect;
-    } catch {
-      setError('通信エラーが発生しました');
-      setLoading(false);
-    }
-  };
-
-  // Auto-submit when 6 digits entered
-  useEffect(() => {
-    if (otpCode.length === 6 && !loading) {
-      handleVerifyOtp();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otpCode]);
-
-  // Resend OTP
-  const handleResendOtp = async () => {
-    if (resendCooldown > 0) return;
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        setError(data.error || '再送信に失敗しました');
-      } else {
-        setOtpCode('');
-        setResendCooldown(60);
-      }
-    } catch {
-      setError('通信エラーが発生しました');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 2: OTP verification screen
-  if (step === 'otp') {
-    return (
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
-          <p className="text-[var(--color-muted)] mt-2">メール認証</p>
-        </div>
-
-        <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Icon name="mail" size={28} className="text-[var(--color-primary)]" />
-            </div>
-            <p className="text-[var(--color-muted)] text-sm">
-              <span className="font-medium text-[var(--color-foreground)]">{email}</span>
-              <br />
-              に6桁の認証コードを送信しました
-            </p>
-          </div>
-
-          {error && (
-            <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-3 rounded-[var(--radius-lg)] mb-4 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="mb-6">
-            <OtpInput
-              value={otpCode}
-              onChange={setOtpCode}
-              disabled={loading}
-            />
-          </div>
-
-          {loading && (
-            <div className="flex items-center justify-center gap-2 text-[var(--color-muted)] text-sm mb-4">
-              <Icon name="progress_activity" size={16} className="animate-spin" />
-              アカウントを作成中...
-            </div>
-          )}
-
-          <p className="text-sm text-[var(--color-warning)] bg-[var(--color-warning-light)] p-3 rounded-[var(--radius-md)] mb-4 text-center">
-            メールが届かない場合、迷惑メールフォルダを確認してください
-          </p>
-
-          <div className="text-center">
-            <button
-              onClick={handleResendOtp}
-              disabled={resendCooldown > 0 || loading}
-              className="text-sm text-[var(--color-primary)] hover:underline disabled:text-[var(--color-muted)] disabled:no-underline"
-            >
-              {resendCooldown > 0
-                ? `再送信まで ${resendCooldown}秒`
-                : 'コードを再送信'}
-            </button>
-          </div>
-
-          <button
-            onClick={() => {
-              setStep('form');
-              setOtpCode('');
-              setError(null);
-            }}
-            className="flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] mt-4"
-          >
-            <Icon name="arrow_back" size={16} />
-            メールアドレスを変更
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 1: Email + password form
-  return (
-    <div className="w-full max-w-sm">
-      {/* Logo */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
-        <p className="text-[var(--color-muted)] mt-2">新規アカウント作成</p>
-      </div>
-
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
-        {error && (
-          <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-3 rounded-[var(--radius-lg)] mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {/* Email */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
-              メールアドレス
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
-              placeholder="email@example.com"
-            />
-          </div>
-
-          {/* Password */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
-              パスワード
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
-                placeholder="8文字以上"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-              >
-                {showPassword ? <Icon name="visibility_off" size={20} /> : <Icon name="visibility" size={20} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
-              パスワード（確認）
-            </label>
-            <input
-              id="confirmPassword"
-              type={showPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
-              placeholder="パスワードを再入力"
-            />
-          </div>
-        </div>
-
-        {/* Submit */}
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full mt-6"
-          size="lg"
-        >
-          {loading ? (
-            <>
-              <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
-              送信中...
-            </>
-          ) : (
-            '認証コードを送信'
-          )}
-        </Button>
-      </form>
-
-      {/* Login link */}
-      <p className="text-center text-[var(--color-muted)] mt-6">
-        すでにアカウントをお持ちの方は{' '}
-        <Link href={`/login?redirect=${encodeURIComponent(redirect)}`} className="text-[var(--color-primary)] hover:underline font-medium">
-          ログイン
-        </Link>
-      </p>
-
-      {/* Back to home */}
-      <p className="text-center mt-4">
-        <Link href="/" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] text-sm">
-          ← ホームに戻る
-        </Link>
-      </p>
-    </div>
-  );
-}
-
-function SignupFormFallback() {
-  return (
-    <div className="w-full max-w-sm">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
-        <p className="text-[var(--color-muted)] mt-2">新規アカウント作成</p>
-      </div>
-      <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
-        <div className="flex items-center justify-center py-8">
-          <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin" />
-        </div>
-      </div>
-    </div>
-  );
-}
+const GOALS = [
+  { k: 'eiken', label: '英検対策', hue: 14 },
+  { k: 'toeic', label: 'TOEIC', hue: 240, active: true },
+  { k: 'school', label: '学校の勉強', hue: 130 },
+  { k: 'travel', label: '旅行・趣味', hue: 50 },
+];
 
 export default function SignupPage() {
+  const router = useRouter();
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
-      <Suspense fallback={<SignupFormFallback />}>
-        <SignupForm />
-      </Suspense>
+    <div
+      className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 px-[14px] pt-1">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]"
+          style={{ border: 'none', padding: 0 }}
+        >
+          <Icon name="chevron_left" size={18} />
+        </button>
+        <div className="flex-1" />
+        {/* Progress */}
+        <div className="mr-1.5 flex items-center gap-1">
+          <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--color-muted)]">
+            2/3
+          </span>
+          <div className="flex gap-[3px]">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-1 w-[18px] rounded-sm"
+                style={{ background: i <= 2 ? 'var(--solid-ink)' : 'rgba(26,26,26,0.15)' }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Brand mini */}
+      <div className="px-6 pt-3 text-center">
+        <div className="inline-block font-display text-[22px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
+          MERKEN
+          <span
+            className="ml-[3px] inline-block h-1 w-1 bg-[var(--color-accent)]"
+            style={{ transform: 'translateY(-7px)' }}
+          />
+        </div>
+      </div>
+
+      {/* Title */}
+      <div className="px-6 pb-3.5 pt-5">
+        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+          STEP 02
+        </div>
+        <div className="mt-1 font-display text-[22px] font-extrabold leading-[1.25] tracking-[-0.02em] text-[var(--solid-ink)]">
+          何のために<br />英単語を覚えますか？
+        </div>
+        <div className="mt-1.5 text-xs text-[var(--color-muted)]">
+          目的に合わせて単語帳のおすすめが変わります。
+        </div>
+      </div>
+
+      {/* Goal grid */}
+      <div className="grid grid-cols-2 gap-2.5 px-6 pb-4">
+        {GOALS.map((g) => {
+          const isActive = !!g.active;
+          return (
+            <div key={g.k} className="relative">
+              {/* Shadow layer */}
+              <div
+                className="absolute inset-0 rounded-xl"
+                style={{
+                  transform: 'translate(2.5px, 2.5px)',
+                  background: isActive ? 'var(--color-accent)' : 'var(--solid-ink)',
+                }}
+              />
+              {/* Card face */}
+              <div
+                className="relative flex min-h-[80px] flex-col justify-between gap-2 rounded-xl bg-white"
+                style={{
+                  padding: '18px 14px',
+                  border: `${isActive ? 2 : 1.25}px solid ${isActive ? 'var(--color-accent)' : 'var(--solid-ink)'}`,
+                }}
+              >
+                <div
+                  className="h-8 w-8 rounded-lg"
+                  style={{
+                    background: `oklch(0.85 0.08 ${g.hue})`,
+                    border: '1.25px solid var(--solid-ink)',
+                  }}
+                />
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-sm font-bold text-[var(--solid-ink)]">
+                    {g.label}
+                  </span>
+                  {isActive && (
+                    <span
+                      className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[var(--color-accent)] text-white"
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 12l5 5L20 6" />
+                      </svg>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Daily goal slider preview */}
+      <div className="px-6 pb-3.5">
+        <div className="mb-2 pl-0.5 font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+          1日の目標
+        </div>
+        <SolidPanel className="!rounded-xl" faceClassName="!p-3.5">
+          <div className="flex items-baseline gap-1">
+            <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
+              20
+            </span>
+            <span className="text-xs font-bold text-[var(--solid-ink)]">語</span>
+            <span className="ml-auto font-mono text-[11px] text-[var(--color-muted)]">約 5 分/日</span>
+          </div>
+          <div
+            className="relative mt-3 rounded-full"
+            style={{ height: 5, background: 'rgba(26,26,26,0.08)' }}
+          >
+            <div
+              className="absolute inset-y-0 left-0 w-[40%] rounded-full bg-[var(--color-accent)]"
+            />
+            <div
+              className="absolute rounded-full border-2 border-[var(--solid-ink)] bg-white"
+              style={{
+                width: 18,
+                height: 18,
+                left: '40%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                boxShadow: '1.5px 1.5px 0 var(--solid-ink)',
+              }}
+            />
+          </div>
+          <div className="mt-1.5 flex justify-between font-mono text-[9px] text-[var(--color-muted)]">
+            <span>5</span><span>20</span><span>50</span><span>100</span>
+          </div>
+        </SolidPanel>
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Bottom CTAs */}
+      <div
+        className="px-6 pb-7 pt-3"
+        style={{ background: 'linear-gradient(to top, #fafaf7 70%, rgba(250,250,247,0))' }}
+      >
+        <div className="relative">
+          <div
+            className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]"
+            style={{ transform: 'translate(2.5px, 2.5px)' }}
+          />
+          <div
+            className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-white font-[var(--font-body)]"
+          >
+            次へ
+            <span className="inline-flex">
+              <Icon name="chevron_right" size={15} />
+            </span>
+          </div>
+        </div>
+        <div className="mt-2.5 text-center text-[11px] text-[var(--color-muted)]">
+          スキップ
+        </div>
+      </div>
     </div>
   );
 }

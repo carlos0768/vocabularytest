@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
+import { SolidHeader, SolidPage, SolidPanel, SolidSectionTitle } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -88,18 +89,16 @@ export default function NewCollectionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => router.back()} className="p-1 -ml-1">
-            <Icon name="arrow_back" size={22} className="text-[var(--color-foreground)]" />
-          </button>
-          <h1 className="flex-1 text-lg font-bold text-[var(--color-foreground)]">新しい本棚</h1>
+    <SolidPage maxWidth="max-w-lg">
+      <SolidHeader
+        eyebrow="NEW COLLECTION"
+        title="新しい本棚"
+        description="単語帳をまとめる名前と説明を設定します。"
+        actions={
           <button
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="px-4 py-1.5 rounded-full bg-[var(--color-success)] text-white text-sm font-semibold disabled:opacity-40 transition-opacity"
+            className="solid-link-primary disabled:opacity-40"
           >
             {saving ? (
               <Icon name="progress_activity" size={16} className="animate-spin" />
@@ -107,11 +106,12 @@ export default function NewCollectionPage() {
               '作成'
             )}
           </button>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <div className="space-y-6">
         {/* Name */}
+        <SolidPanel className="space-y-4 p-5">
         <div className="space-y-2">
           <label className="text-sm font-semibold text-[var(--color-foreground)]">本棚の名前</label>
           <input
@@ -119,7 +119,7 @@ export default function NewCollectionPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例：学期末試験"
-            className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-success)] text-[var(--color-foreground)]"
+            className="solid-input w-full px-4 py-3"
             autoFocus
           />
         </div>
@@ -134,16 +134,14 @@ export default function NewCollectionPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="例：12月の期末試験で出題される範囲"
             rows={3}
-            className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-success)] text-[var(--color-foreground)] resize-none"
+            className="solid-input w-full resize-none px-4 py-3"
           />
         </div>
+        </SolidPanel>
 
         {/* Project selection */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold text-[var(--color-foreground)]">含める単語帳</label>
-            <span className="text-xs text-[var(--color-muted)]">{selectedIds.size}件選択</span>
-          </div>
+          <SolidSectionTitle icon="menu_book" title="含める単語帳" count={`${selectedIds.size}件選択`} />
 
           {loadingProjects ? (
             <div className="flex items-center justify-center py-8 text-[var(--color-muted)]">
@@ -162,9 +160,9 @@ export default function NewCollectionPage() {
                   <button
                     key={project.id}
                     onClick={() => toggleProject(project.id)}
-                    className={`w-full card p-3 flex items-center gap-3 text-left transition-all ${
+                    className={`card flex w-full items-center gap-3 p-3 text-left transition-all ${
                       selected
-                        ? 'border-[var(--color-success)] bg-[var(--color-success)]/5'
+                        ? 'bg-[var(--color-success-light)]'
                         : ''
                     }`}
                   >
@@ -189,7 +187,7 @@ export default function NewCollectionPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </SolidPage>
   );
 }

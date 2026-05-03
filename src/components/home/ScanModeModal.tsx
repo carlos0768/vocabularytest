@@ -34,8 +34,11 @@ export function ScanModeModal({
 
   useEffect(() => {
     if (isOpen) {
-      setShowEikenPicker(false);
-      setSelectedEiken(null);
+      const timer = window.setTimeout(() => {
+        setShowEikenPicker(false);
+        setSelectedEiken(null);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
   }, [isOpen]);
 

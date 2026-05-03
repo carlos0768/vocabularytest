@@ -23,3 +23,12 @@ test('user prompt repeats context constraints for ambiguous translations', () =>
   assert.match(USER_PROMPT_TEMPLATE, /文脈に合わない訳語の補完は禁止/);
   assert.match(USER_PROMPT_TEMPLATE, /partOfSpeechTags/);
 });
+
+test('word extraction prompts limit heading phrase handling to vocabulary-list layouts', () => {
+  assert.match(WORD_EXTRACTION_SYSTEM_PROMPT, /単語帳・語彙リスト形式/);
+  assert.match(WORD_EXTRACTION_SYSTEM_PROMPT, /生の英文・長文パッセージ・英語の文章が画像の主体/);
+  assert.match(WORD_EXTRACTION_SYSTEM_PROMPT, /文章中に出てくる単語は個別の単語として抽出する通常ルール/);
+  assert.match(USER_PROMPT_TEMPLATE, /単語帳・語彙リスト形式/);
+  assert.match(USER_PROMPT_TEMPLATE, /生の英文・長文・パッセージが画像の主体の場合はこのルールを適用しない/);
+  assert.match(USER_PROMPT_TEMPLATE, /The paradigm shifted dramatically\./);
+});

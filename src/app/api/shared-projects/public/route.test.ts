@@ -13,7 +13,8 @@ test('shared-projects/public GET forwards limit and cursor', async () => {
   let receivedCursor: string | null | undefined;
 
   const res = await handleSharedProjectsPublicGet(req, {
-    listPublicSharedProjects: async ({ limit, cursor }) => {
+    listPublicSharedProjects: async (options = {}) => {
+      const { limit, cursor } = options;
       receivedLimit = limit;
       receivedCursor = cursor;
       return {

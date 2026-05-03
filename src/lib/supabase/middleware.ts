@@ -1,8 +1,20 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-// Paths that require authentication check
-const protectedPaths = ['/project', '/quiz', '/quiz2', '/scan', '/settings', '/subscription', '/share', '/flashcard', '/sentence-quiz', '/favorites', '/grammar', '/stats'];
+// Paths that require authentication check.
+const protectedPaths = [
+  '/project',
+  '/quiz',
+  '/quiz2',
+  '/scan',
+  '/settings',
+  '/subscription',
+  '/flashcard',
+  '/sentence-quiz',
+  '/favorites',
+  '/grammar',
+  '/stats',
+];
 const authPaths = ['/login', '/signup'];
 
 export async function updateSession(request: NextRequest) {

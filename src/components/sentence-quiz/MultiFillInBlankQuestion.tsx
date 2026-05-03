@@ -4,6 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import type { MultiFillInBlankQuestion as MultiFillInBlankQuestionType, EnhancedBlankSlot } from '@/types';
 
+function stableOptionRank(option: string) {
+  let hash = 0;
+  for (let i = 0; i < option.length; i += 1) {
+    hash = (hash * 31 + option.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
 interface MultiFillInBlankQuestionProps {
   question: MultiFillInBlankQuestionType;
   questionIndex: number;
@@ -28,13 +36,16 @@ export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: 
   const [currentIdx, setCurrentIdx] = useState(questionIndex);
   useEffect(() => {
     if (questionIndex !== currentIdx) {
-      setCurrentIdx(questionIndex);
-      setSelectedOptions({});
-      setCurrentBlankIndex(0);
-      setIsRevealed(false);
-      setIsCorrect(false);
-      setBlankResults({});
-      setIsSubmitting(false);
+      const timer = window.setTimeout(() => {
+        setCurrentIdx(questionIndex);
+        setSelectedOptions({});
+        setCurrentBlankIndex(0);
+        setIsRevealed(false);
+        setIsCorrect(false);
+        setBlankResults({});
+        setIsSubmitting(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
   }, [questionIndex, currentIdx]);
 
@@ -50,15 +61,15 @@ export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: 
     
     // 8個以下ならそのまま
     if (uniqueOptions.length <= 8) {
-      return uniqueOptions.sort(() => Math.random() - 0.5);
+      return uniqueOptions.sort((a, b) => stableOptionRank(a) - stableOptionRank(b));
     }
     
     // 8個超の場合: 正解を確保してから残りをランダムに選ぶ
     const correct = uniqueOptions.filter(o => correctAnswers.has(o));
     const distractors = uniqueOptions.filter(o => !correctAnswers.has(o));
-    const shuffledDistractors = distractors.sort(() => Math.random() - 0.5);
+    const shuffledDistractors = distractors.sort((a, b) => stableOptionRank(a) - stableOptionRank(b));
     const selected = [...correct, ...shuffledDistractors.slice(0, 8 - correct.length)];
-    return selected.sort(() => Math.random() - 0.5);
+    return selected.sort((a, b) => stableOptionRank(a) - stableOptionRank(b));
   }, [blanks]);
 
   // 全ての空欄が埋まっているかチェック

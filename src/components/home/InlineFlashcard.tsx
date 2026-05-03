@@ -70,7 +70,8 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
   }, [words]);
 
   useEffect(() => {
-    reshuffleWords();
+    const timer = window.setTimeout(reshuffleWords, 0);
+    return () => window.clearTimeout(timer);
   }, [reshuffleWords]);
 
   const currentWord = shuffledWords[currentIndex];

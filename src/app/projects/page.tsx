@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Icon, DeleteConfirmModal } from '@/components/ui';
-import { useToast } from '@/components/ui/toast';
-import { ProjectCard } from '@/components/project/ProjectCard';
+import { Icon } from '@/components/ui/Icon';
+import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -17,326 +15,260 @@ import {
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
 import { getGuestUserId } from '@/lib/utils';
-import { invalidateHomeCache } from '@/lib/home-cache';
-import type { Project } from '@/types';
+import type { Project, SubscriptionStatus } from '@/types';
+
+const SORTS = [
+  { k: 'count', label: '単語数順' },
+  { k: 'newest', label: '新しい順' },
+  { k: 'un', label: '未習得順' },
+] as const;
+
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+type SortKey = (typeof SORTS)[number]['k'];
+type ProjectRowStats = ProjectWithStats & {
+  reviewWords: number;
+  newWords: number;
+};
+
+function thumbColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return THUMBS[Math.abs(h) % THUMBS.length];
+}
 
 async function addStatsToProjects(
   projects: Project[],
   repo: WordReadRepository,
-): Promise<ProjectWithStats[]> {
+): Promise<ProjectRowStats[]> {
   const wordsByProject = await getWordsByProjectMap(
     repo,
-    projects.map((project) => project.id)
+    projects.map((project) => project.id),
   );
-  return buildProjectStats(projects, wordsByProject);
+  return buildProjectStats(projects, wordsByProject).map((project) => {
+    const words = wordsByProject[project.id] ?? [];
+    return {
+      ...project,
+      reviewWords: words.filter((word) => word.status === 'review').length,
+      newWords: words.filter((word) => word.status === 'new').length,
+    };
+  });
 }
 
-function withEmptyStats(projects: Project[]): ProjectWithStats[] {
-  return projects.map((project) => ({
-    ...project,
-    totalWords: 0,
-    masteredWords: 0,
-    progress: 0,
-    lastUsedAt: null,
-  }));
-}
-
-export default function ProjectsPage() {
+export default function ProjectListPage() {
   const { user, subscription, loading: authLoading, isPro } = useAuth();
-  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
+  const [projects, setProjects] = useState<ProjectRowStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'words' | 'lastUsed'>('newest');
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [error, setError] = useState<string | null>(null);
 
-  const { showToast } = useToast();
-  const { refresh: refreshWordCount } = useWordCount();
-
-  const subscriptionStatus = subscription?.status || 'free';
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
-  // Delete state
-  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
-  const [deleteProjectTargetId, setDeleteProjectTargetId] = useState<string | null>(null);
-  const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
+  const showProjects = useCallback(async (rawProjects: Project[], repo: WordReadRepository) => {
+    setProjects(await addStatsToProjects(rawProjects, repo));
+  }, []);
 
-  const handleDeleteProject = (projectId: string) => {
-    setDeleteProjectTargetId(projectId);
-    setDeleteProjectModalOpen(true);
-  };
-
-  const handleConfirmDeleteProject = async () => {
-    if (!deleteProjectTargetId) return;
-
-    setDeleteProjectLoading(true);
-    try {
-      await repository.deleteProject(deleteProjectTargetId);
-      setProjects((prev) => prev.filter((p) => p.id !== deleteProjectTargetId));
-      invalidateHomeCache();
-      refreshWordCount();
-      showToast({ message: '単語帳を削除しました', type: 'success' });
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-      showToast({ message: '削除に失敗しました', type: 'error' });
-    } finally {
-      setDeleteProjectLoading(false);
-      setDeleteProjectModalOpen(false);
-      setDeleteProjectTargetId(null);
-    }
-  };
-
-  const handleToggleProjectFavorite = async (projectId: string) => {
-    const project = projects.find((p) => p.id === projectId);
-    if (!project) return;
-
-    const newFavorite = !project.isFavorite;
-    try {
-      await repository.updateProject(projectId, { isFavorite: newFavorite });
-      setProjects((prev) =>
-        prev.map((p) => (p.id === projectId ? { ...p, isFavorite: newFavorite } : p))
-      );
-      invalidateHomeCache();
-    } catch (error) {
-      console.error('Failed to toggle project favorite:', error);
-      showToast({ message: 'ピン留めの変更に失敗しました', type: 'error' });
-    }
-  };
-
-  // Phase 1: Instant local load (no auth dependency)
-  const hasLocalLoadedRef = useRef(false);
-  useEffect(() => {
+  const loadProjects = useCallback(async () => {
     if (authLoading) return;
-    if (hasLocalLoadedRef.current) return;
-    hasLocalLoadedRef.current = true;
+    setLoading(true);
+    setError(null);
 
-    (async () => {
+    try {
+      const userId = user ? user.id : getGuestUserId();
+      let rawProjects: Project[] = [];
+      let repo: WordReadRepository = repository;
+
       try {
-        const localUserId = user ? user.id : getGuestUserId();
-        const localProjects = await localRepository.getProjects(localUserId);
-        if (localProjects.length > 0) {
-          setProjects(withEmptyStats(localProjects));
+        rawProjects = await localRepository.getProjects(userId);
+        if (rawProjects.length > 0) {
+          await showProjects(rawProjects, localRepository);
           setLoading(false);
-          void (async () => {
-            try {
-              const withStats = await addStatsToProjects(localProjects, localRepository);
-              setProjects(withStats);
-            } catch (error) {
-              console.error('Failed to build initial local stats:', error);
-            }
-          })();
         }
-      } catch (e) {
-        console.error('Local projects load failed:', e);
+      } catch (localError) {
+        console.error('Local projects preload failed:', localError);
       }
-    })();
-  }, [authLoading, user]);
 
-  // Phase 2: Remote update after auth resolves (Pro users)
+      if (user && navigator.onLine) {
+        try {
+          const remoteProjects = await remoteRepository.getProjects(user.id);
+          if (remoteProjects.length > 0 || isPro || rawProjects.length === 0) {
+            rawProjects = remoteProjects;
+            repo = remoteRepository;
+          }
+        } catch (remoteError) {
+          console.error('Remote projects load failed:', remoteError);
+        }
+      }
+
+      if (rawProjects.length === 0) {
+        rawProjects = await repository.getProjects(userId);
+        repo = repository;
+      }
+
+      await showProjects(rawProjects, repo);
+    } catch (loadError) {
+      console.error('Failed to load projects:', loadError);
+      setError('単語帳の読み込みに失敗しました');
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [authLoading, isPro, repository, showProjects, user]);
+
   useEffect(() => {
-    if (authLoading) return;
+    void loadProjects();
+  }, [loadProjects]);
 
-    (async () => {
-      let latestDisplaySeq = 0;
-      const showProjectsImmediately = (rawProjects: Project[], repo: WordReadRepository) => {
-        const seq = ++latestDisplaySeq;
-        setProjects(withEmptyStats(rawProjects));
-        setLoading(false);
-
-        void (async () => {
-          try {
-            const withStats = await addStatsToProjects(rawProjects, repo);
-            if (seq === latestDisplaySeq) {
-              setProjects(withStats);
-            }
-          } catch (error) {
-            console.error('Failed to build project stats:', error);
-          }
-        })();
-      };
-
-      try {
-        const userId = user ? user.id : getGuestUserId();
-
-        if (!user) {
-          // Free user: local is the source of truth — if Phase 1 already loaded, done
-          if (projects.length > 0) {
-            setLoading(false);
-            return;
-          }
-          const localProjects = await repository.getProjects(userId);
-          showProjectsImmediately(localProjects, repository);
-          return;
-        }
-
-        // Pro user: fetch from remote for latest data
-        let showedLocalProjects = false;
-        try {
-          const localProjectsForUser = await localRepository.getProjects(user.id);
-          if (localProjectsForUser.length > 0) {
-            showProjectsImmediately(localProjectsForUser, localRepository);
-            showedLocalProjects = true;
-          }
-        } catch (e) {
-          console.error('Local Pro preload failed:', e);
-        }
-
-        let remoteProjects: Project[] = [];
-        try {
-          remoteProjects = await remoteRepository.getProjects(user.id);
-        } catch (e) {
-          console.error('Remote fetch failed:', e);
-        }
-
-        if (remoteProjects.length > 0) {
-          showProjectsImmediately(remoteProjects, remoteRepository);
-        } else if (!showedLocalProjects) {
-          // Fallback to default repository
-          const fallback = await repository.getProjects(userId);
-          showProjectsImmediately(fallback, repository);
-        }
-      } catch (error) {
-        console.error('Failed to load projects:', error);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [authLoading, isPro, user, repository]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const favorites = projects.filter((project) => project.isFavorite);
   const filtered = useMemo(() => {
-    const base = projects.filter((project) =>
-      project.title.toLowerCase().includes(query.toLowerCase())
-    );
+    const normalizedQuery = query.trim().toLowerCase();
+    const base = normalizedQuery
+      ? projects.filter((project) => project.title.toLowerCase().includes(normalizedQuery))
+      : projects;
+
     return [...base].sort((a, b) => {
-      switch (sortBy) {
-        case 'words':
-          return b.totalWords - a.totalWords;
-        case 'lastUsed': {
-          const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
-          const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
-          return bTime - aTime;
-        }
-        case 'newest':
-        default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
+      if (sort === 'count') return b.totalWords - a.totalWords;
+      if (sort === 'un') return b.newWords - a.newWords;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [projects, query, sortBy]);
+  }, [projects, query, sort]);
 
   return (
-    <>
-    <div className="min-h-screen pb-28 lg:pb-6">
-      <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-        <div className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-3">
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-[var(--color-foreground)]">単語帳</h1>
-            <p className="text-sm text-[var(--color-muted)]">学習を続ける単語帳を選択</p>
-          </div>
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-[58px] font-[var(--font-body)] lg:pt-[54px]">
+      <div className="px-5 pb-3.5 pt-2.5">
+        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+          MY BOOKS
         </div>
-      </header>
+        <h1 className="mt-0.5 font-display text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">
+          マイ単語帳
+        </h1>
+      </div>
 
-      <main className="max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-        <div className="space-y-3">
-          <div className="relative">
-            <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+      <div className="px-[18px] pb-2.5 pt-1">
+        <SolidPanel className="!rounded-xl !shadow-[2px_2px_0_var(--solid-ink)]" faceClassName="!px-3.5 !py-2.5">
+          <label className="flex items-center gap-2 text-[var(--color-muted)]">
+            <Icon name="search" size={15} />
             <input
-              type="text"
+              type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="単語帳を検索"
-              className="w-full pl-10 pr-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)]"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="マイ単語帳を検索"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
             />
-          </div>
-          <div className="flex gap-2">
-            {([
-              { key: 'newest', label: '新しい順', icon: 'schedule' },
-              { key: 'words', label: '単語が多い順', icon: 'sort' },
-              { key: 'lastUsed', label: '最近使った順', icon: 'history' },
-            ] as const).map(({ key, label, icon }) => (
-              <button
-                key={key}
-                onClick={() => setSortBy(key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  sortBy === key
-                    ? 'bg-[var(--color-foreground)] text-white'
-                    : 'bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
-                }`}
-              >
-                <Icon name={icon} size={14} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+          </label>
+        </SolidPanel>
+      </div>
 
-        {loading ? (
+      <div className="flex gap-1.5 overflow-x-auto px-[18px] pb-3.5 pt-1">
+        {SORTS.map((s) => (
+          <button
+            key={s.k}
+            type="button"
+            onClick={() => setSort(s.k)}
+            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+              sort === s.k
+                ? 'border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-baseline justify-between px-5 pb-2 pt-1">
+        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-[var(--color-muted)]">すべて</span>
+        <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{filtered.length} 件</span>
+      </div>
+
+      {error && (
+        <div className="px-[18px] pb-3 text-xs font-bold text-[var(--color-error)]">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2.5 px-[18px] pb-[150px]">
+        {loading && projects.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
-            <span className="ml-2">読み込み中...</span>
+            <span className="ml-2 text-sm">読み込み中...</span>
           </div>
-        ) : projects.length === 0 ? (
-          <div className="card p-6 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center">
-              <Icon name="star" size={24} className="text-[var(--color-primary)]" />
-            </div>
-            <h2 className="mt-4 text-lg font-bold">まだ単語帳がありません</h2>
-            <p className="text-sm text-[var(--color-muted)] mt-2">スキャンから最初の単語帳を作成しましょう</p>
-            <Link
-              href="/scan"
-              className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-full bg-primary text-white font-semibold"
-            >
-              スキャンを始める
-            </Link>
-          </div>
+        ) : filtered.length === 0 ? (
+          <SolidEmpty
+            icon="menu_book"
+            title={query ? '一致する単語帳がありません' : '単語帳はまだありません'}
+            description={query ? '検索語を変えてもう一度探してください。' : 'スキャンして最初の単語帳を作成しましょう。'}
+            action={
+              <Link href="/scan" className="solid-link-primary">
+                <Icon name="add_a_photo" size={16} />
+                新規スキャン
+              </Link>
+            }
+          />
         ) : (
-          <>
-            {favorites.length > 0 && query.trim().length === 0 && (
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted)]">📌 ピン留め</h2>
-                  <span className="text-xs text-[var(--color-muted)]">{favorites.length}件</span>
-                </div>
-                <div className="space-y-3">
-                  {favorites.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      totalWords={project.totalWords}
-                      masteredWords={project.masteredWords}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[var(--color-muted)]">すべての単語帳</h2>
-                <span className="text-xs text-[var(--color-muted)]">{filtered.length}件</span>
-              </div>
-              <div className="space-y-3">
-                {filtered.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    totalWords={project.totalWords}
-                    masteredWords={project.masteredWords}
-                  />
-                ))}
-              </div>
-            </section>
-          </>
+          filtered.map((project) => <BookRow key={project.id} project={project} />)
         )}
-      </main>
-      <DeleteConfirmModal
-        isOpen={deleteProjectModalOpen}
-        onClose={() => { setDeleteProjectModalOpen(false); setDeleteProjectTargetId(null); }}
-        onConfirm={handleConfirmDeleteProject}
-        title="単語帳を削除"
-        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
-        isLoading={deleteProjectLoading}
-      />
+      </div>
+
+      <Link href="/scan" className="absolute bottom-[108px] right-[22px] z-30">
+        <span className="relative block">
+          <span className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-full bg-[var(--solid-ink)]" />
+          <span className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+            <Icon name="add" size={22} />
+          </span>
+        </span>
+      </Link>
     </div>
-    </>
+  );
+}
+
+function BookRow({ project }: { project: ProjectRowStats }) {
+  const bg = thumbColor(project.id);
+  return (
+    <Link href={`/project/${project.id}`}>
+      <SolidPanel
+        className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
+        faceClassName="!p-[13px]"
+      >
+        <div className="flex items-center gap-[13px]">
+          <div
+            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[11px] border-[1.25px] border-[var(--solid-ink)] bg-center bg-cover font-display text-[22px] font-extrabold text-white"
+            style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
+          >
+            {!project.iconImage && project.title.charAt(0)}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
+            <div className="mt-px flex items-baseline gap-0.5">
+              <span className="font-display text-[19px] font-extrabold leading-none tabular-nums text-[var(--solid-ink)]">
+                {project.totalWords}
+              </span>
+              <span className="ml-px text-[11px] font-bold text-[var(--color-muted)]">語</span>
+            </div>
+            <div className="mt-1 flex gap-2.5">
+              <DotChip color="var(--color-success)" label={`習得 ${project.masteredWords}`} />
+              <DotChip color="var(--color-warning)" label={`学習 ${project.reviewWords}`} />
+              <DotChip color="rgba(26,26,26,0.2)" label={`未 ${project.newWords}`} />
+            </div>
+          </div>
+
+          <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
+            <Icon name="chevron_right" size={14} />
+          </span>
+        </div>
+      </SolidPanel>
+    </Link>
+  );
+}
+
+function DotChip({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+      <span className="text-[10px] text-[var(--color-muted)]">{label}</span>
+    </span>
   );
 }
