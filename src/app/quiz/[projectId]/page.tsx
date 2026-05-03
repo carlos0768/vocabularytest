@@ -743,7 +743,7 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1 ${isRevealed ? 'pb-[72px]' : 'pb-1.5'}`}>
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1 ${isRevealed ? 'justify-end pb-[96px]' : 'pb-1.5'}`}>
         <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isActiveVocab ? 'タイプ入力' : '意味を選ぼう'}
         </div>
@@ -841,7 +841,7 @@ export default function QuizPage() {
       {isRevealed && (
         <div
           className="fixed inset-x-0 bottom-0 z-40 bg-[var(--color-background)] px-5 pt-2 lg:left-[280px]"
-          style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
+          style={{ paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 18px))' }}
         >
           <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ

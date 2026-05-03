@@ -467,7 +467,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 pb-[78px] pt-1">
+      <div className="relative flex min-h-0 flex-1 items-end justify-center overflow-hidden px-5 pb-[104px] pt-0">
         {/* Ghost cards (stack) */}
         <div
           className="absolute inset-x-9 bottom-10 top-3.5 rounded-[18px] border-[1.25px] border-[var(--color-border)] bg-white opacity-50"
@@ -569,7 +569,7 @@ export default function FlashcardPage() {
       {/* Action row (DS style) */}
       <div
         className="fixed inset-x-0 bottom-0 z-40 flex justify-center gap-3 bg-[var(--color-background)] px-5 pt-2 lg:left-[280px]"
-        style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
+        style={{ paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 18px))' }}
       >
         <ActionChip icon="edit" label="編集" onClick={handleOpenEditModal} />
         <ActionChip
