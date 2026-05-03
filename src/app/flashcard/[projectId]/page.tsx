@@ -426,9 +426,9 @@ export default function FlashcardPage() {
   const total = words.length;
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 pb-2.5 pt-2">
+      <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
           <Icon name="close" size={18} />
         </button>
@@ -446,7 +446,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Sub header: project name + mastery dots */}
-      <div className="flex items-center justify-between px-5 pb-3.5">
+      <div className="flex shrink-0 items-center justify-between px-5 pb-2">
         <div className="text-[11px] font-semibold text-[var(--color-muted)]">
           {currentWord?.partOfSpeechTags?.[0] ?? ''}
         </div>
@@ -454,7 +454,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex flex-1 items-center justify-center px-5">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 py-1">
         {/* Ghost cards (stack) */}
         <div
           className="absolute inset-x-9 bottom-10 top-3.5 rounded-[18px] border-[1.25px] border-[var(--color-border)] bg-white opacity-50"
@@ -554,7 +554,10 @@ export default function FlashcardPage() {
       </div>
 
       {/* Action row (DS style) */}
-      <div className="flex justify-center gap-3.5 px-5 pb-[34px] pt-3.5">
+      <div
+        className="flex shrink-0 justify-center gap-3 px-5 pt-2"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      >
         <ActionChip icon="edit" label="編集" onClick={handleOpenEditModal} />
         <ActionChip
           icon="bookmark" label="お気に入り"

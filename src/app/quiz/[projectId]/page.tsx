@@ -683,9 +683,9 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header: close + progress dots + flag */}
-      <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
+      <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
           <Icon name="close" size={18} />
         </button>
@@ -730,7 +730,7 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col px-5 pt-2.5">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2 pt-1.5">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isActiveVocab ? 'タイプ入力' : '意味を選ぼう'}
         </div>
@@ -772,7 +772,7 @@ export default function QuizPage() {
 
         {/* Options or type-in */}
         {!isActiveVocab ? (
-          <div className="mt-[18px] flex flex-col gap-2">
+          <div className="mt-3 flex flex-col gap-2">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
                 key={i}
@@ -787,7 +787,7 @@ export default function QuizPage() {
             ))}
           </div>
         ) : (
-          <div className="mt-[18px] w-full space-y-4">
+          <div className="mt-3 w-full space-y-3">
             <TypeInQuizField
               answer={currentQuestion?.word.english ?? ''}
               value={typeInAnswer}
@@ -812,7 +812,7 @@ export default function QuizPage() {
 
         {/* Example sentence revealed */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+          <div className="mt-3 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[11px_13px]">
             <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
             <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
               {currentQuestion.word.exampleSentence}
@@ -826,7 +826,10 @@ export default function QuizPage() {
 
       {/* Bottom CTA — only shown after reveal */}
       {isRevealed && (
-        <div className="bg-[var(--color-background)] px-5 pb-7 pt-4">
+        <div
+          className="shrink-0 bg-[var(--color-background)] px-5 pt-2"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
           <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
           </SolidButton>
