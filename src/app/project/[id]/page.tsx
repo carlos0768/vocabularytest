@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { useToast } from '@/components/ui/toast';
+import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
@@ -13,7 +15,7 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
-import type { Project, SubscriptionStatus, Word, WordStatus } from '@/types';
+import type { Project, ProjectShareScope, SubscriptionStatus, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
@@ -37,7 +39,8 @@ export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  const { user, subscription, loading: authLoading } = useAuth();
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -46,6 +49,12 @@ export default function ProjectPage() {
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [sharePrepareLoading, setSharePrepareLoading] = useState(false);
+  const [shareScopeUpdating, setShareScopeUpdating] = useState(false);
+  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -167,6 +176,115 @@ export default function ProjectPage() {
     }
   };
 
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleOpenShareSheet = () => {
+    if (!project) return;
+    if (!user || !isPro) {
+      showToast({ message: '共有はProプランで利用できます', type: 'error' });
+      return;
+    }
+    setMenuOpen(false);
+    setInviteCodeCopied(false);
+    setShowShareSheet(true);
+    setSharePrepareLoading(!project.shareId);
+  };
+
+  useEffect(() => {
+    if (!showShareSheet || !project || !isPro || !user) return;
+    if (project.shareId) {
+      setSharePrepareLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const sid = await remoteRepository.generateShareId(project.id);
+        if (cancelled) return;
+        setProject((p) => (p ? { ...p, shareId: sid, shareScope: 'private' } : p));
+        invalidateHomeCache();
+      } catch (shareError) {
+        console.error('Failed to prepare share:', shareError);
+        if (!cancelled) {
+          showToast({ message: '共有の準備に失敗しました', type: 'error' });
+          setShowShareSheet(false);
+        }
+      } finally {
+        if (!cancelled) setSharePrepareLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showShareSheet, project?.id, project?.shareId, isPro, user, showToast]);
+
+  const handleSelectShareScope = async (scope: ProjectShareScope) => {
+    if (!project) return;
+    const current: ProjectShareScope = project.shareScope === 'public' ? 'public' : 'private';
+    if (scope === current) return;
+    setShareScopeUpdating(true);
+    try {
+      await mutationRepository.updateProject(project.id, { shareScope: scope });
+      setProject((p) => (p ? { ...p, shareScope: scope } : p));
+      invalidateHomeCache();
+      showToast({
+        message: scope === 'public' ? '共有ページに公開しました' : '非公開（招待コードのみ）にしました',
+        type: 'success',
+      });
+    } catch (scopeError) {
+      console.error('Failed to update share scope:', scopeError);
+      showToast({ message: '公開設定の更新に失敗しました', type: 'error' });
+    } finally {
+      setShareScopeUpdating(false);
+    }
+  };
+
+  const handleCopyInviteCode = async () => {
+    if (!project?.shareId) return;
+    const ok = await copyToClipboard(project.shareId);
+    if (ok) {
+      setInviteCodeCopied(true);
+      showToast({ message: '招待コードをコピーしました', type: 'success' });
+      setTimeout(() => setInviteCodeCopied(false), 2000);
+    } else {
+      showToast({ message: 'コピーできませんでした', type: 'error' });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!project) return;
+    setDeleteLoading(true);
+    try {
+      await mutationRepository.deleteProject(project.id);
+      invalidateHomeCache();
+      showToast({ message: '単語帳を削除しました', type: 'success' });
+      router.push('/');
+    } catch (deleteError) {
+      console.error('Failed to delete project:', deleteError);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+      setDeleteLoading(false);
+      setDeleteModalOpen(false);
+    }
+  };
+
   const handleCycleVocabularyType = async (word: Word) => {
     const vocabularyType = getNextVocabularyType(word.vocabularyType);
     setWords((prev) => prev.map((item) => (item.id === word.id ? { ...item, vocabularyType } : item)));
@@ -226,11 +344,21 @@ export default function ProjectPage() {
                 aria-label="メニューを閉じる"
                 onClick={() => setMenuOpen(false)}
               />
-              <div className="absolute right-0 top-11 z-30 w-[190px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
-                <MenuLink href={`/quiz/${projectId}`} icon="check" label="クイズを始める" onClick={() => setMenuOpen(false)} />
-                <MenuLink href={`/flashcard/${projectId}`} icon="style" label="カードで学習" onClick={() => setMenuOpen(false)} />
-                <MenuLink href="/projects" icon="menu_book" label="単語帳一覧" onClick={() => setMenuOpen(false)} />
-                <MenuLink href="/" icon="home" label="ホーム" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
+                <MenuButton
+                  icon="ios_share"
+                  label="共有"
+                  onClick={handleOpenShareSheet}
+                />
+                <MenuButton
+                  icon="delete"
+                  label="削除"
+                  destructive
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDeleteModalOpen(true);
+                  }}
+                />
               </div>
             </>
           )}
@@ -327,6 +455,93 @@ export default function ProjectPage() {
             />
           ))
         )}
+      </div>
+
+      <ProjectShareSheet
+        open={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        projectTitle={project.title}
+        shareId={project.shareId}
+        shareScope={project.shareScope === 'public' ? 'public' : 'private'}
+        preparing={sharePrepareLoading}
+        updatingScope={shareScopeUpdating}
+        onSelectScope={handleSelectShareScope}
+        onCopyInviteCode={() => void handleCopyInviteCode()}
+        inviteCodeCopied={inviteCodeCopied}
+      />
+
+      <DeleteProjectModal
+        open={deleteModalOpen}
+        loading={deleteLoading}
+        title={project.title}
+        onCancel={() => {
+          if (!deleteLoading) setDeleteModalOpen(false);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
+    </div>
+  );
+}
+
+function DeleteProjectModal({
+  open,
+  loading,
+  title,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  title: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={onCancel}
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-5">
+        <div
+          className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
+          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+        >
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            DELETE
+          </div>
+          <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+            この単語帳を削除しますか？
+          </h2>
+          <p className="mt-2 truncate text-[12px] text-[var(--color-muted)]">「{title}」</p>
+          <p className="mt-1 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+            この操作は取り消せません。含まれる単語もすべて削除されます。
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-60"
+              style={{ background: 'var(--color-error, #cc4d59)' }}
+            >
+              {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+              削除する
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -462,25 +677,26 @@ function WordRow({
   );
 }
 
-function MenuLink({
-  href,
+function MenuButton({
   icon,
   label,
   onClick,
+  destructive,
 }: {
-  href: string;
   icon: string;
   label: string;
   onClick: () => void;
+  destructive?: boolean;
 }) {
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
       onClick={onClick}
-      className="flex items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3 text-[13px] font-bold text-[var(--solid-ink)] last:border-b-0 active:bg-[var(--color-surface-secondary)]"
+      className="flex w-full items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3 text-left text-[13px] font-bold last:border-b-0 active:bg-[var(--color-surface-secondary)]"
+      style={{ color: destructive ? 'var(--color-error, #cc4d59)' : 'var(--solid-ink)' }}
     >
       <Icon name={icon} size={15} />
       {label}
-    </Link>
+    </button>
   );
 }
