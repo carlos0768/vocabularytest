@@ -1,11 +1,12 @@
 'use client';
 
 import { Icon } from '@/components/ui/Icon';
+import { useAuth } from '@/hooks/use-auth';
 
 const MODES = [
-  { k: 'vocab', label: '単語帳', desc: '教科書・問題集から単語を抽出', icon: 'auto_stories', active: true },
-  { k: 'correction', label: '添削', desc: '書いた英文を赤ペンで直す', icon: 'edit_note', pro: true },
-  { k: 'parser', label: '構造解析', desc: '長文を SVO と節で分解', icon: 'account_tree', pro: true },
+  { k: 'vocab', label: '単語帳', icon: 'auto_stories', active: true },
+  { k: 'correction', label: '添削', icon: 'edit_note', pro: true },
+  { k: 'parser', label: '構造解析', icon: 'account_tree', pro: true },
 ];
 
 const SUB_OPTIONS = [
@@ -16,6 +17,7 @@ const SUB_OPTIONS = [
 ];
 
 export default function ScanPage() {
+  const { isPro } = useAuth();
   const activeMode = 'vocab';
 
   return (
@@ -85,14 +87,11 @@ export default function ScanPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold">{m.label}</span>
-                    {m.pro && (
+                    {m.pro && !isPro && (
                       <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-0.5 font-mono text-[8px] font-bold tracking-[0.04em] text-white">
                         PRO
                       </span>
                     )}
-                  </div>
-                  <div className="mt-0.5 text-[10.5px] leading-[1.4]" style={{ color: isActive ? 'rgba(255,255,255,0.65)' : 'var(--color-muted)' }}>
-                    {m.desc}
                   </div>
                 </div>
                 <div
@@ -136,7 +135,7 @@ export default function ScanPage() {
                       {isOn && <Icon name="check" size={9} />}
                     </span>
                     {s.label}
-                    {s.pro && (
+                    {s.pro && !isPro && (
                       <span className="font-mono text-[8px] font-bold tracking-[0.04em]" style={{ color: isOn ? 'rgba(255,255,255,0.7)' : 'var(--color-accent)' }}>
                         PRO
                       </span>
