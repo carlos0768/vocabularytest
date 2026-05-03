@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ScanCaptureModalProps {
   isOpen: boolean;
@@ -12,11 +13,10 @@ interface ScanCaptureModalProps {
 type TopMode = 'vocab' | 'correction' | 'parser';
 type SubOption = 'circle' | 'eiken' | 'idiom' | 'all';
 
-const MODES: { k: TopMode; label: string; desc: string; pro?: boolean; icon: React.ReactNode }[] = [
+const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }[] = [
   {
     k: 'vocab',
     label: '単語帳',
-    desc: '教科書・問題集から単語を抽出',
     icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 4h10a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"/>
@@ -27,7 +27,6 @@ const MODES: { k: TopMode; label: string; desc: string; pro?: boolean; icon: Rea
   {
     k: 'correction',
     label: '添削',
-    desc: '書いた英文を赤ペンで直す',
     pro: true,
     icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,7 +37,6 @@ const MODES: { k: TopMode; label: string; desc: string; pro?: boolean; icon: Rea
   {
     k: 'parser',
     label: '構造解析',
-    desc: '長文を SVO と節で分解',
     pro: true,
     icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,6 +61,7 @@ const MODE_SCAN_PATH: Record<TopMode, string> = {
 
 export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
   const router = useRouter();
+  const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>('vocab');
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
 
@@ -160,17 +159,11 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[14px] font-bold">{m.label}</span>
-                      {m.pro && (
+                      {m.pro && !isPro && (
                         <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-white">
                           PRO
                         </span>
                       )}
-                    </div>
-                    <div
-                      className="mt-0.5 text-[10.5px] leading-[1.4]"
-                      style={{ color: active ? 'rgba(255,255,255,0.65)' : 'var(--color-muted)' }}
-                    >
-                      {m.desc}
                     </div>
                   </div>
                   {/* radio */}
@@ -228,7 +221,7 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
                         )}
                       </span>
                       {s.label}
-                      {s.pro && (
+                      {s.pro && !isPro && (
                         <span
                           className="font-mono text-[8px] font-bold tracking-[0.04em]"
                           style={{ color: on ? 'rgba(255,255,255,0.7)' : 'var(--color-accent)' }}
