@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
+import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, SubscriptionStatus, Word, WordStatus } from '@/types';
 
@@ -164,6 +166,23 @@ export default function ProjectPage() {
     }
   };
 
+  const handleCycleVocabularyType = async (word: Word) => {
+    const vocabularyType = getNextVocabularyType(word.vocabularyType);
+    setWords((prev) => prev.map((item) => (item.id === word.id ? { ...item, vocabularyType } : item)));
+    try {
+      try {
+        sessionStorage.removeItem(`quiz_state_${projectId}`);
+      } catch {
+        /* ignore */
+      }
+      await mutationRepository.updateWord(word.id, { vocabularyType });
+      invalidateHomeCache();
+    } catch (updateError) {
+      console.error('Failed to update vocabulary type:', updateError);
+      setWords((prev) => prev.map((item) => (item.id === word.id ? word : item)));
+    }
+  };
+
   if (loading && !project) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] text-[var(--color-muted)]">
@@ -289,6 +308,7 @@ export default function ProjectPage() {
               key={word.id}
               word={word}
               onCycleStatus={() => void handleCycleStatus(word)}
+              onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
               onToggleFavorite={() => void handleToggleFavorite(word)}
             />
           ))
@@ -379,10 +399,12 @@ function StatusPill({ kind }: { kind: WordStatus }) {
 function WordRow({
   word,
   onCycleStatus,
+  onCycleVocabularyType,
   onToggleFavorite,
 }: {
   word: Word;
   onCycleStatus: () => void;
+  onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
 }) {
   const pos = word.partOfSpeechTags?.slice(0, 2) ?? [];
@@ -412,6 +434,11 @@ function WordRow({
           </Link>
 
           <StatusPill kind={word.status} />
+          <VocabularyTypeButton
+            vocabularyType={word.vocabularyType}
+            onClick={onCycleVocabularyType}
+            className="shrink-0"
+          />
           <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りを切り替え">
             <Icon name="bookmark" size={15} filled={word.isFavorite} />
           </button>
