@@ -141,7 +141,7 @@ export default function ProjectListPage() {
         <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
           MY BOOKS
         </div>
-        <h1 className="mt-0.5 font-display text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">
+        <h1 className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">
           マイ単語帳
         </h1>
       </div>
@@ -234,7 +234,7 @@ function BookRow({ project }: { project: ProjectRowStats }) {
       >
         <div className="flex items-center gap-[13px]">
           <div
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[11px] border-[1.25px] border-[var(--solid-ink)] bg-center bg-cover font-display text-[22px] font-extrabold text-white"
+            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
             style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
           >
             {!project.iconImage && project.title.charAt(0)}
@@ -243,7 +243,7 @@ function BookRow({ project }: { project: ProjectRowStats }) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
             <div className="mt-px flex items-baseline gap-0.5">
-              <span className="font-display text-[19px] font-extrabold leading-none tabular-nums text-[var(--solid-ink)]">
+              <span className="font-display text-[16px] font-extrabold leading-none tabular-nums text-[var(--solid-ink)]">
                 {project.totalWords}
               </span>
               <span className="ml-px text-[11px] font-bold text-[var(--color-muted)]">語</span>

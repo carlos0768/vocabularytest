@@ -29,12 +29,6 @@ function isOwnedBy(project: Project | undefined | null, expectedUserId: string):
   return Boolean(project && project.userId === expectedUserId);
 }
 
-function nextStatus(current: WordStatus): WordStatus {
-  if (current === 'new') return 'review';
-  if (current === 'review') return 'mastered';
-  return 'new';
-}
-
 export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
@@ -154,18 +148,6 @@ export default function ProjectPage() {
         word.japanese.toLowerCase().includes(normalized),
     );
   }, [query, words]);
-
-  const handleCycleStatus = async (word: Word) => {
-    const status = nextStatus(word.status);
-    setWords((prev) => prev.map((item) => (item.id === word.id ? { ...item, status } : item)));
-    try {
-      await mutationRepository.updateWord(word.id, { status });
-      invalidateHomeCache();
-    } catch (updateError) {
-      console.error('Failed to update word status:', updateError);
-      setWords((prev) => prev.map((item) => (item.id === word.id ? word : item)));
-    }
-  };
 
   const handleToggleFavorite = async (word: Word) => {
     const isFavorite = !word.isFavorite;
@@ -481,7 +463,6 @@ export default function ProjectPage() {
 
       <div className="flex items-center justify-between px-5 pb-2">
         <div className="flex gap-1.5">
-          <ToolChip icon="search" label="検索" />
           <label className="sr-only" htmlFor="project-word-search">単語を検索</label>
           <input
             id="project-word-search"
@@ -511,7 +492,6 @@ export default function ProjectPage() {
             <WordRow
               key={word.id}
               word={word}
-              onCycleStatus={() => void handleCycleStatus(word)}
               onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
               onToggleFavorite={() => void handleToggleFavorite(word)}
             />
@@ -713,6 +693,43 @@ function BarDot({ color, label, count }: { color: string; label: string; count: 
   );
 }
 
+const POS_JP: Record<string, string> = {
+  noun: '名詞',
+  verb: '動詞',
+  adjective: '形容詞',
+  adverb: '副詞',
+  preposition: '前置詞',
+  conjunction: '接続詞',
+  pronoun: '代名詞',
+  interjection: '感動詞',
+  determiner: '限定詞',
+  auxiliary: '助動詞',
+  phrase: '句',
+  idiom: 'イディオム',
+  phrasal_verb: '句動詞',
+  other: 'その他',
+};
+
+function posShort(tag: string): string {
+  const jp = POS_JP[tag] ?? tag;
+  return `(${jp[0]})`;
+}
+
+function StatusSquares({ status }: { status: WordStatus }) {
+  const filled = status === 'mastered' ? 3 : status === 'review' ? 1 : 0;
+  return (
+    <div className="flex shrink-0 flex-col gap-[3px]">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-[9px] w-[9px] rounded-[2px] border-[1.25px] border-[var(--solid-ink)]"
+          style={{ background: i < filled ? 'var(--solid-ink)' : 'transparent' }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function StatusPill({ kind }: { kind: WordStatus }) {
   const config = {
     new: { t: '未学習', bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
@@ -732,42 +749,29 @@ function StatusPill({ kind }: { kind: WordStatus }) {
 
 function WordRow({
   word,
-  onCycleStatus,
   onCycleVocabularyType,
   onToggleFavorite,
 }: {
   word: Word;
-  onCycleStatus: () => void;
   onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
 }) {
-  const pos = word.partOfSpeechTags?.slice(0, 2) ?? [];
+  const pos = word.partOfSpeechTags?.[0] ?? null;
   return (
     <div className="relative">
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-      <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-3">
+      <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-2">
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={onCycleStatus}
-            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded border-[1.5px] border-[var(--solid-ink)] text-white"
-            style={{ background: word.status === 'mastered' ? 'var(--solid-ink)' : '#fff' }}
-            aria-label="ステータスを変更"
-          >
-            {word.status === 'mastered' && <Icon name="check" size={10} />}
-          </button>
+          <StatusSquares status={word.status} />
 
           <Link href={`/word/${word.id}?from=${encodeURIComponent(`/project/${word.projectId}`)}`} className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-1.5">
-              <span className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</span>
-              {pos.length > 0 && (
-                <span className="font-mono text-[9px] text-[var(--color-muted)]">{pos.join('/')}</span>
-              )}
+            <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+            <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
+              {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+              <span className="truncate">{word.japanese}</span>
             </div>
-            <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
           </Link>
 
-          <StatusPill kind={word.status} />
           <VocabularyTypeButton
             vocabularyType={word.vocabularyType}
             onClick={onCycleVocabularyType}

@@ -185,13 +185,13 @@ export default function HomePage() {
 
       <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
         <Link href={dueCount > 0 ? '/quiz/all?review=1&from=/' : '/projects'} className="block">
-          <SolidPanel className="!rounded-2xl" faceClassName="!p-3.5 min-h-[160px]">
-            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+          <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
               TODAY&apos;S GOAL
             </div>
-            <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">今日の目標</div>
-            <div className="mt-2.5 flex items-baseline gap-1">
-              <span className="font-display text-[40px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
+            <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
                 {dueCount}
               </span>
               <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
@@ -211,8 +211,8 @@ export default function HomePage() {
           </SolidPanel>
         </Link>
 
-        <SolidPanel className="!rounded-2xl" faceClassName="!p-3.5 min-h-[160px]">
-          <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+        <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
             MASTERY
           </div>
           <div className="mt-1.5 flex items-center gap-2.5">
@@ -231,7 +231,7 @@ export default function HomePage() {
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
             MY BOOKS
           </div>
-          <h2 className="font-display text-[22px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
+          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
             マイ単語帳
           </h2>
         </div>
