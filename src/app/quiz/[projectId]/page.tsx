@@ -1121,7 +1121,7 @@ export default function QuizPage() {
         </header>
 
         <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto">
-          <div className="mx-auto w-full max-w-lg px-6 flex flex-col flex-1 min-h-0">
+          <div className="mx-auto w-full max-w-lg px-6 flex flex-col">
           {/* Mode badges - iOS style */}
           <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
             <span
@@ -1214,41 +1214,37 @@ export default function QuizPage() {
             </div>
           )}
 
-          {/* Example sentence after answering */}
+          {/* Example sentence + next button after answering */}
           {isRevealed && currentQuestion && (
-            <div className="w-full mt-4 flex-shrink-0">
-              {currentQuestion.word.exampleSentence && (
-                <div className="card p-4 space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold">
-                    <Icon name="format_quote" size={14} />
-                    例文
+            <>
+              <div className="w-full mt-4">
+                {currentQuestion.word.exampleSentence && (
+                  <div className="card p-4 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-semibold">
+                      <Icon name="format_quote" size={14} />
+                      例文
+                    </div>
+                    <p className="text-sm text-[var(--color-foreground)] leading-relaxed">{currentQuestion.word.exampleSentence}</p>
+                    {currentQuestion.word.exampleSentenceJa && (
+                      <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
+                    )}
                   </div>
-                  <p className="text-sm text-[var(--color-foreground)] leading-relaxed">{currentQuestion.word.exampleSentence}</p>
-                  {currentQuestion.word.exampleSentenceJa && (
-                    <p className="text-xs text-[var(--color-muted)] leading-relaxed">{currentQuestion.word.exampleSentenceJa}</p>
-                  )}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+              <div className="w-full mt-4 safe-area-bottom">
+                <button
+                  onClick={moveToNext}
+                  disabled={isTransitioning}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
+                >
+                  次へ
+                  <Icon name="chevron_right" size={20} />
+                </button>
+              </div>
+            </>
           )}
           </div>
         </main>
-
-        {/* Bottom next button */}
-        {isRevealed && (
-          <div className="flex-shrink-0 bg-[var(--color-background)] pt-3 pb-6 safe-area-bottom w-full">
-            <div className="mx-auto w-full max-w-lg px-6">
-              <button
-                onClick={moveToNext}
-                disabled={isTransitioning}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-base disabled:opacity-50"
-              >
-                次へ
-                <Icon name="chevron_right" size={20} />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </QuizDesktopViewport>
   );
