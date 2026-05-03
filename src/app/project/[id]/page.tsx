@@ -45,6 +45,7 @@ export default function ProjectPage() {
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -210,16 +211,29 @@ export default function ProjectPage() {
   return (
     <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)]">
       <div className="flex items-center justify-between px-4 pt-3 lg:hidden">
-        <HeaderBtn onClick={() => router.back()} aria-label="戻る">
+        <HeaderBtn onClick={() => router.replace('/')} aria-label="ホームへ戻る">
           <Icon name="chevron_left" size={16} />
         </HeaderBtn>
-        <div className="flex gap-2">
-          <HeaderBtn aria-label="検索" onClick={() => document.getElementById('project-word-search')?.focus()}>
-            <Icon name="search" size={15} />
-          </HeaderBtn>
-          <HeaderBtn aria-label="メニュー">
+        <div className="relative flex gap-2">
+          <HeaderBtn aria-label="メニュー" onClick={() => setMenuOpen((open) => !open)}>
             <Icon name="more_horiz" size={16} />
           </HeaderBtn>
+          {menuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-20 cursor-default bg-transparent"
+                aria-label="メニューを閉じる"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-11 z-30 w-[190px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
+                <MenuLink href={`/quiz/${projectId}`} icon="check" label="クイズを始める" onClick={() => setMenuOpen(false)} />
+                <MenuLink href={`/flashcard/${projectId}`} icon="style" label="カードで学習" onClick={() => setMenuOpen(false)} />
+                <MenuLink href="/projects" icon="menu_book" label="単語帳一覧" onClick={() => setMenuOpen(false)} />
+                <MenuLink href="/" icon="home" label="ホーム" onClick={() => setMenuOpen(false)} />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -413,11 +427,6 @@ function WordRow({
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
       <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-3">
         <div className="flex items-center gap-2.5">
-          <VocabularyTypeButton
-            vocabularyType={word.vocabularyType}
-            onClick={onCycleVocabularyType}
-            className="shrink-0"
-          />
           <button
             type="button"
             onClick={onCycleStatus}
@@ -439,11 +448,39 @@ function WordRow({
           </Link>
 
           <StatusPill kind={word.status} />
+          <VocabularyTypeButton
+            vocabularyType={word.vocabularyType}
+            onClick={onCycleVocabularyType}
+            className="shrink-0"
+          />
           <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りを切り替え">
-            <Icon name="bookmark" size={15} filled={word.isFavorite} />
+            <Icon name="bookmark" size={18} filled={word.isFavorite} />
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function MenuLink({
+  href,
+  icon,
+  label,
+  onClick,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3 text-[13px] font-bold text-[var(--solid-ink)] last:border-b-0 active:bg-[var(--color-surface-secondary)]"
+    >
+      <Icon name={icon} size={15} />
+      {label}
+    </Link>
   );
 }
