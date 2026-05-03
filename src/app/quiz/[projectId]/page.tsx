@@ -683,9 +683,12 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
       {/* Header: close + progress dots + flag */}
-      <div className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5 pt-2">
+      <div
+        className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5"
+        style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
+      >
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
           <Icon name="close" size={18} />
         </button>
