@@ -413,6 +413,11 @@ function WordRow({
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
       <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-3">
         <div className="flex items-center gap-2.5">
+          <VocabularyTypeButton
+            vocabularyType={word.vocabularyType}
+            onClick={onCycleVocabularyType}
+            className="shrink-0"
+          />
           <button
             type="button"
             onClick={onCycleStatus}
@@ -434,11 +439,6 @@ function WordRow({
           </Link>
 
           <StatusPill kind={word.status} />
-          <VocabularyTypeButton
-            vocabularyType={word.vocabularyType}
-            onClick={onCycleVocabularyType}
-            className="shrink-0"
-          />
           <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りを切り替え">
             <Icon name="bookmark" size={15} filled={word.isFavorite} />
           </button>
