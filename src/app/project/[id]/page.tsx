@@ -55,6 +55,9 @@ export default function ProjectPage() {
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameLoading, setRenameLoading] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -269,6 +272,70 @@ export default function ProjectPage() {
     }
   };
 
+  const handleOpenRename = () => {
+    if (!project) return;
+    setRenameValue(project.title);
+    setMenuOpen(false);
+    setRenameModalOpen(true);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!project || !renameValue.trim() || renameLoading) return;
+    setRenameLoading(true);
+    try {
+      await mutationRepository.updateProject(project.id, { title: renameValue.trim() });
+      setProject((p) => (p ? { ...p, title: renameValue.trim() } : p));
+      invalidateHomeCache();
+      showToast({ message: '名称を変更しました', type: 'success' });
+      setRenameModalOpen(false);
+    } catch {
+      showToast({ message: '名称変更に失敗しました', type: 'error' });
+    } finally {
+      setRenameLoading(false);
+    }
+  };
+
+  const handleOpenImagePicker = () => {
+    if (!project) return;
+    setMenuOpen(false);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const side = Math.min(img.width, img.height, 400);
+              canvas.width = side; canvas.height = side;
+              const ctx = canvas.getContext('2d')!;
+              const sx = (img.width - side) / 2;
+              const sy = (img.height - side) / 2;
+              ctx.drawImage(img, sx, sy, side, side, 0, 0, side, side);
+              resolve(canvas.toDataURL('image/jpeg', 0.75));
+            };
+            img.onerror = reject;
+            img.src = reader.result as string;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        await mutationRepository.updateProject(project.id, { iconImage: dataUrl });
+        setProject((p) => (p ? { ...p, iconImage: dataUrl } : p));
+        invalidateHomeCache();
+        showToast({ message: '画像を設定しました', type: 'success' });
+      } catch {
+        showToast({ message: '画像の設定に失敗しました', type: 'error' });
+      }
+    };
+    input.click();
+  };
+
   const handleConfirmDelete = async () => {
     if (!project) return;
     setDeleteLoading(true);
@@ -345,19 +412,14 @@ export default function ProjectPage() {
                 onClick={() => setMenuOpen(false)}
               />
               <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
-                <MenuButton
-                  icon="ios_share"
-                  label="共有"
-                  onClick={handleOpenShareSheet}
-                />
+                <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
+                <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
+                <MenuButton icon="ios_share" label="共有" onClick={handleOpenShareSheet} />
                 <MenuButton
                   icon="delete"
                   label="削除"
                   destructive
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setDeleteModalOpen(true);
-                  }}
+                  onClick={() => { setMenuOpen(false); setDeleteModalOpen(true); }}
                 />
               </div>
             </>
@@ -474,11 +536,54 @@ export default function ProjectPage() {
         open={deleteModalOpen}
         loading={deleteLoading}
         title={project.title}
-        onCancel={() => {
-          if (!deleteLoading) setDeleteModalOpen(false);
-        }}
+        onCancel={() => { if (!deleteLoading) setDeleteModalOpen(false); }}
         onConfirm={() => void handleConfirmDelete()}
       />
+
+      {renameModalOpen && (
+        <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="閉じる"
+            onClick={() => { if (!renameLoading) setRenameModalOpen(false); }}
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-5">
+            <div className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5" style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">RENAME</div>
+              <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">名称変更</h2>
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmRename(); }}
+                autoFocus
+                maxLength={60}
+                className="mt-3 w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)]"
+              />
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRenameModalOpen(false)}
+                  disabled={renameLoading}
+                  className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmRename()}
+                  disabled={renameLoading || !renameValue.trim()}
+                  className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+                >
+                  {renameLoading ? '変更中...' : '変更'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

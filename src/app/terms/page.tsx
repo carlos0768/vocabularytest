@@ -14,9 +14,9 @@ export default function TermsPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
           >
-            <Icon name="chevron_left" size={14} />
+            <Icon name="chevron_left" size={16} />
           </button>
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT / SUPPORT</div>
         </div>

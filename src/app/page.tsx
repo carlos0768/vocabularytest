@@ -268,7 +268,7 @@ export default function HomePage() {
         <div className="mb-2 font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
           NEW
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           <Link href="/correction" className="block">
             <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
               <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
@@ -277,16 +277,6 @@ export default function HomePage() {
               </div>
               <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">英作文の添削</div>
               <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
-            </SolidPanel>
-          </Link>
-          <Link href="/parser" className="block">
-            <SolidPanel className="!rounded-[14px]" faceClassName="!p-3 min-h-[88px]">
-              <div className="flex items-center gap-1.5 text-[var(--solid-ink)]">
-                <Icon name="account_tree" size={16} />
-                <span className="font-mono text-[11px] font-bold tracking-[0.04em]">PARSER</span>
-              </div>
-              <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">構造解析</div>
-              <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向け構造解析に接続済み</div>
             </SolidPanel>
           </Link>
         </div>

@@ -34,16 +34,6 @@ const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }
       </svg>
     ),
   },
-  {
-    k: 'parser',
-    label: '構造解析',
-    pro: true,
-    icon: (
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8"/>
-      </svg>
-    ),
-  },
 ];
 
 const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[] = [

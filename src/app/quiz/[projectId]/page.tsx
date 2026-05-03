@@ -642,14 +642,12 @@ export default function QuizPage() {
   if (isComplete) {
     const percentage = Math.round((results.correct / results.total) * 100);
     return (
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
-        <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
-          <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-        <div className="flex flex-1 flex-col items-center justify-center p-6">
-          <div className="w-full max-w-sm rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center shadow-[3px_4px_0_var(--solid-ink)]">
+      <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+        <button type="button" onClick={backToProject} className="absolute left-4 inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]" style={{ top: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}>
+          <Icon name="close" size={22} />
+        </button>
+        <div className="w-full max-w-sm px-6">
+          <div className="w-full rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center shadow-[3px_4px_0_var(--solid-ink)]">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(61,122,78,0.08)]">
               <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
             </div>
@@ -690,7 +688,7 @@ export default function QuizPage() {
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-          <Icon name="close" size={18} />
+          <Icon name="close" size={22} />
         </button>
         <div className="flex flex-1 items-center gap-2">
           <div className="flex flex-1 gap-[3px]">
@@ -728,7 +726,7 @@ export default function QuizPage() {
           }}
           className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
         >
-          <Icon name="bookmark" size={16} filled={currentQuestion?.word.isFavorite ?? false} />
+          <Icon name="bookmark" size={19} filled={currentQuestion?.word.isFavorite ?? false} />
         </button>
       </div>
 

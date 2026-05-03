@@ -20,7 +20,7 @@ function getMasteryLevel(repetition: number): number {
   return 3;
 }
 
-/* ---------- Mastery dots (DS component) ---------- */
+/* ---------- Mastery dots ---------- */
 function MasteryDots({ level }: { level: number }) {
   return (
     <div className="flex items-center gap-[5px]">
@@ -39,7 +39,29 @@ function MasteryDots({ level }: { level: number }) {
   );
 }
 
-/* ---------- Action chip (DS component) ---------- */
+/* ---------- HeaderBtn (立体スケッチ風) ---------- */
+function HeaderBtn({
+  children,
+  onClick,
+  'aria-label': ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  'aria-label'?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---------- Action chip ---------- */
 function ActionChip({
   icon,
   label,
@@ -64,6 +86,34 @@ function ActionChip({
       <span className="text-[10px] font-semibold text-[var(--color-muted)]">{label}</span>
     </button>
   );
+}
+
+/* ---------- Nav button (for prev/flip/next) ---------- */
+function NavBtn({
+  children,
+  onClick,
+  'aria-label': ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  'aria-label'?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex h-[42px] w-[42px] items-center justify-center rounded-[21px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+    >
+      {children}
+    </button>
+  );
+}
+
+function nextWordStatus(current: string): 'new' | 'review' | 'mastered' {
+  if (current === 'new') return 'review';
+  if (current === 'review') return 'mastered';
+  return 'new';
 }
 
 /* ---------- Progress storage ---------- */
@@ -359,6 +409,13 @@ export default function FlashcardPage() {
     setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, isFavorite: newFavorite } : w));
   };
 
+  const handleCycleStatus = async () => {
+    if (!currentWord) return;
+    const newStatus = nextWordStatus(currentWord.status);
+    await repository.updateWord(currentWord.id, { status: newStatus });
+    setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, status: newStatus } : w));
+  };
+
   const handleDeleteWord = async () => {
     if (!currentWord) return;
     const confirmed = window.confirm(`「${currentWord.english}」を削除しますか？`);
@@ -410,6 +467,11 @@ export default function FlashcardPage() {
     return 'translateX(0)';
   };
 
+  /* Status label */
+  const statusLabel = (s: string) => ({ new: '未学習', review: '学習中', mastered: '習得' }[s] ?? s);
+  const statusColor = (s: string) =>
+    s === 'mastered' ? 'var(--color-success)' : s === 'review' ? '#137fec' : 'var(--color-muted)';
+
   /* ---------- Loading ---------- */
   if (loading) {
     return (
@@ -427,47 +489,31 @@ export default function FlashcardPage() {
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
-      {/* Header */}
+      {/* Header: HeaderBtn close | progress | HeaderBtn shuffle */}
       <div
-        className="flex shrink-0 items-center gap-2.5 px-4 pb-2.5"
+        className="flex shrink-0 items-center justify-between px-4 pb-2.5"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
-        <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-          <Icon name="close" size={18} />
-        </button>
-        <div className="flex flex-1 flex-col items-center gap-[3px]">
+        <HeaderBtn onClick={backToProject} aria-label="閉じる">
+          <Icon name="close" size={16} />
+        </HeaderBtn>
+
+        <div className="flex flex-col items-center gap-[3px]">
           <div className="font-mono text-[11px] font-bold tabular-nums text-[var(--solid-ink)]">
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </div>
-          <div className="h-1 w-[140px] overflow-hidden rounded-sm bg-[rgba(26,26,26,0.08)]">
+          <div className="h-1 w-[120px] overflow-hidden rounded-sm bg-[rgba(26,26,26,0.08)]">
             <div className="h-full bg-[var(--solid-ink)]" style={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
           </div>
         </div>
-        <button type="button" onClick={handleShuffle} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-          <Icon name="shuffle" size={18} />
-        </button>
+
+        <HeaderBtn onClick={handleShuffle} aria-label="シャッフル">
+          <Icon name="shuffle" size={16} />
+        </HeaderBtn>
       </div>
 
-      {/* Sub header: project name + mastery dots */}
-      <div className="flex shrink-0 items-center justify-between px-5 pb-3.5">
-        <div className="text-[11px] font-semibold text-[var(--color-muted)]">
-          {currentWord?.partOfSpeechTags?.[0] ?? ''}
-        </div>
-        <MasteryDots level={masteryLevel} />
-      </div>
-
-      {/* Card area */}
+      {/* Card area (no ghost cards) */}
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5">
-        {/* Ghost cards (stack) */}
-        <div
-          className="absolute inset-x-9 bottom-10 top-3.5 rounded-[18px] border-[1.25px] border-[var(--color-border)] bg-white opacity-50"
-          style={{ transform: 'rotate(-2deg)' }}
-        />
-        <div
-          className="absolute inset-x-7 bottom-8 top-2 rounded-[18px] border-[1.25px] border-[var(--color-border)] bg-white opacity-80"
-          style={{ transform: 'rotate(1.5deg)' }}
-        />
-
         {/* Flashcard */}
         <div
           className="relative w-full"
@@ -481,9 +527,9 @@ export default function FlashcardPage() {
           }}
         >
           {!isFlipped ? (
-            /* Front face (DS style) */
+            /* Front face */
             <div
-              className="relative flex min-h-[310px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
+              className="relative flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
               style={{ boxShadow: '4px 4px 0 var(--solid-ink)' }}
             >
               {/* POS badge + favorite */}
@@ -517,13 +563,30 @@ export default function FlashcardPage() {
                 </button>
               </div>
 
+              {/* Mastery + status at bottom */}
+              <div className="mt-3 flex items-center justify-between border-t border-dashed border-[var(--color-border)] pt-3">
+                <MasteryDots level={masteryLevel} />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); void handleCycleStatus(); }}
+                  className="rounded-full px-2 py-[3px] font-mono text-[9px] font-bold"
+                  style={{
+                    color: statusColor(currentWord?.status ?? 'new'),
+                    border: `1px solid ${statusColor(currentWord?.status ?? 'new')}`,
+                    background: 'white',
+                  }}
+                >
+                  {statusLabel(currentWord?.status ?? 'new')}
+                </button>
+              </div>
+
               {/* Tap hint */}
-              <div className="text-center text-[11px] font-semibold text-[var(--color-muted)]">タップで意味を見る</div>
+              <div className="mt-2 text-center text-[11px] font-semibold text-[var(--color-muted)]">タップで意味を見る</div>
             </div>
           ) : (
             /* Back face */
             <div
-              className="relative flex min-h-[310px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
+              className="relative flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
               style={{ boxShadow: '4px 4px 0 rgba(0,0,0,0.3)' }}
             >
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
@@ -542,7 +605,11 @@ export default function FlashcardPage() {
                   </div>
                 )}
               </div>
-              <div className="text-center text-[11px] font-semibold text-white/50">タップで戻る</div>
+              {/* Mastery inside back too */}
+              <div className="mt-3 flex items-center justify-center border-t border-white/10 pt-3">
+                <MasteryDots level={masteryLevel} />
+              </div>
+              <div className="mt-2 text-center text-[11px] font-semibold text-white/50">タップで戻る</div>
             </div>
           )}
         </div>
@@ -556,12 +623,16 @@ export default function FlashcardPage() {
         </div>
       </div>
 
-      {/* Action row (DS style) */}
-      <div
-        className="flex shrink-0 justify-center gap-3.5 px-5 pt-3.5"
-        style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
-      >
+      {/* 5 Action chips */}
+      <div className="flex shrink-0 justify-center gap-3 px-5 pt-3.5">
         <ActionChip icon="edit" label="編集" onClick={handleOpenEditModal} />
+        <ActionChip icon="volume_up" label="発音" onClick={speakWord} />
+        <ActionChip
+          icon="task_alt"
+          label={statusLabel(currentWord?.status ?? 'new')}
+          tint={statusColor(currentWord?.status ?? 'new')}
+          onClick={handleCycleStatus}
+        />
         <ActionChip
           icon="bookmark" label="お気に入り"
           tint={currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--solid-ink)'}
@@ -569,6 +640,22 @@ export default function FlashcardPage() {
           onClick={handleToggleFavorite}
         />
         <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
+      </div>
+
+      {/* Navigation row: prev | flip | next */}
+      <div
+        className="flex shrink-0 items-center justify-center gap-6 px-5 pt-3"
+        style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
+      >
+        <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
+          <Icon name="chevron_left" size={18} />
+        </NavBtn>
+        <NavBtn onClick={handleFlip} aria-label="カードを裏返す">
+          <Icon name="flip" size={18} />
+        </NavBtn>
+        <NavBtn onClick={() => handleNext(true)} aria-label="次のカード">
+          <Icon name="chevron_right" size={18} />
+        </NavBtn>
       </div>
 
       {/* Edit modal */}
