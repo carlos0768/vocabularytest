@@ -74,7 +74,7 @@ export default function ParserHistoryPage() {
   }, [authLoading, isPro, user]);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[80px] pt-[54px] lg:pt-0 font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[80px] pt-3 font-[var(--font-body)] lg:pt-0">
       <div className="lg:hidden flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
           <Icon name="chevron_left" size={18} />

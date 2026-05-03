@@ -7,7 +7,7 @@ export default function TokushoPage() {
   const router = useRouter();
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header */}
       <div className="px-[18px] pb-3.5 pt-1">
         <div className="mb-0.5 flex items-center gap-2">

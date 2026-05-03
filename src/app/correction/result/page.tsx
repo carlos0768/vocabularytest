@@ -86,12 +86,12 @@ export default function CorrectionResultPage() {
   }
 
   if (!resolvedId || loading) {
-    return <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-[84px] text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>;
+    return <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>;
   }
 
   if (!id || !result) {
     return (
-      <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-[84px] text-center font-[var(--font-body)]">
+      <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center font-[var(--font-body)]">
         <div className="mb-3 text-sm font-bold text-[var(--solid-ink)]">{error || '添削結果が見つかりません'}</div>
         <Link href="/correction/new" className="inline-flex rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく添削する</Link>
       </div>
@@ -99,7 +99,7 @@ export default function CorrectionResultPage() {
   }
 
   return (
-    <div className="relative min-h-full pt-[54px] font-[var(--font-body)]" style={{ background: 'var(--color-background)' }}>
+    <div className="relative min-h-full pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
       <div className="flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-[var(--solid-ink)]">
           <Icon name="chevron_left" size={18} />

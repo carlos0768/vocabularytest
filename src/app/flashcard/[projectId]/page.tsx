@@ -426,7 +426,7 @@ export default function FlashcardPage() {
   const total = words.length;
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 pb-2.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">

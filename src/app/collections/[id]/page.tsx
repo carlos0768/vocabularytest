@@ -26,7 +26,7 @@ export default function CollectionDetailPage() {
   const totalMastered = BOOKS.reduce((s, b) => s + b.mastered, 0);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-[54px] font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-3 pt-2">
         <button

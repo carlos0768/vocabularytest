@@ -19,7 +19,7 @@ const COLLECTIONS = [
 
 export default function CollectionsPage() {
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-[54px] font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       {/* Header */}
       <div className="flex items-baseline justify-between px-5 pb-3 pt-2">
         <div>

@@ -36,7 +36,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       <div className="px-[14px] pt-1">
         <button
           type="button"

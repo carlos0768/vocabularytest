@@ -122,7 +122,7 @@ export default function FavoritesPage() {
   const returnPath = encodeURIComponent('/favorites');
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)] lg:pt-0">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:pt-0">
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:hidden">
         <button
           type="button"

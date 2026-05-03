@@ -598,7 +598,7 @@ export default function QuizPage() {
     const parsed = parseInt(inputCount, 10);
     const isValid = !isNaN(parsed) && parsed >= 1 && parsed <= maxQ;
     return (
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px]">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3">
         <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
           <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
             <Icon name="close" size={18} />
@@ -642,7 +642,7 @@ export default function QuizPage() {
   if (isComplete) {
     const percentage = Math.round((results.correct / results.total) * 100);
     return (
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
         <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
           <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
             <Icon name="close" size={18} />
@@ -683,7 +683,7 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header: close + progress dots + flag */}
       <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">

@@ -16,7 +16,7 @@ export default function SignupPage() {
 
   return (
     <div
-      className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]"
+      className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]"
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-[14px] pt-1">

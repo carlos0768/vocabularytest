@@ -19,7 +19,7 @@ export default function ScanPage() {
   const activeMode = 'vocab';
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Dimmed background content */}
       <div className="pointer-events-none opacity-40">
         <div className="flex items-center justify-between px-[18px] pb-3.5 pt-2">

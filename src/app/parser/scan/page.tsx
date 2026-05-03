@@ -7,7 +7,7 @@ export default function ParserScanPage() {
   const router = useRouter();
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:pt-0">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]">

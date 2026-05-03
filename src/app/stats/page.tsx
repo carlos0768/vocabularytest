@@ -55,7 +55,7 @@ export default function StatsPage() {
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       <div className="px-[18px] pb-3 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           ANALYTICS

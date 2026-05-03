@@ -56,7 +56,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pt-[54px] font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       <div className="flex items-center gap-2 px-[14px] pb-2 pt-1">
         <button
           type="button"

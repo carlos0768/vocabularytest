@@ -82,7 +82,7 @@ export default function CorrectionHistoryPage() {
   }, [authLoading, isPro, user]);
 
   return (
-    <div className="relative min-h-full pb-[80px] pt-[54px] lg:pt-0 font-[var(--font-body)]" style={{ background: 'var(--color-background)' }}>
+    <div className="relative min-h-full pb-[80px] pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
       <div className="lg:hidden flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-[var(--solid-ink)]">
           <Icon name="chevron_left" size={18} />
