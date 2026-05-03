@@ -426,7 +426,7 @@ export default function FlashcardPage() {
   const total = words.length;
 
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:left-[280px]">
       {/* Header */}
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
@@ -454,7 +454,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 py-1">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 py-1">
         {/* Ghost cards (stack) */}
         <div
           className="absolute inset-x-9 bottom-10 top-3.5 rounded-[18px] border-[1.25px] border-[var(--color-border)] bg-white opacity-50"
@@ -467,7 +467,7 @@ export default function FlashcardPage() {
 
         {/* Flashcard */}
         <div
-          className="relative w-full"
+          className="relative flex h-full max-h-[360px] w-full"
           onClick={handleFlip}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -480,7 +480,7 @@ export default function FlashcardPage() {
           {!isFlipped ? (
             /* Front face (DS style) */
             <div
-              className="relative flex min-h-[310px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
+              className="relative flex h-full min-h-0 w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[18px_18px_14px]"
               style={{ boxShadow: '4px 4px 0 var(--solid-ink)' }}
             >
               {/* POS badge + favorite */}
@@ -500,9 +500,9 @@ export default function FlashcardPage() {
               </div>
 
               {/* Big word */}
-              <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-center">
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-center">
                 <div className="font-mono text-xs text-[var(--color-muted)]">{currentWord?.pronunciation ?? ''}</div>
-                <div className="font-display text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em] text-[var(--solid-ink)]">
+                <div className="line-clamp-2 font-display text-[36px] font-extrabold leading-[1.05] tracking-[-0.02em] text-[var(--solid-ink)]">
                   {currentWord?.english}
                 </div>
                 <button
@@ -520,21 +520,21 @@ export default function FlashcardPage() {
           ) : (
             /* Back face */
             <div
-              className="relative flex min-h-[310px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
+              className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[18px_18px_14px]"
               style={{ boxShadow: '4px 4px 0 rgba(0,0,0,0.3)' }}
             >
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                <h2 className="text-3xl font-bold text-white">{currentWord?.japanese}</h2>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2.5 text-center">
+                <h2 className="line-clamp-2 text-[28px] font-bold leading-tight text-white">{currentWord?.japanese}</h2>
                 <p className="text-sm text-white/60">{currentWord?.english}</p>
                 {currentWord?.pronunciation && (
                   <p className="font-mono text-xs text-white/50">{currentWord.pronunciation}</p>
                 )}
                 {currentWord?.exampleSentence && (
-                  <div className="mt-2 w-full rounded-xl bg-white/10 p-3.5 text-left">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[1.5px] text-white/50">例文</p>
-                    <p className="text-sm leading-relaxed text-white/90">{currentWord.exampleSentence}</p>
+                  <div className="mt-1.5 w-full rounded-xl bg-white/10 p-3 text-left">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[1.5px] text-white/50">例文</p>
+                    <p className="line-clamp-3 text-[13px] leading-relaxed text-white/90">{currentWord.exampleSentence}</p>
                     {currentWord.exampleSentenceJa && (
-                      <p className="mt-1.5 text-xs leading-relaxed text-white/60">{currentWord.exampleSentenceJa}</p>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/60">{currentWord.exampleSentenceJa}</p>
                     )}
                   </div>
                 )}
@@ -555,8 +555,8 @@ export default function FlashcardPage() {
 
       {/* Action row (DS style) */}
       <div
-        className="flex shrink-0 justify-center gap-3 px-5 pt-2"
-        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        className="flex shrink-0 justify-center gap-3 px-5 pt-1.5"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <ActionChip icon="edit" label="編集" onClick={handleOpenEditModal} />
         <ActionChip

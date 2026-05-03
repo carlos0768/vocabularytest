@@ -109,7 +109,7 @@ function DSQuizOption({
         style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
       />
       <div
-        className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] px-3.5 py-3.5"
+        className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] px-3.5 py-2.5"
         style={{ background: faceBg, borderColor }}
       >
         <div
@@ -683,7 +683,7 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:left-[280px]">
       {/* Header: close + progress dots + flag */}
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
@@ -730,19 +730,19 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2 pt-1.5">
-        <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-1.5 pt-1">
+        <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isActiveVocab ? 'タイプ入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
         <div className="relative">
           <div className="absolute inset-0 rounded-[18px] translate-x-[3px] translate-y-[4px] bg-[var(--solid-ink)]" />
-          <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
-            <div className="mb-2 font-mono text-[11px] text-[var(--color-muted)]">
+          <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-4 text-center">
+            <div className="mb-1.5 font-mono text-[10px] text-[var(--color-muted)]">
               {currentQuestion?.word.pronunciation || ''}
             </div>
-            <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
+            <div className="line-clamp-2 font-display text-[30px] font-extrabold leading-[1.08] tracking-[-0.01em] text-[var(--solid-ink)]">
               {isActiveVocab
                 ? currentQuestion?.word.japanese
                 : quizDirection === 'en-to-ja'
@@ -750,7 +750,7 @@ export default function QuizPage() {
                   : currentQuestion?.word.japanese}
             </div>
             {!isActiveVocab && (
-              <div className="mt-2.5 flex justify-center">
+              <div className="mt-2 flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -772,7 +772,7 @@ export default function QuizPage() {
 
         {/* Options or type-in */}
         {!isActiveVocab ? (
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-2.5 flex min-h-0 flex-col gap-1.5">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
                 key={i}
@@ -787,7 +787,7 @@ export default function QuizPage() {
             ))}
           </div>
         ) : (
-          <div className="mt-3 w-full space-y-3">
+          <div className="mt-2.5 w-full space-y-2.5 overflow-hidden">
             <TypeInQuizField
               answer={currentQuestion?.word.english ?? ''}
               value={typeInAnswer}
@@ -812,13 +812,13 @@ export default function QuizPage() {
 
         {/* Example sentence revealed */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="mt-3 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[11px_13px]">
-            <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+          <div className="mt-2 shrink-0 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[9px_12px]">
+            <div className="mb-1 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+            <div className="line-clamp-2 text-[13px] font-medium leading-[1.45] text-[var(--solid-ink)]">
               {currentQuestion.word.exampleSentence}
             </div>
             {currentQuestion.word.exampleSentenceJa && (
-              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{currentQuestion.word.exampleSentenceJa}</div>
+              <div className="mt-0.5 line-clamp-1 text-[11px] leading-[1.45] text-[var(--color-muted)]">{currentQuestion.word.exampleSentenceJa}</div>
             )}
           </div>
         )}
@@ -827,8 +827,8 @@ export default function QuizPage() {
       {/* Bottom CTA — only shown after reveal */}
       {isRevealed && (
         <div
-          className="shrink-0 bg-[var(--color-background)] px-5 pt-2"
-          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+          className="shrink-0 bg-[var(--color-background)] px-5 pt-1.5"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
