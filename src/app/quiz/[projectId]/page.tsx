@@ -109,7 +109,7 @@ function DSQuizOption({
         style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
       />
       <div
-        className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] px-3.5 py-2.5"
+        className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] px-3.5 py-3.5"
         style={{ background: faceBg, borderColor }}
       >
         <div
@@ -478,6 +478,19 @@ export default function QuizPage() {
     return () => { cancelled = true; };
   }, [questions.length, projectId, repository, reviewMode, collectionId]);
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
   const currentQuestion = questions[currentIndex];
   const isActiveVocab = currentQuestion?.word.vocabularyType === 'active';
 
@@ -683,7 +696,10 @@ export default function QuizPage() {
   const correctSoFar = results.correct;
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:left-[280px]">
+    <div
+      className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)]"
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
       {/* Header: close + progress dots + flag */}
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2.5 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
@@ -772,7 +788,7 @@ export default function QuizPage() {
 
         {/* Options or type-in */}
         {!isActiveVocab ? (
-          <div className="mt-2.5 flex min-h-0 flex-col gap-1.5">
+          <div className="mt-3 flex min-h-0 flex-col gap-2">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
                 key={i}

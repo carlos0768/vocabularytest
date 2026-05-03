@@ -352,6 +352,19 @@ export default function FlashcardPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAnimating, isEditModalOpen, currentIndex, words.length, isFlipped, handlePrev, handleNext, handleFlip, backToProject]);
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
     const newFavorite = !currentWord.isFavorite;
@@ -426,7 +439,10 @@ export default function FlashcardPage() {
   const total = words.length;
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:left-[280px]">
+    <div
+      className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)]"
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
       {/* Header */}
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2 pt-2">
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
