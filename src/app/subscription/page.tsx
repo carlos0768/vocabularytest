@@ -84,8 +84,8 @@ export default function SubscriptionPage() {
               <Icon name="star" size={11} filled />
               MERKEN PRO
             </div>
-            <div className="relative mt-3 font-display text-[26px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
-              全機能を解放して、<br />本気で覚える。
+            <div className="relative mt-3 font-display text-[26px] leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+              <span className="font-extrabold">全機能を解放</span>して、<br />本気で覚える。
             </div>
             <div className="relative mt-2 text-xs leading-[1.5] text-[var(--color-muted)]">
               無制限スキャン、クラウド同期、複数デバイス対応で単語帳を長く育てられます。
