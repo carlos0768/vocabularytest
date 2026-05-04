@@ -62,6 +62,14 @@ export default function CorrectionInputPage() {
 
   return (
     <div className="relative flex min-h-full flex-col pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
+      {submitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5 shadow-[3px_3px_0_var(--solid-ink)]">
+            <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
+            <span className="text-[13px] font-bold text-[var(--solid-ink)]">添削中...</span>
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-[var(--solid-ink)]">
           <Icon name="chevron_left" size={18} />
