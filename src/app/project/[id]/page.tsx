@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
@@ -148,6 +149,26 @@ export default function ProjectPage() {
         word.japanese.toLowerCase().includes(normalized),
     );
   }, [query, words]);
+
+  const handleCycleStatus = (wordId: string, newStatus: WordStatus) => {
+    const word = words.find((w) => w.id === wordId);
+    if (!word) return;
+    const currentStatus = word.status;
+    setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: newStatus } : w)));
+    scheduleWordStatusWrite({
+      wordId,
+      currentStatus,
+      newStatus,
+      writer: async (finalStatus, originalStatus) => {
+        try {
+          await mutationRepository.updateWord(wordId, { status: finalStatus });
+        } catch {
+          setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: originalStatus } : w)));
+          showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });
+        }
+      },
+    });
+  };
 
   const handleToggleFavorite = async (word: Word) => {
     const isFavorite = !word.isFavorite;
@@ -492,6 +513,7 @@ export default function ProjectPage() {
             <WordRow
               key={word.id}
               word={word}
+              onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
               onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
               onToggleFavorite={() => void handleToggleFavorite(word)}
             />
@@ -715,18 +737,95 @@ function posShort(tag: string): string {
   return `(${jp[0]})`;
 }
 
-function StatusSquares({ status }: { status: WordStatus }) {
-  const filled = status === 'mastered' ? 3 : status === 'review' ? 1 : 0;
+const STATUS_MID_PREFIX = 'notion_cb_mid_';
+
+function StatusSquares({
+  wordId,
+  status,
+  onStatusChange,
+}: {
+  wordId: string;
+  status: WordStatus;
+  onStatusChange: (newStatus: WordStatus) => void;
+}) {
+  const [filledCount, setFilledCount] = useState(() => {
+    if (status === 'mastered') return 3;
+    if (status === 'new') return 0;
+    try {
+      const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
+      if (val === 'down2' || val === '1') return 2;
+      if (val === 'down1') return 1;
+    } catch { /* ignore */ }
+    return 1;
+  });
+  const [direction, setDirection] = useState<'up' | 'down'>(() =>
+    status === 'mastered' ? 'down' : 'up'
+  );
+
+  useEffect(() => {
+    if (status === 'new') { setFilledCount(0); setDirection('up'); return; }
+    if (status === 'mastered') { setFilledCount(3); setDirection('down'); return; }
+    try {
+      const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
+      if (val === 'down2') { setFilledCount(2); setDirection('down'); }
+      else if (val === 'down1') { setFilledCount(1); setDirection('down'); }
+      else if (val === '1') { setFilledCount(2); setDirection('up'); }
+      else { setFilledCount(1); setDirection('up'); }
+    } catch { setFilledCount(1); setDirection('up'); }
+  }, [status, wordId]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (direction === 'up') {
+        if (filledCount === 0) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, '0');
+          setFilledCount(1);
+          onStatusChange('review');
+        } else if (filledCount === 1) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, '1');
+          setFilledCount(2);
+        } else if (filledCount === 2) {
+          localStorage.removeItem(STATUS_MID_PREFIX + wordId);
+          setFilledCount(3);
+          setDirection('down');
+          onStatusChange('mastered');
+        }
+      } else {
+        if (filledCount === 3) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, 'down2');
+          setFilledCount(2);
+          onStatusChange('review');
+        } else if (filledCount === 2) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, 'down1');
+          setFilledCount(1);
+        } else if (filledCount === 1) {
+          localStorage.removeItem(STATUS_MID_PREFIX + wordId);
+          setFilledCount(0);
+          setDirection('up');
+          onStatusChange('new');
+        }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [filledCount, direction, onStatusChange, wordId]);
+
   return (
-    <div className="flex shrink-0 flex-col gap-[1.5px]">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="h-[10px] w-[10px] rounded-[2px] border-[1.25px] border-[var(--solid-ink)]"
-          style={{ background: i < filled ? 'var(--solid-ink)' : 'transparent' }}
-        />
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済み'}`}
+      className="shrink-0 rounded p-0.5 transition-colors active:bg-[rgba(26,26,26,0.06)]"
+    >
+      <div className="flex flex-col gap-[1.5px]">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-[10px] w-[10px] rounded-[2px] border-[1.25px] border-[var(--solid-ink)]"
+            style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }}
+          />
+        ))}
+      </div>
+    </button>
   );
 }
 
@@ -749,10 +848,12 @@ function StatusPill({ kind }: { kind: WordStatus }) {
 
 function WordRow({
   word,
+  onCycleStatus,
   onCycleVocabularyType,
   onToggleFavorite,
 }: {
   word: Word;
+  onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
 }) {
@@ -762,7 +863,7 @@ function WordRow({
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
       <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-2">
         <div className="flex items-center gap-2.5">
-          <StatusSquares status={word.status} />
+          <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
 
           <Link href={`/word/${word.id}?from=${encodeURIComponent(`/project/${word.projectId}`)}`} className="min-w-0 flex-1">
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
