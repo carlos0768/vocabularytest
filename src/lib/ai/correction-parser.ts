@@ -10,15 +10,15 @@ export const correctionIssueSchema = z.object({
   to: z.string().trim().min(1).max(160),
   why: z.string().trim().min(1).max(300),
   severity: z.enum(['low', 'medium', 'high']).default('medium'),
-  vocabularyCandidateId: z.string().trim().max(80).optional(),
+  vocabularyCandidateId: z.string().trim().max(80).nullish().transform(v => v ?? undefined),
 }).strict();
 
 export const correctionWordCandidateSchema = z.object({
   id: z.string().trim().min(1).max(80),
   english: z.string().trim().min(1).max(120),
   japanese: z.string().trim().min(1).max(200),
-  sourceIssueId: z.string().trim().max(80).optional(),
-  exampleSentence: z.string().trim().max(300).optional(),
+  sourceIssueId: z.string().trim().max(80).nullish().transform(v => v ?? undefined),
+  exampleSentence: z.string().trim().max(300).nullish().transform(v => v ?? undefined),
 }).strict();
 
 export const correctionResultSchema = z.object({

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
+import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { useAuth } from '@/hooks/use-auth';
 import { getDb, getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
@@ -123,6 +124,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [correctionItems, setCorrectionItems] = useState<HistoryItem[]>([]);
   const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [correctionScanOpen, setCorrectionScanOpen] = useState(false);
   const [pendingScans, setPendingScans] = useState<{ id: string; project_title: string }[]>([]);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -374,16 +376,21 @@ export default function HomePage() {
             <Icon name="progress_activity" size={18} className="animate-spin" />
           </div>
         ) : correctionItems.length === 0 ? (
-          <Link href="/correction" className="block">
-            <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
-              <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
-                <Icon name="edit_note" size={16} />
-                <span className="font-mono text-[11px] font-bold tracking-[0.04em]">CORRECTION</span>
-              </div>
-              <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">英作文の添削</div>
-              <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
-            </SolidPanel>
-          </Link>
+          <SolidEmpty
+            icon="edit_note"
+            title="添削はまだありません"
+            description="スキャンで最初の添削を作成しましょう。"
+            action={
+              <button
+                type="button"
+                onClick={() => setCorrectionScanOpen(true)}
+                className="solid-link-primary"
+              >
+                <Icon name="add_a_photo" size={16} />
+                新規スキャン
+              </button>
+            }
+          />
         ) : (
           <div className="flex flex-col gap-2.5">
             {correctionItems.slice(0, 3).map((item) => (
@@ -417,6 +424,12 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      <ScanCaptureModal
+        isOpen={correctionScanOpen}
+        onClose={() => setCorrectionScanOpen(false)}
+        defaultMode="correction"
+      />
     </div>
   );
 }
