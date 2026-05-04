@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { getRepository } from '@/lib/db';
+import { getDb, getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import {
@@ -19,6 +19,35 @@ import { getDailyStats, getGuestUserId, getStreakDays } from '@/lib/utils';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+type HistoryItem = {
+  id: string;
+  purpose: string;
+  preview: string;
+  score: number;
+  wordCount: number;
+  issueCount: number;
+  createdAt: string;
+};
+
+function scoreColor(score: number): string {
+  if (score >= 85) return 'var(--color-success)';
+  if (score >= 70) return 'var(--color-accent)';
+  if (score >= 60) return '#c8a02e';
+  return '#c43d3d';
+}
+
+function formatWhen(value: string) {
+  const diff = Date.now() - Date.parse(value);
+  if (!Number.isFinite(diff)) return '';
+  const minutes = Math.max(1, Math.floor(diff / 60000));
+  if (minutes < 60) return `${minutes} 分前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 時間前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 日前`;
+  return new Date(value).toLocaleDateString('ja-JP');
+}
 
 type HomeStats = {
   dueCount: number;
@@ -92,6 +121,10 @@ export default function HomePage() {
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [correctionItems, setCorrectionItems] = useState<HistoryItem[]>([]);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [pendingScans, setPendingScans] = useState<{ id: string; project_title: string }[]>([]);
+  const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -140,6 +173,19 @@ export default function HomePage() {
       const result = await getProjectsWithWords(rawProjects, readRepo);
       setProjects(result.projectsWithStats);
       setStats(buildHomeStats(result.allWords));
+
+      // Write remote data to local IndexedDB so the next navigation shows it instantly (no flash)
+      if (readRepo === remoteRepository && rawProjects.length > 0) {
+        try {
+          const db = getDb();
+          await db.projects.bulkPut(rawProjects);
+          if (result.allWords.length > 0) {
+            await db.words.bulkPut(result.allWords);
+          }
+        } catch {
+          // Non-critical — local cache write failure doesn't affect the UI
+        }
+      }
     } catch (loadError) {
       console.error('Failed to load home data:', loadError);
       setError('ホームの読み込みに失敗しました');
@@ -151,8 +197,56 @@ export default function HomePage() {
   }, [authLoading, isPro, repository, user]);
 
   useEffect(() => {
+    loadHomeRef.current = loadHome;
+  }, [loadHome]);
+
+  useEffect(() => {
     void loadHome();
   }, [loadHome]);
+
+  // Pro: バックグラウンドスキャンのポーリング
+  useEffect(() => {
+    if (!user || !isPro || authLoading) return;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const hadActiveRef = { current: false };
+
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/scan-jobs');
+        if (!res.ok) return;
+        const data = await res.json() as { jobs?: { id: string; status: string; project_title: string }[] };
+        const active = (data.jobs ?? []).filter((j) => j.status === 'pending' || j.status === 'processing');
+        setPendingScans(active.map((j) => ({ id: j.id, project_title: j.project_title })));
+        if (active.length === 0) {
+          if (hadActiveRef.current) {
+            hadActiveRef.current = false;
+            void loadHomeRef.current();
+            if (intervalId) { clearInterval(intervalId); intervalId = null; }
+          }
+        } else {
+          hadActiveRef.current = true;
+        }
+      } catch { /* silent */ }
+    };
+
+    void poll();
+    intervalId = setInterval(poll, 5000);
+    return () => { if (intervalId) clearInterval(intervalId); };
+  }, [user, isPro, authLoading]);
+
+  useEffect(() => {
+    if (authLoading || !user || !isPro || !navigator.onLine) return;
+    let active = true;
+    setCorrectionLoading(true);
+    fetch('/api/correction/history')
+      .then((r) => r.json())
+      .then((data: { success: boolean; items?: HistoryItem[] }) => {
+        if (active && data.success) setCorrectionItems(data.items ?? []);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setCorrectionLoading(false); });
+    return () => { active = false; };
+  }, [authLoading, user, isPro]);
 
   const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW } = stats;
   const goalTotal = dueCount + completedToday;
@@ -185,13 +279,13 @@ export default function HomePage() {
 
       <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
         <Link href={dueCount > 0 ? '/quiz/all?review=1&from=/' : '/projects'} className="block">
-          <SolidPanel className="!rounded-2xl" faceClassName="!p-3.5 min-h-[160px]">
-            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+          <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
               TODAY&apos;S GOAL
             </div>
-            <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">今日の目標</div>
-            <div className="mt-2.5 flex items-baseline gap-1">
-              <span className="font-display text-[40px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
+            <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
                 {dueCount}
               </span>
               <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
@@ -211,8 +305,8 @@ export default function HomePage() {
           </SolidPanel>
         </Link>
 
-        <SolidPanel className="!rounded-2xl" faceClassName="!p-3.5 min-h-[160px]">
-          <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+        <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
             MASTERY
           </div>
           <div className="mt-1.5 flex items-center gap-2.5">
@@ -231,7 +325,7 @@ export default function HomePage() {
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
             MY BOOKS
           </div>
-          <h2 className="font-display text-[22px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
+          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
             マイ単語帳
           </h2>
         </div>
@@ -242,6 +336,9 @@ export default function HomePage() {
       </div>
 
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
+        {pendingScans.map((job) => (
+          <PendingScanRow key={job.id} title={job.project_title} />
+        ))}
         {loading && visibleProjects.length === 0 ? (
           <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -264,11 +361,19 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="px-[18px] pb-[150px] pt-1">
-        <div className="mb-2 font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-          NEW
+      <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
+        <div>
+          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">CORRECTION</div>
+          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">添削</h2>
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
+      </div>
+
+      <div className="px-[18px] pb-[150px]">
+        {correctionLoading ? (
+          <div className="flex items-center justify-center py-6 text-[var(--color-muted)]">
+            <Icon name="progress_activity" size={18} className="animate-spin" />
+          </div>
+        ) : correctionItems.length === 0 ? (
           <Link href="/correction" className="block">
             <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
               <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
@@ -279,17 +384,38 @@ export default function HomePage() {
               <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
             </SolidPanel>
           </Link>
-          <Link href="/parser" className="block">
-            <SolidPanel className="!rounded-[14px]" faceClassName="!p-3 min-h-[88px]">
-              <div className="flex items-center gap-1.5 text-[var(--solid-ink)]">
-                <Icon name="account_tree" size={16} />
-                <span className="font-mono text-[11px] font-bold tracking-[0.04em]">PARSER</span>
-              </div>
-              <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">構造解析</div>
-              <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向け構造解析に接続済み</div>
-            </SolidPanel>
-          </Link>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {correctionItems.slice(0, 3).map((item) => (
+              <Link key={item.id} href={`/correction/result?id=${item.id}`} className="block">
+                <SolidPanel
+                  className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
+                  faceClassName="!p-[13px]"
+                >
+                  <div className="flex items-stretch gap-[11px]">
+                    <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-background)]">
+                      <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
+                      <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-[3px] flex items-center gap-1.5">
+                        <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{item.purpose}</span>
+                        <span className="font-mono text-[9px] text-[var(--color-muted)]">{formatWhen(item.createdAt)}</span>
+                      </div>
+                      <div className="line-clamp-2 text-[11.5px] italic leading-[1.5] text-[var(--solid-ink)]">{item.preview}</div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[#c43d3d]" />{item.issueCount} 指摘</span>
+                        <span className="inline-block h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
+                        <span className="font-mono text-[9px] font-semibold text-[var(--color-muted)]">{item.wordCount} 語</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 self-center text-[var(--color-muted)]"><Icon name="chevron_right" size={14} /></div>
+                  </div>
+                </SolidPanel>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -347,6 +473,25 @@ function LegendItem({ color, label, count }: { color: string; label: string; cou
       <span className="flex-1 text-[10px] text-[var(--color-muted)]">{label}</span>
       <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--solid-ink)]">{count}</span>
     </div>
+  );
+}
+
+function PendingScanRow({ title }: { title: string }) {
+  return (
+    <SolidPanel
+      className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)]"
+      faceClassName="!p-[13px]"
+    >
+      <div className="flex items-center gap-[13px]">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[rgba(26,26,26,0.06)]">
+          <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-muted)]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{title}</div>
+          <div className="mt-px font-mono text-[10px] text-[var(--color-muted)]">単語を抽出中...</div>
+        </div>
+      </div>
+    </SolidPanel>
   );
 }
 

@@ -27,13 +27,7 @@ const navGroups: NavGroup[] = [
       { href: '/projects', icon: 'folder', label: '単語帳', matchPaths: ['/projects', '/project', '/word'] },
       { href: '/favorites', icon: 'star', label: 'コレクション', matchPaths: ['/favorites', '/collections'], count: '4' },
       { href: '/stats', icon: 'bar_chart', label: '進歩', matchPaths: ['/stats'] },
-    ],
-  },
-  {
-    label: '新機能',
-    items: [
-      { href: '/correction', icon: 'edit_note', label: '添削', matchPaths: ['/correction'], badge: 'NEW' },
-      { href: '/parser', icon: 'account_tree', label: '構造解析', matchPaths: ['/parser'], badge: 'NEW' },
+      { href: '/correction', icon: 'edit_note', label: '添削', matchPaths: ['/correction'] },
     ],
   },
   {
@@ -70,7 +64,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-5 py-2 space-y-8 overflow-y-auto">
+      <nav className="flex-1 px-5 py-2 space-y-8 overflow-y-auto overscroll-contain">
         {navGroups.map((group) => (
           <div key={group.label} className="space-y-2">
             <div className="px-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-muted)]">

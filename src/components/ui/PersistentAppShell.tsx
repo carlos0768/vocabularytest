@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DesktopAdFrame } from '@/components/ads/DesktopAdFrame';
 import { Sidebar } from './Sidebar';
@@ -15,7 +15,7 @@ const NO_SHELL_PATHS = [
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
   '/quick-response/', '/sentence-quiz/', '/scan/confirm',
-  '/subscription', '/collections/new', '/word/',
+  '/subscription', '/collections/new', '/word/', '/correction/result',
 ];
 
 const DESKTOP_AD_PLACEMENTS = [
@@ -83,6 +83,37 @@ function getDesktopAdPlacement(pathname: string): string | null {
 
 export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [scrollEnding, setScrollEnding] = useState(false);
+
+  useEffect(() => {
+    let touchStartY = 0;
+    let hasMoved = false;
+    let scrollTimeout: ReturnType<typeof setTimeout>;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+      hasMoved = false;
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (Math.abs(e.touches[0].clientY - touchStartY) > 8) hasMoved = true;
+    };
+    const handleTouchEnd = () => {
+      if (!hasMoved) return;
+      setScrollEnding(true);
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => setScrollEnding(false), 160);
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      clearTimeout(scrollTimeout);
+    };
+  }, []);
 
   if (shouldHideShell(pathname)) {
     return <>{children}</>;
@@ -102,6 +133,13 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
         )}
       </div>
       {!hideNav && <BottomNav />}
+      {scrollEnding && (
+        <div
+          className="fixed inset-0 z-[9998]"
+          style={{ touchAction: 'none', pointerEvents: 'auto' }}
+          aria-hidden
+        />
+      )}
     </div>
   );
 }

@@ -453,7 +453,7 @@ export default function FavoritesQuizPage() {
 
       {/* Question */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
-        <div className="mx-auto w-full max-w-lg px-6 py-6 flex flex-col flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto w-full max-w-lg px-6 py-6 flex flex-col flex-1 min-h-0 overflow-y-auto overscroll-contain">
         {/* Mode badge */}
         <div className="flex justify-center mb-2">
           <span className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)]">

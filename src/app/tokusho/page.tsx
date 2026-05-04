@@ -14,9 +14,9 @@ export default function TokushoPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
           >
-            <Icon name="chevron_left" size={14} />
+            <Icon name="chevron_left" size={16} />
           </button>
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT / SUPPORT</div>
         </div>
@@ -36,34 +36,35 @@ export default function TokushoPage() {
       </div>
 
       <Section label="販売事業者">
-        <DefRow label="事業者名">Merken, Inc.（メルケン株式会社）</DefRow>
-        <DefRow label="代表者">代表取締役 山田 健太</DefRow>
-        <DefRow label="所在地">〒150-0002 東京都渋谷区渋谷 1-2-3 Merken Building 4F</DefRow>
-        <DefRow label="連絡先" last>
-          電話 03-0000-0000（受付 平日 10:00–18:00）<br />
-          <span className="font-mono">support@merken.jp</span>
+        <DefRow label="販売事業者名">原田浩司</DefRow>
+        <DefRow label="運営統括責任者">原田浩司</DefRow>
+        <DefRow label="サービス名">MERKEN</DefRow>
+        <DefRow label="所在地">〒810-0001<br />福岡県福岡市中央区天神2丁目2番12号<br />T&Jビルディング7F</DefRow>
+        <DefRow label="電話番号">090-1077-1208<br />受付時間: 9:00–20:00</DefRow>
+        <DefRow label="メールアドレス" last>
+          <a href="mailto:support@merken.jp" className="font-mono text-[var(--color-accent)]">support@merken.jp</a>
         </DefRow>
       </Section>
 
       <Section label="販売価格">
-        <DefRow label="Pro 月額">¥600（税込）／ 月</DefRow>
-        <DefRow label="Pro 年額">¥4,800（税込）／ 年</DefRow>
-        <DefRow label="無料トライアル" last>初回購読時 7 日間（年額のみ）</DefRow>
+        <DefRow label="無料プラン">¥0</DefRow>
+        <DefRow label="Pro（月額）" last>¥300（税込）／ 月</DefRow>
       </Section>
 
       <Section label="支払いと提供時期">
-        <DefRow label="支払方法">App Store / Google Play / クレジットカード（Visa, Mastercard, JCB, AMEX）</DefRow>
-        <DefRow label="支払時期">購読開始時に初回課金、以降は購読期間ごとに自動更新</DefRow>
-        <DefRow label="商品引渡時期" last>決済完了後、即時に Pro 機能をご利用いただけます</DefRow>
+        <DefRow label="支払方法">クレジットカード決済（Stripe / Visa, Mastercard 等）</DefRow>
+        <DefRow label="商品代金以外の料金">インターネット接続に必要な通信料等はお客様のご負担となります。</DefRow>
+        <DefRow label="支払時期">有料プランの申込時に初回決済が行われ、以後は毎月の更新日に自動で課金されます。</DefRow>
+        <DefRow label="提供時期" last>決済完了後、直ちにご利用いただけます。</DefRow>
       </Section>
 
       <Section label="その他">
-        <DefRow label="返品・解約">デジタル商品の性質上、購入後の返金は原則として承っておりません。次回更新のキャンセルは、購読プラットフォームの設定からいつでも可能です。</DefRow>
-        <DefRow label="動作環境">iOS 16.0 以降 / Android 10 以降 / 主要モダンブラウザ</DefRow>
-        <DefRow label="販売数量" last>制限なし</DefRow>
+        <DefRow label="返品・返金">デジタルサービスの性質上、決済完了後の返品・返金は原則としてお受けしておりません。</DefRow>
+        <DefRow label="解約方法">アプリ内の設定画面から期間末解約の手続きが可能です。解約後も契約期間終了日まではご利用いただけます。</DefRow>
+        <DefRow label="動作環境" last>iOS 16.0 以降 / Android 10 以降 / 主要モダンブラウザ</DefRow>
       </Section>
 
-      <Footer updated="2026.01.05" />
+      <Footer updated="2026年4月13日" />
     </div>
   );
 }
@@ -97,7 +98,7 @@ function Footer({ updated }: { updated: string }) {
   return (
     <div className="px-[18px] pb-[110px] pt-1">
       <div className="text-center font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
-        最終更新 {updated} · Merken, Inc.
+        最終更新 {updated} · MERKEN
       </div>
     </div>
   );

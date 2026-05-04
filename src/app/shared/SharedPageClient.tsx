@@ -35,6 +35,8 @@ function thumbColor(id: string) {
   return THUMBS[Math.abs(h) % THUMBS.length];
 }
 
+type FilterKey = 'all' | 'popular' | 'public';
+
 export default function SharedPageClient({
   initialPublicItems,
   initialPublicNextCursor,
@@ -43,6 +45,7 @@ export default function SharedPageClient({
   const [publicNextCursor, setPublicNextCursor] = useState<string | null>(initialPublicNextCursor);
   const [loadingMorePublic, setLoadingMorePublic] = useState(false);
   const [publicSectionError, setPublicSectionError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const pendingMetricIdsRef = useRef(new Set<string>());
 
   const applyMetrics = useEffectEvent((metrics: SharedProjectMetricsMap) => {
@@ -106,6 +109,10 @@ export default function SharedPageClient({
 
   const popularCount = publicProjects.filter((project) => (project.likeCount ?? 0) > 0).length;
 
+  const filteredProjects = activeFilter === 'popular'
+    ? [...publicProjects].filter((p) => (p.likeCount ?? 0) > 0).sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0))
+    : publicProjects;
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
       <div className="px-[18px] pb-2 pt-1">
@@ -121,18 +128,18 @@ export default function SharedPageClient({
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto px-[14px] py-3">
-        <FilterChip label="すべて" count={publicProjects.length} active />
-        <FilterChip label="人気" count={popularCount} />
-        <FilterChip label="公開中" count={publicProjects.length} />
+        <FilterChip label="すべて" count={publicProjects.length} active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} />
+        <FilterChip label="人気" count={popularCount} active={activeFilter === 'popular'} onClick={() => setActiveFilter('popular')} />
+        <FilterChip label="公開中" count={publicProjects.length} active={activeFilter === 'public'} onClick={() => setActiveFilter('public')} />
       </div>
 
       <div className="flex flex-col gap-2 px-[14px]">
-        {publicProjects.length === 0 ? (
+        {filteredProjects.length === 0 ? (
           <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-12 text-center text-sm text-[var(--color-muted)]">
             公開中の単語帳はまだありません
           </div>
         ) : (
-          publicProjects.map((project) => (
+          filteredProjects.map((project) => (
             <ProjectCard key={project.project.id} project={project} />
           ))
         )}
@@ -171,10 +178,12 @@ export default function SharedPageClient({
   );
 }
 
-function FilterChip({ label, count, active = false }: { label: string; count: number; active?: boolean }) {
+function FilterChip({ label, count, active = false, onClick }: { label: string; count: number; active?: boolean; onClick?: () => void }) {
   return (
-    <div
-      className="inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-[11px] py-1.5 text-[11px] font-bold"
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-[11px] py-1.5 text-[11px] font-bold transition-colors"
       style={{
         background: active ? 'var(--solid-ink)' : '#fff',
         color: active ? '#fff' : 'var(--solid-ink)',
@@ -183,7 +192,7 @@ function FilterChip({ label, count, active = false }: { label: string; count: nu
     >
       {label}
       <span className="font-mono text-[9px] font-bold tabular-nums opacity-70">{count}</span>
-    </div>
+    </button>
   );
 }
 

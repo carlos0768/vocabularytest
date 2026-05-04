@@ -420,19 +420,19 @@ export function WordDetailView({
 
   return (
     <div className={isModal ? 'bg-[var(--color-background)] pb-6 font-[var(--font-body)]' : 'min-h-screen bg-[var(--color-background)] pb-24 font-[var(--font-body)]'}>
-      <header className="mx-auto flex w-full max-w-xl items-center justify-between px-5 pb-4 pt-5 sm:px-7">
+      <header className="mx-auto flex w-full max-w-xl items-center justify-between px-5 pb-3 pt-4 sm:px-7">
         <button
           onClick={onClose}
-          className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+          className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
           aria-label={isModal ? '閉じる' : '戻る'}
         >
-          <Icon name={isModal ? 'close' : 'chevron_left'} size={isModal ? 19 : 18} />
+          <Icon name={isModal ? 'close' : 'chevron_left'} size={16} />
         </button>
         {isEditing ? (
           <button
             onClick={handleFinishEditing}
             disabled={saving}
-            className="rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-sm font-bold text-white shadow-[3px_4px_0_rgba(26,26,26,0.22)] disabled:opacity-50"
+            className="rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-white shadow-[2px_2px_0_rgba(26,26,26,0.22)] disabled:opacity-50"
           >
             {saving ? '保存中...' : '完了'}
           </button>
@@ -440,50 +440,50 @@ export function WordDetailView({
           <div className="flex items-center gap-2">
             <button
               onClick={handleStartEditing}
-              className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
               aria-label="編集"
             >
-              <Icon name="edit" size={18} />
+              <Icon name="edit" size={16} />
             </button>
             <button
               onClick={onDelete ? () => onDelete(wordId) : undefined}
-              className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
               aria-label={onDelete ? '削除メニュー' : 'メニュー'}
             >
-              <Icon name="more_horiz" size={20} />
+              <Icon name="more_horiz" size={18} />
             </button>
           </div>
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-xl px-5 pt-2 sm:px-7">
-        <section className="pb-7">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="min-w-0 flex-1 break-words font-display text-[42px] font-black leading-[1.04] tracking-normal text-[var(--solid-ink)] sm:text-[46px]">
+      <main className="mx-auto w-full max-w-xl px-5 pt-1 sm:px-7">
+        <section className="pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 break-words font-display text-[28px] font-black leading-[1.1] tracking-normal text-[var(--solid-ink)] sm:text-[32px]">
               {word.english}
             </h1>
             <span
-              className="mt-2 shrink-0 rounded-full border-[1.5px] px-3 py-1 text-[13px] font-bold"
+              className="mt-1 shrink-0 rounded-full border-[1.25px] px-2.5 py-1 text-[11px] font-bold"
               style={{ color: statusStyle.color, background: statusStyle.bg, borderColor: statusStyle.border }}
             >
               {statusLabel}
             </span>
           </div>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
               onClick={handleSpeak}
-              className="inline-flex min-h-11 max-w-full items-center gap-3 rounded-full border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-2.5 text-[17px] font-medium leading-none text-[var(--solid-ink)] sm:max-w-[58%]"
+              className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-2 text-[14px] font-medium leading-none text-[var(--solid-ink)] sm:max-w-[58%]"
               aria-label="発音を再生"
             >
               <span className="min-w-0 truncate font-mono">{word.pronunciation || '―'}</span>
-              <Icon name="volume_up" size={18} />
+              <Icon name="volume_up" size={15} />
             </button>
             <div className="flex-1" />
             <button
               type="button"
               onClick={handleCycleVocabularyType}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border-[1.5px] px-3.5 text-sm font-bold"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border-[1.25px] px-3 text-[12px] font-bold"
               style={{
                 borderColor: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.5)' : 'var(--color-accent)',
                 background: word.vocabularyType === 'active' ? 'var(--color-accent-subtle)' : word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.08)' : '#fff',
@@ -492,17 +492,17 @@ export function WordDetailView({
               aria-label={`語彙モード: ${vocabularyTypeLabel}`}
             >
               <span
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-black text-white"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white"
                 style={{ background: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.7)' : word.vocabularyType === 'active' ? 'var(--color-accent)' : 'var(--color-muted)' }}
               >
                 {word.vocabularyType === 'active' ? 'A' : word.vocabularyType === 'passive' ? 'P' : '—'}
               </span>
               {vocabularyTypeLabel}
             </button>
-            <button onClick={handleToggleFavorite} className="inline-flex h-10 w-8 shrink-0 items-center justify-center text-[#c37a35]" aria-label="お気に入り切替">
+            <button onClick={handleToggleFavorite} className="inline-flex h-8 w-7 shrink-0 items-center justify-center text-[#c37a35]" aria-label="お気に入り切替">
               <Icon
                 name="bookmark"
-                size={25}
+                size={20}
                 filled={word.isFavorite}
               />
             </button>
@@ -511,7 +511,7 @@ export function WordDetailView({
 
         <SectionDivider />
 
-        <section className="py-6">
+        <section className="py-4">
           <SectionHeading title="MEANING" />
           {isEditing ? (
             <div className="space-y-1">
@@ -519,12 +519,12 @@ export function WordDetailView({
                 type="text"
                 value={editJapanese}
                 onChange={(e) => setEditJapanese(e.target.value)}
-                className="w-full rounded-[14px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[18px] font-bold text-[var(--solid-ink)] outline-none"
+                className="w-full rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3.5 py-2.5 text-[15px] font-bold text-[var(--solid-ink)] outline-none"
               />
             </div>
           ) : (
-            <p className="mt-5 text-[22px] font-bold leading-[1.55] text-[var(--solid-ink)] sm:text-[24px]">
-              {posDisplay && <span className="mr-3 text-[18px] text-[var(--color-ink-muted)] sm:text-[20px]">({posDisplay})</span>}
+            <p className="mt-3 text-[17px] font-bold leading-[1.55] text-[var(--solid-ink)]">
+              {posDisplay && <span className="mr-2 text-[14px] text-[var(--color-ink-muted)]">({posDisplay})</span>}
               {word.japanese}
             </p>
           )}
@@ -532,32 +532,32 @@ export function WordDetailView({
 
         <SectionDivider />
 
-        <section className="py-6">
-          <div className="mb-5 flex items-center justify-between">
+        <section className="py-4">
+          <div className="mb-3 flex items-center justify-between">
             <SectionHeading title="EXAMPLE" />
-            <span className="text-[15px] font-bold text-[var(--color-muted)]">例文</span>
+            <span className="text-[12px] font-bold text-[var(--color-muted)]">例文</span>
           </div>
           {isEditing ? (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <textarea
                 value={editExampleSentence}
                 onChange={(e) => setEditExampleSentence(e.target.value)}
                 placeholder="例文（英語）を入力..."
                 rows={2}
-                className="w-full resize-none rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-4 text-[18px] leading-relaxed text-[var(--solid-ink)] outline-none"
+                className="w-full resize-none rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-3 text-[14px] leading-relaxed text-[var(--solid-ink)] outline-none"
               />
               <textarea
                 value={editExampleSentenceJa}
                 onChange={(e) => setEditExampleSentenceJa(e.target.value)}
                 placeholder="例文の日本語訳を入力..."
                 rows={2}
-                className="w-full resize-none rounded-[18px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-4 text-[15px] leading-relaxed text-[var(--color-muted)] outline-none"
+                className="w-full resize-none rounded-[14px] border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[13px] leading-relaxed text-[var(--color-muted)] outline-none"
               />
             </div>
           ) : word.exampleSentence ? (
-            <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white px-5 py-5 shadow-[4px_5px_0_var(--color-accent)] sm:px-6 sm:py-6">
-              <div className="flex items-start gap-4">
-                <p className="min-w-0 flex-1 text-[20px] font-medium leading-[1.6] text-[var(--solid-ink)] sm:text-[22px]">
+            <div className="rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-4 shadow-[3px_3px_0_var(--color-accent)]">
+              <div className="flex items-start gap-3">
+                <p className="min-w-0 flex-1 text-[15px] font-medium leading-[1.6] text-[var(--solid-ink)]">
                   {highlightWord(word.exampleSentence, word.english)}
                 </p>
                 <button onClick={() => {
@@ -566,16 +566,16 @@ export function WordDetailView({
                   u.lang = 'en-US';
                   u.rate = 0.85;
                   speechSynthesis.speak(u);
-                }} className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[var(--color-border)] bg-white text-[var(--color-ink-muted)] sm:h-12 sm:w-12" aria-label="例文を再生">
-                  <Icon name="volume_up" size={20} />
+                }} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--color-border)] bg-white text-[var(--color-ink-muted)]" aria-label="例文を再生">
+                  <Icon name="volume_up" size={16} />
                 </button>
               </div>
               {word.exampleSentenceJa && (
-                <p className="mt-4 text-[16px] leading-[1.55] text-[var(--color-ink-muted)] sm:text-[17px]">{word.exampleSentenceJa}</p>
+                <p className="mt-3 text-[13px] leading-[1.55] text-[var(--color-ink-muted)]">{word.exampleSentenceJa}</p>
               )}
             </div>
           ) : (
-            <p className="rounded-[18px] border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-5 text-[16px] font-medium text-[var(--color-muted)]">
+            <p className="rounded-[14px] border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-4 text-[13px] font-medium text-[var(--color-muted)]">
               例文はまだ生成されていません
             </p>
           )}
@@ -584,11 +584,11 @@ export function WordDetailView({
         {relatedWords.length > 0 && (
           <>
             <SectionDivider />
-            <section className="py-6">
+            <section className="py-4">
               <SectionHeading title="RELATED" />
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {relatedWords.map((item, index) => (
-                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.5px] border-[var(--color-border)] bg-white px-4 py-2.5 text-[17px] font-bold leading-none text-[var(--solid-ink)]">
+                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[13px] font-bold leading-none text-[var(--solid-ink)]">
                     {item.term}
                   </span>
                 ))}
@@ -600,13 +600,13 @@ export function WordDetailView({
         {usagePatterns.length > 0 && (
           <>
             <SectionDivider />
-            <section className="py-6">
+            <section className="py-4">
               <SectionHeading title="USAGE" />
-              <div className="mt-5 space-y-4">
+              <div className="mt-3 space-y-3">
                 {usagePatterns.map((pattern, index) => (
-                  <div key={`${pattern.pattern}-${index}`} className="rounded-r-[12px] border-l-4 border-[var(--color-accent)] bg-[var(--color-surface-alt)] px-5 py-4">
-                    <div className="text-[18px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
-                    <div className="mt-2 text-[16px] leading-snug text-[var(--color-ink-muted)]">{pattern.meaningJa}</div>
+                  <div key={`${pattern.pattern}-${index}`} className="rounded-r-[10px] border-l-[3px] border-[var(--color-accent)] bg-[var(--color-surface-alt)] px-4 py-3">
+                    <div className="text-[14px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
+                    <div className="mt-1.5 text-[12px] leading-snug text-[var(--color-ink-muted)]">{pattern.meaningJa}</div>
                   </div>
                 ))}
               </div>
@@ -701,9 +701,9 @@ export function WordDetailView({
               return (
                 <section key={section.id}>
                   <SectionDivider />
-                  <div className="py-6">
+                  <div className="py-4">
                     <SectionHeading title={section.title} />
-                    <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--solid-ink)]">{display || '—'}</p>
+                    <p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-[var(--solid-ink)]">{display || '—'}</p>
                   </div>
                 </section>
               );
