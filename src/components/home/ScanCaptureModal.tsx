@@ -78,8 +78,24 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
     setErrorMsg(null);
     try {
       if (activeMode === 'correction') {
+        // OCR the image server-side and run correction analysis without navigating away
+        const supabase = createBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('ログインが必要です');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const res = await fetch('/api/correction/scan', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: formData,
+        });
+        const json = await res.json() as { success: boolean; id?: string; error?: string };
+        if (!json.success || !json.id) throw new Error(json.error ?? '添削に失敗しました');
+
         onClose();
-        router.push(`/correction/scan?source=library`);
+        router.push(`/correction/result?id=${json.id}`);
         return;
       }
 
@@ -143,7 +159,7 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
           <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5 shadow-[3px_3px_0_var(--solid-ink)]">
             <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
             <span className="text-[13px] font-bold text-[var(--solid-ink)]">
-              {isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...'}
+              {activeMode === 'correction' ? 'AI が添削中...' : isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...'}
             </span>
           </div>
         </div>
