@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { useAuth } from '@/hooks/use-auth';
+import { createBrowserClient } from '@/lib/supabase';
 import { getDb, getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -214,7 +215,12 @@ export default function HomePage() {
 
     const poll = async () => {
       try {
-        const res = await fetch('/api/scan-jobs');
+        const supabase = createBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch('/api/scan-jobs', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
         if (!res.ok) return;
         const data = await res.json() as { jobs?: { id: string; status: string; project_title: string }[] };
         const active = (data.jobs ?? []).filter((j) => j.status === 'pending' || j.status === 'processing');
@@ -338,9 +344,11 @@ export default function HomePage() {
       </div>
 
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
-        {pendingScans.map((job) => (
-          <PendingScanRow key={job.id} title={job.project_title} />
-        ))}
+        {pendingScans
+          .filter((job) => !projects.some((p) => p.title === job.project_title))
+          .map((job) => (
+            <PendingScanRow key={job.id} title={job.project_title} />
+          ))}
         {loading && visibleProjects.length === 0 ? (
           <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
