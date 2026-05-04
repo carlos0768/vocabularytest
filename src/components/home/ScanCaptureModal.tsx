@@ -162,7 +162,7 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
       />
 
       {/* Bottom sheet — centered, max 480px */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+      {!processing && <div className="absolute bottom-0 left-0 right-0 flex justify-center">
         <div
           className="w-full animate-fade-in-up"
           style={{
@@ -329,7 +329,7 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
             <p className="mt-2 text-center text-[11px] text-[var(--color-error)]">{errorMsg}</p>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
