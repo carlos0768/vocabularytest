@@ -1,111 +1,136 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 
 export default function TermsPage() {
+  const router = useRouter();
+
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <Link href="/settings" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            <Icon name="arrow_back" size={20} className="text-[var(--color-foreground)]" />
-          </Link>
-          <h1 className="text-xl font-bold text-[var(--color-foreground)]">利用規約</h1>
+    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+      {/* Header */}
+      <div className="px-[18px] pb-3.5 pt-1">
+        <div className="mb-0.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+          >
+            <Icon name="chevron_left" size={16} />
+          </button>
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT / SUPPORT</div>
         </div>
-      </header>
+        <div className="mt-1.5 font-display text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--solid-ink)]">利用規約</div>
+        <div className="mt-1.5 font-mono text-[10px] tracking-[0.02em] text-[var(--color-muted)]">MERKEN TERMS OF SERVICE · 全 10 条</div>
+      </div>
 
-      <main className="max-w-lg mx-auto px-6 py-8">
-        <div className="card p-6 space-y-8 text-[var(--color-foreground)] leading-relaxed">
-          <p className="text-sm text-[var(--color-muted)]">最終更新日: 2026年2月24日</p>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第1条（適用）</h2>
-            <p>
-              本規約は、MERKEN（以下「本サービス」）の利用に関する条件を定めるものです。ユーザーは本規約に同意の上、本サービスを利用するものとします。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第2条（サービス内容）</h2>
-            <p>
-              本サービスは、画像から英単語を抽出し、日本語訳とクイズを自動生成する学習支援サービスです。AI技術を利用しているため、抽出結果や翻訳の正確性を完全に保証するものではありません。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第3条（アカウント）</h2>
-            <ol className="list-decimal list-inside space-y-2">
-              <li>ユーザーは正確な情報を登録するものとします。</li>
-              <li>アカウントの管理はユーザーの責任とします。</li>
-              <li>アカウントの第三者への譲渡・貸与は禁止します。</li>
-            </ol>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第4条（有料プラン）</h2>
-            <ol className="list-decimal list-inside space-y-2">
-              <li>有料プラン（Proプラン）は月額課金制です。</li>
-              <li>支払いはStripeを通じて処理されます。</li>
-              <li>解約はいつでも可能です。解約後も当月末まで利用できます。</li>
-              <li>返金は原則として行いません。</li>
-            </ol>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第5条（禁止事項）</h2>
-            <p>以下の行為を禁止します。</p>
-            <ul className="list-disc list-inside space-y-2">
-              <li>法令または公序良俗に違反する行為</li>
-              <li>サービスの運営を妨害する行為</li>
-              <li>不正アクセスまたはそれを試みる行為</li>
-              <li>他のユーザーに迷惑をかける行為</li>
-              <li>本サービスを商業目的で無断利用する行為</li>
-            </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第6条（知的財産権）</h2>
-            <p>
-              本サービスに関する知的財産権は運営者に帰属します。ユーザーがアップロードした画像・データの権利はユーザーに帰属します。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第7条（免責事項）</h2>
-            <ol className="list-decimal list-inside space-y-2">
-              <li>AI による抽出・翻訳結果の正確性は保証しません。</li>
-              <li>サービスの中断・停止による損害について責任を負いません。</li>
-              <li>ユーザー間または第三者とのトラブルについて責任を負いません。</li>
-            </ol>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第8条（サービスの変更・終了）</h2>
-            <p>
-              運営者は、事前の通知なくサービス内容の変更または終了を行うことがあります。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第9条（準拠法・管轄）</h2>
-            <p>
-              本規約は日本法に準拠し、紛争が生じた場合は福岡地方裁判所を第一審の専属的合意管轄裁判所とします。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">第10条（お問い合わせ）</h2>
-            <p>
-              本規約に関するお問い合わせは、
-              <a href="mailto:support@merken.jp" className="text-[var(--color-primary)] font-medium">
-                support@merken.jp
-              </a>
-              までご連絡ください。
-            </p>
-          </section>
+      {/* Intro */}
+      <div className="px-[18px] pb-3.5">
+        <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+          <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
+            本規約は、MERKEN（以下「本サービス」）の利用に関する条件を定めるものです。ユーザーは本規約に同意の上、本サービスを利用するものとします。
+          </p>
         </div>
-      </main>
+      </div>
+
+      <Section num="1" label="適用">
+        <P>本規約は、本サービスの利用に関わる一切の関係に適用されます。運営者はサービス内において本規約のほか個別の規定を定めることがあり、両者が異なる場合は個別規定が優先します。</P>
+      </Section>
+
+      <Section num="2" label="サービス内容">
+        <P>本サービスは、画像から英単語を抽出し、日本語訳とクイズを自動生成する学習支援サービスです。AI技術を利用しているため、抽出結果や翻訳の正確性を完全に保証するものではありません。</P>
+      </Section>
+
+      <Section num="3" label="アカウント登録">
+        <P>本サービスの一部機能はアカウント登録が必要です。利用者は、登録時に正確な情報を提供するものとします。</P>
+        <OL items={[
+          'ユーザーは正確な情報を登録するものとします。',
+          'アカウントの管理はユーザーの責任とします。',
+          'アカウントの第三者への譲渡・貸与は禁止します。',
+        ]} />
+      </Section>
+
+      <Section num="4" label="禁止事項">
+        <P>利用者は、本サービスの利用にあたり以下の行為をしてはなりません。</P>
+        <OL items={[
+          '法令または公序良俗に違反する行為',
+          'サービスの運営を妨害する行為（リバースエンジニアリング、過度なリクエストを含む）',
+          '不正アクセスまたはそれを試みる行為',
+          '本サービスを商業目的で無断利用する行為',
+          '虚偽の情報を登録する行為',
+        ]} />
+      </Section>
+
+      <Section num="5" label="有料プラン (Pro)">
+        <P>Proプランは月額課金制です。支払いはStripeを通じて処理されます。解約はいつでも可能で、解約後も契約期間終了日まではご利用いただけます。返金は原則として行いません。</P>
+      </Section>
+
+      <Section num="6" label="知的財産権">
+        <P>本サービスに関する知的財産権は運営者に帰属します。ユーザーが登録した単語・例文等のコンテンツの権利はユーザーに帰属しますが、本サービスの提供・改善のため必要な範囲で利用する権利を許諾するものとします。</P>
+      </Section>
+
+      <Section num="7" label="免責事項">
+        <OL items={[
+          'AIによる抽出・翻訳結果の正確性は保証しません。',
+          'サービスの中断・停止による損害について責任を負いません。',
+          'ユーザー間または第三者とのトラブルについて責任を負いません。',
+        ]} />
+      </Section>
+
+      <Section num="8" label="サービスの変更・終了">
+        <P>運営者は、事前の通知なくサービス内容の変更または終了を行うことがあります。これにより利用者に生じた損害について、運営者は責任を負いません。</P>
+      </Section>
+
+      <Section num="9" label="準拠法・管轄">
+        <P>本規約は日本法に準拠します。本サービスに関して紛争が生じた場合、福岡地方裁判所を第一審の専属的合意管轄裁判所とします。</P>
+      </Section>
+
+      <Section num="10" label="お問い合わせ">
+        <div className="mt-1 rounded-lg border border-[var(--color-border)] bg-[#faf7f1] px-3 py-2.5">
+          <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">CONTACT</div>
+          <a href="mailto:support@merken.jp" className="mt-1 block font-mono text-xs text-[var(--color-accent)]">support@merken.jp</a>
+        </div>
+      </Section>
+
+      <Footer updated="2026年2月24日" />
+    </div>
+  );
+}
+
+function Section({ num, label, children }: { num: string; label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-[18px] pb-3">
+      <div className="flex items-baseline gap-1.5 pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+        <span className="text-[var(--solid-ink)]">§{num}</span>
+        <span>{label}</span>
+      </div>
+      <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function P({ children }: { children: React.ReactNode }) {
+  return <p className="m-0 text-[11.5px] leading-[1.75] text-[var(--solid-ink)]">{children}</p>;
+}
+
+function OL({ items }: { items: string[] }) {
+  return (
+    <ol className="mt-1.5 space-y-0.5 pl-[18px]">
+      {items.map((t, i) => (
+        <li key={i} className="pl-0.5 text-[11.5px] leading-[1.75] text-[var(--solid-ink)]">{t}</li>
+      ))}
+    </ol>
+  );
+}
+
+function Footer({ updated }: { updated: string }) {
+  return (
+    <div className="px-[18px] pb-[110px] pt-1">
+      <div className="text-center font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
+        最終更新 {updated} · MERKEN
+      </div>
     </div>
   );
 }

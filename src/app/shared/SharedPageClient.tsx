@@ -27,7 +27,15 @@ type MetricsResponse = {
   metrics?: SharedProjectMetricsMap;
 };
 
-const iconColors = ['bg-red-500', 'bg-green-600', 'bg-blue-900', 'bg-orange-500', 'bg-purple-600', 'bg-teal-600'];
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+function thumbColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return THUMBS[Math.abs(h) % THUMBS.length];
+}
+
+type FilterKey = 'all' | 'popular' | 'public';
 
 export default function SharedPageClient({
   initialPublicItems,
@@ -37,6 +45,7 @@ export default function SharedPageClient({
   const [publicNextCursor, setPublicNextCursor] = useState<string | null>(initialPublicNextCursor);
   const [loadingMorePublic, setLoadingMorePublic] = useState(false);
   const [publicSectionError, setPublicSectionError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const pendingMetricIdsRef = useRef(new Set<string>());
 
   const applyMetrics = useEffectEvent((metrics: SharedProjectMetricsMap) => {
@@ -47,50 +56,32 @@ export default function SharedPageClient({
 
   const requestMetrics = useEffectEvent(async (projectIds: string[]) => {
     const nextIds = projectIds.filter((projectId) => !pendingMetricIdsRef.current.has(projectId));
-    if (nextIds.length === 0) {
-      return;
-    }
+    if (nextIds.length === 0) return;
 
-    for (const projectId of nextIds) {
-      pendingMetricIdsRef.current.add(projectId);
-    }
+    for (const projectId of nextIds) pendingMetricIdsRef.current.add(projectId);
 
     try {
       const response = await fetch(`/api/shared-projects/metrics?projectIds=${encodeURIComponent(nextIds.join(','))}`, {
         cache: 'no-store',
       });
-      if (!response.ok) {
-        return;
-      }
+      if (!response.ok) return;
 
       const payload = await response.json() as MetricsResponse;
-      if (!payload.metrics) {
-        return;
-      }
-
-      applyMetrics(payload.metrics);
+      if (payload.metrics) applyMetrics(payload.metrics);
     } catch {
       // Keep placeholders when metrics fail.
     } finally {
-      for (const projectId of nextIds) {
-        pendingMetricIdsRef.current.delete(projectId);
-      }
+      for (const projectId of nextIds) pendingMetricIdsRef.current.delete(projectId);
     }
   });
 
   useEffect(() => {
     const projectIds = collectMetricProjectIds([], [], publicProjects);
-    if (projectIds.length === 0) {
-      return;
-    }
-
-    requestMetrics(projectIds);
+    if (projectIds.length > 0) requestMetrics(projectIds);
   }, [publicProjects]);
 
   async function handleLoadMorePublic() {
-    if (!publicNextCursor || loadingMorePublic) {
-      return;
-    }
+    if (!publicNextCursor || loadingMorePublic) return;
 
     setLoadingMorePublic(true);
     setPublicSectionError(null);
@@ -101,9 +92,7 @@ export default function SharedPageClient({
         { cache: 'no-store' },
       );
 
-      if (!response.ok) {
-        throw new Error('shared_public_fetch_failed');
-      }
+      if (!response.ok) throw new Error('shared_public_fetch_failed');
 
       const payload = await response.json() as PublicProjectsResponse;
       startTransition(() => {
@@ -118,176 +107,159 @@ export default function SharedPageClient({
     }
   }
 
+  const popularCount = publicProjects.filter((project) => (project.likeCount ?? 0) > 0).length;
+
+  const filteredProjects = activeFilter === 'popular'
+    ? [...publicProjects].filter((p) => (p.likeCount ?? 0) > 0).sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0))
+    : publicProjects;
+
   return (
-    <div className="min-h-screen pb-24 lg:pb-6">
-      <header className="px-5 pt-6 pb-4">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-black text-[var(--color-foreground)] text-center">共有</h1>
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+      <div className="px-[18px] pb-2 pt-1">
+        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+          COMMUNITY
         </div>
-      </header>
+        <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">
+          共有単語帳
+        </div>
+        <div className="mt-1 text-xs leading-[1.5] text-[var(--color-muted)]">
+          みんなが作った単語帳をインポートして、自分の学習に取り込めます。
+        </div>
+      </div>
 
-      <main className="max-w-3xl mx-auto px-5 pb-8 space-y-8">
-        <section className="space-y-4">
-          <SectionHeader title="共有単語帳" trailing={`${publicProjects.length}件表示`} />
+      <div className="flex gap-1.5 overflow-x-auto px-[14px] py-3">
+        <FilterChip label="すべて" count={publicProjects.length} active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} />
+        <FilterChip label="人気" count={popularCount} active={activeFilter === 'popular'} onClick={() => setActiveFilter('popular')} />
+        <FilterChip label="公開中" count={publicProjects.length} active={activeFilter === 'public'} onClick={() => setActiveFilter('public')} />
+      </div>
 
-          {publicProjects.length === 0 ? (
-            <div className="card p-5 text-center">
-              <Icon name="public" size={36} className="text-[var(--color-muted)] mx-auto mb-3" />
-              <p className="font-bold text-[var(--color-foreground)]">公開中の単語帳はまだありません</p>
-              <p className="text-sm text-[var(--color-muted)] mt-2">
-                公開設定された単語帳がここに表示されます。
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {publicProjects.map((project) => (
-                <ProjectCard key={project.project.id} project={project} />
-              ))}
-            </div>
-          )}
+      <div className="flex flex-col gap-2 px-[14px]">
+        {filteredProjects.length === 0 ? (
+          <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-12 text-center text-sm text-[var(--color-muted)]">
+            公開中の単語帳はまだありません
+          </div>
+        ) : (
+          filteredProjects.map((project) => (
+            <ProjectCard key={project.project.id} project={project} />
+          ))
+        )}
 
-          {publicSectionError ? (
-            <InlineMessage icon="error" tone="error" message={publicSectionError} />
-          ) : null}
+        {publicSectionError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            {publicSectionError}
+          </div>
+        )}
 
-          {publicNextCursor ? (
-            <div className="flex justify-center pt-1">
-              <button
-                type="button"
-                onClick={handleLoadMorePublic}
-                disabled={loadingMorePublic}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] font-semibold disabled:opacity-60"
-              >
-                {loadingMorePublic ? (
-                  <>
-                    <Icon name="progress_activity" size={18} className="animate-spin" />
-                    読み込み中...
-                  </>
-                ) : (
-                  <>
-                    <Icon name="expand_more" size={18} />
-                    もっと見る
-                  </>
-                )}
-              </button>
-            </div>
-          ) : null}
-        </section>
-      </main>
+        {publicNextCursor && (
+          <button
+            type="button"
+            onClick={handleLoadMorePublic}
+            disabled={loadingMorePublic}
+            className="relative mt-2 disabled:opacity-60"
+          >
+            <span className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-[var(--solid-ink)]" />
+            <span className="relative flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)]">
+              {loadingMorePublic ? (
+                <>
+                  <Icon name="progress_activity" size={18} className="animate-spin" />
+                  読み込み中...
+                </>
+              ) : (
+                <>
+                  <Icon name="expand_more" size={18} />
+                  もっと見る
+                </>
+              )}
+            </span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-function SectionHeader({
-  title,
-  description,
-  trailing,
-}: {
-  title: string;
-  description?: string;
-  trailing?: string;
-}) {
+function FilterChip({ label, count, active = false, onClick }: { label: string; count: number; active?: boolean; onClick?: () => void }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-lg font-black text-[var(--color-foreground)]">{title}</h2>
-        {description ? (
-          <p className="text-sm text-[var(--color-muted)] mt-1">{description}</p>
-        ) : null}
-      </div>
-      {trailing ? (
-        <span className="text-xs font-medium text-[var(--color-muted)] shrink-0 pt-1">{trailing}</span>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-[11px] py-1.5 text-[11px] font-bold transition-colors"
+      style={{
+        background: active ? 'var(--solid-ink)' : '#fff',
+        color: active ? '#fff' : 'var(--solid-ink)',
+        border: `1.25px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
+      }}
+    >
+      {label}
+      <span className="font-mono text-[9px] font-bold tabular-nums opacity-70">{count}</span>
+    </button>
   );
 }
 
 function ProjectCard({ project }: { project: SharedProjectCard }) {
   const href = project.project.shareId ? `/share/${project.project.shareId}` : '/shared';
-  const colorIndex = project.project.title.length % iconColors.length;
+  const bg = thumbColor(project.project.id);
   const badgeLabel = project.accessRole === 'owner'
-    ? '自分の公開'
+    ? '公開中'
     : project.accessRole === 'editor'
       ? '参加中'
-      : '公開中';
+      : '共有中';
   const ownerLabel = project.accessRole === 'owner'
-    ? 'あなたの単語帳'
+    ? '自分'
     : project.ownerUsername
-      ? `${project.ownerUsername}さんの単語帳`
-      : '共有された単語帳';
+      ? `@${project.ownerUsername}`
+      : '共有ユーザー';
 
   return (
-    <Link
-      href={href}
-      className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
-    >
-      <div className={`w-14 h-14 rounded-xl ${iconColors[colorIndex]} flex items-center justify-center text-white text-xl font-bold shrink-0`}>
-        {project.project.title.charAt(0) === 'ス' ? 'ス' : project.project.title.charAt(0).toUpperCase()}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="font-bold text-[var(--color-foreground)] truncate">{project.project.title}</p>
-          <span className="shrink-0 px-2.5 py-1 rounded-full bg-green-50 text-green-600 text-[11px] font-semibold border border-green-200">
-            {badgeLabel}
-          </span>
+    <Link href={href} className="relative block">
+      <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+      <div className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+        <div
+          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] bg-center bg-cover font-display text-[22px] font-extrabold text-white"
+          style={{
+            backgroundColor: bg,
+            backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,
+            borderColor: 'var(--solid-ink)',
+          }}
+        >
+          {!project.project.iconImage && project.project.title.charAt(0)}
         </div>
 
-        <p className="text-xs text-[var(--color-muted)] mt-1 truncate">{ownerLabel}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap font-display text-[14px] font-bold text-[var(--solid-ink)]">
+              {project.project.title}
+            </span>
+          </div>
+          <div className="mt-[3px] flex items-center gap-1.5">
+            <span className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full bg-[rgba(26,26,26,0.06)] font-mono text-[8px] font-bold text-[var(--color-muted)]">
+              {ownerLabel.charAt(0).replace('@', '')}
+            </span>
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[var(--color-muted)]">
+              {ownerLabel}
+            </span>
+            <span className="text-[11px] text-[var(--color-muted)] opacity-50">.</span>
+            <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">
+              {project.wordCount === undefined ? '読込中' : `${project.wordCount} 語`}
+            </span>
+            {(project.likeCount ?? 0) > 0 && (
+              <>
+                <span className="text-[11px] text-[var(--color-muted)] opacity-50">.</span>
+                <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">
+                  {project.likeCount} likes
+                </span>
+              </>
+            )}
+          </div>
+        </div>
 
-        <div className="flex items-center gap-3 mt-2 text-xs text-[var(--color-muted)]">
-          <CountChip icon="description" value={project.wordCount} suffix="語" />
-          <CountChip icon="group" value={project.collaboratorCount} suffix="人" />
-          <CountChip icon="thumb_up" value={project.likeCount} suffix="" />
+        <div
+          className="shrink-0 rounded px-[7px] py-[3px] font-mono text-[9px] font-bold tracking-[0.04em]"
+          style={{ background: project.accessRole === 'owner' ? 'var(--solid-ink)' : '#fff', color: project.accessRole === 'owner' ? '#fff' : 'var(--solid-ink)', border: '1px solid var(--solid-ink)' }}
+        >
+          {badgeLabel}
         </div>
       </div>
-
-      <Icon name="chevron_right" size={20} className="text-[var(--color-muted)] shrink-0" />
     </Link>
-  );
-}
-
-function CountChip({
-  icon,
-  value,
-  suffix,
-}: {
-  icon: string;
-  value: number | undefined;
-  suffix: string;
-}) {
-  return (
-    <span className="flex items-center gap-1 min-w-0">
-      <Icon name={icon} size={14} />
-      {value === undefined ? (
-        <span className="inline-flex items-center gap-1">
-          <span className="w-7 h-3 rounded bg-[var(--color-surface-secondary)] animate-pulse" />
-          <span>読込中</span>
-        </span>
-      ) : (
-        <span>{value}{suffix}</span>
-      )}
-    </span>
-  );
-}
-
-function InlineMessage({
-  icon,
-  message,
-  tone,
-}: {
-  icon: string;
-  message: string;
-  tone: 'error' | 'info';
-}) {
-  const className = tone === 'error'
-    ? 'border-red-200 bg-red-50 text-red-700'
-    : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]';
-
-  return (
-    <div className={`card p-4 flex items-center gap-3 ${className}`}>
-      <Icon name={icon} size={18} />
-      <p className="text-sm font-medium">{message}</p>
-    </div>
   );
 }

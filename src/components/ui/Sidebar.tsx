@@ -10,44 +10,33 @@ interface NavItem {
   icon: string;
   label: string;
   matchPaths?: string[];
+  badge?: string;
+  count?: string;
 }
 
-const navItems: NavItem[] = [
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
   {
-    href: '/',
-    icon: 'home',
-    label: 'ホーム',
-    matchPaths: ['/'],
+    label: '学習',
+    items: [
+      { href: '/', icon: 'home', label: 'Home & 単語帳', matchPaths: ['/'], count: '4' },
+      { href: '/projects', icon: 'folder', label: '単語帳', matchPaths: ['/projects', '/project', '/word'] },
+      { href: '/favorites', icon: 'star', label: 'コレクション', matchPaths: ['/favorites', '/collections'], count: '4' },
+      { href: '/stats', icon: 'bar_chart', label: '進歩', matchPaths: ['/stats'] },
+      { href: '/correction', icon: 'edit_note', label: '添削', matchPaths: ['/correction'] },
+    ],
   },
   {
-    href: '/projects',
-    icon: 'folder',
-    label: '単語帳',
-    matchPaths: ['/projects', '/project'],
-  },
-  {
-    href: '/shared',
-    icon: 'group',
-    label: '共有',
-    matchPaths: ['/shared'],
-  },
-  {
-    href: '/search',
-    icon: 'search',
-    label: '検索',
-    matchPaths: ['/search'],
-  },
-  {
-    href: '/stats',
-    icon: 'bar_chart',
-    label: '進歩',
-    matchPaths: ['/stats'],
-  },
-  {
-    href: '/settings',
-    icon: 'settings',
-    label: '設定',
-    matchPaths: ['/settings', '/subscription'],
+    label: 'その他',
+    items: [
+      { href: '/shared', icon: 'group', label: '共有', matchPaths: ['/shared', '/share'], count: '3' },
+      { href: '/search', icon: 'search', label: '検索', matchPaths: ['/search'] },
+      { href: '/settings', icon: 'settings', label: 'アカウント', matchPaths: ['/settings', '/subscription'] },
+    ],
   },
 ];
 
@@ -64,41 +53,65 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-[280px] h-screen fixed left-0 top-0 bg-[var(--color-surface)] border-r border-[var(--color-border)] z-40">
-      <div className="px-6 py-6 flex items-center gap-3">
-        <span className="text-2xl font-black text-[var(--color-foreground)] font-display tracking-tight">MERKEN</span>
+    <aside className="hidden lg:flex flex-col w-[280px] h-screen fixed left-0 top-0 bg-[var(--color-surface)] border-r-[1.5px] border-[var(--solid-ink)] z-40">
+      <div className="px-6 py-7">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[22px] font-black text-[var(--color-foreground)] font-display tracking-[0.08em] leading-none">MERKEN</span>
+          <span className="w-1.5 h-1.5 bg-[var(--color-accent)] inline-block" />
+        </div>
+        <div className="mt-1 text-[10px] font-mono uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          Redesign · 2026
+        </div>
       </div>
 
-      <nav className="flex-1 px-4 py-2 space-y-1">
-        {navItems.map((item) => {
-          const active = isActive(item);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                active
-                  ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
-                  : 'text-[var(--color-muted)] hover:bg-[var(--color-border-light)] hover:text-[var(--color-foreground)]'
-              )}
-            >
-              <Icon
-                name={item.icon}
-                filled={active}
-                size={22}
-                className={active ? 'text-[var(--color-foreground)]' : ''}
-              />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-5 py-2 space-y-8 overflow-y-auto overscroll-contain">
+        {navGroups.map((group) => (
+          <div key={group.label} className="space-y-2">
+            <div className="px-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-muted)]">
+              {group.label}
+            </div>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const active = isActive(item);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors',
+                      active
+                        ? 'bg-[var(--solid-ink)] text-[var(--color-surface)]'
+                        : 'text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)]'
+                    )}
+                  >
+                    <Icon
+                      name={item.icon}
+                      filled={active}
+                      size={19}
+                      className={active ? 'text-[var(--color-surface)]' : 'text-[var(--color-muted)]'}
+                    />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.badge ? (
+                      <span className="rounded-[3px] bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] font-black tracking-[0.04em] text-white">
+                        {item.badge}
+                      </span>
+                    ) : item.count ? (
+                      <span className={cn('font-mono text-[10px]', active ? 'text-white/60' : 'text-[var(--color-muted)]')}>
+                        {item.count}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="px-4 py-4 border-t border-[var(--color-border)]">
+      <div className="px-5 py-5 border-t border-dashed border-[var(--color-border)]">
         <Link
           href="/scan"
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--color-foreground)] text-white font-semibold text-sm transition-opacity hover:opacity-90"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-sm border-[1.5px] border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all hover:opacity-90 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
         >
           <Icon name="add" size={18} />
           新規スキャン

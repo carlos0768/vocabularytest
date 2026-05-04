@@ -72,10 +72,10 @@ export function ProjectCard(props: ProjectCardProps) {
       <Link
         href={`/project/${project.id}`}
         prefetch={true}
-        className="card p-4 flex items-center gap-4 active:opacity-80 transition-opacity"
+        className="card card-interactive flex items-center gap-4 p-4"
       >
         <div
-          className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-[1.5px] border-[var(--solid-ink)] text-xl font-black text-white shadow-[2px_3px_0_var(--solid-ink)]"
           style={{ backgroundColor: iconColor }}
         >
           {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
@@ -85,7 +85,7 @@ export function ProjectCard(props: ProjectCardProps) {
           <p className="text-xl font-black text-[var(--color-foreground)]">
             {total} <span className="text-sm font-bold">語</span>
           </p>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
               <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
               習得 {mastered}
@@ -114,10 +114,10 @@ export function ProjectCard(props: ProjectCardProps) {
         )}
       </Link>
 
-      {showMenu && menuItems && menuItems.length > 0 && (
+        {showMenu && menuItems && menuItems.length > 0 && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-2 top-12 z-20 bg-[var(--color-surface)] rounded-xl shadow-card border border-[var(--color-border)] py-1 min-w-[160px]">
+          <div className="absolute right-2 top-12 z-20 min-w-[160px] rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] py-1 shadow-[3px_4px_0_var(--solid-ink)]">
             {menuItems.map((item) => (
               <button
                 key={item.label}

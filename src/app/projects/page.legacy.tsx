@@ -1,0 +1,365 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Icon, DeleteConfirmModal } from '@/components/ui';
+import { useToast } from '@/components/ui/toast';
+import { ProjectCard } from '@/components/project/ProjectCard';
+import { SolidEmpty, SolidHeader, SolidPage, SolidPanel, SolidSectionTitle } from '@/components/redesign/SolidPage';
+import { useAuth } from '@/hooks/use-auth';
+import { useWordCount } from '@/hooks/use-word-count';
+import { getRepository } from '@/lib/db';
+import { localRepository } from '@/lib/db/local-repository';
+import { remoteRepository } from '@/lib/db/remote-repository';
+import {
+  buildProjectStats,
+  getWordsByProjectMap,
+  type ProjectWithStats,
+  type WordReadRepository,
+} from '@/lib/projects/load-helpers';
+import { getGuestUserId } from '@/lib/utils';
+import { invalidateHomeCache } from '@/lib/home-cache';
+import type { Project } from '@/types';
+
+async function addStatsToProjects(
+  projects: Project[],
+  repo: WordReadRepository,
+): Promise<ProjectWithStats[]> {
+  const wordsByProject = await getWordsByProjectMap(
+    repo,
+    projects.map((project) => project.id)
+  );
+  return buildProjectStats(projects, wordsByProject);
+}
+
+function withEmptyStats(projects: Project[]): ProjectWithStats[] {
+  return projects.map((project) => ({
+    ...project,
+    totalWords: 0,
+    masteredWords: 0,
+    progress: 0,
+    lastUsedAt: null,
+  }));
+}
+
+export default function ProjectsPage() {
+  const { user, subscription, loading: authLoading, isPro } = useAuth();
+  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'words' | 'lastUsed'>('newest');
+
+  const { showToast } = useToast();
+  const { refresh: refreshWordCount } = useWordCount();
+
+  const subscriptionStatus = subscription?.status || 'free';
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
+
+  // Delete state
+  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
+  const [deleteProjectTargetId, setDeleteProjectTargetId] = useState<string | null>(null);
+  const [deleteProjectLoading, setDeleteProjectLoading] = useState(false);
+
+  const handleDeleteProject = (projectId: string) => {
+    setDeleteProjectTargetId(projectId);
+    setDeleteProjectModalOpen(true);
+  };
+
+  const handleConfirmDeleteProject = async () => {
+    if (!deleteProjectTargetId) return;
+
+    setDeleteProjectLoading(true);
+    try {
+      await repository.deleteProject(deleteProjectTargetId);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteProjectTargetId));
+      invalidateHomeCache();
+      refreshWordCount();
+      showToast({ message: '単語帳を削除しました', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setDeleteProjectLoading(false);
+      setDeleteProjectModalOpen(false);
+      setDeleteProjectTargetId(null);
+    }
+  };
+
+  const handleToggleProjectFavorite = async (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const newFavorite = !project.isFavorite;
+    try {
+      await repository.updateProject(projectId, { isFavorite: newFavorite });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, isFavorite: newFavorite } : p))
+      );
+      invalidateHomeCache();
+    } catch (error) {
+      console.error('Failed to toggle project favorite:', error);
+      showToast({ message: 'ピン留めの変更に失敗しました', type: 'error' });
+    }
+  };
+
+  // Phase 1: Instant local load (no auth dependency)
+  const hasLocalLoadedRef = useRef(false);
+  useEffect(() => {
+    if (authLoading) return;
+    if (hasLocalLoadedRef.current) return;
+    hasLocalLoadedRef.current = true;
+
+    (async () => {
+      try {
+        const localUserId = user ? user.id : getGuestUserId();
+        const localProjects = await localRepository.getProjects(localUserId);
+        if (localProjects.length > 0) {
+          setProjects(withEmptyStats(localProjects));
+          setLoading(false);
+          void (async () => {
+            try {
+              const withStats = await addStatsToProjects(localProjects, localRepository);
+              setProjects(withStats);
+            } catch (error) {
+              console.error('Failed to build initial local stats:', error);
+            }
+          })();
+        }
+      } catch (e) {
+        console.error('Local projects load failed:', e);
+      }
+    })();
+  }, [authLoading, user]);
+
+  // Phase 2: Remote update after auth resolves (Pro users)
+  useEffect(() => {
+    if (authLoading) return;
+
+    (async () => {
+      let latestDisplaySeq = 0;
+      const showProjectsImmediately = (rawProjects: Project[], repo: WordReadRepository) => {
+        const seq = ++latestDisplaySeq;
+        setProjects(withEmptyStats(rawProjects));
+        setLoading(false);
+
+        void (async () => {
+          try {
+            const withStats = await addStatsToProjects(rawProjects, repo);
+            if (seq === latestDisplaySeq) {
+              setProjects(withStats);
+            }
+          } catch (error) {
+            console.error('Failed to build project stats:', error);
+          }
+        })();
+      };
+
+      try {
+        const userId = user ? user.id : getGuestUserId();
+
+        if (!user) {
+          // Free user: local is the source of truth — if Phase 1 already loaded, done
+          if (projects.length > 0) {
+            setLoading(false);
+            return;
+          }
+          const localProjects = await repository.getProjects(userId);
+          showProjectsImmediately(localProjects, repository);
+          return;
+        }
+
+        // Pro user: fetch from remote for latest data
+        let showedLocalProjects = false;
+        try {
+          const localProjectsForUser = await localRepository.getProjects(user.id);
+          if (localProjectsForUser.length > 0) {
+            showProjectsImmediately(localProjectsForUser, localRepository);
+            showedLocalProjects = true;
+          }
+        } catch (e) {
+          console.error('Local Pro preload failed:', e);
+        }
+
+        let remoteProjects: Project[] = [];
+        try {
+          remoteProjects = await remoteRepository.getProjects(user.id);
+        } catch (e) {
+          console.error('Remote fetch failed:', e);
+        }
+
+        if (remoteProjects.length > 0) {
+          showProjectsImmediately(remoteProjects, remoteRepository);
+        } else if (!showedLocalProjects) {
+          // Fallback to default repository
+          const fallback = await repository.getProjects(userId);
+          showProjectsImmediately(fallback, repository);
+        }
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [authLoading, isPro, user, repository]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const favorites = projects.filter((project) => project.isFavorite);
+  const filtered = useMemo(() => {
+    const base = projects.filter((project) =>
+      project.title.toLowerCase().includes(query.toLowerCase())
+    );
+    return [...base].sort((a, b) => {
+      switch (sortBy) {
+        case 'words':
+          return b.totalWords - a.totalWords;
+        case 'lastUsed': {
+          const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+          const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+          return bTime - aTime;
+        }
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+  }, [projects, query, sortBy]);
+
+  return (
+    <>
+    <SolidPage maxWidth="max-w-lg lg:max-w-3xl xl:max-w-5xl">
+      <SolidHeader
+        eyebrow="WORD BOOKS"
+        title="マイ単語帳"
+        description="作成した単語帳を並べ替え、最近の学習状況を見ながら次の復習へ進みます。"
+        actions={
+          <Link href="/scan" className="solid-link-primary hidden lg:inline-flex">
+            <Icon name="add_a_photo" size={18} />
+            新規スキャン
+          </Link>
+        }
+      />
+
+        <SolidPanel className="space-y-3 p-4">
+          <div className="relative">
+            <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="単語帳を検索"
+              className="solid-input w-full pl-10 pr-4"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {([
+              { key: 'newest', label: '新しい順', icon: 'schedule' },
+              { key: 'words', label: '単語が多い順', icon: 'sort' },
+              { key: 'lastUsed', label: '最近使った順', icon: 'history' },
+            ] as const).map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setSortBy(key)}
+                className={`inline-flex items-center gap-1.5 rounded-[10px] border-[1.5px] px-3 py-2 text-xs font-black transition-all ${
+                  sortBy === key
+                    ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-white'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
+                }`}
+              >
+                <Icon name={icon} size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </SolidPanel>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
+            <Icon name="progress_activity" size={20} className="animate-spin" />
+            <span className="ml-2">読み込み中...</span>
+          </div>
+        ) : projects.length === 0 ? (
+          <SolidEmpty
+            icon="menu_book"
+            title="まだ単語帳がありません"
+            description="ノートやプリントを撮影して、最初の単語帳を作成しましょう。"
+            action={
+            <Link
+              href="/scan"
+              className="solid-link-primary"
+            >
+              <Icon name="photo_camera" size={18} />
+              スキャンを始める
+            </Link>
+            }
+          />
+        ) : (
+          <>
+            {favorites.length > 0 && query.trim().length === 0 && (
+              <section className="space-y-3">
+                <SolidSectionTitle icon="push_pin" title="ピン留め" count={`${favorites.length}件`} />
+                <div className="space-y-3">
+                  {favorites.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      totalWords={project.totalWords}
+                      masteredWords={project.masteredWords}
+                      menuItems={[
+                        {
+                          label: project.isFavorite ? 'ピン解除' : 'ピン留め',
+                          icon: 'push_pin',
+                          onClick: handleToggleProjectFavorite,
+                        },
+                        {
+                          label: '削除',
+                          icon: 'delete',
+                          onClick: handleDeleteProject,
+                          danger: true,
+                        },
+                      ]}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="space-y-3">
+              <SolidSectionTitle icon="folder" title="すべての単語帳" count={`${filtered.length}件`} />
+              <div className="space-y-3">
+                {filtered.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    totalWords={project.totalWords}
+                    masteredWords={project.masteredWords}
+                    menuItems={[
+                      {
+                        label: project.isFavorite ? 'ピン解除' : 'ピン留め',
+                        icon: 'push_pin',
+                        onClick: handleToggleProjectFavorite,
+                      },
+                      {
+                        label: '削除',
+                        icon: 'delete',
+                        onClick: handleDeleteProject,
+                        danger: true,
+                      },
+                    ]}
+                  />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </SolidPage>
+      <DeleteConfirmModal
+        isOpen={deleteProjectModalOpen}
+        onClose={() => { setDeleteProjectModalOpen(false); setDeleteProjectTargetId(null); }}
+        onConfirm={handleConfirmDeleteProject}
+        title="単語帳を削除"
+        message="この単語帳とすべての単語が削除されます。この操作は取り消せません。"
+        isLoading={deleteProjectLoading}
+      />
+    </>
+  );
+}

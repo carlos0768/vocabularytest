@@ -17,7 +17,6 @@ export default async function SharedPage() {
   if (normalizedSupabaseUrl && serviceRoleKey) {
     try {
       new URL(normalizedSupabaseUrl);
-
       const payload = await listPublicSharedProjects({ limit: 8 });
       initialPublicItems = payload.items;
       initialPublicNextCursor = payload.nextCursor;

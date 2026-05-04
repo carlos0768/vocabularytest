@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
   const { signIn } = useAuth();
@@ -18,148 +18,202 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
+
     setError(null);
     setLoading(true);
 
     const result = await signIn(email, password);
-
     if (result.success) {
-      // Use hard navigation to ensure session state is fully refreshed
       window.location.href = redirect;
-    } else {
-      setError(result.error || 'ログインに失敗しました');
-      setLoading(false);
+      return;
     }
+
+    setError(result.error || 'ログインに失敗しました');
+    setLoading(false);
   };
 
   return (
-    <div className="w-full max-w-sm">
-      {/* Logo */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
-        <p className="text-[var(--color-muted)] mt-2">アカウントにログイン</p>
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+      <div className="px-[14px] pt-1">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]"
+          aria-label="戻る"
+        >
+          <Icon name="chevron_left" size={18} />
+        </button>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
-        {error && (
-          <div className="bg-[var(--color-error-light)] text-[var(--color-error)] px-4 py-3 rounded-[var(--radius-lg)] mb-4 text-sm">
-            {error}
-          </div>
-        )}
+      <div className="px-6 pb-2 pt-6 text-center">
+        <div className="inline-block font-display text-[38px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
+          MERKEN
+          <span className="ml-[5px] inline-block h-[7px] w-[7px] -translate-y-3 bg-[var(--color-accent)]" />
+        </div>
+        <div className="mt-1.5 font-mono text-[10px] tracking-[0.06em] text-[var(--color-muted)]">
+          単語を覚えるためのノート
+        </div>
+      </div>
 
-        <div className="space-y-4">
-          {/* Email */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
-              メールアドレス
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all bg-[var(--color-surface)]"
-              placeholder="email@example.com"
-            />
-          </div>
+      <div className="px-6 pb-4 pt-6">
+        <div className="font-display text-2xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+          ログイン
+        </div>
+        <div className="mt-1 text-xs text-[var(--color-muted)]">
+          アカウントに接続して、続きから始める。
+        </div>
+      </div>
 
-          {/* Password */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
-              パスワード
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] outline-none transition-all pr-12 bg-[var(--color-surface)]"
-                placeholder="••••••••"
-              />
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-2.5 px-6 pb-3">
+          {error && (
+            <div className="rounded-[10px] border-[1.25px] border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2.5 text-xs font-bold text-[var(--color-error)]">
+              {error}
+            </div>
+          )}
+
+          <FormField
+            label="メールアドレス"
+            placeholder="kenta@example.com"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            autoComplete="email"
+            disabled={loading}
+          />
+
+          <FormField
+            label="パスワード"
+            placeholder="••••••••"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            disabled={loading}
+            trailing={
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                onClick={() => setShowPassword((value) => !value)}
+                className="font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
               >
-                {showPassword ? <Icon name="visibility_off" size={20} /> : <Icon name="visibility" size={20} />}
+                {showPassword ? '非表示' : '表示'}
               </button>
-            </div>
-          </div>
+            }
+          />
         </div>
 
-        {/* Forgot password link */}
-        <div className="mt-2 text-right">
-          <Link href="/reset-password" className="text-sm text-[var(--color-primary)] hover:underline">
-            パスワードをお忘れの方
+        <div className="px-6 pb-4 text-right">
+          <Link href="/reset-password" className="text-[11px] font-bold text-[var(--color-accent)]">
+            パスワードをお忘れですか？
           </Link>
         </div>
 
-        {/* Submit */}
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full mt-6"
-          size="lg"
-        >
-          {loading ? (
-            <>
-              <Icon name="progress_activity" size={20} className="mr-2 animate-spin" />
-              ログイン中...
-            </>
-          ) : (
-            'ログイン'
-          )}
-        </Button>
+        <div className="px-6 pb-4">
+          <button
+            type="submit"
+            disabled={loading || email.trim().length === 0 || password.length === 0}
+            className="group relative w-full disabled:pointer-events-none disabled:opacity-60"
+          >
+            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)] transition-transform group-active:translate-x-[1px] group-active:translate-y-[1px]" />
+            <div className="relative flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
+              {loading && <Icon name="progress_activity" size={16} className="animate-spin" />}
+              {loading ? 'ログイン中...' : 'ログイン'}
+            </div>
+          </button>
+        </div>
       </form>
 
-      {/* Sign up link */}
-      <p className="text-center text-[var(--color-muted)] mt-6">
-        アカウントをお持ちでない方は{' '}
-        <Link href={`/signup?redirect=${encodeURIComponent(redirect)}`} className="text-[var(--color-primary)] hover:underline font-medium">
-          新規登録
-        </Link>
-      </p>
+      <div className="px-6 pb-3">
+        <div className="rounded-[10px] border-[1.25px] border-dashed border-[var(--color-border)] bg-white/60 px-3 py-2 text-center text-[11px] leading-5 text-[var(--color-muted)]">
+          Apple / Google ログインは未接続です。メールアドレスでログインしてください。
+        </div>
+      </div>
 
-      {/* Back to home */}
-      <p className="text-center mt-4">
-        <Link href="/" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] text-sm">
-          ← ホームに戻る
+      <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
+        <div className="h-px flex-1 bg-[var(--color-border)]" />
+        <span className="font-mono text-[10px] text-[var(--color-muted)]">または</span>
+        <div className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
+
+      <div className="flex flex-col gap-2 px-6 pb-3">
+        <Link
+          href={`/signup?redirect=${encodeURIComponent(redirect)}`}
+          className="flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]"
+        >
+          <Icon name="person_add" size={16} />
+          新規登録する
         </Link>
-      </p>
+      </div>
+
+      <div className="flex-1" />
+
+      <div className="px-6 pb-8 pt-5 text-center">
+        <span className="text-xs text-[var(--color-muted)]">ホームへ戻る場合は </span>
+        <Link href="/" className="text-xs font-bold text-[var(--solid-ink)] underline">
+          こちら
+        </Link>
+      </div>
     </div>
   );
 }
 
-function LoginFormFallback() {
+function LoginFallback() {
   return (
-    <div className="w-full max-w-sm">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-[var(--color-foreground)]">MERKEN</h1>
-        <p className="text-[var(--color-muted)] mt-2">アカウントにログイン</p>
-      </div>
-      <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-soft border border-[var(--color-border)] p-6">
-        <div className="flex items-center justify-center py-8">
-          <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin" />
-        </div>
-      </div>
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)]">
+      <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] p-4">
-      <Suspense fallback={<LoginFormFallback />}>
-        <LoginForm />
-      </Suspense>
-    </div>
+    <Suspense fallback={<LoginFallback />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function FormField({
+  label,
+  placeholder,
+  type,
+  trailing,
+  value,
+  onChange,
+  autoComplete,
+  disabled,
+}: {
+  label: string;
+  placeholder: string;
+  type?: string;
+  trailing?: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+        {label}
+      </div>
+      <div className="flex items-center gap-2 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[11px] shadow-[2px_2px_0_var(--solid-ink)]">
+        <input
+          type={type || 'text'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          required
+          autoComplete={autoComplete}
+          disabled={disabled}
+          className="flex-1 border-none bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)] disabled:opacity-60"
+        />
+        {trailing}
+      </div>
+    </label>
   );
 }

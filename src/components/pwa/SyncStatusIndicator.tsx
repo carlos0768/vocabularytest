@@ -51,7 +51,8 @@ export function SyncStatusIndicator() {
   // Auto-sync on online status change
   useEffect(() => {
     if (isOnline && pendingCount > 0 && isPro) {
-      syncNow();
+      const timer = window.setTimeout(() => void syncNow(), 0);
+      return () => window.clearTimeout(timer);
     }
   }, [isOnline, pendingCount, isPro, syncNow]);
 
@@ -59,9 +60,12 @@ export function SyncStatusIndicator() {
   useEffect(() => {
     if (!isPro) return;
     
-    checkPendingItems();
+    const timer = window.setTimeout(() => void checkPendingItems(), 0);
     const interval = setInterval(checkPendingItems, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [isPro, checkPendingItems]);
 
   // Periodic sync (every 5 minutes)

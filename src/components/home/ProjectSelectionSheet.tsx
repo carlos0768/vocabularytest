@@ -76,7 +76,7 @@ export function ProjectSelectionSheet({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-8">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-8">
           {wrongAnswers.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">

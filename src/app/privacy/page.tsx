@@ -1,114 +1,142 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 
 export default function PrivacyPage() {
+  const router = useRouter();
+
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
-      <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <Link href="/settings" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            <Icon name="arrow_back" size={20} className="text-[var(--color-foreground)]" />
-          </Link>
-          <h1 className="text-xl font-bold text-[var(--color-foreground)]">プライバシーポリシー</h1>
+    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+      {/* Header */}
+      <div className="px-[18px] pb-3.5 pt-1">
+        <div className="mb-0.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+          >
+            <Icon name="chevron_left" size={16} />
+          </button>
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT / SUPPORT</div>
         </div>
-      </header>
+        <div className="mt-1.5 font-display text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--solid-ink)]">プライバシーポリシー</div>
+        <div className="mt-1.5 font-mono text-[10px] tracking-[0.02em] text-[var(--color-muted)]">PRIVACY POLICY · 個人情報の取扱い</div>
+      </div>
 
-      <main className="max-w-lg mx-auto px-6 py-8">
-        <div className="card p-6 space-y-8 text-[var(--color-foreground)] leading-relaxed">
-          <p className="text-sm text-[var(--color-muted)]">最終更新日: 2026年2月24日</p>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">1. はじめに</h2>
-            <p>
-              MERKEN（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本サービスにおける個人情報の取り扱いについて定めます。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">2. 収集する情報</h2>
-            <p>本サービスでは以下の情報を収集します。</p>
-            <ul className="list-disc list-inside space-y-2">
-              <li><span className="font-medium">アカウント情報</span>: メールアドレス、パスワード（暗号化済み）</li>
-              <li><span className="font-medium">学習データ</span>: 作成した単語帳、クイズの回答履歴、学習進捗</li>
-              <li><span className="font-medium">アップロード画像</span>: 単語抽出のために送信された画像（処理後、サーバーには保存しません）</li>
-              <li><span className="font-medium">決済情報</span>: 有料プラン利用時の決済情報（Stripeが処理し、本サービスではカード情報等を保持しません）</li>
-            </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">3. 情報の利用目的</h2>
-            <p>収集した情報は以下の目的で利用します。</p>
-            <ul className="list-disc list-inside space-y-2">
-              <li>サービスの提供・運営</li>
-              <li>ユーザーの学習データの保存・同期</li>
-              <li>サービスの改善・新機能の開発</li>
-              <li>お問い合わせへの対応</li>
-              <li>利用規約違反への対応</li>
-            </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">4. 第三者サービス</h2>
-            <p>本サービスでは以下の第三者サービスを利用しています。</p>
-            <ul className="list-disc list-inside space-y-2">
-              <li><span className="font-medium">Supabase</span>: 認証・データベース</li>
-              <li><span className="font-medium">OpenAI</span>: 画像解析・単語抽出</li>
-              <li><span className="font-medium">Stripe</span>: 決済処理</li>
-              <li><span className="font-medium">Vercel</span>: ホスティング</li>
-            </ul>
-            <p>各サービスのプライバシーポリシーについては、各社のサイトをご確認ください。</p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">5. 画像データの取り扱い</h2>
-            <p>
-              ユーザーがアップロードした画像は、単語抽出処理のためにOpenAI APIに送信されます。処理完了後、画像データは本サービスのサーバーには保存されません。OpenAIのデータ取り扱いについてはOpenAIのプライバシーポリシーをご確認ください。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">6. データの保存</h2>
-            <ul className="list-disc list-inside space-y-2">
-              <li><span className="font-medium">無料プラン</span>: データはユーザーのブラウザ（IndexedDB）にローカル保存されます。サーバーには送信されません。</li>
-              <li><span className="font-medium">Proプラン</span>: データはSupabase（クラウド）に保存され、デバイス間で同期されます。</li>
-            </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">7. データの削除</h2>
-            <p>
-              ユーザーはいつでも自身のデータを削除できます。アカウント削除をご希望の場合は、お問い合わせください。アカウント削除時にはすべての関連データを削除します。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">8. セキュリティ</h2>
-            <p>
-              本サービスは、個人情報の漏洩・紛失を防ぐために適切なセキュリティ対策を講じています。通信はすべてSSL/TLSにより暗号化されています。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">9. ポリシーの変更</h2>
-            <p>
-              本ポリシーは必要に応じて改定することがあります。重要な変更がある場合は、サービス内で通知します。
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold">10. お問い合わせ</h2>
-            <p>
-              プライバシーに関するお問い合わせは、
-              <a href="mailto:support@merken.jp" className="text-[var(--color-primary)] font-medium">
-                support@merken.jp
-              </a>
-              までご連絡ください。
-            </p>
-          </section>
+      {/* Intro */}
+      <div className="px-[18px] pb-3.5">
+        <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+          <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
+            MERKEN（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本サービスにおける個人情報の取り扱いについて定めます。
+          </p>
         </div>
-      </main>
+      </div>
+
+      <Section num="1" label="収集する情報">
+        <OL items={[
+          'アカウント情報（メールアドレス、パスワード〈暗号化済み〉）',
+          '学習データ（作成した単語帳、クイズの回答履歴、学習進捗）',
+          'アップロード画像（単語抽出のために送信された画像。処理後、サーバーには保存しません）',
+          '決済情報（有料プラン利用時。Stripeが処理し、本サービスではカード情報等を保持しません）',
+        ]} />
+      </Section>
+
+      <Section num="2" label="利用目的">
+        <P>取得した情報は、以下の目的のために利用します。</P>
+        <OL items={[
+          'サービスの提供・運営・改善',
+          'ユーザーの学習データの保存・同期',
+          'お問い合わせへの対応',
+          '利用規約違反への対応',
+          '統計データの作成（個人を特定できない形に加工）',
+        ]} />
+      </Section>
+
+      <Section num="3" label="第三者サービス">
+        <P>本サービスでは以下の第三者サービスを利用しています。各サービスのプライバシーポリシーについては、各社のサイトをご確認ください。</P>
+        <OL items={[
+          'Supabase — 認証・データベース',
+          'Google (Gemini 2.5 Flash) — 画像OCR・単語抽出',
+          'OpenAI — クイズ生成・例文生成',
+          'Stripe — 決済処理',
+          'Vercel — ホスティング',
+        ]} />
+      </Section>
+
+      <Section num="4" label="画像データの取り扱い">
+        <P>ユーザーがアップロードした画像は、単語抽出処理のためにGoogle Gemini APIに送信されます。処理完了後、画像データは本サービスのサーバーには保存されません。</P>
+      </Section>
+
+      <Section num="5" label="データの保存">
+        <OL items={[
+          '無料プラン: データはユーザーのブラウザ（IndexedDB）にローカル保存されます。サーバーには送信されません。',
+          'Proプラン: データはSupabase（クラウド）に保存され、デバイス間で同期されます。',
+        ]} />
+      </Section>
+
+      <Section num="6" label="Cookie・類似技術">
+        <P>本サービスでは、ログイン状態の維持や利用状況の分析のためCookieおよびローカルストレージを使用します。ブラウザの設定によりこれらを無効化できますが、一部機能が利用できなくなる場合があります。</P>
+      </Section>
+
+      <Section num="7" label="データの削除">
+        <P>ユーザーはいつでも自身のデータを削除できます。アカウント削除をご希望の場合は、お問い合わせください。アカウント削除時にはすべての関連データを削除します。</P>
+      </Section>
+
+      <Section num="8" label="セキュリティ">
+        <P>本サービスは、個人情報の漏洩・紛失を防ぐために適切なセキュリティ対策を講じています。通信はすべてSSL/TLSにより暗号化されています。</P>
+      </Section>
+
+      <Section num="9" label="ポリシーの変更">
+        <P>本ポリシーは必要に応じて改定することがあります。重要な変更がある場合は、サービス内で通知します。</P>
+      </Section>
+
+      <Section num="10" label="お問い合わせ">
+        <div className="mt-1 rounded-lg border border-[var(--color-border)] bg-[#faf7f1] px-3 py-2.5">
+          <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">CONTACT</div>
+          <a href="mailto:support@merken.jp" className="mt-1 block font-mono text-xs text-[var(--color-accent)]">support@merken.jp</a>
+        </div>
+      </Section>
+
+      <Footer updated="2026年2月24日" />
+    </div>
+  );
+}
+
+function Section({ num, label, children }: { num: string; label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-[18px] pb-3">
+      <div className="flex items-baseline gap-1.5 pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+        <span className="text-[var(--solid-ink)]">§{num}</span>
+        <span>{label}</span>
+      </div>
+      <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function P({ children }: { children: React.ReactNode }) {
+  return <p className="m-0 text-[11.5px] leading-[1.75] text-[var(--solid-ink)]">{children}</p>;
+}
+
+function OL({ items }: { items: string[] }) {
+  return (
+    <ol className="mt-1.5 space-y-0.5 pl-[18px]">
+      {items.map((t, i) => (
+        <li key={i} className="pl-0.5 text-[11.5px] leading-[1.75] text-[var(--solid-ink)]">{t}</li>
+      ))}
+    </ol>
+  );
+}
+
+function Footer({ updated }: { updated: string }) {
+  return (
+    <div className="px-[18px] pb-[110px] pt-1">
+      <div className="text-center font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
+        最終更新 {updated} · MERKEN
+      </div>
     </div>
   );
 }

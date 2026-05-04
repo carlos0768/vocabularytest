@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 test('STRIPE_CONFIG exports expected plan structure', async () => {
-  const { STRIPE_CONFIG } = await import('./config.ts');
+  const { STRIPE_CONFIG } = await import('./config');
 
   assert.equal(STRIPE_CONFIG.plans.pro.price, 300);
   assert.equal(STRIPE_CONFIG.plans.pro.currency, 'JPY');

@@ -104,7 +104,7 @@ test('scan-jobs marks partial example generation with warning and payload summar
 
   const warningSet = new Set<string>();
   const payload = __internal.applyExampleGenerationSummary(
-    { saveMode: 'server_cloud' as const, wordCount: 5 },
+    { saveMode: 'server_cloud' as const, wordCount: 5, exampleGeneration: undefined },
     warningSet,
     summary,
   );

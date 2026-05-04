@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
     });
 
     // --- Synchronous example sentence generation ---
-    let exampleGenDiag: {
+    const exampleGenDiag: {
       attempted: boolean;
       wordsRequested: number;
       wordsGenerated: number;
@@ -332,8 +332,8 @@ export async function POST(request: NextRequest) {
           if (resolved?.lexiconEntries && resolved.lexiconEntries.length > 0) {
             const lexiconMap = new Map(resolved.lexiconEntries.map(le => [le.headword.toLowerCase(), le.id]));
             const lexiconUpdates = extractedWords
-              .filter((w: any) => w.exampleSentence && w.english)
-              .map((w: any) => {
+              .filter((w: Record<string, unknown>) => w.exampleSentence && w.english)
+              .map((w: Record<string, unknown>) => {
                 const lexId = lexiconMap.get(String(w.english).toLowerCase());
                 if (!lexId) return null;
                 return {

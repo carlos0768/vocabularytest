@@ -31,10 +31,10 @@ export function VocabularyTypeButton({
 
   const toneClass =
     vocabularyType === 'active'
-      ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
       : vocabularyType === 'passive'
-        ? 'bg-[var(--color-muted)]/70 text-white border-[var(--color-muted)]/70'
-        : 'bg-transparent text-[var(--color-muted)] border-[var(--color-border)]';
+        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-white'
+        : 'border-[var(--color-border)] bg-transparent text-[var(--color-muted)]';
 
   return (
     <button

@@ -390,16 +390,22 @@ export function getEikenFilterInstruction(eikenLevel: string | null): string {
 // ============ Grammar Extraction Prompts ============
 
 // Gemini OCR: Extract text from image
-export const GRAMMAR_OCR_PROMPT = `この画像からテキストを抽出してください。
+export const GRAMMAR_OCR_PROMPT = `この画像からユーザーが書いた英文のみを抽出してください。
 
-重要なルール:
-1. 画像に含まれる英語の文章をすべて正確に抽出してください
-2. 手書きでも印刷でも、読み取れる文章はすべて含めてください
-3. 改行や段落構造はそのまま維持してください
-4. 読み取れない部分は [?] でマークしてください
+抽出ルール:
+1. ユーザーが実際に書いた英語の文章・段落のみを抽出する
+2. 以下は必ず除外する:
+   - ページ番号・日付・見出し・ラベル
+   - 日本語のメモや説明
+   - 問題番号・記号・箇条書きの番号
+   - ノートの罫線・余白の落書きなどのランダムな文字
+   - 読み取り不能な文字
+3. 手書き英文は正確に書き起こす（スペルは原文のまま保持）
+4. 複数行にまたがる同一文は自然な文章として1行に結合する
+5. 段落の区切りは空行で表す
 
 出力フォーマット:
-抽出したテキストをそのまま出力してください。JSON形式は不要です。`;
+ユーザーの英文のみをプレーンテキストで出力する。それ以外の説明・前置きは一切不要。`;
 
 // GPT: Grammar pattern analysis and quiz generation
 export const GRAMMAR_ANALYSIS_SYSTEM_PROMPT = `あなたは英検1級専門の超厳格な文法問題作成者です。

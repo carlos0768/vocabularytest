@@ -3,6 +3,12 @@ import test from 'node:test';
 import { NextRequest } from 'next/server';
 
 import { handleWordsCreatePost } from './route';
+import type {
+  MasterFirstScanMetrics,
+  ResolvedImmediateWord,
+  resolveImmediateWordsWithMasterFirst,
+} from '@/lib/lexicon/master-first-scan';
+import type { LexiconEntry } from '@/types';
 
 type InsertWordRow = Record<string, unknown>;
 
@@ -78,19 +84,26 @@ function runAfterImmediately(task: unknown, setAfterPromise: (promise: Promise<v
   setAfterPromise(promise);
 }
 
-function createImmediateResolutionResult<T>(words: T[], lexiconEntries: unknown[] = []) {
+type ImmediateWordInputForTest = Parameters<typeof resolveImmediateWordsWithMasterFirst>[0][number];
+
+function createImmediateResolutionResult<T extends ImmediateWordInputForTest>(
+  words: T[],
+  lexiconEntries: unknown[] = [],
+) {
+  const metrics: MasterFirstScanMetrics = {
+    lookupKeyCount: 0,
+    masterHitCount: 0,
+    masterTranslationHitCount: 0,
+    aiMissCount: 0,
+    lookupElapsedMs: 0,
+    translationElapsedMs: 0,
+    totalElapsedMs: 0,
+  };
+
   return {
-    words,
-    lexiconEntries,
-    metrics: {
-      lookupKeyCount: 0,
-      masterHitCount: 0,
-      masterTranslationHitCount: 0,
-      aiMissCount: 0,
-      lookupElapsedMs: 0,
-      translationElapsedMs: 0,
-      totalElapsedMs: 0,
-    },
+    words: words as unknown as ResolvedImmediateWord<T>[],
+    lexiconEntries: lexiconEntries as LexiconEntry[],
+    metrics,
   };
 }
 

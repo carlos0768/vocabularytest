@@ -17,7 +17,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           'inline-flex items-center justify-center font-semibold transition-all duration-200',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-          'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none',
+          variant !== 'ghost' &&
+            'border-[1.5px] border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]',
+          'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none',
           variant === 'primary' && [
             'bg-[var(--color-foreground)] text-white',
             'rounded-xl',
@@ -26,15 +28,15 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             'focus-visible:ring-[var(--color-foreground)]',
           ],
           variant === 'secondary' && [
-            'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]',
+            'bg-[var(--color-surface)] text-[var(--color-foreground)]',
             'rounded-xl',
-            'hover:bg-[var(--color-border-light)]',
+            'hover:bg-[var(--color-surface-secondary)]',
             'active:opacity-80',
             'focus-visible:ring-[var(--color-foreground)]',
           ],
           variant === 'ghost' && [
             'bg-transparent text-[var(--color-muted)]',
-            'rounded-xl',
+            'rounded-xl border-transparent shadow-none',
             'hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--color-foreground)]',
             'focus-visible:ring-[var(--color-muted)]',
           ],
@@ -49,12 +51,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           size === 'md' && 'px-5 py-2.5 text-base',
           size === 'lg' && 'h-14 px-8 text-lg',
           size === 'icon' && 'w-10 h-10 p-0',
-          className
+          className,
         )}
         {...props}
       />
     );
-  }
+  },
 );
 
 Button.displayName = 'Button';

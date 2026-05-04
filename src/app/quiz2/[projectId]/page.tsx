@@ -423,7 +423,7 @@ export default function Quiz2Page() {
         </div>
       </header>
 
-      <main className="px-4 pb-4 overflow-y-auto no-scrollbar">
+      <main className="px-4 pb-4 overflow-y-auto overscroll-contain no-scrollbar">
         <div className="max-w-lg mx-auto space-y-4">
           <section className="card p-6 border-2 border-[var(--color-border)] border-b-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)] mb-2">問題</p>

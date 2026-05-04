@@ -90,7 +90,8 @@ export class LocalWordRepository implements WordRepository {
 
   async getWords(projectId: string): Promise<Word[]> {
     const db = getDb();
-    return db.words.where('projectId').equals(projectId).toArray();
+    const words = await db.words.where('projectId').equals(projectId).toArray();
+    return words.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   /**

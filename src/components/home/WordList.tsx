@@ -33,34 +33,37 @@ export function NotionCheckbox({
   const [direction, setDirection] = useState<'up' | 'down'>('up');
 
   useEffect(() => {
-    if (status === 'new') {
-      setFilledCount(0);
-      setDirection('up');
-    } else if (status === 'mastered') {
-      setFilledCount(3);
-      setDirection('down');
-    } else {
-      // review: read mid state from localStorage
-      try {
-        const val = localStorage.getItem(STORAGE_PREFIX + wordId);
-        if (val === 'down2') {
-          setFilledCount(2);
-          setDirection('down');
-        } else if (val === 'down1') {
-          setFilledCount(1);
-          setDirection('down');
-        } else if (val === '1') {
-          setFilledCount(2);
-          setDirection('up');
-        } else {
+    const timer = window.setTimeout(() => {
+      if (status === 'new') {
+        setFilledCount(0);
+        setDirection('up');
+      } else if (status === 'mastered') {
+        setFilledCount(3);
+        setDirection('down');
+      } else {
+        // review: read mid state from localStorage
+        try {
+          const val = localStorage.getItem(STORAGE_PREFIX + wordId);
+          if (val === 'down2') {
+            setFilledCount(2);
+            setDirection('down');
+          } else if (val === 'down1') {
+            setFilledCount(1);
+            setDirection('down');
+          } else if (val === '1') {
+            setFilledCount(2);
+            setDirection('up');
+          } else {
+            setFilledCount(1);
+            setDirection('up');
+          }
+        } catch {
           setFilledCount(1);
           setDirection('up');
         }
-      } catch {
-        setFilledCount(1);
-        setDirection('up');
       }
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {

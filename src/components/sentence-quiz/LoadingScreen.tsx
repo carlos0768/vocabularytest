@@ -42,7 +42,7 @@ export function LoadingScreen({ words, onCancel }: LoadingScreenProps) {
         </div>
 
         {/* Flashcard */}
-        <main className="flex-1 px-6 pb-6 overflow-y-auto">
+        <main className="flex-1 px-6 pb-6 overflow-y-auto overscroll-contain">
           <InlineFlashcard words={words} />
         </main>
       </div>

@@ -1,119 +1,69 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Icon, DeleteConfirmModal } from '@/components/ui';
-import { CollectionBookshelfCard } from '@/components/collection/CollectionBookshelfCard';
-import { useToast } from '@/components/ui/toast';
-import { useAuth } from '@/hooks/use-auth';
-import { useCollections } from '@/hooks/use-collections';
-import { useState } from 'react';
+import { Icon } from '@/components/ui/Icon';
+import { SolidPanel } from '@/components/redesign/SolidPage';
+
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+function thumbColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return THUMBS[Math.abs(h) % THUMBS.length];
+}
+
+const COLLECTIONS = [
+  { id: 'c1', title: '英検対策セット', books: 3, totalWords: 540 },
+  { id: 'c2', title: '大学受験まとめ', books: 5, totalWords: 820 },
+  { id: 'c3', title: 'TOEIC 対策', books: 2, totalWords: 380 },
+];
 
 export default function CollectionsPage() {
-  const router = useRouter();
-  const { loading: authLoading } = useAuth();
-  const { collections, stats, previews, loading, deleteCollection } = useCollections();
-  const { showToast } = useToast();
-
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  const handleConfirmDelete = async () => {
-    if (!deleteId) return;
-    setDeleteLoading(true);
-    try {
-      const ok = await deleteCollection(deleteId);
-      if (ok) {
-        showToast({ message: '本棚を削除しました', type: 'success' });
-      } else {
-        showToast({ message: '削除に失敗しました', type: 'error' });
-      }
-    } finally {
-      setDeleteLoading(false);
-      setDeleteId(null);
-    }
-  };
-
-  if (authLoading) {
-    return (
-      <>
-        <div className="flex items-center justify-center min-h-screen">
-          <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
-        </div>
-      </>
-    );
-  }
-
   return (
-    <>
-      <div className="min-h-screen pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6">
-        <header className="sticky top-0 z-40 bg-[var(--color-background)]/95 border-b border-[var(--color-border-light)]">
-          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-[var(--color-foreground)]">本棚</h1>
-              <p className="text-sm text-[var(--color-muted)]">単語帳をまとめて管理</p>
-            </div>
-            <Link
-              href="/collections/new"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] text-sm font-semibold border-2 border-[var(--color-success)]/20 border-b-[3px] active:border-b-[1px] active:mt-[2px] transition-all"
-            >
-              <Icon name="add" size={16} />
-              新規作成
-            </Link>
-          </div>
-        </header>
-
-        <main className="max-w-2xl mx-auto px-4 py-6">
-          {loading && collections.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
-              <Icon name="progress_activity" size={20} className="animate-spin" />
-              <span className="ml-2">読み込み中...</span>
-            </div>
-          ) : collections.length === 0 ? (
-            <div className="card p-6 text-center">
-              <div className="mx-auto w-12 h-12 rounded-full bg-[var(--color-success-light)] flex items-center justify-center">
-                <Icon name="shelves" size={24} className="text-[var(--color-success)]" />
-              </div>
-              <h2 className="mt-4 text-lg font-bold">本棚がありません</h2>
-              <p className="text-sm text-[var(--color-muted)] mt-2">
-                複数の単語帳をまとめて学期末試験や模試の対策に活用しましょう
-              </p>
-              <Link
-                href="/collections/new"
-                className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-full bg-[var(--color-success)] text-white font-semibold"
-              >
-                本棚を作成
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {collections.map((collection) => {
-                const s = stats[collection.id];
-                return (
-                  <CollectionBookshelfCard
-                    key={collection.id}
-                    id={collection.id}
-                    name={collection.name}
-                    projectCount={s?.projectCount ?? 0}
-                    wordCount={s?.wordCount ?? 0}
-                    masteredCount={s?.masteredCount ?? 0}
-                    previews={previews[collection.id] ?? []}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </main>
-
-        <DeleteConfirmModal
-          isOpen={!!deleteId}
-          onClose={() => setDeleteId(null)}
-          onConfirm={handleConfirmDelete}
-          title="本棚を削除"
-          message="この本棚を削除しますか？単語帳自体は削除されません。"
-          isLoading={deleteLoading}
-        />
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+      {/* Header */}
+      <div className="flex items-baseline justify-between px-5 pb-3 pt-2">
+        <div>
+          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">LIBRARY</div>
+          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">コレクション</h1>
+        </div>
+        <Link href="/collections/new" className="flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]">
+          新規作成
+          <Icon name="add" size={13} />
+        </Link>
       </div>
-    </>
+
+      {/* Collection list */}
+      <div className="flex flex-col gap-2.5 px-[18px]">
+        {COLLECTIONS.map((c) => {
+          const bg = thumbColor(c.id);
+          return (
+            <Link key={c.id} href={`/collections/${c.id}`}>
+              <SolidPanel
+                className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
+                faceClassName="!p-[13px]"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
+                    style={{ background: bg }}
+                  >
+                    {c.title.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{c.title}</div>
+                    <div className="mt-px flex items-baseline gap-1">
+                      <span className="font-display text-lg font-extrabold tabular-nums text-[var(--solid-ink)]">{c.totalWords}</span>
+                      <span className="text-[11px] font-bold text-[var(--color-muted)]">語</span>
+                    </div>
+                    <div className="mt-[3px] text-[10px] text-[var(--color-muted)]">{c.books} 冊の単語帳</div>
+                  </div>
+                  <Icon name="chevron_right" size={16} className="text-[var(--color-muted)]" />
+                </div>
+              </SolidPanel>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
