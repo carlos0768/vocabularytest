@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+import { WordSortSheet } from '@/components/project/WordListSheets';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
@@ -42,6 +43,8 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
+  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
+  const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -142,13 +145,22 @@ export default function ProjectPage() {
 
   const filteredWords = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return words;
-    return words.filter(
-      (word) =>
-        word.english.toLowerCase().includes(normalized) ||
-        word.japanese.toLowerCase().includes(normalized),
-    );
-  }, [query, words]);
+    const base = normalized
+      ? words.filter(
+          (word) =>
+            word.english.toLowerCase().includes(normalized) ||
+            word.japanese.toLowerCase().includes(normalized),
+        )
+      : words;
+    if (wordSortOrder === 'alphabetical') {
+      return [...base].sort((a, b) => a.english.localeCompare(b.english));
+    }
+    if (wordSortOrder === 'statusAsc') {
+      const rank = (s: string) => (s === 'new' ? 0 : s === 'review' ? 1 : 2);
+      return [...base].sort((a, b) => rank(a.status) - rank(b.status));
+    }
+    return base;
+  }, [query, words, wordSortOrder]);
 
   const handleCycleStatus = (wordId: string, newStatus: WordStatus) => {
     const word = words.find((w) => w.id === wordId);
@@ -492,6 +504,18 @@ export default function ProjectPage() {
             placeholder="単語を検索"
             className="w-[130px] rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
           />
+          <button
+            type="button"
+            onClick={() => setWordShowSortSheet(true)}
+            aria-label="並べ替え"
+            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
+              wordSortOrder !== 'createdAsc'
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="swap_vert" size={15} />
+          </button>
         </div>
         <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
           {filteredWords.length} / {counts.total}
@@ -520,6 +544,13 @@ export default function ProjectPage() {
           ))
         )}
       </div>
+
+      <WordSortSheet
+        open={wordShowSortSheet}
+        onClose={() => setWordShowSortSheet(false)}
+        sortOrder={wordSortOrder}
+        onSortOrderChange={setWordSortOrder}
+      />
 
       <ProjectShareSheet
         open={showShareSheet}
