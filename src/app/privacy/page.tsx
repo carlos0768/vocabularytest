@@ -28,62 +28,77 @@ export default function PrivacyPage() {
       <div className="px-[18px] pb-3.5">
         <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
           <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
-            Merken, Inc.（以下「当社」）は、利用者のプライバシーを尊重し、個人情報の保護に関する法律および関連法令を遵守します。本ポリシーは、当社が運営する「Merken」（以下「本サービス」）における情報の取得・利用・管理について定めるものです。
+            MERKEN（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本サービスにおける個人情報の取り扱いについて定めます。
           </p>
         </div>
       </div>
 
-      <Section num="1" label="取得する情報">
+      <Section num="1" label="収集する情報">
         <OL items={[
-          'アカウント情報（メールアドレス、表示名、認証プロバイダ ID）',
-          '学習データ（登録した単語、復習履歴、解答結果、学習目標）',
-          'デバイス情報（OS バージョン、アプリバージョン、言語設定）',
-          '利用ログ（画面遷移、機能利用頻度、クラッシュ情報）',
-          '決済情報（プラン種別、購読ステータス。クレジットカード番号は当社では保持しません）',
+          'アカウント情報（メールアドレス、パスワード〈暗号化済み〉）',
+          '学習データ（作成した単語帳、クイズの回答履歴、学習進捗）',
+          'アップロード画像（単語抽出のために送信された画像。処理後、サーバーには保存しません）',
+          '決済情報（有料プラン利用時。Stripeが処理し、本サービスではカード情報等を保持しません）',
         ]} />
       </Section>
 
       <Section num="2" label="利用目的">
         <P>取得した情報は、以下の目的のために利用します。</P>
         <OL items={[
-          '本サービスの提供・維持・改善',
-          '学習進捗の同期・復習アルゴリズムの最適化',
-          '不正利用・スパムの防止',
+          'サービスの提供・運営・改善',
+          'ユーザーの学習データの保存・同期',
           'お問い合わせへの対応',
+          '利用規約違反への対応',
           '統計データの作成（個人を特定できない形に加工）',
         ]} />
       </Section>
 
-      <Section num="3" label="第三者提供">
-        <P>当社は、利用者の同意なく個人情報を第三者に提供しません。ただし、法令に基づく場合、または以下の業務委託先への提供を除きます。委託先には適切な監督を行います。</P>
+      <Section num="3" label="第三者サービス">
+        <P>本サービスでは以下の第三者サービスを利用しています。各サービスのプライバシーポリシーについては、各社のサイトをご確認ください。</P>
         <OL items={[
-          'クラウドインフラ事業者（データ保存・配信）',
-          '認証プロバイダ（Apple, Google）',
-          '決済代行事業者（App Store, Google Play, Stripe 等）',
-          '解析・クラッシュ報告ツール（個人を特定しない形）',
+          'Supabase — 認証・データベース',
+          'Google (Gemini 2.5 Flash) — 画像OCR・単語抽出',
+          'OpenAI — クイズ生成・例文生成',
+          'Stripe — 決済処理',
+          'Vercel — ホスティング',
         ]} />
       </Section>
 
-      <Section num="4" label="Cookie・類似技術">
-        <P>本サービスでは、ログイン状態の維持や利用状況の分析のため Cookie および類似技術（ローカルストレージ、デバイス識別子）を使用します。ブラウザの設定によりこれらを無効化できますが、一部機能が利用できなくなる場合があります。</P>
+      <Section num="4" label="画像データの取り扱い">
+        <P>ユーザーがアップロードした画像は、単語抽出処理のためにGoogle Gemini APIに送信されます。処理完了後、画像データは本サービスのサーバーには保存されません。</P>
       </Section>
 
-      <Section num="5" label="データの保存期間">
-        <P>利用者がアカウントを削除した日から 30 日以内に、学習データを含む個人情報を削除します。法令に基づき保存が義務付けられる情報については、当該期間を経過するまで保管します。</P>
+      <Section num="5" label="データの保存">
+        <OL items={[
+          '無料プラン: データはユーザーのブラウザ（IndexedDB）にローカル保存されます。サーバーには送信されません。',
+          'Proプラン: データはSupabase（クラウド）に保存され、デバイス間で同期されます。',
+        ]} />
       </Section>
 
-      <Section num="6" label="利用者の権利">
-        <P>利用者は、当社が保有する自己の個人情報について、開示・訂正・利用停止・削除を請求できます。アプリ内「設定 &gt; アカウント」より、または下記の問い合わせ先までご連絡ください。</P>
+      <Section num="6" label="Cookie・類似技術">
+        <P>本サービスでは、ログイン状態の維持や利用状況の分析のためCookieおよびローカルストレージを使用します。ブラウザの設定によりこれらを無効化できますが、一部機能が利用できなくなる場合があります。</P>
       </Section>
 
-      <Section num="7" label="お問い合わせ">
+      <Section num="7" label="データの削除">
+        <P>ユーザーはいつでも自身のデータを削除できます。アカウント削除をご希望の場合は、お問い合わせください。アカウント削除時にはすべての関連データを削除します。</P>
+      </Section>
+
+      <Section num="8" label="セキュリティ">
+        <P>本サービスは、個人情報の漏洩・紛失を防ぐために適切なセキュリティ対策を講じています。通信はすべてSSL/TLSにより暗号化されています。</P>
+      </Section>
+
+      <Section num="9" label="ポリシーの変更">
+        <P>本ポリシーは必要に応じて改定することがあります。重要な変更がある場合は、サービス内で通知します。</P>
+      </Section>
+
+      <Section num="10" label="お問い合わせ">
         <div className="mt-1 rounded-lg border border-[var(--color-border)] bg-[#faf7f1] px-3 py-2.5">
           <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">CONTACT</div>
-          <div className="mt-1 font-mono text-xs text-[var(--solid-ink)]">privacy@merken.jp</div>
+          <a href="mailto:support@merken.jp" className="mt-1 block font-mono text-xs text-[var(--color-accent)]">support@merken.jp</a>
         </div>
       </Section>
 
-      <Footer updated="2026.01.05" />
+      <Footer updated="2026年2月24日" />
     </div>
   );
 }
@@ -120,7 +135,7 @@ function Footer({ updated }: { updated: string }) {
   return (
     <div className="px-[18px] pb-[110px] pt-1">
       <div className="text-center font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
-        最終更新 {updated} · Merken, Inc.
+        最終更新 {updated} · MERKEN
       </div>
     </div>
   );
