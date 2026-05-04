@@ -11,6 +11,7 @@ import type { ExtractMode } from '@/app/api/extract/route';
 interface ScanCaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultMode?: TopMode;
 }
 
 type TopMode = 'vocab' | 'correction' | 'parser';
@@ -59,10 +60,10 @@ function subToExtractMode(sub: SubOption): ExtractMode {
   return 'all';
 }
 
-export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
+export function ScanCaptureModal({ isOpen, onClose, defaultMode }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
-  const [activeMode, setActiveMode] = useState<TopMode>('vocab');
+  const [activeMode, setActiveMode] = useState<TopMode>(defaultMode ?? 'vocab');
   const [activeSub, setActiveSub] = useState<SubOption>('all');
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
