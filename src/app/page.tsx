@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { getRepository } from '@/lib/db';
+import { getDb, getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import {
@@ -173,6 +173,19 @@ export default function HomePage() {
       const result = await getProjectsWithWords(rawProjects, readRepo);
       setProjects(result.projectsWithStats);
       setStats(buildHomeStats(result.allWords));
+
+      // Write remote data to local IndexedDB so the next navigation shows it instantly (no flash)
+      if (readRepo === remoteRepository && rawProjects.length > 0) {
+        try {
+          const db = getDb();
+          await db.projects.bulkPut(rawProjects);
+          if (result.allWords.length > 0) {
+            await db.words.bulkPut(result.allWords);
+          }
+        } catch {
+          // Non-critical — local cache write failure doesn't affect the UI
+        }
+      }
     } catch (loadError) {
       console.error('Failed to load home data:', loadError);
       setError('ホームの読み込みに失敗しました');
