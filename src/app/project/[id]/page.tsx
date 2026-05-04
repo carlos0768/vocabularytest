@@ -718,11 +718,11 @@ function posShort(tag: string): string {
 function StatusSquares({ status }: { status: WordStatus }) {
   const filled = status === 'mastered' ? 3 : status === 'review' ? 1 : 0;
   return (
-    <div className="flex shrink-0 flex-col gap-[3px]">
+    <div className="flex shrink-0 flex-col gap-[1.5px]">
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="h-[9px] w-[9px] rounded-[2px] border-[1.25px] border-[var(--solid-ink)]"
+          className="h-[10px] w-[10px] rounded-[2px] border-[1.25px] border-[var(--solid-ink)]"
           style={{ background: i < filled ? 'var(--solid-ink)' : 'transparent' }}
         />
       ))}
