@@ -63,6 +63,20 @@ const AccountIconFilled = () => (
   </svg>
 );
 
+const StatsIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 3v18h18"/>
+    <path d="M7 16l4-4 4 4 4-6"/>
+  </svg>
+);
+
+const StatsIconFilled = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 3v18h18"/>
+    <path d="M7 16l4-4 4 4 4-6"/>
+  </svg>
+);
+
 const ScanPlusIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9"/>
@@ -105,18 +119,18 @@ const TABS: TabItem[] = [
     IconActive: ScanPlusIcon,
   },
   {
-    k: 'project',
-    label: '単語帳',
-    href: '/projects',
-    matchPaths: ['/projects', '/project', '/collections', '/favorites'],
-    IconDefault: BookIcon,
-    IconActive: BookIconFilled,
+    k: 'stats',
+    label: '進歩',
+    href: '/stats',
+    matchPaths: ['/stats'],
+    IconDefault: StatsIcon,
+    IconActive: StatsIconFilled,
   },
   {
     k: 'account',
     label: 'アカウント',
     href: '/settings',
-    matchPaths: ['/settings', '/subscription', '/stats', '/correction', '/parser'],
+    matchPaths: ['/settings', '/subscription', '/correction', '/parser'],
     IconDefault: AccountIcon,
     IconActive: AccountIconFilled,
   },
