@@ -39,13 +39,21 @@ export async function POST(request: NextRequest) {
     if (!ocrResponse.success) {
       return NextResponse.json({ success: false, error: '画像の読み取りに失敗しました' }, { status: 422 });
     }
-    const extractedText = ocrResponse.content.trim();
-    if (!extractedText || extractedText.length < 10) {
+
+    // Normalize: collapse runs of 3+ newlines to a single blank line, trim each line
+    const cleaned = ocrResponse.content
+      .split('\n')
+      .map((line) => line.trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    if (!cleaned || cleaned.length < 10) {
       return NextResponse.json({ success: false, error: '画像から英文を読み取れませんでした' }, { status: 422 });
     }
 
     // Truncate to correction limit
-    const text = extractedText.slice(0, 600);
+    const text = cleaned.slice(0, 600);
 
     // Run correction analysis
     const payload = await generateCorrectionPayload({ text, purpose });
