@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { processImageToBase64 } from '@/lib/image-utils';
+import { createBrowserClient } from '@/lib/supabase';
 import type { ExtractMode } from '@/app/api/extract/route';
 
 interface ScanCaptureModalProps {
@@ -81,6 +82,33 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
         router.push(`/correction/scan?source=library`);
         return;
       }
+
+      // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
+      if (isPro) {
+        const supabase = createBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('ログインが必要です');
+
+        const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('projectTitle', `スキャン ${dateLabel}`);
+        formData.append('scanMode', subToExtractMode(activeSub));
+
+        const res = await fetch('/api/scan-jobs', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: formData,
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({})) as { error?: string };
+          throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
+        }
+        onClose();
+        return;
+      }
+
+      // Free: 既存フロー（/api/extract → sessionStorage → /scan/confirm）
       const base64 = await processImageToBase64(file, 'default');
       const mode = subToExtractMode(activeSub);
       const res = await fetch('/api/extract', {
@@ -114,7 +142,9 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
         <div className="absolute inset-0 z-[110] flex items-center justify-center">
           <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5 shadow-[3px_3px_0_var(--solid-ink)]">
             <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
-            <span className="text-[13px] font-bold text-[var(--solid-ink)]">AI が単語を抽出中...</span>
+            <span className="text-[13px] font-bold text-[var(--solid-ink)]">
+              {isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...'}
+            </span>
           </div>
         </div>
       )}

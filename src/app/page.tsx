@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
@@ -123,6 +123,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [correctionItems, setCorrectionItems] = useState<HistoryItem[]>([]);
   const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [pendingScans, setPendingScans] = useState<{ id: string; project_title: string }[]>([]);
+  const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -182,8 +184,42 @@ export default function HomePage() {
   }, [authLoading, isPro, repository, user]);
 
   useEffect(() => {
+    loadHomeRef.current = loadHome;
+  }, [loadHome]);
+
+  useEffect(() => {
     void loadHome();
   }, [loadHome]);
+
+  // Pro: バックグラウンドスキャンのポーリング
+  useEffect(() => {
+    if (!user || !isPro || authLoading) return;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const hadActiveRef = { current: false };
+
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/scan-jobs');
+        if (!res.ok) return;
+        const data = await res.json() as { jobs?: { id: string; status: string; project_title: string }[] };
+        const active = (data.jobs ?? []).filter((j) => j.status === 'pending' || j.status === 'processing');
+        setPendingScans(active.map((j) => ({ id: j.id, project_title: j.project_title })));
+        if (active.length === 0) {
+          if (hadActiveRef.current) {
+            hadActiveRef.current = false;
+            void loadHomeRef.current();
+          }
+          if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        } else {
+          hadActiveRef.current = true;
+        }
+      } catch { /* silent */ }
+    };
+
+    void poll();
+    intervalId = setInterval(poll, 5000);
+    return () => { if (intervalId) clearInterval(intervalId); };
+  }, [user, isPro, authLoading]);
 
   useEffect(() => {
     if (authLoading || !user || !isPro || !navigator.onLine) return;
@@ -287,6 +323,16 @@ export default function HomePage() {
       </div>
 
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
+        {pendingScans.map((job) => (
+          <div
+            key={job.id}
+            className="flex items-center gap-2.5 rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-3 shadow-[2.5px_2.5px_0_var(--solid-ink)]"
+          >
+            <Icon name="progress_activity" size={15} className="shrink-0 animate-spin text-[var(--color-muted)]" />
+            <span className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--color-muted)]">{job.project_title}</span>
+            <span className="font-mono text-[10px] text-[var(--color-muted)]">抽出中...</span>
+          </div>
+        ))}
         {loading && visibleProjects.length === 0 ? (
           <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
