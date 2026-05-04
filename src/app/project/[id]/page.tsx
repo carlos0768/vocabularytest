@@ -80,11 +80,27 @@ export default function ProjectPage() {
     try {
       const expectedUserId = user ? user.id : getGuestUserId();
 
-      const loadedProject = await repository.getProject(projectId);
+      let loadedProject = await repository.getProject(projectId);
+      let wordRepo: typeof repository = repository;
+
+      // Background scan jobs (Pro) save directly to Supabase and may not be
+      // in local IndexedDB yet. Fall back to remote when local lookup misses.
+      if (!isOwnedBy(loadedProject, expectedUserId) && user && navigator.onLine) {
+        try {
+          const remote = await remoteRepository.getProject(projectId);
+          if (isOwnedBy(remote, user.id)) {
+            loadedProject = remote;
+            wordRepo = remoteRepository;
+          }
+        } catch {
+          // remote unavailable — handled below
+        }
+      }
+
       if (isOwnedBy(loadedProject, expectedUserId)) {
         setProject(loadedProject);
         setLoading(false);
-        const loadedWords = await repository.getWords(projectId);
+        const loadedWords = await wordRepo.getWords(projectId);
         setWords(loadedWords);
         setWordsLoaded(true);
       } else {
