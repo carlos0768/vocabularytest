@@ -102,12 +102,14 @@ export default function ProjectPage() {
             loadedProject = remoteProject;
             setProject(remoteProject);
             setLoading(false);
+            setWordsLoaded(false);
             loadedWords = await remoteRepository.getWords(projectId);
             setWords(loadedWords);
             setWordsLoaded(true);
           }
         } catch (remoteError) {
           console.error('Remote project load failed:', remoteError);
+          setWordsLoaded(true);
         }
       }
 
