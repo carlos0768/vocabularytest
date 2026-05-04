@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { useAuth } from '@/hooks/use-auth';
+import { createBrowserClient } from '@/lib/supabase';
 import { getDb, getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -214,7 +215,12 @@ export default function HomePage() {
 
     const poll = async () => {
       try {
-        const res = await fetch('/api/scan-jobs');
+        const supabase = createBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch('/api/scan-jobs', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
         if (!res.ok) return;
         const data = await res.json() as { jobs?: { id: string; status: string; project_title: string }[] };
         const active = (data.jobs ?? []).filter((j) => j.status === 'pending' || j.status === 'processing');
