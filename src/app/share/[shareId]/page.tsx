@@ -274,7 +274,7 @@ export default function SharedDetailPage() {
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em]">SHARED</span>
           </div>
 
-          <h1 className="mt-2 break-words font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+          <h1 className="mt-2 overflow-hidden break-all font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
             {project.title}
           </h1>
 
@@ -337,7 +337,7 @@ export default function SharedDetailPage() {
       </div>
 
       <div
-        className="absolute bottom-0 left-0 right-0 px-4 pt-3"
+        className="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
         {importedProjectId ? (
