@@ -45,14 +45,14 @@ function HeaderBtn({
   );
 }
 
-/* ---------- Highlighted corrected text ---------- */
+/* ---------- Highlighted original text with mistakes ---------- */
 type TextSegment = { text: string; issueNumber?: number };
 
-function buildTextSegments(correctedText: string, issues: CorrectionIssue[]): TextSegment[] {
-  let segments: TextSegment[] = [{ text: correctedText }];
+function buildTextSegments(inputText: string, issues: CorrectionIssue[]): TextSegment[] {
+  let segments: TextSegment[] = [{ text: inputText }];
 
   issues.forEach((issue, idx) => {
-    const search = (issue.to ?? '').trim();
+    const search = (issue.from ?? '').trim();
     if (!search) return;
 
     const next: TextSegment[] = [];
@@ -71,19 +71,19 @@ function buildTextSegments(correctedText: string, issues: CorrectionIssue[]): Te
   return segments;
 }
 
-function HighlightedText({ correctedText, issues }: { correctedText: string; issues: CorrectionIssue[] }) {
-  const segments = buildTextSegments(correctedText, issues);
+function HighlightedText({ inputText, issues }: { inputText: string; issues: CorrectionIssue[] }) {
+  const segments = buildTextSegments(inputText, issues);
   return (
     <div className="whitespace-pre-wrap rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-3.5 py-3.5 text-[13px] leading-[1.85] text-[var(--solid-ink)]">
       {segments.map((seg, i) =>
         seg.issueNumber !== undefined ? (
           <span
             key={i}
-            className="border-b-2 border-[var(--color-accent)]"
-            style={{ background: 'rgba(var(--color-accent-rgb,19,127,236),0.07)' }}
+            className="border-b-2 border-[#c43d3d]"
+            style={{ background: 'rgba(196,61,61,0.07)' }}
           >
             {seg.text}
-            <sup className="ml-[2px] font-mono text-[9px] font-black text-[var(--color-accent)]">
+            <sup className="ml-[2px] font-mono text-[9px] font-black text-[#c43d3d]">
               {seg.issueNumber}
             </sup>
           </span>
@@ -176,13 +176,13 @@ export default function CorrectionResultPage() {
         </div>
       </div>
 
-      {/* Corrected text with highlights */}
+      {/* Original text with mistake highlights */}
       <div className="px-[18px] pb-3.5">
         <div className="mb-[7px] flex items-center justify-between">
-          <span className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">添削後</span>
+          <span className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">添削前</span>
           <span className="font-mono text-[9px] font-bold text-[var(--color-accent)]">{result.purpose}</span>
         </div>
-        <HighlightedText correctedText={result.correctedText} issues={result.issues} />
+        <HighlightedText inputText={result.inputText} issues={result.issues} />
       </div>
 
       {/* Issues list (no save-word buttons) */}
@@ -208,15 +208,7 @@ export default function CorrectionResultPage() {
 
       {error && <div className="px-[18px] pb-2 text-center text-xs font-bold text-[var(--color-error)]">{error}</div>}
 
-      {/* Bottom CTA: only "修正" remains */}
-      <div className="px-[18px] pb-7 pt-2">
-        <Link href="/correction/new" className="relative block">
-          <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white py-[13px] text-[13px] font-bold text-[var(--solid-ink)]">
-            <Icon name="edit" size={14} /> 修正
-          </span>
-        </Link>
-      </div>
+      <div className="pb-7" />
     </div>
   );
 }
