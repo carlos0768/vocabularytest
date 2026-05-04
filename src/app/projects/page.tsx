@@ -18,9 +18,9 @@ import { getGuestUserId } from '@/lib/utils';
 import type { Project, SubscriptionStatus } from '@/types';
 
 const SORTS = [
-  { k: 'count', label: '単語数順' },
-  { k: 'newest', label: '新しい順' },
-  { k: 'un', label: '未習得順' },
+  { k: 'newest',   label: '新しい順',     icon: 'schedule' },
+  { k: 'words',    label: '単語が多い順', icon: 'sort' },
+  { k: 'lastUsed', label: '最近使った順', icon: 'history' },
 ] as const;
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -129,8 +129,12 @@ export default function ProjectListPage() {
       : projects;
 
     return [...base].sort((a, b) => {
-      if (sort === 'count') return b.totalWords - a.totalWords;
-      if (sort === 'un') return b.newWords - a.newWords;
+      if (sort === 'words') return b.totalWords - a.totalWords;
+      if (sort === 'lastUsed') {
+        const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+        const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+        return bTime - aTime;
+      }
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [projects, query, sort]);
@@ -167,12 +171,13 @@ export default function ProjectListPage() {
             key={s.k}
             type="button"
             onClick={() => setSort(s.k)}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
               sort === s.k
                 ? 'border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
                 : 'border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
             }`}
           >
+            <Icon name={s.icon} size={12} />
             {s.label}
           </button>
         ))}
@@ -242,12 +247,6 @@ function BookRow({ project }: { project: ProjectRowStats }) {
 
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
-            <div className="mt-px flex items-baseline gap-0.5">
-              <span className="font-display text-[16px] font-extrabold leading-none tabular-nums text-[var(--solid-ink)]">
-                {project.totalWords}
-              </span>
-              <span className="ml-px text-[11px] font-bold text-[var(--color-muted)]">語</span>
-            </div>
             <div className="mt-1 flex gap-2.5">
               <DotChip color="var(--color-success)" label={`習得 ${project.masteredWords}`} />
               <DotChip color="var(--color-warning)" label={`学習 ${project.reviewWords}`} />
