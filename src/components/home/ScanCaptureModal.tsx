@@ -51,10 +51,10 @@ const MODE_SCAN_PATH: Record<TopMode, string> = {
   parser: '/parser/scan',
 };
 
-function subsToExtractMode(subs: SubOption[]): ExtractMode {
-  if (subs.includes('circle')) return 'circled';
-  if (subs.includes('eiken')) return 'eiken';
-  if (subs.includes('idiom')) return 'idiom';
+function subToExtractMode(sub: SubOption): ExtractMode {
+  if (sub === 'circle') return 'circled';
+  if (sub === 'eiken') return 'eiken';
+  if (sub === 'idiom') return 'idiom';
   return 'all';
 }
 
@@ -62,19 +62,13 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>('vocab');
-  const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
+  const [activeSub, setActiveSub] = useState<SubOption>('all');
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const toggleSub = (k: SubOption) => {
-    setActiveSubs(prev =>
-      prev.includes(k) ? prev.filter(s => s !== k) : [...prev, k]
-    );
-  };
 
   const handleFileSelected = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -88,7 +82,7 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
         return;
       }
       const base64 = await processImageToBase64(file, 'default');
-      const mode = subsToExtractMode(activeSubs);
+      const mode = subToExtractMode(activeSub);
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,16 +221,16 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 6l6 6-6 6"/>
                 </svg>
-                抽出オプション · 複数選択可
+                抽出オプション
               </div>
               <div className="flex flex-wrap gap-[5px]">
                 {SUB_OPTIONS.map(s => {
-                  const on = activeSubs.includes(s.k);
+                  const on = activeSub === s.k;
                   return (
                     <button
                       key={s.k}
                       type="button"
-                      onClick={() => toggleSub(s.k)}
+                      onClick={() => setActiveSub(s.k)}
                       className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                       style={{
                         background: on ? 'var(--solid-ink)' : '#fff',
@@ -244,17 +238,12 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
                       }}
                     >
                       <span
-                        className="inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-[3px]"
+                        className="inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-full"
                         style={{
                           border: on ? '1.25px solid #fff' : '1.25px solid var(--solid-ink)',
-                          background: on ? '#fff' : 'transparent',
                         }}
                       >
-                        {on && (
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--solid-ink)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 12l5 5L20 6"/>
-                          </svg>
-                        )}
+                        {on && <span className="h-[6px] w-[6px] rounded-full bg-white" />}
                       </span>
                       {s.label}
                       {s.pro && !isPro && (
