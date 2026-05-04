@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { processImageToBase64 } from '@/lib/image-utils';
+import type { ExtractMode } from '@/app/api/extract/route';
 
 interface ScanCaptureModalProps {
   isOpen: boolean;
@@ -49,11 +51,22 @@ const MODE_SCAN_PATH: Record<TopMode, string> = {
   parser: '/parser/scan',
 };
 
+function subsToExtractMode(subs: SubOption[]): ExtractMode {
+  if (subs.includes('circle')) return 'circled';
+  if (subs.includes('eiken')) return 'eiken';
+  if (subs.includes('idiom')) return 'idiom';
+  return 'all';
+}
+
 export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>('vocab');
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
+  const [processing, setProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -63,23 +76,56 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
     );
   };
 
-  const handleCamera = () => {
-    onClose();
-    setTimeout(() => router.push(`${MODE_SCAN_PATH[activeMode]}?source=camera`), 50);
+  const handleFileSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    setProcessing(true);
+    setErrorMsg(null);
+    try {
+      if (activeMode === 'correction') {
+        onClose();
+        router.push(`/correction/scan?source=library`);
+        return;
+      }
+      const base64 = await processImageToBase64(file, 'default');
+      const mode = subsToExtractMode(activeSubs);
+      const res = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
+      });
+      const result = await res.json() as { success: boolean; words?: unknown[]; sourceLabels?: string[]; lexiconEntries?: unknown[]; error?: string; limitReached?: boolean };
+      if (!result.success) throw new Error(result.error ?? '抽出に失敗しました');
+      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words ?? []));
+      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(result.sourceLabels ?? []));
+      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(result.lexiconEntries ?? []));
+      sessionStorage.removeItem('scanvocab_project_name');
+      sessionStorage.removeItem('scanvocab_project_icon');
+      sessionStorage.removeItem('scanvocab_existing_project_id');
+      onClose();
+      router.replace('/scan/confirm');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : '処理に失敗しました');
+      setProcessing(false);
+    }
   };
 
-  const handleLibrary = () => {
-    onClose();
-    setTimeout(() => router.push(`${MODE_SCAN_PATH[activeMode]}?source=library`), 50);
-  };
+  const handleCamera = () => cameraInputRef.current?.click();
+  const handleLibrary = () => libraryInputRef.current?.click();
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      {/* Hidden file inputs */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="sr-only"
+        onChange={(e) => void handleFileSelected(e.target.files)} />
+      <input ref={libraryInputRef} type="file" accept="image/*" className="sr-only"
+        onChange={(e) => void handleFileSelected(e.target.files)} />
+
       {/* Backdrop */}
       <div
         className="absolute inset-0"
         style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-        onClick={onClose}
+        onClick={processing ? undefined : onClose}
       />
 
       {/* Bottom sheet — centered, max 480px */}
@@ -227,45 +273,40 @@ export function ScanCaptureModal({ isOpen, onClose }: ScanCaptureModalProps) {
           )}
 
           {/* Camera / Library buttons */}
-          <div className="mb-3 flex gap-2.5">
-            <button type="button" onClick={handleCamera} className="relative flex-1">
-              <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-              <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-                <span className="text-[13px] font-bold">カメラで撮影</span>
-              </div>
-            </button>
-            <button type="button" onClick={handleLibrary} className="relative flex-1">
-              <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-              <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="5" width="18" height="14" rx="2"/>
-                  <path d="M3 16l5-5 4 4 3-3 6 6"/>
-                </svg>
-                <span className="text-[13px] font-bold">写真から選ぶ</span>
-              </div>
-            </button>
-          </div>
+          {processing ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-[var(--color-muted)]">
+              <Icon name="progress_activity" size={20} className="animate-spin" />
+              <span className="text-[13px]">AI が単語を抽出中...</span>
+            </div>
+          ) : (
+            <div className="flex gap-2.5">
+              <button type="button" onClick={handleCamera} className="relative flex-1">
+                <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+                <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <span className="text-[13px] font-bold">カメラで撮影</span>
+                </div>
+              </button>
+              <button type="button" onClick={handleLibrary} className="relative flex-1">
+                <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+                <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="2"/>
+                    <path d="M3 16l5-5 4 4 3-3 6 6"/>
+                  </svg>
+                  <span className="text-[13px] font-bold">写真から選ぶ</span>
+                </div>
+              </button>
+            </div>
+          )}
 
-          {/* Tip */}
-          <div
-            className="flex items-center gap-2 rounded-[10px] px-[11px] py-[9px]"
-            style={{
-              background: 'rgba(19,127,236,0.06)',
-              border: '1px dashed rgba(19,127,236,0.3)',
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#137fec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 16v-4M12 8h.01"/>
-            </svg>
-            <span className="text-[11px] leading-[1.5] text-[var(--color-muted)]">
-              見開きページも OK。AI が 20 秒で単語を抽出します。
-            </span>
-          </div>
+          {/* Error */}
+          {errorMsg && (
+            <p className="mt-2 text-center text-[11px] text-[var(--color-error)]">{errorMsg}</p>
+          )}
         </div>
       </div>
     </div>
