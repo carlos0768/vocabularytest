@@ -221,8 +221,8 @@ export default function HomePage() {
           if (hadActiveRef.current) {
             hadActiveRef.current = false;
             void loadHomeRef.current();
+            if (intervalId) { clearInterval(intervalId); intervalId = null; }
           }
-          if (intervalId) { clearInterval(intervalId); intervalId = null; }
         } else {
           hadActiveRef.current = true;
         }
