@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
+import { ProjectDetailSheet } from '@/components/project/ProjectDetailSheet';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
@@ -62,6 +63,7 @@ export default function ProjectListPage() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
   const [error, setError] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -211,7 +213,7 @@ export default function ProjectListPage() {
             }
           />
         ) : (
-          filtered.map((project) => <BookRow key={project.id} project={project} />)
+          filtered.map((project) => <BookRow key={project.id} project={project} onSelect={() => setSelectedProjectId(project.id)} />)
         )}
       </div>
 
@@ -223,14 +225,21 @@ export default function ProjectListPage() {
           </span>
         </span>
       </Link>
+
+      {selectedProjectId && (
+        <ProjectDetailSheet
+          projectId={selectedProjectId}
+          onClose={() => setSelectedProjectId(null)}
+        />
+      )}
     </div>
   );
 }
 
-function BookRow({ project }: { project: ProjectRowStats }) {
+function BookRow({ project, onSelect }: { project: ProjectRowStats; onSelect: () => void }) {
   const bg = thumbColor(project.id);
   return (
-    <Link href={`/project/${project.id}`}>
+    <button type="button" onClick={onSelect} className="w-full text-left">
       <SolidPanel
         className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
         faceClassName="!p-[13px]"
@@ -257,7 +266,7 @@ function BookRow({ project }: { project: ProjectRowStats }) {
           </span>
         </div>
       </SolidPanel>
-    </Link>
+    </button>
   );
 }
 
