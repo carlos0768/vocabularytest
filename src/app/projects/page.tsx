@@ -151,18 +151,16 @@ export default function ProjectListPage() {
       </div>
 
       <div className="px-[18px] pb-2.5 pt-1">
-        <SolidPanel className="!rounded-xl !shadow-[2px_2px_0_var(--solid-ink)]" faceClassName="!px-3.5 !py-2.5">
-          <label className="flex items-center gap-2 text-[var(--color-muted)]">
-            <Icon name="search" size={15} />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="マイ単語帳を検索"
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-            />
-          </label>
-        </SolidPanel>
+        <label className="flex items-center gap-2 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3.5 py-2.5 text-[var(--color-muted)]">
+          <Icon name="search" size={15} />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="マイ単語帳を検索"
+            className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+          />
+        </label>
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto px-[18px] pb-3.5 pt-1">
