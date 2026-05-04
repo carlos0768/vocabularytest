@@ -11,7 +11,6 @@ import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListShe
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
-import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
@@ -80,53 +79,15 @@ export default function ProjectPage() {
 
     try {
       const expectedUserId = user ? user.id : getGuestUserId();
-      let loadedProject: Project | undefined;
-      let loadedWords: Word[] = [];
 
-      try {
-        const localProject = await localRepository.getProject(projectId);
-        if (isOwnedBy(localProject, expectedUserId)) {
-          loadedProject = localProject;
-          setProject(localProject);
-          setLoading(false);
-          loadedWords = await localRepository.getWords(projectId);
-          setWords(loadedWords);
-          setWordsLoaded(true);
-        }
-      } catch (localError) {
-        console.error('Local project load failed:', localError);
-      }
-
-      if (user && navigator.onLine) {
-        try {
-          const remoteProject = await remoteRepository.getProject(projectId);
-          if (isOwnedBy(remoteProject, user.id)) {
-            loadedProject = remoteProject;
-            setProject(remoteProject);
-            setLoading(false);
-            setWordsLoaded(false);
-            loadedWords = await remoteRepository.getWords(projectId);
-            setWords(loadedWords);
-            setWordsLoaded(true);
-          }
-        } catch (remoteError) {
-          console.error('Remote project load failed:', remoteError);
-          setWordsLoaded(true);
-        }
-      }
-
-      if (!loadedProject) {
-        const fallback = await repository.getProject(projectId);
-        if (isOwnedBy(fallback, expectedUserId)) {
-          loadedProject = fallback;
-          setProject(fallback);
-          loadedWords = await repository.getWords(projectId);
-          setWords(loadedWords);
-          setWordsLoaded(true);
-        }
-      }
-
-      if (!loadedProject) {
+      const loadedProject = await repository.getProject(projectId);
+      if (isOwnedBy(loadedProject, expectedUserId)) {
+        setProject(loadedProject);
+        setLoading(false);
+        const loadedWords = await repository.getWords(projectId);
+        setWords(loadedWords);
+        setWordsLoaded(true);
+      } else {
         setError('単語帳が見つかりません');
       }
     } catch (loadError) {
