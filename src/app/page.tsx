@@ -238,7 +238,7 @@ export default function HomePage() {
     };
 
     void poll();
-    intervalId = setInterval(poll, 5000);
+    intervalId = setInterval(poll, 2000);
     return () => { if (intervalId) clearInterval(intervalId); };
   }, [user, isPro, authLoading]);
 
@@ -344,11 +344,9 @@ export default function HomePage() {
       </div>
 
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
-        {pendingScans
-          .filter((job) => !projects.some((p) => p.title === job.project_title))
-          .map((job) => (
-            <PendingScanRow key={job.id} title={job.project_title} />
-          ))}
+        {pendingScans.map((job) => (
+          <PendingScanRow key={job.id} title={job.project_title} />
+        ))}
         {loading && visibleProjects.length === 0 ? (
           <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
