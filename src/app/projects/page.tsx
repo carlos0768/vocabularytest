@@ -151,7 +151,7 @@ export default function ProjectListPage() {
       </div>
 
       <div className="px-[18px] pb-2.5 pt-1">
-        <label className="flex items-center gap-2 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3.5 py-2.5 text-[var(--color-muted)]">
+        <label className="flex items-center gap-2 rounded-full border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-[var(--color-muted)]">
           <Icon name="search" size={15} />
           <input
             type="search"
