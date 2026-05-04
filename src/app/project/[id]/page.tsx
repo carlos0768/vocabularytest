@@ -688,23 +688,18 @@ export default function ProjectPage() {
             style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
             onClick={() => setSelectedWord(null)}
           />
-          <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
             <div
-              className="w-full animate-fade-in-up overflow-y-auto"
+              className="w-full overflow-y-auto"
               style={{
                 maxWidth: 480,
-                maxHeight: '90dvh',
+                maxHeight: '80dvh',
                 background: '#faf7f1',
                 border: '1.5px solid var(--solid-ink)',
-                borderBottomWidth: 0,
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
-                boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+                borderRadius: 20,
+                boxShadow: '4px 5px 0 var(--solid-ink)',
               }}
             >
-              <div className="sticky top-0 z-10 flex justify-center bg-[#faf7f1] pb-0.5 pt-2.5">
-                <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
-              </div>
               <WordDetailView
                 wordId={selectedWord.id}
                 variant="modal"
