@@ -266,15 +266,15 @@ export default function SharedDetailPage() {
 
       <div className="px-[18px] pb-3.5 pt-1">
         <SolidPanel
-          className="!rounded-[16px]"
-          faceClassName="!p-4 relative overflow-hidden [background:linear-gradient(135deg,oklch(0.94_0.04_14),#fff)]"
+          className="!rounded-[16px] overflow-hidden"
+          faceClassName="!p-4 relative [background:linear-gradient(135deg,oklch(0.94_0.04_14),#fff)]"
         >
           <div className="flex items-center gap-1.5 text-[var(--color-muted)]">
             <Icon name="public" size={13} />
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em]">SHARED</span>
           </div>
 
-          <h1 className="mt-2 overflow-hidden break-all font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+          <h1 className="mt-2 break-all font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
             {project.title}
           </h1>
 
