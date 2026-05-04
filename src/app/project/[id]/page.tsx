@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
+import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
@@ -62,6 +63,7 @@ export default function ProjectPage() {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<Word | null>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -587,6 +589,7 @@ export default function ProjectPage() {
               onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
               onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
               onToggleFavorite={() => void handleToggleFavorite(word)}
+              onSelect={() => setSelectedWord(word)}
             />
           ))
         )}
@@ -673,6 +676,45 @@ export default function ProjectPage() {
                   {renameLoading ? '変更中...' : '変更'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedWord && (
+        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+            onClick={() => setSelectedWord(null)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+            <div
+              className="w-full animate-fade-in-up overflow-y-auto"
+              style={{
+                maxWidth: 480,
+                maxHeight: '90dvh',
+                background: '#faf7f1',
+                border: '1.5px solid var(--solid-ink)',
+                borderBottomWidth: 0,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+              }}
+            >
+              <div className="sticky top-0 z-10 flex justify-center bg-[#faf7f1] pb-0.5 pt-2.5">
+                <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+              </div>
+              <WordDetailView
+                wordId={selectedWord.id}
+                variant="modal"
+                initialWord={selectedWord}
+                onClose={() => setSelectedWord(null)}
+                onWordUpdated={(updated) => {
+                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+                  setSelectedWord(updated);
+                }}
+              />
             </div>
           </div>
         </div>
@@ -942,11 +984,13 @@ function WordRow({
   onCycleStatus,
   onCycleVocabularyType,
   onToggleFavorite,
+  onSelect,
 }: {
   word: Word;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
+  onSelect: () => void;
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
   return (
@@ -956,13 +1000,13 @@ function WordRow({
         <div className="flex items-center gap-2.5">
           <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
 
-          <Link href={`/word/${word.id}?from=${encodeURIComponent(`/project/${word.projectId}`)}`} className="min-w-0 flex-1">
+          <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
               {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
               <span className="truncate">{word.japanese}</span>
             </div>
-          </Link>
+          </button>
 
           <VocabularyTypeButton
             vocabularyType={word.vocabularyType}
