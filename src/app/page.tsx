@@ -309,48 +309,57 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="px-[18px] pb-[150px] pt-1">
-        <div className="mb-2 font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-          添削
+      <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
+        <div>
+          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">CORRECTION</div>
+          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">添削</h2>
         </div>
+      </div>
+
+      <div className="px-[18px] pb-[150px]">
         {correctionLoading ? (
           <div className="flex items-center justify-center py-6 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={18} className="animate-spin" />
           </div>
         ) : correctionItems.length === 0 ? (
-          <div className="grid grid-cols-1 gap-2.5">
-            <Link href="/correction" className="block">
-              <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
-                <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
-                  <Icon name="edit_note" size={16} />
-                  <span className="font-mono text-[11px] font-bold tracking-[0.04em]">CORRECTION</span>
-                </div>
-                <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">英作文の添削</div>
-                <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
-              </SolidPanel>
-            </Link>
-          </div>
+          <Link href="/correction" className="block">
+            <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
+              <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
+                <Icon name="edit_note" size={16} />
+                <span className="font-mono text-[11px] font-bold tracking-[0.04em]">CORRECTION</span>
+              </div>
+              <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">英作文の添削</div>
+              <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
+            </SolidPanel>
+          </Link>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             {correctionItems.slice(0, 3).map((item) => (
-              <Link key={item.id} href={`/correction/result?id=${item.id}`} className="relative flex items-stretch gap-[11px] rounded-xl bg-white px-3 py-[11px]" style={{ border: '1.25px solid var(--color-border)' }}>
-                <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]">
-                  <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
-                  <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="mb-[3px] flex items-center gap-1.5">
-                    <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{item.purpose}</span>
-                    <span className="font-mono text-[9px] text-[var(--color-muted)]">{formatWhen(item.createdAt)}</span>
+              <Link key={item.id} href={`/correction/result?id=${item.id}`} className="block">
+                <SolidPanel
+                  className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
+                  faceClassName="!p-[13px]"
+                >
+                  <div className="flex items-stretch gap-[11px]">
+                    <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-background)]">
+                      <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
+                      <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-[3px] flex items-center gap-1.5">
+                        <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{item.purpose}</span>
+                        <span className="font-mono text-[9px] text-[var(--color-muted)]">{formatWhen(item.createdAt)}</span>
+                      </div>
+                      <div className="line-clamp-2 text-[11.5px] italic leading-[1.5] text-[var(--solid-ink)]">{item.preview}</div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[#c43d3d]" />{item.issueCount} 指摘</span>
+                        <span className="inline-block h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
+                        <span className="font-mono text-[9px] font-semibold text-[var(--color-muted)]">{item.wordCount} 語</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 self-center text-[var(--color-muted)]"><Icon name="chevron_right" size={14} /></div>
                   </div>
-                  <div className="line-clamp-2 text-[11.5px] italic leading-[1.5] text-[var(--solid-ink)]">{item.preview}</div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[#c43d3d]" />{item.issueCount} 指摘</span>
-                    <span className="inline-block h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
-                    <span className="font-mono text-[9px] font-semibold text-[var(--color-muted)]">{item.wordCount} 語</span>
-                  </div>
-                </div>
-                <div className="shrink-0 self-center text-[var(--color-muted)]"><Icon name="chevron_right" size={14} /></div>
+                </SolidPanel>
               </Link>
             ))}
           </div>
