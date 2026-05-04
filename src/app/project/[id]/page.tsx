@@ -7,7 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
-import { WordSortSheet } from '@/components/project/WordListSheets';
+import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
@@ -45,6 +45,12 @@ export default function ProjectPage() {
   const [query, setQuery] = useState('');
   const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
+  const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
+  const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
+  const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
+  const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -143,24 +149,35 @@ export default function ProjectPage() {
     return { total: words.length, mastered, learning, newCount };
   }, [words]);
 
+  const wordFilterActive = wordFilterBookmark || wordFilterActiveness !== 'all' || wordFilterPos !== null;
+
+  const availablePartsOfSpeech = useMemo(() => {
+    const set = new Set<string>();
+    for (const w of words) {
+      for (const tag of w.partOfSpeechTags ?? []) set.add(tag);
+    }
+    return [...set].sort();
+  }, [words]);
+
   const filteredWords = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const base = normalized
+    let base = normalized
       ? words.filter(
           (word) =>
             word.english.toLowerCase().includes(normalized) ||
             word.japanese.toLowerCase().includes(normalized),
         )
       : words;
-    if (wordSortOrder === 'alphabetical') {
-      return [...base].sort((a, b) => a.english.localeCompare(b.english));
-    }
+    if (wordFilterBookmark) base = base.filter((w) => w.isFavorite);
+    if (wordFilterActiveness !== 'all') base = base.filter((w) => w.vocabularyType === wordFilterActiveness);
+    if (wordFilterPos) base = base.filter((w) => w.partOfSpeechTags?.includes(wordFilterPos!));
+    if (wordSortOrder === 'alphabetical') return [...base].sort((a, b) => a.english.localeCompare(b.english));
     if (wordSortOrder === 'statusAsc') {
       const rank = (s: string) => (s === 'new' ? 0 : s === 'review' ? 1 : 2);
       return [...base].sort((a, b) => rank(a.status) - rank(b.status));
     }
     return base;
-  }, [query, words, wordSortOrder]);
+  }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
 
   const handleCycleStatus = (wordId: string, newStatus: WordStatus) => {
     const word = words.find((w) => w.id === wordId);
@@ -504,6 +521,25 @@ export default function ProjectPage() {
             placeholder="単語を検索"
             className="w-[130px] rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
           />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {(wordFilterActive || query) && (
+            <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+              {filteredWords.length}/{counts.total}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setWordShowFilterSheet(true)}
+            aria-label="フィルタ"
+            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
+              wordFilterActive
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="filter_list" size={15} />
+          </button>
           <button
             type="button"
             onClick={() => setWordShowSortSheet(true)}
@@ -516,10 +552,19 @@ export default function ProjectPage() {
           >
             <Icon name="swap_vert" size={15} />
           </button>
+          <button
+            type="button"
+            onClick={() => { setSelectMode((v) => !v); setSelectedWordIds(new Set()); }}
+            aria-label="選択"
+            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
+              selectMode
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="check_box" size={15} />
+          </button>
         </div>
-        <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
-          {filteredWords.length} / {counts.total}
-        </span>
       </div>
 
       <div className="flex flex-col gap-2 px-4 pb-[160px]">
@@ -545,6 +590,19 @@ export default function ProjectPage() {
         )}
       </div>
 
+      <WordFilterSheet
+        open={wordShowFilterSheet}
+        onClose={() => setWordShowFilterSheet(false)}
+        bookmark={wordFilterBookmark}
+        onBookmarkChange={setWordFilterBookmark}
+        activeness={wordFilterActiveness}
+        onActivenessChange={setWordFilterActiveness}
+        pos={wordFilterPos}
+        onPosChange={setWordFilterPos}
+        availablePartsOfSpeech={availablePartsOfSpeech}
+        hasActiveFilters={wordFilterActive}
+        onReset={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
+      />
       <WordSortSheet
         open={wordShowSortSheet}
         onClose={() => setWordShowSortSheet(false)}
