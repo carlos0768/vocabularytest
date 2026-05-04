@@ -20,6 +20,35 @@ import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
+type HistoryItem = {
+  id: string;
+  purpose: string;
+  preview: string;
+  score: number;
+  wordCount: number;
+  issueCount: number;
+  createdAt: string;
+};
+
+function scoreColor(score: number): string {
+  if (score >= 85) return 'var(--color-success)';
+  if (score >= 70) return 'var(--color-accent)';
+  if (score >= 60) return '#c8a02e';
+  return '#c43d3d';
+}
+
+function formatWhen(value: string) {
+  const diff = Date.now() - Date.parse(value);
+  if (!Number.isFinite(diff)) return '';
+  const minutes = Math.max(1, Math.floor(diff / 60000));
+  if (minutes < 60) return `${minutes} 分前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 時間前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 日前`;
+  return new Date(value).toLocaleDateString('ja-JP');
+}
+
 type HomeStats = {
   dueCount: number;
   completedToday: number;
@@ -92,6 +121,8 @@ export default function HomePage() {
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [correctionItems, setCorrectionItems] = useState<HistoryItem[]>([]);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -153,6 +184,20 @@ export default function HomePage() {
   useEffect(() => {
     void loadHome();
   }, [loadHome]);
+
+  useEffect(() => {
+    if (authLoading || !user || !isPro || !navigator.onLine) return;
+    let active = true;
+    setCorrectionLoading(true);
+    fetch('/api/correction/history')
+      .then((r) => r.json())
+      .then((data: { success: boolean; items?: HistoryItem[] }) => {
+        if (active && data.success) setCorrectionItems(data.items ?? []);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setCorrectionLoading(false); });
+    return () => { active = false; };
+  }, [authLoading, user, isPro]);
 
   const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW } = stats;
   const goalTotal = dueCount + completedToday;
@@ -266,20 +311,50 @@ export default function HomePage() {
 
       <div className="px-[18px] pb-[150px] pt-1">
         <div className="mb-2 font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-          NEW
+          添削
         </div>
-        <div className="grid grid-cols-1 gap-2.5">
-          <Link href="/correction" className="block">
-            <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
-              <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
-                <Icon name="edit_note" size={16} />
-                <span className="font-mono text-[11px] font-bold tracking-[0.04em]">CORRECTION</span>
-              </div>
-              <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">英作文の添削</div>
-              <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
-            </SolidPanel>
-          </Link>
-        </div>
+        {correctionLoading ? (
+          <div className="flex items-center justify-center py-6 text-[var(--color-muted)]">
+            <Icon name="progress_activity" size={18} className="animate-spin" />
+          </div>
+        ) : correctionItems.length === 0 ? (
+          <div className="grid grid-cols-1 gap-2.5">
+            <Link href="/correction" className="block">
+              <SolidPanel className="!rounded-[14px] !shadow-[3px_4px_0_var(--color-accent)]" faceClassName="!p-3 min-h-[88px]">
+                <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
+                  <Icon name="edit_note" size={16} />
+                  <span className="font-mono text-[11px] font-bold tracking-[0.04em]">CORRECTION</span>
+                </div>
+                <div className="mt-1.5 text-[15px] font-bold leading-[1.35] text-[var(--solid-ink)]">英作文の添削</div>
+                <div className="mt-[3px] text-[11px] leading-[1.45] text-[var(--color-muted)]">Pro向けAI添削に接続済み</div>
+              </SolidPanel>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {correctionItems.slice(0, 3).map((item) => (
+              <Link key={item.id} href={`/correction/result?id=${item.id}`} className="relative flex items-stretch gap-[11px] rounded-xl bg-white px-3 py-[11px]" style={{ border: '1.25px solid var(--color-border)' }}>
+                <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]">
+                  <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
+                  <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-[3px] flex items-center gap-1.5">
+                    <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{item.purpose}</span>
+                    <span className="font-mono text-[9px] text-[var(--color-muted)]">{formatWhen(item.createdAt)}</span>
+                  </div>
+                  <div className="line-clamp-2 text-[11.5px] italic leading-[1.5] text-[var(--solid-ink)]">{item.preview}</div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[#c43d3d]" />{item.issueCount} 指摘</span>
+                    <span className="inline-block h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
+                    <span className="font-mono text-[9px] font-semibold text-[var(--color-muted)]">{item.wordCount} 語</span>
+                  </div>
+                </div>
+                <div className="shrink-0 self-center text-[var(--color-muted)]"><Icon name="chevron_right" size={14} /></div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
