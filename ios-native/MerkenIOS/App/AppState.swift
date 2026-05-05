@@ -151,7 +151,6 @@ final class AppState: ObservableObject {
     let webAPIClient: WebAPIClient
     private let appStoreSubscriptionService: AppStoreSubscriptionService
     let quizStatsStore: QuizStatsStore
-    let sentenceQuizProgressStore: SentenceQuizProgressStore
     let collectionRepository: CollectionRepositoryProtocol
     private let scanNotificationService: ScanNotificationServiceProtocol
     private let projectShareService: ProjectShareServiceProtocol
@@ -211,7 +210,6 @@ final class AppState: ObservableObject {
         webAPIClient: WebAPIClient,
         appStoreSubscriptionService: AppStoreSubscriptionService,
         quizStatsStore: QuizStatsStore,
-        sentenceQuizProgressStore: SentenceQuizProgressStore,
         collectionRepository: CollectionRepositoryProtocol,
         scanNotificationService: ScanNotificationServiceProtocol,
         projectShareService: ProjectShareServiceProtocol,
@@ -224,7 +222,6 @@ final class AppState: ObservableObject {
         self.webAPIClient = webAPIClient
         self.appStoreSubscriptionService = appStoreSubscriptionService
         self.quizStatsStore = quizStatsStore
-        self.sentenceQuizProgressStore = sentenceQuizProgressStore
         self.collectionRepository = collectionRepository
         self.scanNotificationService = scanNotificationService
         self.projectShareService = projectShareService
@@ -561,7 +558,6 @@ final class AppState: ObservableObject {
         do {
             try await authService.signOut()
             quizStatsStore.clearAll()
-            sentenceQuizProgressStore.clearAll()
             isSessionExpired = false
             await refreshAuthState(showLoading: true)
             bumpDataVersion()

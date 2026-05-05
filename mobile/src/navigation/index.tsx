@@ -30,7 +30,6 @@ import { FavoritesScreen } from '../screens/FavoritesScreen';
 import { FavoritesFlashcardScreen } from '../screens/FavoritesFlashcardScreen';
 import { FavoritesQuizScreen } from '../screens/FavoritesQuizScreen';
 import { ScanConfirmScreen } from '../screens/ScanConfirmScreen';
-import { SentenceQuizScreen } from '../screens/SentenceQuizScreen';
 import { WrongAnswersScreen } from '../screens/WrongAnswersScreen';
 import { WrongAnswersQuizScreen } from '../screens/WrongAnswersQuizScreen';
 import { SharedProjectsScreen } from '../screens/SharedProjectsScreen';
@@ -66,11 +65,6 @@ function HomeStackScreen() {
       <HomeStack.Screen
         name="Flashcard"
         component={FlashcardScreen}
-        options={{ animation: 'none', gestureEnabled: false }}
-      />
-      <HomeStack.Screen
-        name="Grammar"
-        component={SentenceQuizScreen}
         options={{ animation: 'none', gestureEnabled: false }}
       />
       <HomeStack.Screen name="Favorites" component={FavoritesScreen} />

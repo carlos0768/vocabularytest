@@ -3,7 +3,7 @@ import type { Word } from '@/types';
 
 /**
  * コレクションに所属する全プロジェクトの単語をまとめて取得する。
- * 各学習ページ（quiz, flashcard, sentence-quiz, dictation）から呼ばれる。
+ * 各学習ページ（quiz, flashcard, dictation）から呼ばれる。
  */
 export async function loadCollectionWords(collectionId: string): Promise<Word[]> {
   const colProjects = await remoteRepository.getCollectionProjects(collectionId);

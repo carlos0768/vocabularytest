@@ -753,41 +753,12 @@ export default function HomePage() {
   };
 
   const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
-    // Find the original word to check if japanese was changed
-    const originalWord = words.find((w) => w.id === wordId);
-    const japaneseChanged = originalWord && originalWord.japanese !== japanese;
-
     // Update word immediately with new english/japanese
     await repository.updateWord(wordId, { english, japanese });
     setWords((prev) =>
       prev.map((w) => (w.id === wordId ? { ...w, english, japanese } : w))
     );
     setEditingWordId(null);
-
-    // If japanese was changed, regenerate distractors in background
-    if (japaneseChanged) {
-      try {
-        const response = await fetch('/api/regenerate-distractors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ english, japanese }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.distractors) {
-            // Update word with new distractors
-            await repository.updateWord(wordId, { distractors: data.distractors });
-            setWords((prev) =>
-              prev.map((w) => (w.id === wordId ? { ...w, distractors: data.distractors } : w))
-            );
-          }
-        }
-      } catch (error) {
-        // Silently fail - old distractors will remain
-        console.error('Failed to regenerate distractors:', error);
-      }
-    }
   };
 
   const handleToggleFavorite = async (wordId: string) => {

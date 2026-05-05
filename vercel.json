@@ -15,14 +15,8 @@
     "src/app/api/scan-jobs/process/route.ts": {
       "maxDuration": 300
     },
-    "src/app/api/sentence-quiz/route.ts": {
-      "maxDuration": 60
-    },
     "src/app/api/generate-examples/route.ts": {
       "maxDuration": 60
-    },
-    "src/app/api/regenerate-distractors/route.ts": {
-      "maxDuration": 30
     },
     "src/app/api/generate-quiz-distractors/route.ts": {
       "maxDuration": 30

@@ -131,7 +131,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
 
     private let quizPrefillBatchSize = 30
     private let quizPrefillMaxAttempts = 3
-    private let sentenceQuizSize = 15
 
     @Published private(set) var currentStep: FlowStep = .modeSelection
     @Published var editableWords: [EditableExtractedWord] = []
@@ -771,67 +770,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
         }
     }
 
-    private func preGenerateSentenceQuiz(
-        projectId: String,
-        wordsForQuiz: [Word],
-        appState: AppState,
-        bearerToken: String?
-    ) async {
-        guard appState.isPro else { return }
-        guard wordsForQuiz.count >= 10 else { return }
-        guard let bearerToken else {
-            logger.warning("Skipping sentence quiz pre-generation: missing access token")
-            return
-        }
-
-        if appState.sentenceQuizProgressStore.hasInProgress(projectId: projectId) {
-            return
-        }
-
-        let selectedWords = selectWordsForSentenceQuiz(wordsForQuiz)
-        let inputs = selectedWords.map {
-            SentenceQuizWordInput(
-                id: $0.id,
-                english: $0.english,
-                japanese: $0.japanese,
-                status: $0.status.rawValue
-            )
-        }
-
-        do {
-            let generated = try await appState.webAPIClient.generateSentenceQuizWithRawResponse(
-                words: inputs,
-                bearerToken: bearerToken
-            )
-            appState.sentenceQuizProgressStore.saveInitial(
-                projectId: projectId,
-                rawResponseData: generated.rawResponseData
-            )
-            logger.info("Pre-generated sentence quiz for project \(projectId)")
-        } catch {
-            logger.warning("Sentence quiz pre-generation failed (non-critical): \(error.localizedDescription)")
-        }
-    }
-
     private func prefillQuiz2Data(
         createdWords _: [Word],
         appState _: AppState,
         bearerToken _: String?
     ) async {
         logger.info("Skipping quiz2 warmup because embedding-backed similar features are disabled")
-    }
-
-    private func selectWordsForSentenceQuiz(_ words: [Word]) -> [Word] {
-        let shuffled = words.shuffled()
-        if shuffled.count >= sentenceQuizSize {
-            return Array(shuffled.prefix(sentenceQuizSize))
-        }
-
-        var selected: [Word] = []
-        while selected.count < sentenceQuizSize {
-            selected.append(contentsOf: shuffled)
-        }
-        return Array(selected.prefix(sentenceQuizSize)).shuffled()
     }
 
     private func chunkArray<T>(_ values: [T], size: Int) -> [[T]] {
@@ -1125,13 +1069,6 @@ final class ScanCoordinatorViewModel: ObservableObject {
                 let token = try? await appState.accessTokenForWebAPI(forceRefresh: false)
                 let quizReadyWords = await self.prefillQuizData(
                     createdWords: createdWords,
-                    appState: appState,
-                    bearerToken: token
-                )
-
-                await self.preGenerateSentenceQuiz(
-                    projectId: projectId,
-                    wordsForQuiz: quizReadyWords,
                     appState: appState,
                     bearerToken: token
                 )

@@ -10,7 +10,6 @@ const protectedPaths = [
   '/settings',
   '/subscription',
   '/flashcard',
-  '/sentence-quiz',
   '/favorites',
   '/grammar',
   '/stats',

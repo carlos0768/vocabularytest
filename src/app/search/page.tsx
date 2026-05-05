@@ -4,16 +4,15 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
-import { EMBEDDINGS_ENABLED } from '@/lib/embeddings/feature';
 import type { SubscriptionStatus, Word } from '@/types';
 
-interface SemanticResult {
+interface LocalSearchResult {
   id: string;
   english: string;
   japanese: string;
   projectId: string;
   projectTitle: string;
-  similarity: number;
+  score: number;
 }
 
 export default function SearchPage() {
@@ -22,16 +21,14 @@ export default function SearchPage() {
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
-  const isSemanticSearchEnabled = EMBEDDINGS_ENABLED && subscriptionStatus === 'active';
   const authResolvingWithoutUser = authLoading && !user;
 
-  // Semantic search state
-  const [semanticResults, setSemanticResults] = useState<SemanticResult[]>([]);
-  const [semanticLoading, setSemanticLoading] = useState(false);
-  const [semanticError, setSemanticError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<LocalSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const buildLocalResults = useCallback((words: Word[], query: string, projectTitleMap: Map<string, string>): SemanticResult[] => {
+  const buildLocalResults = useCallback((words: Word[], query: string, projectTitleMap: Map<string, string>): LocalSearchResult[] => {
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) return [];
 
@@ -40,16 +37,16 @@ export default function SearchPage() {
         const english = word.english.toLowerCase();
         const japanese = word.japanese.toLowerCase();
 
-        let similarity = 0;
+        let score = 0;
         if (english === trimmed || japanese === trimmed) {
-          similarity = 100;
+          score = 100;
         } else if (english.startsWith(trimmed) || japanese.startsWith(trimmed)) {
-          similarity = 92;
+          score = 92;
         } else if (english.includes(trimmed) || japanese.includes(trimmed)) {
-          similarity = 82;
+          score = 82;
         }
 
-        if (similarity === 0) return null;
+        if (score === 0) return null;
 
         return {
           id: word.id,
@@ -57,11 +54,11 @@ export default function SearchPage() {
           japanese: word.japanese,
           projectId: word.projectId,
           projectTitle: projectTitleMap.get(word.projectId) || '',
-          similarity,
+          score,
         };
       })
-      .filter((result): result is SemanticResult => result !== null)
-      .sort((a, b) => b.similarity - a.similarity);
+      .filter((result): result is LocalSearchResult => result !== null)
+      .sort((a, b) => b.score - a.score);
 
     return scored.slice(0, 50);
   }, []);
@@ -70,52 +67,32 @@ export default function SearchPage() {
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim() || !user) return;
 
-    setSemanticLoading(true);
-    setSemanticError(null);
+    setSearchLoading(true);
+    setSearchError(null);
 
     try {
-      if (isSemanticSearchEnabled) {
-        const response = await fetch('/api/search/semantic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query.trim() }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setSemanticError(data.error || '検索に失敗しました');
-          setSemanticResults([]);
-          return;
-        }
-
-        setSemanticResults(data.results || []);
-        return;
-      }
-
       const projects = await repository.getProjects(user.id);
       const wordsByProject = await Promise.all(projects.map((project) => repository.getWords(project.id)));
       const allWords = wordsByProject.flat();
       const projectTitleMap = new Map(projects.map((project) => [project.id, project.title]));
       const localResults = buildLocalResults(allWords, query, projectTitleMap);
-      setSemanticResults(localResults);
+      setSearchResults(localResults);
     } catch {
-      setSemanticError('通信エラーが発生しました');
-      setSemanticResults([]);
+      setSearchError('通信エラーが発生しました');
+      setSearchResults([]);
     } finally {
-      setSemanticLoading(false);
+      setSearchLoading(false);
     }
-  }, [user, isSemanticSearchEnabled, repository, buildLocalResults]);
+  }, [user, repository, buildLocalResults]);
 
-  // Debounced semantic search trigger
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
     if (!searchQuery.trim()) {
-      setSemanticResults([]);
-      setSemanticError(null);
+      setSearchResults([]);
+      setSearchError(null);
       return;
     }
 
@@ -187,16 +164,16 @@ export default function SearchPage() {
               例: 「dog」, 「犬」
             </p>
           </div>
-        ) : semanticLoading ? (
+        ) : searchLoading ? (
           <div className="text-center py-12">
             <Icon name="progress_activity" size={32} className="text-[var(--color-primary)] animate-spin mx-auto mb-3" />
             <p className="text-sm text-[var(--color-muted)]">検索中...</p>
           </div>
-        ) : semanticError ? (
+        ) : searchError ? (
           <div className="text-center py-12">
-            <p className="text-[var(--color-error)] text-sm">{semanticError}</p>
+            <p className="text-[var(--color-error)] text-sm">{searchError}</p>
           </div>
-        ) : semanticResults.length === 0 ? (
+        ) : searchResults.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-[var(--color-muted)]">
               「{searchQuery}」に一致する単語が見つかりません
@@ -205,9 +182,9 @@ export default function SearchPage() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-[var(--color-muted)] mb-2">
-              {semanticResults.length}件の検索結果
+              {searchResults.length}件の検索結果
             </p>
-            {semanticResults.map((result) => (
+            {searchResults.map((result) => (
               <div key={result.id} className="card p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -220,7 +197,7 @@ export default function SearchPage() {
                   </div>
                   <div className="flex items-center gap-2 ml-3">
                     <span className="text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-1 rounded-full">
-                      {result.similarity}%
+                      {result.score}%
                     </span>
                     <span className="text-xs text-[var(--color-muted)] bg-[var(--color-primary-light)] px-2 py-1 rounded-full">
                       {result.projectTitle}
