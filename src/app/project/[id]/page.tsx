@@ -5,11 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
+import { ManualWordInputModal } from '@/components/home/ProjectModals';
+import { WordLimitModal } from '@/components/limits';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
+import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
@@ -37,6 +40,7 @@ export default function ProjectPage() {
   const projectId = params.id as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -63,6 +67,15 @@ export default function ProjectPage() {
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
+
+  const [showManualWordModal, setShowManualWordModal] = useState(false);
+  const [manualWordEnglish, setManualWordEnglish] = useState('');
+  const [manualWordJapanese, setManualWordJapanese] = useState('');
+  const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
+  const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
+  const [manualWordSaving, setManualWordSaving] = useState(false);
+  const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
+  const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -382,6 +395,125 @@ export default function ProjectPage() {
     }
   };
 
+  const resetManualWordForm = () => {
+    setManualWordEnglish('');
+    setManualWordJapanese('');
+    setManualWordPartOfSpeech('');
+    setManualWordExampleSentence('');
+  };
+
+  const handleSaveManualWord = async () => {
+    const english = manualWordEnglish.trim();
+    const japanese = manualWordJapanese.trim();
+    if (!english || !japanese || !project) return;
+
+    const { canAdd, wouldExceed } = canAddWords(1);
+    if (!canAdd || wouldExceed) {
+      setShowWordLimitModal(true);
+      return;
+    }
+
+    const userPos = manualWordPartOfSpeech.trim();
+    const userExample = manualWordExampleSentence.trim();
+
+    setManualWordSaving(true);
+    setManualWordSavingMessage('情報を生成中...');
+
+    let enrichedPronunciation = '';
+    let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
+    let enrichedExampleSentence = userExample;
+    let enrichedExampleSentenceJa = '';
+
+    try {
+      const enrichResponse = await fetch('/api/words/enrich-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          english,
+          japanese,
+          ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
+          ...(userExample ? { exampleSentence: userExample } : {}),
+        }),
+      });
+
+      if (enrichResponse.ok) {
+        const data = (await enrichResponse.json()) as {
+          success?: boolean;
+          enriched?: {
+            pronunciation?: string;
+            partOfSpeechTags?: string[];
+            exampleSentence?: string;
+            exampleSentenceJa?: string;
+          };
+        };
+        if (data.success && data.enriched) {
+          enrichedPronunciation = data.enriched.pronunciation ?? '';
+          if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
+            enrichedPartOfSpeechTags = data.enriched.partOfSpeechTags;
+          }
+          if (!enrichedExampleSentence && data.enriched.exampleSentence) {
+            enrichedExampleSentence = data.enriched.exampleSentence;
+          }
+          enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+        }
+      }
+    } catch (enrichError) {
+      console.warn('[manual-word] enrich error:', enrichError);
+    }
+
+    const optimisticWord: Word = {
+      id: crypto.randomUUID(),
+      projectId,
+      english,
+      japanese,
+      distractors: ['選択肢1', '選択肢2', '選択肢3'],
+      pronunciation: enrichedPronunciation || undefined,
+      partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
+      exampleSentence: enrichedExampleSentence || undefined,
+      exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      easeFactor: 2.5,
+      intervalDays: 0,
+      repetition: 0,
+      isFavorite: false,
+    };
+
+    setWords((prev) => [optimisticWord, ...prev]);
+    showToast({ message: '単語を追加しました', type: 'success' });
+    resetManualWordForm();
+    setShowManualWordModal(false);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+    refreshWordCount();
+
+    mutationRepository
+      .createWords([
+        {
+          projectId,
+          english,
+          japanese,
+          distractors: ['選択肢1', '選択肢2', '選択肢3'],
+          ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
+          ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
+          ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
+          ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
+        },
+      ])
+      .then((created) => {
+        if (created && created.length > 0) {
+          setWords((prev) => prev.map((w) => (w.id === optimisticWord.id ? created[0]! : w)));
+        }
+        invalidateHomeCache();
+      })
+      .catch((createError) => {
+        console.error('Failed to save word:', createError);
+        setWords((prev) => prev.filter((w) => w.id !== optimisticWord.id));
+        showToast({ message: '単語の保存に失敗しました', type: 'error' });
+        refreshWordCount();
+      });
+  };
+
   if (loading && !project) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] text-[var(--color-muted)]">
@@ -469,26 +601,37 @@ export default function ProjectPage() {
         <StackedBar total={counts.total} m={counts.mastered} l={counts.learning} n={counts.newCount} />
       </div>
 
-      <div className="flex gap-2 px-[18px] pb-4">
+      <div className="flex items-stretch gap-2 px-[18px] pb-4">
         <div className="relative flex-1">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/quiz/${projectId}`}
-            className="relative flex w-full items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--color-accent)] bg-[var(--color-accent)] py-[11px] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="relative flex h-full w-full items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--color-accent)] bg-[var(--color-accent)] py-[11px] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="check" size={14} />
             クイズを始める
           </Link>
         </div>
-        <div className="relative">
+        <div className="relative aspect-square">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/flashcard/${projectId}`}
-            className="relative flex items-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-[14px] py-[11px] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            aria-label="カード"
+            className="relative flex h-full w-full items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
-            <Icon name="style" size={14} />
-            カード
+            <Icon name="style" size={18} />
           </Link>
+        </div>
+        <div className="relative aspect-square">
+          <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+          <button
+            type="button"
+            onClick={() => setShowManualWordModal(true)}
+            aria-label="単語を追加"
+            className="relative flex h-full w-full items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="add" size={20} />
+          </button>
         </div>
       </div>
 
@@ -590,6 +733,31 @@ export default function ProjectPage() {
         onClose={() => setWordShowSortSheet(false)}
         sortOrder={wordSortOrder}
         onSortOrderChange={setWordSortOrder}
+      />
+
+      <ManualWordInputModal
+        isOpen={showManualWordModal}
+        onClose={() => {
+          setShowManualWordModal(false);
+          resetManualWordForm();
+        }}
+        onConfirm={handleSaveManualWord}
+        isLoading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
+        english={manualWordEnglish}
+        setEnglish={setManualWordEnglish}
+        japanese={manualWordJapanese}
+        setJapanese={setManualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        setPartOfSpeech={setManualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        setExampleSentence={setManualWordExampleSentence}
+      />
+
+      <WordLimitModal
+        isOpen={showWordLimitModal}
+        onClose={() => setShowWordLimitModal(false)}
+        currentCount={totalWordCount}
       />
 
       <ProjectShareSheet
