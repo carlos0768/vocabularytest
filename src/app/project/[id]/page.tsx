@@ -492,60 +492,63 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-5 pb-2">
-        <div className="flex gap-1.5">
-          <label className="sr-only" htmlFor="project-word-search">単語を検索</label>
+      <div className="flex items-center gap-2 px-5 pb-2">
+        <label
+          htmlFor="project-word-search"
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[7px] text-[var(--color-muted)] shadow-[2px_2px_0_var(--solid-ink)]"
+        >
+          <Icon name="search" size={14} />
+          <span className="sr-only">単語を検索</span>
           <input
             id="project-word-search"
+            type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="単語を検索"
-            className="w-[130px] rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+            className="min-w-0 flex-1 bg-transparent text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
           />
-        </div>
-        <div className="flex items-center gap-1.5">
-          {(wordFilterActive || query) && (
-            <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
-              {filteredWords.length}/{counts.total}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setWordShowFilterSheet(true)}
-            aria-label="フィルタ"
-            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
-              wordFilterActive
-                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
-            }`}
-          >
-            <Icon name="filter_list" size={15} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setWordShowSortSheet(true)}
-            aria-label="並べ替え"
-            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
-              wordSortOrder !== 'createdAsc'
-                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
-            }`}
-          >
-            <Icon name="swap_vert" size={15} />
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSelectMode((v) => !v); setSelectedWordIds(new Set()); }}
-            aria-label="選択"
-            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
-              selectMode
-                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
-            }`}
-          >
-            <Icon name="check_box" size={15} />
-          </button>
-        </div>
+        </label>
+        {(wordFilterActive || query) && (
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+            {filteredWords.length}/{counts.total}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setWordShowFilterSheet(true)}
+          aria-label="フィルタ"
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
+            wordFilterActive
+              ? 'bg-[var(--solid-ink)] text-white'
+              : 'bg-white text-[var(--solid-ink)]'
+          }`}
+        >
+          <Icon name="filter_list" size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setWordShowSortSheet(true)}
+          aria-label="並べ替え"
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
+            wordSortOrder !== 'createdAsc'
+              ? 'bg-[var(--solid-ink)] text-white'
+              : 'bg-white text-[var(--solid-ink)]'
+          }`}
+        >
+          <Icon name="swap_vert" size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => { setSelectMode((v) => !v); setSelectedWordIds(new Set()); }}
+          aria-label="選択"
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
+            selectMode
+              ? 'bg-[var(--solid-ink)] text-white'
+              : 'bg-white text-[var(--solid-ink)]'
+          }`}
+        >
+          <Icon name="check_box" size={15} />
+        </button>
       </div>
 
       <div className="flex flex-col gap-2 px-4 pb-[160px]">
