@@ -68,7 +68,7 @@ function subToExtractMode(sub: SubOption): ExtractMode {
 export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
-  const [activeMode, setActiveMode] = useState<TopMode>(defaultMode ?? 'vocab');
+  const [activeMode, setActiveMode] = useState<TopMode>(targetProjectId ? 'vocab' : (defaultMode ?? 'vocab'));
   const [activeSub, setActiveSub] = useState<SubOption>('all');
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -229,8 +229,8 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
             </button>
           </div>
 
-          {/* 3 top-level modes */}
-          <div className="mb-3 flex flex-col gap-[7px]">
+          {/* Top-level modes (hidden when scanning into an existing word book) */}
+          {!targetProjectId && <div className="mb-3 flex flex-col gap-[7px]">
             {MODES.map(m => {
               const active = m.k === activeMode;
               return (
@@ -274,7 +274,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
                 </button>
               );
             })}
-          </div>
+          </div>}
 
           {/* Sub-options (vocab only) */}
           {activeMode === 'vocab' && (
