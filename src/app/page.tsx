@@ -262,7 +262,7 @@ export default function HomePage() {
   const visibleProjects = projects.slice(0, 3);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:pt-4">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-4">
       <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
         <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
@@ -376,7 +376,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="px-[18px] pb-[150px]">
+      <div className="px-[18px]">
         {correctionLoading ? (
           <div className="flex items-center justify-center py-6 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={18} className="animate-spin" />
