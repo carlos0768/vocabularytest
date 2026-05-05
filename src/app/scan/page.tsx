@@ -165,13 +165,6 @@ export default function ScanPage() {
           </div>
         </div>
 
-        {/* Tip */}
-        <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-[rgba(19,127,236,0.3)] bg-[rgba(19,127,236,0.06)] px-[11px] py-[9px]">
-          <Icon name="info" size={14} className="text-[#137fec]" />
-          <span className="text-[11px] leading-[1.5] text-[var(--color-muted)]">
-            見開きページも OK。AI が 20 秒で単語を抽出します。
-          </span>
-        </div>
       </div>
     </div>
   );

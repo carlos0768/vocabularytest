@@ -234,7 +234,7 @@ export default function ConfirmPage() {
         partOfSpeechTags: w.partOfSpeechTags, exampleSentence: w.exampleSentence, exampleSentenceJa: w.exampleSentenceJa,
       })));
 
-      if (aiEnabledForGeneration) await prefillQuizData(createdWords, repository.updateWord.bind(repository));
+      if (aiEnabledForGeneration) void prefillQuizData(createdWords, repository.updateWord.bind(repository));
 
       ['scanvocab_extracted_words','scanvocab_source_labels','scanvocab_lexicon_entries','scanvocab_project_name','scanvocab_project_icon','scanvocab_existing_project_id','scanvocab_ai_enabled'].forEach(k => sessionStorage.removeItem(k));
 
@@ -273,7 +273,7 @@ export default function ConfirmPage() {
     <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
-        <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]">
+        <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
           <Icon name="chevron_left" size={18} />
         </button>
         <div className="flex flex-1 flex-col items-center gap-px">
@@ -282,7 +282,7 @@ export default function ConfirmPage() {
             {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
           </div>
         </div>
-        <button type="button" onClick={handleAddManualWord} className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]">
+        <button type="button" onClick={handleAddManualWord} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
           <Icon name="add" size={18} />
         </button>
       </div>

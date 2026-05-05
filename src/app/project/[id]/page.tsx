@@ -7,10 +7,12 @@ import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
+import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
-import { localRepository } from '@/lib/db/local-repository';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
@@ -29,12 +31,6 @@ function isOwnedBy(project: Project | undefined | null, expectedUserId: string):
   return Boolean(project && project.userId === expectedUserId);
 }
 
-function nextStatus(current: WordStatus): WordStatus {
-  if (current === 'new') return 'review';
-  if (current === 'review') return 'mastered';
-  return 'new';
-}
-
 export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
@@ -47,6 +43,14 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
+  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
+  const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
+  const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
+  const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
+  const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
+  const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -55,6 +59,10 @@ export default function ProjectPage() {
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<Word | null>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -71,51 +79,31 @@ export default function ProjectPage() {
 
     try {
       const expectedUserId = user ? user.id : getGuestUserId();
-      let loadedProject: Project | undefined;
-      let loadedWords: Word[] = [];
 
-      try {
-        const localProject = await localRepository.getProject(projectId);
-        if (isOwnedBy(localProject, expectedUserId)) {
-          loadedProject = localProject;
-          setProject(localProject);
-          setLoading(false);
-          loadedWords = await localRepository.getWords(projectId);
-          setWords(loadedWords);
-          setWordsLoaded(true);
-        }
-      } catch (localError) {
-        console.error('Local project load failed:', localError);
-      }
+      let loadedProject = await repository.getProject(projectId);
+      let wordRepo: typeof repository = repository;
 
-      if (user && navigator.onLine) {
+      // Background scan jobs (Pro) save directly to Supabase and may not be
+      // in local IndexedDB yet. Fall back to remote when local lookup misses.
+      if (!isOwnedBy(loadedProject, expectedUserId) && user && navigator.onLine) {
         try {
-          const remoteProject = await remoteRepository.getProject(projectId);
-          if (isOwnedBy(remoteProject, user.id)) {
-            loadedProject = remoteProject;
-            setProject(remoteProject);
-            setLoading(false);
-            loadedWords = await remoteRepository.getWords(projectId);
-            setWords(loadedWords);
-            setWordsLoaded(true);
+          const remote = await remoteRepository.getProject(projectId);
+          if (isOwnedBy(remote, user.id)) {
+            loadedProject = remote;
+            wordRepo = remoteRepository;
           }
-        } catch (remoteError) {
-          console.error('Remote project load failed:', remoteError);
+        } catch {
+          // remote unavailable — handled below
         }
       }
 
-      if (!loadedProject) {
-        const fallback = await repository.getProject(projectId);
-        if (isOwnedBy(fallback, expectedUserId)) {
-          loadedProject = fallback;
-          setProject(fallback);
-          loadedWords = await repository.getWords(projectId);
-          setWords(loadedWords);
-          setWordsLoaded(true);
-        }
-      }
-
-      if (!loadedProject) {
+      if (isOwnedBy(loadedProject, expectedUserId)) {
+        setProject(loadedProject);
+        setLoading(false);
+        const loadedWords = await wordRepo.getWords(projectId);
+        setWords(loadedWords);
+        setWordsLoaded(true);
+      } else {
         setError('単語帳が見つかりません');
       }
     } catch (loadError) {
@@ -142,26 +130,54 @@ export default function ProjectPage() {
     return { total: words.length, mastered, learning, newCount };
   }, [words]);
 
+  const wordFilterActive = wordFilterBookmark || wordFilterActiveness !== 'all' || wordFilterPos !== null;
+
+  const availablePartsOfSpeech = useMemo(() => {
+    const set = new Set<string>();
+    for (const w of words) {
+      for (const tag of w.partOfSpeechTags ?? []) set.add(tag);
+    }
+    return [...set].sort();
+  }, [words]);
+
   const filteredWords = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return words;
-    return words.filter(
-      (word) =>
-        word.english.toLowerCase().includes(normalized) ||
-        word.japanese.toLowerCase().includes(normalized),
-    );
-  }, [query, words]);
-
-  const handleCycleStatus = async (word: Word) => {
-    const status = nextStatus(word.status);
-    setWords((prev) => prev.map((item) => (item.id === word.id ? { ...item, status } : item)));
-    try {
-      await mutationRepository.updateWord(word.id, { status });
-      invalidateHomeCache();
-    } catch (updateError) {
-      console.error('Failed to update word status:', updateError);
-      setWords((prev) => prev.map((item) => (item.id === word.id ? word : item)));
+    let base = normalized
+      ? words.filter(
+          (word) =>
+            word.english.toLowerCase().includes(normalized) ||
+            word.japanese.toLowerCase().includes(normalized),
+        )
+      : words;
+    if (wordFilterBookmark) base = base.filter((w) => w.isFavorite);
+    if (wordFilterActiveness !== 'all') base = base.filter((w) => w.vocabularyType === wordFilterActiveness);
+    if (wordFilterPos) base = base.filter((w) => w.partOfSpeechTags?.includes(wordFilterPos!));
+    if (wordSortOrder === 'alphabetical') return [...base].sort((a, b) => a.english.localeCompare(b.english));
+    if (wordSortOrder === 'statusAsc') {
+      const rank = (s: string) => (s === 'new' ? 0 : s === 'review' ? 1 : 2);
+      return [...base].sort((a, b) => rank(a.status) - rank(b.status));
     }
+    return base;
+  }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
+
+  const handleCycleStatus = (wordId: string, newStatus: WordStatus) => {
+    const word = words.find((w) => w.id === wordId);
+    if (!word) return;
+    const currentStatus = word.status;
+    setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: newStatus } : w)));
+    scheduleWordStatusWrite({
+      wordId,
+      currentStatus,
+      newStatus,
+      writer: async (finalStatus, originalStatus) => {
+        try {
+          await mutationRepository.updateWord(wordId, { status: finalStatus });
+        } catch {
+          setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: originalStatus } : w)));
+          showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });
+        }
+      },
+    });
   };
 
   const handleToggleFavorite = async (word: Word) => {
@@ -269,6 +285,70 @@ export default function ProjectPage() {
     }
   };
 
+  const handleOpenRename = () => {
+    if (!project) return;
+    setRenameValue(project.title);
+    setMenuOpen(false);
+    setRenameModalOpen(true);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!project || !renameValue.trim() || renameLoading) return;
+    setRenameLoading(true);
+    try {
+      await mutationRepository.updateProject(project.id, { title: renameValue.trim() });
+      setProject((p) => (p ? { ...p, title: renameValue.trim() } : p));
+      invalidateHomeCache();
+      showToast({ message: '名称を変更しました', type: 'success' });
+      setRenameModalOpen(false);
+    } catch {
+      showToast({ message: '名称変更に失敗しました', type: 'error' });
+    } finally {
+      setRenameLoading(false);
+    }
+  };
+
+  const handleOpenImagePicker = () => {
+    if (!project) return;
+    setMenuOpen(false);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const side = Math.min(img.width, img.height, 400);
+              canvas.width = side; canvas.height = side;
+              const ctx = canvas.getContext('2d')!;
+              const sx = (img.width - side) / 2;
+              const sy = (img.height - side) / 2;
+              ctx.drawImage(img, sx, sy, side, side, 0, 0, side, side);
+              resolve(canvas.toDataURL('image/jpeg', 0.75));
+            };
+            img.onerror = reject;
+            img.src = reader.result as string;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        await mutationRepository.updateProject(project.id, { iconImage: dataUrl });
+        setProject((p) => (p ? { ...p, iconImage: dataUrl } : p));
+        invalidateHomeCache();
+        showToast({ message: '画像を設定しました', type: 'success' });
+      } catch {
+        showToast({ message: '画像の設定に失敗しました', type: 'error' });
+      }
+    };
+    input.click();
+  };
+
   const handleConfirmDelete = async () => {
     if (!project) return;
     setDeleteLoading(true);
@@ -345,19 +425,14 @@ export default function ProjectPage() {
                 onClick={() => setMenuOpen(false)}
               />
               <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
-                <MenuButton
-                  icon="ios_share"
-                  label="共有"
-                  onClick={handleOpenShareSheet}
-                />
+                <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
+                <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
+                <MenuButton icon="ios_share" label="共有" onClick={handleOpenShareSheet} />
                 <MenuButton
                   icon="delete"
                   label="削除"
                   destructive
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setDeleteModalOpen(true);
-                  }}
+                  onClick={() => { setMenuOpen(false); setDeleteModalOpen(true); }}
                 />
               </div>
             </>
@@ -419,7 +494,6 @@ export default function ProjectPage() {
 
       <div className="flex items-center justify-between px-5 pb-2">
         <div className="flex gap-1.5">
-          <ToolChip icon="search" label="検索" />
           <label className="sr-only" htmlFor="project-word-search">単語を検索</label>
           <input
             id="project-word-search"
@@ -429,9 +503,49 @@ export default function ProjectPage() {
             className="w-[130px] rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
           />
         </div>
-        <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
-          {filteredWords.length} / {counts.total}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {(wordFilterActive || query) && (
+            <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+              {filteredWords.length}/{counts.total}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setWordShowFilterSheet(true)}
+            aria-label="フィルタ"
+            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
+              wordFilterActive
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="filter_list" size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setWordShowSortSheet(true)}
+            aria-label="並べ替え"
+            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
+              wordSortOrder !== 'createdAsc'
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="swap_vert" size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectMode((v) => !v); setSelectedWordIds(new Set()); }}
+            aria-label="選択"
+            className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.25px] transition-colors ${
+              selectMode
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="check_box" size={15} />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 px-4 pb-[160px]">
@@ -449,13 +563,34 @@ export default function ProjectPage() {
             <WordRow
               key={word.id}
               word={word}
-              onCycleStatus={() => void handleCycleStatus(word)}
+              onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
               onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
               onToggleFavorite={() => void handleToggleFavorite(word)}
+              onSelect={() => setSelectedWord(word)}
             />
           ))
         )}
       </div>
+
+      <WordFilterSheet
+        open={wordShowFilterSheet}
+        onClose={() => setWordShowFilterSheet(false)}
+        bookmark={wordFilterBookmark}
+        onBookmarkChange={setWordFilterBookmark}
+        activeness={wordFilterActiveness}
+        onActivenessChange={setWordFilterActiveness}
+        pos={wordFilterPos}
+        onPosChange={setWordFilterPos}
+        availablePartsOfSpeech={availablePartsOfSpeech}
+        hasActiveFilters={wordFilterActive}
+        onReset={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
+      />
+      <WordSortSheet
+        open={wordShowSortSheet}
+        onClose={() => setWordShowSortSheet(false)}
+        sortOrder={wordSortOrder}
+        onSortOrderChange={setWordSortOrder}
+      />
 
       <ProjectShareSheet
         open={showShareSheet}
@@ -474,11 +609,88 @@ export default function ProjectPage() {
         open={deleteModalOpen}
         loading={deleteLoading}
         title={project.title}
-        onCancel={() => {
-          if (!deleteLoading) setDeleteModalOpen(false);
-        }}
+        onCancel={() => { if (!deleteLoading) setDeleteModalOpen(false); }}
         onConfirm={() => void handleConfirmDelete()}
       />
+
+      {renameModalOpen && (
+        <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="閉じる"
+            onClick={() => { if (!renameLoading) setRenameModalOpen(false); }}
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-5">
+            <div className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5" style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">RENAME</div>
+              <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">名称変更</h2>
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmRename(); }}
+                autoFocus
+                maxLength={60}
+                className="mt-3 w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)]"
+              />
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRenameModalOpen(false)}
+                  disabled={renameLoading}
+                  className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmRename()}
+                  disabled={renameLoading || !renameValue.trim()}
+                  className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+                >
+                  {renameLoading ? '変更中...' : '変更'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedWord && (
+        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+            onClick={() => setSelectedWord(null)}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
+            <div
+              className="w-full overflow-y-auto"
+              style={{
+                maxWidth: 480,
+                maxHeight: '80dvh',
+                background: '#faf7f1',
+                border: '1.5px solid var(--solid-ink)',
+                borderRadius: 20,
+                boxShadow: '4px 5px 0 var(--solid-ink)',
+              }}
+            >
+              <WordDetailView
+                wordId={selectedWord.id}
+                variant="modal"
+                initialWord={selectedWord}
+                onClose={() => setSelectedWord(null)}
+                onWordUpdated={(updated) => {
+                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+                  setSelectedWord(updated);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -608,6 +820,120 @@ function BarDot({ color, label, count }: { color: string; label: string; count: 
   );
 }
 
+const POS_JP: Record<string, string> = {
+  noun: '名詞',
+  verb: '動詞',
+  adjective: '形容詞',
+  adverb: '副詞',
+  preposition: '前置詞',
+  conjunction: '接続詞',
+  pronoun: '代名詞',
+  interjection: '感動詞',
+  determiner: '限定詞',
+  auxiliary: '助動詞',
+  phrase: '句',
+  idiom: 'イディオム',
+  phrasal_verb: '句動詞',
+  other: 'その他',
+};
+
+function posShort(tag: string): string {
+  const jp = POS_JP[tag] ?? tag;
+  return `(${jp[0]})`;
+}
+
+const STATUS_MID_PREFIX = 'notion_cb_mid_';
+
+function StatusSquares({
+  wordId,
+  status,
+  onStatusChange,
+}: {
+  wordId: string;
+  status: WordStatus;
+  onStatusChange: (newStatus: WordStatus) => void;
+}) {
+  const [filledCount, setFilledCount] = useState(() => {
+    if (status === 'mastered') return 3;
+    if (status === 'new') return 0;
+    try {
+      const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
+      if (val === 'down2' || val === '1') return 2;
+      if (val === 'down1') return 1;
+    } catch { /* ignore */ }
+    return 1;
+  });
+  const [direction, setDirection] = useState<'up' | 'down'>(() =>
+    status === 'mastered' ? 'down' : 'up'
+  );
+
+  useEffect(() => {
+    if (status === 'new') { setFilledCount(0); setDirection('up'); return; }
+    if (status === 'mastered') { setFilledCount(3); setDirection('down'); return; }
+    try {
+      const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
+      if (val === 'down2') { setFilledCount(2); setDirection('down'); }
+      else if (val === 'down1') { setFilledCount(1); setDirection('down'); }
+      else if (val === '1') { setFilledCount(2); setDirection('up'); }
+      else { setFilledCount(1); setDirection('up'); }
+    } catch { setFilledCount(1); setDirection('up'); }
+  }, [status, wordId]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (direction === 'up') {
+        if (filledCount === 0) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, '0');
+          setFilledCount(1);
+          onStatusChange('review');
+        } else if (filledCount === 1) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, '1');
+          setFilledCount(2);
+        } else if (filledCount === 2) {
+          localStorage.removeItem(STATUS_MID_PREFIX + wordId);
+          setFilledCount(3);
+          setDirection('down');
+          onStatusChange('mastered');
+        }
+      } else {
+        if (filledCount === 3) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, 'down2');
+          setFilledCount(2);
+          onStatusChange('review');
+        } else if (filledCount === 2) {
+          localStorage.setItem(STATUS_MID_PREFIX + wordId, 'down1');
+          setFilledCount(1);
+        } else if (filledCount === 1) {
+          localStorage.removeItem(STATUS_MID_PREFIX + wordId);
+          setFilledCount(0);
+          setDirection('up');
+          onStatusChange('new');
+        }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [filledCount, direction, onStatusChange, wordId]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済み'}`}
+      className="shrink-0 rounded p-0.5 transition-colors active:bg-[rgba(26,26,26,0.06)]"
+    >
+      <div className="flex flex-col gap-[1.5px]">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-[10px] w-[10px] rounded-[2px] border-[1.25px] border-[var(--solid-ink)]"
+            style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }}
+          />
+        ))}
+      </div>
+    </button>
+  );
+}
+
 function StatusPill({ kind }: { kind: WordStatus }) {
   const config = {
     new: { t: '未学習', bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
@@ -630,39 +956,30 @@ function WordRow({
   onCycleStatus,
   onCycleVocabularyType,
   onToggleFavorite,
+  onSelect,
 }: {
   word: Word;
-  onCycleStatus: () => void;
+  onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
+  onSelect: () => void;
 }) {
-  const pos = word.partOfSpeechTags?.slice(0, 2) ?? [];
+  const pos = word.partOfSpeechTags?.[0] ?? null;
   return (
     <div className="relative">
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-      <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-3">
+      <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-2">
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={onCycleStatus}
-            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded border-[1.5px] border-[var(--solid-ink)] text-white"
-            style={{ background: word.status === 'mastered' ? 'var(--solid-ink)' : '#fff' }}
-            aria-label="ステータスを変更"
-          >
-            {word.status === 'mastered' && <Icon name="check" size={10} />}
+          <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
+
+          <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
+            <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+            <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
+              {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+              <span className="truncate">{word.japanese}</span>
+            </div>
           </button>
 
-          <Link href={`/word/${word.id}?from=${encodeURIComponent(`/project/${word.projectId}`)}`} className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-1.5">
-              <span className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</span>
-              {pos.length > 0 && (
-                <span className="font-mono text-[9px] text-[var(--color-muted)]">{pos.join('/')}</span>
-              )}
-            </div>
-            <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
-          </Link>
-
-          <StatusPill kind={word.status} />
           <VocabularyTypeButton
             vocabularyType={word.vocabularyType}
             onClick={onCycleVocabularyType}

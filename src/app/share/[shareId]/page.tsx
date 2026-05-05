@@ -247,42 +247,34 @@ export default function SharedDetailPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)]">
-      <div className="flex items-center gap-2.5 px-3.5 pb-2 pt-2">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label="戻る"
-          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
-        >
-          <Icon name="chevron_left" size={18} />
-        </button>
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={handleToggleLike}
-          disabled={!user}
-          aria-label={liked ? 'いいねを取り消す' : 'いいね'}
-          className="inline-flex h-8 min-w-8 items-center justify-center gap-1 text-[var(--solid-ink)] disabled:opacity-50"
-        >
-          <Icon name="thumb_up" size={18} filled={liked} />
-          {likeCount > 0 && <span className="font-mono text-[10px] font-bold">{likeCount}</span>}
-        </button>
-        <button type="button" aria-label="メニュー" className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-          <Icon name="more_horiz" size={18} />
-        </button>
+      <div className="flex items-center justify-between px-3.5 pb-2 pt-2">
+        <SharedHeaderBtn onClick={() => router.back()} aria-label="戻る">
+          <Icon name="chevron_left" size={16} />
+        </SharedHeaderBtn>
+        <div className="flex gap-2">
+          <SharedHeaderBtn
+            onClick={handleToggleLike}
+            aria-label={liked ? 'いいねを取り消す' : 'いいね'}
+          >
+            <div className="flex items-center gap-1">
+              <Icon name="thumb_up" size={14} filled={liked} />
+              {likeCount > 0 && <span className="font-mono text-[9px] font-bold">{likeCount}</span>}
+            </div>
+          </SharedHeaderBtn>
+        </div>
       </div>
 
       <div className="px-[18px] pb-3.5 pt-1">
         <SolidPanel
-          className="!rounded-[16px]"
-          faceClassName="!p-4 relative overflow-hidden [background:linear-gradient(135deg,oklch(0.94_0.04_14),#fff)]"
+          className="!rounded-[16px] overflow-hidden"
+          faceClassName="!p-4 relative [background:linear-gradient(135deg,oklch(0.94_0.04_14),#fff)]"
         >
           <div className="flex items-center gap-1.5 text-[var(--color-muted)]">
             <Icon name="public" size={13} />
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em]">SHARED</span>
           </div>
 
-          <h1 className="mt-2 font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+          <h1 className="mt-2 break-all font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
             {project.title}
           </h1>
 
@@ -303,7 +295,6 @@ export default function SharedDetailPage() {
 
           <div className="mt-3 flex gap-2.5 border-t border-dashed border-[var(--color-border)] pt-3">
             <Stat label="単語数" value={words.length.toLocaleString()} />
-            <Stat label="選択中" value={selectedWordIds.size.toLocaleString()} suffix="語" />
             <Stat
               label="いいね"
               value={likeCount.toLocaleString()}
@@ -317,17 +308,6 @@ export default function SharedDetailPage() {
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           単語プレビュー · 全 {words.length} 語
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setSelectMode((value) => !value);
-            setSelectedWordIds(new Set());
-          }}
-          className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--solid-ink)]"
-        >
-          <Icon name={selectMode ? 'check_box' : 'check_box_outline_blank'} size={11} />
-          選択
-        </button>
       </div>
 
       <div className="flex flex-col gap-1 px-3.5 pb-[130px]">
@@ -357,7 +337,7 @@ export default function SharedDetailPage() {
       </div>
 
       <div
-        className="absolute bottom-0 left-0 right-0 px-4 pt-3"
+        className="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
         {importedProjectId ? (
@@ -382,6 +362,27 @@ export default function SharedDetailPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function SharedHeaderBtn({
+  children,
+  onClick,
+  'aria-label': ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  'aria-label'?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+    >
+      {children}
+    </button>
   );
 }
 
