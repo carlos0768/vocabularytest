@@ -54,6 +54,9 @@ export default function ProjectPage() {
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+  const [bulkFavoriteLoading, setBulkFavoriteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -172,6 +175,76 @@ export default function ProjectPage() {
     }
     return base;
   }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
+
+  const handleExitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedWordIds(new Set());
+  }, []);
+
+  const handleToggleSelectWord = useCallback((wordId: string) => {
+    setSelectedWordIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(wordId)) next.delete(wordId);
+      else next.add(wordId);
+      return next;
+    });
+  }, []);
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedWordIds.size === 0) return;
+    setBulkDeleteLoading(true);
+    const idsToDelete = Array.from(selectedWordIds);
+    try {
+      for (const id of idsToDelete) {
+        await mutationRepository.deleteWord(id);
+      }
+      setWords((prev) => prev.filter((w) => !selectedWordIds.has(w.id)));
+      showToast({ message: `${idsToDelete.length}語を削除しました`, type: 'success' });
+      invalidateHomeCache();
+      refreshWordCount();
+      setSelectedWordIds(new Set());
+      setSelectMode(false);
+    } catch (deleteError) {
+      console.error('Failed to bulk delete:', deleteError);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setBulkDeleteLoading(false);
+      setBulkDeleteModalOpen(false);
+    }
+  };
+
+  const handleBulkToggleFavorite = async () => {
+    if (selectedWordIds.size === 0 || bulkFavoriteLoading) return;
+    const targets = words.filter((w) => selectedWordIds.has(w.id));
+    if (targets.length === 0) return;
+    const allFavorite = targets.every((w) => w.isFavorite);
+    const nextValue = !allFavorite;
+    setBulkFavoriteLoading(true);
+    setWords((prev) => prev.map((w) => (selectedWordIds.has(w.id) ? { ...w, isFavorite: nextValue } : w)));
+    try {
+      for (const w of targets) {
+        if (w.isFavorite !== nextValue) {
+          await mutationRepository.updateWord(w.id, { isFavorite: nextValue });
+        }
+      }
+      invalidateHomeCache();
+      showToast({
+        message: nextValue
+          ? `${targets.length}語をお気に入りに追加しました`
+          : `${targets.length}語をお気に入りから外しました`,
+        type: 'success',
+      });
+    } catch (favoriteError) {
+      console.error('Failed to bulk update favorite:', favoriteError);
+      setWords((prev) => prev.map((w) => {
+        const original = targets.find((t) => t.id === w.id);
+        return original ? { ...w, isFavorite: original.isFavorite } : w;
+      }));
+      showToast({ message: 'お気に入り更新に失敗しました', type: 'error' });
+    } finally {
+      setBulkFavoriteLoading(false);
+    }
+  };
 
   const handleCycleStatus = (wordId: string, newStatus: WordStatus) => {
     const word = words.find((w) => w.id === wordId);
@@ -720,7 +793,7 @@ export default function ProjectPage() {
         </button>
         <button
           type="button"
-          onClick={() => { setSelectMode((v) => !v); setSelectedWordIds(new Set()); }}
+          onClick={() => { if (selectMode) { handleExitSelectMode(); } else { setSelectMode(true); setSelectedWordIds(new Set()); } }}
           aria-label="選択"
           className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
             selectMode
@@ -747,6 +820,9 @@ export default function ProjectPage() {
             <WordRow
               key={word.id}
               word={word}
+              selectMode={selectMode}
+              selected={selectedWordIds.has(word.id)}
+              onToggleSelect={() => handleToggleSelectWord(word.id)}
               onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
               onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
               onToggleFavorite={() => void handleToggleFavorite(word)}
@@ -774,6 +850,34 @@ export default function ProjectPage() {
         onClose={() => setWordShowSortSheet(false)}
         sortOrder={wordSortOrder}
         onSortOrderChange={setWordSortOrder}
+      />
+
+      <BulkActionBar
+        open={selectMode}
+        selectedCount={selectedWordIds.size}
+        totalCount={filteredWords.length}
+        allSelected={filteredWords.length > 0 && filteredWords.every((w) => selectedWordIds.has(w.id))}
+        allFavoriteInSelection={
+          selectedWordIds.size > 0 &&
+          filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
+        }
+        favoriteLoading={bulkFavoriteLoading}
+        onCancel={handleExitSelectMode}
+        onToggleSelectAll={() => {
+          if (filteredWords.length === 0) return;
+          const allSel = filteredWords.every((w) => selectedWordIds.has(w.id));
+          setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
+        }}
+        onBulkFavorite={() => void handleBulkToggleFavorite()}
+        onBulkDelete={() => setBulkDeleteModalOpen(true)}
+      />
+
+      <BulkDeleteModal
+        open={bulkDeleteModalOpen}
+        loading={bulkDeleteLoading}
+        count={selectedWordIds.size}
+        onCancel={() => { if (!bulkDeleteLoading) setBulkDeleteModalOpen(false); }}
+        onConfirm={() => void handleConfirmBulkDelete()}
       />
 
       <ManualWordModal
@@ -1324,22 +1428,62 @@ function StatusPill({ kind }: { kind: WordStatus }) {
 
 function WordRow({
   word,
+  selectMode,
+  selected,
+  onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
   onToggleFavorite,
   onSelect,
 }: {
   word: Word;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
   onSelect: () => void;
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
+  const cardClasses = selectMode
+    ? `relative rounded-xl border-[1.25px] bg-white px-[13px] py-2 transition-colors ${
+        selected ? 'border-[var(--solid-ink)] bg-[rgba(19,127,236,0.06)]' : 'border-[var(--solid-ink)]'
+      }`
+    : 'relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-2';
+
+  if (selectMode) {
+    return (
+      <div className="relative">
+        <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+        <button
+          type="button"
+          onClick={onToggleSelect}
+          aria-pressed={selected}
+          className={`${cardClasses} block w-full text-left transition-all duration-100 active:translate-x-px active:translate-y-px`}
+        >
+          <div className="flex items-center gap-2.5">
+            <SelectCheckbox checked={selected} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+              <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
+                {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+                <span className="truncate">{word.japanese}</span>
+              </div>
+            </div>
+            {word.isFavorite && (
+              <Icon name="bookmark" size={16} filled className="shrink-0 text-[var(--color-accent)]" />
+            )}
+          </div>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-      <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-2">
+      <div className={cardClasses}>
         <div className="flex items-center gap-2.5">
           <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
 
@@ -1359,6 +1503,183 @@ function WordRow({
           <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りを切り替え">
             <Icon name="bookmark" size={18} filled={word.isFavorite} />
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelectCheckbox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
+        checked
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+          : 'border-[var(--solid-ink)] bg-white text-transparent'
+      }`}
+      aria-hidden
+    >
+      {checked && <Icon name="check" size={13} />}
+    </span>
+  );
+}
+
+function BulkActionBar({
+  open,
+  selectedCount,
+  totalCount,
+  allSelected,
+  allFavoriteInSelection,
+  favoriteLoading,
+  onCancel,
+  onToggleSelectAll,
+  onBulkFavorite,
+  onBulkDelete,
+}: {
+  open: boolean;
+  selectedCount: number;
+  totalCount: number;
+  allSelected: boolean;
+  allFavoriteInSelection: boolean;
+  favoriteLoading: boolean;
+  onCancel: () => void;
+  onToggleSelectAll: () => void;
+  onBulkFavorite: () => void;
+  onBulkDelete: () => void;
+}) {
+  if (!open) return null;
+  const hasSelection = selectedCount > 0;
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 px-3 pt-3"
+      style={{
+        background: 'linear-gradient(to top, var(--color-background) 70%, transparent)',
+        paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))',
+      }}
+    >
+      <div className="mx-auto w-full max-w-lg">
+        <div className="relative">
+          <div
+            className="pointer-events-none absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
+            style={{ transform: 'translate(2px, 3px)' }}
+          />
+          <div className="relative flex items-center gap-2 rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-2.5">
+            <button
+              type="button"
+              onClick={onCancel}
+              aria-label="選択を終了"
+              className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="close" size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onToggleSelectAll}
+              disabled={totalCount === 0}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-[7px] text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+            >
+              <SelectCheckbox checked={allSelected && totalCount > 0} />
+              {allSelected && totalCount > 0 ? '解除' : '全選択'}
+            </button>
+            <div className="min-w-0 flex-1 px-1 text-center">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                SELECTED
+              </div>
+              <div className="font-display text-[14px] font-extrabold leading-none text-[var(--solid-ink)]">
+                {selectedCount}
+                <span className="ml-1 font-mono text-[10px] font-semibold text-[var(--color-muted)]">
+                  / {totalCount}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onBulkFavorite}
+              disabled={!hasSelection || favoriteLoading}
+              aria-label={allFavoriteInSelection ? 'お気に入りから外す' : 'お気に入りに追加'}
+              className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+            >
+              {favoriteLoading ? (
+                <Icon name="progress_activity" size={16} className="animate-spin" />
+              ) : (
+                <Icon name="bookmark" size={16} filled={allFavoriteInSelection && hasSelection} />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onBulkDelete}
+              disabled={!hasSelection}
+              aria-label="削除"
+              className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              style={{ background: 'var(--color-error, #cc4d59)' }}
+            >
+              <Icon name="delete" size={15} />
+              削除
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkDeleteModal({
+  open,
+  loading,
+  count,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  count: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={onCancel}
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-5">
+        <div
+          className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
+          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+        >
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            DELETE
+          </div>
+          <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+            {count}語を削除しますか？
+          </h2>
+          <p className="mt-2 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+            選択した{count}語が削除されます。この操作は取り消せません。
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-60"
+              style={{ background: 'var(--color-error, #cc4d59)' }}
+            >
+              {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+              削除する
+            </button>
+          </div>
         </div>
       </div>
     </div>
