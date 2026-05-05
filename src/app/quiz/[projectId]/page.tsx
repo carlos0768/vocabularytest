@@ -41,6 +41,7 @@ interface QuizPersistState {
   selectedIndex: number | null;
   isRevealed: boolean;
   results: { correct: number; total: number };
+  answerResults?: (boolean | null)[];
   questionCount: number;
   quizDirection: 'en-to-ja' | 'ja-to-en';
   timestamp: number;
@@ -156,6 +157,7 @@ export default function QuizPage() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [results, setResults] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
+  const [answerResults, setAnswerResults] = useState<(boolean | null)[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [distractorError, setDistractorError] = useState<string | null>(null);
@@ -183,11 +185,11 @@ export default function QuizPage() {
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
     const state: QuizPersistState = {
-      questions, currentIndex, selectedIndex, isRevealed, results, questionCount, quizDirection,
+      questions, currentIndex, selectedIndex, isRevealed, results, answerResults, questionCount, quizDirection,
       timestamp: Date.now(),
     };
     try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch { /* ignore */ }
-  }, [questions, currentIndex, selectedIndex, isRevealed, results, questionCount, quizDirection, storageKey]);
+  }, [questions, currentIndex, selectedIndex, isRevealed, results, answerResults, questionCount, quizDirection, storageKey]);
 
   const clearQuizState = useCallback(() => {
     try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
@@ -204,7 +206,7 @@ export default function QuizPage() {
 
   useEffect(() => {
     if (questions.length > 0 && questionCount && !isComplete) saveQuizState();
-  }, [questions, currentIndex, selectedIndex, isRevealed, results, questionCount, quizDirection, isComplete, saveQuizState]);
+  }, [questions, currentIndex, selectedIndex, isRevealed, results, answerResults, questionCount, quizDirection, isComplete, saveQuizState]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -336,6 +338,11 @@ export default function QuizPage() {
         setSelectedIndex(state.selectedIndex);
         setIsRevealed(state.isRevealed);
         setResults(state.results);
+        setAnswerResults(
+          Array.isArray(state.answerResults) && state.answerResults.length === restoredQuestions.length
+            ? state.answerResults
+            : Array.from({ length: restoredQuestions.length }, () => null)
+        );
         setQuestionCount(restoredCount);
         setQuizDirection(state.quizDirection);
         setAllWords(restoredQuestions.map(q => q.word));
@@ -488,6 +495,11 @@ export default function QuizPage() {
     const isCorrect = index === currentQuestion.correctIndex;
     const word = currentQuestion.word;
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
+    setAnswerResults((prev) => {
+      const next = prev.length === questions.length ? [...prev] : Array.from({ length: questions.length }, (_, i) => prev[i] ?? null);
+      next[currentIndex] = isCorrect;
+      return next;
+    });
     if (isCorrect) recordCorrectAnswer(false);
     else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode ? word.projectId : projectId, word.distractors);
     recordActivity();
@@ -509,6 +521,11 @@ export default function QuizPage() {
     setIsRevealed(true);
     const word = currentQuestion.word;
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
+    setAnswerResults((prev) => {
+      const next = prev.length === questions.length ? [...prev] : Array.from({ length: questions.length }, (_, i) => prev[i] ?? null);
+      next[currentIndex] = isCorrect;
+      return next;
+    });
     if (isCorrect) recordCorrectAnswer(false);
     else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode ? word.projectId : projectId, word.distractors);
     recordActivity();
@@ -543,7 +560,7 @@ export default function QuizPage() {
     if (allWords.some((w) => needsDistractors(w))) await startQuizWithDistractors(allWords, count);
     else setQuestions(generateQuestions(allWords, count, quizDirection));
     setCurrentIndex(0); setSelectedIndex(null); setIsRevealed(false);
-    setResults({ correct: 0, total: 0 }); setIsComplete(false);
+    setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false);
   };
 
   const handleSelectCount = async (count: number) => {
@@ -678,7 +695,6 @@ export default function QuizPage() {
 
   /* ---------- Main quiz screen (DS style) ---------- */
   const total = questions.length;
-  const correctSoFar = results.correct;
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
@@ -699,9 +715,11 @@ export default function QuizPage() {
                 style={{
                   background:
                     i < currentIndex
-                      ? i < correctSoFar
+                      ? answerResults[i] === true
                         ? 'var(--color-success)'
-                        : 'var(--color-error)'
+                        : answerResults[i] === false
+                          ? 'var(--color-error)'
+                          : 'rgba(26,26,26,0.1)'
                       : i === currentIndex
                         ? 'var(--solid-ink)'
                         : 'rgba(26,26,26,0.1)',
