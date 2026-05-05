@@ -68,6 +68,7 @@ export default function ProjectPage() {
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
 
   const [showManualWordModal, setShowManualWordModal] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
   const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
@@ -625,12 +626,50 @@ export default function ProjectPage() {
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <button
             type="button"
-            onClick={() => setShowManualWordModal(true)}
+            onClick={() => setAddMenuOpen((open) => !open)}
             aria-label="単語を追加"
+            aria-haspopup="menu"
+            aria-expanded={addMenuOpen}
             className="relative flex h-full w-full items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="add" size={20} />
           </button>
+          {addMenuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-20 cursor-default bg-transparent"
+                aria-label="メニューを閉じる"
+                onClick={() => setAddMenuOpen(false)}
+              />
+              <div
+                role="menu"
+                className="absolute right-0 top-[52px] z-30 w-[180px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]"
+              >
+                <MenuButton
+                  icon="photo_camera"
+                  label="スキャンで追加"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    try {
+                      sessionStorage.setItem('scanvocab_existing_project_id', projectId);
+                    } catch {
+                      /* ignore */
+                    }
+                    router.push('/scan');
+                  }}
+                />
+                <MenuButton
+                  icon="edit"
+                  label="手で入力"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    setShowManualWordModal(true);
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
