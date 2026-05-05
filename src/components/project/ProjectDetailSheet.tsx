@@ -83,15 +83,20 @@ function StatusSquares({ wordId, status, onStatusChange }: {
   const [direction, setDirection] = useState<'up' | 'down'>(() => status === 'mastered' ? 'down' : 'up');
 
   useEffect(() => {
-    if (status === 'new') { setFilledCount(0); setDirection('up'); return; }
-    if (status === 'mastered') { setFilledCount(3); setDirection('down'); return; }
-    try {
-      const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
-      if (val === 'down2') { setFilledCount(2); setDirection('down'); }
-      else if (val === 'down1') { setFilledCount(1); setDirection('down'); }
-      else if (val === '1') { setFilledCount(2); setDirection('up'); }
-      else { setFilledCount(1); setDirection('up'); }
-    } catch { setFilledCount(1); setDirection('up'); }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (status === 'new') { setFilledCount(0); setDirection('up'); return; }
+      if (status === 'mastered') { setFilledCount(3); setDirection('down'); return; }
+      try {
+        const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
+        if (val === 'down2') { setFilledCount(2); setDirection('down'); }
+        else if (val === 'down1') { setFilledCount(1); setDirection('down'); }
+        else if (val === '1') { setFilledCount(2); setDirection('up'); }
+        else { setFilledCount(1); setDirection('up'); }
+      } catch { setFilledCount(1); setDirection('up'); }
+    });
+    return () => { cancelled = true; };
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {

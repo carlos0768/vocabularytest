@@ -23,13 +23,6 @@ export type {
   GrammarQuizQuestion,
   AIGrammarExtraction,
   AIGrammarResponse,
-  SentenceQuestionType,
-  BlankSlot,
-  EnhancedBlankSlot,
-  FillInBlankQuestion,
-  WordOrderQuestion,
-  MultiFillInBlankQuestion,
-  SentenceQuizQuestion,
 } from '../shared/types';
 
 // ---------- Tab-level navigation ----------
@@ -43,7 +36,6 @@ export type HomeStackParamList = {
   WordDetail: { word: import('../shared/types').Word };
   Quiz: { projectId: string };
   Flashcard: { projectId: string; favoritesOnly?: boolean };
-  Grammar: { projectId: string };
   Favorites: undefined;
   FavoritesFlashcard: undefined;
   FavoritesQuiz: undefined;
@@ -94,7 +86,6 @@ export type RootStackParamList = {
   Project: { projectId: string };
   Quiz: { projectId: string };
   Flashcard: { projectId: string; favoritesOnly?: boolean };
-  Grammar: { projectId: string };
   Favorites: undefined;
   FavoritesFlashcard: undefined;
   FavoritesQuiz: undefined;

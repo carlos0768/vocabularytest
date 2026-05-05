@@ -151,6 +151,9 @@ function shouldIgnoreMatch(relativePath, rule, matchText, lineText) {
   if (rule === 'SECRET002' && /\bprocess\.env\./.test(lineText)) {
     return true;
   }
+  if (rule === 'SECRET002' && /=\s*[A-Za-z_$][\w$]*\s*\(/.test(lineText)) {
+    return true;
+  }
   return false;
 }
 

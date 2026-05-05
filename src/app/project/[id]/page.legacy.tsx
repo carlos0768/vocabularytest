@@ -807,8 +807,6 @@ export default function ProjectDetailPage() {
   };
 
   const handleUpdateWord = async (wordId: string, english: string, japanese: string) => {
-    const originalWord = words.find((w) => w.id === wordId);
-    const japaneseChanged = originalWord && originalWord.japanese !== japanese;
     await mutationRepository.updateWord(wordId, { english, japanese });
     setWords((prev) => prev.map((w) => (
       w.id === wordId
@@ -819,29 +817,6 @@ export default function ProjectDetailPage() {
           }
         : w
     )));
-
-    if (japaneseChanged && canUseAiFeatures) {
-      try {
-        const response = await fetch('/api/regenerate-distractors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ english, japanese }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.distractors) {
-            await mutationRepository.updateWord(wordId, { distractors: data.distractors });
-            setWords((prev) =>
-              prev.map((w) => (w.id === wordId ? { ...w, distractors: data.distractors } : w))
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Failed to regenerate distractors:', error);
-      }
-    }
-
   };
 
   const handleToggleFavorite = async (wordId: string) => {

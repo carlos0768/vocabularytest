@@ -355,10 +355,6 @@ private struct FlashcardDestination: Hashable {
     }
 }
 
-private struct SentenceQuizDestination: Hashable {
-    let project: Project
-}
-
 private struct HomeScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
 
@@ -374,7 +370,6 @@ struct HomeView: View {
 
     @State private var quizDestination: QuizDestination?
     @State private var flashcardDestination: FlashcardDestination?
-    @State private var sentenceQuizDestination: SentenceQuizDestination?
     @State private var detailProject: Project?
     @State private var showingProjectList = false
     @State private var showingScan = false
@@ -402,7 +397,6 @@ struct HomeView: View {
                 selectedDayStory: $selectedDayStory,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
-                sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject,
                 showingScan: $showingScan,
                 showingProjectList: $showingProjectList
@@ -420,7 +414,6 @@ struct HomeView: View {
                 viewModel: viewModel,
                 quizDestination: $quizDestination,
                 flashcardDestination: $flashcardDestination,
-                sentenceQuizDestination: $sentenceQuizDestination,
                 detailProject: $detailProject
             ))
     }
@@ -1299,7 +1292,6 @@ private struct HomeNavigationModifier: ViewModifier {
     @Binding var selectedDayStory: DayMasteryStory?
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
-    @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
     @Binding var showingScan: Bool
     @Binding var showingProjectList: Bool
@@ -1320,9 +1312,6 @@ private struct HomeNavigationModifier: ViewModifier {
             }
             .navigationDestination(item: $flashcardDestination) { dest in
                 FlashcardView(project: dest.project, preloadedWords: dest.preloadedWords, showDismissButton: false)
-            }
-            .navigationDestination(item: $sentenceQuizDestination) { dest in
-                SentenceQuizView(project: dest.project)
             }
             .navigationDestination(item: $detailProject) { project in
                 ProjectDetailView(project: project)
@@ -1436,13 +1425,11 @@ private struct HomeLifecycleModifier: ViewModifier {
     let viewModel: HomeViewModel
     @Binding var quizDestination: QuizDestination?
     @Binding var flashcardDestination: FlashcardDestination?
-    @Binding var sentenceQuizDestination: SentenceQuizDestination?
     @Binding var detailProject: Project?
 
     private var isShowingNestedDestination: Bool {
         quizDestination != nil ||
         flashcardDestination != nil ||
-        sentenceQuizDestination != nil ||
         detailProject != nil
     }
 

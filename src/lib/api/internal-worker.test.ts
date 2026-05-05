@@ -9,38 +9,38 @@ import {
 } from './internal-worker';
 
 test('normalizeInternalWorkerValue trims whitespace and newlines', () => {
-  assert.equal(normalizeInternalWorkerValue(' \nworker-token\r\n '), 'worker-token');
+  assert.equal(normalizeInternalWorkerValue(' \nplaceholder-worker-token\r\n '), 'placeholder-worker-token');
   assert.equal(normalizeInternalWorkerValue(undefined), '');
 });
 
 test('getInternalWorkerAuthorization prefers dedicated internal worker token', () => {
   const result = getInternalWorkerAuthorization({
-    INTERNAL_WORKER_TOKEN: ' dedicated-worker \n',
-    SUPABASE_SERVICE_ROLE_KEY: 'service-role',
+    INTERNAL_WORKER_TOKEN: ' dedicated-placeholder-worker \n',
+    SUPABASE_SERVICE_ROLE_KEY: 'placeholder-service-role',
   });
 
   assert.deepEqual(result, {
     source: 'INTERNAL_WORKER_TOKEN',
-    token: 'dedicated-worker',
-    header: 'Bearer dedicated-worker',
+    token: 'dedicated-placeholder-worker',
+    header: 'Bearer dedicated-placeholder-worker',
   });
 });
 
 test('getInternalWorkerAuthorization falls back to service role token', () => {
   const result = getInternalWorkerAuthorization({
-    SUPABASE_SERVICE_ROLE_KEY: 'service-role\n',
+    SUPABASE_SERVICE_ROLE_KEY: 'placeholder-service-role\n',
   });
 
   assert.deepEqual(result, {
     source: 'SUPABASE_SERVICE_ROLE_KEY',
-    token: 'service-role',
-    header: 'Bearer service-role',
+    token: 'placeholder-service-role',
+    header: 'Bearer placeholder-service-role',
   });
 });
 
 test('authorizeInternalWorkerHeader accepts normalized bearer token', () => {
-  const result = authorizeInternalWorkerHeader('Bearer   worker-token  ', {
-    INTERNAL_WORKER_TOKEN: '\nworker-token\r\n',
+  const result = authorizeInternalWorkerHeader('Bearer   placeholder-worker-token  ', {
+    INTERNAL_WORKER_TOKEN: '\nplaceholder-worker-token\r\n',
   });
 
   assert.deepEqual(result, {
@@ -51,7 +51,7 @@ test('authorizeInternalWorkerHeader accepts normalized bearer token', () => {
 
 test('authorizeInternalWorkerHeader returns missing_header when header is absent', () => {
   const result = authorizeInternalWorkerHeader(null, {
-    INTERNAL_WORKER_TOKEN: 'worker-token',
+    INTERNAL_WORKER_TOKEN: 'placeholder-worker-token',
   });
 
   assert.deepEqual(result, {
@@ -61,7 +61,7 @@ test('authorizeInternalWorkerHeader returns missing_header when header is absent
 });
 
 test('authorizeInternalWorkerHeader returns missing_env when no tokens are configured', () => {
-  const result = authorizeInternalWorkerHeader('Bearer worker-token', {});
+  const result = authorizeInternalWorkerHeader('Bearer placeholder-worker-token', {});
 
   assert.deepEqual(result, {
     ok: false,
@@ -70,9 +70,9 @@ test('authorizeInternalWorkerHeader returns missing_env when no tokens are confi
 });
 
 test('authorizeInternalWorkerHeader returns mismatch for invalid token', () => {
-  const result = authorizeInternalWorkerHeader('Bearer wrong-token', {
-    INTERNAL_WORKER_TOKEN: 'worker-token',
-    SUPABASE_SERVICE_ROLE_KEY: 'service-role',
+  const result = authorizeInternalWorkerHeader('Bearer wrong-placeholder-token', {
+    INTERNAL_WORKER_TOKEN: 'placeholder-worker-token',
+    SUPABASE_SERVICE_ROLE_KEY: 'placeholder-service-role',
   });
 
   assert.deepEqual(result, {
