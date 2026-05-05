@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
-import { ManualWordInputModal } from '@/components/home/ProjectModals';
 import { WordLimitModal } from '@/components/limits';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
@@ -601,18 +600,18 @@ export default function ProjectPage() {
         <StackedBar total={counts.total} m={counts.mastered} l={counts.learning} n={counts.newCount} />
       </div>
 
-      <div className="flex items-stretch gap-2 px-[18px] pb-4">
+      <div className="flex items-center gap-2 px-[18px] pb-4">
         <div className="relative flex-1">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/quiz/${projectId}`}
-            className="relative flex h-full w-full items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--color-accent)] bg-[var(--color-accent)] py-[11px] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="check" size={14} />
             クイズを始める
           </Link>
         </div>
-        <div className="relative aspect-square">
+        <div className="relative h-[44px] w-[44px] flex-none">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/flashcard/${projectId}`}
@@ -622,7 +621,7 @@ export default function ProjectPage() {
             <Icon name="style" size={18} />
           </Link>
         </div>
-        <div className="relative aspect-square">
+        <div className="relative h-[44px] w-[44px] flex-none">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <button
             type="button"
@@ -735,23 +734,23 @@ export default function ProjectPage() {
         onSortOrderChange={setWordSortOrder}
       />
 
-      <ManualWordInputModal
-        isOpen={showManualWordModal}
-        onClose={() => {
+      <ManualWordModal
+        open={showManualWordModal}
+        loading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
+        english={manualWordEnglish}
+        japanese={manualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        onEnglishChange={setManualWordEnglish}
+        onJapaneseChange={setManualWordJapanese}
+        onPartOfSpeechChange={setManualWordPartOfSpeech}
+        onExampleSentenceChange={setManualWordExampleSentence}
+        onCancel={() => {
           setShowManualWordModal(false);
           resetManualWordForm();
         }}
         onConfirm={handleSaveManualWord}
-        isLoading={manualWordSaving}
-        loadingMessage={manualWordSavingMessage}
-        english={manualWordEnglish}
-        setEnglish={setManualWordEnglish}
-        japanese={manualWordJapanese}
-        setJapanese={setManualWordJapanese}
-        partOfSpeech={manualWordPartOfSpeech}
-        setPartOfSpeech={setManualWordPartOfSpeech}
-        exampleSentence={manualWordExampleSentence}
-        setExampleSentence={setManualWordExampleSentence}
       />
 
       <WordLimitModal
@@ -919,6 +918,163 @@ function DeleteProjectModal({
             >
               {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
               削除する
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualWordModal({
+  open,
+  loading,
+  loadingMessage,
+  english,
+  japanese,
+  partOfSpeech,
+  exampleSentence,
+  onEnglishChange,
+  onJapaneseChange,
+  onPartOfSpeechChange,
+  onExampleSentenceChange,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  loadingMessage?: string;
+  english: string;
+  japanese: string;
+  partOfSpeech: string;
+  exampleSentence: string;
+  onEnglishChange: (value: string) => void;
+  onJapaneseChange: (value: string) => void;
+  onPartOfSpeechChange: (value: string) => void;
+  onExampleSentenceChange: (value: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [showOptional, setShowOptional] = useState(false);
+
+  if (!open) return null;
+  const canSubmit = english.trim().length > 0 && japanese.trim().length > 0 && !loading;
+
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={() => { if (!loading) onCancel(); }}
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-5">
+        <div
+          className="w-full max-w-[400px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
+          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+        >
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            ADD WORD
+          </div>
+          <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+            単語を追加
+          </h2>
+          <p className="mt-1 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+            品詞・例文・発音記号は AI が自動で補完します。
+          </p>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                英単語
+              </label>
+              <input
+                type="text"
+                value={english}
+                onChange={(e) => onEnglishChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) onConfirm(); }}
+                placeholder="例: beautiful"
+                disabled={loading}
+                maxLength={50}
+                autoFocus
+                className="w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-60"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                日本語訳
+              </label>
+              <input
+                type="text"
+                value={japanese}
+                onChange={(e) => onJapaneseChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) onConfirm(); }}
+                placeholder="例: 美しい"
+                disabled={loading}
+                maxLength={100}
+                className="w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-60"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowOptional((v) => !v)}
+              className="flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)] transition-colors hover:text-[var(--solid-ink)]"
+            >
+              <Icon name={showOptional ? 'expand_less' : 'expand_more'} size={12} />
+              詳細を入力する（任意）
+            </button>
+
+            {showOptional && (
+              <div className="space-y-3 border-t border-[var(--color-border)] pt-3">
+                <div>
+                  <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                    品詞（任意）
+                  </label>
+                  <input
+                    type="text"
+                    value={partOfSpeech}
+                    onChange={(e) => onPartOfSpeechChange(e.target.value)}
+                    placeholder="例: noun / verb / adjective"
+                    disabled={loading}
+                    className="w-full rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-white px-3 py-2 text-[12px] text-[var(--solid-ink)] outline-none focus:border-[var(--solid-ink)] disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                    例文（任意）
+                  </label>
+                  <input
+                    type="text"
+                    value={exampleSentence}
+                    onChange={(e) => onExampleSentenceChange(e.target.value)}
+                    placeholder="例: She is beautiful."
+                    disabled={loading}
+                    className="w-full rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-white px-3 py-2 text-[12px] text-[var(--solid-ink)] outline-none focus:border-[var(--solid-ink)] disabled:opacity-60"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={!canSubmit}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+            >
+              {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+              {loading ? (loadingMessage ?? '保存中...') : '追加'}
             </button>
           </div>
         </div>
