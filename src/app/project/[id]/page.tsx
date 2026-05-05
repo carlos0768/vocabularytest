@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { WordLimitModal } from '@/components/limits';
+import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
@@ -68,6 +69,7 @@ export default function ProjectPage() {
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
 
   const [showManualWordModal, setShowManualWordModal] = useState(false);
+  const [showScanCaptureModal, setShowScanCaptureModal] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
   const [manualWordJapanese, setManualWordJapanese] = useState('');
@@ -651,12 +653,7 @@ export default function ProjectPage() {
                   label="スキャンで追加"
                   onClick={() => {
                     setAddMenuOpen(false);
-                    try {
-                      sessionStorage.setItem('scanvocab_existing_project_id', projectId);
-                    } catch {
-                      /* ignore */
-                    }
-                    router.push('/scan');
+                    setShowScanCaptureModal(true);
                   }}
                 />
                 <MenuButton
@@ -796,6 +793,12 @@ export default function ProjectPage() {
         isOpen={showWordLimitModal}
         onClose={() => setShowWordLimitModal(false)}
         currentCount={totalWordCount}
+      />
+
+      <ScanCaptureModal
+        isOpen={showScanCaptureModal}
+        onClose={() => setShowScanCaptureModal(false)}
+        targetProjectId={projectId}
       />
 
       <ProjectShareSheet

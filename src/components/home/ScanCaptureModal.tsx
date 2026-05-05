@@ -12,6 +12,11 @@ interface ScanCaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: TopMode;
+  /**
+   * If set, the scan results will be appended to this existing project
+   * instead of creating a new one.
+   */
+  targetProjectId?: string;
 }
 
 type TopMode = 'vocab' | 'correction' | 'parser';
@@ -60,7 +65,7 @@ function subToExtractMode(sub: SubOption): ExtractMode {
   return 'all';
 }
 
-export function ScanCaptureModal({ isOpen, onClose, defaultMode }: ScanCaptureModalProps) {
+export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>(defaultMode ?? 'vocab');
@@ -111,6 +116,9 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode }: ScanCaptureMo
         formData.append('image', file);
         formData.append('projectTitle', `スキャン ${dateLabel}`);
         formData.append('scanMode', subToExtractMode(activeSub));
+        if (targetProjectId) {
+          formData.append('targetProjectId', targetProjectId);
+        }
 
         const res = await fetch('/api/scan-jobs', {
           method: 'POST',
@@ -140,7 +148,11 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode }: ScanCaptureMo
       sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(result.lexiconEntries ?? []));
       sessionStorage.removeItem('scanvocab_project_name');
       sessionStorage.removeItem('scanvocab_project_icon');
-      sessionStorage.removeItem('scanvocab_existing_project_id');
+      if (targetProjectId) {
+        sessionStorage.setItem('scanvocab_existing_project_id', targetProjectId);
+      } else {
+        sessionStorage.removeItem('scanvocab_existing_project_id');
+      }
       onClose();
       router.replace('/scan/confirm');
     } catch (err) {
