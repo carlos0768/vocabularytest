@@ -38,7 +38,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # Server-side only, bypasses RL
 
 # Stripe Payment (for subscription)
 STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key
-STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+STRIPE_WEBHOOK_SECRET=placeholder-webhook-secret
 STRIPE_PRICE_ID=price_your-price-id
 
 # Email OTP
