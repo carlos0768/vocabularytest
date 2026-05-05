@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import type { CorrectionResultPayload } from '@/lib/ai/correction-parser';
 
@@ -95,13 +95,13 @@ function HighlightedText({ inputText, issues }: { inputText: string; issues: Cor
   );
 }
 
-export default function CorrectionResultPage() {
+function CorrectionResultContent() {
   const router = useRouter();
-  const [id, setId] = useState<string | null>(null);
-  const [resolvedId, setResolvedId] = useState(false);
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
   const [result, setResult] = useState<CorrectionResult | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loading = Boolean(id) && !result && !error;
 
   /* Scroll to top on mount */
   useEffect(() => {
@@ -109,13 +109,7 @@ export default function CorrectionResultPage() {
   }, []);
 
   useEffect(() => {
-    setId(new URLSearchParams(window.location.search).get('id'));
-    setResolvedId(true);
-  }, []);
-
-  useEffect(() => {
-    if (!resolvedId) return;
-    if (!id) { setLoading(false); return; }
+    if (!id) return;
     let active = true;
     fetch(`/api/correction/${id}`)
       .then((r) => r.json())
@@ -125,11 +119,10 @@ export default function CorrectionResultPage() {
         setResult(payload.result);
       })
       .catch((e) => { if (active) setError(e instanceof Error ? e.message : '添削結果の取得に失敗しました'); })
-      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [id, resolvedId]);
+  }, [id]);
 
-  if (!resolvedId || loading) {
+  if (loading) {
     return <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>;
   }
 
@@ -210,5 +203,13 @@ export default function CorrectionResultPage() {
 
       <div className="pb-7" />
     </div>
+  );
+}
+
+export default function CorrectionResultPage() {
+  return (
+    <Suspense fallback={<div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>}>
+      <CorrectionResultContent />
+    </Suspense>
   );
 }
