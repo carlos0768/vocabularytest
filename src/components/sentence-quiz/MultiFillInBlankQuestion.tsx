@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import type { MultiFillInBlankQuestion as MultiFillInBlankQuestionType, EnhancedBlankSlot } from '@/types';
 
@@ -10,7 +10,37 @@ interface MultiFillInBlankQuestionProps {
   onAnswer: (isCorrect: boolean) => void;
 }
 
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function deterministicShuffle(options: string[], seed: string): string[] {
+  return options
+    .map((option, index) => ({
+      option,
+      rank: hashString(`${seed}:${option}:${index}`),
+    }))
+    .sort((a, b) => a.rank - b.rank || a.option.localeCompare(b.option))
+    .map(({ option }) => option);
+}
+
 export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: MultiFillInBlankQuestionProps) {
+  return (
+    <MultiFillInBlankQuestionSession
+      key={questionIndex}
+      question={question}
+      questionIndex={questionIndex}
+      onAnswer={onAnswer}
+    />
+  );
+}
+
+function MultiFillInBlankQuestionSession({ question, questionIndex, onAnswer }: MultiFillInBlankQuestionProps) {
   // 各空欄の選択状態
   const [selectedOptions, setSelectedOptions] = useState<Record<number, string | null>>({});
   // 現在アクティブな空欄のインデックス
@@ -24,24 +54,13 @@ export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: 
   // 連打防止
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 問題が変わったら状態をリセット（indexベースで重複wordIdにも対応）
-  const [currentIdx, setCurrentIdx] = useState(questionIndex);
-  useEffect(() => {
-    if (questionIndex !== currentIdx) {
-      setCurrentIdx(questionIndex);
-      setSelectedOptions({});
-      setCurrentBlankIndex(0);
-      setIsRevealed(false);
-      setIsCorrect(false);
-      setBlankResults({});
-      setIsSubmitting(false);
-    }
-  }, [questionIndex, currentIdx]);
-
   const blanks = question.blanks;
 
   // 全ての空欄の選択肢をまとめて、シャッフルした状態で保持（最大8個）
   const allOptions = useMemo(() => {
+    const seed = `${questionIndex}:${blanks
+      .map((blank) => `${blank.correctAnswer}:${blank.options.join(',')}`)
+      .join('|')}`;
     // まず正解を必ず含める
     const correctAnswers = new Set(blanks.map(blank => blank.correctAnswer));
     const options = blanks.flatMap(blank => blank.options);
@@ -50,16 +69,16 @@ export function MultiFillInBlankQuestion({ question, questionIndex, onAnswer }: 
     
     // 8個以下ならそのまま
     if (uniqueOptions.length <= 8) {
-      return uniqueOptions.sort(() => Math.random() - 0.5);
+      return deterministicShuffle(uniqueOptions, seed);
     }
     
     // 8個超の場合: 正解を確保してから残りをランダムに選ぶ
     const correct = uniqueOptions.filter(o => correctAnswers.has(o));
     const distractors = uniqueOptions.filter(o => !correctAnswers.has(o));
-    const shuffledDistractors = distractors.sort(() => Math.random() - 0.5);
+    const shuffledDistractors = deterministicShuffle(distractors, `${seed}:distractors`);
     const selected = [...correct, ...shuffledDistractors.slice(0, 8 - correct.length)];
-    return selected.sort(() => Math.random() - 0.5);
-  }, [blanks]);
+    return deterministicShuffle(selected, `${seed}:selected`);
+  }, [blanks, questionIndex]);
 
   // 全ての空欄が埋まっているかチェック
   const allBlanksFilled = blanks.every((_, idx) => selectedOptions[idx] !== null && selectedOptions[idx] !== undefined);

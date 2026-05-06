@@ -4,12 +4,6 @@
 
 ## P0: 公開前に必ず終わらせる
 
-- [ ] lint対象を整理する
-  - 現状: `npm run lint` が `mobile/`, `cloud-run-scan/dist/`, 動画素材配下まで拾って失敗
-  - 成功条件: 少なくともWeb本体向けの `lint:web` が通る
-- [ ] 公開前検証コマンドを定義する
-  - 候補: `npm run verify`
-  - 成功条件: 公開前に何を実行すればよいかが `package.json` と docsで一致する
 - [ ] docsの古い記述を実装に合わせる
   - 対象: `README.md`, `CLAUDE.md`, `docs/architecture.md`, `docs/commands.md`, `docs/runbooks.md`, `.env.example`, `vercel.json`
   - 注意: KOMOJU/Stripe、Sentry、migration数、テスト一覧、存在しないroute設定
@@ -46,6 +40,16 @@
 
 ## Done
 
+- [x] 2026-05-06: Web本体向けlint対象を分離し、公開前検証コマンドを定義
+  - `npm run lint:web` を追加。対象は `src/`, `shared/`, Next/PostCSS/ESLint設定、security guard系scripts
+  - `mobile/`, `ios-native/`, `cloud-run-scan/`, `stitch/`, `uisu/`, `vocabularytest*`, `legacy/`, `experimental/`, `動画素材/`, `.next/`, `node_modules/`, build/dist/coverage/out はWeb本体公開前lint対象外
+  - `npm run verify` を追加。内容は `npm run lint:web && npm run security:all && npm test && npm run build`
+  - Web本体lint errorsを低リスク修正。認証、課金、scan limit、同期queue、DB migrationの仕様変更なし
+  - `npm run lint:web`: 成功。0 errors / 98 warnings
+  - `npm run security:all`: 成功
+  - `npm test`: 成功。132 tests pass
+  - `npm run build`: 成功
+  - `npm run verify`: 成功
 - [x] 2026-05-06: secrets guardの失敗を整理し、`security:all` を通過
   - `CLAUDE.md` のStripe webhook secret例を実prefix風でないdummy値へ変更
   - `src/lib/api/internal-worker.ts` とtestの実secretではない値・変数名による誤検知をdummy表現へ整理

@@ -8,6 +8,11 @@ import { useAuth } from '@/hooks/use-auth';
 
 type SyncStatus = 'synced' | 'syncing' | 'pending' | 'offline';
 
+interface PendingSnapshot {
+  pendingCount: number;
+  status: SyncStatus;
+}
+
 export function SyncStatusIndicator() {
   const isOnline = useOnlineStatus();
   const { user, subscription } = useAuth();
@@ -17,52 +22,89 @@ export function SyncStatusIndicator() {
   const [pendingCount, setPendingCount] = useState(0);
 
   // Check pending items
-  const checkPendingItems = useCallback(async () => {
+  const readPendingSnapshot = useCallback(async (): Promise<PendingSnapshot | null> => {
     try {
       const pending = await syncQueue.getPending();
-      setPendingCount(pending.length);
-      
+
       if (!isOnline) {
-        setStatus('offline');
-      } else if (pending.length > 0) {
-        setStatus('pending');
-      } else {
-        setStatus('synced');
+        return { pendingCount: pending.length, status: 'offline' };
       }
+      return { pendingCount: pending.length, status: pending.length > 0 ? 'pending' : 'synced' };
     } catch (error) {
       console.error('[SyncStatus] Failed to check pending:', error);
+      return null;
     }
   }, [isOnline]);
 
   // Sync now
   const syncNow = useCallback(async () => {
     if (!isOnline || !user || !isPro) return;
-    
+
+    await Promise.resolve();
     setStatus('syncing');
     try {
       await hybridRepository.processSyncQueue();
-      await checkPendingItems();
+      const snapshot = await readPendingSnapshot();
+      if (snapshot) {
+        setPendingCount(snapshot.pendingCount);
+        setStatus(snapshot.status);
+      }
     } catch (error) {
       console.error('[SyncStatus] Sync failed:', error);
       setStatus('pending');
     }
-  }, [isOnline, user, isPro, checkPendingItems]);
+  }, [isOnline, user, isPro, readPendingSnapshot]);
 
   // Auto-sync on online status change
   useEffect(() => {
-    if (isOnline && pendingCount > 0 && isPro) {
-      syncNow();
-    }
-  }, [isOnline, pendingCount, isPro, syncNow]);
+    let cancelled = false;
+    const runAutoSync = async () => {
+      if (!isOnline || pendingCount <= 0 || !isPro || !user) return;
+
+      await Promise.resolve();
+      if (cancelled) return;
+
+      setStatus('syncing');
+      try {
+        await hybridRepository.processSyncQueue();
+        const snapshot = await readPendingSnapshot();
+        if (!snapshot || cancelled) return;
+        setPendingCount(snapshot.pendingCount);
+        setStatus(snapshot.status);
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[SyncStatus] Sync failed:', error);
+        setStatus('pending');
+      }
+    };
+
+    void runAutoSync();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline, pendingCount, isPro, user, readPendingSnapshot]);
 
   // Periodic check (every 30 seconds)
   useEffect(() => {
     if (!isPro) return;
-    
-    checkPendingItems();
-    const interval = setInterval(checkPendingItems, 30000);
-    return () => clearInterval(interval);
-  }, [isPro, checkPendingItems]);
+
+    let cancelled = false;
+    const updatePendingItems = async () => {
+      const snapshot = await readPendingSnapshot();
+      if (!snapshot || cancelled) return;
+      setPendingCount(snapshot.pendingCount);
+      setStatus(snapshot.status);
+    };
+
+    void updatePendingItems();
+    const interval = setInterval(() => {
+      void updatePendingItems();
+    }, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isPro, readPendingSnapshot]);
 
   // Periodic sync (every 5 minutes)
   useEffect(() => {

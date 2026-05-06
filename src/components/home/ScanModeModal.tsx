@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
@@ -29,17 +29,28 @@ export function ScanModeModal({
   onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
   isPro: boolean;
 }) {
+  if (!isOpen) return null;
+
+  return (
+    <ScanModeModalContent
+      onClose={onClose}
+      onSelectMode={onSelectMode}
+      isPro={isPro}
+    />
+  );
+}
+
+function ScanModeModalContent({
+  onClose,
+  onSelectMode,
+  isPro,
+}: {
+  onClose: () => void;
+  onSelectMode: (mode: ScanMode, eikenLevel: EikenLevel) => void;
+  isPro: boolean;
+}) {
   const [showEikenPicker, setShowEikenPicker] = useState(false);
   const [selectedEiken, setSelectedEiken] = useState<EikenLevel>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setShowEikenPicker(false);
-      setSelectedEiken(null);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
 
   if (showEikenPicker) {
     return (

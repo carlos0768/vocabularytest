@@ -63,3 +63,18 @@
 
 - allowlistの恒久化は本物の漏洩を見落とすリスクを増やす。
 - dummy表現なら、検証を通しつつ人間にも本番値ではないことが伝わる。
+
+## 2026-05-06: 公開前lintはWeb本体に限定する
+
+判断:
+
+- 公開前の最低lint gateは `npm run lint:web` とする。
+- `lint:web` は `src/`, `shared/`, Next/PostCSS/ESLint設定、security guard系scriptsを対象にする。
+- `mobile/`, `ios-native/`, `cloud-run-scan/`, `stitch/`, `uisu/`, `vocabularytest*`, `legacy/`, `experimental/`, `動画素材/`, `.next/`, `node_modules/`, build/dist/coverage/out はWeb本体公開前lintの対象外にする。
+- `npm run verify` は `lint:web`, `security:all`, `npm test`, `npm run build` を順に実行する公開前最低チェックとする。
+
+理由:
+
+- 対象外ディレクトリはWeb本体とは別コードベース、legacy/experimental、動画素材、または生成物であり、公開前Web検証の失敗原因に含めると判断がぶれる。
+- `shared/` はWeb本体のdomain type/DB mapper契約なので対象に残す。
+- 既存の広範囲 `npm run lint` は履歴確認用に残し、公開判断では `npm run verify` を信頼する。

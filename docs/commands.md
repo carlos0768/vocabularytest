@@ -37,7 +37,24 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
   2. `eslint` -- Standard ESLint checks
 - **Prerequisites**: None
 - **Danger level**: Safe -- read-only analysis
-- **Notes**: The SQL injection guard scans `src/` and `shared/` for raw SQL patterns in TypeScript/JavaScript files. Violations must be fixed or added to the allowlist at `security/sql-allowlist.json`.
+- **Notes**: This is a broad legacy lint command. For Web prelaunch verification, use `npm run lint:web` or `npm run verify`.
+
+### `npm run lint:web`
+
+- **What it does**: Runs ESLint for the Web app prelaunch surface: `src/`, `shared/`, Next/PostCSS/ESLint config, and security guard scripts.
+- **Prerequisites**: None
+- **Danger level**: Safe -- read-only analysis
+- **Notes**: Excludes separate or generated areas such as `mobile/`, `ios-native/`, `cloud-run-scan/`, `動画素材/`, `.next/`, `node_modules/`, build/dist/coverage/out, and legacy/experimental directories.
+
+### `npm run verify`
+
+- **What it does**: Runs the minimum prelaunch verification sequence:
+  1. `npm run lint:web`
+  2. `npm run security:all`
+  3. `npm test`
+  4. `npm run build`
+- **Prerequisites**: Environment variables needed by `npm run build`
+- **Danger level**: Safe -- writes only build output under `.next/`
 
 ### `npm test`
 
@@ -153,7 +170,7 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 For a typical code change, run these commands in order:
 
 ```bash
-npm run lint          # Security + style checks
+npm run lint:web      # Web app lint gate
 npm test              # Unit tests
 npm run build         # Production build verification
 ```
@@ -161,8 +178,5 @@ npm run build         # Production build verification
 For pre-deploy verification:
 
 ```bash
-npm run lint
-npm test
-npm run security:all  # Full security suite
-npm run build
+npm run verify
 ```

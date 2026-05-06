@@ -17,6 +17,10 @@ export default function GlobalError({
     console.error('Global error boundary caught:', error);
   }, [error]);
 
+  const goHome = () => {
+    window.location.assign('/');
+  };
+
   return (
     <html lang="ja">
       <head>
@@ -85,9 +89,9 @@ export default function GlobalError({
             <button onClick={reset} className="btn btn-primary">
               再試行
             </button>
-            <a href="/" className="btn btn-secondary">
+            <button type="button" onClick={goHome} className="btn btn-secondary">
               ホームに戻る
-            </a>
+            </button>
           </div>
         </div>
       </body>

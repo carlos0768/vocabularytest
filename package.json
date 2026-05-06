@@ -14,6 +14,8 @@
     "security:observe:ci": "node scripts/security-observe.mjs --ci",
     "security:observe:summary": "node scripts/security-observe-summary.mjs",
     "lint": "npm run security:sql && eslint",
+    "lint:web": "eslint src shared next.config.ts postcss.config.mjs eslint.config.mjs scripts/check-deps-audit.mjs scripts/check-secrets-guard.mjs scripts/check-secrets-guard.test.mjs scripts/check-sql-injection-guard.mjs scripts/check-sql-injection-guard.test.mjs scripts/security-observe.mjs scripts/security-observe-summary.mjs",
+    "verify": "npm run lint:web && npm run security:all && npm test && npm run build",
     "test:security:sql": "node --test scripts/check-sql-injection-guard.test.mjs",
     "test:security:secrets": "node --test scripts/check-secrets-guard.test.mjs",
     "test:security:routes": "tsx --test src/app/api/**/*.security.test.ts",

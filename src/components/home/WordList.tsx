@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { Button } from '@/components/ui';
@@ -13,6 +13,27 @@ export function nextStatus(current: WordStatus): WordStatus {
 }
 
 const STORAGE_PREFIX = 'notion_cb_mid_';
+
+interface CheckboxVisualState {
+  filledCount: number;
+  direction: 'up' | 'down';
+}
+
+function getInitialCheckboxState(status: WordStatus, wordId: string): CheckboxVisualState {
+  if (status === 'new') return { filledCount: 0, direction: 'up' };
+  if (status === 'mastered') return { filledCount: 3, direction: 'down' };
+
+  try {
+    const val = localStorage.getItem(STORAGE_PREFIX + wordId);
+    if (val === 'down2') return { filledCount: 2, direction: 'down' };
+    if (val === 'down1') return { filledCount: 1, direction: 'down' };
+    if (val === '1') return { filledCount: 2, direction: 'up' };
+  } catch {
+    // localStorage unavailable
+  }
+
+  return { filledCount: 1, direction: 'up' };
+}
 
 /**
  * iOS と同じ 6 段階サイクルの NotionCheckbox。
@@ -28,40 +49,28 @@ export function NotionCheckbox({
   status: WordStatus;
   onStatusChange: (newStatus: WordStatus) => void;
 }) {
-  // filledCount: 0-3, direction: 'up' (ascending) or 'down' (descending)
-  const [filledCount, setFilledCount] = useState(0);
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
+  return (
+    <NotionCheckboxState
+      key={`${wordId}:${status}`}
+      wordId={wordId}
+      status={status}
+      onStatusChange={onStatusChange}
+    />
+  );
+}
 
-  useEffect(() => {
-    if (status === 'new') {
-      setFilledCount(0);
-      setDirection('up');
-    } else if (status === 'mastered') {
-      setFilledCount(3);
-      setDirection('down');
-    } else {
-      // review: read mid state from localStorage
-      try {
-        const val = localStorage.getItem(STORAGE_PREFIX + wordId);
-        if (val === 'down2') {
-          setFilledCount(2);
-          setDirection('down');
-        } else if (val === 'down1') {
-          setFilledCount(1);
-          setDirection('down');
-        } else if (val === '1') {
-          setFilledCount(2);
-          setDirection('up');
-        } else {
-          setFilledCount(1);
-          setDirection('up');
-        }
-      } catch {
-        setFilledCount(1);
-        setDirection('up');
-      }
-    }
-  }, [status, wordId]);
+function NotionCheckboxState({
+  wordId,
+  status,
+  onStatusChange,
+}: {
+  wordId: string;
+  status: WordStatus;
+  onStatusChange: (newStatus: WordStatus) => void;
+}) {
+  const [{ filledCount, direction }, setVisualState] = useState(() =>
+    getInitialCheckboxState(status, wordId),
+  );
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -70,17 +79,16 @@ export function NotionCheckbox({
         if (filledCount === 0) {
           // 0 → 1 (new → review)
           localStorage.setItem(STORAGE_PREFIX + wordId, '0');
-          setFilledCount(1);
+          setVisualState({ filledCount: 1, direction: 'up' });
           onStatusChange('review');
         } else if (filledCount === 1) {
           // 1 → 2
           localStorage.setItem(STORAGE_PREFIX + wordId, '1');
-          setFilledCount(2);
+          setVisualState({ filledCount: 2, direction: 'up' });
         } else if (filledCount === 2) {
           // 2 → 3 (review → mastered)
           localStorage.removeItem(STORAGE_PREFIX + wordId);
-          setFilledCount(3);
-          setDirection('down');
+          setVisualState({ filledCount: 3, direction: 'down' });
           onStatusChange('mastered');
         }
       } else {
@@ -88,17 +96,16 @@ export function NotionCheckbox({
         if (filledCount === 3) {
           // 3 → 2 (mastered → review)
           localStorage.setItem(STORAGE_PREFIX + wordId, 'down2');
-          setFilledCount(2);
+          setVisualState({ filledCount: 2, direction: 'down' });
           onStatusChange('review');
         } else if (filledCount === 2) {
           // 2 → 1
           localStorage.setItem(STORAGE_PREFIX + wordId, 'down1');
-          setFilledCount(1);
+          setVisualState({ filledCount: 1, direction: 'down' });
         } else if (filledCount === 1) {
           // 1 → 0 (review → new)
           localStorage.removeItem(STORAGE_PREFIX + wordId);
-          setFilledCount(0);
-          setDirection('up');
+          setVisualState({ filledCount: 0, direction: 'up' });
           onStatusChange('new');
         }
       }

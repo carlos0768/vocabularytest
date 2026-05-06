@@ -48,7 +48,9 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 - `npm run build`: 成功
 - `npm test`: 成功。132 tests pass
-- `npm run lint`: 失敗。58 errors / 149 warnings
+- `npm run lint:web`: 成功。0 errors / 98 warnings
+- `npm run verify`: 成功
+- `npm run lint`: 公開前gateではない。Web本体公開前検証には `npm run lint:web` / `npm run verify` を使う
 - `npx tsc --noEmit`: 失敗
 - `npm run security:secrets`: 成功。violations 0
 - `npm run security:all`: 成功
@@ -68,6 +70,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. Web本体用のlint対象を分離し、公開前に使える検証コマンドを作る
-2. README / CLAUDE / architecture / commands の古い記述を実装に合わせる
-3. 日本語の障害対応Runbookを追加する
+1. README / CLAUDE / architecture / commands の古い記述を実装に合わせる
+2. 日本語の障害対応Runbookを追加する
+3. 本番環境変数チェックリストを作る

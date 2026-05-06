@@ -333,8 +333,15 @@ function normalizeCustomSections(raw: unknown): CustomSection[] | undefined {
   const arr = Array.isArray(raw) ? raw : typeof raw === 'string' ? JSON.parse(raw) : [];
   if (!Array.isArray(arr)) return undefined;
   return arr.filter(
-    (s: unknown): s is CustomSection =>
-      typeof s === 'object' && s !== null && typeof (s as any).id === 'string' && typeof (s as any).title === 'string' && typeof (s as any).content === 'string',
+    (s: unknown): s is CustomSection => {
+      if (typeof s !== 'object' || s === null) return false;
+      const section = s as Record<string, unknown>;
+      return (
+        typeof section.id === 'string' &&
+        typeof section.title === 'string' &&
+        typeof section.content === 'string'
+      );
+    },
   );
 }
 

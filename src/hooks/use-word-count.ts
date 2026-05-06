@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FREE_WORD_LIMIT } from '@/lib/utils';
 import { getCachedTotalWords, getHasLoaded, subscribeCacheUpdate } from '@/lib/home-cache';
 import { useAuth } from './use-auth';
@@ -39,34 +39,43 @@ export function useWordCount() {
   const { isPro, loading: authLoading } = useAuth();
   const cacheReady = getHasLoaded();
 
-  const [state, setState] = useState<WordCountState>(() => {
-    if (cacheReady) {
+  const [cacheSnapshot, setCacheSnapshot] = useState(() => ({
+    ready: cacheReady,
+    totalWords: cacheReady ? getCachedTotalWords() : 0,
+  }));
+
+  const state = useMemo<WordCountState>(() => {
+    if (cacheSnapshot.ready && !authLoading) {
+      return deriveState(cacheSnapshot.totalWords, isPro, false);
+    }
+    if (cacheReady && !authLoading) {
       return deriveState(getCachedTotalWords(), isPro, false);
     }
     return deriveState(0, false, true);
-  });
+  }, [cacheReady, cacheSnapshot.ready, cacheSnapshot.totalWords, isPro, authLoading]);
 
   // Subscribe to cache updates from loadProjects
   useEffect(() => {
     const unsubscribe = subscribeCacheUpdate(() => {
-      setState(deriveState(getCachedTotalWords(), isPro, false));
+      setCacheSnapshot({
+        ready: getHasLoaded(),
+        totalWords: getCachedTotalWords(),
+      });
     });
 
-    // Also sync when auth finishes and cache is already ready
-    if (!authLoading && getHasLoaded()) {
-      setState(deriveState(getCachedTotalWords(), isPro, false));
-    }
-
     return unsubscribe;
-  }, [isPro, authLoading]);
+  }, []);
 
   // Refresh function - triggers a re-read from cache
   // The actual data refresh should be done by invalidating + reloading home cache
   const refresh = useCallback(() => {
     if (getHasLoaded()) {
-      setState(deriveState(getCachedTotalWords(), isPro, false));
+      setCacheSnapshot({
+        ready: true,
+        totalWords: getCachedTotalWords(),
+      });
     }
-  }, [isPro]);
+  }, []);
 
   // Check if adding new words would exceed limit
   const canAddWords = useCallback((newWordCount: number): {

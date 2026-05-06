@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { shuffleArray } from '@/lib/utils';
 import type { Word } from '@/types';
@@ -10,22 +10,32 @@ interface InlineFlashcardProps {
 }
 
 export function InlineFlashcard({ words }: InlineFlashcardProps) {
-  const [shuffledWords, setShuffledWords] = useState<Word[]>([]);
+  if (words.length === 0) {
+    return (
+      <div className="card p-8 text-center">
+        <p className="text-[var(--color-muted)]">単語を追加して学習を始めましょう</p>
+      </div>
+    );
+  }
+
+  return <InlineFlashcardSession key={words.map((word) => word.id).join('|')} words={words} />;
+}
+
+function InlineFlashcardSession({ words }: InlineFlashcardProps) {
+  const [shuffleNonce, setShuffleNonce] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // Shuffle words on mount or when words change
-  const reshuffleWords = useCallback(() => {
-    if (words.length > 0) {
-      setShuffledWords(shuffleArray([...words]));
-      setCurrentIndex(0);
-      setIsFlipped(false);
-    }
-  }, [words]);
+  const shuffledWords = useMemo(
+    () => shuffleArray([...words]),
+    [words, shuffleNonce],
+  );
 
-  useEffect(() => {
-    reshuffleWords();
-  }, [reshuffleWords]);
+  const reshuffleWords = () => {
+    setShuffleNonce((nonce) => nonce + 1);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  };
 
   const currentWord = shuffledWords[currentIndex];
 
@@ -60,7 +70,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
     }
   };
 
-  if (words.length === 0 || !currentWord) {
+  if (!currentWord) {
     return (
       <div className="card p-8 text-center">
         <p className="text-[var(--color-muted)]">単語を追加して学習を始めましょう</p>
