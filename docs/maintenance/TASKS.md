@@ -17,8 +17,51 @@
   - `docs/boundaries.md` のmigration数「approximately 43」を実態の76 filesへ同期する
   - `docs/ops/scan-example-sentences-runbook.md` の `.codex/worktrees/...` 絶対リンクを相対リンクへ直す
 
-## P2: 公開後に段階的に進める
+## P2: 保守可能な構造へ段階的に進める
 
+P2は「巨大ファイルをいきなり分割する作業」ではなく、公開後もAIと人間が安全に変更を続けられる構造へ近づけるための保守性工事です。最初に全体構造を監査し、次に小さな実装タスクへ分解し、最後に検証しながら段階的に直します。
+
+### P2-A: アーキテクチャ保守性監査
+
+- [ ] API route / server action / repository層の責務一覧を作る
+  - どのAPIが認証、課金、スキャン、同期、DB更新、外部サービス呼び出しを担当しているかを棚卸しする
+  - API routeが直接持ちすぎている責務と、lib/repository層へ寄せるべき責務を分ける
+- [ ] 巨大ファイルの責務マップを作る
+  - 対象候補: `src/app/api/scan-jobs/process/route.ts`, `src/app/page.tsx`, `src/app/project/[id]/page.tsx`, `src/app/quiz/[projectId]/page.tsx`, `src/lib/ai/prompts.ts`
+  - 先に「何を担当しているか」「どこを触ると何が壊れやすいか」を文書化し、分割作業はその後に行う
+- [ ] 認証、課金、スキャン、同期、DB migrationの依存関係を図解または一覧化する
+  - 障害時に見るべきテーブル、env、外部サービス、runbookを紐づける
+  - 公開後にAIへ依頼する時の「触ってよい境界」と「慎重に扱う境界」を明確にする
+- [ ] データの流れと失敗時の復旧点を整理する
+  - 例: スキャン開始から画像保存、Cloud Run、DB保存、利用回数更新まで
+  - 例: Stripe checkoutからwebhook、subscription反映、reconcileまで
+- [ ] リファクタ優先度を、リスク、変更頻度、ユーザー影響、テスト有無で決める
+
+### P2-B: リファクタ計画
+
+- [ ] 監査結果をもとに、小さな作業単位へ分解する
+  - 1タスクで1つの責務だけを動かす
+  - 認証、課金、スキャン、同期、DB migrationを同時に触る作業を避ける
+- [ ] 各リファクタに検証条件を書く
+  - 実行するnpm script、手動確認、関連runbook、失敗時の戻し方を明記する
+- [ ] 分割後の置き場所と命名ルールを決める
+  - API routeは薄くし、複雑な処理は既存の `src/lib/` / repository層 / service相当の置き場所へ寄せる
+  - 新しい抽象化は、重複削減か責務分離の効果が明確な場合だけ追加する
+- [ ] AI作業用のプロンプト雛形を作る
+  - 作業前に読むdocs、触ってよい範囲、禁止事項、検証コマンド、TASKS更新ルールを固定する
+
+### P2-C: 段階的リファクタ
+
+- [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
+- [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
+- [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
+- [ ] `src/app/quiz/[projectId]/page.tsx` を、クイズ進行、保存、表示の責務を確認してから段階的に分割する
+- [ ] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
+- [ ] repository層、認証、課金、同期は、監査で問題が明確になった箇所から小さく直す
+
+### P2-D: 正式docsへの昇格
+
+- [ ] P2-A/P2-Bで得た恒久知識を `docs/architecture.md`, `docs/boundaries.md`, `docs/invariants.md`, `docs/ops/` へ反映する
 - [ ] docs内のローカル絶対パスとline番号参照を相対表記へ寄せる
   - `docs/commands.md`, `docs/security/*.md`, `docs/runbooks.md` など
   - 公開前の挙動には影響しないため、正式docs整備の一部として扱う
@@ -28,12 +71,6 @@
 - [ ] Cloud RunとApp Store / IAPの本番外部設定を確認する
   - Cloud RunはVercel envとCloud Run service envの一致を確認する
   - App Store / IAPはApp Store Connect、product id、Notifications V2到達を確認する
-- [ ] `src/app/api/scan-jobs/process/route.ts` を段階的に分割する
-- [ ] `src/app/page.tsx` を段階的に分割する
-- [ ] `src/app/project/[id]/page.tsx` を段階的に分割する
-- [ ] `src/app/quiz/[projectId]/page.tsx` を段階的に分割する
-- [ ] `src/lib/ai/prompts.ts` を用途別に整理する
-- [ ] repository層、認証、課金、同期の設計を必要に応じて再点検する
 
 ## Done
 
